@@ -18,7 +18,7 @@ async function parseJsonResponse(res: Response) {
   return await res.json();
 }
 
-export default function TwoScreenCreateStudioPage() {
+export default function WebappViewportCreateStudioPage() {
   const [sessionId] = useState(() => 'mah_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
   const [activeScreen, setActiveScreen] = useState<1 | 2>(1);
   
@@ -275,291 +275,321 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
   ];
 
   return (
-    <main className="min-h-screen bg-[#070609] text-[#F8F5EE] p-4 md:p-8 font-sans max-w-xl mx-auto relative select-none pb-20 space-y-6">
+    <main className="min-h-screen bg-[#FDFCF9] text-slate-900 p-4 sm:p-6 lg:p-10 font-sans max-w-7xl mx-auto relative select-none pb-24 space-y-8">
       
       {/* Header */}
-      <header className="flex justify-between items-center border-b border-[#D4AF37]/20 pb-4">
+      <header className="flex justify-between items-center bg-white p-5 md:p-6 rounded-2xl border border-amber-200/80 shadow-sm">
         <div>
-          <h1 className="text-lg font-serif font-bold text-[#F3E5AB] tracking-widest uppercase">
+          <h1 className="text-xl md:text-2xl font-serif font-bold text-[#6e0d1f] tracking-widest uppercase">
             MAHARAJA AI STUDIO
           </h1>
-          <p className="text-[10px] text-[#D4AF37]/80 tracking-widest uppercase">
-            DIWALI COMMERCIAL CREATOR
+          <p className="text-xs text-amber-700 font-semibold tracking-widest uppercase">
+            FULL WEBAPP VIEWPORT — DIWALI COMMERCIAL CREATOR
           </p>
         </div>
 
-        <div className="text-[10px] font-mono text-[#D4AF37] bg-[#6e0d1f]/40 px-2.5 py-1 rounded-full border border-[#D4AF37]/40">
-          ID: {sessionId.substring(0, 10)}
+        <div className="text-xs md:text-sm font-mono font-bold text-[#6e0d1f] bg-amber-50 px-4 py-2 rounded-full border border-amber-300 shadow-sm">
+          SESSION ID: {sessionId}
         </div>
       </header>
 
       {/* 2-SCREEN STEP INDICATOR BAR */}
-      <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+      <div className="grid grid-cols-2 gap-4 text-xs md:text-sm font-mono max-w-2xl mx-auto">
         <button
           onClick={() => setActiveScreen(1)}
-          className={`py-3 px-3 rounded-xl border text-center transition font-bold uppercase tracking-wider flex items-center justify-center gap-2 ${
+          className={`py-4 px-4 rounded-2xl border text-center transition font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 ${
             activeScreen === 1
-              ? 'bg-[#6e0d1f] border-[#D4AF37] text-[#F3E5AB] shadow-lg'
-              : 'bg-black/60 border-gray-800 text-gray-500 hover:text-gray-300'
+              ? 'bg-[#6e0d1f] border-amber-400 text-white shadow-xl scale-[1.02]'
+              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
           }`}
         >
-          <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-          <span>1. CAPTURE & MASTER</span>
+          <Sparkles className="w-5 h-5 text-amber-400" />
+          <span>1. CAPTURE & MASTER KIT</span>
         </button>
 
         <button
           onClick={() => setActiveScreen(2)}
-          className={`py-3 px-3 rounded-xl border text-center transition font-bold uppercase tracking-wider flex items-center justify-center gap-2 ${
+          className={`py-4 px-4 rounded-2xl border text-center transition font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 ${
             activeScreen === 2
-              ? 'bg-[#6e0d1f] border-[#D4AF37] text-[#F3E5AB] shadow-lg'
-              : 'bg-black/60 border-gray-800 text-gray-500 hover:text-gray-300'
+              ? 'bg-[#6e0d1f] border-amber-400 text-white shadow-xl scale-[1.02]'
+              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
           }`}
         >
-          <Film className="w-4 h-4 text-[#D4AF37]" />
-          <span>2. VIDEO & GO LIVE</span>
+          <Film className="w-5 h-5 text-amber-400" />
+          <span>2. VIDEO KIT & GO LIVE</span>
         </button>
       </div>
 
       {/* =================================================== */}
-      {/* SCREEN 1: CAPTURE PHOTOS & MASTER IMAGE KIT */}
+      {/* SCREEN 1: CAPTURE PHOTOS & MASTER IMAGE KIT (2 COLUMNS) */}
       {/* =================================================== */}
       {activeScreen === 1 && (
         <div className="space-y-6">
-          
-          {/* Garment & Person Section */}
-          <section className="space-y-4 p-5 rounded-2xl bg-black/60 border border-[#D4AF37]/30">
-            <div className="flex items-center gap-2 border-b border-[#D4AF37]/20 pb-3">
-              <Shirt className="w-5 h-5 text-[#D4AF37]" />
-              <h2 className="text-sm font-serif font-bold text-[#F3E5AB] uppercase tracking-wider">
-                1. GARMENT & PERSON REFERENCE PHOTOS
-              </h2>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            
+            {/* LEFT COLUMN: Garment & Person Section */}
+            <section className="space-y-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-md">
+              <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
+                <Shirt className="w-6 h-6 text-[#6e0d1f]" />
+                <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+                  1. GARMENT & PERSON REFERENCE PHOTOS
+                </h2>
+              </div>
 
-            {/* Garment Uploads (Up to 3) */}
-            <div className="space-y-3">
-              <p className="text-xs font-mono text-[#D4AF37] uppercase">GARMENT PHOTOS (UP TO 3):</p>
-              <div className="grid grid-cols-3 gap-2">
-                {garmentLabels.map((label, idx) => (
-                  <div key={idx} className="space-y-2 p-2 rounded-xl bg-black/80 border border-[#D4AF37]/20 text-center">
-                    <p className="text-[9px] font-mono text-gray-400 uppercase truncate">{label}</p>
-                    {garmentPhotos[idx] ? (
-                      <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden border border-[#D4AF37]/40">
-                        <img src={garmentPhotos[idx]!} alt={label} className="w-full h-full object-cover" />
-                      </div>
+              {/* Garment Uploads (Up to 3) */}
+              <div className="space-y-4">
+                <p className="text-xs font-mono font-bold text-amber-800 uppercase">GARMENT PHOTOS (UP TO 3):</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {garmentLabels.map((label, idx) => (
+                    <div key={idx} className="space-y-2 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center shadow-inner">
+                      <p className="text-[10px] font-mono text-slate-500 font-bold uppercase truncate">{label}</p>
+                      {garmentPhotos[idx] ? (
+                        <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden border-2 border-amber-400 shadow-sm">
+                          <img src={garmentPhotos[idx]!} alt={label} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="aspect-[3/4] w-full rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-white text-xs text-slate-400 font-mono font-bold">
+                          SLOT {idx + 1}
+                        </div>
+                      )}
+
+                      <label className="w-full py-2 px-1 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer hover:bg-[#800A1D] shadow-sm">
+                        <Camera className="w-3.5 h-3.5 text-amber-300" />
+                        <span>UPLOAD</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleGarmentSlotUpload(e, idx)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+
+                {isAnalyzingGarment && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-center text-xs text-[#6e0d1f] font-bold flex items-center justify-center gap-2 animate-pulse font-mono">
+                    <RefreshCw className="w-4 h-4 animate-spin text-[#6e0d1f]" /> ANALYZING GARMENT EMBROIDERY & COLORS...
+                  </div>
+                )}
+
+                {garmentAnalysis && !isAnalyzingGarment && (
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs md:text-sm flex justify-between items-center text-emerald-900 font-mono font-semibold">
+                    <span>GARMENT: <strong>{garmentAnalysis.garmentType}</strong> ({garmentAnalysis.primaryColor})</span>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  </div>
+                )}
+              </div>
+
+              {/* Person Upload (Customer Photo) */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <p className="text-xs font-mono font-bold text-amber-800 uppercase flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-[#6e0d1f]" /> CUSTOMER PERSON PHOTO:
+                </p>
+                <div className="flex gap-5 items-center">
+                  <div className="w-28 aspect-[3/4] rounded-2xl border-2 border-amber-300 bg-slate-100 overflow-hidden flex items-center justify-center shrink-0 shadow-inner">
+                    {personPhoto ? (
+                      <img src={personPhoto} alt="Customer" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="aspect-[3/4] w-full rounded-lg border border-dashed border-[#D4AF37]/30 flex flex-col items-center justify-center bg-black/40 text-[9px] text-gray-500 font-mono">
-                        EMPTY ({idx + 1})
+                      <User className="w-10 h-10 text-slate-400" />
+                    )}
+                  </div>
+
+                  <div className="space-y-3 flex-1">
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="py-3.5 px-3 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer hover:bg-[#800A1D] shadow-sm">
+                        <Camera className="w-4 h-4 text-amber-300" />
+                        <span>TAKE PHOTO</span>
+                        <input type="file" accept="image/*" capture="user" onChange={handlePersonUpload} className="hidden" />
+                      </label>
+
+                      <label className="py-3.5 px-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-800 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-200 shadow-sm">
+                        <ImageIcon className="w-4 h-4 text-slate-600" />
+                        <span>GALLERY</span>
+                        <input type="file" accept="image/*" onChange={handlePersonUpload} className="hidden" />
+                      </label>
+                    </div>
+
+                    {isAnalyzingPerson && (
+                      <div className="text-xs text-amber-800 font-mono font-bold animate-pulse">
+                        Verifying customer pose & lighting...
                       </div>
                     )}
-
-                    <label className="w-full py-1.5 px-1 rounded bg-[#6e0d1f] border border-[#D4AF37]/30 text-[#F3E5AB] text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer hover:brightness-110">
-                      <Camera className="w-3 h-3 text-[#D4AF37]" />
-                      <span>UPLOAD</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleGarmentSlotUpload(e, idx)}
-                        className="hidden"
-                      />
-                    </label>
                   </div>
-                ))}
+                </div>
+              </div>
+            </section>
+
+            {/* RIGHT COLUMN: Master Image Studio Section */}
+            <section className="space-y-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-md">
+              <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
+                <Sparkles className="w-6 h-6 text-[#6e0d1f]" />
+                <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+                  2. MASTER IMAGE PROMPT & UPLOAD
+                </h2>
               </div>
 
-              {isAnalyzingGarment && (
-                <div className="p-3 rounded-lg bg-[#6e0d1f]/40 border border-[#D4AF37]/30 text-center text-[11px] text-[#F3E5AB] flex items-center justify-center gap-2 animate-pulse font-mono">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> ANALYZING GARMENT EMBROIDERY & COLORS...
+              <button
+                onClick={handleCopyMasterPrompt}
+                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition"
+              >
+                <Copy className="w-5 h-5 text-amber-300" />
+                {copyMasterPromptSuccess ? '✓ MASTER IMAGE PROMPT COPIED' : 'COPY MASTER IMAGE PROMPT'}
+              </button>
+
+              <div className="p-6 rounded-2xl bg-amber-50/60 border-2 border-dashed border-amber-300 text-center space-y-4">
+                <p className="text-xs md:text-sm font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+                  UPLOAD AI MASTER IMAGE (JPG / PNG)
+                </p>
+
+                <label className="inline-flex py-4 px-8 rounded-2xl bg-[#6e0d1f] border border-amber-300 text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-lg cursor-pointer hover:bg-[#800A1D] transition items-center justify-center gap-2.5">
+                  <Upload className="w-5 h-5 text-amber-300" />
+                  <span>{isUploadingMaster ? 'UPLOADING...' : 'SELECT & UPLOAD MASTER IMAGE'}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png"
+                    onChange={handleDirectMasterUpload}
+                    disabled={isUploadingMaster}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {masterImageUrl ? (
+                <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-3xl overflow-hidden border-2 border-amber-400 shadow-2xl bg-black">
+                  <img src={masterImageUrl} alt="Master Reference" className="w-full h-full object-cover" />
+                  <div className="absolute top-4 right-4 bg-emerald-600 text-white px-4 py-1.5 rounded-full text-xs font-mono font-bold shadow-md">
+                    MASTER UPLOADED ✓
+                  </div>
+                </div>
+              ) : (
+                <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 text-slate-400 font-mono text-xs">
+                  <ImageIcon className="w-12 h-12 mb-2 text-slate-300" />
+                  <span>MASTER IMAGE PREVIEW</span>
                 </div>
               )}
+            </section>
 
-              {garmentAnalysis && !isAnalyzingGarment && (
-                <div className="p-3 rounded-lg bg-black/80 border border-emerald-500/40 text-xs flex justify-between items-center text-gray-300 font-mono">
-                  <span>GARMENT: <strong className="text-white">{garmentAnalysis.garmentType}</strong> ({garmentAnalysis.primaryColor})</span>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                </div>
-              )}
-            </div>
-
-            {/* Person Upload (Customer Photo) */}
-            <div className="space-y-3 pt-2 border-t border-[#D4AF37]/20">
-              <p className="text-xs font-mono text-[#D4AF37] uppercase flex items-center gap-1">
-                <User className="w-4 h-4 text-[#D4AF37]" /> CUSTOMER PERSON PHOTO:
-              </p>
-              <div className="flex gap-4 items-center">
-                <div className="w-24 aspect-[3/4] rounded-xl border border-[#D4AF37]/40 bg-black overflow-hidden flex items-center justify-center shrink-0">
-                  {personPhoto ? (
-                    <img src={personPhoto} alt="Customer" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-8 h-8 text-gray-600" />
-                  )}
-                </div>
-
-                <div className="space-y-2 flex-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="py-2.5 px-3 rounded-lg bg-[#6e0d1f] border border-[#D4AF37]/40 text-[#F3E5AB] text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer hover:brightness-110">
-                      <Camera className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      <span>TAKE PHOTO</span>
-                      <input type="file" accept="image/*" capture="user" onChange={handlePersonUpload} className="hidden" />
-                    </label>
-
-                    <label className="py-2.5 px-3 rounded-lg bg-black border border-[#D4AF37]/40 text-gray-200 text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer hover:bg-gray-900">
-                      <ImageIcon className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      <span>GALLERY</span>
-                      <input type="file" accept="image/*" onChange={handlePersonUpload} className="hidden" />
-                    </label>
-                  </div>
-
-                  {isAnalyzingPerson && (
-                    <div className="text-[10px] text-[#D4AF37] font-mono animate-pulse">
-                      Verifying customer pose...
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Master Image Studio Section */}
-          <section className="space-y-4 p-5 rounded-2xl bg-black/60 border border-[#D4AF37]/30">
-            <div className="flex items-center gap-2 border-b border-[#D4AF37]/20 pb-3">
-              <Sparkles className="w-5 h-5 text-[#D4AF37]" />
-              <h2 className="text-sm font-serif font-bold text-[#F3E5AB] uppercase tracking-wider">
-                2. MASTER IMAGE PROMPT & UPLOAD
-              </h2>
-            </div>
-
-            <button
-              onClick={handleCopyMasterPrompt}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#800A1D] via-[#D4AF37] to-[#800A1D] text-black font-bold uppercase tracking-wider text-xs shadow-md flex items-center justify-center gap-2 hover:brightness-110 transition"
-            >
-              <Copy className="w-4 h-4 fill-black" />
-              {copyMasterPromptSuccess ? '✓ MASTER IMAGE PROMPT COPIED' : 'COPY MASTER IMAGE PROMPT'}
-            </button>
-
-            <div className="p-4 rounded-xl bg-[#6e0d1f]/30 border border-dashed border-[#D4AF37]/60 text-center space-y-3">
-              <p className="text-xs font-serif font-bold text-[#F3E5AB] uppercase tracking-wider">
-                UPLOAD AI MASTER IMAGE (JPG / PNG)
-              </p>
-
-              <label className="inline-flex py-3 px-6 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-xl cursor-pointer hover:scale-105 transition items-center justify-center gap-2">
-                <Upload className="w-4 h-4 fill-black" />
-                <span>{isUploadingMaster ? 'UPLOADING...' : 'SELECT & UPLOAD MASTER IMAGE'}</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png"
-                  onChange={handleDirectMasterUpload}
-                  disabled={isUploadingMaster}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            {masterImageUrl && (
-              <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-2xl overflow-hidden border-2 border-[#D4AF37] shadow-xl bg-black">
-                <img src={masterImageUrl} alt="Master Reference" className="w-full h-full object-cover" />
-                <div className="absolute top-3 right-3 bg-emerald-950/90 border border-emerald-500/50 px-3 py-1 rounded-full text-[10px] text-emerald-300 font-mono">
-                  MASTER UPLOADED ✓
-                </div>
-              </div>
-            )}
-          </section>
+          </div>
 
           {/* Navigation to Screen 2 */}
           <button
             onClick={() => setActiveScreen(2)}
-            className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-sm shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition"
+            className="w-full py-5 px-8 rounded-2xl bg-gradient-to-r from-[#6e0d1f] via-amber-600 to-[#6e0d1f] text-white font-bold uppercase tracking-wider text-sm md:text-base shadow-xl flex items-center justify-center gap-3 hover:scale-[1.01] transition"
           >
-            PROCEED TO SCREEN 2: VIDEO KIT <ArrowRight className="w-4 h-4" />
+            PROCEED TO SCREEN 2: VIDEO KIT <ArrowRight className="w-5 h-5 text-amber-300" />
           </button>
         </div>
       )}
 
       {/* =================================================== */}
-      {/* SCREEN 2: VIDEO KIT & GO LIVE TV */}
+      {/* SCREEN 2: VIDEO KIT & GO LIVE TV (2 COLUMNS) */}
       {/* =================================================== */}
       {activeScreen === 2 && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setActiveScreen(1)}
-              className="px-3 py-1.5 rounded-lg bg-black border border-gray-700 text-gray-300 text-xs font-mono uppercase flex items-center gap-1 hover:bg-gray-900"
+              className="px-4 py-2.5 rounded-2xl bg-white border border-slate-300 text-slate-700 text-xs font-mono font-bold uppercase flex items-center gap-2 hover:bg-slate-50 shadow-sm"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> BACK TO SCREEN 1
+              <ArrowLeft className="w-4 h-4 text-slate-600" /> BACK TO SCREEN 1
             </button>
-            <span className="text-xs font-mono text-[#D4AF37]">SCREEN 2 OF 2</span>
+            <span className="text-xs md:text-sm font-mono font-bold text-[#6e0d1f] bg-amber-100 px-4 py-1.5 rounded-full border border-amber-300">
+              SCREEN 2 OF 2
+            </span>
           </div>
 
-          <section className="space-y-4 p-5 rounded-2xl bg-black/60 border border-[#D4AF37]/30">
-            <div className="flex items-center gap-2 border-b border-[#D4AF37]/20 pb-3">
-              <Film className="w-5 h-5 text-[#D4AF37]" />
-              <h2 className="text-sm font-serif font-bold text-[#F3E5AB] uppercase tracking-wider">
-                VIDEO PROMPT & MP4 UPLOAD
-              </h2>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            
+            {/* LEFT COLUMN: Master Reference Preview */}
+            <section className="space-y-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-md">
+              <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
+                <Sparkles className="w-6 h-6 text-[#6e0d1f]" />
+                <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+                  MASTER REFERENCE IMAGE
+                </h2>
+              </div>
 
-            {masterImageUrl && (
-              <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-2xl overflow-hidden border-2 border-[#D4AF37] shadow-xl bg-black mb-4">
-                <img src={masterImageUrl} alt="Master Reference" className="w-full h-full object-cover" />
-                <div className="absolute top-3 right-3 bg-emerald-950/90 border border-emerald-500/50 px-3 py-1 rounded-full text-[10px] text-emerald-300 font-mono">
-                  MASTER REFERENCE READY ✓
+              {masterImageUrl ? (
+                <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-3xl overflow-hidden border-2 border-amber-400 shadow-2xl bg-black">
+                  <img src={masterImageUrl} alt="Master Reference" className="w-full h-full object-cover" />
+                  <div className="absolute top-4 right-4 bg-emerald-600 text-white px-4 py-1.5 rounded-full text-xs font-mono font-bold shadow-md">
+                    MASTER REFERENCE READY ✓
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 text-slate-400 font-mono text-xs">
+                  <ImageIcon className="w-12 h-12 mb-2 text-slate-300" />
+                  <span>NO MASTER IMAGE UPLOADED YET</span>
+                </div>
+              )}
+            </section>
 
-            <button
-              onClick={handleCopyVideoPrompt}
-              className="w-full py-3.5 px-4 rounded-xl bg-black/80 border-2 border-[#D4AF37] text-[#F3E5AB] font-bold uppercase tracking-wider text-xs shadow-md flex items-center justify-center gap-2 hover:bg-black transition"
-            >
-              <Copy className="w-4 h-4 text-[#D4AF37]" />
-              {copyVideoPromptSuccess ? '✓ VIDEO PROMPT COPIED TO CLIPBOARD' : 'COPY GEMINI VIDEO PROMPT'}
-            </button>
-
-            <div className="p-5 rounded-xl bg-[#6e0d1f]/40 border-2 border-dashed border-[#D4AF37] text-center space-y-3">
-              <div className="w-10 h-10 mx-auto rounded-full bg-black/60 border border-[#D4AF37]/50 flex items-center justify-center text-[#D4AF37]">
-                <Video className="w-5 h-5" />
-              </div>
-
-              <div>
-                <p className="text-xs font-serif font-bold text-[#F3E5AB] uppercase tracking-wider">
-                  UPLOAD GENERATED COMMERCIAL VIDEO (.MP4)
-                </p>
-                <p className="text-[11px] text-gray-300 mt-0.5">
-                  Upload your MP4 video to launch live TV playback & result preview.
-                </p>
+            {/* RIGHT COLUMN: Video Kit Prompt & Upload */}
+            <section className="space-y-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-md">
+              <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
+                <Film className="w-6 h-6 text-[#6e0d1f]" />
+                <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+                  VIDEO PROMPT & MP4 UPLOAD
+                </h2>
               </div>
 
-              <label className="inline-flex py-3.5 px-6 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-xl cursor-pointer hover:scale-105 transition items-center justify-center gap-2">
-                <Upload className="w-4 h-4 fill-black" />
-                <span>SELECT & UPLOAD MP4 VIDEO</span>
-                <input
-                  type="file"
-                  accept="video/mp4,video/*"
-                  onChange={handleDirectVideoUpload}
-                  disabled={isUploadingVideo}
-                  className="hidden"
-                />
-              </label>
-            </div>
-          </section>
+              <button
+                onClick={handleCopyVideoPrompt}
+                className="w-full py-4 px-6 rounded-2xl bg-white border-2 border-[#6e0d1f] text-[#6e0d1f] font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:bg-amber-50 transition"
+              >
+                <Copy className="w-5 h-5 text-[#6e0d1f]" />
+                {copyVideoPromptSuccess ? '✓ VIDEO PROMPT COPIED TO CLIPBOARD' : 'COPY GEMINI VIDEO PROMPT'}
+              </button>
+
+              <div className="p-8 rounded-2xl bg-amber-50/60 border-2 border-dashed border-amber-300 text-center space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-full bg-white border border-amber-300 flex items-center justify-center text-[#6e0d1f] shadow-sm">
+                  <Video className="w-7 h-7" />
+                </div>
+
+                <div>
+                  <p className="text-sm md:text-base font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+                    UPLOAD GENERATED COMMERCIAL VIDEO (.MP4)
+                  </p>
+                  <p className="text-xs text-slate-600 font-medium mt-1">
+                    Upload your MP4 video to launch live TV playback & result preview.
+                  </p>
+                </div>
+
+                <label className="inline-flex py-4 px-8 rounded-2xl bg-[#6e0d1f] border border-amber-300 text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-lg cursor-pointer hover:bg-[#800A1D] transition items-center justify-center gap-2.5">
+                  <Upload className="w-5 h-5 text-amber-300" />
+                  <span>SELECT & UPLOAD MP4 VIDEO</span>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/*"
+                    onChange={handleDirectVideoUpload}
+                    disabled={isUploadingVideo}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </section>
+
+          </div>
 
           {/* Navigation to Result Page */}
           <a
             href={`/result/${sessionId}`}
-            className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#800A1D] via-[#D4AF37] to-[#800A1D] text-black font-bold uppercase tracking-wider text-sm shadow-xl flex items-center justify-center gap-2 hover:brightness-110 transition block text-center"
+            className="w-full py-5 px-8 rounded-2xl bg-gradient-to-r from-[#6e0d1f] via-amber-600 to-[#6e0d1f] text-white font-bold uppercase tracking-wider text-sm md:text-base shadow-xl flex items-center justify-center gap-3 hover:brightness-110 transition block text-center"
           >
-            VIEW RESULT PAGE & GO LIVE TV <ArrowRight className="w-4 h-4" />
+            VIEW RESULT PAGE & GO LIVE TV <ArrowRight className="w-5 h-5 text-amber-300" />
           </a>
         </div>
       )}
 
       {/* Uploading Overlay */}
       {isUploadingVideo && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-4">
-          <RefreshCw className="w-12 h-12 text-[#D4AF37] animate-spin" />
-          <h3 className="text-xl font-serif font-bold text-[#F3E5AB] uppercase tracking-wider">
+        <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-4">
+          <RefreshCw className="w-14 h-14 text-[#6e0d1f] animate-spin" />
+          <h3 className="text-2xl font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
             UPLOADING DIWALI COMMERCIAL
           </h3>
-          <p className="text-xs text-[#D4AF37] font-mono animate-pulse">
+          <p className="text-sm text-amber-800 font-mono font-bold animate-pulse">
             {progressMsg}
           </p>
         </div>
