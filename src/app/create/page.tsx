@@ -18,6 +18,46 @@ async function parseJsonResponse(res: Response) {
   return await res.json();
 }
 
+// XHR Helper with real-time percentage upload progress
+function xhrUploadFile(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body: XMLHttpRequestBodyInit | File | Blob | FormData,
+  onProgress: (percent: number, loadedMb: string, totalMb: string) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+
+    Object.entries(headers).forEach(([k, v]) => {
+      xhr.setRequestHeader(k, v);
+    });
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        const loadedMb = (event.loaded / (1024 * 1024)).toFixed(1);
+        const totalMb = (event.total / (1024 * 1024)).toFixed(1);
+        onProgress(percent, loadedMb, totalMb);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Upload HTTP Error ${xhr.status}: ${xhr.responseText || 'Server error'}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network failure uploading file.'));
+    xhr.ontimeout = () => reject(new Error('Upload connection timed out.'));
+
+    xhr.send(body);
+  });
+}
+
 export default function WebappViewportCreateStudioPage() {
   const [sessionId] = useState(() => 'mah_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
   const [activeScreen, setActiveScreen] = useState<1 | 2>(1);
@@ -37,6 +77,7 @@ export default function WebappViewportCreateStudioPage() {
 
   // Video State
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [progressMsg, setProgressMsg] = useState('');
   const [copyMasterPromptSuccess, setCopyMasterPromptSuccess] = useState(false);
   const [copyVideoPromptSuccess, setCopyVideoPromptSuccess] = useState(false);
@@ -203,13 +244,15 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
     }
   };
 
-  // 6. Direct Video Upload Handler
+  // 6. Real-time Video Upload Handler with XHR Percentage Progress
   const handleDirectVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const fileSizeMb = (file.size / (1024 * 1024)).toFixed(1);
     setIsUploadingVideo(true);
-    setProgressMsg('Preparing video upload to Firebase Storage...');
+    setUploadProgress(0);
+    setProgressMsg(`Initializing video upload (${fileSizeMb} MB)...`);
 
     try {
       const contentType = file.type || 'video/mp4';
@@ -226,24 +269,54 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
 
       const signedData = await parseJsonResponse(signedRes);
 
-      if (!signedData.success || !signedData.directUpload || !signedData.uploadUrl) {
-        throw new Error('Firebase direct video upload is unavailable. Check Firebase Storage configuration.');
+      let storagePath = `sessions/${sessionId}/video/final.mp4`;
+
+      if (signedData.success && signedData.directUpload && signedData.uploadUrl) {
+        storagePath = signedData.storagePath || storagePath;
+        setProgressMsg(`Uploading to Firebase Storage (0% of ${fileSizeMb} MB)...`);
+
+        try {
+          await xhrUploadFile(
+            signedData.uploadUrl,
+            'PUT',
+            { 'Content-Type': contentType },
+            file,
+            (percent, loadedMb, totalMb) => {
+              setUploadProgress(percent);
+              setProgressMsg(`Uploading video: ${percent}% (${loadedMb} MB / ${totalMb} MB)`);
+            }
+          );
+        } catch (directErr: any) {
+          console.warn('Direct signed URL XHR failed, attempting server fallback:', directErr);
+          setProgressMsg('Retrying via server upload stream...');
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('sessionId', sessionId);
+
+          const fallbackRes = await fetch('/api/upload/video', {
+            method: 'POST',
+            body: formData
+          });
+          const fallbackData = await parseJsonResponse(fallbackRes);
+          if (!fallbackData.success) throw fallbackData;
+        }
+      } else {
+        setProgressMsg(`Uploading via server stream (0% of ${fileSizeMb} MB)...`);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('sessionId', sessionId);
+
+        const fallbackRes = await fetch('/api/upload/video', {
+          method: 'POST',
+          body: formData
+        });
+        const fallbackData = await parseJsonResponse(fallbackRes);
+        if (!fallbackData.success) throw fallbackData;
       }
 
-      const storagePath = signedData.storagePath || `sessions/${sessionId}/video/final.mp4`;
-
-      setProgressMsg('Uploading video directly to Firebase Storage...');
-      const putRes = await fetch(signedData.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': contentType },
-        body: file
-      });
-
-      if (!putRes.ok) {
-        throw new Error(`Direct Storage video upload failed: ${putRes.status}`);
-      }
-
+      setUploadProgress(100);
       setProgressMsg('Finalizing Diwali Commercial Film...');
+
       const completeRes = await fetch('/api/video/manual-complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -582,16 +655,33 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
         </div>
       )}
 
-      {/* Uploading Overlay */}
+      {/* Real-time Percentage Uploading Overlay */}
       {isUploadingVideo && (
-        <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-4">
-          <RefreshCw className="w-14 h-14 text-[#6e0d1f] animate-spin" />
-          <h3 className="text-2xl font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-            UPLOADING DIWALI COMMERCIAL
-          </h3>
-          <p className="text-sm text-amber-800 font-mono font-bold animate-pulse">
-            {progressMsg}
-          </p>
+        <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-5">
+          <div className="relative w-20 h-20 flex items-center justify-center">
+            <RefreshCw className="w-16 h-16 text-[#6e0d1f] animate-spin" />
+            <span className="absolute font-mono font-bold text-xs text-[#6e0d1f]">
+              {uploadProgress}%
+            </span>
+          </div>
+
+          <div className="space-y-2 max-w-md w-full">
+            <h3 className="text-2xl font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+              UPLOADING DIWALI COMMERCIAL
+            </h3>
+            
+            {/* Visual Progress Bar */}
+            <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden border border-slate-300 shadow-inner">
+              <div
+                className="h-full bg-gradient-to-r from-[#6e0d1f] to-amber-500 transition-all duration-200"
+                style={{ width: `${Math.max(5, uploadProgress)}%` }}
+              />
+            </div>
+
+            <p className="text-xs text-amber-900 font-mono font-bold animate-pulse pt-1">
+              {progressMsg}
+            </p>
+          </div>
         </div>
       )}
 
