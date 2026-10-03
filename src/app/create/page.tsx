@@ -33,6 +33,7 @@ type PersonAnalysis = {
 };
 
 type VideoPhase = 'idle' | 'starting' | 'rendering' | 'saving' | 'ready' | 'failed';
+type ConceptId = 'royal-entrance' | 'lamp-runway' | 'rangoli-spotlight' | 'storefront-greeting';
 
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
@@ -83,6 +84,51 @@ function xhrUploadFile(
 
 const garmentLabels = ['Front View', 'Detail View', 'Additional View'];
 
+const campaignConcepts: Array<{
+  id: ConceptId;
+  title: string;
+  description: string;
+  imageDirection: string;
+  videoDirection: string;
+}> = [
+  {
+    id: 'royal-entrance',
+    title: 'Royal Entrance',
+    description: 'Grand showroom arch, premium model pose, rich Diwali glow.',
+    imageDirection:
+      'Concept: Royal Entrance. Place the customer at a grand Maharaja showroom entrance with carved arches, brass lamps, marigold garlands and warm gold rim light. Pose should be full-body, confident and elegant, like a premium festive fashion campaign.',
+    videoDirection:
+      'Concept: Royal Entrance Walk. Start with the full-body subject framed under a grand showroom arch, then use a slow premium dolly push-in. Keep posture confident and elegant, with warm lamps and marigold decor moving softly in the background.'
+  },
+  {
+    id: 'lamp-runway',
+    title: 'Lamp Runway',
+    description: 'Fashion runway feel with brass lamps and cinematic depth.',
+    imageDirection:
+      'Concept: Lamp Runway. Create a luxury in-store festive runway lined with brass kuthu vilakku lamps and soft diya trails. The customer stands centered, full-body, with editorial fashion posture and clean product visibility from collar to footwear.',
+    videoDirection:
+      'Concept: Lamp Runway Film. Use a slow runway-style camera push with brass lamps on both sides, soft diya flicker, shallow festive bokeh and gentle fabric motion. Keep the full outfit visible and unchanged.'
+  },
+  {
+    id: 'rangoli-spotlight',
+    title: 'Rangoli Spotlight',
+    description: 'Top festive floor design, elegant portrait-to-full-body framing.',
+    imageDirection:
+      'Concept: Rangoli Spotlight. Place the customer on a refined Diwali rangoli floor with warm overhead showroom glow, brass lamps in the corners and rich maroon-gold decor. The pose should feel refined, graceful and premium, with the garment as the central product.',
+    videoDirection:
+      'Concept: Rangoli Spotlight Film. Begin with full-body framing over a beautiful rangoli floor, then add a very slow cinematic push-in with glowing diyas around the edges. Keep the subject calm, premium and product-focused.'
+  },
+  {
+    id: 'storefront-greeting',
+    title: 'Storefront Greeting',
+    description: 'Premium Diwali greeting card feel for TV and sharing.',
+    imageDirection:
+      'Concept: Storefront Greeting. Create a luxury Maharaja festive showroom greeting visual with the customer as the product model, elegant maroon-gold decor, lamps and a refined banner area for the Tamil greeting only if text is used.',
+    videoDirection:
+      'Concept: Storefront Greeting Film. Make it feel like a premium 6-second festive TV greeting from a showroom campaign: full-body model pose, soft push-in, warm lamps, maroon-gold decor, and an optional small final greeting card with the exact Tamil text.'
+  }
+];
+
 const progressCopy: Record<VideoPhase, string> = {
   idle: 'Ready to generate after approval.',
   starting: 'Preparing cinematic prompt and sending to Veo Fast...',
@@ -96,6 +142,7 @@ export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
   const [mode, setMode] = useState<'proof' | 'auto'>('proof');
+  const [selectedConceptId, setSelectedConceptId] = useState<ConceptId>('royal-entrance');
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
@@ -118,6 +165,10 @@ export default function CreatePage() {
   const [manualUploadProgress, setManualUploadProgress] = useState(0);
 
   const activeGarmentPhotos = useMemo(() => garmentPhotos.filter(Boolean) as string[], [garmentPhotos]);
+  const selectedConcept = useMemo(
+    () => campaignConcepts.find((concept) => concept.id === selectedConceptId) || campaignConcepts[0],
+    [selectedConceptId]
+  );
   const canGenerateMaster = activeGarmentPhotos.length >= 1 && !!personPhoto && !isAnalyzingGarment && !isAnalyzingPerson;
   const canGenerateVideo = !!masterImageUrl && masterApproved && videoPhase === 'idle';
 
@@ -156,6 +207,8 @@ Make the customer look like a premium fashion model in a luxury retail campaign 
 
 Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Do not change gender presentation, age appearance or facial identity.
 
+${selectedConcept.imageDirection}
+
 Only the environment, lighting and mood should become grand Diwali-themed: premium Maharaja Thanjavur showroom, warm diya glow, brass lamps, marigold flowers, subtle rangoli, rich maroon and gold decor, luxury festive entrance, soft cinematic bokeh and celebratory retail atmosphere.
 
 Optional text: if a greeting is shown as a small elegant showroom banner or final festive card, use only this exact Tamil text with correct spelling: "இனிய தீபாவளி நல்வாழ்த்துகள்". Do not add any other text.
@@ -163,7 +216,7 @@ Optional text: if a greeting is shown as a small elegant showroom banner or fina
 Lighting/camera: warm golden key light, soft rim light, gentle diya highlights, realistic skin texture, editorial fashion photography, 50mm lens look, slightly low flattering camera height, elegant straight posture, natural confident smile, full-body vertical framing, sharp garment visibility from collar to footwear.
 
 Strict rules: do not change identity, skin tone, body shape, garment type, garment color, garment design, pattern, fit, bottom wear or footwear. No duplicate people, extra limbs, distorted hands, random text except the exact Tamil greeting above, or fake logos.`;
-  }, [garmentAnalysis]);
+  }, [garmentAnalysis, selectedConcept]);
 
   const videoPrompt = useMemo(() => {
     const garment = garmentAnalysis?.garmentType || 'selected outfit';
@@ -182,12 +235,14 @@ Shot: luxury retail Diwali fashion model film. The subject stands gracefully in 
 
 Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Facial match must remain very close for the full video.
 
+${selectedConcept.videoDirection}
+
 Lighting/camera: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face.
 
 Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact Tamil text with correct spelling: "இனிய தீபாவளி நல்வாழ்த்துகள்". Do not add any other text.
 
 Keep full body visible from head to toe for the entire 6 seconds. No dancing, spinning, fast walking, face change, skin tone change, body shape change, outfit swap, garment redesign, traditional outfit substitution, duplicate person, extra limbs, malformed hands, random text except the exact Tamil greeting above, or generated logo.`;
-  }, [garmentAnalysis]);
+  }, [garmentAnalysis, selectedConcept]);
 
   async function copyPrompt(type: 'master' | 'video', prompt: string) {
     await navigator.clipboard.writeText(prompt);
@@ -276,6 +331,7 @@ Keep full body visible from head to toe for the entire 6 seconds. No dancing, sp
           personAnalysis,
           personPhoto,
           garmentPhotos: activeGarmentPhotos,
+          conceptPrompt: selectedConcept.imageDirection,
         }),
       });
       const data = await parseJsonResponse(res);
@@ -392,6 +448,7 @@ Keep full body visible from head to toe for the entire 6 seconds. No dancing, sp
           sessionId,
           garmentAnalysis,
           masterImageUrl,
+          conceptPrompt: selectedConcept.videoDirection,
         }),
       });
       const startData = await parseJsonResponse(startRes);
@@ -489,6 +546,36 @@ Keep full body visible from head to toe for the entire 6 seconds. No dancing, sp
           Auto Mode: Paid API Test
         </button>
       </div>
+
+      <section className="rounded-2xl bg-white border border-amber-200 p-5 md:p-6 shadow-sm space-y-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm md:text-base font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+            Campaign Concept
+          </h2>
+          <p className="text-xs text-slate-600">
+            Pick one look. Face, beauty and product dress stay locked in every concept.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {campaignConcepts.map((concept) => (
+            <button
+              key={concept.id}
+              type="button"
+              onClick={() => setSelectedConceptId(concept.id)}
+              className={`min-h-28 rounded-xl border p-4 text-left transition ${
+                selectedConceptId === concept.id
+                  ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-md'
+                  : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-amber-300'
+              }`}
+            >
+              <span className="block text-xs font-bold uppercase tracking-wider">{concept.title}</span>
+              <span className={`mt-2 block text-xs leading-relaxed ${selectedConceptId === concept.id ? 'text-amber-50' : 'text-slate-600'}`}>
+                {concept.description}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       {error && (
         <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-800 text-sm flex items-start gap-3">

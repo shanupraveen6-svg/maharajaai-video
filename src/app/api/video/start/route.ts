@@ -23,14 +23,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { sessionId, garmentAnalysis, masterImageUrl } = body;
+    const { sessionId, garmentAnalysis, masterImageUrl, conceptPrompt } = body;
 
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'sessionId is required' }, { status: 400 });
     }
 
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const prompt = buildVideoPrompt(garmentAnalysis);
+    const prompt = buildVideoPrompt(garmentAnalysis, conceptPrompt);
     const nowIso = new Date().toISOString();
 
     let operationName: string | null = null;

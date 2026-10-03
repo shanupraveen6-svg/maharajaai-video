@@ -196,7 +196,7 @@ Return STRICT JSON:
 }
 
 // 3. Controlled Video Prompt Builder
-export function buildVideoPrompt(analysis: any): string {
+export function buildVideoPrompt(analysis: any, conceptPrompt?: string): string {
   const garmentType = analysis?.garmentType || 'outfit';
   const primaryColor = analysis?.primaryColor || 'selected garment';
   const embroidery = analysis?.embroideryDescription || 'visible garment details';
@@ -214,6 +214,8 @@ The outfit must remain exactly as shown in the master image. Do not convert the 
 Shot style: luxury retail Diwali fashion model film. The subject stands gracefully in the same outfit, looking like a premium showroom campaign model while still being the same real person. Use a slow cinematic dolly push-in from full-body head-to-toe framing, with subtle natural breathing, soft smile, gentle fabric motion, and elegant hand placement. If a diya is used, keep it small and away from the garment so the product remains clearly visible.
 
 Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Facial match must remain very close for the full video.
+
+${typeof conceptPrompt === 'string' && conceptPrompt.trim() ? conceptPrompt.trim() : 'Concept: Royal showroom campaign film. Use a premium Diwali showroom scene with confident fashion-ad posture, warm brass lamps, marigold decor and rich cinematic depth.'}
 
 Camera and lighting: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face.
 

@@ -16,7 +16,7 @@ function getGenAIClient() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos } = body;
+    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, conceptPrompt } = body;
 
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'sessionId is required.' }, { status: 400 });
@@ -71,6 +71,8 @@ Do not convert the outfit into a kurta, sherwani, saree, lehenga, or other tradi
 Make the customer look like a premium fashion model in a luxury retail campaign while still looking like the same real person. Improve only posture, styling, lighting, grooming polish, and scene quality; do not alter identity or body shape.
 
 Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Do not change gender presentation, age appearance, or facial identity.
+
+${typeof conceptPrompt === 'string' && conceptPrompt.trim() ? conceptPrompt.trim() : 'Concept: Royal showroom campaign. Use a premium Diwali showroom scene with confident fashion-ad posture, warm brass lamps, marigold decor and rich cinematic depth.'}
 
 Only the environment, lighting, and mood should become grand Diwali-themed. Set the scene inside a premium Maharaja Thanjavur showroom campaign environment: warm diya glow, brass lamps, subtle rangoli, marigold flowers, rich maroon and gold accents, refined festive decor, luxury festive entrance, soft cinematic bokeh, and elegant luxury retail atmosphere.
 
