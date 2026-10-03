@@ -96,36 +96,36 @@ const campaignConcepts: Array<{
     title: 'Royal Entrance',
     description: 'Grand showroom arch, premium model pose, rich Diwali glow.',
     imageDirection:
-      'Concept: Royal Entrance. Place the customer at a grand Maharaja showroom entrance with carved arches, brass lamps, marigold garlands and warm gold rim light. Pose should be full-body, confident and elegant, like a premium festive fashion campaign.',
+      'Concept: Royal Entrance. Place the customer at a grand Maharaja showroom entrance with carved arches, brass lamps, marigold garlands and warm gold rim light. For men, add premium safe fireworks sparkle and cracker-light bokeh only in the far background, never near the body or garment. For women, emphasize elegant diya rows, soft lamp glow, floral decor and graceful festive warmth. Pose should be full-body, confident and elegant, like a premium festive fashion campaign.',
     videoDirection:
-      'Concept: Royal Entrance Walk. Start with the full-body subject framed under a grand showroom arch, then use a slow premium dolly push-in. Keep posture confident and elegant, with warm lamps and marigold decor moving softly in the background.'
+      'Concept: Royal Entrance Walk. Start with the full-body subject framed under a grand showroom arch, then use a slow premium dolly push-in. For men, use safe distant fireworks sparkle and cracker-light bokeh as background energy only. For women, use soft diya rows, lamp glow and floral festive elegance. Keep posture confident and elegant, with warm lamps and marigold decor moving softly in the background.'
   },
   {
     id: 'lamp-runway',
     title: 'Lamp Runway',
     description: 'Fashion runway feel with brass lamps and cinematic depth.',
     imageDirection:
-      'Concept: Lamp Runway. Create a luxury in-store festive runway lined with brass kuthu vilakku lamps and soft diya trails. The customer stands centered, full-body, with editorial fashion posture and clean product visibility from collar to footwear.',
+      'Concept: Lamp Runway. Create a luxury in-store festive runway lined with brass kuthu vilakku lamps and soft diya trails. For men, add subtle golden cracker-spark bokeh behind the runway for energetic festive style. For women, increase soft diya glow, brass lamp symmetry, floral warmth and graceful luxury. The customer stands centered, full-body, with editorial fashion posture and clean product visibility from collar to footwear.',
     videoDirection:
-      'Concept: Lamp Runway Film. Use a slow runway-style camera push with brass lamps on both sides, soft diya flicker, shallow festive bokeh and gentle fabric motion. Keep the full outfit visible and unchanged.'
+      'Concept: Lamp Runway Film. Use a slow runway-style camera push with brass lamps on both sides, soft diya flicker, shallow festive bokeh and gentle fabric motion. For men, add safe distant cracker-spark bokeh in the background. For women, emphasize soft diya trails, warm lamp reflections and elegant floral glow. Keep the full outfit visible and unchanged.'
   },
   {
     id: 'rangoli-spotlight',
     title: 'Rangoli Spotlight',
     description: 'Top festive floor design, elegant portrait-to-full-body framing.',
     imageDirection:
-      'Concept: Rangoli Spotlight. Place the customer on a refined Diwali rangoli floor with warm overhead showroom glow, brass lamps in the corners and rich maroon-gold decor. The pose should feel refined, graceful and premium, with the garment as the central product.',
+      'Concept: Rangoli Spotlight. Place the customer on a refined Diwali rangoli floor with warm overhead showroom glow, brass lamps in the corners and rich maroon-gold decor. For men, add crisp festive sparkle and distant cracker-light reflections in the background. For women, make the rangoli, diya circle, brass lamps and soft golden glow more graceful and devotional. The pose should feel refined, graceful and premium, with the garment as the central product.',
     videoDirection:
-      'Concept: Rangoli Spotlight Film. Begin with full-body framing over a beautiful rangoli floor, then add a very slow cinematic push-in with glowing diyas around the edges. Keep the subject calm, premium and product-focused.'
+      'Concept: Rangoli Spotlight Film. Begin with full-body framing over a beautiful rangoli floor, then add a very slow cinematic push-in with glowing diyas around the edges. For men, use subtle far-background cracker sparkle reflections. For women, use stronger diya circle glow and soft floral-lamp movement. Keep the subject calm, premium and product-focused.'
   },
   {
     id: 'storefront-greeting',
     title: 'Storefront Greeting',
     description: 'Premium Diwali greeting card feel for TV and sharing.',
     imageDirection:
-      'Concept: Storefront Greeting. Create a luxury Maharaja festive showroom greeting visual with the customer as the product model, elegant maroon-gold decor, lamps and a refined banner area for the Tamil greeting only if text is used.',
+      'Concept: Storefront Greeting. Create a luxury Maharaja festive showroom greeting visual with the customer as the product model, elegant maroon-gold decor, lamps and a refined banner area for the Tamil greeting only if text is used. For men, add celebratory cracker-light bokeh and festive sparkle outside the storefront/background only. For women, focus on diya glow, brass lamps, flower garlands and soft graceful festival warmth.',
     videoDirection:
-      'Concept: Storefront Greeting Film. Make it feel like a premium 6-second festive TV greeting from a showroom campaign: full-body model pose, soft push-in, warm lamps, maroon-gold decor, and an optional small final greeting card with the exact Tamil text.'
+      'Concept: Storefront Greeting Film. Make it feel like a premium 6-second festive TV greeting from a showroom campaign: full-body model pose, soft push-in, warm lamps, maroon-gold decor, and an optional small final greeting card with the exact Tamil text. For men, use safe distant cracker-light sparkle in the background. For women, use elegant diya rows, lamp glow and floral festive warmth.'
   }
 ];
 
