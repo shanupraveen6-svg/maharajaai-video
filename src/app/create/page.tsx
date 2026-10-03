@@ -141,7 +141,10 @@ export default function CreatePage() {
     const color = garmentAnalysis?.primaryColor || 'the original garment color';
     const embroidery = garmentAnalysis?.embroideryDescription || 'the exact embroidery, motifs, borders and fabric details';
 
-    return `Create a premium cinematic 9:16 full-body Maharaja Diwali showroom fashion advertisement image.
+    return `CRITICAL PRODUCT LOCK:
+The uploaded garment photos are the product being sold. The model must wear the exact same uploaded product outfit. Do not create a kurta, sherwani, festive costume, jacket, robe, saree, lehenga or any different clothing unless that exact item is visible in the product photos. Diwali styling is allowed only in the background, lights, lamps, flowers, rangoli and showroom mood. The clothes must stay exactly like the product photos.
+
+Create a premium cinematic 9:16 full-body Maharaja Diwali showroom fashion advertisement image.
 
 Use the customer photo only as the identity and body reference. Preserve the same face, facial structure, skin tone, hairstyle, age appearance, height impression, body proportions and natural presence. Ignore and replace the clothes worn in the customer photo.
 
@@ -162,7 +165,10 @@ Strict rules: do not change identity, skin tone, body shape, garment type, garme
     const garment = garmentAnalysis?.garmentType || 'selected outfit';
     const color = garmentAnalysis?.primaryColor || 'original garment color';
 
-    return `Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali showroom fashion commercial using the uploaded master image as the exact reference.
+    return `CRITICAL PRODUCT LOCK:
+The uploaded master image outfit is the product being sold. Keep the exact same outfit for the full video. Do not create a kurta, sherwani, festive costume, jacket, robe, saree, lehenga or any different clothing unless it is already shown in the master image. Diwali styling is allowed only in the background, lights, lamps, flowers, rangoli and showroom mood. The clothes must stay exactly like the master image.
+
+Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali showroom fashion commercial using the uploaded master image as the exact reference.
 
 The uploaded outfit is the sales product and hero of the ad. Preserve the same person identity, face, skin tone, hairstyle, age appearance, body proportions, ${color} ${garment}, garment embroidery, fabric texture, motifs, borders, shirt/pant structure, pockets, cargo pockets, stitching, wrinkles, fit, bottom wear, footwear and complete outfit throughout the video.
 

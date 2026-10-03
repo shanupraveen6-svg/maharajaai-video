@@ -202,7 +202,10 @@ export function buildVideoPrompt(analysis: any): string {
   const embroidery = analysis?.embroideryDescription || 'visible garment details';
   const fabric = analysis?.fabricAppearance || 'real fabric texture';
 
-  return `Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali showroom fashion commercial using the uploaded master image as the exact visual reference.
+  return `CRITICAL PRODUCT LOCK:
+The uploaded master image outfit is the product being sold. Keep the exact same outfit for the full video. Do not create a kurta, sherwani, festive costume, jacket, robe, saree, lehenga, or any different clothing unless it is already shown in the master image. Diwali styling is allowed only in the background, lights, lamps, flowers, rangoli, and showroom mood. The clothes must stay exactly like the master image.
+
+Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali showroom fashion commercial using the uploaded master image as the exact visual reference.
 
 The uploaded outfit is the sales product and hero of the ad. Preserve the same person identity, face, skin tone, hairstyle, age appearance, height impression, body proportions, ${primaryColor} ${garmentType}, ${fabric}, ${embroidery}, garment color, embroidery, motifs, borders, shirt/pant structure, pockets, cargo pockets, stitching, wrinkles, fit, bottom wear, footwear, and complete outfit throughout the video.
 

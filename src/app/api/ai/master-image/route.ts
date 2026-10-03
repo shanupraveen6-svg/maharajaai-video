@@ -57,7 +57,10 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        const prompt = `Create a premium cinematic 9:16 vertical full-body Maharaja Diwali showroom fashion advertisement master image.
+        const prompt = `CRITICAL PRODUCT LOCK:
+The uploaded garment photos are the product being sold. The model must wear the exact same uploaded product outfit. Do not create a kurta, sherwani, festive costume, jacket, robe, saree, lehenga, or any different clothing unless that exact item is visible in the product photos. Diwali styling is allowed only in the background, lights, lamps, flowers, rangoli, and showroom mood. The clothes must stay exactly like the product photos.
+
+Create a premium cinematic 9:16 vertical full-body Maharaja Diwali showroom fashion advertisement master image.
 
 Use the first input image only as the exact customer identity and body reference. Preserve the same face, facial structure, skin tone, hairstyle, age appearance, height impression, body proportions, and natural presence. Ignore and replace the clothes worn in the customer photo. Do not beautify by changing identity or body shape.
 
