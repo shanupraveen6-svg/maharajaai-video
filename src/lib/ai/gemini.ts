@@ -28,16 +28,16 @@ export async function analyzeGarmentImages(imageDataUrls: string[]) {
       category: "Men's Luxury Ethnic Wear",
       garmentType: "Kurta",
       coverage: "top_only" as const,
-      primaryColor: "Royal Deep Maroon",
-      secondaryColors: ["Zari Gold", "Crimson"],
-      fabricAppearance: "Pure Banarasi Silk",
-      embroideryDescription: "Intricate gold zari embroidery along collar, button placket, and cuffs",
+      primaryColor: "Royal Silk Blue",
+      secondaryColors: ["Zari Gold"],
+      fabricAppearance: "Pure Silk",
+      embroideryDescription: "Intricate gold zari embroidery along collar, placket, and cuffs",
       patternDescription: "Traditional royal motif borders",
       additionalPhotoRequired: false,
       requestedPhotos: [],
       complementaryPieces: {
         recommendedBottom: "Silk Cream Churidar",
-        rationale: "Classic contrast that elevates the maroon silk kurta without overpowering"
+        rationale: "Classic contrast that elevates the silk outfit without overpowering"
       },
       operatorMessage: "Garment scan verified successfully."
     };
@@ -220,7 +220,7 @@ Match the presentation tone naturally to the customer: elegant and confident for
 
 ${typeof conceptPrompt === 'string' && conceptPrompt.trim() ? conceptPrompt.trim() : 'Concept: Royal showroom campaign film. Use a premium Diwali showroom scene with confident fashion-ad posture, warm brass lamps, marigold decor and rich cinematic depth.'}
 
-Camera and lighting: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, premium movie-star grooming, subtle natural makeup polish, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face. Add safe distant cracker sparkle/fireworks bokeh in the sky or far background only, never near the body, face or garment. Keep the camera far enough that the face remains stable and natural.
+Camera and lighting: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, premium movie-star grooming, subtle natural makeup polish, festive background bokeh, rich golden Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face. Add safe distant cracker sparkle/fireworks bokeh in the sky or far background only, never near the body, face or garment. Keep the camera far enough that the face remains stable and natural.
 
 Keep full body visible from head to toe throughout the entire 6 seconds. The garment must remain clearly visible and unchanged. The motion should be slow, graceful, premium, and suitable for an in-store fashion advertisement.
 

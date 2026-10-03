@@ -114,7 +114,7 @@ const campaignConcepts: Array<{
     title: 'Rangoli Spotlight',
     description: 'Top festive floor design, elegant portrait-to-full-body framing.',
     imageDirection:
-      'Concept: Rangoli Spotlight. Place the customer on a refined Diwali rangoli floor with warm overhead showroom glow, brass lamps in the corners and rich maroon-gold decor. For men, add crisp festive sparkle and distant cracker-light reflections in the background. For women, make the rangoli, diya circle, brass lamps and soft golden glow more graceful and devotional. The pose should feel refined, graceful and premium, with the garment as the central product.',
+      'Concept: Rangoli Spotlight. Place the customer on a refined Diwali rangoli floor with warm overhead showroom glow, brass lamps in the corners and rich golden and floral decor. For men, add crisp festive sparkle and distant cracker-light reflections in the background. For women, make the rangoli, diya circle, brass lamps and soft golden glow more graceful and devotional. The pose should feel refined, graceful and premium, with the garment as the central product.',
     videoDirection:
       'Concept: Rangoli Spotlight Film. Begin with full-body framing over a beautiful rangoli floor, then add a very slow cinematic push-in with glowing diyas around the edges. For men, use subtle far-background cracker sparkle reflections. For women, use stronger diya circle glow and soft floral-lamp movement. Keep the subject calm, premium and product-focused.'
   },
@@ -123,9 +123,9 @@ const campaignConcepts: Array<{
     title: 'Storefront Greeting',
     description: 'Premium Diwali greeting card feel for TV and sharing.',
     imageDirection:
-      'Concept: Storefront Greeting. Create a luxury Maharaja festive showroom greeting visual with the customer as the product model, elegant maroon-gold decor, lamps and a refined banner area for the Tamil greeting only if text is used. For men, add celebratory cracker-light bokeh and festive sparkle outside the storefront/background only. For women, focus on diya glow, brass lamps, flower garlands and soft graceful festival warmth.',
+      'Concept: Storefront Greeting. Create a luxury Maharaja festive showroom greeting visual with the customer as the product model, elegant golden decor, lamps and a refined banner area for the Tamil greeting only if text is used. For men, add celebratory cracker-light bokeh and festive sparkle outside the storefront/background only. For women, focus on diya glow, brass lamps, flower garlands and soft graceful festival warmth.',
     videoDirection:
-      'Concept: Storefront Greeting Film. Make it feel like a premium 6-second festive TV greeting from a showroom campaign: full-body model pose, soft push-in, warm lamps, maroon-gold decor, and an optional small final greeting card with the exact Tamil text. For men, use safe distant cracker-light sparkle in the background. For women, use elegant diya rows, lamp glow and floral festive warmth.'
+      'Concept: Storefront Greeting Film. Make it feel like a premium 6-second festive TV greeting from a showroom campaign: full-body model pose, soft push-in, warm lamps, golden decor, and an optional small final greeting card with the exact Tamil text. For men, use safe distant cracker-light sparkle in the background. For women, use elegant diya rows, lamp glow and floral festive warmth.'
   }
 ];
 
@@ -211,7 +211,7 @@ Match the presentation tone naturally to the customer: elegant and confident for
 
 ${selectedConcept.imageDirection}
 
-Only the environment, lighting and mood should become grand Diwali-themed: premium Maharaja Thanjavur showroom, warm diya glow, brass lamps, marigold flowers, subtle rangoli, rich maroon and gold decor, luxury festive entrance, soft cinematic bokeh and celebratory retail atmosphere.
+Only the environment, lighting and mood should become grand Diwali-themed: premium Maharaja Thanjavur showroom, warm diya glow, brass lamps, marigold flowers, subtle rangoli, luxurious golden and floral decor, luxury festive entrance, soft cinematic bokeh and celebratory retail atmosphere.
 
 Optional text: if a greeting is shown as a small elegant showroom banner or final festive card, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text.
 
@@ -242,7 +242,7 @@ Match the presentation tone naturally to the customer: elegant and confident for
 
 ${selectedConcept.videoDirection}
 
-Lighting/camera: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, premium movie-star grooming, subtle natural makeup polish, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face. Add safe distant cracker sparkle/fireworks bokeh in the sky or far background only, never near the body, face or garment. Keep the camera far enough that the face remains stable and natural.
+Lighting/camera: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, premium movie-star grooming, subtle natural makeup polish, festive background bokeh, rich golden Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face. Add safe distant cracker sparkle/fireworks bokeh in the sky or far background only, never near the body, face or garment. Keep the camera far enough that the face remains stable and natural.
 
 Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text.
 
