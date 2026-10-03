@@ -175,6 +175,7 @@ export async function GET(req: NextRequest) {
             await db.collection('sessions').doc(targetSessionId).set({
               videoStatus: 'ready',
               videoUrl,
+              videoStoragePath: storagePath,
               updatedAt: new Date().toISOString()
             }, { merge: true });
           } else {

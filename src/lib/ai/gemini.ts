@@ -199,8 +199,22 @@ Return STRICT JSON:
 export function buildVideoPrompt(analysis: any): string {
   const garmentType = analysis?.garmentType || 'outfit';
   const primaryColor = analysis?.primaryColor || 'selected garment';
+  const embroidery = analysis?.embroideryDescription || 'visible garment details';
+  const fabric = analysis?.fabricAppearance || 'real fabric texture';
 
-  return `Photorealistic 6-second vertical 9:16 full-body cinematic commercial video. Using the exact facial features and identity from the uploaded user reference photo, seamlessly composite her wearing the ${primaryColor} ${garmentType} from the uploaded product photo as a complete, full-length outfit. The action starts with her walking smoothly forward toward the camera from a vibrant, colorful, and fully decorated Diwali festive background filled with bright traditional lights, floral arrangements, and festive decor. Strict full-length head-to-toe framing is maintained throughout to show the complete silhouette and length of the dress. She smiles warmly, holding a glowing clay diya lamp gracefully in her hands. Professional festive makeup, glowing soft skin highlights, and traditional styling matching her features. Embedded Tamil voiceover saying: "அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!". High-end commercial color grading, sharp focus.`;
+  return `Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali fashion commercial using the uploaded master image as the exact visual reference.
+
+Preserve the same person identity, face, skin tone, hairstyle, age appearance, height impression, body proportions, ${primaryColor} ${garmentType}, ${fabric}, ${embroidery}, garment color, embroidery, motifs, borders, and complete outfit throughout the video.
+
+Shot style: luxury Indian festive fashion film. The subject stands gracefully holding a glowing clay diya with both hands. Use a slow cinematic dolly push-in from full-body head-to-toe framing, with subtle natural breathing, soft smile, gentle fabric motion, and elegant hand placement.
+
+Camera and lighting: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, and sharp focus on the person.
+
+Keep full body visible from head to toe throughout the entire 6 seconds. The garment must remain clearly visible and unchanged. The motion should be slow, graceful, premium, and suitable for an in-store fashion advertisement.
+
+Optional audio/text feeling: warm Tamil Diwali greeting mood. Do not add random text or generated logos.
+
+Do not change the face. Do not change skin tone. Do not change body shape. Do not change garment color or design. No dancing, no spinning, no fast walking, no duplicate person, no extra limbs, no malformed hands, no face morphing, no random text, no generated logo.`;
 }
 
 // 4. Quality Assurance Evaluation (Fix 13: Freeze Fake QA)

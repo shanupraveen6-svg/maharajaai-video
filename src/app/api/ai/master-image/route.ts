@@ -57,12 +57,21 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        const prompt = `Photorealistic 9:16 vertical full-body fashion master reference image.
-Use the first input image for exact facial identity, skin tone, features, and body proportions.
-Use the remaining input images for exact product appearance, dress color (${garmentAnalysis?.primaryColor || 'selected outfit'}), fabric, pattern, embroidery, and silhouette (${garmentAnalysis?.garmentType || 'dress'}).
-Composite the customer seamlessly wearing the garment as a complete full-length outfit.
-Environment: Vibrant decorated Diwali festive background with warm traditional lights, diya lamps, and soft festive bokeh.
-Preserve exact face identity, hairstyle, dress color, embroidery details, and head-to-toe full-length framing. Studio lighting, sharp focus, 8k quality.`;
+        const prompt = `Create a premium cinematic 9:16 vertical full-body Maharaja Diwali fashion campaign master image.
+
+Use the first input image as the exact customer identity reference. Preserve the same face, facial structure, skin tone, hairstyle, age appearance, height impression, body proportions, and natural presence. Do not beautify by changing identity or body shape.
+
+Use the remaining input images as the exact garment reference. Preserve the real ${garmentAnalysis?.primaryColor || 'selected outfit'} color, secondary colors, fabric appearance, embroidery, motifs, borders, neckline, sleeve shape, silhouette, pattern placement, and styling details of the ${garmentAnalysis?.garmentType || 'outfit'}.
+
+Dress the customer naturally and realistically in the selected garment as a complete head-to-toe outfit. If the product is top-only, add a tasteful complementary traditional bottom that matches the garment without altering the supplied garment design.
+
+Set the scene inside a premium Maharaja Thanjavur Diwali showroom campaign environment: warm diya glow, brass lamps, subtle rangoli, marigold flowers, rich maroon and gold accents, refined festive decor, soft cinematic bokeh, and elegant luxury retail atmosphere.
+
+Lighting and camera: warm golden key light, soft rim light for separation, gentle diya highlights on face and fabric, realistic skin texture, editorial 50mm fashion photography feel, full-body vertical composition, slightly low flattering camera height, graceful posture, natural smile, and clear garment visibility.
+
+Adapt the pose, camera height, drape, and lighting to flatter the individual naturally while preserving real identity, skin tone, and body proportions. If the garment is dark, add warm rim light and golden background separation. If the garment has heavy embroidery, emphasize detailed light on the fabric.
+
+No duplicate people, no extra limbs, no distorted hands, no random text, no fake logos, no face change, no skin tone change, no garment redesign, no garment color change.`;
 
         contents.push(prompt);
 

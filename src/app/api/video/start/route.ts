@@ -3,6 +3,9 @@ import { buildVideoPrompt } from '@/lib/ai/gemini';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { GoogleGenAI } from '@google/genai';
+import { FieldValue } from 'firebase-admin/firestore';
+
+const DEMO_VIDEO_LIMIT = Number(process.env.DEMO_VIDEO_LIMIT || '2');
 
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
@@ -15,6 +18,9 @@ function getGenAIClient() {
 }
 
 export async function POST(req: NextRequest) {
+  const db = getDb();
+  let reservedDemoSlot = false;
+
   try {
     const body = await req.json();
     const { sessionId, garmentAnalysis, masterImageUrl } = body;
@@ -28,15 +34,39 @@ export async function POST(req: NextRequest) {
     const nowIso = new Date().toISOString();
 
     let operationName: string | null = null;
-    let videoUrl = '/sample-diwali.mp4';
+    const videoUrl = '/sample-diwali.mp4';
 
     if (!AI_CONFIG.IS_DEMO_MODE) {
+      if (AI_CONFIG.GEMINI_VIDEO_MODEL !== 'veo-3.1-fast-generate-preview') {
+        return NextResponse.json(
+          { success: false, error: 'Demo safety lock: only veo-3.1-fast-generate-preview is allowed.' },
+          { status: 400 }
+        );
+      }
+
       const ai = getGenAIClient();
       if (!ai) {
         return NextResponse.json(
           { success: false, error: 'Gemini API key is not configured for Veo video generation.' },
           { status: 500 }
         );
+      }
+
+      if (db && DEMO_VIDEO_LIMIT > 0) {
+        const usageRef = db.collection('appControl').doc('demoVideoUsage');
+        await db.runTransaction(async (transaction: any) => {
+          const usageDoc = await transaction.get(usageRef);
+          const used = usageDoc.exists ? Number(usageDoc.data()?.startedCount || 0) : 0;
+          if (used >= DEMO_VIDEO_LIMIT) {
+            throw new Error(`Demo video limit reached (${DEMO_VIDEO_LIMIT}). Stop and review spend before continuing.`);
+          }
+          transaction.set(usageRef, {
+            startedCount: used + 1,
+            limit: DEMO_VIDEO_LIMIT,
+            updatedAt: FieldValue.serverTimestamp()
+          }, { merge: true });
+        });
+        reservedDemoSlot = true;
       }
 
       try {
@@ -86,6 +116,13 @@ export async function POST(req: NextRequest) {
         }
 
         if (!masterBase64) {
+          if (db && reservedDemoSlot) {
+            await db.collection('appControl').doc('demoVideoUsage').set({
+              startedCount: FieldValue.increment(-1),
+              updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            reservedDemoSlot = false;
+          }
           return NextResponse.json(
             { success: false, error: 'Approved master reference image bytes are required to initialize Veo generation.' },
             { status: 400 }
@@ -100,6 +137,13 @@ export async function POST(req: NextRequest) {
         const videoResponse = await ai.models.generateVideos(generateParams);
         operationName = videoResponse.name || null;
       } catch (veoError: any) {
+        if (db && reservedDemoSlot) {
+          await db.collection('appControl').doc('demoVideoUsage').set({
+            startedCount: FieldValue.increment(-1),
+            updatedAt: FieldValue.serverTimestamp()
+          }, { merge: true });
+          reservedDemoSlot = false;
+        }
         console.error('Veo Video Start Error:', veoError);
         return NextResponse.json(
           { success: false, error: `Veo video generation failed to start: ${veoError.message}` },
@@ -120,7 +164,6 @@ export async function POST(req: NextRequest) {
       createdAt: nowIso
     };
 
-    const db = getDb();
     if (db) {
       await db.collection('generationJobs').doc(jobId).set(jobData);
       await db.collection('sessions').doc(sessionId).set({

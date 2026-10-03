@@ -1,8 +1,38 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Camera, CheckCircle2, Sparkles, RefreshCw, Shirt, User, Copy, Download, Upload, Video, Film, Image as ImageIcon, ArrowRight, ArrowLeft } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  AlertCircle,
+  ArrowRight,
+  Camera,
+  CheckCircle2,
+  Copy,
+  Film,
+  Image as ImageIcon,
+  RefreshCw,
+  Shirt,
+  Sparkles,
+  Upload,
+  User,
+} from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
+
+type GarmentAnalysis = {
+  garmentType?: string;
+  primaryColor?: string;
+  embroideryDescription?: string;
+  operatorMessage?: string;
+};
+
+type PersonAnalysis = {
+  fullBodyVisible?: boolean;
+  faceVisible?: boolean;
+  lightingQuality?: string;
+  operatorMessage?: string;
+};
+
+type VideoPhase = 'idle' | 'starting' | 'rendering' | 'saving' | 'ready' | 'failed';
 
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
@@ -18,28 +48,24 @@ async function parseJsonResponse(res: Response) {
   return await res.json();
 }
 
-// XHR Helper with real-time percentage upload progress
 function xhrUploadFile(
   url: string,
   method: string,
   headers: Record<string, string>,
   body: XMLHttpRequestBodyInit | File | Blob | FormData,
-  onProgress: (percent: number, loadedMb: string, totalMb: string) => void
+  onProgress: (percent: number) => void
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
 
-    Object.entries(headers).forEach(([k, v]) => {
-      xhr.setRequestHeader(k, v);
+    Object.entries(headers).forEach(([key, value]) => {
+      xhr.setRequestHeader(key, value);
     });
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        const loadedMb = (event.loaded / (1024 * 1024)).toFixed(1);
-        const totalMb = (event.total / (1024 * 1024)).toFixed(1);
-        onProgress(percent, loadedMb, totalMb);
+        onProgress(Math.round((event.loaded / event.total) * 100));
       }
     };
 
@@ -47,644 +73,632 @@ function xhrUploadFile(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
       } else {
-        reject(new Error(`Upload HTTP Error ${xhr.status}: ${xhr.responseText || 'Server error'}`));
+        reject(new Error(`Upload failed with HTTP ${xhr.status}`));
       }
     };
-
     xhr.onerror = () => reject(new Error('Network failure uploading file.'));
-    xhr.ontimeout = () => reject(new Error('Upload connection timed out.'));
-
     xhr.send(body);
   });
 }
 
-export default function WebappViewportCreateStudioPage() {
-  const [sessionId] = useState(() => 'mah_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
-  const [activeScreen, setActiveScreen] = useState<1 | 2>(1);
-  
-  // Up to 3 garment photos
+const garmentLabels = ['Front View', 'Detail View', 'Additional View'];
+
+const progressCopy: Record<VideoPhase, string> = {
+  idle: 'Ready to generate after approval.',
+  starting: 'Preparing cinematic prompt and sending to Veo Fast...',
+  rendering: 'Rendering 6-second Maharaja Diwali film...',
+  saving: 'Saving private MP4 to Firebase Storage...',
+  ready: 'Video is ready.',
+  failed: 'Video generation failed. Stop and review before retrying.',
+};
+
+export default function CreatePage() {
+  const router = useRouter();
+  const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+  const [mode, setMode] = useState<'proof' | 'auto'>('proof');
+
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
-  
-  // AI Analysis Results
+  const [garmentAnalysis, setGarmentAnalysis] = useState<GarmentAnalysis | null>(null);
+  const [personAnalysis, setPersonAnalysis] = useState<PersonAnalysis | null>(null);
+
   const [isAnalyzingGarment, setIsAnalyzingGarment] = useState(false);
-  const [garmentAnalysis, setGarmentAnalysis] = useState<any>(null);
   const [isAnalyzingPerson, setIsAnalyzingPerson] = useState(false);
-
-  // Master Image State
-  const [isUploadingMaster, setIsUploadingMaster] = useState(false);
+  const [isGeneratingMaster, setIsGeneratingMaster] = useState(false);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
+  const [masterApproved, setMasterApproved] = useState(false);
 
-  // Video State
-  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [progressMsg, setProgressMsg] = useState('');
-  const [copyMasterPromptSuccess, setCopyMasterPromptSuccess] = useState(false);
-  const [copyVideoPromptSuccess, setCopyVideoPromptSuccess] = useState(false);
+  const [videoPhase, setVideoPhase] = useState<VideoPhase>('idle');
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copiedPrompt, setCopiedPrompt] = useState<'master' | 'video' | null>(null);
+  const [isUploadingManualMaster, setIsUploadingManualMaster] = useState(false);
+  const [isUploadingManualVideo, setIsUploadingManualVideo] = useState(false);
+  const [manualUploadProgress, setManualUploadProgress] = useState(0);
 
-  // 1. Handle Garment Photo Upload by Slot Index
-  const handleGarmentSlotUpload = async (e: React.ChangeEvent<HTMLInputElement>, slotIdx: number) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const activeGarmentPhotos = useMemo(() => garmentPhotos.filter(Boolean) as string[], [garmentPhotos]);
+  const canGenerateMaster = activeGarmentPhotos.length >= 1 && !!personPhoto && !isAnalyzingGarment && !isAnalyzingPerson;
+  const canGenerateVideo = !!masterImageUrl && masterApproved && videoPhase === 'idle';
 
+  useEffect(() => {
+    if (videoPhase !== 'starting' && videoPhase !== 'rendering' && videoPhase !== 'saving') return;
+
+    const timer = window.setInterval(() => {
+      setVideoProgress((current) => {
+        if (videoPhase === 'starting') return Math.min(current + 3, 20);
+        if (videoPhase === 'rendering') return Math.min(current + 2, 85);
+        if (videoPhase === 'saving') return Math.min(current + 4, 96);
+        return current;
+      });
+    }, 1800);
+
+    return () => window.clearInterval(timer);
+  }, [videoPhase]);
+
+  const masterPrompt = useMemo(() => {
+    const garment = garmentAnalysis?.garmentType || 'selected festive outfit';
+    const color = garmentAnalysis?.primaryColor || 'the original garment color';
+    const embroidery = garmentAnalysis?.embroideryDescription || 'the exact embroidery, motifs, borders and fabric details';
+
+    return `Create a premium cinematic 9:16 full-body Maharaja Diwali fashion campaign image.
+
+Use the customer photo as the exact identity reference. Preserve the same face, facial structure, skin tone, hairstyle, age appearance, height impression, body proportions and natural presence.
+
+Use the garment photos as the exact clothing reference. Preserve the ${color} ${garment}, ${embroidery}, fabric texture, neckline, sleeves, silhouette and pattern placement.
+
+Dress the customer naturally in the selected garment as a complete head-to-toe outfit. If the garment is top-only, add a tasteful matching traditional bottom without changing the supplied garment.
+
+Scene: premium Maharaja Thanjavur Diwali showroom campaign, warm diya glow, brass lamps, marigold flowers, subtle rangoli, rich maroon and gold decor, soft festive bokeh.
+
+Lighting/camera: warm golden key light, soft rim light, gentle diya highlights, realistic skin texture, editorial 50mm fashion look, slightly low flattering camera height, graceful posture, natural smile, full-body vertical framing.
+
+Do not change identity, skin tone, body shape, garment color or garment design. No duplicate people, extra limbs, distorted hands, random text or fake logos.`;
+  }, [garmentAnalysis]);
+
+  const videoPrompt = useMemo(() => {
+    const garment = garmentAnalysis?.garmentType || 'selected outfit';
+    const color = garmentAnalysis?.primaryColor || 'original garment color';
+
+    return `Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali fashion commercial using the uploaded master image as the exact reference.
+
+Preserve the same person identity, face, skin tone, hairstyle, age appearance, body proportions, ${color} ${garment}, garment embroidery, fabric texture, motifs, borders and complete outfit throughout the video.
+
+Shot: luxury Indian festive fashion film. The subject stands gracefully holding a glowing clay diya with both hands. Use a slow cinematic dolly push-in from full-body head-to-toe framing, with subtle natural breathing, soft smile, gentle fabric motion and elegant hand placement.
+
+Lighting/camera: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus.
+
+Keep full body visible from head to toe for the entire 6 seconds. No dancing, spinning, fast walking, face change, skin tone change, body shape change, garment redesign, duplicate person, extra limbs, malformed hands, random text or generated logo.`;
+  }, [garmentAnalysis]);
+
+  async function copyPrompt(type: 'master' | 'video', prompt: string) {
+    await navigator.clipboard.writeText(prompt);
+    setCopiedPrompt(type);
+    window.setTimeout(() => setCopiedPrompt(null), 2000);
+  }
+
+  async function analyzeGarments(nextPhotos: (string | null)[]) {
+    const images = nextPhotos.filter(Boolean) as string[];
+    if (!images.length) return;
+
+    setIsAnalyzingGarment(true);
+    setError(null);
     try {
-      const { dataUrl } = await compressImage(files[0], 1600, 0.85);
-      const updated = [...garmentPhotos];
-      updated[slotIdx] = dataUrl;
-      setGarmentPhotos(updated);
-
-      const activeGarmentPhotos = updated.filter(Boolean) as string[];
-      setIsAnalyzingGarment(true);
-      try {
-        const res = await fetch('/api/ai/analyze-garment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ images: activeGarmentPhotos, sessionId })
-        });
-        const data = await parseJsonResponse(res);
-        if (data.success) {
-          setGarmentAnalysis(data.analysis);
-        }
-      } catch (err) {
-        console.error('Garment analysis error:', err);
-      } finally {
-        setIsAnalyzingGarment(false);
-      }
-    } catch (compressErr) {
-      console.error('Image compression failed:', compressErr);
+      const res = await fetch('/api/ai/analyze-garment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images, sessionId }),
+      });
+      const data = await parseJsonResponse(res);
+      setGarmentAnalysis(data.analysis);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Garment analysis failed.');
+    } finally {
+      setIsAnalyzingGarment(false);
     }
-  };
+  }
 
-  // 2. Handle Person Photo Upload
-  const handlePersonUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    try {
-      const { dataUrl } = await compressImage(files[0], 1600, 0.85);
-      setPersonPhoto(dataUrl);
-
-      setIsAnalyzingPerson(true);
-      try {
-        const res = await fetch('/api/ai/analyze-person', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataUrl, sessionId })
-        });
-        await parseJsonResponse(res);
-      } catch (err) {
-        console.error('Person analysis error:', err);
-      } finally {
-        setIsAnalyzingPerson(false);
-      }
-    } catch (compressErr) {
-      console.error('Image compression failed:', compressErr);
-    }
-  };
-
-  // 3. Master Image Prompt Generator
-  const getMasterImagePrompt = () => {
-    return `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image.
-Use the first uploaded image as the exact customer identity reference. Preserve the same facial identity, facial features, face shape, skin tone, hairstyle, approximate body proportions, age appearance and overall likeness.
-Use the remaining uploaded garment images as the exact clothing reference. Preserve the garment's real primary color, secondary colors, fabric appearance, embroidery, motifs, borders, pattern placement, neckline, sleeves, silhouette and overall design.
-Dress the same customer naturally and realistically in the selected garment as a complete full-length outfit.
-If the uploaded product contains only a top garment, create a tasteful complementary traditional bottom that matches the product without altering the supplied garment itself.
-Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.
-Maintain strict full-body head-to-toe framing. The complete outfit must be clearly visible.
-Styling should be attractive, premium and realistic, with natural posture, subtle festive makeup and elegant Indian traditional styling suitable for the customer.
-Do not change the customer's identity. Do not redesign the garment. Do not change garment color, embroidery, motifs or pattern. Do not create duplicate people, extra limbs, malformed hands, random text or logos.
-The final image should look like a premium Maharaja festive fashion campaign photograph.`;
-  };
-
-  const handleCopyMasterPrompt = () => {
-    const prompt = getMasterImagePrompt();
-    navigator.clipboard.writeText(prompt);
-    setCopyMasterPromptSuccess(true);
-    setTimeout(() => setCopyMasterPromptSuccess(false), 3000);
-  };
-
-  // 4. Video Commercial Prompt Generator
-  const getGeminiVideoPrompt = () => {
-    return `Create a photorealistic premium 6-second vertical 9:16 Diwali fashion commercial using the uploaded master reference image as the definitive visual reference.
-Preserve the exact same person's facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance, garment design, garment color, fabric, embroidery, motifs, pattern, accessories and complete outfit throughout the entire video.
-The subject begins slightly farther from the camera and walks slowly and naturally forward toward the camera throughout the shot.
-Maintain strict full-body head-to-toe framing throughout so the complete garment length and silhouette remain clearly visible at all times.
-The subject smiles warmly and gracefully holds a glowing traditional clay diya in both hands while walking.
-Place the subject in a vibrant premium Diwali celebration environment with warm diyas, traditional lamps, floral decorations, subtle rangoli and elegant festive golden lighting.
-Use realistic walking motion, natural fabric movement, anatomically correct hands and fingers, elegant posture, subtle festive makeup, realistic skin texture and high-end Indian fashion-commercial lighting.
-The subject clearly says in natural Tamil:
-"அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!"
-Keep the camera movement smooth and cinematic. Keep the person centered and clearly visible.
-Display the Tamil greeting text tastefully near the lower third for 2-3 seconds.
-Do not change the person's face. Do not change the garment. Do not change garment color, embroidery, hairstyle or body proportions. No duplicate person. No extra limbs. No malformed hands. No dancing. No spinning. No jumping. No face morphing. No random text. No generated logos. No excessive fireworks.
-Premium festive commercial look, sharp focus, cinematic depth and warm color grading.`;
-  };
-
-  const handleCopyVideoPrompt = () => {
-    const prompt = getGeminiVideoPrompt();
-    navigator.clipboard.writeText(prompt);
-    setCopyVideoPromptSuccess(true);
-    setTimeout(() => setCopyVideoPromptSuccess(false), 3000);
-  };
-
-  // 5. Direct Master Image Upload Handler
-  const handleDirectMasterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  async function handleGarmentUpload(e: React.ChangeEvent<HTMLInputElement>, slotIndex: number) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsUploadingMaster(true);
+    try {
+      const { dataUrl } = await compressImage(file, 1600, 0.85);
+      const nextPhotos = [...garmentPhotos];
+      nextPhotos[slotIndex] = dataUrl;
+      setGarmentPhotos(nextPhotos);
+      setMasterImageUrl(null);
+      setMasterApproved(false);
+      await analyzeGarments(nextPhotos);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Garment upload failed.');
+    }
+  }
+
+  async function handlePersonUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsAnalyzingPerson(true);
+    setError(null);
+    try {
+      const { dataUrl } = await compressImage(file, 1600, 0.85);
+      setPersonPhoto(dataUrl);
+      setMasterImageUrl(null);
+      setMasterApproved(false);
+
+      const res = await fetch('/api/ai/analyze-person', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl, sessionId }),
+      });
+      const data = await parseJsonResponse(res);
+      setPersonAnalysis(data.analysis);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Customer photo analysis failed.');
+    } finally {
+      setIsAnalyzingPerson(false);
+    }
+  }
+
+  async function generateMasterImage() {
+    if (!canGenerateMaster || !personPhoto) return;
+
+    setIsGeneratingMaster(true);
+    setMasterApproved(false);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/ai/master-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          garmentAnalysis,
+          personAnalysis,
+          personPhoto,
+          garmentPhotos: activeGarmentPhotos,
+        }),
+      });
+      const data = await parseJsonResponse(res);
+      setMasterImageUrl(data.masterImageUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Master image generation failed.');
+    } finally {
+      setIsGeneratingMaster(false);
+    }
+  }
+
+  async function handleManualMasterUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingManualMaster(true);
+    setError(null);
     try {
       const contentType = file.type || 'image/jpeg';
       const signedRes = await fetch('/api/upload/signed-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          assetType: 'master',
-          contentType
-        })
+        body: JSON.stringify({ sessionId, assetType: 'master', contentType }),
       });
-
       const signedData = await parseJsonResponse(signedRes);
-
       if (!signedData.success || !signedData.directUpload || !signedData.uploadUrl) {
-        throw new Error('Firebase direct master image upload is unavailable. Check Firebase Storage configuration.');
+        throw new Error('Firebase direct master image upload is unavailable.');
       }
 
-      const storagePath = signedData.storagePath || `sessions/${sessionId}/master/master.jpg`;
+      await xhrUploadFile(signedData.uploadUrl, 'PUT', { 'Content-Type': contentType }, file, () => {});
       const { dataUrl } = await compressImage(file, 1600, 0.85);
-
-      const putRes = await fetch(signedData.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': contentType },
-        body: file
-      });
-
-      if (!putRes.ok) {
-        throw new Error(`Direct Storage master upload failed: ${putRes.status}`);
-      }
 
       const completeRes = await fetch('/api/upload/master-complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          storagePath,
-          masterImageUrl: dataUrl
-        })
+          storagePath: signedData.storagePath || `sessions/${sessionId}/master/master.jpg`,
+          masterImageUrl: dataUrl,
+        }),
       });
-
       const completeData = await parseJsonResponse(completeRes);
       setMasterImageUrl(completeData.masterImageUrl || dataUrl);
-    } catch (err: any) {
-      console.error('Master image upload failed:', err);
-      alert('Master image upload failed: ' + err.message);
+      setMasterApproved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Manual master image upload failed.');
     } finally {
-      setIsUploadingMaster(false);
+      setIsUploadingManualMaster(false);
     }
-  };
+  }
 
-  // 6. Real-time Video Upload Handler with XHR Percentage Progress
-  const handleDirectVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  async function handleManualVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const fileSizeMb = (file.size / (1024 * 1024)).toFixed(1);
-    setIsUploadingVideo(true);
-    setUploadProgress(0);
-    setProgressMsg(`Initializing video upload (${fileSizeMb} MB)...`);
-
+    setIsUploadingManualVideo(true);
+    setManualUploadProgress(0);
+    setError(null);
     try {
       const contentType = file.type || 'video/mp4';
-
       const signedRes = await fetch('/api/upload/signed-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          assetType: 'video',
-          contentType
-        })
+        body: JSON.stringify({ sessionId, assetType: 'video', contentType }),
       });
-
       const signedData = await parseJsonResponse(signedRes);
-
       let storagePath = `sessions/${sessionId}/video/final.mp4`;
 
       if (signedData.success && signedData.directUpload && signedData.uploadUrl) {
         storagePath = signedData.storagePath || storagePath;
-        setProgressMsg(`Uploading to Firebase Storage (0% of ${fileSizeMb} MB)...`);
-
-        try {
-          await xhrUploadFile(
-            signedData.uploadUrl,
-            'PUT',
-            { 'Content-Type': contentType },
-            file,
-            (percent, loadedMb, totalMb) => {
-              setUploadProgress(percent);
-              setProgressMsg(`Uploading video: ${percent}% (${loadedMb} MB / ${totalMb} MB)`);
-            }
-          );
-        } catch (directErr: any) {
-          console.warn('Direct signed URL XHR failed, attempting server fallback:', directErr);
-          setProgressMsg('Retrying via server upload stream...');
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('sessionId', sessionId);
-
-          const fallbackRes = await fetch('/api/upload/video', {
-            method: 'POST',
-            body: formData
-          });
-          const fallbackData = await parseJsonResponse(fallbackRes);
-          if (!fallbackData.success) throw fallbackData;
-        }
+        await xhrUploadFile(
+          signedData.uploadUrl,
+          'PUT',
+          { 'Content-Type': contentType },
+          file,
+          setManualUploadProgress
+        );
       } else {
-        setProgressMsg(`Uploading via server stream (0% of ${fileSizeMb} MB)...`);
         const formData = new FormData();
         formData.append('file', file);
         formData.append('sessionId', sessionId);
-
-        const fallbackRes = await fetch('/api/upload/video', {
-          method: 'POST',
-          body: formData
-        });
+        const fallbackRes = await fetch('/api/upload/video', { method: 'POST', body: formData });
         const fallbackData = await parseJsonResponse(fallbackRes);
-        if (!fallbackData.success) throw fallbackData;
+        storagePath = fallbackData.storagePath || storagePath;
+        setManualUploadProgress(100);
       }
-
-      setUploadProgress(100);
-      setProgressMsg('Finalizing Diwali Commercial Film...');
 
       const completeRes = await fetch('/api/video/manual-complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, storagePath }),
+      });
+      await parseJsonResponse(completeRes);
+      router.push(`/result/${sessionId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Manual video upload failed.');
+    } finally {
+      setIsUploadingManualVideo(false);
+    }
+  }
+
+  async function startVideoGeneration() {
+    if (!canGenerateVideo || !masterImageUrl) return;
+
+    setVideoPhase('starting');
+    setVideoProgress(8);
+    setError(null);
+
+    try {
+      const startRes = await fetch('/api/video/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          storagePath
-        })
+          garmentAnalysis,
+          masterImageUrl,
+        }),
       });
+      const startData = await parseJsonResponse(startRes);
+      setJobId(startData.jobId);
+      setVideoPhase('rendering');
+      setVideoProgress(25);
 
-      const completeData = await parseJsonResponse(completeRes);
+      await pollVideoStatus(startData.jobId);
+    } catch (err) {
+      setVideoPhase('failed');
+      setError(err instanceof Error ? err.message : 'Video generation failed to start.');
+    }
+  }
 
-      if (!completeData.success) {
-        throw new Error(completeData.error || 'Failed to complete video registration.');
+  async function pollVideoStatus(activeJobId: string) {
+    let attempts = 0;
+
+    while (attempts < 90) {
+      attempts += 1;
+      await new Promise((resolve) => window.setTimeout(resolve, 5000));
+
+      const statusRes = await fetch(`/api/video/status?sessionId=${sessionId}&jobId=${activeJobId}`);
+      const statusData = await parseJsonResponse(statusRes);
+
+      if (statusData.status === 'ready' || statusData.status === 'succeeded') {
+        setVideoPhase('saving');
+        setVideoProgress(95);
+        await new Promise((resolve) => window.setTimeout(resolve, 800));
+        setVideoPhase('ready');
+        setVideoProgress(100);
+        router.push(`/result/${sessionId}`);
+        return;
       }
 
-      window.location.href = `/result/${sessionId}`;
-    } catch (err: any) {
-      console.error('Direct Video Upload Error:', err);
-      alert('Video Upload Error: ' + err.message);
-    } finally {
-      setIsUploadingVideo(false);
+      if (statusData.status === 'failed') {
+        throw new Error(statusData.error || 'Video generation failed.');
+      }
     }
-  };
 
-  const garmentLabels = [
-    'Garment Front View',
-    'Garment Detail View',
-    'Garment Additional View'
-  ];
+    throw new Error('Video generation is taking longer than expected. Check status before retrying.');
+  }
 
   return (
-    <main className="min-h-screen bg-[#FDFCF9] text-slate-900 p-4 sm:p-6 lg:p-10 font-sans max-w-7xl mx-auto relative select-none pb-24 space-y-8">
-      
-      {/* Header */}
-      <header className="flex justify-between items-center bg-white p-5 md:p-6 rounded-2xl border border-amber-200/80 shadow-sm">
+    <main className="min-h-screen bg-[#FDFCF9] text-slate-900 p-4 sm:p-6 lg:p-10 font-sans max-w-7xl mx-auto pb-24 space-y-8">
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white p-5 md:p-6 rounded-2xl border border-amber-200/80 shadow-sm">
         <div>
           <h1 className="text-xl md:text-2xl font-serif font-bold text-[#6e0d1f] tracking-widest uppercase">
             MAHARAJA AI STUDIO
           </h1>
           <p className="text-xs text-amber-700 font-semibold tracking-widest uppercase">
-            FULL WEBAPP VIEWPORT — DIWALI COMMERCIAL CREATOR
+            Automated Diwali image and 6-second video creator
           </p>
         </div>
-
         <div className="text-xs md:text-sm font-mono font-bold text-[#6e0d1f] bg-amber-50 px-4 py-2 rounded-full border border-amber-300 shadow-sm">
           SESSION ID: {sessionId}
         </div>
       </header>
 
-      {/* 2-SCREEN STEP INDICATOR BAR */}
-      <div className="grid grid-cols-2 gap-4 text-xs md:text-sm font-mono max-w-2xl mx-auto">
-        <button
-          onClick={() => setActiveScreen(1)}
-          className={`py-4 px-4 rounded-2xl border text-center transition font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 ${
-            activeScreen === 1
-              ? 'bg-[#6e0d1f] border-amber-400 text-white shadow-xl scale-[1.02]'
-              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
-          }`}
-        >
-          <Sparkles className="w-5 h-5 text-amber-400" />
-          <span>1. CAPTURE & MASTER KIT</span>
-        </button>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono font-bold uppercase">
+        {['Upload', 'Master Image', 'Approve', '6-sec Video'].map((step, index) => (
+          <div
+            key={step}
+            className={`p-3 rounded-xl border text-center ${
+              index === 0 && canGenerateMaster
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                : index === 1 && masterImageUrl
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                  : index === 2 && masterApproved
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                    : index === 3 && videoPhase !== 'idle'
+                      ? 'bg-amber-50 border-amber-300 text-[#6e0d1f]'
+                      : 'bg-white border-slate-200 text-slate-500'
+            }`}
+          >
+            {step}
+          </div>
+        ))}
+      </div>
 
+      <div className="grid grid-cols-2 gap-3 rounded-2xl bg-white border border-amber-200 p-2 shadow-sm">
         <button
-          onClick={() => setActiveScreen(2)}
-          className={`py-4 px-4 rounded-2xl border text-center transition font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 ${
-            activeScreen === 2
-              ? 'bg-[#6e0d1f] border-amber-400 text-white shadow-xl scale-[1.02]'
-              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
+          onClick={() => setMode('proof')}
+          className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider ${
+            mode === 'proof' ? 'bg-[#6e0d1f] text-white' : 'bg-slate-50 text-slate-600'
           }`}
         >
-          <Film className="w-5 h-5 text-amber-400" />
-          <span>2. VIDEO KIT & GO LIVE</span>
+          Proof Mode: Gemini App Upload
+        </button>
+        <button
+          onClick={() => setMode('auto')}
+          className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider ${
+            mode === 'auto' ? 'bg-[#6e0d1f] text-white' : 'bg-slate-50 text-slate-600'
+          }`}
+        >
+          Auto Mode: Paid API Test
         </button>
       </div>
 
-      {/* =================================================== */}
-      {/* SCREEN 1: CAPTURE PHOTOS & MASTER IMAGE KIT (2 COLUMNS) */}
-      {/* =================================================== */}
-      {activeScreen === 1 && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            
-            {/* LEFT COLUMN: Garment & Person Section */}
-            <section className="space-y-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-md">
-              <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
-                <Shirt className="w-6 h-6 text-[#6e0d1f]" />
-                <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-                  1. GARMENT & PERSON REFERENCE PHOTOS
-                </h2>
-              </div>
-
-              {/* Garment Uploads (Up to 3) */}
-              <div className="space-y-4">
-                <p className="text-xs font-mono font-bold text-amber-800 uppercase">GARMENT PHOTOS (UP TO 3):</p>
-                <div className="grid grid-cols-3 gap-3">
-                  {garmentLabels.map((label, idx) => (
-                    <div key={idx} className="space-y-2 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center shadow-inner">
-                      <p className="text-[10px] font-mono text-slate-500 font-bold uppercase truncate">{label}</p>
-                      {garmentPhotos[idx] ? (
-                        <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden border-2 border-amber-400 shadow-sm">
-                          <img src={garmentPhotos[idx]!} alt={label} className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="aspect-[3/4] w-full rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-white text-xs text-slate-400 font-mono font-bold">
-                          SLOT {idx + 1}
-                        </div>
-                      )}
-
-                      <label className="w-full py-2 px-1 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer hover:bg-[#800A1D] shadow-sm">
-                        <Camera className="w-3.5 h-3.5 text-amber-300" />
-                        <span>UPLOAD</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleGarmentSlotUpload(e, idx)}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  ))}
-                </div>
-
-                {isAnalyzingGarment && (
-                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-center text-xs text-[#6e0d1f] font-bold flex items-center justify-center gap-2 animate-pulse font-mono">
-                    <RefreshCw className="w-4 h-4 animate-spin text-[#6e0d1f]" /> ANALYZING GARMENT EMBROIDERY & COLORS...
-                  </div>
-                )}
-
-                {garmentAnalysis && !isAnalyzingGarment && (
-                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs md:text-sm flex justify-between items-center text-emerald-900 font-mono font-semibold">
-                    <span>GARMENT: <strong>{garmentAnalysis.garmentType}</strong> ({garmentAnalysis.primaryColor})</span>
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  </div>
-                )}
-              </div>
-
-              {/* Person Upload (Customer Photo) */}
-              <div className="space-y-4 pt-4 border-t border-slate-100">
-                <p className="text-xs font-mono font-bold text-amber-800 uppercase flex items-center gap-1.5">
-                  <User className="w-4 h-4 text-[#6e0d1f]" /> CUSTOMER PERSON PHOTO:
-                </p>
-                <div className="flex gap-5 items-center">
-                  <div className="w-28 aspect-[3/4] rounded-2xl border-2 border-amber-300 bg-slate-100 overflow-hidden flex items-center justify-center shrink-0 shadow-inner">
-                    {personPhoto ? (
-                      <img src={personPhoto} alt="Customer" className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-10 h-10 text-slate-400" />
-                    )}
-                  </div>
-
-                  <div className="space-y-3 flex-1">
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="py-3.5 px-3 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer hover:bg-[#800A1D] shadow-sm">
-                        <Camera className="w-4 h-4 text-amber-300" />
-                        <span>TAKE PHOTO</span>
-                        <input type="file" accept="image/*" capture="user" onChange={handlePersonUpload} className="hidden" />
-                      </label>
-
-                      <label className="py-3.5 px-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-800 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-200 shadow-sm">
-                        <ImageIcon className="w-4 h-4 text-slate-600" />
-                        <span>GALLERY</span>
-                        <input type="file" accept="image/*" onChange={handlePersonUpload} className="hidden" />
-                      </label>
-                    </div>
-
-                    {isAnalyzingPerson && (
-                      <div className="text-xs text-amber-800 font-mono font-bold animate-pulse">
-                        Verifying customer pose & lighting...
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* RIGHT COLUMN: Master Image Studio Section */}
-            <section className="space-y-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-md">
-              <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
-                <Sparkles className="w-6 h-6 text-[#6e0d1f]" />
-                <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-                  2. MASTER IMAGE PROMPT & UPLOAD
-                </h2>
-              </div>
-
-              <button
-                onClick={handleCopyMasterPrompt}
-                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition"
-              >
-                <Copy className="w-5 h-5 text-amber-300" />
-                {copyMasterPromptSuccess ? '✓ MASTER IMAGE PROMPT COPIED' : 'COPY MASTER IMAGE PROMPT'}
-              </button>
-
-              <div className="p-6 rounded-2xl bg-amber-50/60 border-2 border-dashed border-amber-300 text-center space-y-4">
-                <p className="text-xs md:text-sm font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-                  UPLOAD AI MASTER IMAGE (JPG / PNG)
-                </p>
-
-                <label className="inline-flex py-4 px-8 rounded-2xl bg-[#6e0d1f] border border-amber-300 text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-lg cursor-pointer hover:bg-[#800A1D] transition items-center justify-center gap-2.5">
-                  <Upload className="w-5 h-5 text-amber-300" />
-                  <span>{isUploadingMaster ? 'UPLOADING...' : 'SELECT & UPLOAD MASTER IMAGE'}</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png"
-                    onChange={handleDirectMasterUpload}
-                    disabled={isUploadingMaster}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              {masterImageUrl ? (
-                <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-3xl overflow-hidden border-2 border-amber-400 shadow-2xl bg-black">
-                  <img src={masterImageUrl} alt="Master Reference" className="w-full h-full object-cover" />
-                  <div className="absolute top-4 right-4 bg-emerald-600 text-white px-4 py-1.5 rounded-full text-xs font-mono font-bold shadow-md">
-                    MASTER UPLOADED ✓
-                  </div>
-                </div>
-              ) : (
-                <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 text-slate-400 font-mono text-xs">
-                  <ImageIcon className="w-12 h-12 mb-2 text-slate-300" />
-                  <span>MASTER IMAGE PREVIEW</span>
-                </div>
-              )}
-            </section>
-
-          </div>
-
-          {/* Navigation to Screen 2 */}
-          <button
-            onClick={() => setActiveScreen(2)}
-            className="w-full py-5 px-8 rounded-2xl bg-gradient-to-r from-[#6e0d1f] via-amber-600 to-[#6e0d1f] text-white font-bold uppercase tracking-wider text-sm md:text-base shadow-xl flex items-center justify-center gap-3 hover:scale-[1.01] transition"
-          >
-            PROCEED TO SCREEN 2: VIDEO KIT <ArrowRight className="w-5 h-5 text-amber-300" />
-          </button>
+      {error && (
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-800 text-sm flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* =================================================== */}
-      {/* SCREEN 2: VIDEO KIT & GO LIVE TV (2 COLUMNS) */}
-      {/* =================================================== */}
-      {activeScreen === 2 && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setActiveScreen(1)}
-              className="px-4 py-2.5 rounded-2xl bg-white border border-slate-300 text-slate-700 text-xs font-mono font-bold uppercase flex items-center gap-2 hover:bg-slate-50 shadow-sm"
-            >
-              <ArrowLeft className="w-4 h-4 text-slate-600" /> BACK TO SCREEN 1
-            </button>
-            <span className="text-xs md:text-sm font-mono font-bold text-[#6e0d1f] bg-amber-100 px-4 py-1.5 rounded-full border border-amber-300">
-              SCREEN 2 OF 2
-            </span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <section className="space-y-6 p-6 md:p-8 rounded-2xl bg-white border border-slate-200 shadow-md">
+          <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
+            <Shirt className="w-6 h-6 text-[#6e0d1f]" />
+            <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+              Garment and Customer Photos
+            </h2>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            
-            {/* LEFT COLUMN: Master Reference Preview */}
-            <section className="space-y-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-md">
-              <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
-                <Sparkles className="w-6 h-6 text-[#6e0d1f]" />
-                <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-                  MASTER REFERENCE IMAGE
-                </h2>
-              </div>
-
-              {masterImageUrl ? (
-                <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-3xl overflow-hidden border-2 border-amber-400 shadow-2xl bg-black">
-                  <img src={masterImageUrl} alt="Master Reference" className="w-full h-full object-cover" />
-                  <div className="absolute top-4 right-4 bg-emerald-600 text-white px-4 py-1.5 rounded-full text-xs font-mono font-bold shadow-md">
-                    MASTER REFERENCE READY ✓
-                  </div>
+          <div className="space-y-4">
+            <p className="text-xs font-mono font-bold text-amber-800 uppercase">Garment photos, up to 3</p>
+            <div className="grid grid-cols-3 gap-3">
+              {garmentLabels.map((label, index) => (
+                <div key={label} className="space-y-2 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
+                  <p className="text-[10px] font-mono text-slate-500 font-bold uppercase truncate">{label}</p>
+                  {garmentPhotos[index] ? (
+                    <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden border-2 border-amber-400 bg-black">
+                      <img src={garmentPhotos[index]!} alt={label} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="aspect-[3/4] w-full rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-white text-xs text-slate-400 font-mono font-bold">
+                      SLOT {index + 1}
+                    </div>
+                  )}
+                  <label className="w-full py-2 px-1 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer hover:bg-[#800A1D]">
+                    <Camera className="w-3.5 h-3.5 text-amber-300" />
+                    Upload
+                    <input type="file" accept="image/*" onChange={(e) => handleGarmentUpload(e, index)} className="hidden" />
+                  </label>
                 </div>
-              ) : (
-                <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 text-slate-400 font-mono text-xs">
-                  <ImageIcon className="w-12 h-12 mb-2 text-slate-300" />
-                  <span>NO MASTER IMAGE UPLOADED YET</span>
-                </div>
-              )}
-            </section>
-
-            {/* RIGHT COLUMN: Video Kit Prompt & Upload */}
-            <section className="space-y-6 p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-md">
-              <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
-                <Film className="w-6 h-6 text-[#6e0d1f]" />
-                <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-                  VIDEO PROMPT & MP4 UPLOAD
-                </h2>
-              </div>
-
-              <button
-                onClick={handleCopyVideoPrompt}
-                className="w-full py-4 px-6 rounded-2xl bg-white border-2 border-[#6e0d1f] text-[#6e0d1f] font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:bg-amber-50 transition"
-              >
-                <Copy className="w-5 h-5 text-[#6e0d1f]" />
-                {copyVideoPromptSuccess ? '✓ VIDEO PROMPT COPIED TO CLIPBOARD' : 'COPY GEMINI VIDEO PROMPT'}
-              </button>
-
-              <div className="p-8 rounded-2xl bg-amber-50/60 border-2 border-dashed border-amber-300 text-center space-y-4">
-                <div className="w-14 h-14 mx-auto rounded-full bg-white border border-amber-300 flex items-center justify-center text-[#6e0d1f] shadow-sm">
-                  <Video className="w-7 h-7" />
-                </div>
-
-                <div>
-                  <p className="text-sm md:text-base font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-                    UPLOAD GENERATED COMMERCIAL VIDEO (.MP4)
-                  </p>
-                  <p className="text-xs text-slate-600 font-medium mt-1">
-                    Upload your MP4 video to launch live TV playback & result preview.
-                  </p>
-                </div>
-
-                <label className="inline-flex py-4 px-8 rounded-2xl bg-[#6e0d1f] border border-amber-300 text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-lg cursor-pointer hover:bg-[#800A1D] transition items-center justify-center gap-2.5">
-                  <Upload className="w-5 h-5 text-amber-300" />
-                  <span>SELECT & UPLOAD MP4 VIDEO</span>
-                  <input
-                    type="file"
-                    accept="video/mp4,video/*"
-                    onChange={handleDirectVideoUpload}
-                    disabled={isUploadingVideo}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            </section>
-
-          </div>
-
-          {/* Navigation to Result Page */}
-          <a
-            href={`/result/${sessionId}`}
-            className="w-full py-5 px-8 rounded-2xl bg-gradient-to-r from-[#6e0d1f] via-amber-600 to-[#6e0d1f] text-white font-bold uppercase tracking-wider text-sm md:text-base shadow-xl flex items-center justify-center gap-3 hover:brightness-110 transition block text-center"
-          >
-            VIEW RESULT PAGE & GO LIVE TV <ArrowRight className="w-5 h-5 text-amber-300" />
-          </a>
-        </div>
-      )}
-
-      {/* Real-time Percentage Uploading Overlay */}
-      {isUploadingVideo && (
-        <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-5">
-          <div className="relative w-20 h-20 flex items-center justify-center">
-            <RefreshCw className="w-16 h-16 text-[#6e0d1f] animate-spin" />
-            <span className="absolute font-mono font-bold text-xs text-[#6e0d1f]">
-              {uploadProgress}%
-            </span>
-          </div>
-
-          <div className="space-y-2 max-w-md w-full">
-            <h3 className="text-2xl font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-              UPLOADING DIWALI COMMERCIAL
-            </h3>
-            
-            {/* Visual Progress Bar */}
-            <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden border border-slate-300 shadow-inner">
-              <div
-                className="h-full bg-gradient-to-r from-[#6e0d1f] to-amber-500 transition-all duration-200"
-                style={{ width: `${Math.max(5, uploadProgress)}%` }}
-              />
+              ))}
             </div>
+          </div>
 
-            <p className="text-xs text-amber-900 font-mono font-bold animate-pulse pt-1">
-              {progressMsg}
+          <div className="space-y-4 pt-4 border-t border-slate-100">
+            <p className="text-xs font-mono font-bold text-amber-800 uppercase flex items-center gap-1.5">
+              <User className="w-4 h-4 text-[#6e0d1f]" /> Customer person photo
+            </p>
+            <div className="flex gap-5 items-center">
+              <div className="w-28 aspect-[3/4] rounded-2xl border-2 border-amber-300 bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
+                {personPhoto ? (
+                  <img src={personPhoto} alt="Customer" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-10 h-10 text-slate-400" />
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3 flex-1">
+                <label className="py-3.5 px-3 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer hover:bg-[#800A1D]">
+                  <Camera className="w-4 h-4 text-amber-300" />
+                  Take Photo
+                  <input type="file" accept="image/*" capture="user" onChange={handlePersonUpload} className="hidden" />
+                </label>
+                <label className="py-3.5 px-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-800 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-200">
+                  <ImageIcon className="w-4 h-4 text-slate-600" />
+                  Gallery
+                  <input type="file" accept="image/*" onChange={handlePersonUpload} className="hidden" />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {(isAnalyzingGarment || isAnalyzingPerson) && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-center text-xs text-[#6e0d1f] font-bold flex items-center justify-center gap-2 animate-pulse font-mono">
+              <RefreshCw className="w-4 h-4 animate-spin" /> Analyzing photos...
+            </div>
+          )}
+
+          {garmentAnalysis && (
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 font-mono space-y-1">
+              <div className="flex items-center justify-between font-bold">
+                <span>{garmentAnalysis.garmentType || 'Garment'} · {garmentAnalysis.primaryColor || 'Color detected'}</span>
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              </div>
+              <p>{garmentAnalysis.operatorMessage || garmentAnalysis.embroideryDescription}</p>
+            </div>
+          )}
+
+          {personAnalysis && (
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 font-mono space-y-1">
+              <div className="flex items-center justify-between font-bold">
+                <span>Customer photo verified</span>
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              </div>
+              <p>{personAnalysis.operatorMessage || `Lighting: ${personAnalysis.lightingQuality || 'checked'}`}</p>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-6 p-6 md:p-8 rounded-2xl bg-white border border-slate-200 shadow-md">
+          <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
+            <Sparkles className="w-6 h-6 text-[#6e0d1f]" />
+            <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+              Master Image Approval
+            </h2>
+          </div>
+
+          {mode === 'proof' ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#6e0d1f]">Master image prompt</h3>
+                  <button
+                    onClick={() => copyPrompt('master', masterPrompt)}
+                    className="px-3 py-2 rounded-lg bg-white border border-amber-300 text-[#6e0d1f] text-[11px] font-bold uppercase flex items-center gap-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    {copiedPrompt === 'master' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-700 max-h-32 overflow-auto whitespace-pre-line">
+                  {masterPrompt}
+                </p>
+              </div>
+
+              <label className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 cursor-pointer hover:brightness-110">
+                {isUploadingManualMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5 text-amber-200" />}
+                Upload Gemini Master Image
+                <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleManualMasterUpload} disabled={isUploadingManualMaster} className="hidden" />
+              </label>
+            </div>
+          ) : (
+            <button
+              onClick={generateMasterImage}
+              disabled={!canGenerateMaster || isGeneratingMaster}
+              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
+            >
+              {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
+              {masterImageUrl ? 'Regenerate Master Image' : 'Generate Diwali Master Image'}
+            </button>
+          )}
+
+          {masterImageUrl ? (
+            <div className="space-y-4">
+              <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-2xl overflow-hidden border-2 border-amber-400 shadow-2xl bg-black">
+                <img src={masterImageUrl} alt="Generated master reference" className="w-full h-full object-cover" />
+                <div className="absolute top-3 right-3 bg-emerald-600 text-white px-3 py-1.5 rounded-full text-[10px] font-mono font-bold">
+                  GENERATED
+                </div>
+              </div>
+
+              <button
+                onClick={() => setMasterApproved(true)}
+                className={`w-full py-4 rounded-2xl border font-bold uppercase tracking-wider text-xs transition ${
+                  masterApproved
+                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                    : 'bg-white border-[#6e0d1f] text-[#6e0d1f] hover:bg-amber-50'
+                }`}
+              >
+                {masterApproved ? 'Master Image Approved' : 'Approve Master Image'}
+              </button>
+            </div>
+          ) : (
+            <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 text-slate-400 font-mono text-xs">
+              <ImageIcon className="w-12 h-12 mb-2 text-slate-300" />
+              <span>Generated image preview</span>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <section className="p-6 md:p-8 rounded-2xl bg-[#12070B] border border-amber-500/30 shadow-xl text-white space-y-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <Film className="w-7 h-7 text-amber-300" />
+            <div>
+              <h2 className="font-serif font-bold uppercase tracking-wider text-lg text-[#F3E5AB]">6-Second Video Generation</h2>
+              <p className="text-xs text-amber-100/80">
+                {mode === 'proof' ? 'Manual Gemini mobile MP4 upload · no AI API spend' : 'Veo Fast 720p · demo locked to 2 starts · no Standard mode'}
+              </p>
+            </div>
+          </div>
+          {mode === 'proof' ? (
+            <label className={`py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 ${!masterImageUrl ? 'opacity-40 pointer-events-none' : 'cursor-pointer'}`}>
+              {isUploadingManualVideo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              Upload Gemini MP4
+              <input type="file" accept="video/mp4,video/*" onChange={handleManualVideoUpload} disabled={!masterImageUrl || isUploadingManualVideo} className="hidden" />
+            </label>
+          ) : (
+            <button
+              onClick={startVideoGeneration}
+              disabled={!canGenerateVideo}
+              className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
+            >
+              Generate 6-sec Video <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {mode === 'proof' && (
+          <div className="rounded-2xl bg-white/5 border border-amber-300/20 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">Video prompt for Gemini app</h3>
+              <button
+                onClick={() => copyPrompt('video', videoPrompt)}
+                className="px-3 py-2 rounded-lg bg-white/10 border border-amber-300/30 text-amber-100 text-[11px] font-bold uppercase flex items-center gap-1"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {copiedPrompt === 'video' ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <p className="text-xs leading-relaxed text-amber-50/90 max-h-32 overflow-auto whitespace-pre-line">
+              {videoPrompt}
             </p>
           </div>
-        </div>
-      )}
+        )}
 
+        <div className="space-y-2">
+          <div className="h-3 bg-white/10 rounded-full overflow-hidden border border-amber-300/20">
+            <div
+              className="h-full bg-gradient-to-r from-amber-300 to-emerald-400 transition-all duration-500"
+              style={{ width: `${mode === 'proof' ? manualUploadProgress : videoProgress}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs font-mono text-amber-100">
+            <span>{mode === 'proof' ? (isUploadingManualVideo ? 'Uploading manual MP4 to Firebase Storage...' : 'Upload Gemini MP4 after master image is ready.') : progressCopy[videoPhase]}</span>
+            <span>{mode === 'proof' ? manualUploadProgress : videoProgress}%</span>
+          </div>
+          {jobId && <p className="text-[11px] text-amber-200/80 font-mono">JOB: {jobId}</p>}
+        </div>
+      </section>
     </main>
   );
 }
