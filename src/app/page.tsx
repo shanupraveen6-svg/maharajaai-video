@@ -1,8 +1,7 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
-import { Flame, Sparkles, ArrowRight, Camera, Shirt, Tv, Award, Smartphone } from 'lucide-react';
+import { Flame, Sparkles, ArrowRight, Camera, Shirt, Tv, Smartphone, Download, BadgeCheck, ShieldCheck } from 'lucide-react';
+import packageInfo from '../../package.json';
 
 export default function LandingPage() {
   return (
@@ -69,6 +68,81 @@ export default function LandingPage() {
           >
             EXPLORE THE IDEA
           </a>
+        </div>
+      </section>
+
+      {/* Web App Install Card */}
+      <section className="relative z-10 max-w-6xl mx-auto px-6 pb-16">
+        <div className="maharaja-card overflow-hidden border border-[#D4AF37]/30 shadow-2xl">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.08fr_0.92fr]">
+            <div className="p-7 md:p-10 flex flex-col justify-between gap-8">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-400/30 text-emerald-200 text-[11px] uppercase tracking-widest font-semibold mb-5">
+                  <BadgeCheck className="w-4 h-4" />
+                  Latest Web App v{packageInfo.version}
+                </div>
+
+                <h2 className="text-3xl md:text-5xl font-serif font-bold text-[#F3E5AB] leading-tight mb-4">
+                  Download our app for the fastest store workflow.
+                </h2>
+
+                <p className="text-sm md:text-base text-gray-300 leading-relaxed max-w-2xl">
+                  Install the Maharaja AI Diwali Experience as a web app on your phone, tablet, or TV browser. No app store needed, just the latest web version ready from this site.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href="/create"
+                  className="w-full sm:w-auto py-4 px-7 rounded-full bg-[#F5E089] text-black font-bold uppercase tracking-wider text-sm shadow-xl hover:bg-white transition flex items-center justify-center gap-3"
+                >
+                  <Download className="w-5 h-5" />
+                  Install Web App
+                </Link>
+                <Link
+                  href="/tv"
+                  className="w-full sm:w-auto py-4 px-7 rounded-full bg-black/60 border border-cyan-300/30 text-cyan-100 uppercase tracking-wider text-sm font-semibold hover:bg-cyan-950/30 transition flex items-center justify-center gap-3"
+                >
+                  <Tv className="w-5 h-5" />
+                  Open TV App
+                </Link>
+              </div>
+            </div>
+
+            <div className="relative min-h-[280px] bg-[#05080A] border-t lg:border-t-0 lg:border-l border-[#D4AF37]/20 overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(34,211,238,0.22),transparent_32%),radial-gradient(circle_at_80%_30%,rgba(212,175,55,0.2),transparent_34%),linear-gradient(145deg,rgba(110,13,31,0.36),rgba(5,8,10,0.92))]" />
+              <div className="relative h-full p-8 flex items-center justify-center">
+                <div className="w-full max-w-sm rounded-[2rem] border border-white/15 bg-black/70 p-4 shadow-2xl">
+                  <div className="rounded-[1.35rem] border border-[#D4AF37]/25 bg-[#10070C] p-5">
+                    <div className="flex items-center justify-between mb-8">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-[#D4AF37] text-black flex items-center justify-center">
+                          <Smartphone className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white">Maharaja AI</p>
+                          <p className="text-[11px] text-gray-400">Web app install</p>
+                        </div>
+                      </div>
+                      <ShieldCheck className="w-5 h-5 text-emerald-300" />
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="h-3 rounded-full bg-[#D4AF37]/80 w-4/5" />
+                      <div className="h-3 rounded-full bg-cyan-200/50 w-2/3" />
+                      <div className="h-3 rounded-full bg-white/15 w-full" />
+                    </div>
+
+                    <div className="mt-8 grid grid-cols-3 gap-3">
+                      <div className="aspect-square rounded-2xl bg-[#6e0d1f]/70 border border-[#D4AF37]/20" />
+                      <div className="aspect-square rounded-2xl bg-[#D4AF37]/80 border border-[#F5E089]/30" />
+                      <div className="aspect-square rounded-2xl bg-cyan-300/20 border border-cyan-200/25" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -1020,20 +1020,36 @@ Keep full body visible from head to toe for the entire 6 seconds. No close-up, n
         </div>
 
         {mode === 'proof' && (
-          <div className="rounded-2xl bg-white/5 border border-amber-300/20 p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">Optional Gemini/Veo prompt</h3>
-              <button
-                onClick={() => copyPrompt('video', videoPrompt)}
-                className="px-3 py-2 rounded-lg bg-white/10 border border-amber-300/30 text-amber-100 text-[11px] font-bold uppercase flex items-center gap-1"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                {copiedPrompt === 'video' ? 'Copied' : 'Copy'}
-              </button>
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-white/5 border border-amber-300/20 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">Gemini / Veo Video Prompt for Gemini App</h3>
+                <button
+                  onClick={() => copyPrompt('video', videoPrompt)}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md hover:brightness-110 transition"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  {copiedPrompt === 'video' ? '✓ Prompt Copied' : 'Copy Video Prompt'}
+                </button>
+              </div>
+              <p className="text-xs leading-relaxed text-amber-50/90 max-h-36 overflow-auto whitespace-pre-line font-mono bg-black/40 p-3 rounded-xl border border-white/10 select-all">
+                {videoPrompt}
+              </p>
             </div>
-            <p className="text-xs leading-relaxed text-amber-50/90 max-h-32 overflow-auto whitespace-pre-line">
-              {videoPrompt}
-            </p>
+
+            <div className="rounded-2xl bg-red-950/40 border border-red-400/40 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-300 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-red-100">
+                    Important Identity & Proof Advice
+                  </h3>
+                  <p className="text-xs leading-relaxed text-red-50/90">
+                    Gemini/Veo AI video generation may alter facial details even when the master image is 100% accurate. For guaranteed face identity & in-store TV display, use <strong>Create Safe Motion Video</strong>. It animates the approved image directly so face, dress, and body stay 100% identical.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
