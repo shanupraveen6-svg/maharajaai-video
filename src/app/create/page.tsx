@@ -21,6 +21,7 @@ import { compressImage } from '@/lib/utils/image';
 type GarmentAnalysis = {
   garmentType?: string;
   primaryColor?: string;
+  fabricAppearance?: string;
   embroideryDescription?: string;
   operatorMessage?: string;
 };
@@ -190,66 +191,38 @@ export default function CreatePage() {
   }, [videoPhase]);
 
   const masterPrompt = useMemo(() => {
-    const garment = garmentAnalysis?.garmentType || 'selected festive outfit';
-    const color = garmentAnalysis?.primaryColor || 'the original garment color';
-    const embroidery = garmentAnalysis?.embroideryDescription || 'the exact embroidery, motifs, borders and fabric details';
-
-    return `CRITICAL PRODUCT LOCK:
-The uploaded garment photos are the product being sold. The model must wear the exact same uploaded product outfit. Do not create a kurta, sherwani, festive costume, jacket, robe, saree, lehenga or any different clothing unless that exact item is visible in the product photos. Diwali styling is allowed only in the background, lights, lamps, flowers, rangoli and showroom mood. The clothes must stay exactly like the product photos.
-
-Create a premium cinematic 9:16 full-body Maharaja Diwali showroom fashion advertisement image.
-
-Use the customer photo only as the identity and body reference. Preserve the same face, facial structure, eyes, nose, smile, jawline, skin tone, hairstyle, age appearance, height impression, body proportions and natural presence. Facial match must be very close to the uploaded customer photo. Ignore and replace the clothes worn in the customer photo.
-
-Use the garment photos as the exact clothing reference and the main sales product. The person must wear the exact uploaded product outfit, not a newly invented festive outfit. Preserve the ${color} ${garment}, ${embroidery}, fabric texture, neckline, sleeves, silhouette, buttons, pockets, cargo pockets, stitching, wrinkles, fit, length and pattern placement.
-
-Do not convert the outfit into a kurta, sherwani, saree, lehenga or any other traditional costume unless that exact garment is present in the uploaded reference photos. If the uploaded garment is a shirt, pants, cargo, casualwear, kidswear or westernwear, keep that exact style.
-
-Make the customer look like a premium fashion model in a luxury retail campaign while still looking like the same real person. Improve only posture, styling, lighting and scene quality; do not alter identity or body shape.
-
-Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Do not change gender presentation, age appearance or facial identity.
-
-${selectedConcept.imageDirection}
-
-Only the environment, lighting and mood should become grand Diwali-themed: premium Maharaja Thanjavur showroom, warm diya glow, brass lamps, marigold flowers, subtle rangoli, luxurious golden and floral decor, luxury festive entrance, soft cinematic bokeh and celebratory retail atmosphere.
-
-Optional text: if a greeting is shown as a small elegant showroom banner or final festive card, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text.
-
-Lighting/camera: warm golden key light, soft rim light, gentle diya highlights, realistic skin texture, editorial fashion photography, 50mm lens look, slightly low flattering camera height, elegant straight posture, natural confident smile, full-body vertical framing, sharp garment visibility from collar to footwear.
-
-Strict rules: do not change identity, skin tone, body shape, garment type, garment color, garment design, pattern, fit, bottom wear or footwear. No duplicate people, extra limbs, distorted hands, random text except the exact Tamil greeting above, or fake logos.`;
-  }, [garmentAnalysis, selectedConcept]);
+    return `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image.
+Use the first uploaded image as the exact customer identity reference. Preserve the same facial identity, facial features, face shape, skin tone, hairstyle, approximate body proportions, age appearance and overall likeness.
+Use the remaining uploaded garment images as the exact clothing reference. Preserve the garment's real primary color, secondary colors, fabric appearance, embroidery, motifs, borders, pattern placement, neckline, sleeves, silhouette and overall design.
+Dress the same customer naturally and realistically in the selected garment as a complete full-length outfit.
+If the uploaded product contains only a top garment, create a tasteful complementary traditional bottom that matches the product without altering the supplied garment itself.
+Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.
+Maintain strict full-body head-to-toe framing. The complete outfit must be clearly visible.
+Styling should be attractive, premium and realistic, with natural posture, subtle festive makeup and elegant Indian traditional styling suitable for the customer.
+Do not change the customer's identity. Do not redesign the garment. Do not change garment color, embroidery, motifs or pattern. Do not create duplicate people, extra limbs, malformed hands, random text or logos.
+The final image should look like a premium Maharaja festive fashion campaign photograph.`;
+  }, []);
 
   const videoPrompt = useMemo(() => {
-    const garment = garmentAnalysis?.garmentType || 'selected outfit';
+    const garment = garmentAnalysis?.garmentType || 'outfit';
     const color = garmentAnalysis?.primaryColor || 'original garment color';
+    const embroidery = garmentAnalysis?.embroideryDescription || 'visible garment details';
+    const fabric = garmentAnalysis?.fabricAppearance || 'real fabric texture';
 
-    return `CRITICAL PRODUCT LOCK:
-The uploaded master image outfit is the product being sold. Keep the exact same outfit for the full video. Do not create a kurta, sherwani, festive costume, jacket, robe, saree, lehenga or any different clothing unless it is already shown in the master image. Diwali styling is allowed only in the background, lights, lamps, flowers, rangoli and showroom mood. The clothes must stay exactly like the master image.
-
-LAST CREDIT SAFETY LOCK:
-Treat the uploaded master image as the locked first frame. Animate the existing person and scene only; do not recreate, redesign, replace, beautify, age, de-age, or reinterpret the face, body, outfit, background composition, or camera angle. Keep it as one continuous single-shot image-to-video animation with only subtle premium motion.
-
-Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali showroom fashion commercial using the uploaded master image as the exact reference.
-
-The uploaded outfit is the sales product and hero of the ad. Preserve the same person identity, face, eyes, nose, smile, jawline, skin tone, hairstyle, age appearance, body proportions, ${color} ${garment}, garment embroidery, fabric texture, motifs, borders, shirt/pant structure, pockets, cargo pockets, stitching, wrinkles, fit, bottom wear, footwear and complete outfit throughout the video.
-
-The outfit must remain exactly as shown in the master image. Do not change it into a kurta, sherwani, saree, lehenga or any other festive costume unless the master image already shows that exact outfit.
-
-Shot: luxury retail Diwali movie-star fashion film. The subject looks premium, confident and attractive like a cinema-style festive fashion model while still being the same real person. Use creative camera motion around a stable subject: a slow low-angle dolly push, slight side-to-front parallax arc and elegant showroom depth, while keeping full-body head-to-toe framing. The person may take one or two very slow casual steps, then stop and pose with a soft natural smile. A small diya may be held casually below chest level or near the side, never covering the garment. Do not use close-up face shots. Do not turn the head sharply.
-
-Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Facial match must remain very close for the full video.
-
-${selectedConcept.videoDirection}
-
-Lighting/camera: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, premium movie-star grooming, subtle natural makeup polish, festive background bokeh, rich golden Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face. Add safe distant cracker sparkle/fireworks bokeh in the sky or far background only, never near the body, face or garment. Keep the camera far enough that the face remains stable and natural.
-
-Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text.
-
-Audio: use a warm off-screen Tamil festive voice-over, not the person's lip-sync, saying "இனிய தீபாவளி நல்வாழ்த்துக்கள்" in a natural shop-greeting tone. The person smiles while the voice-over plays, but does not speak and does not move the mouth. Add subtle festive ambience: soft diya flame, gentle showroom music and distant cracker sparkle ambience. The Tamil greeting text will also be added by the Maharaja website/TV overlay.
-
-Keep full body visible from head to toe for the entire 6 seconds. No close-up, no direct speaking, no lip-sync, no dancing, spinning, fast walking, face change, skin tone change, body shape change, outfit swap, garment redesign, traditional outfit substitution, duplicate person, extra limbs, malformed hands, random text except the exact Tamil greeting above, or generated logo.`;
-  }, [garmentAnalysis, selectedConcept]);
+    return `Create a photorealistic premium 6-second vertical 9:16 Diwali fashion commercial using the uploaded master reference image as the definitive visual reference.
+Preserve the exact same person's facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance, garment design (${color} ${garment}, ${fabric}, ${embroidery}), garment color, embroidery, motifs, pattern, accessories and complete outfit throughout the entire video.
+The subject begins slightly farther from the camera and walks slowly and naturally forward toward the camera throughout the shot.
+Maintain strict full-body head-to-toe framing throughout so the complete garment length and silhouette remain clearly visible at all times.
+The subject smiles warmly and gracefully holds a glowing traditional clay diya in both hands while walking.
+Place the subject in a vibrant premium Diwali celebration environment with warm diyas, traditional lamps, floral decorations, subtle rangoli and elegant festive golden lighting.
+Use realistic walking motion, natural fabric movement, anatomically correct hands and fingers, elegant posture, subtle festive makeup, realistic skin texture and high-end Indian fashion-commercial lighting.
+The subject clearly says in natural Tamil:
+"அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!"
+Keep the camera movement smooth and cinematic. Keep the person centered and clearly visible.
+Display the Tamil greeting text tastefully near the lower third for 2-3 seconds.
+Do not change the person's face. Do not change the garment. Do not change garment color, embroidery, hairstyle or body proportions. No duplicate person. No extra limbs. No malformed hands. No dancing. No spinning. No jumping. No face morphing. No random text. No generated logos. No excessive fireworks.
+Premium festive commercial look, sharp focus, cinematic depth and warm color grading.`;
+  }, [garmentAnalysis]);
 
   async function copyPrompt(type: 'master' | 'video', prompt: string) {
     await navigator.clipboard.writeText(prompt);
