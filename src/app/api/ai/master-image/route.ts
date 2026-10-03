@@ -57,21 +57,23 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        const prompt = `Create a premium cinematic 9:16 vertical full-body Maharaja Diwali showroom master image.
+        const prompt = `Create a premium cinematic 9:16 vertical full-body Maharaja Diwali showroom fashion advertisement master image.
 
-Use the first input image as the exact customer identity reference. Preserve the same face, facial structure, skin tone, hairstyle, age appearance, height impression, body proportions, and natural presence. Do not beautify by changing identity or body shape.
+Use the first input image only as the exact customer identity and body reference. Preserve the same face, facial structure, skin tone, hairstyle, age appearance, height impression, body proportions, and natural presence. Ignore and replace the clothes worn in the customer photo. Do not beautify by changing identity or body shape.
 
-Use the remaining input images as the exact garment reference. The customer must wear the exact uploaded garment, not a newly invented festive outfit. Preserve the real ${garmentAnalysis?.primaryColor || 'selected outfit'} color, secondary colors, fabric appearance, embroidery, motifs, borders, neckline, sleeve shape, silhouette, buttons, pockets, fit, pattern placement, and styling details of the ${garmentAnalysis?.garmentType || 'outfit'}.
+Use the remaining input images as the exact garment reference and the main sales product. The customer must wear the exact uploaded product outfit, not a newly invented festive outfit. Preserve the real ${garmentAnalysis?.primaryColor || 'selected outfit'} color, secondary colors, fabric appearance, embroidery, motifs, borders, neckline, sleeve shape, silhouette, buttons, pockets, cargo pockets, stitching, wrinkles, fit, length, pattern placement, and styling details of the ${garmentAnalysis?.garmentType || 'outfit'}.
 
 Do not convert the outfit into a kurta, sherwani, saree, lehenga, or other traditional costume unless that exact garment is visible in the uploaded reference photos. If the uploaded garment is a shirt, pants, cargo, casualwear, kidswear, or westernwear, preserve that exact style.
 
-Only the environment should become Diwali-themed. Set the scene inside a premium Maharaja Thanjavur showroom campaign environment: warm diya glow, brass lamps, subtle rangoli, marigold flowers, rich maroon and gold accents, refined festive decor, soft cinematic bokeh, and elegant luxury retail atmosphere.
+Make the customer look like a premium fashion model in a luxury retail campaign while still looking like the same real person. Improve only posture, styling, lighting, grooming polish, and scene quality; do not alter identity or body shape.
 
-Lighting and camera: warm golden key light, soft rim light for separation, gentle diya highlights on face and fabric, realistic skin texture, editorial 50mm fashion photography feel, full-body vertical composition, slightly low flattering camera height, graceful posture, natural smile, and clear garment visibility.
+Only the environment, lighting, and mood should become grand Diwali-themed. Set the scene inside a premium Maharaja Thanjavur showroom campaign environment: warm diya glow, brass lamps, subtle rangoli, marigold flowers, rich maroon and gold accents, refined festive decor, luxury festive entrance, soft cinematic bokeh, and elegant luxury retail atmosphere.
+
+Lighting and camera: warm golden key light, soft rim light for separation, gentle diya highlights on face and fabric, realistic skin texture, editorial 50mm fashion photography feel, full-body vertical composition, slightly low flattering camera height, graceful posture, natural confident smile, and sharp garment visibility from collar to footwear.
 
 Adapt the pose, camera height, drape, and lighting to flatter the individual naturally while preserving real identity, skin tone, and body proportions. If the garment is dark, add warm rim light and golden background separation. If the garment has heavy embroidery, emphasize detailed light on the fabric.
 
-No duplicate people, no extra limbs, no distorted hands, no random text, no fake logos, no face change, no skin tone change, no garment type change, no garment redesign, no garment color change.`;
+No duplicate people, no extra limbs, no distorted hands, no random text, no fake logos, no face change, no skin tone change, no garment type change, no garment redesign, no garment color change, no traditional outfit substitution.`;
 
         contents.push(prompt);
 
