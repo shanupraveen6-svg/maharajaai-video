@@ -141,34 +141,36 @@ export default function CreatePage() {
     const color = garmentAnalysis?.primaryColor || 'the original garment color';
     const embroidery = garmentAnalysis?.embroideryDescription || 'the exact embroidery, motifs, borders and fabric details';
 
-    return `Create a premium cinematic 9:16 full-body Maharaja Diwali fashion campaign image.
+    return `Create a premium cinematic 9:16 full-body Maharaja Diwali showroom image.
 
 Use the customer photo as the exact identity reference. Preserve the same face, facial structure, skin tone, hairstyle, age appearance, height impression, body proportions and natural presence.
 
-Use the garment photos as the exact clothing reference. Preserve the ${color} ${garment}, ${embroidery}, fabric texture, neckline, sleeves, silhouette and pattern placement.
+Use the garment photos as the exact clothing reference. The person must wear the exact uploaded garment, not a newly invented festive outfit. Preserve the ${color} ${garment}, ${embroidery}, fabric texture, neckline, sleeves, silhouette, buttons, pockets, fit and pattern placement.
 
-Dress the customer naturally in the selected garment as a complete head-to-toe outfit. If the garment is top-only, add a tasteful matching traditional bottom without changing the supplied garment.
+Do not convert the outfit into a kurta, sherwani, saree, lehenga or any other traditional costume unless that exact garment is present in the uploaded reference photos. If the uploaded garment is a shirt, pants, cargo, casualwear, kidswear or westernwear, keep that exact style.
 
-Scene: premium Maharaja Thanjavur Diwali showroom campaign, warm diya glow, brass lamps, marigold flowers, subtle rangoli, rich maroon and gold decor, soft festive bokeh.
+Only the environment should become Diwali-themed: premium Maharaja Thanjavur showroom, warm diya glow, brass lamps, marigold flowers, subtle rangoli, rich maroon and gold decor, soft festive bokeh.
 
 Lighting/camera: warm golden key light, soft rim light, gentle diya highlights, realistic skin texture, editorial 50mm fashion look, slightly low flattering camera height, graceful posture, natural smile, full-body vertical framing.
 
-Do not change identity, skin tone, body shape, garment color or garment design. No duplicate people, extra limbs, distorted hands, random text or fake logos.`;
+Strict rules: do not change identity, skin tone, body shape, garment type, garment color, garment design, pattern, fit, bottom wear or footwear. No duplicate people, extra limbs, distorted hands, random text or fake logos.`;
   }, [garmentAnalysis]);
 
   const videoPrompt = useMemo(() => {
     const garment = garmentAnalysis?.garmentType || 'selected outfit';
     const color = garmentAnalysis?.primaryColor || 'original garment color';
 
-    return `Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali fashion commercial using the uploaded master image as the exact reference.
+    return `Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali showroom commercial using the uploaded master image as the exact reference.
 
-Preserve the same person identity, face, skin tone, hairstyle, age appearance, body proportions, ${color} ${garment}, garment embroidery, fabric texture, motifs, borders and complete outfit throughout the video.
+Preserve the same person identity, face, skin tone, hairstyle, age appearance, body proportions, ${color} ${garment}, garment embroidery, fabric texture, motifs, borders, bottom wear, footwear and complete outfit throughout the video.
 
-Shot: luxury Indian festive fashion film. The subject stands gracefully holding a glowing clay diya with both hands. Use a slow cinematic dolly push-in from full-body head-to-toe framing, with subtle natural breathing, soft smile, gentle fabric motion and elegant hand placement.
+The outfit must remain exactly as shown in the master image. Do not change it into a kurta, sherwani, saree, lehenga or any other festive costume unless the master image already shows that exact outfit.
+
+Shot: luxury retail Diwali film. The subject stands gracefully in the same outfit, optionally holding a small glowing clay diya if it does not cover the garment. Use a slow cinematic dolly push-in from full-body head-to-toe framing, with subtle natural breathing, soft smile, gentle fabric motion and elegant hand placement.
 
 Lighting/camera: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus.
 
-Keep full body visible from head to toe for the entire 6 seconds. No dancing, spinning, fast walking, face change, skin tone change, body shape change, garment redesign, duplicate person, extra limbs, malformed hands, random text or generated logo.`;
+Keep full body visible from head to toe for the entire 6 seconds. No dancing, spinning, fast walking, face change, skin tone change, body shape change, outfit swap, garment redesign, duplicate person, extra limbs, malformed hands, random text or generated logo.`;
   }, [garmentAnalysis]);
 
   async function copyPrompt(type: 'master' | 'video', prompt: string) {
