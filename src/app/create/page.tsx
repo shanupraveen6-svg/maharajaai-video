@@ -231,7 +231,7 @@ The uploaded outfit is the sales product and hero of the ad. Preserve the same p
 
 The outfit must remain exactly as shown in the master image. Do not change it into a kurta, sherwani, saree, lehenga or any other festive costume unless the master image already shows that exact outfit.
 
-Shot: luxury retail Diwali fashion model film. The subject stands gracefully in the same outfit, looking like a premium showroom campaign model while still being the same real person. Use a slow cinematic dolly push-in from full-body head-to-toe framing, with subtle natural breathing, soft smile, gentle fabric motion and elegant hand placement. If a diya is used, keep it small and away from the garment so the product remains clearly visible.
+Shot: luxury retail Diwali fashion model film. The subject stands gracefully in the same outfit, looking like a premium showroom campaign model while still being the same real person. Use a slow cinematic dolly push-in from full-body head-to-toe framing only, with subtle natural breathing, soft stable smile, gentle fabric motion and elegant hand placement. Do not use close-up face shots. If a diya is used, keep it small and away from the garment so the product remains clearly visible.
 
 Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Facial match must remain very close for the full video.
 
@@ -241,9 +241,9 @@ Lighting/camera: 35mm cinematic lens look, warm golden key light, soft rim light
 
 Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text.
 
-Spoken greeting: the person should warmly say this exact Tamil greeting once in a natural Tamil shop-greeting tone: "இனிய தீபாவளி நல்வாழ்த்துக்கள்" (spoken as "Iniya Deepavali Nalvazhthukkal"). Use gentle natural lip movement and a respectful greeting expression. If spoken audio is not supported by the generator, show the exact Tamil greeting as a small elegant final card instead.
+Do not make the person speak. Do not create lip-sync or mouth movement. Keep the face stable and natural. The Tamil greeting will be added by the Maharaja website/TV overlay, not by the generated video.
 
-Keep full body visible from head to toe for the entire 6 seconds. No dancing, spinning, fast walking, face change, skin tone change, body shape change, outfit swap, garment redesign, traditional outfit substitution, duplicate person, extra limbs, malformed hands, random text except the exact Tamil greeting above, or generated logo.`;
+Keep full body visible from head to toe for the entire 6 seconds. No close-up, no speaking, no lip-sync, no dancing, spinning, fast walking, face change, skin tone change, body shape change, outfit swap, garment redesign, traditional outfit substitution, duplicate person, extra limbs, malformed hands, random text except the exact Tamil greeting above, or generated logo.`;
   }, [garmentAnalysis, selectedConcept]);
 
   async function copyPrompt(type: 'master' | 'video', prompt: string) {
