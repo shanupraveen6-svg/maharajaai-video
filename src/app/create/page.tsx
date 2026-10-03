@@ -146,7 +146,7 @@ The uploaded garment photos are the product being sold. The model must wear the 
 
 Create a premium cinematic 9:16 full-body Maharaja Diwali showroom fashion advertisement image.
 
-Use the customer photo only as the identity and body reference. Preserve the same face, facial structure, skin tone, hairstyle, age appearance, height impression, body proportions and natural presence. Ignore and replace the clothes worn in the customer photo.
+Use the customer photo only as the identity and body reference. Preserve the same face, facial structure, eyes, nose, smile, jawline, skin tone, hairstyle, age appearance, height impression, body proportions and natural presence. Facial match must be very close to the uploaded customer photo. Ignore and replace the clothes worn in the customer photo.
 
 Use the garment photos as the exact clothing reference and the main sales product. The person must wear the exact uploaded product outfit, not a newly invented festive outfit. Preserve the ${color} ${garment}, ${embroidery}, fabric texture, neckline, sleeves, silhouette, buttons, pockets, cargo pockets, stitching, wrinkles, fit, length and pattern placement.
 
@@ -154,11 +154,15 @@ Do not convert the outfit into a kurta, sherwani, saree, lehenga or any other tr
 
 Make the customer look like a premium fashion model in a luxury retail campaign while still looking like the same real person. Improve only posture, styling, lighting and scene quality; do not alter identity or body shape.
 
+Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Do not change gender presentation, age appearance or facial identity.
+
 Only the environment, lighting and mood should become grand Diwali-themed: premium Maharaja Thanjavur showroom, warm diya glow, brass lamps, marigold flowers, subtle rangoli, rich maroon and gold decor, luxury festive entrance, soft cinematic bokeh and celebratory retail atmosphere.
+
+Optional text: if a greeting is shown as a small elegant showroom banner or final festive card, use only this exact Tamil text with correct spelling: "இனிய தீபாவளி நல்வாழ்த்துகள்". Do not add any other text.
 
 Lighting/camera: warm golden key light, soft rim light, gentle diya highlights, realistic skin texture, editorial fashion photography, 50mm lens look, slightly low flattering camera height, elegant straight posture, natural confident smile, full-body vertical framing, sharp garment visibility from collar to footwear.
 
-Strict rules: do not change identity, skin tone, body shape, garment type, garment color, garment design, pattern, fit, bottom wear or footwear. No duplicate people, extra limbs, distorted hands, random text or fake logos.`;
+Strict rules: do not change identity, skin tone, body shape, garment type, garment color, garment design, pattern, fit, bottom wear or footwear. No duplicate people, extra limbs, distorted hands, random text except the exact Tamil greeting above, or fake logos.`;
   }, [garmentAnalysis]);
 
   const videoPrompt = useMemo(() => {
@@ -170,15 +174,19 @@ The uploaded master image outfit is the product being sold. Keep the exact same 
 
 Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali showroom fashion commercial using the uploaded master image as the exact reference.
 
-The uploaded outfit is the sales product and hero of the ad. Preserve the same person identity, face, skin tone, hairstyle, age appearance, body proportions, ${color} ${garment}, garment embroidery, fabric texture, motifs, borders, shirt/pant structure, pockets, cargo pockets, stitching, wrinkles, fit, bottom wear, footwear and complete outfit throughout the video.
+The uploaded outfit is the sales product and hero of the ad. Preserve the same person identity, face, eyes, nose, smile, jawline, skin tone, hairstyle, age appearance, body proportions, ${color} ${garment}, garment embroidery, fabric texture, motifs, borders, shirt/pant structure, pockets, cargo pockets, stitching, wrinkles, fit, bottom wear, footwear and complete outfit throughout the video.
 
 The outfit must remain exactly as shown in the master image. Do not change it into a kurta, sherwani, saree, lehenga or any other festive costume unless the master image already shows that exact outfit.
 
 Shot: luxury retail Diwali fashion model film. The subject stands gracefully in the same outfit, looking like a premium showroom campaign model while still being the same real person. Use a slow cinematic dolly push-in from full-body head-to-toe framing, with subtle natural breathing, soft smile, gentle fabric motion and elegant hand placement. If a diya is used, keep it small and away from the garment so the product remains clearly visible.
 
+Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Facial match must remain very close for the full video.
+
 Lighting/camera: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face.
 
-Keep full body visible from head to toe for the entire 6 seconds. No dancing, spinning, fast walking, face change, skin tone change, body shape change, outfit swap, garment redesign, traditional outfit substitution, duplicate person, extra limbs, malformed hands, random text or generated logo.`;
+Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact Tamil text with correct spelling: "இனிய தீபாவளி நல்வாழ்த்துகள்". Do not add any other text.
+
+Keep full body visible from head to toe for the entire 6 seconds. No dancing, spinning, fast walking, face change, skin tone change, body shape change, outfit swap, garment redesign, traditional outfit substitution, duplicate person, extra limbs, malformed hands, random text except the exact Tamil greeting above, or generated logo.`;
   }, [garmentAnalysis]);
 
   async function copyPrompt(type: 'master' | 'video', prompt: string) {
