@@ -205,19 +205,22 @@ export function buildVideoPrompt(analysis: any, conceptPrompt?: string): string 
   return `CRITICAL PRODUCT LOCK:
 The uploaded master image outfit is the product being sold. Keep the exact same outfit for the full video. Do not create a kurta, sherwani, festive costume, jacket, robe, saree, lehenga, or any different clothing unless it is already shown in the master image. Diwali styling is allowed only in the background, lights, lamps, flowers, rangoli, and showroom mood. The clothes must stay exactly like the master image.
 
+LAST CREDIT SAFETY LOCK:
+Treat the uploaded master image as the locked first frame. Animate the existing person and scene only; do not recreate, redesign, replace, beautify, age, de-age, or reinterpret the face, body, outfit, background composition, or camera angle. Keep it as one continuous single-shot image-to-video animation with only subtle premium motion.
+
 Create a premium cinematic 6-second vertical 9:16 Maharaja Diwali showroom fashion commercial using the uploaded master image as the exact visual reference.
 
 The uploaded outfit is the sales product and hero of the ad. Preserve the same person identity, face, eyes, nose, smile, jawline, skin tone, hairstyle, age appearance, height impression, body proportions, ${primaryColor} ${garmentType}, ${fabric}, ${embroidery}, garment color, embroidery, motifs, borders, shirt/pant structure, pockets, cargo pockets, stitching, wrinkles, fit, bottom wear, footwear, and complete outfit throughout the video.
 
 The outfit must remain exactly as shown in the master image. Do not convert the outfit into a kurta, sherwani, saree, lehenga, or other festive costume unless the master image already shows that exact outfit.
 
-Shot style: luxury retail Diwali fashion model film. The subject stands gracefully in the same outfit, looking like a premium showroom campaign model while still being the same real person. Use a slow cinematic dolly push-in from full-body head-to-toe framing only, with subtle natural breathing, soft stable smile, gentle fabric motion, and elegant hand placement. Do not use close-up face shots. If a diya is used, keep it small and away from the garment so the product remains clearly visible.
+Shot style: luxury retail Diwali fashion model film. The subject stands gracefully in the same outfit, looking like a premium showroom campaign model while still being the same real person. Use one slow controlled camera push-in that still keeps full-body head-to-toe framing, with subtle natural breathing, soft stable smile, tiny fabric motion, and elegant hand stillness. Do not use close-up face shots. Do not turn the head sharply. If a diya is used, keep it small and away from the garment so the product remains clearly visible.
 
 Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Facial match must remain very close for the full video.
 
 ${typeof conceptPrompt === 'string' && conceptPrompt.trim() ? conceptPrompt.trim() : 'Concept: Royal showroom campaign film. Use a premium Diwali showroom scene with confident fashion-ad posture, warm brass lamps, marigold decor and rich cinematic depth.'}
 
-Camera and lighting: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face.
+Camera and lighting: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face. Keep the camera far enough that the face remains stable and natural.
 
 Keep full body visible from head to toe throughout the entire 6 seconds. The garment must remain clearly visible and unchanged. The motion should be slow, graceful, premium, and suitable for an in-store fashion advertisement.
 
