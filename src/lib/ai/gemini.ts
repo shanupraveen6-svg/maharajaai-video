@@ -214,21 +214,21 @@ The uploaded outfit is the sales product and hero of the ad. Preserve the same p
 
 The outfit must remain exactly as shown in the master image. Do not convert the outfit into a kurta, sherwani, saree, lehenga, or other festive costume unless the master image already shows that exact outfit.
 
-Shot style: luxury retail Diwali fashion model film. The subject stands gracefully in the same outfit, looking like a premium showroom campaign model while still being the same real person. Use one slow controlled camera push-in that still keeps full-body head-to-toe framing, with subtle natural breathing, soft stable smile, tiny fabric motion, and elegant hand stillness. Do not use close-up face shots. Do not turn the head sharply. If a diya is used, keep it small and away from the garment so the product remains clearly visible.
+Shot style: luxury retail Diwali movie-star fashion film. The subject looks premium, confident and attractive like a cinema-style festive fashion model while still being the same real person. Use creative camera motion around a stable subject: a slow low-angle dolly push, slight side-to-front parallax arc and elegant showroom depth, while keeping full-body head-to-toe framing. The person may take one or two very slow casual steps, then stop and pose with a soft natural smile. A small diya may be held casually below chest level or near the side, never covering the garment. Do not use close-up face shots. Do not turn the head sharply.
 
 Match the presentation tone naturally to the customer: elegant and confident for men, graceful and refined for women, cheerful and premium for kids. Facial match must remain very close for the full video.
 
 ${typeof conceptPrompt === 'string' && conceptPrompt.trim() ? conceptPrompt.trim() : 'Concept: Royal showroom campaign film. Use a premium Diwali showroom scene with confident fashion-ad posture, warm brass lamps, marigold decor and rich cinematic depth.'}
 
-Camera and lighting: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face. Keep the camera far enough that the face remains stable and natural.
+Camera and lighting: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, premium movie-star grooming, subtle natural makeup polish, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face. Add safe distant cracker sparkle/fireworks bokeh in the sky or far background only, never near the body, face or garment. Keep the camera far enough that the face remains stable and natural.
 
 Keep full body visible from head to toe throughout the entire 6 seconds. The garment must remain clearly visible and unchanged. The motion should be slow, graceful, premium, and suitable for an in-store fashion advertisement.
 
 Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text or generated logos.
 
-Do not make the person speak. Do not create lip-sync or mouth movement. Keep the face stable and natural. The Tamil greeting will be added by the Maharaja website/TV overlay, not by the generated video.
+Audio: use a warm off-screen Tamil festive voice-over, not the person's lip-sync, saying "இனிய தீபாவளி நல்வாழ்த்துக்கள்" in a natural shop-greeting tone. The person smiles while the voice-over plays, but does not speak and does not move the mouth. Add subtle festive ambience: soft diya flame, gentle showroom music and distant cracker sparkle ambience. The Tamil greeting text will also be added by the Maharaja website/TV overlay.
 
-Do not change the face. Do not change skin tone. Do not change body shape. Do not swap outfit. Do not change garment type, color, fit, bottom wear, footwear, or design. No traditional outfit substitution. No close-up, no speaking, no lip-sync, no dancing, no spinning, no fast walking, no duplicate person, no extra limbs, no malformed hands, no face morphing, no random text except the exact Tamil greeting above, no generated logo.`;
+Do not change the face. Do not change skin tone. Do not change body shape. Do not swap outfit. Do not change garment type, color, fit, bottom wear, footwear, or design. No traditional outfit substitution. No close-up, no direct speaking, no lip-sync, no dancing, no spinning, no fast walking, no duplicate person, no extra limbs, no malformed hands, no face morphing, no random text except the exact Tamil greeting above, no generated logo.`;
 }
 
 // 4. Quality Assurance Evaluation (Fix 13: Freeze Fake QA)
