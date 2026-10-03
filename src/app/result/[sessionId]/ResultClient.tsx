@@ -209,6 +209,16 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             playsInline
             className="w-full h-full object-cover"
           />
+          <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-xl border border-[#D4AF37]/60 bg-black/70 px-3 py-2 text-center shadow-lg backdrop-blur-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D4AF37]">
+              MAHARAJA DIWALI GREETING
+            </p>
+            <p className="mt-0.5 text-sm font-bold text-[#F3E5AB]">
+              <span style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}>
+                இனிய தீபாவளி நல்வாழ்த்துக்கள்
+              </span>
+            </p>
+          </div>
         </div>
 
         {/* Primary Action Buttons */}

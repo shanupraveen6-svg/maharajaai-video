@@ -76,7 +76,7 @@ ${typeof conceptPrompt === 'string' && conceptPrompt.trim() ? conceptPrompt.trim
 
 Only the environment, lighting, and mood should become grand Diwali-themed. Set the scene inside a premium Maharaja Thanjavur showroom campaign environment: warm diya glow, brass lamps, subtle rangoli, marigold flowers, rich maroon and gold accents, refined festive decor, luxury festive entrance, soft cinematic bokeh, and elegant luxury retail atmosphere.
 
-Optional text: if a greeting is shown as a small elegant showroom banner or final festive card, use only this exact Tamil text with correct spelling: "இனிய தீபாவளி நல்வாழ்த்துகள்". Do not add any other text.
+Optional text: if a greeting is shown as a small elegant showroom banner or final festive card, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text.
 
 Lighting and camera: warm golden key light, soft rim light for separation, gentle diya highlights on face and fabric, realistic skin texture, editorial 50mm fashion photography feel, full-body vertical composition, slightly low flattering camera height, graceful posture, natural confident smile, and sharp garment visibility from collar to footwear.
 

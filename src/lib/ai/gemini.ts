@@ -221,7 +221,9 @@ Camera and lighting: 35mm cinematic lens look, warm golden key light, soft rim l
 
 Keep full body visible from head to toe throughout the entire 6 seconds. The garment must remain clearly visible and unchanged. The motion should be slow, graceful, premium, and suitable for an in-store fashion advertisement.
 
-Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact Tamil text with correct spelling: "இனிய தீபாவளி நல்வாழ்த்துகள்". Do not add any other text or generated logos.
+Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text or generated logos.
+
+Spoken greeting: the person should warmly say this exact Tamil greeting once in a natural Tamil shop-greeting tone: "இனிய தீபாவளி நல்வாழ்த்துக்கள்" (spoken as "Iniya Deepavali Nalvazhthukkal"). Use gentle natural lip movement and a respectful greeting expression. If spoken audio is not supported by the generator, show the exact Tamil greeting as a small elegant final card instead.
 
 Do not change the face. Do not change skin tone. Do not change body shape. Do not swap outfit. Do not change garment type, color, fit, bottom wear, footwear, or design. No traditional outfit substitution. No dancing, no spinning, no fast walking, no duplicate person, no extra limbs, no malformed hands, no face morphing, no random text except the exact Tamil greeting above, no generated logo.`;
 }

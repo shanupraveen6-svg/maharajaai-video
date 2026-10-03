@@ -225,7 +225,9 @@ export default function TvPlayerPage() {
                   ⭐ MAHARAJA DIWALI STAR
                 </p>
                 <p className="text-xs text-white font-medium">
-                  இனிய தீபாவளி நல்வாழ்த்துக்கள்!
+                  <span style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}>
+                    இனிய தீபாவளி நல்வாழ்த்துக்கள்
+                  </span>
                 </p>
               </div>
             </div>

@@ -211,7 +211,7 @@ ${selectedConcept.imageDirection}
 
 Only the environment, lighting and mood should become grand Diwali-themed: premium Maharaja Thanjavur showroom, warm diya glow, brass lamps, marigold flowers, subtle rangoli, rich maroon and gold decor, luxury festive entrance, soft cinematic bokeh and celebratory retail atmosphere.
 
-Optional text: if a greeting is shown as a small elegant showroom banner or final festive card, use only this exact Tamil text with correct spelling: "இனிய தீபாவளி நல்வாழ்த்துகள்". Do not add any other text.
+Optional text: if a greeting is shown as a small elegant showroom banner or final festive card, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text.
 
 Lighting/camera: warm golden key light, soft rim light, gentle diya highlights, realistic skin texture, editorial fashion photography, 50mm lens look, slightly low flattering camera height, elegant straight posture, natural confident smile, full-body vertical framing, sharp garment visibility from collar to footwear.
 
@@ -239,7 +239,9 @@ ${selectedConcept.videoDirection}
 
 Lighting/camera: 35mm cinematic lens look, warm golden key light, soft rim light, diya glow on face and garment, festive background bokeh, rich maroon-gold Diwali color grade, premium Maharaja showroom atmosphere, realistic skin texture, sharp focus on garment details and face.
 
-Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact Tamil text with correct spelling: "இனிய தீபாவளி நல்வாழ்த்துகள்". Do not add any other text.
+Optional text: if a greeting appears as a small elegant final card or showroom banner, use only this exact natural Tamil greeting text: "இனிய தீபாவளி நல்வாழ்த்துக்கள்". Do not add any other text.
+
+Spoken greeting: the person should warmly say this exact Tamil greeting once in a natural Tamil shop-greeting tone: "இனிய தீபாவளி நல்வாழ்த்துக்கள்" (spoken as "Iniya Deepavali Nalvazhthukkal"). Use gentle natural lip movement and a respectful greeting expression. If spoken audio is not supported by the generator, show the exact Tamil greeting as a small elegant final card instead.
 
 Keep full body visible from head to toe for the entire 6 seconds. No dancing, spinning, fast walking, face change, skin tone change, body shape change, outfit swap, garment redesign, traditional outfit substitution, duplicate person, extra limbs, malformed hands, random text except the exact Tamil greeting above, or generated logo.`;
   }, [garmentAnalysis, selectedConcept]);
