@@ -124,7 +124,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     if (!videoUrl) return;
     const a = document.createElement('a');
     a.href = videoUrl;
-    a.download = `Maharaja-Diwali-${sessionId}.mp4`;
+    const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
+    a.download = `Maharaja-Diwali-${sessionId}.${extension}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

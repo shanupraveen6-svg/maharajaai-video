@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ext = contentType.split('/')[1] || 'jpg';
+    const ext = (contentType.split('/')[1] || 'jpg').split(';')[0];
     const assetId = `${assetType}_${Date.now()}`;
     
     let storagePath = '';
@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
     } else if (assetType === 'master') {
       storagePath = `sessions/${sessionId}/master/master.${ext}`;
     } else if (assetType === 'video') {
-      storagePath = `sessions/${sessionId}/video/final.mp4`;
+      const videoExt = ext === 'webm' ? 'webm' : 'mp4';
+      storagePath = `sessions/${sessionId}/video/final.${videoExt}`;
     } else {
       return NextResponse.json({ success: false, error: 'Invalid assetType.' }, { status: 400 });
     }

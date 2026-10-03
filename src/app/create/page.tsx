@@ -153,6 +153,7 @@ export default function CreatePage() {
   const [isAnalyzingPerson, setIsAnalyzingPerson] = useState(false);
   const [isGeneratingMaster, setIsGeneratingMaster] = useState(false);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
+  const [masterImageDataUrl, setMasterImageDataUrl] = useState<string | null>(null);
   const [masterApproved, setMasterApproved] = useState(false);
 
   const [videoPhase, setVideoPhase] = useState<VideoPhase>('idle');
@@ -162,6 +163,7 @@ export default function CreatePage() {
   const [copiedPrompt, setCopiedPrompt] = useState<'master' | 'video' | null>(null);
   const [isUploadingManualMaster, setIsUploadingManualMaster] = useState(false);
   const [isUploadingManualVideo, setIsUploadingManualVideo] = useState(false);
+  const [isGeneratingSafeVideo, setIsGeneratingSafeVideo] = useState(false);
   const [manualUploadProgress, setManualUploadProgress] = useState(0);
 
   const activeGarmentPhotos = useMemo(() => garmentPhotos.filter(Boolean) as string[], [garmentPhotos]);
@@ -286,6 +288,7 @@ Keep full body visible from head to toe for the entire 6 seconds. No close-up, n
       nextPhotos[slotIndex] = dataUrl;
       setGarmentPhotos(nextPhotos);
       setMasterImageUrl(null);
+      setMasterImageDataUrl(null);
       setMasterApproved(false);
       await analyzeGarments(nextPhotos);
     } catch (err) {
@@ -303,6 +306,7 @@ Keep full body visible from head to toe for the entire 6 seconds. No close-up, n
       const { dataUrl } = await compressImage(file, 1600, 0.85);
       setPersonPhoto(dataUrl);
       setMasterImageUrl(null);
+      setMasterImageDataUrl(null);
       setMasterApproved(false);
 
       const res = await fetch('/api/ai/analyze-person', {
@@ -341,6 +345,11 @@ Keep full body visible from head to toe for the entire 6 seconds. No close-up, n
       });
       const data = await parseJsonResponse(res);
       setMasterImageUrl(data.masterImageUrl);
+      setMasterImageDataUrl(
+        typeof data.masterImageUrl === 'string' && data.masterImageUrl.startsWith('data:image')
+          ? data.masterImageUrl
+          : null
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Master image generation failed.');
     } finally {
@@ -380,6 +389,7 @@ Keep full body visible from head to toe for the entire 6 seconds. No close-up, n
       });
       const completeData = await parseJsonResponse(completeRes);
       setMasterImageUrl(completeData.masterImageUrl || dataUrl);
+      setMasterImageDataUrl(dataUrl);
       setMasterApproved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Manual master image upload failed.');
@@ -435,6 +445,228 @@ Keep full body visible from head to toe for the entire 6 seconds. No close-up, n
       setError(err instanceof Error ? err.message : 'Manual video upload failed.');
     } finally {
       setIsUploadingManualVideo(false);
+    }
+  }
+
+  function loadCanvasImage(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      if (!src.startsWith('data:')) img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Could not load approved master image for safe video.'));
+      img.src = src;
+    });
+  }
+
+  function drawCoverImage(
+    ctx: CanvasRenderingContext2D,
+    image: HTMLImageElement,
+    canvasWidth: number,
+    canvasHeight: number,
+    zoom: number,
+    offsetX: number,
+    offsetY: number
+  ) {
+    const baseScale = Math.max(canvasWidth / image.width, canvasHeight / image.height);
+    const width = image.width * baseScale * zoom;
+    const height = image.height * baseScale * zoom;
+    const x = (canvasWidth - width) / 2 + offsetX;
+    const y = (canvasHeight - height) / 2 + offsetY;
+    ctx.drawImage(image, x, y, width, height);
+  }
+
+  function drawSafeMotionFrame(
+    ctx: CanvasRenderingContext2D,
+    image: HTMLImageElement,
+    canvasWidth: number,
+    canvasHeight: number,
+    progress: number
+  ) {
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const zoom = 1.015 + eased * 0.045;
+    const offsetX = Math.sin(progress * Math.PI) * -10;
+    const offsetY = -eased * 16;
+
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    drawCoverImage(ctx, image, canvasWidth, canvasHeight, zoom, offsetX, offsetY);
+
+    const vignette = ctx.createRadialGradient(
+      canvasWidth / 2,
+      canvasHeight / 2,
+      canvasWidth * 0.2,
+      canvasWidth / 2,
+      canvasHeight / 2,
+      canvasHeight * 0.75
+    );
+    vignette.addColorStop(0, 'rgba(255, 245, 210, 0.04)');
+    vignette.addColorStop(0.65, 'rgba(20, 5, 10, 0.08)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    const glow = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
+    glow.addColorStop(0, 'rgba(255, 224, 150, 0.14)');
+    glow.addColorStop(0.45, 'rgba(255, 180, 70, 0.03)');
+    glow.addColorStop(1, 'rgba(100, 10, 25, 0.18)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    for (let i = 0; i < 18; i += 1) {
+      const side = i % 2 === 0 ? 0.14 : 0.86;
+      const x = canvasWidth * side + Math.sin(progress * 6 + i) * 32;
+      const y = canvasHeight * (0.12 + (i % 6) * 0.055) + Math.cos(progress * 5 + i) * 12;
+      const radius = 2 + ((i * 7) % 9);
+      const alpha = 0.22 + Math.sin(progress * Math.PI * 2 + i) * 0.12;
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(255, 210, 90, ${Math.max(0.06, alpha)})`;
+      ctx.shadowColor = 'rgba(255, 190, 80, 0.7)';
+      ctx.shadowBlur = 18;
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+
+    const bottomGlow = ctx.createRadialGradient(
+      canvasWidth / 2,
+      canvasHeight,
+      20,
+      canvasWidth / 2,
+      canvasHeight,
+      canvasWidth * 0.72
+    );
+    bottomGlow.addColorStop(0, 'rgba(255, 165, 60, 0.24)');
+    bottomGlow.addColorStop(1, 'rgba(255, 165, 60, 0)');
+    ctx.fillStyle = bottomGlow;
+    ctx.fillRect(0, canvasHeight * 0.55, canvasWidth, canvasHeight * 0.45);
+
+    const bannerHeight = 92;
+    const bannerY = canvasHeight - bannerHeight - 34;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.68)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(40, bannerY, canvasWidth - 80, bannerHeight, 22);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#D4AF37';
+    ctx.font = '700 18px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('MAHARAJA DIWALI GREETING', canvasWidth / 2, bannerY + 29);
+
+    ctx.fillStyle = '#F3E5AB';
+    ctx.font = '700 31px "Noto Serif Tamil", "Noto Sans Tamil", Latha, serif';
+    ctx.fillText('இனிய தீபாவளி நல்வாழ்த்துக்கள்', canvasWidth / 2, bannerY + 68);
+  }
+
+  async function createSafeMotionVideo() {
+    if (!masterImageUrl || !masterApproved) {
+      setError('Approve the master image first. Safe video uses the approved image exactly.');
+      return;
+    }
+
+    const sourceImage = masterImageDataUrl || masterImageUrl;
+    const canvas = document.createElement('canvas');
+    canvas.width = 720;
+    canvas.height = 1280;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      setError('Your browser could not create the safe video canvas.');
+      return;
+    }
+
+    const supportedMimeType = [
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm',
+    ].find((type) => MediaRecorder.isTypeSupported(type));
+
+    if (!supportedMimeType) {
+      setError('This browser cannot record a safe motion video. Please use Chrome on this device.');
+      return;
+    }
+
+    setIsGeneratingSafeVideo(true);
+    setManualUploadProgress(0);
+    setError(null);
+
+    try {
+      const image = await loadCanvasImage(sourceImage);
+      const stream = canvas.captureStream(30);
+      const recorder = new MediaRecorder(stream, {
+        mimeType: supportedMimeType,
+        videoBitsPerSecond: 5_000_000,
+      });
+      const chunks: BlobPart[] = [];
+      const recordingComplete = new Promise<Blob>((resolve, reject) => {
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) chunks.push(event.data);
+        };
+        recorder.onerror = () => reject(new Error('Safe video recorder failed.'));
+        recorder.onstop = () => resolve(new Blob(chunks, { type: 'video/webm' }));
+      });
+
+      const durationMs = 6000;
+      let startTime = 0;
+
+      recorder.start(250);
+
+      await new Promise<void>((resolve) => {
+        const renderFrame = (timestamp: number) => {
+          if (!startTime) startTime = timestamp;
+          const elapsed = timestamp - startTime;
+          const progress = Math.min(elapsed / durationMs, 1);
+          drawSafeMotionFrame(ctx, image, canvas.width, canvas.height, progress);
+          setManualUploadProgress(Math.min(70, Math.round(progress * 70)));
+
+          if (progress < 1) {
+            window.requestAnimationFrame(renderFrame);
+          } else {
+            recorder.stop();
+            resolve();
+          }
+        };
+
+        window.requestAnimationFrame(renderFrame);
+      });
+
+      const videoBlob = await recordingComplete;
+      const contentType = 'video/webm';
+      const signedRes = await fetch('/api/upload/signed-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, assetType: 'video', contentType }),
+      });
+      const signedData = await parseJsonResponse(signedRes);
+
+      if (!signedData.success || !signedData.directUpload || !signedData.uploadUrl) {
+        throw new Error('Firebase direct safe video upload is unavailable.');
+      }
+
+      await xhrUploadFile(
+        signedData.uploadUrl,
+        'PUT',
+        { 'Content-Type': contentType },
+        videoBlob,
+        (percent) => setManualUploadProgress(70 + Math.round(percent * 0.25))
+      );
+
+      const completeRes = await fetch('/api/video/manual-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          storagePath: signedData.storagePath || `sessions/${sessionId}/video/final.webm`,
+        }),
+      });
+      await parseJsonResponse(completeRes);
+      setManualUploadProgress(100);
+      router.push(`/result/${sessionId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Safe motion video creation failed.');
+    } finally {
+      setIsGeneratingSafeVideo(false);
     }
   }
 
@@ -756,16 +988,26 @@ Keep full body visible from head to toe for the entire 6 seconds. No close-up, n
             <div>
               <h2 className="font-serif font-bold uppercase tracking-wider text-lg text-[#F3E5AB]">6-Second Video Generation</h2>
               <p className="text-xs text-amber-100/80">
-                {mode === 'proof' ? 'Manual Gemini mobile MP4 upload · no AI API spend' : 'Veo Fast 720p · demo locked to 2 starts · no Standard mode'}
+                {mode === 'proof' ? 'Safe motion from approved image · no AI video credit' : 'Veo Fast 720p · demo locked to 2 starts · no Standard mode'}
               </p>
             </div>
           </div>
           {mode === 'proof' ? (
-            <label className={`py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 ${!masterImageUrl ? 'opacity-40 pointer-events-none' : 'cursor-pointer'}`}>
-              {isUploadingManualVideo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              Upload Gemini MP4
-              <input type="file" accept="video/mp4,video/*" onChange={handleManualVideoUpload} disabled={!masterImageUrl || isUploadingManualVideo} className="hidden" />
-            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={createSafeMotionVideo}
+                disabled={!masterApproved || isGeneratingSafeVideo}
+                className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
+              >
+                {isGeneratingSafeVideo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Film className="w-4 h-4" />}
+                Create Safe Motion Video
+              </button>
+              <label className={`py-4 px-6 rounded-2xl bg-white/10 border border-amber-300/40 text-amber-100 font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 ${!masterImageUrl || isGeneratingSafeVideo ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:bg-white/15'}`}>
+                {isUploadingManualVideo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                Upload External MP4
+                <input type="file" accept="video/mp4,video/webm,video/*" onChange={handleManualVideoUpload} disabled={!masterImageUrl || isUploadingManualVideo || isGeneratingSafeVideo} className="hidden" />
+              </label>
+            </div>
           ) : (
             <button
               onClick={startVideoGeneration}
@@ -780,7 +1022,7 @@ Keep full body visible from head to toe for the entire 6 seconds. No close-up, n
         {mode === 'proof' && (
           <div className="rounded-2xl bg-white/5 border border-amber-300/20 p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">Video prompt for Gemini app</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">Optional Gemini/Veo prompt</h3>
               <button
                 onClick={() => copyPrompt('video', videoPrompt)}
                 className="px-3 py-2 rounded-lg bg-white/10 border border-amber-300/30 text-amber-100 text-[11px] font-bold uppercase flex items-center gap-1"
@@ -803,7 +1045,7 @@ Keep full body visible from head to toe for the entire 6 seconds. No close-up, n
             />
           </div>
           <div className="flex items-center justify-between text-xs font-mono text-amber-100">
-            <span>{mode === 'proof' ? (isUploadingManualVideo ? 'Uploading manual MP4 to Firebase Storage...' : 'Upload Gemini MP4 after master image is ready.') : progressCopy[videoPhase]}</span>
+            <span>{mode === 'proof' ? (isGeneratingSafeVideo ? 'Creating safe video from the approved master image...' : isUploadingManualVideo ? 'Uploading external MP4 to Firebase Storage...' : 'Approve master image, then create safe motion video.') : progressCopy[videoPhase]}</span>
             <span>{mode === 'proof' ? manualUploadProgress : videoProgress}%</span>
           </div>
           {jobId && <p className="text-[11px] text-amber-200/80 font-mono">JOB: {jobId}</p>}
