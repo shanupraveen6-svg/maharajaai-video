@@ -1,11 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, generateReservationId, getSignedPlaybackUrl, MockQueueItem } from '@/lib/firebase/admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+
+function getMillis(value: any): number {
+  if (!value) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function compareQueueItems(a: any, b: any): number {
+  const queueDiff = Number(a.data.queueNumber || 0) - Number(b.data.queueNumber || 0);
+  if (queueDiff !== 0) return queueDiff;
+
+  const playDiff = getMillis(a.data.playAtMs || a.data.playAt) - getMillis(b.data.playAtMs || b.data.playAt);
+  if (playDiff !== 0) return playDiff;
+
+  return getMillis(a.data.createdAt) - getMillis(b.data.createdAt);
+}
+
+function isEligibleToPlay(queueData: any, nowMs: number): boolean {
+  const playAtMs = getMillis(queueData.playAtMs || queueData.playAt);
+  return !playAtMs || playAtMs <= nowMs;
+}
 
 // Separate pre-transaction helper for expired reservation cleanup
 async function cleanupExpiredReservations(db: any) {
   try {
-    const expiredCutoff = new Date(Date.now() - 30000); // 30s lease timeout
+    const expiredCutoff = Timestamp.fromMillis(Date.now() - 30000); // 30s lease timeout
     const expiredSnapshot = await db.collection('liveQueue')
       .where('screenId', '==', 'maharaja-main')
       .where('status', '==', 'reserved')
@@ -32,6 +55,7 @@ async function cleanupExpiredReservations(db: any) {
 export async function GET(req: NextRequest) {
   try {
     const db = getDb();
+    const nowMs = Date.now();
     const nowIso = new Date().toISOString();
 
     if (db) {
@@ -42,18 +66,24 @@ export async function GET(req: NextRequest) {
       const result = await db.runTransaction(async (transaction: any) => {
         const queueQuery = db.collection('liveQueue')
           .where('screenId', '==', 'maharaja-main')
-          .where('status', '==', 'queued')
-          .orderBy('createdAt', 'asc')
-          .limit(1);
+          .where('status', '==', 'queued');
 
         const queueSnapshot = await transaction.get(queueQuery);
         if (queueSnapshot.empty) {
           return { status: 'idle' };
         }
 
-        const queueDoc = queueSnapshot.docs[0];
-        const queueData = queueDoc.data();
+        const nextQueued = queueSnapshot.docs
+          .map((doc: any) => ({ doc, data: doc.data() }))
+          .sort(compareQueueItems)
+          .find((item: any) => isEligibleToPlay(item.data, nowMs));
 
+        if (!nextQueued) {
+          return { status: 'idle' };
+        }
+
+        const queueDoc = nextQueued.doc;
+        const queueData = nextQueued.data;
         const videoDocRef = db.collection('videos').doc(queueData.videoId);
         const videoDoc = await transaction.get(videoDocRef);
 
@@ -75,6 +105,7 @@ export async function GET(req: NextRequest) {
         return {
           status: 'play',
           queueId: queueDoc.id,
+          queueNumber: queueData.queueNumber || null,
           reservationId,
           storagePath: videoData.storagePath
         };
@@ -89,6 +120,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         status: 'play',
         queueId: result.queueId,
+        queueNumber: result.queueNumber || null,
         reservationId: result.reservationId,
         videoUrl: signedUrl
       });
@@ -108,9 +140,12 @@ export async function GET(req: NextRequest) {
         }
       });
 
-      const nextItem = mockStore.liveQueue.find(
-        (item: MockQueueItem) => item.screenId === 'maharaja-main' && item.status === 'queued'
-      );
+      const nextItem = mockStore.liveQueue
+        .filter((item: MockQueueItem) => item.screenId === 'maharaja-main' && item.status === 'queued')
+        .map((item: MockQueueItem) => ({ data: item }))
+        .sort(compareQueueItems)
+        .find((item: { data: MockQueueItem }) => isEligibleToPlay(item.data, nowMs))
+        ?.data;
 
       if (!nextItem) {
         return NextResponse.json({ status: 'idle' });
@@ -133,6 +168,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         status: 'play',
         queueId: nextItem.id,
+        queueNumber: nextItem.queueNumber || null,
         reservationId,
         videoUrl: signedUrl
       });

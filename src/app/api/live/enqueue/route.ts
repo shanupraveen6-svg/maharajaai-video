@@ -10,6 +10,18 @@ function getMillis(value: any): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+const ACTIVE_STATUSES = new Set(['queued', 'reserved', 'playing']);
+
+function compareQueueItems(a: any, b: any): number {
+  const queueDiff = Number(a.queueNumber || 0) - Number(b.queueNumber || 0);
+  if (queueDiff !== 0) return queueDiff;
+
+  const playDiff = getMillis(a.playAtMs || a.playAt) - getMillis(b.playAtMs || b.playAt);
+  if (playDiff !== 0) return playDiff;
+
+  return getMillis(a.createdAt) - getMillis(b.createdAt);
+}
+
 async function getQueuePosition(db: any, queueId: string): Promise<number | null> {
   const snapshot = await db.collection('liveQueue')
     .where('screenId', '==', 'maharaja-main')
@@ -18,11 +30,7 @@ async function getQueuePosition(db: any, queueId: string): Promise<number | null
 
   const queuedItems = snapshot.docs
     .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-    .sort((a: any, b: any) => {
-      const playDiff = getMillis(a.playAtMs || a.playAt) - getMillis(b.playAtMs || b.playAt);
-      if (playDiff !== 0) return playDiff;
-      return getMillis(a.createdAt) - getMillis(b.createdAt);
-    });
+    .sort(compareQueueItems);
 
   const index = queuedItems.findIndex((item: any) => item.id === queueId);
   return index >= 0 ? index + 1 : null;
@@ -42,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
 
-    const queueId = `queue_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    let queueId = `queue_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const nowMs = Date.now();
     const nowIso = new Date(nowMs).toISOString();
     const playAtMs = nowMs + 5000;
@@ -50,6 +58,7 @@ export async function POST(req: NextRequest) {
     const playAtIso = new Date(playAtMs).toISOString();
     let queueNumber = 1;
     let queuePosition: number | null = 1;
+    let reusedExistingQueue = false;
 
     const baseQueueItem = {
       id: queueId,
@@ -69,9 +78,27 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     if (db) {
       const counterRef = db.collection('appControl').doc('liveQueueCounter');
-      const queueRef = db.collection('liveQueue').doc(queueId);
 
       await db.runTransaction(async (transaction: any) => {
+        const existingSnapshot = await transaction.get(
+          db.collection('liveQueue').where('sessionId', '==', sessionId)
+        );
+        const existingActive = existingSnapshot.docs
+          .map((doc: any) => ({ ref: doc.ref, id: doc.id, ...doc.data() }))
+          .filter((item: any) => item.screenId === 'maharaja-main' && ACTIVE_STATUSES.has(item.status || 'queued'))
+          .sort(compareQueueItems)[0];
+
+        if (existingActive) {
+          queueId = existingActive.id;
+          queueNumber = Number(existingActive.queueNumber || 1);
+          reusedExistingQueue = true;
+          transaction.update(existingActive.ref, {
+            updatedAt: nowIso
+          });
+          return;
+        }
+
+        const queueRef = db.collection('liveQueue').doc(queueId);
         const counterDoc = await transaction.get(counterRef);
         const current = counterDoc.exists ? Number(counterDoc.data()?.lastQueueNumber || 0) : 0;
         queueNumber = current + 1;
@@ -87,16 +114,29 @@ export async function POST(req: NextRequest) {
       queuePosition = await getQueuePosition(db, queueId);
     } else {
       const mockStore = getMockStore();
-      queueNumber = mockStore.liveQueue.length + 1;
-      mockStore.liveQueue.push({
-        ...baseQueueItem,
-        queueNumber,
-        playAt: playAtIso
-      });
-      queuePosition = mockStore.liveQueue
+      const existingActive = mockStore.liveQueue
+        .filter((item: any) => item.sessionId === sessionId && item.screenId === 'maharaja-main' && ACTIVE_STATUSES.has(item.status || 'queued'))
+        .sort(compareQueueItems)[0];
+
+      if (existingActive) {
+        queueId = existingActive.id;
+        queueNumber = existingActive.queueNumber || 1;
+        reusedExistingQueue = true;
+      } else {
+        queueNumber = mockStore.liveQueue.reduce((max: number, item: any) => Math.max(max, Number(item.queueNumber || 0)), 0) + 1;
+        mockStore.liveQueue.push({
+          ...baseQueueItem,
+          id: queueId,
+          queueNumber,
+          playAt: playAtIso
+        });
+      }
+
+      const queuedItems = mockStore.liveQueue
         .filter((item: any) => item.screenId === 'maharaja-main' && item.status === 'queued')
-        .sort((a: any, b: any) => (a.playAtMs || 0) - (b.playAtMs || 0))
-        .findIndex((item: any) => item.id === queueId) + 1;
+        .sort(compareQueueItems);
+      const index = queuedItems.findIndex((item: any) => item.id === queueId);
+      queuePosition = index >= 0 ? index + 1 : null;
     }
 
     return NextResponse.json({
@@ -106,7 +146,10 @@ export async function POST(req: NextRequest) {
       queuePosition,
       peopleAhead: queuePosition ? Math.max(queuePosition - 1, 0) : null,
       playAt: playAtIso,
-      message: 'Your Maharaja Diwali moment has been added to the big screen.'
+      reusedExistingQueue,
+      message: reusedExistingQueue
+        ? 'Your Maharaja Diwali moment is already in the live queue.'
+        : 'Your Maharaja Diwali moment has been added to the big screen.'
     });
   } catch (error: any) {
     console.error('Enqueue Error:', error);

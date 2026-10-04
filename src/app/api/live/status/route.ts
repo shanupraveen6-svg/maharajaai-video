@@ -9,6 +9,16 @@ function getMillis(value: any): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function compareQueueItems(a: any, b: any): number {
+  const queueDiff = Number(a.queueNumber || 0) - Number(b.queueNumber || 0);
+  if (queueDiff !== 0) return queueDiff;
+
+  const playDiff = getMillis(a.playAtMs || a.playAt) - getMillis(b.playAtMs || b.playAt);
+  if (playDiff !== 0) return playDiff;
+
+  return getMillis(a.createdAt) - getMillis(b.createdAt);
+}
+
 async function getQueuePosition(db: any, queueId: string): Promise<number | null> {
   const snapshot = await db.collection('liveQueue')
     .where('screenId', '==', 'maharaja-main')
@@ -17,11 +27,7 @@ async function getQueuePosition(db: any, queueId: string): Promise<number | null
 
   const queuedItems = snapshot.docs
     .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-    .sort((a: any, b: any) => {
-      const playDiff = getMillis(a.playAtMs || a.playAt) - getMillis(b.playAtMs || b.playAt);
-      if (playDiff !== 0) return playDiff;
-      return getMillis(a.createdAt) - getMillis(b.createdAt);
-    });
+    .sort(compareQueueItems);
 
   const index = queuedItems.findIndex((item: any) => item.id === queueId);
   return index >= 0 ? index + 1 : null;
@@ -80,18 +86,23 @@ export async function GET(req: NextRequest) {
         );
       }
 
+      const queuedItems = mockStore.liveQueue
+        .filter((q: any) => q.screenId === 'maharaja-main' && q.status === 'queued')
+        .sort(compareQueueItems);
+      const queueIndex = queuedItems.findIndex((q: any) => q.id === queueId);
+      const queuePosition = item.status === 'queued' && queueIndex >= 0 ? queueIndex + 1 : null;
+
       return NextResponse.json({
         success: true,
         queueId,
         queueNumber: item.queueNumber || null,
-        queuePosition: item.status === 'queued'
-          ? mockStore.liveQueue
-              .filter((q: any) => q.screenId === 'maharaja-main' && q.status === 'queued')
-              .sort((a: any, b: any) => (a.playAtMs || 0) - (b.playAtMs || 0))
-              .findIndex((q: any) => q.id === queueId) + 1
-          : null,
+        queuePosition,
+        peopleAhead: queuePosition ? Math.max(queuePosition - 1, 0) : null,
         status: item.status || 'queued',
-        playAtMs: item.playAtMs || null
+        playAtMs: item.playAtMs || null,
+        reservedAt: item.reservedAt || null,
+        startedAt: item.startedAt || null,
+        completedAt: item.completedAt || null
       });
     }
   } catch (error: any) {
