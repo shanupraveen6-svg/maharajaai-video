@@ -34,54 +34,62 @@ export async function POST(req: NextRequest) {
     const nowIso = new Date().toISOString();
 
     let operationName: string | null = null;
-    const videoUrl = '/sample-diwali.mp4';
 
-    if (!AI_CONFIG.IS_DEMO_MODE) {
-      if (AI_CONFIG.GEMINI_VIDEO_MODEL !== 'veo-3.1-fast-generate-preview') {
-        return NextResponse.json(
-          { success: false, error: 'Demo safety lock: only veo-3.1-fast-generate-preview is allowed.' },
-          { status: 400 }
-        );
-      }
+    if (AI_CONFIG.IS_DEMO_MODE) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Real Veo video generation is disabled because DEMO_MODE=true. Set DEMO_MODE=false in Vercel before shop testing.'
+        },
+        { status: 400 }
+      );
+    }
 
-      const ai = getGenAIClient();
-      if (!ai) {
-        return NextResponse.json(
-          { success: false, error: 'Gemini API key is not configured for Veo video generation.' },
-          { status: 500 }
-        );
-      }
+    if (AI_CONFIG.GEMINI_VIDEO_MODEL !== 'veo-3.1-fast-generate-preview') {
+      return NextResponse.json(
+        { success: false, error: 'Demo safety lock: only veo-3.1-fast-generate-preview is allowed.' },
+        { status: 400 }
+      );
+    }
 
-      if (db && DEMO_VIDEO_LIMIT > 0) {
-        const usageRef = db.collection('appControl').doc('demoVideoUsage');
-        await db.runTransaction(async (transaction: any) => {
-          const usageDoc = await transaction.get(usageRef);
-          const used = usageDoc.exists ? Number(usageDoc.data()?.startedCount || 0) : 0;
-          if (used >= DEMO_VIDEO_LIMIT) {
-            throw new Error(`Demo video limit reached (${DEMO_VIDEO_LIMIT}). Stop and review spend before continuing.`);
-          }
-          transaction.set(usageRef, {
-            startedCount: used + 1,
-            limit: DEMO_VIDEO_LIMIT,
-            updatedAt: FieldValue.serverTimestamp()
-          }, { merge: true });
-        });
-        reservedDemoSlot = true;
-      }
+    const ai = getGenAIClient();
+    if (!ai) {
+      return NextResponse.json(
+        { success: false, error: 'Gemini API key is not configured for Veo video generation.' },
+        { status: 500 }
+      );
+    }
 
-      try {
-        const videoConfig: any = {
-          aspectRatio: '9:16',
-          numberOfVideos: 1,
-          durationSeconds: 6,
-          resolution: '720p'
-        };
+    if (db && DEMO_VIDEO_LIMIT > 0) {
+      const usageRef = db.collection('appControl').doc('demoVideoUsage');
+      await db.runTransaction(async (transaction: any) => {
+        const usageDoc = await transaction.get(usageRef);
+        const used = usageDoc.exists ? Number(usageDoc.data()?.startedCount || 0) : 0;
+        if (used >= DEMO_VIDEO_LIMIT) {
+          throw new Error(`Demo video limit reached (${DEMO_VIDEO_LIMIT}). Stop and review spend before continuing.`);
+        }
+        transaction.set(usageRef, {
+          startedCount: used + 1,
+          limit: DEMO_VIDEO_LIMIT,
+          updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+      });
+      reservedDemoSlot = true;
+    }
 
-        const generateParams: any = {
-          model: AI_CONFIG.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview',
-          prompt,
-          config: videoConfig
-        };
+    try {
+      const videoConfig: any = {
+        aspectRatio: '9:16',
+        numberOfVideos: 1,
+        durationSeconds: 6,
+        resolution: '720p'
+      };
+
+      const generateParams: any = {
+        model: AI_CONFIG.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview',
+        prompt,
+        config: videoConfig
+      };
 
         // Pass approved master image as actual image input to Veo (dataUrl, Storage path, or signed URL)
         let masterBase64: string | null = null;
@@ -134,22 +142,21 @@ export async function POST(req: NextRequest) {
           mimeType: 'image/jpeg'
         };
 
-        const videoResponse = await ai.models.generateVideos(generateParams);
-        operationName = videoResponse.name || null;
-      } catch (veoError: any) {
-        if (db && reservedDemoSlot) {
-          await db.collection('appControl').doc('demoVideoUsage').set({
-            startedCount: FieldValue.increment(-1),
-            updatedAt: FieldValue.serverTimestamp()
-          }, { merge: true });
-          reservedDemoSlot = false;
-        }
-        console.error('Veo Video Start Error:', veoError);
-        return NextResponse.json(
-          { success: false, error: `Veo video generation failed to start: ${veoError.message}` },
-          { status: 500 }
-        );
+      const videoResponse = await ai.models.generateVideos(generateParams);
+      operationName = videoResponse.name || null;
+    } catch (veoError: any) {
+      if (db && reservedDemoSlot) {
+        await db.collection('appControl').doc('demoVideoUsage').set({
+          startedCount: FieldValue.increment(-1),
+          updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+        reservedDemoSlot = false;
       }
+      console.error('Veo Video Start Error:', veoError);
+      return NextResponse.json(
+        { success: false, error: `Veo video generation failed to start: ${veoError.message}` },
+        { status: 500 }
+      );
     }
 
     const jobData = {
@@ -159,8 +166,8 @@ export async function POST(req: NextRequest) {
       operationName,
       provider: 'google-veo',
       model: AI_CONFIG.GEMINI_VIDEO_MODEL || 'veo-3.1-generate-preview',
-      status: AI_CONFIG.IS_DEMO_MODE ? 'succeeded' : 'processing',
-      videoUrl: AI_CONFIG.IS_DEMO_MODE ? videoUrl : null,
+      status: 'processing',
+      videoUrl: null,
       createdAt: nowIso
     };
 

@@ -37,14 +37,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (!videoUrl) {
-      if (sessionId === 'sample-session') {
-        videoUrl = '/sample-diwali.mp4';
-      } else {
-        return NextResponse.json(
-          { success: false, error: `Failed to verify or generate video URL for session ${sessionId}` },
-          { status: 400 }
-        );
-      }
+      return NextResponse.json(
+        { success: false, error: `Failed to verify or generate video URL for session ${sessionId}` },
+        { status: 400 }
+      );
     }
 
 

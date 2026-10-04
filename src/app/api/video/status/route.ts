@@ -29,27 +29,28 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const targetSessionId = sessionId || 'sample-session';
+    let targetSessionId = sessionId || '';
     const db = getDb();
     
-    // Only allow sample video fallback for explicit sample-session
-    let videoUrl: string | null = (targetSessionId === 'sample-session') ? '/sample-diwali.mp4' : null;
-    let status: string = (targetSessionId === 'sample-session') ? 'ready' : 'processing';
+    let videoUrl: string | null = null;
+    let status: string = 'processing';
     let operationName: string | null = null;
 
     if (db) {
       // 1. Fetch Session Doc first
-      const sessionDoc = await db.collection('sessions').doc(targetSessionId).get();
-      if (sessionDoc.exists) {
-        const sData = sessionDoc.data();
-        if (sData?.videoStatus === 'ready' || sData?.videoStatus === 'succeeded') {
-          if (sData?.videoUrl && sData?.videoStoragePath) {
-            videoUrl = sData.videoUrl;
-            status = 'ready';
+      if (targetSessionId) {
+        const sessionDoc = await db.collection('sessions').doc(targetSessionId).get();
+        if (sessionDoc.exists) {
+          const sData = sessionDoc.data();
+          if (sData?.videoStatus === 'ready' || sData?.videoStatus === 'succeeded') {
+            if (sData?.videoUrl && sData?.videoStoragePath) {
+              videoUrl = sData.videoUrl;
+              status = 'ready';
+            }
           }
-        }
-        if (!jobId && sData?.jobId) {
-          jobId = sData.jobId;
+          if (!jobId && sData?.jobId) {
+            jobId = sData.jobId;
+          }
         }
       }
 
@@ -57,23 +58,26 @@ export async function GET(req: NextRequest) {
       if (jobId) {
         const jobDoc = await db.collection('generationJobs').doc(jobId).get();
         if (jobDoc.exists) {
-          operationName = jobDoc.data()?.operationName || null;
-          if (!sessionId && jobDoc.data()?.sessionId) {
-            // Keep resolved session ID
+          const jobData = jobDoc.data();
+          operationName = jobData?.operationName || null;
+          if (!targetSessionId && jobData?.sessionId) {
+            targetSessionId = jobData.sessionId;
           }
         }
       }
     } else {
       const mockStore = getMockStore();
-      const session = mockStore.sessions.get(targetSessionId);
-      if (session) {
-        if (session.videoStatus === 'ready' || session.videoStatus === 'succeeded') {
-          if (session.videoUrl) {
-            videoUrl = session.videoUrl;
-            status = 'ready';
+      if (targetSessionId) {
+        const session = mockStore.sessions.get(targetSessionId);
+        if (session) {
+          if (session.videoStatus === 'ready' || session.videoStatus === 'succeeded') {
+            if (session.videoUrl) {
+              videoUrl = session.videoUrl;
+              status = 'ready';
+            }
           }
+          if (!jobId && session.jobId) jobId = session.jobId;
         }
-        if (!jobId && session.jobId) jobId = session.jobId;
       }
     }
 
