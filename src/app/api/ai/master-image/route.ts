@@ -22,21 +22,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'sessionId is required.' }, { status: 400 });
     }
 
-    let masterImageUrl = personPhoto || '/sample-master.jpg';
     const isDemoAsset = AI_CONFIG.IS_DEMO_MODE;
     const nowIso = new Date().toISOString();
 
     const ai = getGenAIClient();
 
-    if (!isDemoAsset) {
-      if (!ai) {
-        return NextResponse.json(
-          { success: false, error: 'Gemini API key is not configured for master image synthesis.' },
-          { status: 500 }
-        );
-      }
+    if (isDemoAsset) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Real Gemini image generation is disabled because DEMO_MODE=true. Set DEMO_MODE=false in Vercel before shop testing.'
+        },
+        { status: 400 }
+      );
+    }
 
-      try {
+    if (!ai) {
+      return NextResponse.json(
+        { success: false, error: 'Gemini API key is not configured for master image synthesis.' },
+        { status: 500 }
+      );
+    }
+
+    let masterImageUrl = '';
+
+    try {
         const contents: any[] = [];
 
         // 1. Person photo inlineData (customer reference for facial identity & body proportions)
@@ -105,13 +115,12 @@ The final image should look like a premium Maharaja festive fashion campaign pho
           const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
           masterImageUrl = signedUrl;
         }
-      } catch (genError: any) {
-        console.error('Gemini Master Image Generation Failed:', genError);
-        return NextResponse.json(
-          { success: false, error: `Master Image generation failed: ${genError.message}` },
-          { status: 500 }
-        );
-      }
+    } catch (genError: any) {
+      console.error('Gemini Master Image Generation Failed:', genError);
+      return NextResponse.json(
+        { success: false, error: `Master Image generation failed: ${genError.message}` },
+        { status: 500 }
+      );
     }
 
     const db = getDb();

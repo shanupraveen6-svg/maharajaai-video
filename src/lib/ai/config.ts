@@ -18,7 +18,7 @@ export const AI_CONFIG = {
     return process.env.ADMIN_PASSWORD || '';
   },
   get IS_DEMO_MODE() {
-    return process.env.DEMO_MODE !== 'false';
+    return process.env.DEMO_MODE === 'true';
   },
   get ALLOW_MOCK_BACKEND() {
     return process.env.ALLOW_MOCK_BACKEND !== 'false';
