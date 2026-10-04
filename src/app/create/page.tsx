@@ -34,7 +34,6 @@ type PersonAnalysis = {
 };
 
 type VideoPhase = 'idle' | 'starting' | 'rendering' | 'saving' | 'ready' | 'failed';
-type ConceptId = 'royal-entrance' | 'lamp-runway' | 'rangoli-spotlight' | 'storefront-greeting';
 
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
@@ -85,51 +84,6 @@ function xhrUploadFile(
 
 const garmentLabels = ['Front View', 'Detail View', 'Additional View'];
 
-const campaignConcepts: Array<{
-  id: ConceptId;
-  title: string;
-  description: string;
-  imageDirection: string;
-  videoDirection: string;
-}> = [
-  {
-    id: 'royal-entrance',
-    title: 'Royal Entrance',
-    description: 'Grand showroom arch, premium model pose, rich Diwali glow.',
-    imageDirection:
-      'Concept: Royal Entrance. Place the customer at a grand Maharaja showroom entrance with carved arches, brass lamps, marigold garlands and warm gold rim light. For men, add premium safe fireworks sparkle and cracker-light bokeh only in the far background, never near the body or garment. For women, emphasize elegant diya rows, soft lamp glow, floral decor and graceful festive warmth. Pose should be full-body, confident and elegant, like a premium festive fashion campaign.',
-    videoDirection:
-      'Concept: Royal Entrance Walk. Start with the full-body subject framed under a grand showroom arch, then use a slow premium dolly push-in. For men, use safe distant fireworks sparkle and cracker-light bokeh as background energy only. For women, use soft diya rows, lamp glow and floral festive elegance. Keep posture confident and elegant, with warm lamps and marigold decor moving softly in the background.'
-  },
-  {
-    id: 'lamp-runway',
-    title: 'Lamp Runway',
-    description: 'Fashion runway feel with brass lamps and cinematic depth.',
-    imageDirection:
-      'Concept: Lamp Runway. Create a luxury in-store festive runway lined with brass kuthu vilakku lamps and soft diya trails. For men, add subtle golden cracker-spark bokeh behind the runway for energetic festive style. For women, increase soft diya glow, brass lamp symmetry, floral warmth and graceful luxury. The customer stands centered, full-body, with editorial fashion posture and clean product visibility from collar to footwear.',
-    videoDirection:
-      'Concept: Lamp Runway Film. Use a slow runway-style camera push with brass lamps on both sides, soft diya flicker, shallow festive bokeh and gentle fabric motion. For men, add safe distant cracker-spark bokeh in the background. For women, emphasize soft diya trails, warm lamp reflections and elegant floral glow. Keep the full outfit visible and unchanged.'
-  },
-  {
-    id: 'rangoli-spotlight',
-    title: 'Rangoli Spotlight',
-    description: 'Top festive floor design, elegant portrait-to-full-body framing.',
-    imageDirection:
-      'Concept: Rangoli Spotlight. Place the customer on a refined Diwali rangoli floor with warm overhead showroom glow, brass lamps in the corners and rich golden and floral decor. For men, add crisp festive sparkle and distant cracker-light reflections in the background. For women, make the rangoli, diya circle, brass lamps and soft golden glow more graceful and devotional. The pose should feel refined, graceful and premium, with the garment as the central product.',
-    videoDirection:
-      'Concept: Rangoli Spotlight Film. Begin with full-body framing over a beautiful rangoli floor, then add a very slow cinematic push-in with glowing diyas around the edges. For men, use subtle far-background cracker sparkle reflections. For women, use stronger diya circle glow and soft floral-lamp movement. Keep the subject calm, premium and product-focused.'
-  },
-  {
-    id: 'storefront-greeting',
-    title: 'Storefront Greeting',
-    description: 'Premium Diwali greeting card feel for TV and sharing.',
-    imageDirection:
-      'Concept: Storefront Greeting. Create a luxury Maharaja festive showroom greeting visual with the customer as the product model, elegant golden decor, lamps and a refined banner area for the Tamil greeting only if text is used. For men, add celebratory cracker-light bokeh and festive sparkle outside the storefront/background only. For women, focus on diya glow, brass lamps, flower garlands and soft graceful festival warmth.',
-    videoDirection:
-      'Concept: Storefront Greeting Film. Make it feel like a premium 6-second festive TV greeting from a showroom campaign: full-body model pose, soft push-in, warm lamps, golden decor, and an optional small final greeting card with the exact Tamil text. For men, use safe distant cracker-light sparkle in the background. For women, use elegant diya rows, lamp glow and floral festive warmth.'
-  }
-];
-
 const progressCopy: Record<VideoPhase, string> = {
   idle: 'Ready to generate after approval.',
   starting: 'Preparing cinematic prompt and sending to Veo Fast...',
@@ -143,7 +97,6 @@ export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
   const [mode, setMode] = useState<'proof' | 'auto'>('proof');
-  const [selectedConceptId, setSelectedConceptId] = useState<ConceptId>('royal-entrance');
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
@@ -168,10 +121,6 @@ export default function CreatePage() {
   const [manualUploadProgress, setManualUploadProgress] = useState(0);
 
   const activeGarmentPhotos = useMemo(() => garmentPhotos.filter(Boolean) as string[], [garmentPhotos]);
-  const selectedConcept = useMemo(
-    () => campaignConcepts.find((concept) => concept.id === selectedConceptId) || campaignConcepts[0],
-    [selectedConceptId]
-  );
   const canGenerateMaster = activeGarmentPhotos.length >= 1 && !!personPhoto && !isAnalyzingGarment && !isAnalyzingPerson;
   const canGenerateVideo = !!masterImageUrl && masterApproved && videoPhase === 'idle';
 
@@ -313,7 +262,6 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
           personAnalysis,
           personPhoto,
           garmentPhotos: activeGarmentPhotos,
-          conceptPrompt: selectedConcept.imageDirection,
         }),
       });
       const data = await parseJsonResponse(res);
@@ -658,7 +606,6 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
           sessionId,
           garmentAnalysis,
           masterImageUrl,
-          conceptPrompt: selectedConcept.videoDirection,
         }),
       });
       const startData = await parseJsonResponse(startRes);
@@ -756,36 +703,6 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
           Auto Mode: Paid API Test
         </button>
       </div>
-
-      <section className="rounded-2xl bg-white border border-amber-200 p-5 md:p-6 shadow-sm space-y-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-sm md:text-base font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-            Campaign Concept
-          </h2>
-          <p className="text-xs text-slate-600">
-            Pick one look. Face, beauty and product dress stay locked in every concept.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {campaignConcepts.map((concept) => (
-            <button
-              key={concept.id}
-              type="button"
-              onClick={() => setSelectedConceptId(concept.id)}
-              className={`min-h-28 rounded-xl border p-4 text-left transition ${
-                selectedConceptId === concept.id
-                  ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-md'
-                  : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-amber-300'
-              }`}
-            >
-              <span className="block text-xs font-bold uppercase tracking-wider">{concept.title}</span>
-              <span className={`mt-2 block text-xs leading-relaxed ${selectedConceptId === concept.id ? 'text-amber-50' : 'text-slate-600'}`}>
-                {concept.description}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
 
       {error && (
         <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-800 text-sm flex items-start gap-3">
