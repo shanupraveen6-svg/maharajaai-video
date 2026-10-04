@@ -12,6 +12,9 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [liveError, setLiveError] = useState<string | null>(null);
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [queueId, setQueueId] = useState<string | null>(null);
+  const [queueNumber, setQueueNumber] = useState<number | null>(null);
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [peopleAhead, setPeopleAhead] = useState<number | null>(null);
   const [liveQueueStatus, setLiveQueueStatus] = useState<'queued' | 'reserved' | 'playing' | 'completed' | 'playback_failed'>('queued');
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -48,6 +51,9 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
 
         if (data.success && data.status) {
           setLiveQueueStatus(data.status);
+          setQueueNumber(typeof data.queueNumber === 'number' ? data.queueNumber : null);
+          setQueuePosition(typeof data.queuePosition === 'number' ? data.queuePosition : null);
+          setPeopleAhead(typeof data.peopleAhead === 'number' ? data.peopleAhead : null);
           if (data.status === 'completed' || data.status === 'playback_failed') {
             return;
           }
@@ -149,6 +155,9 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
       const data = await res.json();
       if (data.success) {
         if (data.queueId) setQueueId(data.queueId);
+        setQueueNumber(typeof data.queueNumber === 'number' ? data.queueNumber : null);
+        setQueuePosition(typeof data.queuePosition === 'number' ? data.queuePosition : null);
+        setPeopleAhead(typeof data.peopleAhead === 'number' ? data.peopleAhead : null);
         setLiveQueueStatus('queued');
         setCountdownSeconds(5);
         setLiveSuccess(true);
@@ -283,6 +292,26 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                 ? 'Playback encountered an issue on the TV screen.'
                 : 'Waiting for Maharaja screen to start playing your video...'}
             </p>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="rounded-lg border border-emerald-400/30 bg-black/30 p-3 text-center">
+                <p className="text-[10px] text-emerald-300/70 uppercase tracking-widest">Queue No</p>
+                <p className="text-2xl font-mono font-black text-[#F3E5AB]">
+                  {queueNumber ? `#${queueNumber}` : '--'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-emerald-400/30 bg-black/30 p-3 text-center">
+                <p className="text-[10px] text-emerald-300/70 uppercase tracking-widest">Now Position</p>
+                <p className="text-2xl font-mono font-black text-[#F3E5AB]">
+                  {liveQueueStatus === 'queued' && queuePosition ? `#${queuePosition}` : liveQueueStatus === 'playing' ? 'LIVE' : liveQueueStatus === 'completed' ? 'DONE' : '--'}
+                </p>
+                {liveQueueStatus === 'queued' && peopleAhead !== null && (
+                  <p className="mt-1 text-[10px] text-emerald-200/80">
+                    {peopleAhead === 0 ? 'You are next' : `${peopleAhead} ahead`}
+                  </p>
+                )}
+              </div>
+            </div>
 
           </div>
         )}

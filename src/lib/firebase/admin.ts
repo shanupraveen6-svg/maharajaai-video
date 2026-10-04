@@ -58,6 +58,7 @@ export type MockQueueItem = {
   screenId: string;
   videoId: string;
   sessionId: string;
+  queueNumber?: number;
   videoUrl?: string;
   status: 'queued' | 'reserved' | 'playing' | 'completed' | 'playback_failed' | 'cancelled';
   priority: number;
@@ -176,4 +177,3 @@ export async function getSignedPlaybackUrl(storagePath: string): Promise<string>
 
   throw new Error(`Real Firebase Storage bucket is not available or credentials missing for path '${storagePath}'`);
 }
-
