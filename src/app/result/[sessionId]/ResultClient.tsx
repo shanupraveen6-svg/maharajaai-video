@@ -244,7 +244,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             onClick={() => setShowLiveConsent(true)}
             className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#800A1D] via-[#6e0d1f] to-[#800A1D] border border-[#D4AF37]/50 text-[#F3E5AB] font-bold uppercase tracking-wider text-sm shadow-xl hover:scale-[1.02] transition flex items-center justify-center gap-3"
           >
-            <Tv className="w-5 h-5 text-[#D4AF37]" /> GO LIVE ON MAHARAJA SCREEN
+            <Tv className="w-5 h-5 text-[#D4AF37]" /> OPEN GO LIVE CONFIRMATION
           </button>
 
           <Link

@@ -113,6 +113,16 @@ export async function POST(req: NextRequest) {
       });
       queuePosition = await getQueuePosition(db, queueId);
     } else {
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Real Firebase is not configured for the live queue. Set Firebase Admin env vars in Vercel before using Go Live.'
+          },
+          { status: 500 }
+        );
+      }
+
       const mockStore = getMockStore();
       const existingActive = mockStore.liveQueue
         .filter((item: any) => item.sessionId === sessionId && item.screenId === 'maharaja-main' && ACTIVE_STATUSES.has(item.status || 'queued'))
