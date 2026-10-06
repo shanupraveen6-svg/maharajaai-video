@@ -155,14 +155,28 @@ export async function GET(req: NextRequest) {
           const storagePath = `sessions/${targetSessionId}/video/final.mp4`;
 
           const bucket = getStorageBucket();
-          if (bucket) {
-            const file = bucket.file(storagePath);
-            await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
-            const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-            videoUrl = signedUrl;
-          } else {
-            videoUrl = `data:video/mp4;base64,${fileBuffer.toString('base64')}`;
+          if (!bucket) {
+            status = 'failed';
+            if (db) {
+              await db.collection('sessions').doc(targetSessionId).set({
+                videoStatus: 'failed',
+                videoError: 'Firebase Storage bucket is required to save generated Veo video output.',
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+            }
+            return NextResponse.json({
+              success: false,
+              jobId,
+              sessionId: targetSessionId,
+              status: 'failed',
+              error: 'Firebase Storage bucket is required to save generated Veo video output.'
+            }, { status: 500 });
           }
+
+          const file = bucket.file(storagePath);
+          await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
+          const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+          videoUrl = signedUrl;
 
           status = 'ready';
 

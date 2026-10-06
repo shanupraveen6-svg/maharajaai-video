@@ -50,14 +50,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Mock upload path if live bucket is pending
-    return NextResponse.json({
-      success: true,
-      uploadUrl: '',
-      storagePath,
-      assetId,
-      directUpload: false
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Firebase Storage is not configured. Direct upload URL cannot be generated.',
+        storagePath,
+        assetId,
+        directUpload: false
+      },
+      { status: 500 }
+    );
   } catch (error: any) {
     console.error('Signed Upload URL Error:', error);
     return NextResponse.json({ success: false, error: error.message || 'Failed to generate upload URL' }, { status: 500 });

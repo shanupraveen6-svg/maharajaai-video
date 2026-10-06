@@ -93,30 +93,9 @@ const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
     }]
   ]),
   liveQueue: [],
-  sessions: new Map([
-    ['sample-session', {
-      id: 'sample-session',
-      status: 'completed',
-      createdAt: new Date().toISOString()
-    }]
-  ]),
-  videos: new Map([
-    ['sample-video', {
-      id: 'sample-video',
-      sessionId: 'sample-session',
-      storagePath: 'sessions/sample-session/video/final.mp4',
-      status: 'ready',
-      createdAt: new Date().toISOString()
-    }]
-  ]),
-  consents: new Map([
-    ['sample-session', {
-      sessionId: 'sample-session',
-      generationConsent: true,
-      publicDisplayConsent: true,
-      publicDisplayConsentAt: new Date().toISOString()
-    }]
-  ])
+  sessions: new Map(),
+  videos: new Map(),
+  consents: new Map()
 };
 
 (global as any).__MAHARAJA_MOCK_STORE__ = globalMockStore;

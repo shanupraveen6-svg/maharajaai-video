@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const targetStoragePath = clientStoragePath || `sessions/${sessionId}/master/master.jpg`;
     const nowIso = new Date().toISOString();
-    let masterImageUrl = clientMasterUrl || '/sample-master.jpg';
+    let masterImageUrl = clientMasterUrl || null;
 
     const bucket = getStorageBucket();
     if (bucket) {
@@ -27,7 +27,19 @@ export async function POST(req: NextRequest) {
           expires: Date.now() + 24 * 60 * 60 * 1000
         });
         masterImageUrl = signedUrl;
+      } else if (!masterImageUrl) {
+        return NextResponse.json(
+          { success: false, error: `Uploaded master image object does not exist at storagePath: ${targetStoragePath}` },
+          { status: 400 }
+        );
       }
+    }
+
+    if (!masterImageUrl) {
+      return NextResponse.json(
+        { success: false, error: `Failed to verify or generate master image URL for session ${sessionId}` },
+        { status: 400 }
+      );
     }
 
     const db = getDb();

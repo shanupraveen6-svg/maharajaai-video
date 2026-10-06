@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Shirt,
   Sparkles,
+  Upload,
   User,
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
@@ -32,6 +33,7 @@ type PersonAnalysis = {
 };
 
 type VideoPhase = 'idle' | 'starting' | 'rendering' | 'saving' | 'ready' | 'failed';
+type CreateMode = 'proof' | 'test';
 type MasterTemplateId = 'men' | 'women';
 
 const masterTemplates: Record<
@@ -118,6 +120,7 @@ const progressCopy: Record<VideoPhase, string> = {
 export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+  const [mode, setMode] = useState<CreateMode>('proof');
   const [masterTemplateId, setMasterTemplateId] = useState<MasterTemplateId>('men');
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
@@ -129,7 +132,6 @@ export default function CreatePage() {
   const [isAnalyzingPerson, setIsAnalyzingPerson] = useState(false);
   const [isGeneratingMaster, setIsGeneratingMaster] = useState(false);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
-  const [masterImageDataUrl, setMasterImageDataUrl] = useState<string | null>(null);
   const [masterApproved, setMasterApproved] = useState(false);
 
   const [videoPhase, setVideoPhase] = useState<VideoPhase>('idle');
@@ -138,11 +140,11 @@ export default function CreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [isUploadingManualMaster, setIsUploadingManualMaster] = useState(false);
   const [isUploadingManualVideo, setIsUploadingManualVideo] = useState(false);
-  const [isGeneratingSafeVideo, setIsGeneratingSafeVideo] = useState(false);
   const [manualUploadProgress, setManualUploadProgress] = useState(0);
 
   const activeGarmentPhotos = useMemo(() => garmentPhotos.filter(Boolean) as string[], [garmentPhotos]);
-  const canGenerateMaster = activeGarmentPhotos.length >= 1 && !!personPhoto && !isAnalyzingGarment && !isAnalyzingPerson;
+  const hasRequiredPhotos = activeGarmentPhotos.length >= 1 && !!personPhoto;
+  const canGenerateMaster = mode === 'test' && hasRequiredPhotos && !isAnalyzingGarment && !isAnalyzingPerson;
   const canGenerateVideo = !!masterImageUrl && masterApproved && videoPhase === 'idle';
   const selectedMasterTemplate = masterTemplates[masterTemplateId];
 
@@ -160,20 +162,6 @@ export default function CreatePage() {
 
     return () => window.clearInterval(timer);
   }, [videoPhase]);
-
-  const masterPrompt = useMemo(() => {
-    return `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image.
-Use the first uploaded image as the exact customer identity reference. Preserve the same facial identity, facial features, face shape, skin tone, hairstyle, approximate body proportions, age appearance and overall likeness.
-Use the remaining uploaded garment images as the exact clothing reference. Preserve the garment's real primary color, secondary colors, fabric appearance, embroidery, motifs, borders, pattern placement, neckline, sleeves, silhouette and overall design.
-Dress the same customer naturally and realistically in the selected garment as a complete full-length outfit.
-If the uploaded product contains only a top garment, create a tasteful complementary traditional bottom that matches the product without altering the supplied garment itself.
-Apply this selected Maharaja template:
-${selectedMasterTemplate.masterPrompt}
-Maintain strict full-body head-to-toe framing. The complete outfit must be clearly visible.
-Styling should be attractive, premium and realistic, with natural posture, subtle festive makeup and elegant Indian traditional styling suitable for the customer.
-Do not change the customer's identity. Do not redesign the garment. Do not change garment color, embroidery, motifs or pattern. Do not create duplicate people, extra limbs, malformed hands, random text or logos.
-The final image should look like a premium Maharaja festive fashion campaign photograph.`;
-  }, [selectedMasterTemplate]);
 
   const videoPrompt = useMemo(() => {
     return `Create a premium 6-second vertical 9:16 Diwali fashion ad using the approved AI master image as the only person, face, body and outfit source.
@@ -205,6 +193,15 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     const images = nextPhotos.filter(Boolean) as string[];
     if (!images.length) return;
 
+    if (mode === 'proof') {
+      setGarmentAnalysis({
+        garmentType: 'Proof garment',
+        primaryColor: 'Manual proof',
+        operatorMessage: 'Proof Mode: garment photos are loaded locally. No AI analysis credit used.',
+      });
+      return;
+    }
+
     setIsAnalyzingGarment(true);
     setError(null);
     try {
@@ -222,11 +219,24 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     }
   }
 
+  function resetGeneratedOutputs() {
+    setMasterImageUrl(null);
+    setMasterApproved(false);
+    setVideoPhase('idle');
+    setVideoProgress(0);
+    setJobId(null);
+    setManualUploadProgress(0);
+  }
+
+  function selectMode(nextMode: CreateMode) {
+    setMode(nextMode);
+    setError(null);
+    resetGeneratedOutputs();
+  }
+
   function selectMasterTemplate(nextTemplateId: MasterTemplateId) {
     setMasterTemplateId(nextTemplateId);
-    setMasterImageUrl(null);
-    setMasterImageDataUrl(null);
-    setMasterApproved(false);
+    resetGeneratedOutputs();
   }
 
   async function handleGarmentUpload(e: React.ChangeEvent<HTMLInputElement>, slotIndex: number) {
@@ -239,7 +249,6 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
       nextPhotos[slotIndex] = dataUrl;
       setGarmentPhotos(nextPhotos);
       setMasterImageUrl(null);
-      setMasterImageDataUrl(null);
       setMasterApproved(false);
       await analyzeGarments(nextPhotos);
     } catch (err) {
@@ -256,9 +265,17 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     try {
       const { dataUrl } = await compressImage(file, 1600, 0.85);
       setPersonPhoto(dataUrl);
-      setMasterImageUrl(null);
-      setMasterImageDataUrl(null);
-      setMasterApproved(false);
+      resetGeneratedOutputs();
+
+      if (mode === 'proof') {
+        setPersonAnalysis({
+          fullBodyVisible: true,
+          faceVisible: true,
+          lightingQuality: 'proof mode',
+          operatorMessage: 'Proof Mode: customer photo is loaded locally. No AI analysis credit used.',
+        });
+        return;
+      }
 
       const res = await fetch('/api/ai/analyze-person', {
         method: 'POST',
@@ -297,11 +314,6 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
       });
       const data = await parseJsonResponse(res);
       setMasterImageUrl(data.masterImageUrl);
-      setMasterImageDataUrl(
-        typeof data.masterImageUrl === 'string' && data.masterImageUrl.startsWith('data:image')
-          ? data.masterImageUrl
-          : null
-      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Master image generation failed.');
     } finally {
@@ -341,7 +353,6 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
       });
       const completeData = await parseJsonResponse(completeRes);
       setMasterImageUrl(completeData.masterImageUrl || dataUrl);
-      setMasterImageDataUrl(dataUrl);
       setMasterApproved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Manual master image upload failed.');
@@ -365,26 +376,19 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
         body: JSON.stringify({ sessionId, assetType: 'video', contentType }),
       });
       const signedData = await parseJsonResponse(signedRes);
-      let storagePath = `sessions/${sessionId}/video/final.mp4`;
 
-      if (signedData.success && signedData.directUpload && signedData.uploadUrl) {
-        storagePath = signedData.storagePath || storagePath;
-        await xhrUploadFile(
-          signedData.uploadUrl,
-          'PUT',
-          { 'Content-Type': contentType },
-          file,
-          setManualUploadProgress
-        );
-      } else {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('sessionId', sessionId);
-        const fallbackRes = await fetch('/api/upload/video', { method: 'POST', body: formData });
-        const fallbackData = await parseJsonResponse(fallbackRes);
-        storagePath = fallbackData.storagePath || storagePath;
-        setManualUploadProgress(100);
+      if (!signedData.success || !signedData.directUpload || !signedData.uploadUrl) {
+        throw new Error('Firebase direct video upload is unavailable.');
       }
+
+      const storagePath = signedData.storagePath || `sessions/${sessionId}/video/final.mp4`;
+      await xhrUploadFile(
+        signedData.uploadUrl,
+        'PUT',
+        { 'Content-Type': contentType },
+        file,
+        setManualUploadProgress
+      );
 
       const completeRes = await fetch('/api/video/manual-complete', {
         method: 'POST',
@@ -397,228 +401,6 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
       setError(err instanceof Error ? err.message : 'Manual video upload failed.');
     } finally {
       setIsUploadingManualVideo(false);
-    }
-  }
-
-  function loadCanvasImage(src: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      if (!src.startsWith('data:')) img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Could not load approved master image for safe video.'));
-      img.src = src;
-    });
-  }
-
-  function drawCoverImage(
-    ctx: CanvasRenderingContext2D,
-    image: HTMLImageElement,
-    canvasWidth: number,
-    canvasHeight: number,
-    zoom: number,
-    offsetX: number,
-    offsetY: number
-  ) {
-    const baseScale = Math.max(canvasWidth / image.width, canvasHeight / image.height);
-    const width = image.width * baseScale * zoom;
-    const height = image.height * baseScale * zoom;
-    const x = (canvasWidth - width) / 2 + offsetX;
-    const y = (canvasHeight - height) / 2 + offsetY;
-    ctx.drawImage(image, x, y, width, height);
-  }
-
-  function drawSafeMotionFrame(
-    ctx: CanvasRenderingContext2D,
-    image: HTMLImageElement,
-    canvasWidth: number,
-    canvasHeight: number,
-    progress: number
-  ) {
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const zoom = 1.015 + eased * 0.045;
-    const offsetX = Math.sin(progress * Math.PI) * -10;
-    const offsetY = -eased * 16;
-
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    drawCoverImage(ctx, image, canvasWidth, canvasHeight, zoom, offsetX, offsetY);
-
-    const vignette = ctx.createRadialGradient(
-      canvasWidth / 2,
-      canvasHeight / 2,
-      canvasWidth * 0.2,
-      canvasWidth / 2,
-      canvasHeight / 2,
-      canvasHeight * 0.75
-    );
-    vignette.addColorStop(0, 'rgba(255, 245, 210, 0.04)');
-    vignette.addColorStop(0.65, 'rgba(20, 5, 10, 0.08)');
-    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
-    ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-    const glow = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
-    glow.addColorStop(0, 'rgba(255, 224, 150, 0.14)');
-    glow.addColorStop(0.45, 'rgba(255, 180, 70, 0.03)');
-    glow.addColorStop(1, 'rgba(100, 10, 25, 0.18)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-    for (let i = 0; i < 18; i += 1) {
-      const side = i % 2 === 0 ? 0.14 : 0.86;
-      const x = canvasWidth * side + Math.sin(progress * 6 + i) * 32;
-      const y = canvasHeight * (0.12 + (i % 6) * 0.055) + Math.cos(progress * 5 + i) * 12;
-      const radius = 2 + ((i * 7) % 9);
-      const alpha = 0.22 + Math.sin(progress * Math.PI * 2 + i) * 0.12;
-      ctx.beginPath();
-      ctx.fillStyle = `rgba(255, 210, 90, ${Math.max(0.06, alpha)})`;
-      ctx.shadowColor = 'rgba(255, 190, 80, 0.7)';
-      ctx.shadowBlur = 18;
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.shadowBlur = 0;
-
-    const bottomGlow = ctx.createRadialGradient(
-      canvasWidth / 2,
-      canvasHeight,
-      20,
-      canvasWidth / 2,
-      canvasHeight,
-      canvasWidth * 0.72
-    );
-    bottomGlow.addColorStop(0, 'rgba(255, 165, 60, 0.24)');
-    bottomGlow.addColorStop(1, 'rgba(255, 165, 60, 0)');
-    ctx.fillStyle = bottomGlow;
-    ctx.fillRect(0, canvasHeight * 0.55, canvasWidth, canvasHeight * 0.45);
-
-    const bannerHeight = 92;
-    const bannerY = canvasHeight - bannerHeight - 34;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.68)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(40, bannerY, canvasWidth - 80, bannerHeight, 22);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#D4AF37';
-    ctx.font = '700 18px serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('MAHARAJA DIWALI GREETING', canvasWidth / 2, bannerY + 29);
-
-    ctx.fillStyle = '#F3E5AB';
-    ctx.font = '700 31px "Noto Serif Tamil", "Noto Sans Tamil", Latha, serif';
-    ctx.fillText('இனிய தீபாவளி நல்வாழ்த்துக்கள்', canvasWidth / 2, bannerY + 68);
-  }
-
-  async function createSafeMotionVideo() {
-    if (!masterImageUrl || !masterApproved) {
-      setError('Approve the master image first. Safe video uses the approved image exactly.');
-      return;
-    }
-
-    const sourceImage = masterImageDataUrl || masterImageUrl;
-    const canvas = document.createElement('canvas');
-    canvas.width = 720;
-    canvas.height = 1280;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) {
-      setError('Your browser could not create the safe video canvas.');
-      return;
-    }
-
-    const supportedMimeType = [
-      'video/webm;codecs=vp9',
-      'video/webm;codecs=vp8',
-      'video/webm',
-    ].find((type) => MediaRecorder.isTypeSupported(type));
-
-    if (!supportedMimeType) {
-      setError('This browser cannot record a safe motion video. Please use Chrome on this device.');
-      return;
-    }
-
-    setIsGeneratingSafeVideo(true);
-    setManualUploadProgress(0);
-    setError(null);
-
-    try {
-      const image = await loadCanvasImage(sourceImage);
-      const stream = canvas.captureStream(30);
-      const recorder = new MediaRecorder(stream, {
-        mimeType: supportedMimeType,
-        videoBitsPerSecond: 5_000_000,
-      });
-      const chunks: BlobPart[] = [];
-      const recordingComplete = new Promise<Blob>((resolve, reject) => {
-        recorder.ondataavailable = (event) => {
-          if (event.data.size > 0) chunks.push(event.data);
-        };
-        recorder.onerror = () => reject(new Error('Safe video recorder failed.'));
-        recorder.onstop = () => resolve(new Blob(chunks, { type: 'video/webm' }));
-      });
-
-      const durationMs = 6000;
-      let startTime = 0;
-
-      recorder.start(250);
-
-      await new Promise<void>((resolve) => {
-        const renderFrame = (timestamp: number) => {
-          if (!startTime) startTime = timestamp;
-          const elapsed = timestamp - startTime;
-          const progress = Math.min(elapsed / durationMs, 1);
-          drawSafeMotionFrame(ctx, image, canvas.width, canvas.height, progress);
-          setManualUploadProgress(Math.min(70, Math.round(progress * 70)));
-
-          if (progress < 1) {
-            window.requestAnimationFrame(renderFrame);
-          } else {
-            recorder.stop();
-            resolve();
-          }
-        };
-
-        window.requestAnimationFrame(renderFrame);
-      });
-
-      const videoBlob = await recordingComplete;
-      const contentType = 'video/webm';
-      const signedRes = await fetch('/api/upload/signed-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, assetType: 'video', contentType }),
-      });
-      const signedData = await parseJsonResponse(signedRes);
-
-      if (!signedData.success || !signedData.directUpload || !signedData.uploadUrl) {
-        throw new Error('Firebase direct safe video upload is unavailable.');
-      }
-
-      await xhrUploadFile(
-        signedData.uploadUrl,
-        'PUT',
-        { 'Content-Type': contentType },
-        videoBlob,
-        (percent) => setManualUploadProgress(70 + Math.round(percent * 0.25))
-      );
-
-      const completeRes = await fetch('/api/video/manual-complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          storagePath: signedData.storagePath || `sessions/${sessionId}/video/final.webm`,
-        }),
-      });
-      await parseJsonResponse(completeRes);
-      setManualUploadProgress(100);
-      router.push(`/result/${sessionId}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Safe motion video creation failed.');
-    } finally {
-      setIsGeneratingSafeVideo(false);
     }
   }
 
@@ -715,6 +497,27 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
             {step}
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 rounded-2xl bg-white border border-amber-200 p-2 shadow-sm">
+        <button
+          type="button"
+          onClick={() => selectMode('proof')}
+          className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider ${
+            mode === 'proof' ? 'bg-[#6e0d1f] text-white' : 'bg-slate-50 text-slate-600'
+          }`}
+        >
+          Proof Mode: No API Credit
+        </button>
+        <button
+          type="button"
+          onClick={() => selectMode('test')}
+          className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider ${
+            mode === 'test' ? 'bg-[#6e0d1f] text-white' : 'bg-slate-50 text-slate-600'
+          }`}
+        >
+          Test Mode: Gemini API
+        </button>
       </div>
 
       <section className="p-5 md:p-6 rounded-2xl bg-white border border-amber-200 shadow-sm space-y-4">
@@ -861,14 +664,26 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
             </h2>
           </div>
 
-          <button
-            onClick={generateMasterImage}
-            disabled={!canGenerateMaster || isGeneratingMaster}
-            className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
-          >
-            {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
-            {masterImageUrl ? 'Regenerate AI Image' : 'Generate AI Image'}
-          </button>
+          {mode === 'proof' ? (
+            <label
+              className={`w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 ${
+                !hasRequiredPhotos || isUploadingManualMaster ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:brightness-110'
+              }`}
+            >
+              {isUploadingManualMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5 text-amber-200" />}
+              Upload AI Image
+              <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleManualMasterUpload} disabled={!hasRequiredPhotos || isUploadingManualMaster} className="hidden" />
+            </label>
+          ) : (
+            <button
+              onClick={generateMasterImage}
+              disabled={!canGenerateMaster || isGeneratingMaster}
+              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
+            >
+              {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
+              {masterImageUrl ? 'Regenerate AI Image' : 'Generate AI Image'}
+            </button>
+          )}
 
           {masterImageUrl ? (
             <div className="space-y-4">
@@ -906,29 +721,41 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
             <div>
               <h2 className="font-serif font-bold uppercase tracking-wider text-lg text-[#F3E5AB]">6-Second Video Generation</h2>
               <p className="text-xs text-amber-100/80">
-                Veo Fast 720p · real API test · demo locked to 2 starts
+                {mode === 'proof' ? 'Upload final MP4 · no Gemini/Veo credit used' : 'Veo Fast 720p · real API test · demo locked to 2 starts'}
               </p>
             </div>
           </div>
-          <button
-            onClick={startVideoGeneration}
-            disabled={!canGenerateVideo}
-            className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
-          >
-            Generate 6-sec Video <ArrowRight className="w-4 h-4" />
-          </button>
+          {mode === 'proof' ? (
+            <label
+              className={`py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 ${
+                !masterApproved || isUploadingManualVideo ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:brightness-110'
+              }`}
+            >
+              {isUploadingManualVideo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              Upload Final Video
+              <input type="file" accept="video/mp4,video/webm,video/*" onChange={handleManualVideoUpload} disabled={!masterApproved || isUploadingManualVideo} className="hidden" />
+            </label>
+          ) : (
+            <button
+              onClick={startVideoGeneration}
+              disabled={!canGenerateVideo}
+              className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
+            >
+              Generate 6-sec Video <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <div className="space-y-2">
           <div className="h-3 bg-white/10 rounded-full overflow-hidden border border-amber-300/20">
             <div
               className="h-full bg-gradient-to-r from-amber-300 to-emerald-400 transition-all duration-500"
-              style={{ width: `${videoProgress}%` }}
+              style={{ width: `${mode === 'proof' ? manualUploadProgress : videoProgress}%` }}
             />
           </div>
           <div className="flex items-center justify-between text-xs font-mono text-amber-100">
-            <span>{progressCopy[videoPhase]}</span>
-            <span>{videoProgress}%</span>
+            <span>{mode === 'proof' ? (isUploadingManualVideo ? 'Uploading final video to Firebase Storage...' : 'Upload final MP4 after approval.') : progressCopy[videoPhase]}</span>
+            <span>{mode === 'proof' ? manualUploadProgress : videoProgress}%</span>
           </div>
           {jobId && <p className="text-[11px] text-amber-200/80 font-mono">JOB: {jobId}</p>}
         </div>
