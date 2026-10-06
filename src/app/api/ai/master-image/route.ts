@@ -92,10 +92,11 @@ The final image should look like a premium Maharaja festive fashion campaign pho
           model: AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
           contents,
           config: {
+            responseModalities: ['TEXT', 'IMAGE'],
             imageConfig: {
-              aspectRatio: '9:16'
-            }
-          }
+              aspectRatio: '9:16',
+            },
+          },
         });
 
         const candidate = genResponse.candidates?.[0];
