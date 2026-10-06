@@ -213,9 +213,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           <video
             src={videoUrl}
             controls
-            autoPlay
             loop
-            muted
             playsInline
             className="w-full h-full object-cover"
           />

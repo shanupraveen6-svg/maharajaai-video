@@ -7,13 +7,11 @@ import {
   ArrowRight,
   Camera,
   CheckCircle2,
-  Copy,
   Film,
   Image as ImageIcon,
   RefreshCw,
   Shirt,
   Sparkles,
-  Upload,
   User,
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
@@ -34,6 +32,30 @@ type PersonAnalysis = {
 };
 
 type VideoPhase = 'idle' | 'starting' | 'rendering' | 'saving' | 'ready' | 'failed';
+type MasterTemplateId = 'men' | 'women';
+
+const masterTemplates: Record<
+  MasterTemplateId,
+  {
+    title: string;
+    label: string;
+    masterPrompt: string;
+    videoPrompt: string;
+  }
+> = {
+  men: {
+    title: 'Men Template',
+    label: 'Crackers runway',
+    masterPrompt: `Use a premium Maharaja Diwali menswear campaign setting: a royal festive walkway with warm gold lighting, tasteful distant crackers/fireworks, brass lamps, marigold decor, subtle rangoli floor detail and cinematic fashion-poster styling. Keep the mood elegant, confident and masculine without changing the customer, body, face or garment.`,
+    videoPrompt: `Selected style is MEN only. Create a royal festive menswear walkway with warm gold lighting, tasteful distant crackers/fireworks, brass lamps, marigold decor, subtle rangoli floor detail, slow premium camera push-in and confident menswear ad mood. Do not borrow any women's clothing, pose, jewellery, saree, lehenga, dupatta or bridal styling.`,
+  },
+  women: {
+    title: 'Women Template',
+    label: 'Diyas palace',
+    masterPrompt: `Use a premium Maharaja Diwali womenswear campaign setting: an elegant palace-inspired festive interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden bokeh and graceful cinematic fashion-poster styling. Keep the mood elegant, beautiful and celebratory without changing the customer, body, face or garment.`,
+    videoPrompt: `Selected style is WOMEN only. Create an elegant womenswear Diwali palace interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden bokeh, graceful camera push-in and premium festive fashion ad mood. Do not borrow any men's shirt, trouser, suiting, moustache, beard or menswear styling.`,
+  },
+};
 
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
@@ -96,7 +118,7 @@ const progressCopy: Record<VideoPhase, string> = {
 export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
-  const [mode, setMode] = useState<'proof' | 'auto'>('proof');
+  const [masterTemplateId, setMasterTemplateId] = useState<MasterTemplateId>('men');
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
@@ -114,7 +136,6 @@ export default function CreatePage() {
   const [videoProgress, setVideoProgress] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copiedPrompt, setCopiedPrompt] = useState<'master' | 'video' | null>(null);
   const [isUploadingManualMaster, setIsUploadingManualMaster] = useState(false);
   const [isUploadingManualVideo, setIsUploadingManualVideo] = useState(false);
   const [isGeneratingSafeVideo, setIsGeneratingSafeVideo] = useState(false);
@@ -123,6 +144,7 @@ export default function CreatePage() {
   const activeGarmentPhotos = useMemo(() => garmentPhotos.filter(Boolean) as string[], [garmentPhotos]);
   const canGenerateMaster = activeGarmentPhotos.length >= 1 && !!personPhoto && !isAnalyzingGarment && !isAnalyzingPerson;
   const canGenerateVideo = !!masterImageUrl && masterApproved && videoPhase === 'idle';
+  const selectedMasterTemplate = masterTemplates[masterTemplateId];
 
   useEffect(() => {
     if (videoPhase !== 'starting' && videoPhase !== 'rendering' && videoPhase !== 'saving') return;
@@ -145,39 +167,39 @@ Use the first uploaded image as the exact customer identity reference. Preserve 
 Use the remaining uploaded garment images as the exact clothing reference. Preserve the garment's real primary color, secondary colors, fabric appearance, embroidery, motifs, borders, pattern placement, neckline, sleeves, silhouette and overall design.
 Dress the same customer naturally and realistically in the selected garment as a complete full-length outfit.
 If the uploaded product contains only a top garment, create a tasteful complementary traditional bottom that matches the product without altering the supplied garment itself.
-Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.
+Apply this selected Maharaja template:
+${selectedMasterTemplate.masterPrompt}
 Maintain strict full-body head-to-toe framing. The complete outfit must be clearly visible.
 Styling should be attractive, premium and realistic, with natural posture, subtle festive makeup and elegant Indian traditional styling suitable for the customer.
 Do not change the customer's identity. Do not redesign the garment. Do not change garment color, embroidery, motifs or pattern. Do not create duplicate people, extra limbs, malformed hands, random text or logos.
 The final image should look like a premium Maharaja festive fashion campaign photograph.`;
-  }, []);
+  }, [selectedMasterTemplate]);
 
   const videoPrompt = useMemo(() => {
-    const garment = garmentAnalysis?.garmentType || 'outfit';
-    const color = garmentAnalysis?.primaryColor || 'original garment color';
-    const embroidery = garmentAnalysis?.embroideryDescription || 'visible garment details';
-    const fabric = garmentAnalysis?.fabricAppearance || 'real fabric texture';
+    return `Create a premium 6-second vertical 9:16 Diwali fashion ad using the approved AI master image as the only person, face, body and outfit source.
 
-    return `Create a photorealistic premium 6-second vertical 9:16 Diwali fashion commercial using the uploaded master reference image as the definitive visual reference.
-Preserve the exact same person's facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance, garment design (${color} ${garment}, ${fabric}, ${embroidery}), garment color, embroidery, motifs, pattern, accessories and complete outfit throughout the entire video.
-The subject begins slightly farther from the camera and walks slowly and naturally forward toward the camera throughout the shot.
-Maintain strict full-body head-to-toe framing throughout so the complete garment length and silhouette remain clearly visible at all times.
-The subject smiles warmly and gracefully holds a glowing traditional clay diya in both hands while walking.
-Place the subject in a vibrant premium Diwali celebration environment with warm diyas, traditional lamps, floral decorations, subtle rangoli and elegant festive golden lighting.
-Use realistic walking motion, natural fabric movement, anatomically correct hands and fingers, elegant posture, subtle festive makeup, realistic skin texture and high-end Indian fashion-commercial lighting.
-The subject clearly says in natural Tamil:
-"அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!"
-Keep the camera movement smooth and cinematic. Keep the person centered and clearly visible.
-Display the Tamil greeting text tastefully near the lower third for 2-3 seconds.
-Do not change the person's face. Do not change the garment. Do not change garment color, embroidery, hairstyle or body proportions. No duplicate person. No extra limbs. No malformed hands. No dancing. No spinning. No jumping. No face morphing. No random text. No generated logos. No excessive fireworks.
-Premium festive commercial look, sharp focus, cinematic depth and warm color grading.`;
-  }, [garmentAnalysis]);
+LOCKED SOURCE RULE:
+The final person, face, hairstyle, skin tone, body shape, outfit, garment colors, fabric pattern, pants/saree/dress and styling must come from the approved master image. Do not change gender styling. Do not borrow clothing, face or body from any other style.
 
-  async function copyPrompt(type: 'master' | 'video', prompt: string) {
-    await navigator.clipboard.writeText(prompt);
-    setCopiedPrompt(type);
-    window.setTimeout(() => setCopiedPrompt(null), 2000);
-  }
+SELECTED TEMPLATE:
+${selectedMasterTemplate.videoPrompt}
+
+ACTION:
+Keep movement elegant and controlled: soft smile, natural breathing, slight head movement, small hand movement and a slow premium camera push-in. Keep the person mostly front-facing. Avoid heavy walking, fast movement, dancing, spinning or big pose changes.
+
+FRAMING:
+Keep full-body or near full-body framing for most of the video so the outfit remains visible. Keep the face clear and stable.
+
+DIWALI TEXT:
+Show this Tamil greeting clearly at the top in an elegant readable gold Tamil font:
+"இனிய தீபாவளி நல்வாழ்த்துக்கள்"
+
+AUDIO:
+Add soft festive instrumental music only. No dialogue and no lip-sync.
+
+QUALITY:
+Make it realistic, premium, polished and suitable for a fashion retail store screen. Avoid changing the person into a different model, avoid face morphing, avoid changing dress color or pattern, avoid wrong Tamil text, avoid random logos.`;
+  }, [selectedMasterTemplate]);
 
   async function analyzeGarments(nextPhotos: (string | null)[]) {
     const images = nextPhotos.filter(Boolean) as string[];
@@ -198,6 +220,13 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
     } finally {
       setIsAnalyzingGarment(false);
     }
+  }
+
+  function selectMasterTemplate(nextTemplateId: MasterTemplateId) {
+    setMasterTemplateId(nextTemplateId);
+    setMasterImageUrl(null);
+    setMasterImageDataUrl(null);
+    setMasterApproved(false);
   }
 
   async function handleGarmentUpload(e: React.ChangeEvent<HTMLInputElement>, slotIndex: number) {
@@ -262,6 +291,8 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
           personAnalysis,
           personPhoto,
           garmentPhotos: activeGarmentPhotos,
+          conceptPrompt: selectedMasterTemplate.masterPrompt,
+          templateId: masterTemplateId,
         }),
       });
       const data = await parseJsonResponse(res);
@@ -606,6 +637,7 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
           sessionId,
           garmentAnalysis,
           masterImageUrl,
+          conceptPrompt: videoPrompt,
         }),
       });
       const startData = await parseJsonResponse(startRes);
@@ -685,24 +717,46 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 rounded-2xl bg-white border border-amber-200 p-2 shadow-sm">
-        <button
-          onClick={() => setMode('proof')}
-          className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider ${
-            mode === 'proof' ? 'bg-[#6e0d1f] text-white' : 'bg-slate-50 text-slate-600'
-          }`}
-        >
-          Proof Mode: Gemini App Upload
-        </button>
-        <button
-          onClick={() => setMode('auto')}
-          className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider ${
-            mode === 'auto' ? 'bg-[#6e0d1f] text-white' : 'bg-slate-50 text-slate-600'
-          }`}
-        >
-          Auto Mode: Paid API Test
-        </button>
-      </div>
+      <section className="p-5 md:p-6 rounded-2xl bg-white border border-amber-200 shadow-sm space-y-4">
+        <div>
+          <h2 className="text-sm md:text-base font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+            Select Customer Style
+          </h2>
+          <p className="mt-1 text-xs text-slate-600">
+            This chooses the hidden Maharaja Diwali style used for image and video generation.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {(Object.entries(masterTemplates) as Array<[MasterTemplateId, (typeof masterTemplates)[MasterTemplateId]]>).map(([id, template]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => selectMasterTemplate(id)}
+              className={`rounded-2xl border p-4 text-left transition ${
+                masterTemplateId === id
+                  ? 'border-[#6e0d1f] bg-amber-50 shadow-md'
+                  : 'border-slate-200 bg-slate-50 hover:border-amber-300'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-bold uppercase tracking-wider text-[#6e0d1f]">
+                  {id === 'men' ? 'Men' : 'Women'}
+                </span>
+                <span className="rounded-full bg-white border border-amber-300 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                  {masterTemplateId === id ? 'Selected' : 'Choose'}
+                </span>
+              </div>
+              <p className="mt-2 text-xs font-semibold text-slate-700">{template.label}</p>
+              <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                {id === 'men'
+                  ? 'Cinematic menswear Diwali look with festive crackers and royal lighting.'
+                  : 'Elegant womenswear Diwali look with diyas, lamps and graceful golden glow.'}
+              </p>
+            </button>
+          ))}
+        </div>
+      </section>
 
       {error && (
         <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-800 text-sm flex items-start gap-3">
@@ -807,40 +861,14 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
             </h2>
           </div>
 
-          {mode === 'proof' ? (
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#6e0d1f]">Master image prompt</h3>
-                  <button
-                    onClick={() => copyPrompt('master', masterPrompt)}
-                    className="px-3 py-2 rounded-lg bg-white border border-amber-300 text-[#6e0d1f] text-[11px] font-bold uppercase flex items-center gap-1"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    {copiedPrompt === 'master' ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <p className="text-xs leading-relaxed text-slate-700 max-h-32 overflow-auto whitespace-pre-line">
-                  {masterPrompt}
-                </p>
-              </div>
-
-              <label className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 cursor-pointer hover:brightness-110">
-                {isUploadingManualMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5 text-amber-200" />}
-                Upload Gemini Master Image
-                <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleManualMasterUpload} disabled={isUploadingManualMaster} className="hidden" />
-              </label>
-            </div>
-          ) : (
-            <button
-              onClick={generateMasterImage}
-              disabled={!canGenerateMaster || isGeneratingMaster}
-              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
-            >
-              {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
-              {masterImageUrl ? 'Regenerate Master Image' : 'Generate Diwali Master Image'}
-            </button>
-          )}
+          <button
+            onClick={generateMasterImage}
+            disabled={!canGenerateMaster || isGeneratingMaster}
+            className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
+          >
+            {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
+            {masterImageUrl ? 'Regenerate AI Image' : 'Generate AI Image'}
+          </button>
 
           {masterImageUrl ? (
             <div className="space-y-4">
@@ -878,81 +906,29 @@ Premium festive commercial look, sharp focus, cinematic depth and warm color gra
             <div>
               <h2 className="font-serif font-bold uppercase tracking-wider text-lg text-[#F3E5AB]">6-Second Video Generation</h2>
               <p className="text-xs text-amber-100/80">
-                {mode === 'proof' ? 'Safe motion from approved image · no AI video credit' : 'Veo Fast 720p · demo locked to 2 starts · no Standard mode'}
+                Veo Fast 720p · real API test · demo locked to 2 starts
               </p>
             </div>
           </div>
-          {mode === 'proof' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                onClick={createSafeMotionVideo}
-                disabled={!masterApproved || isGeneratingSafeVideo}
-                className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
-              >
-                {isGeneratingSafeVideo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Film className="w-4 h-4" />}
-                Create Safe Motion Video
-              </button>
-              <label className={`py-4 px-6 rounded-2xl bg-white/10 border border-amber-300/40 text-amber-100 font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 ${!masterImageUrl || isGeneratingSafeVideo ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:bg-white/15'}`}>
-                {isUploadingManualVideo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                Upload External MP4
-                <input type="file" accept="video/mp4,video/webm,video/*" onChange={handleManualVideoUpload} disabled={!masterImageUrl || isUploadingManualVideo || isGeneratingSafeVideo} className="hidden" />
-              </label>
-            </div>
-          ) : (
-            <button
-              onClick={startVideoGeneration}
-              disabled={!canGenerateVideo}
-              className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
-            >
-              Generate 6-sec Video <ArrowRight className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            onClick={startVideoGeneration}
+            disabled={!canGenerateVideo}
+            className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
+          >
+            Generate 6-sec Video <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
-
-        {mode === 'proof' && (
-          <div className="space-y-4">
-            <div className="rounded-2xl bg-white/5 border border-amber-300/20 p-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">Gemini / Veo Video Prompt for Gemini App</h3>
-                <button
-                  onClick={() => copyPrompt('video', videoPrompt)}
-                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md hover:brightness-110 transition"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  {copiedPrompt === 'video' ? '✓ Prompt Copied' : 'Copy Video Prompt'}
-                </button>
-              </div>
-              <p className="text-xs leading-relaxed text-amber-50/90 max-h-36 overflow-auto whitespace-pre-line font-mono bg-black/40 p-3 rounded-xl border border-white/10 select-all">
-                {videoPrompt}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-red-950/40 border border-red-400/40 p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-300 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-red-100">
-                    Important Identity & Proof Advice
-                  </h3>
-                  <p className="text-xs leading-relaxed text-red-50/90">
-                    Gemini/Veo AI video generation may alter facial details even when the master image is 100% accurate. For guaranteed face identity & in-store TV display, use <strong>Create Safe Motion Video</strong>. It animates the approved image directly so face, dress, and body stay 100% identical.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="space-y-2">
           <div className="h-3 bg-white/10 rounded-full overflow-hidden border border-amber-300/20">
             <div
               className="h-full bg-gradient-to-r from-amber-300 to-emerald-400 transition-all duration-500"
-              style={{ width: `${mode === 'proof' ? manualUploadProgress : videoProgress}%` }}
+              style={{ width: `${videoProgress}%` }}
             />
           </div>
           <div className="flex items-center justify-between text-xs font-mono text-amber-100">
-            <span>{mode === 'proof' ? (isGeneratingSafeVideo ? 'Creating safe video from the approved master image...' : isUploadingManualVideo ? 'Uploading external MP4 to Firebase Storage...' : 'Approve master image, then create safe motion video.') : progressCopy[videoPhase]}</span>
-            <span>{mode === 'proof' ? manualUploadProgress : videoProgress}%</span>
+            <span>{progressCopy[videoPhase]}</span>
+            <span>{videoProgress}%</span>
           </div>
           {jobId && <p className="text-[11px] text-amber-200/80 font-mono">JOB: {jobId}</p>}
         </div>

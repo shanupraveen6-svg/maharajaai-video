@@ -16,7 +16,7 @@ function getGenAIClient() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, conceptPrompt } = body;
+    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, conceptPrompt, templateId } = body;
 
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'sessionId is required.' }, { status: 400 });
@@ -67,12 +67,17 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        const templatePrompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
+          ? conceptPrompt.trim()
+          : 'Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.';
+
         const prompt = `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image.
 Use the first uploaded image as the exact customer identity reference. Preserve the same facial identity, facial features, face shape, skin tone, hairstyle, approximate body proportions, age appearance and overall likeness.
 Use the remaining uploaded garment images as the exact clothing reference. Preserve the garment's real primary color, secondary colors, fabric appearance, embroidery, motifs, borders, pattern placement, neckline, sleeves, silhouette and overall design.
 Dress the same customer naturally and realistically in the selected garment as a complete full-length outfit.
 If the uploaded product contains only a top garment, create a tasteful complementary traditional bottom that matches the product without altering the supplied garment itself.
-Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.
+Apply this selected Maharaja template:
+${templatePrompt}
 Maintain strict full-body head-to-toe framing. The complete outfit must be clearly visible.
 Styling should be attractive, premium and realistic, with natural posture, subtle festive makeup and elegant Indian traditional styling suitable for the customer.
 Do not change the customer's identity. Do not redesign the garment. Do not change garment color, embroidery, motifs or pattern. Do not create duplicate people, extra limbs, malformed hands, random text or logos.
@@ -130,6 +135,7 @@ The final image should look like a premium Maharaja festive fashion campaign pho
         sessionId,
         garmentAnalysis,
         personAnalysis,
+        templateId: templateId || null,
         masterImageUrl,
         masterStoragePath: `sessions/${sessionId}/master/master.jpg`,
         status: 'master_ready',
@@ -141,6 +147,7 @@ The final image should look like a premium Maharaja festive fashion campaign pho
         sessionId,
         garmentAnalysis,
         personAnalysis,
+        templateId: templateId || null,
         masterImageUrl,
         masterStoragePath: `sessions/${sessionId}/master/master.jpg`,
         status: 'master_ready',
