@@ -6,6 +6,15 @@ import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
 
+async function markVideoFailed(db: any, sessionId: string, message: string) {
+  if (!db || !sessionId) return;
+  await db.collection('sessions').doc(sessionId).set({
+    videoStatus: 'failed',
+    videoError: message,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+}
+
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
   if (!apiKey || apiKey.trim() === '') return null;
@@ -42,6 +51,15 @@ export async function GET(req: NextRequest) {
         const sessionDoc = await db.collection('sessions').doc(targetSessionId).get();
         if (sessionDoc.exists) {
           const sData = sessionDoc.data();
+          if (sData?.videoStatus === 'failed') {
+            return NextResponse.json({
+              success: false,
+              jobId: jobId || sData?.jobId || null,
+              sessionId: targetSessionId,
+              status: 'failed',
+              error: sData?.videoError || 'Video generation failed.'
+            }, { status: 500 });
+          }
           if (sData?.videoStatus === 'ready' || sData?.videoStatus === 'succeeded') {
             if (sData?.videoUrl && sData?.videoStoragePath) {
               videoUrl = sData.videoUrl;
@@ -70,6 +88,15 @@ export async function GET(req: NextRequest) {
       if (targetSessionId) {
         const session = mockStore.sessions.get(targetSessionId);
         if (session) {
+          if (session.videoStatus === 'failed') {
+            return NextResponse.json({
+              success: false,
+              jobId: jobId || session.jobId || null,
+              sessionId: targetSessionId,
+              status: 'failed',
+              error: session.videoError || 'Video generation failed.'
+            }, { status: 500 });
+          }
           if (session.videoStatus === 'ready' || session.videoStatus === 'succeeded') {
             if (session.videoUrl) {
               videoUrl = session.videoUrl;
@@ -90,6 +117,18 @@ export async function GET(req: NextRequest) {
           const operation: any = await (ai.operations as any).getVideosOperation({
             operation: { name: operationName }
           });
+
+          if (operation.error) {
+            const message = operation.error.message || 'Veo operation failed.';
+            await markVideoFailed(db, targetSessionId, message);
+            return NextResponse.json({
+              success: false,
+              jobId,
+              sessionId: targetSessionId,
+              status: 'failed',
+              error: message
+            }, { status: 500 });
+          }
 
           if (!operation.done) {
             return NextResponse.json({
@@ -136,13 +175,7 @@ export async function GET(req: NextRequest) {
 
           if (!fileBuffer) {
             status = 'failed';
-            if (db) {
-              await db.collection('sessions').doc(targetSessionId).set({
-                videoStatus: 'failed',
-                videoError: 'Failed to download generated Veo video output',
-                updatedAt: new Date().toISOString()
-              }, { merge: true });
-            }
+            await markVideoFailed(db, targetSessionId, 'Failed to download generated Veo video output');
             return NextResponse.json({
               success: false,
               jobId,
@@ -157,13 +190,7 @@ export async function GET(req: NextRequest) {
           const bucket = getStorageBucket();
           if (!bucket) {
             status = 'failed';
-            if (db) {
-              await db.collection('sessions').doc(targetSessionId).set({
-                videoStatus: 'failed',
-                videoError: 'Firebase Storage bucket is required to save generated Veo video output.',
-                updatedAt: new Date().toISOString()
-              }, { merge: true });
-            }
+            await markVideoFailed(db, targetSessionId, 'Firebase Storage bucket is required to save generated Veo video output.');
             return NextResponse.json({
               success: false,
               jobId,
@@ -208,6 +235,14 @@ export async function GET(req: NextRequest) {
           }
         } catch (opErr: any) {
           console.error('Veo Operation Polling Error:', opErr);
+          await markVideoFailed(db, targetSessionId, opErr.message || 'Veo operation polling failed.');
+          return NextResponse.json({
+            success: false,
+            jobId,
+            sessionId: targetSessionId,
+            status: 'failed',
+            error: opErr.message || 'Veo operation polling failed.'
+          }, { status: 500 });
         }
       }
     }

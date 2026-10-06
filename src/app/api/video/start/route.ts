@@ -17,6 +17,15 @@ function getGenAIClient() {
   }
 }
 
+function detectImageMimeType(buffer: Buffer, fallback = 'image/jpeg') {
+  if (buffer.length >= 12) {
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg';
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return 'image/png';
+    if (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
+  }
+  return fallback;
+}
+
 export async function POST(req: NextRequest) {
   const db = getDb();
   let reservedDemoSlot = false;
@@ -85,16 +94,13 @@ export async function POST(req: NextRequest) {
         resolution: '720p'
       };
 
-      const generateParams: any = {
-        model: AI_CONFIG.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview',
-        prompt,
-        config: videoConfig
-      };
-
         // Pass approved master image as actual image input to Veo (dataUrl, Storage path, or signed URL)
         let masterBase64: string | null = null;
+        let masterMimeType = 'image/jpeg';
 
         if (masterImageUrl && masterImageUrl.startsWith('data:image')) {
+          const mimeMatch = masterImageUrl.match(/^data:([^;]+);base64,/);
+          masterMimeType = mimeMatch?.[1] || masterMimeType;
           masterBase64 = masterImageUrl.split(',')[1];
         } else {
           // Attempt read from Firebase Storage
@@ -104,6 +110,7 @@ export async function POST(req: NextRequest) {
               const storagePath = `sessions/${sessionId}/master/master.jpg`;
               const [buffer] = await bucket.file(storagePath).download();
               masterBase64 = buffer.toString('base64');
+              masterMimeType = detectImageMimeType(buffer);
             } catch (stErr) {
               console.warn('Storage master image download warning:', stErr);
             }
@@ -116,6 +123,10 @@ export async function POST(req: NextRequest) {
               if (fetchRes.ok) {
                 const buffer = Buffer.from(await fetchRes.arrayBuffer());
                 masterBase64 = buffer.toString('base64');
+                masterMimeType = detectImageMimeType(
+                  buffer,
+                  fetchRes.headers.get('content-type')?.split(';')[0] || masterMimeType
+                );
               }
             } catch (netErr) {
               console.warn('Signed URL fetch fallback error:', netErr);
@@ -137,13 +148,24 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        generateParams.image = {
-          imageBytes: masterBase64,
-          mimeType: 'image/jpeg'
-        };
+      const generateParams: any = {
+        model: AI_CONFIG.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview',
+        source: {
+          prompt,
+          image: {
+            imageBytes: masterBase64,
+            mimeType: masterMimeType
+          }
+        },
+        config: videoConfig
+      };
 
       const videoResponse = await ai.models.generateVideos(generateParams);
       operationName = videoResponse.name || null;
+
+      if (!operationName) {
+        throw new Error('Veo did not return an operation name for polling.');
+      }
     } catch (veoError: any) {
       if (db && reservedDemoSlot) {
         await db.collection('appControl').doc('demoVideoUsage').set({

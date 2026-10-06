@@ -19,7 +19,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoId, setVideoId] = useState<string>(sessionId ? `video_${sessionId}` : '');
-  const [videoStatus, setVideoStatus] = useState<'processing' | 'ready'>('processing');
+  const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>('processing');
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
 
   useEffect(() => {
@@ -85,6 +86,13 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         const res = await fetch(`/api/video/status?sessionId=${sessionId}`);
         const data = await res.json();
         if (!isMounted) return;
+
+        if (!res.ok || data.status === 'failed') {
+          setVideoStatus('failed');
+          setVideoError(data.error || 'Video generation failed.');
+          setIsLoadingVideo(false);
+          return;
+        }
 
         if (data.success) {
           if (data.status === 'ready' || data.status === 'succeeded') {
@@ -189,7 +197,22 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
       </header>
 
       {/* Rendering / Loading State */}
-      {isLoadingVideo || videoStatus === 'processing' || !videoUrl ? (
+      {videoStatus === 'failed' ? (
+        <div className="py-20 text-center space-y-6">
+          <div className="w-20 h-20 mx-auto rounded-full bg-red-950/60 border-2 border-red-500 flex items-center justify-center text-red-300">
+            <AlertCircle className="w-10 h-10" />
+          </div>
+          <h2 className="text-xl font-serif font-bold text-red-200 uppercase tracking-wider">
+            VIDEO GENERATION FAILED
+          </h2>
+          <p className="text-xs text-gray-300 max-w-xs mx-auto">
+            {videoError || 'Please create another video after checking the setup.'}
+          </p>
+          <Link href="/create" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37]/50 bg-[#6e0d1f] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">
+            <RotateCcw className="w-4 h-4" /> Create Again
+          </Link>
+        </div>
+      ) : isLoadingVideo || videoStatus === 'processing' || !videoUrl ? (
         <div className="py-20 text-center space-y-6">
           <div className="w-20 h-20 mx-auto rounded-full bg-[#6e0d1f]/40 border-2 border-[#D4AF37] flex items-center justify-center text-[#D4AF37] animate-pulse">
             <Sparkles className="w-10 h-10 animate-spin" />
