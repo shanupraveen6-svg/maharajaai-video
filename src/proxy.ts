@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-const OPERATOR_USERNAME = 'shanu70';
-const OPERATOR_PASSWORD = '9994837342';
+const OPERATOR_USERNAME = 'shanu7';
+const OPERATOR_PASSWORD = '99948387342';
 
 function hasValidBasicAuth(request: NextRequest) {
   const authorization = request.headers.get('authorization');

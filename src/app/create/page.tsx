@@ -117,10 +117,33 @@ const progressCopy: Record<VideoPhase, string> = {
   failed: 'Video generation failed. Stop and review before retrying.',
 };
 
+const productTabs = [
+  {
+    title: 'Try On',
+    subtitle: 'Image to image',
+    status: 'Coming soon',
+  },
+  {
+    title: 'Diwali Greeting',
+    subtitle: 'AI image + 6-sec video',
+    status: 'Active now',
+  },
+  {
+    title: 'Be The Hero',
+    subtitle: 'Brand film moment',
+    status: 'Coming soon',
+  },
+  {
+    title: 'Function Try On',
+    subtitle: 'Wedding and event looks',
+    status: 'Coming soon',
+  },
+];
+
 export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
-  const [mode, setMode] = useState<CreateMode>('proof');
+  const [mode, setMode] = useState<CreateMode>('test');
   const [masterTemplateId, setMasterTemplateId] = useState<MasterTemplateId>('men');
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
@@ -464,26 +487,59 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
 
   return (
     <main className="min-h-screen bg-[#FDFCF9] text-slate-900 p-4 sm:p-6 lg:p-10 font-sans max-w-7xl mx-auto pb-24 space-y-8">
-      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white p-5 md:p-6 rounded-2xl border border-amber-200/80 shadow-sm">
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-[#12070B] p-5 md:p-6 rounded-xl border border-amber-400/35 shadow-sm text-white">
         <div>
-          <h1 className="text-xl md:text-2xl font-serif font-bold text-[#6e0d1f] tracking-widest uppercase">
-            MAHARAJA AI STUDIO
+          <p className="text-[11px] text-amber-300 font-bold tracking-[0.24em] uppercase">
+            Maharaja selected · Tamil Nadu retail AI pilot
+          </p>
+          <h1 className="mt-1 text-xl md:text-2xl font-serif font-bold text-[#F3E5AB] tracking-widest uppercase">
+            AI Celebration Studio
           </h1>
-          <p className="text-xs text-amber-700 font-semibold tracking-widest uppercase">
-            Automated Diwali image and 6-second video creator
+          <p className="mt-1 text-xs text-amber-100/75 font-semibold tracking-widest uppercase">
+            Diwali Greeting is active now. Other products are coming soon.
           </p>
         </div>
-        <div className="text-xs md:text-sm font-mono font-bold text-[#6e0d1f] bg-amber-50 px-4 py-2 rounded-full border border-amber-300 shadow-sm">
+        <div className="text-xs md:text-sm font-mono font-bold text-[#F3E5AB] bg-black/50 px-4 py-2 rounded-full border border-amber-300/40 shadow-sm">
           SESSION ID: {sessionId}
         </div>
       </header>
 
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        {productTabs.map((tab, index) => {
+          const active = index === 1;
+          return (
+            <div
+              key={tab.title}
+              className={`rounded-xl border p-4 ${
+                active
+                  ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-md'
+                  : 'border-slate-200 bg-white text-slate-500'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-serif font-bold uppercase tracking-wider">{tab.title}</p>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                    active ? 'bg-[#F3E5AB] text-[#6e0d1f]' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {tab.status}
+                </span>
+              </div>
+              <p className={`mt-2 text-xs font-semibold ${active ? 'text-amber-100' : 'text-slate-500'}`}>
+                {tab.subtitle}
+              </p>
+            </div>
+          );
+        })}
+      </section>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono font-bold uppercase">
-        {['Upload', 'Master Image', 'Approve', '6-sec Video'].map((step, index) => (
+        {['Upload', 'AI Image', 'Approve', 'Video'].map((step, index) => (
           <div
             key={step}
-            className={`p-3 rounded-xl border text-center ${
-              index === 0 && canGenerateMaster
+            className={`p-3 rounded-lg border text-center ${
+              index === 0 && hasRequiredPhotos
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
                 : index === 1 && masterImageUrl
                   ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
@@ -497,27 +553,6 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
             {step}
           </div>
         ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 rounded-2xl bg-white border border-amber-200 p-2 shadow-sm">
-        <button
-          type="button"
-          onClick={() => selectMode('proof')}
-          className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider ${
-            mode === 'proof' ? 'bg-[#6e0d1f] text-white' : 'bg-slate-50 text-slate-600'
-          }`}
-        >
-          Proof Mode: No API Credit
-        </button>
-        <button
-          type="button"
-          onClick={() => selectMode('test')}
-          className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider ${
-            mode === 'test' ? 'bg-[#6e0d1f] text-white' : 'bg-slate-50 text-slate-600'
-          }`}
-        >
-          Test Mode: Gemini API
-        </button>
       </div>
 
       <section className="p-5 md:p-6 rounded-2xl bg-white border border-amber-200 shadow-sm space-y-4">

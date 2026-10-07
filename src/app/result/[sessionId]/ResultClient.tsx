@@ -6,6 +6,8 @@ import { Download, Tv, Sparkles, CheckCircle2, RotateCcw, Flame, ShieldCheck, Al
 
 export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [showLiveConsent, setShowLiveConsent] = useState(false);
+  const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
+  const [privacyAction, setPrivacyAction] = useState<'download' | 'live' | null>(null);
   const [publicConsent, setPublicConsent] = useState(true);
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [liveSuccess, setLiveSuccess] = useState(false);
@@ -134,7 +136,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const handleDownload = () => {
+  const executeDownload = () => {
     if (!videoUrl) return;
     const a = document.createElement('a');
     a.href = videoUrl;
@@ -143,6 +145,25 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const requestPrivacyConfirmation = (action: 'download' | 'live') => {
+    setPrivacyAction(action);
+    setShowPrivacyNotice(true);
+  };
+
+  const handlePrivacyContinue = () => {
+    const action = privacyAction;
+    setShowPrivacyNotice(false);
+    setPrivacyAction(null);
+
+    if (action === 'download') {
+      executeDownload();
+    }
+
+    if (action === 'live') {
+      setShowLiveConsent(true);
+    }
   };
 
   const handleConfirmGoLive = async () => {
@@ -255,14 +276,14 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         {/* Primary Action Buttons */}
         <div className="space-y-3 pt-2">
           <button
-            onClick={handleDownload}
+            onClick={() => requestPrivacyConfirmation('download')}
             className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-sm shadow-xl hover:scale-[1.02] transition flex items-center justify-center gap-3"
           >
             <Download className="w-5 h-5 fill-black" /> DOWNLOAD DIWALI FILM
           </button>
 
           <button
-            onClick={() => setShowLiveConsent(true)}
+            onClick={() => requestPrivacyConfirmation('live')}
             className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#800A1D] via-[#6e0d1f] to-[#800A1D] border border-[#D4AF37]/50 text-[#F3E5AB] font-bold uppercase tracking-wider text-sm shadow-xl hover:scale-[1.02] transition flex items-center justify-center gap-3"
           >
             <Tv className="w-5 h-5 text-[#D4AF37]" /> OPEN GO LIVE CONFIRMATION
@@ -344,6 +365,43 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           </div>
         )}
       </div>
+      )}
+
+      {/* Privacy Notice Modal */}
+      {showPrivacyNotice && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-md w-full maharaja-card p-6 rounded-2xl border border-[#D4AF37]/50 space-y-4">
+            <div className="flex items-center gap-2 text-[#D4AF37] font-serif font-bold text-lg uppercase tracking-wider">
+              <ShieldCheck className="w-6 h-6" /> Privacy Notice
+            </div>
+
+            <p className="text-xs text-gray-300 leading-relaxed">
+              This AI video is created only for this Maharaja experience. Use download if the customer wants to keep it. Use Go Live only with customer permission for showroom TV display.
+            </p>
+
+            <div className="rounded-xl border border-[#D4AF37]/30 bg-black/60 p-3 text-xs leading-relaxed text-[#F3E5AB]">
+              After the event/test, the store operator can clear generated files from storage for privacy. Do not reuse customer photos or videos without consent.
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowPrivacyNotice(false);
+                  setPrivacyAction(null);
+                }}
+                className="w-1/2 py-3 rounded-xl bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePrivacyContinue}
+                className="w-1/2 py-3 rounded-xl bg-gradient-to-r from-[#800A1D] via-[#D4AF37] to-[#800A1D] text-black font-bold text-xs uppercase tracking-wider hover:brightness-110"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Public Display Consent Modal */}
