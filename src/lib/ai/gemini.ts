@@ -213,7 +213,7 @@ ${selectedStyle}
 
 Use the selected style only for background mood, festive lighting, camera movement and pacing. The person, gender styling, face, body and full outfit must remain from the approved master image only.
 The subject begins slightly farther from the camera and moves very subtly with a slow premium camera push-in.
-Maintain strict full-body head-to-toe framing throughout so the complete garment length and silhouette remain clearly visible at all times.
+Maintain strict full-body head-to-toe framing throughout so the complete garment length and silhouette remain clearly visible at all times. Keep the framing modest, respectful, family-friendly and suitable for a Thanjavur retail store. Focus on the full outfit, fabric, festive mood and graceful presence, not on individual body parts.
 The subject smiles warmly and gracefully holds a glowing traditional clay diya in both hands while walking.
 Use realistic walking motion, natural fabric movement, anatomically correct hands and fingers, elegant posture, subtle festive makeup, realistic skin texture and high-end Indian fashion-commercial lighting.
 Do not force lip-sync if it reduces face match. Prioritize preserving the same face over mouth movement.
@@ -221,7 +221,7 @@ Keep the camera movement smooth and cinematic. Keep the person centered and clea
 Display this exact Tamil greeting text clearly and tastefully near the lower third for the full video:
 "இனிய தீபாவளி நல்வாழ்த்துக்கள்"
 Use pleasant festive instrumental music if audio is supported. No random speech, no incorrect Tamil, no English text.
-Do not change the person's face. Do not change the garment. Do not change garment color, embroidery, hairstyle, skin tone, makeup style, body size, gender styling or body proportions. No duplicate person. No extra limbs. No malformed hands. No dancing. No spinning. No jumping. No face morphing. No random text. No generated logos. No excessive fireworks.
+Do not emphasize legs, hips, chest, waist or any isolated body part. Do not use glamour, seductive or body-focused posing. Do not change the person's face. Do not change the garment. Do not change garment color, embroidery, hairstyle, skin tone, makeup style, body size, gender styling or body proportions. No duplicate person. No extra limbs. No malformed hands. No dancing. No spinning. No jumping. No face morphing. No random text. No generated logos. No excessive fireworks.
 Premium festive commercial look, sharp focus, cinematic depth and warm color grading.`;
 }
 

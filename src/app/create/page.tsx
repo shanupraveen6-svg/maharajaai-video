@@ -19,6 +19,7 @@ import {
 import { compressImage } from '@/lib/utils/image';
 
 type GarmentAnalysis = {
+  category?: string;
   garmentType?: string;
   primaryColor?: string;
   fabricAppearance?: string;
@@ -49,16 +50,33 @@ const masterTemplates: Record<
   men: {
     title: 'Men Template',
     label: 'Crackers runway',
-    masterPrompt: `Use a premium Maharaja Diwali menswear campaign setting: a royal festive walkway with warm gold lighting, tasteful distant crackers/fireworks, brass lamps, marigold decor, subtle rangoli floor detail and cinematic fashion-poster styling. Keep the mood elegant, confident and masculine without changing the customer, body, face or garment.`,
-    videoPrompt: `Selected style is MEN only. Create a royal festive menswear walkway with warm gold lighting, tasteful distant crackers/fireworks, brass lamps, marigold decor, subtle rangoli floor detail, slow premium camera push-in and confident menswear ad mood. Do not borrow any women's clothing, pose, jewellery, saree, lehenga, dupatta or bridal styling.`,
+    masterPrompt: `Use a premium Maharaja Diwali menswear campaign setting: a royal festive walkway with warm gold lighting, tasteful distant crackers/fireworks, brass lamps, marigold decor, subtle rangoli floor detail and cinematic fashion-poster styling. Keep the mood elegant, confident, family-friendly and masculine without changing the customer, body, face or garment. Keep the focus on the full outfit and festive retail look, not on individual body parts.`,
+    videoPrompt: `Selected style is MEN only. Create a royal festive menswear walkway with warm gold lighting, tasteful distant crackers/fireworks, brass lamps, marigold decor, subtle rangoli floor detail, slow premium camera push-in and confident menswear ad mood. Keep the framing modest, respectful and outfit-focused. Do not emphasize legs, hips, chest, waist or any isolated body part. Do not borrow any women's clothing, pose, jewellery, saree, lehenga, dupatta or bridal styling.`,
   },
   women: {
     title: 'Women Template',
     label: 'Diyas palace',
-    masterPrompt: `Use a premium Maharaja Diwali womenswear campaign setting: an elegant palace-inspired festive interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden bokeh and graceful cinematic fashion-poster styling. Keep the mood elegant, beautiful and celebratory without changing the customer, body, face or garment.`,
-    videoPrompt: `Selected style is WOMEN only. Create an elegant womenswear Diwali palace interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden bokeh, graceful camera push-in and premium festive fashion ad mood. Do not borrow any men's shirt, trouser, suiting, moustache, beard or menswear styling.`,
+    masterPrompt: `Use a premium Maharaja Diwali womenswear campaign setting: an elegant palace-inspired festive interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden bokeh and graceful cinematic fashion-poster styling. Keep the mood elegant, beautiful, family-friendly and celebratory without changing the customer, body, face or garment. Keep the focus on the full outfit, fabric, festive styling and graceful presence, not on individual body parts.`,
+    videoPrompt: `Selected style is WOMEN only. Create an elegant womenswear Diwali palace interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden bokeh, graceful camera push-in and premium festive fashion ad mood. Keep the framing modest, respectful, culturally appropriate for a Thanjavur family fashion store, and outfit-focused. Do not emphasize legs, hips, chest, waist or any isolated body part. Do not use glamour, seductive or body-focused posing. Do not borrow any men's shirt, trouser, suiting, moustache, beard or menswear styling.`,
   },
 };
+
+function deriveMasterTemplateId(analysis: GarmentAnalysis | null): MasterTemplateId {
+  const text = [
+    analysis?.category,
+    analysis?.garmentType,
+    analysis?.operatorMessage,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (/(women|woman|female|saree|sari|lehenga|kurti|salwar|dupatta|gown|bridal|blouse|churidar)/i.test(text)) {
+    return 'women';
+  }
+
+  return 'men';
+}
 
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
@@ -158,7 +176,6 @@ export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
   const [mode, setMode] = useState<CreateMode>('test');
-  const [masterTemplateId, setMasterTemplateId] = useState<MasterTemplateId>('men');
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
@@ -183,6 +200,7 @@ export default function CreatePage() {
   const hasRequiredPhotos = activeGarmentPhotos.length >= 1 && !!personPhoto;
   const canGenerateMaster = mode === 'test' && hasRequiredPhotos && !isAnalyzingGarment && !isAnalyzingPerson;
   const canGenerateVideo = !!masterImageUrl && masterApproved && videoPhase === 'idle';
+  const masterTemplateId = useMemo(() => deriveMasterTemplateId(garmentAnalysis), [garmentAnalysis]);
   const selectedMasterTemplate = masterTemplates[masterTemplateId];
 
   useEffect(() => {
@@ -206,14 +224,14 @@ export default function CreatePage() {
 LOCKED SOURCE RULE:
 The final person, face, hairstyle, skin tone, body shape, outfit, garment colors, fabric pattern, pants/saree/dress and styling must come from the approved master image. Do not change gender styling. Do not borrow clothing, face or body from any other style.
 
-SELECTED TEMPLATE:
+INTERNAL CAMPAIGN STYLE:
 ${selectedMasterTemplate.videoPrompt}
 
 ACTION:
 Keep movement elegant and controlled: soft smile, natural breathing, slight head movement, small hand movement and a slow premium camera push-in. Keep the person mostly front-facing. Avoid heavy walking, fast movement, dancing, spinning or big pose changes.
 
 FRAMING:
-Keep full-body or near full-body framing for most of the video so the outfit remains visible. Keep the face clear and stable.
+Keep full-body or near full-body framing for most of the video so the outfit remains visible. Keep the face clear and stable. Keep it modest, respectful, family-friendly and suitable for a Thanjavur fashion store. Do not emphasize legs, hips, chest, waist or any isolated body part.
 
 DIWALI TEXT:
 Show this Tamil greeting clearly at the top in an elegant readable gold Tamil font:
@@ -268,11 +286,6 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
   function selectMode(nextMode: CreateMode) {
     setMode(nextMode);
     setError(null);
-    resetGeneratedOutputs();
-  }
-
-  function selectMasterTemplate(nextTemplateId: MasterTemplateId) {
-    setMasterTemplateId(nextTemplateId);
     resetGeneratedOutputs();
   }
 
@@ -336,6 +349,9 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     setError(null);
 
     try {
+      const resolvedTemplateId = deriveMasterTemplateId(garmentAnalysis);
+      const resolvedTemplate = masterTemplates[resolvedTemplateId];
+
       const res = await fetch('/api/ai/master-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -345,8 +361,8 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
           personAnalysis,
           personPhoto,
           garmentPhotos: activeGarmentPhotos,
-          conceptPrompt: selectedMasterTemplate.masterPrompt,
-          templateId: masterTemplateId,
+          conceptPrompt: resolvedTemplate.masterPrompt,
+          templateId: resolvedTemplateId,
         }),
       });
       const data = await parseJsonResponse(res);
@@ -603,47 +619,6 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
           </div>
         ))}
       </div>
-
-      <section className="p-5 md:p-6 rounded-2xl bg-white border border-amber-200 shadow-sm space-y-4">
-        <div>
-          <h2 className="text-sm md:text-base font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-            Select Customer Style
-          </h2>
-          <p className="mt-1 text-xs text-slate-600">
-            This chooses the hidden Maharaja Diwali style used for image and video generation.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(Object.entries(masterTemplates) as Array<[MasterTemplateId, (typeof masterTemplates)[MasterTemplateId]]>).map(([id, template]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => selectMasterTemplate(id)}
-              className={`rounded-2xl border p-4 text-left transition ${
-                masterTemplateId === id
-                  ? 'border-[#6e0d1f] bg-amber-50 shadow-md'
-                  : 'border-slate-200 bg-slate-50 hover:border-amber-300'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-bold uppercase tracking-wider text-[#6e0d1f]">
-                  {id === 'men' ? 'Men' : 'Women'}
-                </span>
-                <span className="rounded-full bg-white border border-amber-300 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
-                  {masterTemplateId === id ? 'Selected' : 'Choose'}
-                </span>
-              </div>
-              <p className="mt-2 text-xs font-semibold text-slate-700">{template.label}</p>
-              <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                {id === 'men'
-                  ? 'Cinematic menswear Diwali look with festive crackers and royal lighting.'
-                  : 'Elegant womenswear Diwali look with diyas, lamps and graceful golden glow.'}
-              </p>
-            </button>
-          ))}
-        </div>
-      </section>
 
       {error && (
         <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-800 text-sm flex items-start gap-3">
