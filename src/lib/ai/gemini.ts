@@ -204,7 +204,7 @@ export function buildVideoPrompt(analysis: any, conceptPrompt?: string): string 
     ? conceptPrompt.trim()
     : 'Use a premium Maharaja Diwali fashion setting with warm golden festive lighting, diyas, brass lamps, marigold flowers and a slow cinematic camera push-in.';
 
-  return `Create a photorealistic premium 6-second vertical 9:16 Diwali fashion commercial using the uploaded master reference image as the definitive visual reference.
+  return `Create exactly a photorealistic premium 6-second vertical 9:16 silent Diwali fashion commercial using the uploaded master reference image as the definitive visual reference. The final video duration must be 6 seconds only. Do not create 7, 8, 9, 10 seconds, or longer.
 The approved master image is the truth. Preserve the exact same person's facial identity, facial features, face shape, skin tone, hairstyle, body proportions, height impression, age appearance, makeup style, garment color, garment design, fabric texture, embroidery, motifs, pattern placement, accessories and complete outfit throughout the entire video.
 Do not use any inferred or remembered garment description. Do not invent colors such as blue, maroon, gold or any other color unless that exact color is visible in the approved master image.
 
@@ -212,15 +212,12 @@ Selected hidden Maharaja style:
 ${selectedStyle}
 
 Use the selected style only for background mood, festive lighting, camera movement and pacing. The person, gender styling, face, body and full outfit must remain from the approved master image only.
-The subject begins slightly farther from the camera and moves very subtly with a slow premium camera push-in.
+The default action must be walk + stand + smile. The subject walks slowly forward for the first 3 seconds, stops naturally, stands still, looks toward the camera, and smiles for the final 3 seconds. Camera slowly moves closer.
 Maintain strict full-body head-to-toe framing throughout so the complete garment length and silhouette remain clearly visible at all times. Keep the framing modest, respectful, family-friendly and suitable for a Thanjavur retail store. Focus on the full outfit, fabric, festive mood and graceful presence, not on individual body parts.
-The subject smiles warmly and gracefully holds a glowing traditional clay diya in both hands while walking.
 Use realistic walking motion, natural fabric movement, anatomically correct hands and fingers, elegant posture, subtle festive makeup, realistic skin texture and high-end Indian fashion-commercial lighting.
-Do not force lip-sync if it reduces face match. Prioritize preserving the same face over mouth movement.
+Silent video only. Do not create any voice, speech, dialogue, music, voice-over, spoken words, Malayalam, Hindi, English, Tamil speech, lip-sync or mouth speaking. The person must not speak. Keep the mouth naturally closed or softly smiling.
 Keep the camera movement smooth and cinematic. Keep the person centered and clearly visible.
-Display this exact Tamil greeting text clearly and tastefully near the lower third for the full video:
-"இனிய தீபாவளி நல்வாழ்த்துக்கள்"
-Use pleasant festive instrumental music if audio is supported. No random speech, no incorrect Tamil, no English text.
+Do not render any text inside the AI video. Do not create Tamil text, English text, random text, banners, logos or captions. The app will overlay the Tamil greeting separately after video generation.
 Do not emphasize legs, hips, chest, waist or any isolated body part. Do not use glamour, seductive or body-focused posing. Do not change the person's face. Do not change the garment. Do not change garment color, embroidery, hairstyle, skin tone, makeup style, body size, gender styling or body proportions. No duplicate person. No extra limbs. No malformed hands. No dancing. No spinning. No jumping. No face morphing. No random text. No generated logos. No excessive fireworks.
 Premium festive commercial look, sharp focus, cinematic depth and warm color grading.`;
 }

@@ -201,6 +201,7 @@ export default function TvPlayerPage() {
                 ref={videoRef}
                 src={currentPlayback.videoUrl}
                 autoPlay
+                muted
                 playsInline
                 onEnded={handleVideoEnded}
                 onError={handleVideoError}
@@ -220,11 +221,11 @@ export default function TvPlayerPage() {
                 </div>
               )}
 
-              <div className="absolute bottom-3 left-3 right-3 bg-black/75 backdrop-blur-md p-2 rounded-lg border border-[#D4AF37]/40 text-center">
-                <p className="text-[10px] uppercase text-[#D4AF37] font-semibold tracking-wider">
-                  ⭐ MAHARAJA DIWALI STAR
+              <div className="absolute top-4 left-4 right-4 bg-[#5b0715]/90 backdrop-blur-md px-4 py-3 rounded-2xl border border-[#F5D76E]/80 text-center shadow-[0_0_32px_rgba(245,215,110,0.35)]">
+                <p className="text-[10px] uppercase text-[#F5D76E] font-black tracking-[0.24em]">
+                  MAHARAJA DIWALI GREETING
                 </p>
-                <p className="text-xs text-white font-medium">
+                <p className="mt-1 text-xl md:text-3xl text-[#FFD86B] font-black leading-tight drop-shadow-[0_3px_8px_rgba(0,0,0,0.9)]">
                   <span style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}>
                     இனிய தீபாவளி நல்வாழ்த்துக்கள்
                   </span>

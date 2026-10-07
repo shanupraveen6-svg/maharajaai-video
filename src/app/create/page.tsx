@@ -50,14 +50,14 @@ const masterTemplates: Record<
   men: {
     title: 'Men Template',
     label: 'Crackers runway',
-    masterPrompt: `Use a premium Maharaja Diwali menswear campaign setting: a royal festive walkway with warm gold lighting, tasteful distant crackers/fireworks, brass lamps, marigold decor, subtle rangoli floor detail and cinematic fashion-poster styling. Keep the mood elegant, confident, family-friendly and masculine without changing the customer, body, face or garment. Keep the focus on the full outfit and festive retail look, not on individual body parts.`,
-    videoPrompt: `Selected style is MEN only. Create a royal festive menswear walkway with warm gold lighting, tasteful distant crackers/fireworks, brass lamps, marigold decor, subtle rangoli floor detail, slow premium camera push-in and confident menswear ad mood. Keep the framing modest, respectful and outfit-focused. Do not emphasize legs, hips, chest, waist or any isolated body part. Do not borrow any women's clothing, pose, jewellery, saree, lehenga, dupatta or bridal styling.`,
+    masterPrompt: `Use the same Maharaja Diwali menswear scene for image and video: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Keep the mood elegant, confident, family-friendly and masculine without changing the customer, body, face or garment. Keep the focus on the full outfit and festive retail look, not on individual body parts.`,
+    videoPrompt: `Use the same Maharaja Diwali menswear scene as the master image: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Selected style is MEN only. The default action is walk + stand + smile: walk slowly forward for the first 3 seconds, stop naturally, stand still, look toward the camera, and smile for the final 3 seconds. Keep the framing modest, respectful and outfit-focused. Do not emphasize legs, hips, chest, waist or any isolated body part. Do not borrow any women's clothing, pose, jewellery, saree, lehenga, dupatta or bridal styling.`,
   },
   women: {
     title: 'Women Template',
     label: 'Diyas palace',
-    masterPrompt: `Use a premium Maharaja Diwali womenswear campaign setting: an elegant palace-inspired festive interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden bokeh and graceful cinematic fashion-poster styling. Keep the mood elegant, beautiful, family-friendly and celebratory without changing the customer, body, face or garment. Keep the focus on the full outfit, fabric, festive styling and graceful presence, not on individual body parts.`,
-    videoPrompt: `Selected style is WOMEN only. Create an elegant womenswear Diwali palace interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden bokeh, graceful camera push-in and premium festive fashion ad mood. Keep the framing modest, respectful, culturally appropriate for a Thanjavur family fashion store, and outfit-focused. Do not emphasize legs, hips, chest, waist or any isolated body part. Do not use glamour, seductive or body-focused posing. Do not borrow any men's shirt, trouser, suiting, moustache, beard or menswear styling.`,
+    masterPrompt: `Use the same Maharaja Diwali womenswear scene for image and video: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Keep the mood elegant, beautiful, family-friendly and celebratory without changing the customer, body, face or garment. Keep the focus on the full outfit, fabric, festive styling and graceful presence, not on individual body parts.`,
+    videoPrompt: `Use the same Maharaja Diwali womenswear scene as the master image: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Selected style is WOMEN only. The default action is walk + stand + smile: walk slowly forward for the first 3 seconds, stop naturally, stand still, look toward the camera, and smile warmly for the final 3 seconds. Keep the framing modest, respectful, culturally appropriate for a Thanjavur family fashion store, and outfit-focused. Do not emphasize legs, hips, chest, waist or any isolated body part. Do not use glamour, seductive or body-focused posing. Do not borrow any men's shirt, trouser, suiting, moustache, beard or menswear styling.`,
   },
 };
 
@@ -219,7 +219,9 @@ export default function CreatePage() {
   }, [videoPhase]);
 
   const videoPrompt = useMemo(() => {
-    return `Create a premium 6-second vertical 9:16 Diwali fashion ad using the approved AI master image as the only person, face, body and outfit source.
+    return `Create exactly a 6-second vertical 9:16 silent Diwali fashion video. The final video duration must be 6 seconds only. Do not create 7, 8, 9, 10 seconds, or longer.
+
+Use the approved AI master image as the only person, face, body, outfit and background mood source.
 
 LOCKED SOURCE RULE:
 The final person, face, hairstyle, skin tone, body shape, outfit, garment colors, fabric pattern, pants/saree/dress and styling must come from the approved master image. Do not change gender styling. Do not borrow clothing, face or body from any other style.
@@ -228,20 +230,19 @@ INTERNAL CAMPAIGN STYLE:
 ${selectedMasterTemplate.videoPrompt}
 
 ACTION:
-Keep movement elegant and controlled: soft smile, natural breathing, slight head movement, small hand movement and a slow premium camera push-in. Keep the person mostly front-facing. Avoid heavy walking, fast movement, dancing, spinning or big pose changes.
+The default action must be walk + stand + smile. The person walks slowly forward for the first 3 seconds, stops naturally, stands still, looks toward the camera, and smiles for the final 3 seconds. Camera slowly moves closer. Avoid fast movement, dancing, spinning or big pose changes.
 
 FRAMING:
 Keep full-body or near full-body framing for most of the video so the outfit remains visible. Keep the face clear and stable. Keep it modest, respectful, family-friendly and suitable for a Thanjavur fashion store. Do not emphasize legs, hips, chest, waist or any isolated body part.
 
-DIWALI TEXT:
-Show this Tamil greeting clearly at the top in an elegant readable gold Tamil font:
-"இனிய தீபாவளி நல்வாழ்த்துக்கள்"
-
 AUDIO:
-Add soft festive instrumental music only. No dialogue and no lip-sync.
+Silent video only. Do not create any voice, speech, dialogue, music, voice-over, spoken words, Malayalam, Hindi, English, Tamil speech, lip-sync or mouth speaking. The person must not speak. Keep the mouth naturally closed or softly smiling.
+
+TEXT:
+Do not render any text inside the AI video. Do not create Tamil text, English text, random text, banners, logos or captions. The app will overlay the Tamil greeting separately after video generation.
 
 QUALITY:
-Make it realistic, premium, polished and suitable for a fashion retail store screen. Avoid changing the person into a different model, avoid face morphing, avoid changing dress color or pattern, avoid wrong Tamil text, avoid random logos.`;
+Make it realistic, premium, polished and suitable for a fashion retail store screen. Avoid changing the person into a different model, avoid face morphing, avoid changing dress color or pattern, avoid wrong text, avoid random logos.`;
   }, [selectedMasterTemplate]);
 
   async function analyzeGarments(nextPhotos: (string | null)[]) {

@@ -258,14 +258,15 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             src={videoUrl}
             controls
             loop
+            muted
             playsInline
             className="w-full h-full object-cover"
           />
-          <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-xl border border-[#D4AF37]/60 bg-black/70 px-3 py-2 text-center shadow-lg backdrop-blur-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D4AF37]">
+          <div className="pointer-events-none absolute top-4 left-3 right-3 rounded-2xl border border-[#F5D76E]/80 bg-[#5b0715]/90 px-3 py-2.5 text-center shadow-[0_0_24px_rgba(245,215,110,0.35)] backdrop-blur-sm">
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-[#F5D76E]">
               MAHARAJA DIWALI GREETING
             </p>
-            <p className="mt-0.5 text-sm font-bold text-[#F3E5AB]">
+            <p className="mt-1 text-[15px] font-black leading-tight text-[#FFD86B] drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]">
               <span style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}>
                 இனிய தீபாவளி நல்வாழ்த்துக்கள்
               </span>
