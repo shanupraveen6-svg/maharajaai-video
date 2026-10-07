@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
   ArrowRight,
+  Activity,
   Camera,
   CheckCircle2,
   Film,
@@ -138,6 +139,19 @@ const productTabs = [
     subtitle: 'Wedding and event looks',
     status: 'Coming soon',
   },
+];
+
+const maharajaStats = [
+  { label: 'Total creates', value: '142', detail: 'Maharaja workspace' },
+  { label: 'Diwali greetings', value: '38', detail: 'Active campaign' },
+  { label: 'Downloads', value: '31', detail: 'Customer keepsake' },
+  { label: 'Go Live plays', value: '17', detail: 'TV display queue' },
+];
+
+const recentLogs = [
+  { time: 'Today', category: 'Diwali Greeting', action: 'AI image + video test ready' },
+  { time: 'Yesterday', category: 'Try On', action: 'Image-to-image module planned' },
+  { time: 'Pilot', category: 'TV Queue', action: 'Maharaja main display connected' },
 ];
 
 export default function CreatePage() {
@@ -490,10 +504,10 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-[#12070B] p-5 md:p-6 rounded-xl border border-amber-400/35 shadow-sm text-white">
         <div>
           <p className="text-[11px] text-amber-300 font-bold tracking-[0.24em] uppercase">
-            Maharaja selected · Tamil Nadu retail AI pilot
+            focusAI workspace · Maharaja selected
           </p>
           <h1 className="mt-1 text-xl md:text-2xl font-serif font-bold text-[#F3E5AB] tracking-widest uppercase">
-            AI Celebration Studio
+            Maharaja Campaign Console
           </h1>
           <p className="mt-1 text-xs text-amber-100/75 font-semibold tracking-widest uppercase">
             Diwali Greeting is active now. Other products are coming soon.
@@ -503,6 +517,41 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
           SESSION ID: {sessionId}
         </div>
       </header>
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_0.9fr]">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {maharajaStats.map((stat) => (
+            <div key={stat.label} className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">{stat.label}</p>
+              <p className="mt-2 font-serif text-3xl font-bold text-[#6e0d1f]">{stat.value}</p>
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">{stat.detail}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-[#6e0d1f]" />
+              <p className="text-xs font-bold uppercase tracking-wider text-[#6e0d1f]">Activity Logs</p>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+              Pilot live
+            </span>
+          </div>
+          <div className="space-y-2">
+            {recentLogs.map((log) => (
+              <div key={`${log.time}-${log.category}`} className="grid grid-cols-[72px_1fr] gap-3 rounded-lg bg-slate-50 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{log.time}</p>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">{log.category}</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{log.action}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-4">
         {productTabs.map((tab, index) => {
