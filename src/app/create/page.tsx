@@ -561,41 +561,6 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
         </div>
       </header>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_0.9fr]">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {maharajaStats.map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">{stat.label}</p>
-              <p className="mt-2 font-serif text-3xl font-bold text-[#6e0d1f]">{stat.value}</p>
-              <p className="mt-1 text-[11px] font-semibold text-slate-500">{stat.detail}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-[#6e0d1f]" />
-              <p className="text-xs font-bold uppercase tracking-wider text-[#6e0d1f]">Activity Logs</p>
-            </div>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-              Pilot live
-            </span>
-          </div>
-          <div className="space-y-2">
-            {recentLogs.map((log) => (
-              <div key={`${log.time}-${log.category}`} className="grid grid-cols-[72px_1fr] gap-3 rounded-lg bg-slate-50 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{log.time}</p>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">{log.category}</p>
-                  <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{log.action}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section className="grid grid-cols-1 gap-3 md:grid-cols-4">
         {productTabs.map((tab, index) => {
           const active = index === 1;
@@ -844,6 +809,41 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
             <span>{mode === 'proof' ? manualUploadProgress : videoProgress}%</span>
           </div>
           {jobId && <p className="text-[11px] text-amber-200/80 font-mono">JOB: {jobId}</p>}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_0.9fr]">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {maharajaStats.map((stat) => (
+            <div key={stat.label} className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">{stat.label}</p>
+              <p className="mt-2 font-serif text-3xl font-bold text-[#6e0d1f]">{stat.value}</p>
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">{stat.detail}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-[#6e0d1f]" />
+              <p className="text-xs font-bold uppercase tracking-wider text-[#6e0d1f]">Activity Logs</p>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+              Pilot live
+            </span>
+          </div>
+          <div className="space-y-2">
+            {recentLogs.map((log) => (
+              <div key={`${log.time}-${log.category}`} className="grid grid-cols-[72px_1fr] gap-3 rounded-lg bg-slate-50 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{log.time}</p>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">{log.category}</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{log.action}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </main>
