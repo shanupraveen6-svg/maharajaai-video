@@ -133,6 +133,15 @@ export async function GET(req: NextRequest) {
           provider = session.provider || null;
         }
       }
+
+      if (jobId) {
+        const jobData = mockStore.sessions.get(jobId) || mockStore.sessions.get(`job_${jobId}`);
+        if (jobData) {
+          requestId = jobData.requestId || null;
+          operationName = jobData.operationName || null;
+          provider = jobData.provider || provider;
+        }
+      }
     }
 
     // =====================================================

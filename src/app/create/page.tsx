@@ -735,24 +735,14 @@ export default function CreatePage() {
               <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleManualMasterUpload} disabled={!hasRequiredPhotos || isUploadingManualMaster} className="hidden" />
             </label>
           ) : (
-            <div className="space-y-3">
-              <button
-                onClick={generateMasterImage}
-                disabled={!canGenerateMaster || isGeneratingMaster}
-                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
-              >
-                {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
-                {masterImageUrl ? 'Regenerate AI Image (Real Gemini)' : 'Generate AI Image (Real Gemini)'}
-              </button>
-
-              <button
-                onClick={handleUsePresetMaster}
-                type="button"
-                className="w-full py-3 px-4 rounded-xl bg-amber-50 border border-amber-300 text-[#6e0d1f] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-amber-100 transition shadow-sm"
-              >
-                ⚡ Use Women Preset Master Image (Instant & Free Test)
-              </button>
-            </div>
+            <button
+              onClick={generateMasterImage}
+              disabled={!canGenerateMaster || isGeneratingMaster}
+              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
+            >
+              {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
+              {masterImageUrl ? 'Regenerate AI Image' : 'Generate AI Image'}
+            </button>
           )}
 
           {masterGenerationMessage && (
