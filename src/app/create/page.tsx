@@ -74,33 +74,6 @@ const masterTemplates: Record<
   },
 };
 
-function deriveMasterTemplateId(
-  analysis: GarmentAnalysis | null,
-  personAnalysis?: PersonAnalysis | null
-): MasterTemplateId {
-  const text = [
-    analysis?.category,
-    analysis?.garmentType,
-    analysis?.operatorMessage,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  const isFeminine = /(women|woman|female|girl|girls|saree|sari|lehenga|kurti|salwar|dupatta|gown|bridal|blouse|churidar|frock|pavadai|pattu pavadai)/i.test(text);
-  const isChild = personAnalysis?.subjectGroup === 'child' || /(kid|kids|child|children|boy|boys|girl|girls)/i.test(text);
-
-  if (isChild) {
-    return isFeminine ? 'girl' : 'boy';
-  }
-
-  if (isFeminine) {
-    return 'women';
-  }
-
-  return 'men';
-}
-
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
   if (!res.ok) {
@@ -158,6 +131,17 @@ const garmentLabels = ['Front View', 'Detail View', 'Additional View'];
 const aiPhotoMaxDimension = 1152;
 const aiPhotoQuality = 0.72;
 
+const categoryOptions: Array<{
+  id: MasterTemplateId;
+  title: string;
+  subtitle: string;
+}> = [
+  { id: 'men', title: 'Men', subtitle: 'Crackers runway' },
+  { id: 'women', title: 'Women', subtitle: 'Diyas palace' },
+  { id: 'boy', title: 'Boy', subtitle: 'Child-safe diya' },
+  { id: 'girl', title: 'Girl', subtitle: 'Child-safe diya' },
+];
+
 const progressCopy: Record<VideoPhase, string> = {
   idle: 'Ready to generate after approval.',
   starting: 'Preparing cinematic prompt and sending to Veo Fast...',
@@ -207,14 +191,13 @@ export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
   const [mode, setMode] = useState<CreateMode>('test');
+  const [selectedCategory, setSelectedCategory] = useState<MasterTemplateId | null>(null);
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
   const [garmentAnalysis, setGarmentAnalysis] = useState<GarmentAnalysis | null>(null);
   const [personAnalysis, setPersonAnalysis] = useState<PersonAnalysis | null>(null);
 
-  const [isAnalyzingGarment, setIsAnalyzingGarment] = useState(false);
-  const [isAnalyzingPerson, setIsAnalyzingPerson] = useState(false);
   const [isGeneratingMaster, setIsGeneratingMaster] = useState(false);
   const [masterGenerationMessage, setMasterGenerationMessage] = useState<string | null>(null);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
@@ -230,13 +213,9 @@ export default function CreatePage() {
 
   const activeGarmentPhotos = useMemo(() => garmentPhotos.filter(Boolean) as string[], [garmentPhotos]);
   const hasRequiredPhotos = activeGarmentPhotos.length >= 1 && !!personPhoto;
-  const canGenerateMaster = mode === 'test' && hasRequiredPhotos && !isAnalyzingGarment && !isAnalyzingPerson;
+  const canGenerateMaster = mode === 'test' && hasRequiredPhotos && !!selectedCategory;
   const canGenerateVideo = !!masterImageUrl && masterApproved && videoPhase === 'idle';
-  const masterTemplateId = useMemo(
-    () => deriveMasterTemplateId(garmentAnalysis, personAnalysis),
-    [garmentAnalysis, personAnalysis]
-  );
-  const selectedMasterTemplate = masterTemplates[masterTemplateId];
+  const selectedMasterTemplate = selectedCategory ? masterTemplates[selectedCategory] : masterTemplates.women;
 
   useEffect(() => {
     if (videoPhase !== 'starting' && videoPhase !== 'rendering' && videoPhase !== 'saving') return;
@@ -280,34 +259,45 @@ QUALITY:
 Make it realistic, premium, polished and suitable for a fashion retail store screen. Avoid changing the person into a different model, avoid face morphing, avoid changing dress color or pattern, avoid wrong text, avoid random logos.`;
   }, [selectedMasterTemplate]);
 
-  async function analyzeGarments(nextPhotos: (string | null)[]) {
+  function setLocalGarmentReady(nextPhotos: (string | null)[], category: MasterTemplateId | null = selectedCategory) {
     const images = nextPhotos.filter(Boolean) as string[];
     if (!images.length) return;
 
-    if (mode === 'proof') {
+    if (!category) {
       setGarmentAnalysis({
-        garmentType: 'Proof garment',
-        primaryColor: 'Manual proof',
-        operatorMessage: 'Proof Mode: garment photos are loaded locally. No AI analysis credit used.',
+        garmentType: 'Photos uploaded',
+        primaryColor: 'Select category',
+        operatorMessage: 'Select Men, Women, Boy, or Girl to lock the correct prompt before generation.',
       });
       return;
     }
 
-    setIsAnalyzingGarment(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/ai/analyze-garment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, sessionId }),
+    setGarmentAnalysis({
+      category: masterTemplates[category].title,
+      garmentType: `${masterTemplates[category].title} selected`,
+      primaryColor: 'From uploaded garment photos',
+      operatorMessage: `${masterTemplates[category].title} prompt is locked by operator selection. No category-detection API credit used.`,
+    });
+  }
+
+  function setLocalPersonReady(category: MasterTemplateId | null = selectedCategory) {
+    if (!category) {
+      setPersonAnalysis({
+        fullBodyVisible: true,
+        faceVisible: true,
+        lightingQuality: 'acceptable',
+        operatorMessage: 'Customer photo ready. Select category to lock the correct prompt.',
       });
-      const data = await parseJsonResponse(res);
-      setGarmentAnalysis(data.analysis);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Garment analysis failed.');
-    } finally {
-      setIsAnalyzingGarment(false);
+      return;
     }
+
+    setPersonAnalysis({
+      subjectGroup: category === 'boy' || category === 'girl' ? 'child' : 'adult',
+      fullBodyVisible: true,
+      faceVisible: true,
+      lightingQuality: 'acceptable',
+      operatorMessage: `${masterTemplates[category].title} customer photo ready. Face and outfit references will be sent directly to image generation.`,
+    });
   }
 
   function resetGeneratedOutputs() {
@@ -326,6 +316,18 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     resetGeneratedOutputs();
   }
 
+  function selectCategory(nextCategory: MasterTemplateId) {
+    setSelectedCategory(nextCategory);
+    setError(null);
+    resetGeneratedOutputs();
+    if (activeGarmentPhotos.length) {
+      setLocalGarmentReady(garmentPhotos, nextCategory);
+    }
+    if (personPhoto) {
+      setLocalPersonReady(nextCategory);
+    }
+  }
+
   async function handleGarmentUpload(e: React.ChangeEvent<HTMLInputElement>, slotIndex: number) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -337,7 +339,7 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
       setGarmentPhotos(nextPhotos);
       setMasterImageUrl(null);
       setMasterApproved(false);
-      await analyzeGarments(nextPhotos);
+      setLocalGarmentReady(nextPhotos);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Garment upload failed.');
     }
@@ -347,39 +349,19 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsAnalyzingPerson(true);
     setError(null);
     try {
       const { dataUrl } = await compressImage(file, aiPhotoMaxDimension, aiPhotoQuality);
       setPersonPhoto(dataUrl);
       resetGeneratedOutputs();
-
-      if (mode === 'proof') {
-        setPersonAnalysis({
-          fullBodyVisible: true,
-          faceVisible: true,
-          lightingQuality: 'proof mode',
-          operatorMessage: 'Proof Mode: customer photo is loaded locally. No AI analysis credit used.',
-        });
-        return;
-      }
-
-      const res = await fetch('/api/ai/analyze-person', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, sessionId }),
-      });
-      const data = await parseJsonResponse(res);
-      setPersonAnalysis(data.analysis);
+      setLocalPersonReady();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Customer photo analysis failed.');
-    } finally {
-      setIsAnalyzingPerson(false);
     }
   }
 
   async function generateMasterImage() {
-    if (!canGenerateMaster || !personPhoto) return;
+    if (!canGenerateMaster || !personPhoto || !selectedCategory) return;
 
     setIsGeneratingMaster(true);
     setMasterApproved(false);
@@ -387,7 +369,7 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     setMasterGenerationMessage('Sending compressed photos to Gemini image generation...');
 
     try {
-      const resolvedTemplateId = deriveMasterTemplateId(garmentAnalysis, personAnalysis);
+      const resolvedTemplateId = selectedCategory;
       const resolvedTemplate = masterTemplates[resolvedTemplateId];
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 60000);
@@ -622,26 +604,41 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
         })}
       </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono font-bold uppercase">
-        {['Upload', 'AI Image', 'Approve', 'Video'].map((step, index) => (
-          <div
-            key={step}
-            className={`p-3 rounded-lg border text-center ${
-              index === 0 && hasRequiredPhotos
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                : index === 1 && masterImageUrl
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                  : index === 2 && masterApproved
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                    : index === 3 && videoPhase !== 'idle'
-                      ? 'bg-amber-50 border-amber-300 text-[#6e0d1f]'
-                      : 'bg-white border-slate-200 text-slate-500'
-            }`}
-          >
-            {step}
+      <section className="rounded-2xl border border-amber-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-800">Select customer category</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              This locks the exact prompt. No auto category detection credit is used.
+            </p>
           </div>
-        ))}
-      </div>
+          <span className="rounded-full bg-[#6e0d1f] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#F3E5AB]">
+            {selectedCategory ? `${masterTemplates[selectedCategory].title} locked` : 'Choose first'}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {categoryOptions.map((option) => {
+            const active = option.id === selectedCategory;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => selectCategory(option.id)}
+                className={`rounded-xl border p-4 text-left transition ${
+                  active
+                    ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-md'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-amber-300'
+                }`}
+              >
+                <p className="font-serif text-lg font-bold uppercase tracking-wider">{option.title}</p>
+                <p className={`mt-1 text-[11px] font-semibold ${active ? 'text-amber-100' : 'text-slate-500'}`}>
+                  {option.subtitle}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       {error && (
         <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-800 text-sm flex items-start gap-3">
@@ -710,12 +707,6 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
               </div>
             </div>
           </div>
-
-          {(isAnalyzingGarment || isAnalyzingPerson) && (
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-center text-xs text-[#6e0d1f] font-bold flex items-center justify-center gap-2 animate-pulse font-mono">
-              <RefreshCw className="w-4 h-4 animate-spin" /> Analyzing photos...
-            </div>
-          )}
 
           {garmentAnalysis && (
             <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 font-mono space-y-1">
@@ -815,7 +806,11 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
             <div>
               <h2 className="font-serif font-bold uppercase tracking-wider text-lg text-[#F3E5AB]">6-Second Video Generation</h2>
               <p className="text-xs text-amber-100/80">
-                {mode === 'proof' ? 'Upload final MP4 · no Gemini/Veo credit used' : 'Veo Fast 720p · real API test · demo locked to 2 starts'}
+                {mode === 'proof'
+                  ? 'Upload final MP4 · no Gemini/Veo credit used'
+                  : selectedCategory
+                    ? `${masterTemplates[selectedCategory].title} prompt locked · Veo Fast 720p real API`
+                    : 'Select Men, Women, Boy, or Girl before generation'}
               </p>
             </div>
           </div>
