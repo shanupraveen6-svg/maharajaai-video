@@ -4,6 +4,8 @@ import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { GoogleGenAI } from '@google/genai';
 import { fal } from '@fal-ai/client';
+import fs from 'fs';
+import path from 'path';
 
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
@@ -95,6 +97,18 @@ export async function POST(req: NextRequest) {
       const mimeMatch = masterImageUrl.match(/^data:([^;]+);base64,/);
       masterMimeType = mimeMatch?.[1] || masterMimeType;
       masterBase64 = masterImageUrl.split(',')[1];
+    } else if (masterImageUrl && masterImageUrl.startsWith('/')) {
+      try {
+        const localPath = path.join(process.cwd(), 'public', masterImageUrl);
+        if (fs.existsSync(localPath)) {
+          const buffer = fs.readFileSync(localPath);
+          masterBase64 = buffer.toString('base64');
+          masterMimeType = detectImageMimeType(buffer);
+          masterDataUrl = `data:${masterMimeType};base64,${masterBase64}`;
+        }
+      } catch (lErr) {
+        console.warn('Local master image read warning:', lErr);
+      }
     } else {
       const bucket = getStorageBucket();
       if (bucket) {
