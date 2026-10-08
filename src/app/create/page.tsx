@@ -216,6 +216,7 @@ export default function CreatePage() {
   const [isAnalyzingGarment, setIsAnalyzingGarment] = useState(false);
   const [isAnalyzingPerson, setIsAnalyzingPerson] = useState(false);
   const [isGeneratingMaster, setIsGeneratingMaster] = useState(false);
+  const [masterGenerationMessage, setMasterGenerationMessage] = useState<string | null>(null);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
   const [masterApproved, setMasterApproved] = useState(false);
 
@@ -312,6 +313,7 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
   function resetGeneratedOutputs() {
     setMasterImageUrl(null);
     setMasterApproved(false);
+    setMasterGenerationMessage(null);
     setVideoPhase('idle');
     setVideoProgress(0);
     setJobId(null);
@@ -382,31 +384,49 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     setIsGeneratingMaster(true);
     setMasterApproved(false);
     setError(null);
+    setMasterGenerationMessage('Sending compressed photos to Gemini image generation...');
 
     try {
       const resolvedTemplateId = deriveMasterTemplateId(garmentAnalysis, personAnalysis);
       const resolvedTemplate = masterTemplates[resolvedTemplateId];
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 60000);
 
-      const res = await fetch('/api/ai/master-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          garmentAnalysis,
-          personAnalysis,
-          personPhoto,
-          garmentPhotos: activeGarmentPhotos,
-          conceptPrompt: resolvedTemplate.masterPrompt,
-          templateId: resolvedTemplateId,
-        }),
-      });
-      const data = await parseJsonResponse(res);
+      let data;
+      try {
+        setMasterGenerationMessage('Generating Maharaja AI image. Please wait on this page...');
+        const res = await fetch('/api/ai/master-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            sessionId,
+            garmentAnalysis,
+            personAnalysis,
+            personPhoto,
+            garmentPhotos: activeGarmentPhotos,
+            conceptPrompt: resolvedTemplate.masterPrompt,
+            templateId: resolvedTemplateId,
+          }),
+        });
+        data = await parseJsonResponse(res);
+      } finally {
+        window.clearTimeout(timeout);
+      }
+
       if (!data.success || !data.masterImageUrl) {
         throw new Error(data.error || 'Gemini returned no AI image. Check the image model and billing setup.');
       }
+      setMasterGenerationMessage('AI image generated. Review and approve it.');
       setMasterImageUrl(data.masterImageUrl);
     } catch (err) {
-      setError(err instanceof Error ? `AI image generation failed: ${err.message}` : 'AI image generation failed.');
+      const message = err instanceof Error && err.name === 'AbortError'
+        ? 'AI image generation took longer than 60 seconds and was stopped. This usually means the model/API is too slow for the current deployment limit.'
+        : err instanceof Error
+          ? err.message
+          : 'AI image generation failed.';
+      setMasterGenerationMessage(`Stopped: ${message}`);
+      setError(`AI image generation failed: ${message}`);
     } finally {
       setIsGeneratingMaster(false);
     }
@@ -745,6 +765,18 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
               {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
               {masterImageUrl ? 'Regenerate AI Image' : 'Generate AI Image'}
             </button>
+          )}
+
+          {masterGenerationMessage && (
+            <div className={`rounded-xl border p-3 text-xs font-bold ${
+              masterGenerationMessage.startsWith('Stopped')
+                ? 'border-red-300 bg-red-50 text-red-800'
+                : masterGenerationMessage.includes('generated')
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                  : 'border-amber-300 bg-amber-50 text-[#6e0d1f]'
+            }`}>
+              {masterGenerationMessage}
+            </div>
           )}
 
           {masterImageUrl ? (

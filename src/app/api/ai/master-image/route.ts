@@ -3,6 +3,8 @@ import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
 
+export const maxDuration = 60;
+
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
   if (!apiKey || apiKey.trim() === '') return null;
