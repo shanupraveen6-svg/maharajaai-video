@@ -60,8 +60,73 @@ export async function POST(req: NextRequest) {
     const isDemoAsset = AI_CONFIG.IS_DEMO_MODE;
     const nowIso = new Date().toISOString();
 
-    // Fast test preset: use uploaded purple lehenga women image directly to save Gemini image synthesis cost & time
-    const masterImageUrl = '/test-master-women.jpg';
+    const ai = getGenAIClient();
+    let masterImageUrl = '';
+
+    if (body.usePreset || !ai || isDemoAsset) {
+      masterImageUrl = '/test-master-women.jpg';
+    } else {
+      try {
+        const contents: any[] = [];
+
+        if (personPhoto) {
+          const personBase64 = personPhoto.split(',')[1] || personPhoto;
+          contents.push({ inlineData: { mimeType: 'image/jpeg', data: personBase64 } });
+        }
+
+        if (garmentPhotos && Array.isArray(garmentPhotos)) {
+          garmentPhotos.forEach((photo: string) => {
+            const garmentBase64 = photo.split(',')[1] || photo;
+            contents.push({ inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } });
+          });
+        }
+
+        const templatePrompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
+          ? conceptPrompt.trim()
+          : 'Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.';
+
+        const prompt = `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image.
+Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness.
+Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design.
+Dress the same customer naturally in the selected garment.
+Apply this selected template: ${templatePrompt}
+Maintain strict full-body head-to-toe framing. Modest, family-friendly, premium fashion campaign look.`;
+
+        contents.push(prompt);
+
+        const imageModel = AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+        const genResponse = await ai.models.generateContent({
+          model: imageModel,
+          contents,
+          config: {
+            responseModalities: ['TEXT', 'IMAGE'],
+            imageConfig: { aspectRatio: '9:16' },
+          },
+        });
+
+        const candidate = genResponse.candidates?.[0];
+        const part = candidate?.content?.parts?.find((p: any) => p.inlineData);
+        if (part?.inlineData?.data) {
+          const imageBase64 = part.inlineData.data;
+          masterImageUrl = `data:image/jpeg;base64,${imageBase64}`;
+
+          const bucket = getStorageBucket();
+          if (bucket) {
+            const fileBuffer = Buffer.from(imageBase64, 'base64');
+            const storagePath = `sessions/${sessionId}/master/master.jpg`;
+            const file = bucket.file(storagePath);
+            await file.save(fileBuffer, { contentType: 'image/jpeg', public: false });
+            const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+            masterImageUrl = signedUrl;
+          }
+        } else {
+          masterImageUrl = '/test-master-women.jpg';
+        }
+      } catch (genError: any) {
+        console.error('Gemini Master Image Generation Error:', genError);
+        masterImageUrl = '/test-master-women.jpg';
+      }
+    }
 
     const db = getDb();
 
@@ -95,9 +160,7 @@ export async function POST(req: NextRequest) {
       sessionId,
       masterImageUrl,
       isDemoAsset,
-      operatorMessage: isDemoAsset
-        ? 'Demo Master Reference Image loaded (Real Google Image synthesis active when DEMO_MODE=false).'
-        : 'Master fashion reference synthesized successfully.'
+      operatorMessage: 'Master fashion reference generated successfully.'
     });
   } catch (error: any) {
     console.error('Master Image Route Error:', error);

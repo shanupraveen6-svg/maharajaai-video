@@ -51,26 +51,74 @@ const masterTemplates: Record<
   men: {
     title: 'Men Template',
     label: 'Crackers runway',
-    masterPrompt: `Use the same Maharaja Diwali menswear scene for image and video: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Keep the mood elegant, confident, family-friendly and masculine without changing the customer, body, face or garment. Keep the focus on the full outfit and festive retail look, not on individual body parts.`,
-    videoPrompt: `Scene: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Style: MEN only. Do not borrow any women's clothing, pose, jewellery, saree, lehenga, dupatta or bridal styling.`,
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, borders, silhouette and design. Dress the customer in the selected garment. Scene: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Masculine, confident, full-body head-to-toe framing.`,
+    videoPrompt: `Create a premium photorealistic 10-second vertical Diwali video from the provided image. Use the uploaded image as the EXACT FIRST FRAME and preserve the exact same adult man throughout the full video: same face, identity, facial features, skin tone, body shape, hairstyle, expression, outfit, colors, fabric, accessories, and overall appearance. Preserve the exact same background, festive decorations, lighting, and composition from the image.
+
+TIMING:
+0.0-1.0s: The video must start exactly like the reference image, almost still, with only subtle natural micro-movement such as blinking or soft breathing. No sudden movement, no pose change, no added object, no stronger smile yet.
+1.0-7.0s: He performs a stylish casual walk forward at a normal natural pace with 2 to 3 clearly visible realistic steps. Walking must be anatomically correct: feet alternate naturally left-right, no foot reordering, no sliding, no leg swapping, no broken gait, no unnatural crossing. Keep the walk confident, relaxed, and casual, not runway and not slow motion. He moves only slightly closer while staying fully visible in frame.
+7.0-8.0s: He gradually slows and stops naturally.
+8.0-10.0s: He stands comfortably, looks at the camera, and gives a gentle happy festive smile. Keep the smile natural and moderate, not exaggerated or constant.
+
+CAMERA:
+One continuous shot. Camera stays steady and only adjusts enough to keep full-body framing, including feet and outfit, visible at all times. No zoom, no cuts, no scene change.
+
+DO NOT:
+Do not change face, identity, outfit, body, or background. Do not add any diya or handheld prop. No extra fingers, no foot distortion, no foot reordering, no exaggerated smile, no flicker, no glitch, no text.`,
   },
   women: {
     title: 'Women Template',
     label: 'Diyas palace',
-    masterPrompt: `Use the same Maharaja Diwali womenswear scene for image and video: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Keep the mood elegant, beautiful, family-friendly and celebratory without changing the customer, body, face or garment. Keep the focus on the full outfit, fabric, festive styling and graceful presence, not on individual body parts.`,
-    videoPrompt: `Scene: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Style: WOMEN only, culturally appropriate for a Thanjavur family fashion store. Do not use glamour, seductive or body-focused posing. Do not borrow any men's shirt, trouser, suiting, moustache, beard or menswear styling.`,
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design. Dress the customer in the selected garment. Scene: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Modest, family-friendly, full-body head-to-toe framing.`,
+    videoPrompt: `Create a premium photorealistic 10-second vertical Diwali video from the provided image. Use the uploaded image as the EXACT FIRST FRAME and preserve the exact same adult woman throughout the full video: same face, identity, facial features, skin tone, body shape, hairstyle, expression, outfit, colors, fabric, embroidery, jewelry, accessories, and overall appearance. Preserve the exact same background, festive decorations, lighting, and composition from the image.
+
+TIMING:
+0.0-1.0s: The video must start exactly like the reference image, almost still, with only very subtle natural micro-movement such as blinking or soft breathing. No sudden pose change, no new objects, no smile increase yet.
+1.0-7.0s: She performs a stylish casual walk forward at a normal natural pace with 2 to 3 clearly visible realistic steps. Walking must be anatomically correct: feet alternate naturally left-right, no foot reordering, no sliding, no leg swapping, no broken gait, no crossing errors. Keep the walk elegant, relaxed, and casual, not runway and not slow motion. She moves only slightly closer while remaining fully visible in frame.
+7.0-8.0s: She slows down and stops naturally.
+8.0-10.0s: She stands gracefully, looks at the camera, and gives a gentle happy festive smile. Keep the smile natural and moderate, not exaggerated or constant.
+
+CAMERA:
+One continuous shot. Camera stays steady and gently adjusts only enough to keep the full body, feet, and full outfit visible. No zoom, no cuts, no scene change.
+
+DO NOT:
+Do not change face, identity, dress, body, or background. Do not create new props. No extra fingers, no foot distortion, no foot reordering, no exaggerated smile, no flicker, no glitch, no text.`,
   },
   boy: {
     title: 'Boy Template',
     label: 'Family diya',
-    masterPrompt: `Use the same wholesome Maharaja Diwali boyswear family-store scene for image and video: diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights, safe distant festive sparkle and joyful family celebration mood. Keep the mood child-safe, modest, respectful, family-friendly and outfit-focused without changing the child, body, face, age appearance or garment. Keep the focus on the full outfit and festive family retail look, not on individual body parts.`,
-    videoPrompt: `Scene: a wholesome family-store setting with diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights, safe distant festive sparkle and a joyful family celebration mood. Style: BOY only; the boy safely holds a small glowing clay diya in both hands. Child-safe, modest and family-friendly. No adult styling. No glamour.`,
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact child identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the child in the selected garment. The boy safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and safe distant festive sparkle. Child-safe, modest, full-body head-to-toe framing.`,
+    videoPrompt: `Create a premium photorealistic 10-second vertical Diwali video from the provided image. Use the uploaded image as the EXACT FIRST FRAME and preserve the exact same boy throughout the full video: same face, identity, facial features, skin tone, body shape, hairstyle, expression, outfit, colors, fabric, accessories, and overall appearance. Preserve the exact same background, festive decorations, lighting, and composition from the image. He must continue holding the SAME lit diya already present in the reference image.
+
+TIMING:
+0.0-1.0s: The video must start exactly like the reference image, almost still, with only subtle natural micro-movement such as blinking or soft breathing. Keep the diya steady. No sudden pose change, no object change, no bigger smile yet.
+1.0-7.0s: He gently walks forward at a normal natural pace with 2 to 3 clearly visible realistic steps while carefully holding the same diya. Walking must be anatomically correct: feet alternate naturally left-right, no foot reordering, no sliding, no leg swapping, no broken gait, no unnatural crossing. Keep the walk natural, happy, and stable, not slow motion. Keep the diya steady and realistic. He moves only slightly closer while staying fully visible in frame.
+7.0-8.0s: He slows and stops naturally.
+8.0-10.0s: He stands naturally, looks at the camera, and gives a gentle happy festive smile. Keep the smile natural and moderate, not exaggerated or constant.
+
+CAMERA:
+One continuous shot. Camera stays steady and only adjusts enough to keep full-body framing, feet, and full outfit visible. No zoom, no cuts, no scene change.
+
+DO NOT:
+Do not change face, identity, outfit, body, diya, or background. Do not duplicate the diya. No extra fingers, no foot distortion, no foot reordering, no exaggerated smile, no flicker, no glitch, no text.`,
   },
   girl: {
     title: 'Girl Template',
     label: 'Family diya',
-    masterPrompt: `Use the same wholesome Maharaja Diwali girlswear family-store scene for image and video: glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and joyful family celebration mood. Keep the mood child-safe, modest, respectful, family-friendly and outfit-focused without changing the child, body, face, age appearance or garment. Keep the focus on the full outfit and festive family retail look, not on individual body parts.`,
-    videoPrompt: `Scene: a wholesome family-store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and a joyful family celebration mood. Style: GIRL only; the girl safely holds a small glowing clay diya in both hands. Child-safe, modest and family-friendly. No adult styling. No glamour. No seductive pose.`,
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact child identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the child in the selected garment. The girl safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli and gentle golden festive lights. Child-safe, modest, full-body head-to-toe framing.`,
+    videoPrompt: `Create a premium photorealistic 10-second vertical Diwali video from the provided image. Use the uploaded image as the EXACT FIRST FRAME and preserve the exact same girl throughout the full video: same face, identity, facial features, skin tone, body shape, hairstyle, expression, outfit, colors, fabric, jewelry, accessories, and overall appearance. Preserve the exact same background, festive decorations, lighting, and composition from the image. She must continue holding the SAME lit diya already present in the reference image.
+
+TIMING:
+0.0-1.0s: The video must start exactly like the reference image, almost still, with only very subtle natural micro-movement such as blinking or soft breathing. Keep the diya steady. No sudden pose change, no object change, no strong smile yet.
+1.0-7.0s: She gently walks forward at a normal natural pace with 2 to 3 clearly visible realistic steps while carefully holding the same diya. Walking must be anatomically correct: feet alternate naturally left-right, no foot reordering, no sliding, no leg swapping, no broken gait, no unnatural crossing. Keep the walk soft, natural, and stable, not slow motion. Keep the diya steady and realistic. She moves only slightly closer while staying fully visible in frame.
+7.0-8.0s: She slows and stops naturally.
+8.0-10.0s: She stands sweetly, looks at the camera, and gives a gentle happy festive smile. Keep the smile natural and moderate, not exaggerated or constant.
+
+CAMERA:
+One continuous shot. Camera stays steady and only adjusts enough to keep full-body framing, feet, and full outfit visible. No zoom, no cuts, no scene change.
+
+DO NOT:
+Do not change face, identity, outfit, body, diya, or background. Do not duplicate the diya. No extra fingers, no foot distortion, no foot reordering, no exaggerated smile, no flicker, no glitch, no text.`,
   },
 };
 
