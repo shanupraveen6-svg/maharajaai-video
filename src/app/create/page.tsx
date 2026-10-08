@@ -51,10 +51,8 @@ const masterTemplates: Record<
   men: {
     title: 'Men Template',
     label: 'Crackers runway',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, borders, silhouette and design. Dress the customer in the selected garment. Scene: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Add clear Tamil greeting text at the top: "இனிய தீபாவளி நல்வாழ்த்துகள்" in elegant gold Tamil lettering on a festive maroon/gold sign, away from the face and outfit. Masculine, confident, modest, full-body head-to-toe framing.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Use the image as the exact first frame. Preserve the exact same man, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and Tamil greeting text throughout.
-
-Text lock: keep only this Tamil text, clear and readable in elegant gold festival lettering: "இனிய தீபாவளி நல்வாழ்த்துகள்". No English text and no wrong-language text.
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, borders, silhouette and design. Dress the customer in the selected garment. Scene: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Masculine, confident, modest, full-body head-to-toe framing. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same man, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, and decorations throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
 Motion timing: 0-1s almost still with natural breathing/blink. 1-4s he walks forward naturally with 1-2 clean steps, confident and relaxed. 4-5s he stops. 5-6s he looks at camera and gives a gentle festive smile.
 
@@ -62,31 +60,27 @@ Camera: one continuous stable shot, full-body head-to-toe framing, no cuts, no s
 
 Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
 
-Do not change face, outfit, body, skin tone, background, or text. No added handheld prop. No extra limbs, no foot distortion, no flicker.`,
+Do not change face, outfit, body, skin tone, or background. No added handheld prop. No extra limbs, no foot distortion, no flicker.`,
   },
   women: {
     title: 'Women Template',
     label: 'Diyas palace',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design. Dress the customer in the selected garment. Scene: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Add clear Tamil greeting text at the top: "இனிய தீபாவளி நல்வாழ்த்துகள்" in elegant gold Tamil lettering on a festive maroon/gold sign, away from the face and outfit. Modest, respectful, family-friendly, no objectifying body focus, full-body head-to-toe framing.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Use the image as the exact first frame. Preserve the exact same woman, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, jewelry, background, lighting, decorations, and Tamil greeting text throughout.
-
-Text lock: keep only this Tamil text, clear and readable in elegant gold festival lettering: "இனிய தீபாவளி நல்வாழ்த்துகள்". No English text and no wrong-language text.
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design. Dress the customer in the selected garment. Scene: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Modest, respectful, family-friendly, no objectifying body focus, no waist/hip/body-part emphasis, no glamour pose, full outfit visible, full-body head-to-toe framing. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same woman, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, jewelry, background, lighting, and decorations throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
 Motion timing: 0-1s almost still with natural breathing/blink. 1-4s she walks forward naturally with 1-2 clean graceful steps. 4-5s she stops. 5-6s she looks at camera and gives a gentle festive smile.
 
-Camera: one continuous stable shot, modest full-body head-to-toe framing, no close-up on body parts, no cuts, no scene change.
+Camera: one continuous stable shot, modest full-body head-to-toe framing, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
 
 Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
 
-Do not change face, dress, body, skin tone, background, or text. No added handheld prop. No extra limbs, no foot distortion, no flicker.`,
+Do not change face, dress, body, skin tone, or background. No added handheld prop. No extra limbs, no foot distortion, no flicker, no glamour/body-emphasis pose.`,
   },
   boy: {
     title: 'Boy Template',
     label: 'Family diya',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. The customer safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and safe distant festive sparkle. Add clear Tamil greeting text at the top: "இனிய தீபாவளி நல்வாழ்த்துகள்" in elegant gold Tamil lettering on a festive maroon/gold sign, away from the face and outfit. Modest, family-friendly, full-body head-to-toe framing.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Use the image as the exact first frame. Preserve the exact same young male customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, Tamil greeting text, and the same lit diya throughout.
-
-Text lock: keep only this Tamil text, clear and readable in elegant gold festival lettering: "இனிய தீபாவளி நல்வாழ்த்துகள்". No English text and no wrong-language text.
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. The customer safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and safe distant festive sparkle. Modest, family-friendly, full-body head-to-toe framing. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young male customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and the same lit diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
 Motion timing: 0-1s almost still with natural breathing/blink. 1-4s he walks forward naturally with 1-2 small clean steps while holding the diya steadily. 4-5s he stops. 5-6s he looks at camera and gives a gentle festive smile.
 
@@ -94,23 +88,21 @@ Camera: one continuous stable shot, full-body head-to-toe framing, no cuts, no s
 
 Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
 
-Do not change face, outfit, body, skin tone, diya, background, or text. Do not duplicate the diya. No extra limbs, no foot distortion, no flicker.`,
+Do not change face, outfit, body, skin tone, diya, or background. Do not duplicate the diya. No extra limbs, no foot distortion, no flicker.`,
   },
   girl: {
     title: 'Girl Template',
     label: 'Family diya',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. The customer safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli and gentle golden festive lights. Add clear Tamil greeting text at the top: "இனிய தீபாவளி நல்வாழ்த்துகள்" in elegant gold Tamil lettering on a festive maroon/gold sign, away from the face and outfit. Modest, family-friendly, full-body head-to-toe framing.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Use the image as the exact first frame. Preserve the exact same young female customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, Tamil greeting text, and the same lit diya throughout.
-
-Text lock: keep only this Tamil text, clear and readable in elegant gold festival lettering: "இனிய தீபாவளி நல்வாழ்த்துகள்". No English text and no wrong-language text.
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. The customer safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli and gentle golden festive lights. Modest, family-friendly, no waist/hip/body-part emphasis, full-body head-to-toe framing. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young female customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and the same lit diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
 Motion timing: 0-1s almost still with natural breathing/blink. 1-4s she walks forward naturally with 1-2 small clean steps while holding the diya steadily. 4-5s she stops. 5-6s she looks at camera and gives a gentle festive smile.
 
-Camera: one continuous stable shot, modest full-body head-to-toe framing, no close-up on body parts, no cuts, no scene change.
+Camera: one continuous stable shot, modest full-body head-to-toe framing, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
 
 Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
 
-Do not change face, outfit, body, skin tone, diya, background, or text. Do not duplicate the diya. No extra limbs, no foot distortion, no flicker.`,
+Do not change face, outfit, body, skin tone, diya, or background. Do not duplicate the diya. No extra limbs, no foot distortion, no flicker, no glamour/body-emphasis pose.`,
   },
 };
 

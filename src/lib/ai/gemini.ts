@@ -202,7 +202,7 @@ Return STRICT JSON:
 export function buildVideoPrompt(analysis: any, conceptPrompt?: string): string {
   const prompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
     ? conceptPrompt.trim()
-    : `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Preserve the exact same person, face, skin tone, body, outfit, garment color, fabric, background, lighting and decorations. Keep clear Tamil gold greeting text: "இனிய தீபாவளி நல்வாழ்த்துகள்". The subject walks forward naturally, stops, looks at camera, and smiles gently. No dialogue, no lip-sync, no wrong-language text, no face change, no outfit change, no extra limbs.`;
+    : `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Preserve the exact same person, face, skin tone, body, outfit, garment color, fabric, background, lighting and decorations. The subject walks forward naturally, stops, looks at camera, and smiles gently. No dialogue, no lip-sync, no text, no captions, no signage, no letters, no face change, no outfit change, no extra limbs.`;
 
   return prompt.length > 1950 ? prompt.slice(0, 1950) : prompt;
 }

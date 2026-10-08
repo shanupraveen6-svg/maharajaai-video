@@ -1,27 +1,77 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Volume2, Flame, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AlertCircle, Sparkles, Volume2 } from 'lucide-react';
 
-const TV_PLAYBACK_RATE = 1;
+const TV_PLAYBACK_RATE = 0.66;
+
+function playBell(ctx: AudioContext, frequency: number, delay: number, duration = 0.72, volume = 0.035) {
+  const now = ctx.currentTime + delay;
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(volume, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.start(now);
+  oscillator.stop(now + duration + 0.08);
+}
 
 export default function TvPlayerPage() {
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
-
-  // Playback state
   const [currentPlayback, setCurrentPlayback] = useState<{
     queueId: string;
     reservationId: string;
     videoUrl: string;
   } | null>(null);
-
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pollInFlightRef = useRef(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const musicContextRef = useRef<AudioContext | null>(null);
+  const musicTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Polling engine: checks GET /api/live/next every 2 seconds when idle
+  function startFestivalMusic() {
+    if (musicContextRef.current) return;
+
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+    if (!AudioContextCtor) return;
+
+    const ctx = new AudioContextCtor();
+    musicContextRef.current = ctx;
+
+    const scheduleBar = () => {
+      if (ctx.state === 'suspended') {
+        void ctx.resume();
+      }
+      playBell(ctx, 523.25, 0.0, 0.78, 0.03);
+      playBell(ctx, 659.25, 0.52, 0.7, 0.026);
+      playBell(ctx, 783.99, 1.04, 0.82, 0.03);
+      playBell(ctx, 1046.5, 1.58, 0.92, 0.02);
+    };
+
+    scheduleBar();
+    musicTimerRef.current = setInterval(scheduleBar, 2600);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (musicTimerRef.current) clearInterval(musicTimerRef.current);
+      void musicContextRef.current?.close();
+    };
+  }, []);
+
   useEffect(() => {
     if (!audioUnlocked || isPlayingVideo) return;
 
@@ -41,12 +91,12 @@ export default function TvPlayerPage() {
           setCurrentPlayback({
             queueId: data.queueId,
             reservationId: data.reservationId,
-            videoUrl: data.videoUrl
+            videoUrl: data.videoUrl,
           });
           setIsPlayingVideo(true);
         }
       } catch (err) {
-        console.warn('TV Polling Network Error (retrying...):', err);
+        console.warn('TV polling network error, retrying:', err);
       } finally {
         pollInFlightRef.current = false;
         if (isMounted && !isPlayingVideo) {
@@ -63,7 +113,6 @@ export default function TvPlayerPage() {
     };
   }, [audioUnlocked, isPlayingVideo]);
 
-  // Video Playback Execution
   const startVideoPlayback = async () => {
     if (!videoRef.current || !currentPlayback) return;
 
@@ -72,30 +121,27 @@ export default function TvPlayerPage() {
       videoRef.current.defaultPlaybackRate = TV_PLAYBACK_RATE;
       videoRef.current.playbackRate = TV_PLAYBACK_RATE;
       await videoRef.current.play();
-      
-      // Notify backend immediately that video is now actively playing on screen
+
       fetch('/api/tv/playing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           queueId: currentPlayback.queueId,
-          reservationId: currentPlayback.reservationId
-        })
-      }).catch(err => console.error('Failed to notify playing status:', err));
-    } catch (err: any) {
+          reservationId: currentPlayback.reservationId,
+        }),
+      }).catch((err) => console.error('Failed to notify playing status:', err));
+    } catch (err) {
       console.error('Video playback error / autoplay blocked:', err);
       setPlaybackError('Autoplay blocked. Press play to start video.');
     }
   };
 
-
   useEffect(() => {
     if (isPlayingVideo && currentPlayback) {
-      startVideoPlayback();
+      void startVideoPlayback();
     }
   }, [isPlayingVideo, currentPlayback]);
 
-  // Completion handler: notifies POST /api/live/complete and returns to idle
   const handleVideoEnded = async () => {
     if (!currentPlayback) return;
 
@@ -105,8 +151,8 @@ export default function TvPlayerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           queueId: currentPlayback.queueId,
-          reservationId: currentPlayback.reservationId
-        })
+          reservationId: currentPlayback.reservationId,
+        }),
       });
     } catch (err) {
       console.error('Failed to notify completion:', err);
@@ -117,7 +163,6 @@ export default function TvPlayerPage() {
     }
   };
 
-  // Playback failure handler: notifies POST /api/live/fail and returns to idle without marking complete
   const handleVideoError = async () => {
     if (!currentPlayback) return;
 
@@ -128,8 +173,8 @@ export default function TvPlayerPage() {
         body: JSON.stringify({
           queueId: currentPlayback.queueId,
           reservationId: currentPlayback.reservationId,
-          reason: 'TV Browser playback error'
-        })
+          reason: 'TV browser playback error',
+        }),
       });
     } catch (err) {
       console.error('Failed to notify playback failure:', err);
@@ -140,133 +185,144 @@ export default function TvPlayerPage() {
     }
   };
 
-  // 1. Audio Unlock Prompt for Smart TV browsers
   if (!audioUnlocked) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-[#070609] p-6 text-center select-none font-sans">
-        <div className="max-w-lg w-full maharaja-card p-10 rounded-2xl border border-[#D4AF37]/40 shadow-2xl space-y-6">
-          <Flame className="w-14 h-14 text-[#D4AF37] mx-auto animate-diya" />
-          
+      <main className="min-h-screen flex items-center justify-center bg-[#2B0506] p-6 text-center select-none font-sans">
+        <div className="max-w-xl w-full rounded-2xl border border-[#F6D36A]/45 bg-[#170202]/92 p-10 shadow-2xl space-y-6">
+          <img
+            src="/maharaja-logo.png"
+            alt="Majestic Maharaja"
+            className="mx-auto h-32 w-32 rounded-2xl object-cover border border-[#F6D36A]/35"
+          />
           <div>
-            <h1 className="text-3xl font-serif font-bold text-[#F3E5AB] tracking-widest uppercase mb-1">
-              MAHARAJA TV PLAYER
+            <h1 className="font-serif text-3xl font-bold tracking-widest text-[#F8E8A8] uppercase">
+              Majestic Maharaja TV
             </h1>
-            <p className="text-xs text-[#D4AF37]/80 tracking-widest uppercase">
-              Thanjavur In-Store Digital Signage
+            <p className="mt-2 text-xs font-bold uppercase tracking-[0.24em] text-[#F6D36A]/80">
+              Diwali Celebration Screen
             </p>
           </div>
-
-          <p className="text-sm text-gray-300">
-            Tap below once to start the player and enable sound for customer video broadcasts.
+          <p className="text-sm leading-7 text-[#F8E8A8]/75">
+            Tap once to start the 55-inch showroom player, enable festival background music, and receive live AI ads.
           </p>
-
           <button
-            onClick={() => setAudioUnlocked(true)}
-            className="w-full py-4 px-8 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-base shadow-2xl hover:scale-105 transition flex items-center justify-center gap-3"
+            onClick={() => {
+              setAudioUnlocked(true);
+              startFestivalMusic();
+            }}
+            className="w-full rounded-xl bg-gradient-to-r from-[#F6D36A] via-[#FFF1A8] to-[#F6D36A] px-8 py-4 text-base font-black uppercase tracking-wider text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
           >
-            <Volume2 className="w-6 h-6" /> START MAHARAJA SCREEN
+            <Volume2 className="h-6 w-6" /> Start Maharaja Screen
           </button>
         </div>
       </main>
     );
   }
 
-  // 2. Fullscreen 16:9 Signage Player Screen (with 9:16 Vertical Video Centered)
   return (
-    <main className="fixed inset-0 w-screen h-screen bg-black overflow-hidden flex items-center justify-center select-none">
-      <div className="relative w-full h-full max-w-[177.78vh] max-h-[56.25vw] aspect-video bg-[#0B0609] border border-[#D4AF37]/30 flex flex-col justify-between p-6 shadow-2xl overflow-hidden">
-        
-        {/* Top Header */}
-        <header className="relative z-20 flex justify-between items-center border-b border-[#D4AF37]/20 pb-4">
-          <div className="flex items-center gap-3">
-            <Flame className="w-7 h-7 text-[#D4AF37] animate-diya" />
-            <div>
-              <h1 className="text-xl font-serif font-bold text-[#F3E5AB] tracking-widest uppercase">
-                MAHARAJA
-              </h1>
-              <p className="text-[10px] text-[#D4AF37]/70 tracking-widest uppercase">
-                THANJAVUR — DIWALI CELEBRATION
+    <main className="fixed inset-0 flex h-screen w-screen items-center justify-center overflow-hidden bg-black select-none">
+      <div className="relative aspect-video h-full max-h-[56.25vw] w-full max-w-[177.78vh] overflow-hidden bg-[#4A0707] text-[#F8E8A8]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_20%,rgba(246,211,106,0.15),transparent_26%),radial-gradient(circle_at_82%_72%,rgba(255,241,168,0.12),transparent_30%),linear-gradient(135deg,#320405_0%,#5D0B09_42%,#210202_100%)]" />
+        <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(0deg,rgba(255,255,255,0.18)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:9px_9px]" />
+
+        <div className="relative z-10 grid h-full grid-cols-[0.84fr_0.82fr_1fr] items-center gap-10 px-14 py-10">
+          <section className="flex h-full flex-col items-center justify-center gap-6">
+            <img
+              src="/maharaja-logo.png"
+              alt="Majestic Maharaja"
+              className="w-[82%] max-w-[360px] rounded-[2rem] border border-[#F6D36A]/45 object-cover shadow-[0_24px_80px_rgba(0,0,0,0.42)]"
+            />
+            <div className="text-center">
+              <p className="font-serif text-4xl font-black uppercase tracking-[0.16em] text-[#FFF1A8]">
+                AI Diwali
+              </p>
+              <p className="mt-2 text-sm font-bold uppercase tracking-[0.26em] text-[#F6D36A]/85">
+                Fashion Film
               </p>
             </div>
-          </div>
+          </section>
 
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 border border-[#D4AF37]/30 text-[11px] text-[#F3E5AB]">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            DISPLAY: <span className="font-semibold text-white">MAHARAJA MAIN</span>
-          </div>
-        </header>
-
-        {/* Player Body */}
-        <div className="relative z-10 flex-1 flex items-center justify-center my-4 overflow-hidden">
-          {isPlayingVideo && currentPlayback ? (
-            /* 9:16 Vertical Video Frame Centered Inside 16:9 Shell */
-            <div className="relative h-full aspect-[9/16] rounded-xl overflow-hidden border-2 border-[#D4AF37] shadow-[0_0_50px_rgba(212,175,55,0.3)] bg-black">
-              <video
-                ref={videoRef}
-                src={currentPlayback.videoUrl}
-                autoPlay
-                playsInline
-                onLoadedMetadata={(e) => {
-                  e.currentTarget.defaultPlaybackRate = TV_PLAYBACK_RATE;
-                  e.currentTarget.playbackRate = TV_PLAYBACK_RATE;
-                }}
-                onEnded={handleVideoEnded}
-                onError={handleVideoError}
-                className="w-full h-full object-cover"
-              />
-
-              {playbackError && (
-                <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 text-center z-30">
-                  <AlertCircle className="w-10 h-10 text-amber-400 mb-2" />
-                  <p className="text-xs text-white mb-4">{playbackError}</p>
-                  <button
-                    onClick={startVideoPlayback}
-                    className="py-2 px-6 rounded-lg bg-[#D4AF37] text-black font-bold text-xs uppercase"
-                  >
-                    PRESS PLAY TO START
-                  </button>
+          <section className="flex h-full items-center justify-center">
+            <div className="relative h-[91%] aspect-[9/16] overflow-hidden rounded-[1.6rem] border-[3px] border-[#F6D36A] bg-black shadow-[0_0_58px_rgba(246,211,106,0.22),0_22px_70px_rgba(0,0,0,0.52)]">
+              {isPlayingVideo && currentPlayback ? (
+                <video
+                  ref={videoRef}
+                  src={currentPlayback.videoUrl}
+                  autoPlay
+                  muted
+                  playsInline
+                  onLoadedMetadata={(event) => {
+                    event.currentTarget.defaultPlaybackRate = TV_PLAYBACK_RATE;
+                    event.currentTarget.playbackRate = TV_PLAYBACK_RATE;
+                  }}
+                  onEnded={handleVideoEnded}
+                  onError={handleVideoError}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center bg-[#120203] p-7 text-center">
+                  <Sparkles className="mb-5 h-14 w-14 text-[#F6D36A] animate-pulse" />
+                  <p className="font-serif text-3xl font-black leading-tight text-[#FFF1A8]">
+                    Waiting for next AI ad
+                  </p>
+                  <p className="mt-4 text-xs font-bold uppercase tracking-[0.22em] text-[#F6D36A]/70">
+                    Portrait screen ready
+                  </p>
                 </div>
               )}
 
-              {/* Greeting text: no container/background, pinned to the bottom edge so it never covers the face */}
-              <div className="pointer-events-none absolute bottom-5 left-3 right-3 text-center">
-                <p className="text-[10px] uppercase text-[#F5D76E] font-black tracking-[0.24em] [text-shadow:0_2px_4px_rgba(0,0,0,0.95),0_0_8px_rgba(0,0,0,0.85)]">
-                  MAHARAJA DIWALI GREETING
-                </p>
-                <p className="mt-1 text-lg md:text-2xl text-[#FFD86B] font-black leading-tight [text-shadow:0_2px_4px_rgba(0,0,0,0.95),0_0_10px_rgba(0,0,0,0.9)]">
-                  <span style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}>
-                    இனிய தீபாவளி நல்வாழ்த்துக்கள்
-                  </span>
-                </p>
-              </div>
+              {playbackError && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/92 p-5 text-center">
+                  <AlertCircle className="mb-3 h-10 w-10 text-[#F6D36A]" />
+                  <p className="mb-4 text-xs text-white">{playbackError}</p>
+                  <button
+                    onClick={startVideoPlayback}
+                    className="rounded-lg bg-[#F6D36A] px-6 py-2 text-xs font-black uppercase text-[#3B0507]"
+                  >
+                    Press Play
+                  </button>
+                </div>
+              )}
             </div>
-          ) : (
-            /* Maharaja Idle Promotional Advertisement */
-            <div className="w-full h-full flex flex-col items-center justify-center text-center p-8 bg-gradient-to-b from-[#2A060C]/40 to-[#070609]/80 rounded-2xl border border-[#D4AF37]/20 relative">
-              <Sparkles className="w-12 h-12 text-[#D4AF37] mb-4 animate-bounce" />
-              
-              <h2 className="text-3xl md:text-5xl font-serif font-bold text-[#F3E5AB] tracking-wider mb-4 uppercase">
-                THIS DIWALI, YOU COULD BE HERE.
-              </h2>
-              
-              <p className="text-lg md:text-2xl text-gray-200 mb-8 max-w-2xl font-light">
-                Shop <span className="text-[#D4AF37] font-semibold">₹5,000+</span> at Maharaja Thanjavur & star in your personalized AI Diwali Film on our big screen!
+          </section>
+
+          <section className="flex h-full flex-col justify-center">
+            <div className="border-l border-[#F6D36A]/35 pl-10">
+              <p className="text-sm font-black uppercase tracking-[0.32em] text-[#F6D36A]/85">
+                தீபாவளி வாழ்த்து
+              </p>
+              <h1
+                className="mt-6 text-[clamp(3.4rem,5.6vw,6.3rem)] font-black leading-[1.04] text-[#FFF1A8] [text-shadow:0_5px_22px_rgba(0,0,0,0.55)]"
+                style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
+              >
+                இனிய
+                <br />
+                தீபாவளி
+                <br />
+                நல்வாழ்த்துகள்
+              </h1>
+
+              <div className="mt-10 h-px w-4/5 bg-gradient-to-r from-[#F6D36A] to-transparent" />
+
+              <p
+                className="mt-9 text-[clamp(2rem,3vw,3.4rem)] font-black leading-tight text-white"
+                style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
+              >
+                கவிதா
+              </p>
+              <p
+                className="mt-3 text-[clamp(1.5rem,2.2vw,2.5rem)] font-bold text-[#F6D36A]"
+                style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
+              >
+                திருவையாறு
               </p>
 
-              <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-[#6e0d1f]/60 border border-[#D4AF37]/50 text-[#F3E5AB] text-sm uppercase tracking-widest font-semibold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                SHOP ₹5,000+ → SCAN → AI FILM → GO LIVE
-              </div>
+              <p className="mt-10 max-w-md text-sm font-bold uppercase tracking-[0.22em] text-[#FFF1A8]/70">
+                Maharaja Ready-Made Store
+              </p>
             </div>
-          )}
+          </section>
         </div>
-
-        {/* Footer */}
-        <footer className="relative z-20 flex justify-between items-center border-t border-[#D4AF37]/20 pt-3 text-[11px] text-[#D4AF37]/80">
-          <span>✨ MAHARAJA READY-MADE STORE, THANJAVUR</span>
-          <span>DIWALI SPECIAL PROMOTION</span>
-        </footer>
-
       </div>
     </main>
   );
