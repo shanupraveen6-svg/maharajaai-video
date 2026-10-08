@@ -204,22 +204,15 @@ export function buildVideoPrompt(analysis: any, conceptPrompt?: string): string 
     ? conceptPrompt.trim()
     : 'A premium Maharaja Diwali fashion setting with warm golden festive lighting, diyas, brass lamps and marigold flowers.';
 
-  return `Create a photorealistic 6-second vertical 9:16 silent Diwali fashion video from the attached master image, using it as the first frame. The video must be exactly 6 seconds long.
+  const fullPrompt = `Photorealistic 6-second vertical 9:16 silent Diwali fashion video from master image.
+IDENTITY LOCK: Exact same person as master image (identical face, eyes, skin tone, hair, glasses, bindi, accessories). Do not morph or beautify.
+OUTFIT LOCK: Exact same outfit, colors, fabric, embroidery, dupatta and hem length. Never change colors.
+SCENE: ${scene}
+MOTION: Extremely slow and calm. Takes small slow steps forward facing camera for 3s, then stands still with a soft natural smile. Camera locked and steady: no zoom or pan.
+FRAMING: Full-body head-to-toe, person centered, modest and respectful.
+No text, no speech, no extra limbs, 4k sharp focus, warm festive color grading.`;
 
-IDENTITY LOCK (highest priority): every frame must show the EXACT same person as the master image: identical face, facial features, face shape, eyes, eyebrows, nose, lips, skin tone, hairstyle and hair length, age appearance, body size, height and proportions, plus glasses, bindi, earrings, necklace and any other accessories. Do not beautify, slim, enlarge, restyle or morph the person. Do not change gender styling.
-OUTFIT LOCK: keep the exact outfit from the master image: same colors, fabric, embroidery, pattern placement, drape/dupatta and hem length. Never invent or change a color.
-
-SCENE AND STYLE: ${scene}
-
-MOTION: very slow and calm. For the first 3 seconds take a few small slow steps with the head and face frontal to the camera, then stand still and give a soft natural smile for the final 3 seconds. The camera stays locked and steady: no zoom, push-in, pan or cut. No head turns, dancing, spinning, jumping or big pose changes. Natural fabric movement and anatomically correct hands.
-
-FRAMING: full-body head-to-toe for the entire video, person centered, face large enough to stay sharp and stable. Modest, respectful, family-friendly, suitable for a Thanjavur fashion store. Do not emphasize legs, hips, chest, waist or any isolated body part. No glamour or seductive posing.
-
-AUDIO: silent. No speech, voice, music or lip-sync; mouth closed or softly smiling.
-
-NO TEXT: do not render any text, captions, banners or logos in the video.
-
-Realistic, premium, sharp focus, warm festive color grading. No duplicate person, extra limbs or malformed hands.`;
+  return fullPrompt.length > 1800 ? fullPrompt.slice(0, 1800) : fullPrompt;
 }
 
 // 4. Quality Assurance Evaluation (Fix 13: Freeze Fake QA)
