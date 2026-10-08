@@ -63,6 +63,8 @@ export async function GET(req: NextRequest) {
     let videoUrl: string | null = null;
     let status: string = 'processing';
     let operationName: string | null = null;
+    let requestId: string | null = null;
+    let provider: string | null = null;
 
     if (db) {
       // 1. Fetch Session Doc first
@@ -88,15 +90,20 @@ export async function GET(req: NextRequest) {
           if (!jobId && sData?.jobId) {
             jobId = sData.jobId;
           }
+          if (sData?.provider) {
+            provider = sData.provider;
+          }
         }
       }
 
-      // 2. Fetch Generation Job Doc to retrieve operationName
+      // 2. Fetch Generation Job Doc to retrieve operationName / requestId
       if (jobId) {
         const jobDoc = await db.collection('generationJobs').doc(jobId).get();
         if (jobDoc.exists) {
           const jobData = jobDoc.data();
           operationName = jobData?.operationName || null;
+          requestId = jobData?.requestId || null;
+          provider = jobData?.provider || provider;
           if (!targetSessionId && jobData?.sessionId) {
             targetSessionId = jobData.sessionId;
           }
@@ -123,12 +130,135 @@ export async function GET(req: NextRequest) {
             }
           }
           if (!jobId && session.jobId) jobId = session.jobId;
+          provider = session.provider || null;
         }
       }
     }
 
+    // =====================================================
+    // 1. Fal.ai MiniMax Hailuo-02 Queue Polling (Primary)
+    // =====================================================
+    if (!AI_CONFIG.IS_DEMO_MODE && (provider === 'fal-minimax' || requestId) && status === 'processing') {
+      const falKey = AI_CONFIG.FAL_KEY;
+      if (falKey && requestId) {
+        try {
+          const { fal } = await import('@fal-ai/client');
+          fal.config({ credentials: falKey.trim() });
 
-    // Real Veo Operation Polling via Google operations API
+          const queueStatus = await fal.queue.status('fal-ai/minimax/hailuo-02/standard/image-to-video', {
+            requestId,
+            logs: true
+          });
+
+          if (queueStatus.status === 'COMPLETED') {
+            const falResult: any = await fal.queue.result('fal-ai/minimax/hailuo-02/standard/image-to-video', {
+              requestId
+            });
+
+            const outputVideoUrl = falResult.data?.video?.url || falResult.data?.video_url;
+
+            if (!outputVideoUrl) {
+              const errMessage = 'Fal.ai generation completed but did not return a valid video URL.';
+              await markVideoFailed(db, targetSessionId, errMessage);
+              return NextResponse.json({
+                success: false,
+                jobId,
+                sessionId: targetSessionId,
+                status: 'failed',
+                error: errMessage
+              }, { status: 500 });
+            }
+
+            let fileBuffer: Buffer | null = null;
+            try {
+              const fetchRes = await fetch(outputVideoUrl);
+              if (fetchRes.ok) {
+                fileBuffer = Buffer.from(await fetchRes.arrayBuffer());
+              }
+            } catch (netErr) {
+              console.error('Fal.ai video download network error:', netErr);
+            }
+
+            if (!fileBuffer) {
+              await markVideoFailed(db, targetSessionId, 'Failed to download generated video output from Fal.ai.');
+              return NextResponse.json({
+                success: false,
+                jobId,
+                sessionId: targetSessionId,
+                status: 'failed',
+                error: 'Failed to download generated video output from Fal.ai.'
+              }, { status: 500 });
+            }
+
+            const storagePath = `sessions/${targetSessionId}/video/final.mp4`;
+            const bucket = getStorageBucket();
+
+            if (bucket) {
+              const file = bucket.file(storagePath);
+              await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
+              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+              videoUrl = signedUrl;
+            } else {
+              videoUrl = outputVideoUrl;
+            }
+
+            status = 'ready';
+
+            if (db) {
+              await db.collection('videos').doc(`video_${targetSessionId}`).set({
+                id: `video_${targetSessionId}`,
+                sessionId: targetSessionId,
+                storagePath,
+                status: 'ready',
+                provider: 'fal-minimax',
+                createdAt: new Date().toISOString()
+              }, { merge: true });
+
+              await db.collection('sessions').doc(targetSessionId).set({
+                videoStatus: 'ready',
+                videoUrl,
+                videoStoragePath: storagePath,
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+            }
+
+            return NextResponse.json({
+              success: true,
+              jobId,
+              sessionId: targetSessionId,
+              status: 'ready',
+              videoUrl,
+              videoId: `video_${targetSessionId}`
+            });
+          }
+
+          if (queueStatus.status === 'IN_PROGRESS' || queueStatus.status === 'IN_QUEUE') {
+            return NextResponse.json({
+              success: true,
+              jobId,
+              sessionId: targetSessionId,
+              status: 'processing',
+              message: 'MiniMax Hailuo video rendering in progress via Fal.ai...'
+            });
+          }
+        } catch (falPollErr: any) {
+          console.error('Fal.ai Queue Polling Error:', falPollErr);
+          const rawMessage = falPollErr?.message || 'Fal.ai queue polling failed.';
+          await markVideoFailed(db, targetSessionId, rawMessage);
+          return NextResponse.json({
+            success: false,
+            jobId,
+            sessionId: targetSessionId,
+            status: 'failed',
+            error: rawMessage
+          }, { status: 500 });
+        }
+      }
+    }
+
+    // =====================================================
+    // 2. Real Veo Operation Polling via Google (Secondary)
+    // =====================================================
     if (!AI_CONFIG.IS_DEMO_MODE && operationName && status === 'processing') {
       const ai = getGenAIClient();
       if (ai) {
