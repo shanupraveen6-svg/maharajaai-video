@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runQualityAssurance } from '@/lib/ai/gemini';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
 
@@ -133,23 +133,14 @@ export async function GET(req: NextRequest) {
       const ai = getGenAIClient();
       if (ai) {
         try {
-          let operation: any = null;
+          // Rebuild a real SDK operation object from the stored operation name so the
+          // SDK can poll and convert the raw REST response into `generatedVideos`.
+          const pendingOperation = new GenerateVideosOperation();
+          pendingOperation.name = operationName;
 
-          if (typeof (ai.operations as any).getVideosOperationInternal === 'function') {
-            operation = await (ai.operations as any).getVideosOperationInternal({
-              operationName
-            });
-          } else {
-            const dummyOp: any = {
-              name: operationName,
-              _fromAPIResponse({ apiResponse }: any) {
-                return apiResponse;
-              }
-            };
-            operation = await (ai.operations as any).getVideosOperation({
-              operation: dummyOp
-            });
-          }
+          const operation: any = await ai.operations.getVideosOperation({
+            operation: pendingOperation
+          });
 
           if (operation.error) {
             const message = formatVeoStatusError(operation.error);
