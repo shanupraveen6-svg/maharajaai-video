@@ -262,11 +262,12 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             playsInline
             className="w-full h-full object-cover"
           />
-          <div className="pointer-events-none absolute top-4 left-3 right-3 rounded-2xl border border-[#F5D76E]/80 bg-[#5b0715]/90 px-3 py-2.5 text-center shadow-[0_0_24px_rgba(245,215,110,0.35)] backdrop-blur-sm">
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-[#F5D76E]">
+          {/* Greeting text: no container/background, pinned to the bottom edge so it never covers the face */}
+          <div className="pointer-events-none absolute bottom-3 left-2 right-2 text-center">
+            <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#F5D76E] [text-shadow:0_1px_3px_rgba(0,0,0,0.95),0_0_6px_rgba(0,0,0,0.85)]">
               MAHARAJA DIWALI GREETING
             </p>
-            <p className="mt-1 text-[15px] font-black leading-tight text-[#FFD86B] drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]">
+            <p className="mt-0.5 text-[13px] font-black leading-tight text-[#FFD86B] [text-shadow:0_1px_3px_rgba(0,0,0,0.95),0_0_8px_rgba(0,0,0,0.9)]">
               <span style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}>
                 இனிய தீபாவளி நல்வாழ்த்துக்கள்
               </span>

@@ -221,11 +221,12 @@ export default function TvPlayerPage() {
                 </div>
               )}
 
-              <div className="absolute top-4 left-4 right-4 bg-[#5b0715]/90 backdrop-blur-md px-4 py-3 rounded-2xl border border-[#F5D76E]/80 text-center shadow-[0_0_32px_rgba(245,215,110,0.35)]">
-                <p className="text-[10px] uppercase text-[#F5D76E] font-black tracking-[0.24em]">
+              {/* Greeting text: no container/background, pinned to the bottom edge so it never covers the face */}
+              <div className="pointer-events-none absolute bottom-5 left-3 right-3 text-center">
+                <p className="text-[10px] uppercase text-[#F5D76E] font-black tracking-[0.24em] [text-shadow:0_2px_4px_rgba(0,0,0,0.95),0_0_8px_rgba(0,0,0,0.85)]">
                   MAHARAJA DIWALI GREETING
                 </p>
-                <p className="mt-1 text-xl md:text-3xl text-[#FFD86B] font-black leading-tight drop-shadow-[0_3px_8px_rgba(0,0,0,0.9)]">
+                <p className="mt-1 text-lg md:text-2xl text-[#FFD86B] font-black leading-tight [text-shadow:0_2px_4px_rgba(0,0,0,0.95),0_0_10px_rgba(0,0,0,0.9)]">
                   <span style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}>
                     இனிய தீபாவளி நல்வாழ்த்துக்கள்
                   </span>
