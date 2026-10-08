@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
               requestId
             });
 
-            const outputVideoUrl = falResult.data?.video?.url || falResult.data?.video_url;
+            const outputVideoUrl = falResult.data?.video?.url || falResult.video?.url || falResult.data?.video_url || falResult.video_url;
 
             if (!outputVideoUrl) {
               const errMessage = 'Fal.ai generation completed but did not return a valid video URL.';

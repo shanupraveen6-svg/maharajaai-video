@@ -144,8 +144,8 @@ const categoryOptions: Array<{
 
 const progressCopy: Record<VideoPhase, string> = {
   idle: 'Ready to generate after approval.',
-  starting: 'Preparing cinematic prompt and sending to Veo Fast...',
-  rendering: 'Rendering 6-second Maharaja Diwali film...',
+  starting: 'Preparing cinematic prompt and starting AI video generation...',
+  rendering: 'Rendering 6-second Maharaja AI video film...',
   saving: 'Saving private MP4 to Firebase Storage...',
   ready: 'Video is ready.',
   failed: 'Video generation failed. Stop and review before retrying.',
@@ -788,9 +788,9 @@ export default function CreatePage() {
               <h2 className="font-serif font-bold uppercase tracking-wider text-lg text-[#F3E5AB]">6-Second Video Generation</h2>
               <p className="text-xs text-amber-100/80">
                 {mode === 'proof'
-                  ? 'Upload final MP4 · no Gemini/Veo credit used'
+                  ? 'Upload final MP4 · manual video mode'
                   : selectedCategory
-                    ? `${masterTemplates[selectedCategory].title} prompt locked · Veo Fast 720p real API`
+                    ? `${masterTemplates[selectedCategory].title} prompt locked · AI 6-second video generation`
                     : 'Select Men, Women, Boy, or Girl before generation'}
               </p>
             </div>

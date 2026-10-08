@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
 
     const falKey = AI_CONFIG.FAL_KEY;
     let jobData: any = null;
+    let falErrorReason: string | null = null;
 
     // ====================================================
     // PRIMARY PROVIDER: Fal.ai MiniMax Hailuo-02 Standard
@@ -145,14 +146,43 @@ export async function POST(req: NextRequest) {
         console.log('Attempting Primary Provider: Fal.ai MiniMax Hailuo-02...');
         fal.config({ credentials: falKey.trim() });
 
-        const imageInputUrl = (masterImageUrl && masterImageUrl.startsWith('http'))
+        let hostedImageUrl: string | null = (masterImageUrl && masterImageUrl.startsWith('http'))
           ? masterImageUrl
-          : (masterDataUrl || `data:${masterMimeType};base64,${masterBase64}`);
+          : null;
+
+        if (!hostedImageUrl && masterBase64) {
+          try {
+            const buffer = Buffer.from(masterBase64, 'base64');
+            const blob = new Blob([buffer], { type: masterMimeType || 'image/jpeg' });
+            hostedImageUrl = await fal.storage.upload(blob);
+            console.log('Successfully uploaded master image to Fal storage:', hostedImageUrl);
+          } catch (upErr) {
+            console.warn('Fal storage upload error:', upErr);
+          }
+        }
+
+        if (!hostedImageUrl && masterDataUrl) {
+          const parts = masterDataUrl.split(',');
+          if (parts.length > 1) {
+            try {
+              const buffer = Buffer.from(parts[1], 'base64');
+              const blob = new Blob([buffer], { type: masterMimeType || 'image/jpeg' });
+              hostedImageUrl = await fal.storage.upload(blob);
+              console.log('Successfully uploaded data URI to Fal storage:', hostedImageUrl);
+            } catch (upErr) {
+              console.warn('Fal storage upload from data URI error:', upErr);
+            }
+          }
+        }
+
+        if (!hostedImageUrl) {
+          throw new Error('Could not prepare a hosted image URL for Fal.ai generation.');
+        }
 
         const falSubmitResult = await fal.queue.submit('fal-ai/minimax/hailuo-02/standard/image-to-video', {
           input: {
             prompt,
-            image_url: imageInputUrl,
+            image_url: hostedImageUrl,
             duration: '6',
             prompt_optimizer: true,
             resolution: '768P'
@@ -174,6 +204,7 @@ export async function POST(req: NextRequest) {
           console.log(`Fal.ai MiniMax Hailuo-02 job started successfully. Request ID: ${falSubmitResult.request_id}`);
         }
       } catch (falErr: any) {
+        falErrorReason = formatFalError(falErr);
         console.error('Fal.ai MiniMax Hailuo-02 Primary Provider Error:', falErr);
         console.warn('Falling back to Secondary Provider: Google Veo...');
       }
@@ -189,7 +220,7 @@ export async function POST(req: NextRequest) {
           {
             success: false,
             error: falKey
-              ? 'Fal.ai primary provider failed and Google AI API key is missing for secondary fallback.'
+              ? `Primary Fal.ai provider failed (${falErrorReason || 'Unknown error'}) and Google AI API key is missing for secondary fallback.`
               : 'Neither Fal.ai API Key (FAL_KEY) nor Google AI API key is configured.'
           },
           { status: 500 }
@@ -242,7 +273,12 @@ export async function POST(req: NextRequest) {
       } catch (veoError: any) {
         console.error('Google Veo Secondary Provider Error:', veoError);
         return NextResponse.json(
-          { success: false, error: `Video generation failed to start: ${formatVeoError(veoError)}` },
+          {
+            success: false,
+            error: falErrorReason
+              ? `Video generation failed: Primary Fal.ai error (${falErrorReason}) | Secondary Google Veo error (${formatVeoError(veoError)})`
+              : `Video generation failed to start: ${formatVeoError(veoError)}`
+          },
           { status: 500 }
         );
       }
