@@ -133,9 +133,23 @@ export async function GET(req: NextRequest) {
       const ai = getGenAIClient();
       if (ai) {
         try {
-          const operation: any = await (ai.operations as any).getVideosOperation({
-            operation: { name: operationName }
-          });
+          let operation: any = null;
+
+          if (typeof (ai.operations as any).getVideosOperationInternal === 'function') {
+            operation = await (ai.operations as any).getVideosOperationInternal({
+              operationName
+            });
+          } else {
+            const dummyOp: any = {
+              name: operationName,
+              _fromAPIResponse({ apiResponse }: any) {
+                return apiResponse;
+              }
+            };
+            operation = await (ai.operations as any).getVideosOperation({
+              operation: dummyOp
+            });
+          }
 
           if (operation.error) {
             const message = formatVeoStatusError(operation.error);
@@ -159,19 +173,20 @@ export async function GET(req: NextRequest) {
             });
           }
 
-          // Operation complete: download generated MP4 to temp file using official ai.files.download({ file: generatedVideo, downloadPath: tempFilePath })
+          // Operation complete: download generated MP4 to temp file or Buffer
           const generatedVideo = operation.response?.generatedVideos?.[0]?.video;
           let fileBuffer: Buffer | null = null;
 
           if (generatedVideo) {
             if (generatedVideo.videoBytes) {
               fileBuffer = Buffer.from(generatedVideo.videoBytes, 'base64');
-            } else {
-              const tempFileName = `veo_${jobId || targetSessionId}_${Date.now()}.mp4`;
-              const tempFilePath = path.join('/tmp', tempFileName);
+            } else if (generatedVideo.uri) {
+              const videoUri = generatedVideo.uri;
 
               try {
-                // Official @google/genai SDK file download
+                const tempFileName = `veo_${jobId || targetSessionId}_${Date.now()}.mp4`;
+                const tempFilePath = path.join('/tmp', tempFileName);
+
                 await ai.files.download({
                   file: generatedVideo as any,
                   downloadPath: tempFilePath
@@ -180,13 +195,25 @@ export async function GET(req: NextRequest) {
                 if (fs.existsSync(tempFilePath)) {
                   fileBuffer = fs.readFileSync(tempFilePath);
                   try { fs.unlinkSync(tempFilePath); } catch (_) {}
-                } else {
-                  console.error('Temp MP4 file was not created at:', tempFilePath);
                 }
               } catch (dlErr: any) {
-                console.error('ai.files.download error:', dlErr);
-                if (fs.existsSync(tempFilePath)) {
-                  try { fs.unlinkSync(tempFilePath); } catch (_) {}
+                console.warn('ai.files.download fallback warning:', dlErr);
+              }
+
+              if (!fileBuffer && typeof videoUri === 'string' && videoUri.startsWith('http')) {
+                try {
+                  const fetchRes = await fetch(videoUri, {
+                    headers: {
+                      'x-goog-api-key': AI_CONFIG.PRIMARY_API_KEY
+                    }
+                  });
+                  if (fetchRes.ok) {
+                    fileBuffer = Buffer.from(await fetchRes.arrayBuffer());
+                  } else {
+                    console.error(`Direct video fetch failed with status ${fetchRes.status}`);
+                  }
+                } catch (netErr) {
+                  console.error('Direct video fetch network error:', netErr);
                 }
               }
             }
