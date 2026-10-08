@@ -25,6 +25,25 @@ function getGenAIClient() {
   }
 }
 
+function formatVeoStatusError(error: any) {
+  const raw = error?.message || String(error || 'Unknown Veo error.');
+  const lower = raw.toLowerCase();
+
+  if (lower.includes('resource_exhausted') || lower.includes('quota') || lower.includes('free tier')) {
+    return 'Veo video quota is exhausted or too low for this 6-second generation. Add/enable paid video quota for the Google AI project before retrying.';
+  }
+
+  if (lower.includes('api key') || lower.includes('permission') || lower.includes('unauthenticated')) {
+    return 'Gemini/Veo API key is invalid or does not have video generation access. Update GOOGLE_AI_API_KEY_PRIMARY in Vercel with a paid project key that has Veo access.';
+  }
+
+  if (lower.includes('safety') || lower.includes('blocked') || lower.includes('policy')) {
+    return 'Veo blocked the video generation for policy/safety reasons. Try a calmer prompt or use Proof Mode/manual video upload for this customer.';
+  }
+
+  return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -119,7 +138,7 @@ export async function GET(req: NextRequest) {
           });
 
           if (operation.error) {
-            const message = operation.error.message || 'Veo operation failed.';
+            const message = formatVeoStatusError(operation.error);
             await markVideoFailed(db, targetSessionId, message);
             return NextResponse.json({
               success: false,
@@ -235,13 +254,14 @@ export async function GET(req: NextRequest) {
           }
         } catch (opErr: any) {
           console.error('Veo Operation Polling Error:', opErr);
-          await markVideoFailed(db, targetSessionId, opErr.message || 'Veo operation polling failed.');
+          const message = formatVeoStatusError(opErr);
+          await markVideoFailed(db, targetSessionId, message);
           return NextResponse.json({
             success: false,
             jobId,
             sessionId: targetSessionId,
             status: 'failed',
-            error: opErr.message || 'Veo operation polling failed.'
+            error: message
           }, { status: 500 });
         }
       }
@@ -272,7 +292,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error('Video Status Route Error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to retrieve video status.' },
+      { success: false, error: `Failed to retrieve video status: ${formatVeoStatusError(error)}` },
       { status: 500 }
     );
   }

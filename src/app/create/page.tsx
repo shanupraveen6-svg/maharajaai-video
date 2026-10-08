@@ -205,6 +205,7 @@ export default function CreatePage() {
 
   const [videoPhase, setVideoPhase] = useState<VideoPhase>('idle');
   const [videoProgress, setVideoProgress] = useState(0);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isUploadingManualMaster, setIsUploadingManualMaster] = useState(false);
@@ -306,6 +307,7 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     setMasterGenerationMessage(null);
     setVideoPhase('idle');
     setVideoProgress(0);
+    setVideoError(null);
     setJobId(null);
     setManualUploadProgress(0);
   }
@@ -502,6 +504,7 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
 
     setVideoPhase('starting');
     setVideoProgress(8);
+    setVideoError(null);
     setError(null);
 
     try {
@@ -523,7 +526,9 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
       await pollVideoStatus(startData.jobId);
     } catch (err) {
       setVideoPhase('failed');
-      setError(err instanceof Error ? err.message : 'Video generation failed to start.');
+      const message = err instanceof Error ? err.message : 'Video generation failed to start.';
+      setVideoError(message);
+      setError(message);
     }
   }
 
@@ -548,7 +553,9 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
       }
 
       if (statusData.status === 'failed') {
-        throw new Error(statusData.error || 'Video generation failed.');
+        const message = statusData.error || 'Video generation failed.';
+        setVideoError(message);
+        throw new Error(message);
       }
     }
 
@@ -847,6 +854,11 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
             <span>{mode === 'proof' ? manualUploadProgress : videoProgress}%</span>
           </div>
           {jobId && <p className="text-[11px] text-amber-200/80 font-mono">JOB: {jobId}</p>}
+          {videoError && (
+            <div className="rounded-xl border border-red-400/50 bg-red-500/15 p-3 text-xs font-bold text-red-100">
+              {videoError}
+            </div>
+          )}
         </div>
       </section>
 
