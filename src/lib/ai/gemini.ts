@@ -200,26 +200,26 @@ Return STRICT JSON:
 
 // 3. Controlled Video Prompt Builder
 export function buildVideoPrompt(analysis: any, conceptPrompt?: string): string {
-  const selectedStyle = typeof conceptPrompt === 'string' && conceptPrompt.trim()
+  const scene = typeof conceptPrompt === 'string' && conceptPrompt.trim()
     ? conceptPrompt.trim()
-    : 'Use a premium Maharaja Diwali fashion setting with warm golden festive lighting, diyas, brass lamps, marigold flowers and a locked, steady camera.';
+    : 'A premium Maharaja Diwali fashion setting with warm golden festive lighting, diyas, brass lamps and marigold flowers.';
 
-  return `Create exactly a photorealistic premium 6-second vertical 9:16 silent Diwali fashion commercial using the uploaded master reference image as the definitive visual reference. The final video duration must be 6 seconds only. Do not create 7, 8, 9, 10 seconds, or longer.
-The approved master image is the truth and is the first frame. Every frame must keep the EXACT same person: identical facial identity, facial features, face shape, eyes, eyebrows, nose, lips, skin tone, hairstyle and hair length, body size, body proportions, height impression, age appearance, makeup style, glasses, bindi, earrings, necklace and other accessories. Preserve the exact garment color, garment design, fabric texture, embroidery, motifs, pattern placement, drape and hem length throughout the entire video. Do not beautify, slim, enlarge or restyle the person.
-Do not use any inferred or remembered garment description. Do not invent colors such as blue, maroon, gold or any other color unless that exact color is visible in the approved master image.
+  return `Create a photorealistic 6-second vertical 9:16 silent Diwali fashion video from the attached master image, using it as the first frame. The video must be exactly 6 seconds long.
 
-Selected hidden Maharaja style:
-${selectedStyle}
+IDENTITY LOCK (highest priority): every frame must show the EXACT same person as the master image: identical face, facial features, face shape, eyes, eyebrows, nose, lips, skin tone, hairstyle and hair length, age appearance, body size, height and proportions, plus glasses, bindi, earrings, necklace and any other accessories. Do not beautify, slim, enlarge, restyle or morph the person. Do not change gender styling.
+OUTFIT LOCK: keep the exact outfit from the master image: same colors, fabric, embroidery, pattern placement, drape/dupatta and hem length. Never invent or change a color.
 
-Use the selected style only for background mood, festive lighting, camera movement and pacing. The person, gender styling, face, body and full outfit must remain from the approved master image only.
-The default action must be walk + stand + smile, performed very slowly and calmly. The subject takes a few small slow steps for the first 3 seconds with the head and face staying frontal toward the camera, stops naturally, stands still, and gives a soft natural smile for the final 3 seconds. The camera stays locked and steady with no zoom, no push-in and no pan. No head turns.
-Maintain strict full-body head-to-toe framing throughout so the complete garment length and silhouette remain clearly visible at all times. Keep the framing modest, respectful, family-friendly and suitable for a Thanjavur retail store. Focus on the full outfit, fabric, festive mood and graceful presence, not on individual body parts.
-Use realistic walking motion, natural fabric movement, anatomically correct hands and fingers, elegant posture, subtle festive makeup, realistic skin texture and high-end Indian fashion-commercial lighting.
-Silent video only. Do not create any voice, speech, dialogue, music, voice-over, spoken words, Malayalam, Hindi, English, Tamil speech, lip-sync or mouth speaking. The person must not speak. Keep the mouth naturally closed or softly smiling.
-Keep the camera locked and steady. Keep the person centered and the face large enough to stay sharp, clear and stable in every frame.
-Do not render any text inside the AI video. Do not create Tamil text, English text, random text, banners, logos or captions. The app will overlay the Tamil greeting separately after video generation.
-Do not emphasize legs, hips, chest, waist or any isolated body part. Do not use glamour, seductive or body-focused posing. Do not change the person's face. Do not change the garment. Do not change garment color, embroidery, hairstyle, skin tone, makeup style, body size, gender styling or body proportions. No duplicate person. No extra limbs. No malformed hands. No dancing. No spinning. No jumping. No face morphing. No random text. No generated logos. No excessive fireworks.
-Premium festive commercial look, sharp focus, cinematic depth and warm color grading.`;
+SCENE AND STYLE: ${scene}
+
+MOTION: very slow and calm. For the first 3 seconds take a few small slow steps with the head and face frontal to the camera, then stand still and give a soft natural smile for the final 3 seconds. The camera stays locked and steady: no zoom, push-in, pan or cut. No head turns, dancing, spinning, jumping or big pose changes. Natural fabric movement and anatomically correct hands.
+
+FRAMING: full-body head-to-toe for the entire video, person centered, face large enough to stay sharp and stable. Modest, respectful, family-friendly, suitable for a Thanjavur fashion store. Do not emphasize legs, hips, chest, waist or any isolated body part. No glamour or seductive posing.
+
+AUDIO: silent. No speech, voice, music or lip-sync; mouth closed or softly smiling.
+
+NO TEXT: do not render any text, captions, banners or logos in the video.
+
+Realistic, premium, sharp focus, warm festive color grading. No duplicate person, extra limbs or malformed hands.`;
 }
 
 // 4. Quality Assurance Evaluation (Fix 13: Freeze Fake QA)

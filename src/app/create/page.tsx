@@ -52,25 +52,25 @@ const masterTemplates: Record<
     title: 'Men Template',
     label: 'Crackers runway',
     masterPrompt: `Use the same Maharaja Diwali menswear scene for image and video: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Keep the mood elegant, confident, family-friendly and masculine without changing the customer, body, face or garment. Keep the focus on the full outfit and festive retail look, not on individual body parts.`,
-    videoPrompt: `Use the same Maharaja Diwali menswear scene as the master image: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Selected style is MEN only. The default action is walk + stand + smile: walk very slowly with a few small calm steps for the first 3 seconds, keeping the head and face turned frontally toward the camera, stop naturally, stand still, and give a soft natural smile for the final 3 seconds. The camera stays locked and steady with no zoom. Keep the framing modest, respectful and outfit-focused. Do not emphasize legs, hips, chest, waist or any isolated body part. Do not borrow any women's clothing, pose, jewellery, saree, lehenga, dupatta or bridal styling.`,
+    videoPrompt: `Scene: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Style: MEN only. Do not borrow any women's clothing, pose, jewellery, saree, lehenga, dupatta or bridal styling.`,
   },
   women: {
     title: 'Women Template',
     label: 'Diyas palace',
     masterPrompt: `Use the same Maharaja Diwali womenswear scene for image and video: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Keep the mood elegant, beautiful, family-friendly and celebratory without changing the customer, body, face or garment. Keep the focus on the full outfit, fabric, festive styling and graceful presence, not on individual body parts.`,
-    videoPrompt: `Use the same Maharaja Diwali womenswear scene as the master image: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Selected style is WOMEN only. The default action is walk + stand + smile: walk very slowly with a few small calm steps for the first 3 seconds, keeping the head and face turned frontally toward the camera, stop naturally, stand still, and give a soft natural smile for the final 3 seconds. The camera stays locked and steady with no zoom. Keep the framing modest, respectful, culturally appropriate for a Thanjavur family fashion store, and outfit-focused. Do not emphasize legs, hips, chest, waist or any isolated body part. Do not use glamour, seductive or body-focused posing. Do not borrow any men's shirt, trouser, suiting, moustache, beard or menswear styling.`,
+    videoPrompt: `Scene: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Style: WOMEN only, culturally appropriate for a Thanjavur family fashion store. Do not use glamour, seductive or body-focused posing. Do not borrow any men's shirt, trouser, suiting, moustache, beard or menswear styling.`,
   },
   boy: {
     title: 'Boy Template',
     label: 'Family diya',
     masterPrompt: `Use the same wholesome Maharaja Diwali boyswear family-store scene for image and video: diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights, safe distant festive sparkle and joyful family celebration mood. Keep the mood child-safe, modest, respectful, family-friendly and outfit-focused without changing the child, body, face, age appearance or garment. Keep the focus on the full outfit and festive family retail look, not on individual body parts.`,
-    videoPrompt: `Use the same wholesome Maharaja Diwali boyswear family-store scene as the master image: diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights, safe distant festive sparkle and joyful family celebration mood. Selected style is BOY only. The default action is walk + stand + smile: the boy safely holds a small glowing clay diya in both hands, walks very slowly with a few small calm steps for the first 3 seconds, keeping the head and face turned frontally toward the camera, stops naturally, stands still, and gives a soft natural smile for the final 3 seconds. The camera stays locked and steady with no zoom. Keep the framing child-safe, modest, respectful, family-friendly and outfit-focused. No adult styling. No glamour. No body-part focus.`,
+    videoPrompt: `Scene: a wholesome family-store setting with diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights, safe distant festive sparkle and a joyful family celebration mood. Style: BOY only; the boy safely holds a small glowing clay diya in both hands. Child-safe, modest and family-friendly. No adult styling. No glamour.`,
   },
   girl: {
     title: 'Girl Template',
     label: 'Family diya',
     masterPrompt: `Use the same wholesome Maharaja Diwali girlswear family-store scene for image and video: glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and joyful family celebration mood. Keep the mood child-safe, modest, respectful, family-friendly and outfit-focused without changing the child, body, face, age appearance or garment. Keep the focus on the full outfit and festive family retail look, not on individual body parts.`,
-    videoPrompt: `Use the same wholesome Maharaja Diwali girlswear family-store scene as the master image: glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and joyful family celebration mood. Selected style is GIRL only. The default action is walk + stand + smile: the girl safely holds a small glowing clay diya in both hands, walks very slowly with a few small calm steps for the first 3 seconds, keeping the head and face turned frontally toward the camera, stops naturally, stands still, and gives a soft natural smile for the final 3 seconds. The camera stays locked and steady with no zoom. Keep the framing child-safe, modest, respectful, family-friendly and outfit-focused. No adult styling. No glamour. No seductive pose. No body-part focus.`,
+    videoPrompt: `Scene: a wholesome family-store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and a joyful family celebration mood. Style: GIRL only; the girl safely holds a small glowing clay diya in both hands. Child-safe, modest and family-friendly. No adult styling. No glamour. No seductive pose.`,
   },
 };
 
@@ -233,32 +233,6 @@ export default function CreatePage() {
     return () => window.clearInterval(timer);
   }, [videoPhase]);
 
-  const videoPrompt = useMemo(() => {
-    return `Create exactly a 6-second vertical 9:16 silent Diwali fashion video. The final video duration must be 6 seconds only. Do not create 7, 8, 9, 10 seconds, or longer.
-
-Use the approved AI master image as the only person, face, body, outfit and background mood source.
-
-LOCKED SOURCE RULE:
-The approved master image is the first frame. Every frame must keep the EXACT same person: identical face, facial features, face shape, eyes, eyebrows, nose, lips, skin tone, hairstyle and hair length, plus any glasses, bindi, earrings, necklace and other accessories exactly as in the master image. Keep the identical body size, height, body proportions and age appearance. Keep the identical outfit: same colors, fabric, embroidery, pattern placement, dupatta/drape and hem length. Do not change gender styling. Do not borrow clothing, face or body from any other style. Do not beautify, slim, enlarge or restyle the person.
-
-INTERNAL CAMPAIGN STYLE:
-${selectedMasterTemplate.videoPrompt}
-
-ACTION:
-The default action must be walk + stand + smile, performed very slowly and calmly. The person takes a few small slow steps for the first 3 seconds with the head and face staying frontal toward the camera, stops naturally, stands still, and gives a soft natural smile for the final 3 seconds. The camera stays locked and steady with no zoom, no push-in and no pan. Avoid fast movement, head turns, dancing, spinning or big pose changes.
-
-FRAMING:
-Keep full-body head-to-toe framing for the whole video so the outfit stays visible. Keep the face large enough to stay sharp, clear and stable in every frame. Keep it modest, respectful, family-friendly and suitable for a Thanjavur fashion store. Do not emphasize legs, hips, chest, waist or any isolated body part.
-
-AUDIO:
-Silent video only. Do not create any voice, speech, dialogue, music, voice-over, spoken words, Malayalam, Hindi, English, Tamil speech, lip-sync or mouth speaking. The person must not speak. Keep the mouth naturally closed or softly smiling.
-
-TEXT:
-Do not render any text inside the AI video. Do not create Tamil text, English text, random text, banners, logos or captions. The app will overlay the Tamil greeting separately after video generation.
-
-QUALITY:
-Make it realistic, premium, polished and suitable for a fashion retail store screen. Avoid changing the person into a different model, avoid face morphing, avoid changing dress color or pattern, avoid wrong text, avoid random logos.`;
-  }, [selectedMasterTemplate]);
 
   function setLocalGarmentReady(nextPhotos: (string | null)[], category: MasterTemplateId | null = selectedCategory) {
     const images = nextPhotos.filter(Boolean) as string[];
@@ -515,7 +489,7 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
           sessionId,
           garmentAnalysis,
           masterImageUrl,
-          conceptPrompt: videoPrompt,
+          conceptPrompt: selectedMasterTemplate.videoPrompt,
         }),
       });
       const startData = await parseJsonResponse(startRes);
