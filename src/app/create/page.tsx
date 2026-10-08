@@ -185,7 +185,7 @@ const categoryOptions: Array<{
 const progressCopy: Record<VideoPhase, string> = {
   idle: 'Ready to generate after approval.',
   starting: 'Preparing cinematic prompt and starting AI video generation...',
-  rendering: 'Rendering 6-second Maharaja AI video film...',
+  rendering: 'MiniMax is still rendering the final MP4. This can stay near 90% until the provider returns the completed video. Do not retry.',
   saving: 'Saving private MP4 to Firebase Storage...',
   ready: 'Video is ready.',
   failed: 'Video generation failed. Stop and review before retrying.',
@@ -263,7 +263,7 @@ export default function CreatePage() {
     const timer = window.setInterval(() => {
       setVideoProgress((current) => {
         if (videoPhase === 'starting') return Math.min(current + 3, 20);
-        if (videoPhase === 'rendering') return Math.min(current + 2, 85);
+        if (videoPhase === 'rendering') return Math.min(current + 1, 92);
         if (videoPhase === 'saving') return Math.min(current + 4, 96);
         return current;
       });
@@ -505,7 +505,7 @@ export default function CreatePage() {
   async function pollVideoStatus(activeJobId: string) {
     let attempts = 0;
 
-    while (attempts < 90) {
+    while (attempts < 180) {
       attempts += 1;
       await new Promise((resolve) => window.setTimeout(resolve, 5000));
 
@@ -529,7 +529,7 @@ export default function CreatePage() {
       }
     }
 
-    throw new Error('Video generation is taking longer than expected. Check status before retrying.');
+    throw new Error('Video generation is still taking longer than expected. Check job status before retrying so you do not spend another credit.');
   }
 
   return (
