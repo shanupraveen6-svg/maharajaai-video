@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ArrowRight, MonitorPlay, Tv } from 'lucide-react';
 
 const USERNAME = 'shanu7';
-const PASSWORD = '99948387342';
+const PASSWORDS = ['99948387342', '9994837342'];
 
 function TvLoginForm() {
   const router = useRouter();
@@ -24,7 +24,7 @@ function TvLoginForm() {
     event.preventDefault();
     setError('');
 
-    if (username.trim() !== USERNAME || password.trim() !== PASSWORD) {
+    if (username.trim() !== USERNAME || !PASSWORDS.includes(password.trim())) {
       setError('Invalid TV login. Please check username and password.');
       return;
     }
@@ -36,7 +36,8 @@ function TvLoginForm() {
     });
 
     if (!res.ok) {
-      setError('Invalid TV login. Please check username and password.');
+      const data = await res.json().catch(() => null);
+      setError(data?.error || 'Invalid TV login. Please check username and password.');
       return;
     }
 

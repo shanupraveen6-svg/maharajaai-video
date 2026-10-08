@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
 const OPERATOR_USERNAME = 'shanu7';
-const OPERATOR_PASSWORD = '99948387342';
+const OPERATOR_PASSWORDS = ['99948387342', '9994837342'];
 const OPERATOR_COOKIE = 'maharaja_operator_auth';
 
 function getAuthSecret() {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const username = typeof body.username === 'string' ? body.username.trim() : '';
     const password = typeof body.password === 'string' ? body.password.trim() : '';
 
-    if (username !== OPERATOR_USERNAME || password !== OPERATOR_PASSWORD) {
+    if (username !== OPERATOR_USERNAME || !OPERATOR_PASSWORDS.includes(password)) {
       return NextResponse.json({ success: false, error: 'Invalid login.' }, { status: 401 });
     }
 

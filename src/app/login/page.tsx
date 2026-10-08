@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ArrowRight, LockKeyhole, Store, WandSparkles } from 'lucide-react';
 
 const USERNAME = 'shanu7';
-const PASSWORD = '99948387342';
+const PASSWORDS = ['99948387342', '9994837342'];
 
 function MaharajaLoginForm() {
   const router = useRouter();
@@ -24,7 +24,7 @@ function MaharajaLoginForm() {
     event.preventDefault();
     setError('');
 
-    if (username.trim() !== USERNAME || password.trim() !== PASSWORD) {
+    if (username.trim() !== USERNAME || !PASSWORDS.includes(password.trim())) {
       setError('Invalid Maharaja login. Please check username and password.');
       return;
     }
@@ -36,7 +36,8 @@ function MaharajaLoginForm() {
     });
 
     if (!res.ok) {
-      setError('Invalid Maharaja login. Please check username and password.');
+      const data = await res.json().catch(() => null);
+      setError(data?.error || 'Invalid Maharaja login. Please check username and password.');
       return;
     }
 
