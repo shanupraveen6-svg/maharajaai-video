@@ -28,6 +28,7 @@ type GarmentAnalysis = {
 };
 
 type PersonAnalysis = {
+  subjectGroup?: 'adult' | 'child';
   fullBodyVisible?: boolean;
   faceVisible?: boolean;
   lightingQuality?: string;
@@ -36,7 +37,7 @@ type PersonAnalysis = {
 
 type VideoPhase = 'idle' | 'starting' | 'rendering' | 'saving' | 'ready' | 'failed';
 type CreateMode = 'proof' | 'test';
-type MasterTemplateId = 'men' | 'women';
+type MasterTemplateId = 'men' | 'women' | 'boy' | 'girl';
 
 const masterTemplates: Record<
   MasterTemplateId,
@@ -59,9 +60,24 @@ const masterTemplates: Record<
     masterPrompt: `Use the same Maharaja Diwali womenswear scene for image and video: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Keep the mood elegant, beautiful, family-friendly and celebratory without changing the customer, body, face or garment. Keep the focus on the full outfit, fabric, festive styling and graceful presence, not on individual body parts.`,
     videoPrompt: `Use the same Maharaja Diwali womenswear scene as the master image: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Selected style is WOMEN only. The default action is walk + stand + smile: walk slowly forward for the first 3 seconds, stop naturally, stand still, look toward the camera, and smile warmly for the final 3 seconds. Keep the framing modest, respectful, culturally appropriate for a Thanjavur family fashion store, and outfit-focused. Do not emphasize legs, hips, chest, waist or any isolated body part. Do not use glamour, seductive or body-focused posing. Do not borrow any men's shirt, trouser, suiting, moustache, beard or menswear styling.`,
   },
+  boy: {
+    title: 'Boy Template',
+    label: 'Family diya',
+    masterPrompt: `Use the same wholesome Maharaja Diwali boyswear family-store scene for image and video: diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights, safe distant festive sparkle and joyful family celebration mood. Keep the mood child-safe, modest, respectful, family-friendly and outfit-focused without changing the child, body, face, age appearance or garment. Keep the focus on the full outfit and festive family retail look, not on individual body parts.`,
+    videoPrompt: `Use the same wholesome Maharaja Diwali boyswear family-store scene as the master image: diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights, safe distant festive sparkle and joyful family celebration mood. Selected style is BOY only. The default action is walk + stand + smile: the boy safely holds a small glowing clay diya in both hands, walks slowly forward for the first 3 seconds, stops naturally, stands still, looks toward the camera, and smiles for the final 3 seconds. Camera slowly moves closer. Keep the framing child-safe, modest, respectful, family-friendly and outfit-focused. No adult styling. No glamour. No body-part focus.`,
+  },
+  girl: {
+    title: 'Girl Template',
+    label: 'Family diya',
+    masterPrompt: `Use the same wholesome Maharaja Diwali girlswear family-store scene for image and video: glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and joyful family celebration mood. Keep the mood child-safe, modest, respectful, family-friendly and outfit-focused without changing the child, body, face, age appearance or garment. Keep the focus on the full outfit and festive family retail look, not on individual body parts.`,
+    videoPrompt: `Use the same wholesome Maharaja Diwali girlswear family-store scene as the master image: glowing diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and joyful family celebration mood. Selected style is GIRL only. The default action is walk + stand + smile: the girl safely holds a small glowing clay diya in both hands, walks slowly forward for the first 3 seconds, stops naturally, stands still, looks toward the camera, and smiles for the final 3 seconds. Camera slowly moves closer. Keep the framing child-safe, modest, respectful, family-friendly and outfit-focused. No adult styling. No glamour. No seductive pose. No body-part focus.`,
+  },
 };
 
-function deriveMasterTemplateId(analysis: GarmentAnalysis | null): MasterTemplateId {
+function deriveMasterTemplateId(
+  analysis: GarmentAnalysis | null,
+  personAnalysis?: PersonAnalysis | null
+): MasterTemplateId {
   const text = [
     analysis?.category,
     analysis?.garmentType,
@@ -71,7 +87,14 @@ function deriveMasterTemplateId(analysis: GarmentAnalysis | null): MasterTemplat
     .join(' ')
     .toLowerCase();
 
-  if (/(women|woman|female|saree|sari|lehenga|kurti|salwar|dupatta|gown|bridal|blouse|churidar)/i.test(text)) {
+  const isFeminine = /(women|woman|female|girl|girls|saree|sari|lehenga|kurti|salwar|dupatta|gown|bridal|blouse|churidar|frock|pavadai|pattu pavadai)/i.test(text);
+  const isChild = personAnalysis?.subjectGroup === 'child' || /(kid|kids|child|children|boy|boys|girl|girls)/i.test(text);
+
+  if (isChild) {
+    return isFeminine ? 'girl' : 'boy';
+  }
+
+  if (isFeminine) {
     return 'women';
   }
 
@@ -200,7 +223,10 @@ export default function CreatePage() {
   const hasRequiredPhotos = activeGarmentPhotos.length >= 1 && !!personPhoto;
   const canGenerateMaster = mode === 'test' && hasRequiredPhotos && !isAnalyzingGarment && !isAnalyzingPerson;
   const canGenerateVideo = !!masterImageUrl && masterApproved && videoPhase === 'idle';
-  const masterTemplateId = useMemo(() => deriveMasterTemplateId(garmentAnalysis), [garmentAnalysis]);
+  const masterTemplateId = useMemo(
+    () => deriveMasterTemplateId(garmentAnalysis, personAnalysis),
+    [garmentAnalysis, personAnalysis]
+  );
   const selectedMasterTemplate = masterTemplates[masterTemplateId];
 
   useEffect(() => {
@@ -350,7 +376,7 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     setError(null);
 
     try {
-      const resolvedTemplateId = deriveMasterTemplateId(garmentAnalysis);
+      const resolvedTemplateId = deriveMasterTemplateId(garmentAnalysis, personAnalysis);
       const resolvedTemplate = masterTemplates[resolvedTemplateId];
 
       const res = await fetch('/api/ai/master-image', {
