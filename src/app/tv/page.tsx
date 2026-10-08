@@ -3,9 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Volume2, Flame, CheckCircle2, AlertCircle } from 'lucide-react';
 
-// Live-screen slow motion: a 6s clip at 0.65x plays for ~9.2s on the showroom TV.
-// Playback-only; the generated video file is not modified.
-const TV_PLAYBACK_RATE = 0.65;
+const TV_PLAYBACK_RATE = 1;
 
 export default function TvPlayerPage() {
   const [audioUnlocked, setAudioUnlocked] = useState(false);
@@ -207,7 +205,6 @@ export default function TvPlayerPage() {
                 ref={videoRef}
                 src={currentPlayback.videoUrl}
                 autoPlay
-                muted
                 playsInline
                 onLoadedMetadata={(e) => {
                   e.currentTarget.defaultPlaybackRate = TV_PLAYBACK_RATE;

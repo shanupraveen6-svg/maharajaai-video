@@ -200,19 +200,11 @@ Return STRICT JSON:
 
 // 3. Controlled Video Prompt Builder
 export function buildVideoPrompt(analysis: any, conceptPrompt?: string): string {
-  const scene = typeof conceptPrompt === 'string' && conceptPrompt.trim()
+  const prompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
     ? conceptPrompt.trim()
-    : 'A premium Maharaja Diwali fashion setting with warm golden festive lighting, diyas, brass lamps and marigold flowers.';
+    : `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Preserve the exact same person, face, skin tone, body, outfit, garment color, fabric, background, lighting and decorations. Keep clear Tamil gold greeting text: "இனிய தீபாவளி நல்வாழ்த்துகள்". The subject walks forward naturally, stops, looks at camera, and smiles gently. No dialogue, no lip-sync, no wrong-language text, no face change, no outfit change, no extra limbs.`;
 
-  const fullPrompt = `Photorealistic 6-second vertical 9:16 silent Diwali fashion video from master image.
-IDENTITY LOCK: Exact same person as master image (identical face, eyes, skin tone, hair, glasses, bindi, accessories). Do not morph or beautify.
-OUTFIT LOCK: Exact same outfit, colors, fabric, embroidery, dupatta and hem length. Never change colors.
-SCENE: ${scene}
-MOTION: Extremely slow and calm. Takes small slow steps forward facing camera for 3s, then stands still with a soft natural smile. Camera locked and steady: no zoom or pan.
-FRAMING: Full-body head-to-toe, person centered, modest and respectful.
-No text, no speech, no extra limbs, 4k sharp focus, warm festive color grading.`;
-
-  return fullPrompt.length > 1800 ? fullPrompt.slice(0, 1800) : fullPrompt;
+  return prompt.length > 1950 ? prompt.slice(0, 1950) : prompt;
 }
 
 // 4. Quality Assurance Evaluation (Fix 13: Freeze Fake QA)

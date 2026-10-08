@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
+import { verifyOperatorRequest } from '@/lib/auth/operator';
 
 export const maxDuration = 60;
 
@@ -36,6 +37,10 @@ function formatGeminiImageError(error: any) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!verifyOperatorRequest(req)) {
+      return NextResponse.json({ success: false, error: 'Unauthorized operator session. Please login again.' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, conceptPrompt, templateId } = body;
 
@@ -60,12 +65,24 @@ export async function POST(req: NextRequest) {
     const isDemoAsset = AI_CONFIG.IS_DEMO_MODE;
     const nowIso = new Date().toISOString();
 
-    const ai = getGenAIClient();
     let masterImageUrl = '';
 
-    if (body.usePreset || !ai || isDemoAsset) {
+    if (body.usePreset) {
       masterImageUrl = '/test-master-women.jpg';
+    } else if (isDemoAsset) {
+      return NextResponse.json(
+        { success: false, error: 'Real Gemini master image generation is disabled because DEMO_MODE=true.' },
+        { status: 400 }
+      );
     } else {
+      const ai = getGenAIClient();
+      if (!ai) {
+        return NextResponse.json(
+          { success: false, error: 'Gemini image generation key is missing. Upload an AI image manually or configure GOOGLE_AI_API_KEY_PRIMARY.' },
+          { status: 500 }
+        );
+      }
+
       try {
         const contents: any[] = [];
 
@@ -120,11 +137,17 @@ Maintain strict full-body head-to-toe framing. Modest, family-friendly, premium 
             masterImageUrl = signedUrl;
           }
         } else {
-          masterImageUrl = '/test-master-women.jpg';
+          return NextResponse.json(
+            { success: false, error: 'Gemini returned no image. No fallback image was used. Upload a manual AI image or retry after checking the model.' },
+            { status: 502 }
+          );
         }
       } catch (genError: any) {
         console.error('Gemini Master Image Generation Error:', genError);
-        masterImageUrl = '/test-master-women.jpg';
+        return NextResponse.json(
+          { success: false, error: formatGeminiImageError(genError) },
+          { status: 500 }
+        );
       }
     }
 

@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
+import { verifyOperatorRequest } from '@/lib/auth/operator';
 
 export async function POST(req: NextRequest) {
   try {
+    if (!verifyOperatorRequest(req)) {
+      return NextResponse.json({ success: false, error: 'Unauthorized operator session. Please login again.' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { sessionId, storagePath: clientStoragePath, videoUrl: clientVideoUrl } = body;
 

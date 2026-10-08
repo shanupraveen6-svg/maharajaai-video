@@ -158,8 +158,9 @@ export async function GET(req: NextRequest) {
             requestId,
             logs: true
           });
+          const queueState = String((queueStatus as { status?: string }).status || '');
 
-          if (queueStatus.status === 'COMPLETED') {
+          if (queueState === 'COMPLETED') {
             const falResult: any = await fal.queue.result('fal-ai/minimax/hailuo-02/standard/image-to-video', {
               requestId
             });
@@ -241,7 +242,7 @@ export async function GET(req: NextRequest) {
             });
           }
 
-          if (queueStatus.status === 'IN_PROGRESS' || queueStatus.status === 'IN_QUEUE') {
+          if (queueState === 'IN_PROGRESS' || queueState === 'IN_QUEUE') {
             return NextResponse.json({
               success: true,
               jobId,
@@ -250,6 +251,26 @@ export async function GET(req: NextRequest) {
               message: 'MiniMax Hailuo video rendering in progress via Fal.ai...'
             });
           }
+
+          if (queueState === 'FAILED' || queueState === 'ERROR' || queueState === 'CANCELLED') {
+            const errMessage = `MiniMax Hailuo generation ${queueState.toLowerCase()}. Stop and review the prompt/image before retrying.`;
+            await markVideoFailed(db, targetSessionId, errMessage);
+            return NextResponse.json({
+              success: false,
+              jobId,
+              sessionId: targetSessionId,
+              status: 'failed',
+              error: errMessage
+            }, { status: 500 });
+          }
+
+          return NextResponse.json({
+            success: true,
+            jobId,
+            sessionId: targetSessionId,
+            status: 'processing',
+            message: `MiniMax Hailuo queue status: ${queueState || 'processing'}`
+          });
         } catch (falPollErr: any) {
           console.error('Fal.ai Queue Polling Error:', falPollErr);
           const rawMessage = falPollErr?.message || 'Fal.ai queue polling failed.';

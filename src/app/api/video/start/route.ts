@@ -6,6 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import { fal } from '@fal-ai/client';
 import fs from 'fs';
 import path from 'path';
+import { verifyOperatorRequest } from '@/lib/auth/operator';
 
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
@@ -64,6 +65,10 @@ export async function POST(req: NextRequest) {
   const db = getDb();
 
   try {
+    if (!verifyOperatorRequest(req)) {
+      return NextResponse.json({ success: false, error: 'Unauthorized operator session. Please login again.' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { sessionId, garmentAnalysis, masterImageUrl, conceptPrompt } = body;
 
@@ -220,7 +225,13 @@ export async function POST(req: NextRequest) {
       } catch (falErr: any) {
         falErrorReason = formatFalError(falErr);
         console.error('Fal.ai MiniMax Hailuo-02 Primary Provider Error:', falErr);
-        console.warn('Falling back to Secondary Provider: Google Veo...');
+        return NextResponse.json(
+          {
+            success: false,
+            error: `MiniMax Hailuo video generation failed: ${falErrorReason}. Google/Veo fallback was not started, so no extra fallback credit was spent.`
+          },
+          { status: 500 }
+        );
       }
     }
 

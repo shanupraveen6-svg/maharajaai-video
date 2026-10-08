@@ -51,74 +51,66 @@ const masterTemplates: Record<
   men: {
     title: 'Men Template',
     label: 'Crackers runway',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, borders, silhouette and design. Dress the customer in the selected garment. Scene: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Masculine, confident, full-body head-to-toe framing.`,
-    videoPrompt: `Create a premium photorealistic 10-second vertical Diwali video from the provided image. Use the uploaded image as the EXACT FIRST FRAME and preserve the exact same adult man throughout the full video: same face, identity, facial features, skin tone, body shape, hairstyle, expression, outfit, colors, fabric, accessories, and overall appearance. Preserve the exact same background, festive decorations, lighting, and composition from the image.
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, borders, silhouette and design. Dress the customer in the selected garment. Scene: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Add clear Tamil greeting text at the top: "இனிய தீபாவளி நல்வாழ்த்துகள்" in elegant gold Tamil lettering on a festive maroon/gold sign, away from the face and outfit. Masculine, confident, modest, full-body head-to-toe framing.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Use the image as the exact first frame. Preserve the exact same man, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and Tamil greeting text throughout.
 
-TIMING:
-0.0-1.0s: The video must start exactly like the reference image, almost still, with only subtle natural micro-movement such as blinking or soft breathing. No sudden movement, no pose change, no added object, no stronger smile yet.
-1.0-7.0s: He performs a stylish casual walk forward at a normal natural pace with 2 to 3 clearly visible realistic steps. Walking must be anatomically correct: feet alternate naturally left-right, no foot reordering, no sliding, no leg swapping, no broken gait, no unnatural crossing. Keep the walk confident, relaxed, and casual, not runway and not slow motion. He moves only slightly closer while staying fully visible in frame.
-7.0-8.0s: He gradually slows and stops naturally.
-8.0-10.0s: He stands comfortably, looks at the camera, and gives a gentle happy festive smile. Keep the smile natural and moderate, not exaggerated or constant.
+Text lock: keep only this Tamil text, clear and readable in elegant gold festival lettering: "இனிய தீபாவளி நல்வாழ்த்துகள்". No English text and no wrong-language text.
 
-CAMERA:
-One continuous shot. Camera stays steady and only adjusts enough to keep full-body framing, including feet and outfit, visible at all times. No zoom, no cuts, no scene change.
+Motion timing: 0-1s almost still with natural breathing/blink. 1-4s he walks forward naturally with 1-2 clean steps, confident and relaxed. 4-5s he stops. 5-6s he looks at camera and gives a gentle festive smile.
 
-DO NOT:
-Do not change face, identity, outfit, body, or background. Do not add any diya or handheld prop. No extra fingers, no foot distortion, no foot reordering, no exaggerated smile, no flicker, no glitch, no text.`,
+Camera: one continuous stable shot, full-body head-to-toe framing, no cuts, no scene change.
+
+Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
+
+Do not change face, outfit, body, skin tone, background, or text. No added handheld prop. No extra limbs, no foot distortion, no flicker.`,
   },
   women: {
     title: 'Women Template',
     label: 'Diyas palace',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design. Dress the customer in the selected garment. Scene: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Modest, family-friendly, full-body head-to-toe framing.`,
-    videoPrompt: `Create a premium photorealistic 10-second vertical Diwali video from the provided image. Use the uploaded image as the EXACT FIRST FRAME and preserve the exact same adult woman throughout the full video: same face, identity, facial features, skin tone, body shape, hairstyle, expression, outfit, colors, fabric, embroidery, jewelry, accessories, and overall appearance. Preserve the exact same background, festive decorations, lighting, and composition from the image.
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design. Dress the customer in the selected garment. Scene: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Add clear Tamil greeting text at the top: "இனிய தீபாவளி நல்வாழ்த்துகள்" in elegant gold Tamil lettering on a festive maroon/gold sign, away from the face and outfit. Modest, respectful, family-friendly, no objectifying body focus, full-body head-to-toe framing.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Use the image as the exact first frame. Preserve the exact same woman, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, jewelry, background, lighting, decorations, and Tamil greeting text throughout.
 
-TIMING:
-0.0-1.0s: The video must start exactly like the reference image, almost still, with only very subtle natural micro-movement such as blinking or soft breathing. No sudden pose change, no new objects, no smile increase yet.
-1.0-7.0s: She performs a stylish casual walk forward at a normal natural pace with 2 to 3 clearly visible realistic steps. Walking must be anatomically correct: feet alternate naturally left-right, no foot reordering, no sliding, no leg swapping, no broken gait, no crossing errors. Keep the walk elegant, relaxed, and casual, not runway and not slow motion. She moves only slightly closer while remaining fully visible in frame.
-7.0-8.0s: She slows down and stops naturally.
-8.0-10.0s: She stands gracefully, looks at the camera, and gives a gentle happy festive smile. Keep the smile natural and moderate, not exaggerated or constant.
+Text lock: keep only this Tamil text, clear and readable in elegant gold festival lettering: "இனிய தீபாவளி நல்வாழ்த்துகள்". No English text and no wrong-language text.
 
-CAMERA:
-One continuous shot. Camera stays steady and gently adjusts only enough to keep the full body, feet, and full outfit visible. No zoom, no cuts, no scene change.
+Motion timing: 0-1s almost still with natural breathing/blink. 1-4s she walks forward naturally with 1-2 clean graceful steps. 4-5s she stops. 5-6s she looks at camera and gives a gentle festive smile.
 
-DO NOT:
-Do not change face, identity, dress, body, or background. Do not create new props. No extra fingers, no foot distortion, no foot reordering, no exaggerated smile, no flicker, no glitch, no text.`,
+Camera: one continuous stable shot, modest full-body head-to-toe framing, no close-up on body parts, no cuts, no scene change.
+
+Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
+
+Do not change face, dress, body, skin tone, background, or text. No added handheld prop. No extra limbs, no foot distortion, no flicker.`,
   },
   boy: {
     title: 'Boy Template',
     label: 'Family diya',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact child identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the child in the selected garment. The boy safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and safe distant festive sparkle. Child-safe, modest, full-body head-to-toe framing.`,
-    videoPrompt: `Create a premium photorealistic 10-second vertical Diwali video from the provided image. Use the uploaded image as the EXACT FIRST FRAME and preserve the exact same boy throughout the full video: same face, identity, facial features, skin tone, body shape, hairstyle, expression, outfit, colors, fabric, accessories, and overall appearance. Preserve the exact same background, festive decorations, lighting, and composition from the image. He must continue holding the SAME lit diya already present in the reference image.
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. The customer safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and safe distant festive sparkle. Add clear Tamil greeting text at the top: "இனிய தீபாவளி நல்வாழ்த்துகள்" in elegant gold Tamil lettering on a festive maroon/gold sign, away from the face and outfit. Modest, family-friendly, full-body head-to-toe framing.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Use the image as the exact first frame. Preserve the exact same young male customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, Tamil greeting text, and the same lit diya throughout.
 
-TIMING:
-0.0-1.0s: The video must start exactly like the reference image, almost still, with only subtle natural micro-movement such as blinking or soft breathing. Keep the diya steady. No sudden pose change, no object change, no bigger smile yet.
-1.0-7.0s: He gently walks forward at a normal natural pace with 2 to 3 clearly visible realistic steps while carefully holding the same diya. Walking must be anatomically correct: feet alternate naturally left-right, no foot reordering, no sliding, no leg swapping, no broken gait, no unnatural crossing. Keep the walk natural, happy, and stable, not slow motion. Keep the diya steady and realistic. He moves only slightly closer while staying fully visible in frame.
-7.0-8.0s: He slows and stops naturally.
-8.0-10.0s: He stands naturally, looks at the camera, and gives a gentle happy festive smile. Keep the smile natural and moderate, not exaggerated or constant.
+Text lock: keep only this Tamil text, clear and readable in elegant gold festival lettering: "இனிய தீபாவளி நல்வாழ்த்துகள்". No English text and no wrong-language text.
 
-CAMERA:
-One continuous shot. Camera stays steady and only adjusts enough to keep full-body framing, feet, and full outfit visible. No zoom, no cuts, no scene change.
+Motion timing: 0-1s almost still with natural breathing/blink. 1-4s he walks forward naturally with 1-2 small clean steps while holding the diya steadily. 4-5s he stops. 5-6s he looks at camera and gives a gentle festive smile.
 
-DO NOT:
-Do not change face, identity, outfit, body, diya, or background. Do not duplicate the diya. No extra fingers, no foot distortion, no foot reordering, no exaggerated smile, no flicker, no glitch, no text.`,
+Camera: one continuous stable shot, full-body head-to-toe framing, no cuts, no scene change.
+
+Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
+
+Do not change face, outfit, body, skin tone, diya, background, or text. Do not duplicate the diya. No extra limbs, no foot distortion, no flicker.`,
   },
   girl: {
     title: 'Girl Template',
     label: 'Family diya',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact child identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the child in the selected garment. The girl safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli and gentle golden festive lights. Child-safe, modest, full-body head-to-toe framing.`,
-    videoPrompt: `Create a premium photorealistic 10-second vertical Diwali video from the provided image. Use the uploaded image as the EXACT FIRST FRAME and preserve the exact same girl throughout the full video: same face, identity, facial features, skin tone, body shape, hairstyle, expression, outfit, colors, fabric, jewelry, accessories, and overall appearance. Preserve the exact same background, festive decorations, lighting, and composition from the image. She must continue holding the SAME lit diya already present in the reference image.
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. The customer safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli and gentle golden festive lights. Add clear Tamil greeting text at the top: "இனிய தீபாவளி நல்வாழ்த்துகள்" in elegant gold Tamil lettering on a festive maroon/gold sign, away from the face and outfit. Modest, family-friendly, full-body head-to-toe framing.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion greeting video from the provided image. Use the image as the exact first frame. Preserve the exact same young female customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, Tamil greeting text, and the same lit diya throughout.
 
-TIMING:
-0.0-1.0s: The video must start exactly like the reference image, almost still, with only very subtle natural micro-movement such as blinking or soft breathing. Keep the diya steady. No sudden pose change, no object change, no strong smile yet.
-1.0-7.0s: She gently walks forward at a normal natural pace with 2 to 3 clearly visible realistic steps while carefully holding the same diya. Walking must be anatomically correct: feet alternate naturally left-right, no foot reordering, no sliding, no leg swapping, no broken gait, no unnatural crossing. Keep the walk soft, natural, and stable, not slow motion. Keep the diya steady and realistic. She moves only slightly closer while staying fully visible in frame.
-7.0-8.0s: She slows and stops naturally.
-8.0-10.0s: She stands sweetly, looks at the camera, and gives a gentle happy festive smile. Keep the smile natural and moderate, not exaggerated or constant.
+Text lock: keep only this Tamil text, clear and readable in elegant gold festival lettering: "இனிய தீபாவளி நல்வாழ்த்துகள்". No English text and no wrong-language text.
 
-CAMERA:
-One continuous shot. Camera stays steady and only adjusts enough to keep full-body framing, feet, and full outfit visible. No zoom, no cuts, no scene change.
+Motion timing: 0-1s almost still with natural breathing/blink. 1-4s she walks forward naturally with 1-2 small clean steps while holding the diya steadily. 4-5s she stops. 5-6s she looks at camera and gives a gentle festive smile.
 
-DO NOT:
-Do not change face, identity, outfit, body, diya, or background. Do not duplicate the diya. No extra fingers, no foot distortion, no foot reordering, no exaggerated smile, no flicker, no glitch, no text.`,
+Camera: one continuous stable shot, modest full-body head-to-toe framing, no close-up on body parts, no cuts, no scene change.
+
+Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
+
+Do not change face, outfit, body, skin tone, diya, background, or text. Do not duplicate the diya. No extra limbs, no foot distortion, no flicker.`,
   },
 };
 
@@ -257,13 +249,12 @@ export default function CreatePage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isUploadingManualMaster, setIsUploadingManualMaster] = useState(false);
-  const [isUploadingManualVideo, setIsUploadingManualVideo] = useState(false);
-  const [manualUploadProgress, setManualUploadProgress] = useState(0);
 
   const activeGarmentPhotos = useMemo(() => garmentPhotos.filter(Boolean) as string[], [garmentPhotos]);
   const hasRequiredPhotos = activeGarmentPhotos.length >= 1 && !!personPhoto;
   const canGenerateMaster = mode === 'test' && hasRequiredPhotos && !!selectedCategory;
-  const canGenerateVideo = !!masterImageUrl && masterApproved && videoPhase === 'idle';
+  const canUploadManualMaster = mode === 'proof' && !!selectedCategory;
+  const canGenerateVideo = !!selectedCategory && !!masterImageUrl && masterApproved && videoPhase === 'idle';
   const selectedMasterTemplate = selectedCategory ? masterTemplates[selectedCategory] : masterTemplates.women;
 
   useEffect(() => {
@@ -331,7 +322,6 @@ export default function CreatePage() {
     setVideoProgress(0);
     setVideoError(null);
     setJobId(null);
-    setManualUploadProgress(0);
   }
 
   function selectMode(nextMode: CreateMode) {
@@ -438,15 +428,9 @@ export default function CreatePage() {
     }
   }
 
-  function handleUsePresetMaster() {
-    setMasterImageUrl('/test-master-women.jpg');
-    setMasterApproved(true);
-    setMasterGenerationMessage('Women test master image loaded instantly. Ready for video generation!');
-  }
-
   async function handleManualMasterUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !selectedCategory) return;
 
     setIsUploadingManualMaster(true);
     setError(null);
@@ -477,53 +461,11 @@ export default function CreatePage() {
       const completeData = await parseJsonResponse(completeRes);
       setMasterImageUrl(completeData.masterImageUrl || dataUrl);
       setMasterApproved(true);
+      setMasterGenerationMessage('Uploaded AI image registered. Ready for 6-second video generation.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Manual master image upload failed.');
     } finally {
       setIsUploadingManualMaster(false);
-    }
-  }
-
-  async function handleManualVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingManualVideo(true);
-    setManualUploadProgress(0);
-    setError(null);
-    try {
-      const contentType = file.type || 'video/mp4';
-      const signedRes = await fetch('/api/upload/signed-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, assetType: 'video', contentType }),
-      });
-      const signedData = await parseJsonResponse(signedRes);
-
-      if (!signedData.success || !signedData.directUpload || !signedData.uploadUrl) {
-        throw new Error('Firebase direct video upload is unavailable.');
-      }
-
-      const storagePath = signedData.storagePath || `sessions/${sessionId}/video/final.mp4`;
-      await xhrUploadFile(
-        signedData.uploadUrl,
-        'PUT',
-        { 'Content-Type': contentType },
-        file,
-        setManualUploadProgress
-      );
-
-      const completeRes = await fetch('/api/video/manual-complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, storagePath }),
-      });
-      await parseJsonResponse(completeRes);
-      router.push(`/result/${sessionId}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Manual video upload failed.');
-    } finally {
-      setIsUploadingManualVideo(false);
     }
   }
 
@@ -673,6 +615,38 @@ export default function CreatePage() {
             );
           })}
         </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => selectMode('proof')}
+            className={`rounded-xl border p-4 text-left transition ${
+              mode === 'proof'
+                ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-sm'
+                : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'
+            }`}
+          >
+            <p className="text-sm font-bold uppercase tracking-wider">Upload Ready AI Image</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              Skip Gemini image cost. Upload your generated master image, then generate video.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => selectMode('test')}
+            className={`rounded-xl border p-4 text-left transition ${
+              mode === 'test'
+                ? 'border-[#6e0d1f] bg-[#fff7e6] text-[#6e0d1f] shadow-sm'
+                : 'border-slate-200 bg-white text-slate-700 hover:border-amber-300'
+            }`}
+          >
+            <p className="text-sm font-bold uppercase tracking-wider">Generate AI Image</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              Use Gemini image API from garment photos and customer photo.
+            </p>
+          </button>
+        </div>
       </section>
 
       {error && (
@@ -775,12 +749,12 @@ export default function CreatePage() {
           {mode === 'proof' ? (
             <label
               className={`w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 ${
-                !hasRequiredPhotos || isUploadingManualMaster ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:brightness-110'
+                !canUploadManualMaster || isUploadingManualMaster ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:brightness-110'
               }`}
             >
               {isUploadingManualMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5 text-amber-200" />}
-              Upload AI Image
-              <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleManualMasterUpload} disabled={!hasRequiredPhotos || isUploadingManualMaster} className="hidden" />
+              Upload Ready AI Image
+              <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleManualMasterUpload} disabled={!canUploadManualMaster || isUploadingManualMaster} className="hidden" />
             </label>
           ) : (
             <button
@@ -842,44 +816,34 @@ export default function CreatePage() {
               <h2 className="font-serif font-bold uppercase tracking-wider text-lg text-[#F3E5AB]">6-Second Video Generation</h2>
               <p className="text-xs text-amber-100/80">
                 {mode === 'proof'
-                  ? 'Upload final MP4 · manual video mode'
+                  ? selectedCategory
+                    ? `${masterTemplates[selectedCategory].title} prompt locked · uploaded AI image to video`
+                    : 'Select Men, Women, Boy, or Girl before video generation'
                   : selectedCategory
                     ? `${masterTemplates[selectedCategory].title} prompt locked · AI 6-second video generation`
                     : 'Select Men, Women, Boy, or Girl before generation'}
               </p>
             </div>
           </div>
-          {mode === 'proof' ? (
-            <label
-              className={`py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 ${
-                !masterApproved || isUploadingManualVideo ? 'opacity-40 pointer-events-none' : 'cursor-pointer hover:brightness-110'
-              }`}
-            >
-              {isUploadingManualVideo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              Upload Final Video
-              <input type="file" accept="video/mp4,video/webm,video/*" onChange={handleManualVideoUpload} disabled={!masterApproved || isUploadingManualVideo} className="hidden" />
-            </label>
-          ) : (
-            <button
-              onClick={startVideoGeneration}
-              disabled={!canGenerateVideo}
-              className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
-            >
-              Generate 6-sec Video <ArrowRight className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            onClick={startVideoGeneration}
+            disabled={!canGenerateVideo}
+            className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
+          >
+            Generate 6-sec Video <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="space-y-2">
           <div className="h-3 bg-white/10 rounded-full overflow-hidden border border-amber-300/20">
             <div
               className="h-full bg-gradient-to-r from-amber-300 to-emerald-400 transition-all duration-500"
-              style={{ width: `${mode === 'proof' ? manualUploadProgress : videoProgress}%` }}
+              style={{ width: `${videoProgress}%` }}
             />
           </div>
           <div className="flex items-center justify-between text-xs font-mono text-amber-100">
-            <span>{mode === 'proof' ? (isUploadingManualVideo ? 'Uploading final video to Firebase Storage...' : 'Upload final MP4 after approval.') : progressCopy[videoPhase]}</span>
-            <span>{mode === 'proof' ? manualUploadProgress : videoProgress}%</span>
+            <span>{progressCopy[videoPhase]}</span>
+            <span>{videoProgress}%</span>
           </div>
           {jobId && <p className="text-[11px] text-amber-200/80 font-mono">JOB: {jobId}</p>}
           {videoError && (
