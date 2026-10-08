@@ -22,6 +22,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'sessionId is required.' }, { status: 400 });
     }
 
+    if (!personPhoto) {
+      return NextResponse.json(
+        { success: false, error: 'Customer photo is missing. Upload one clear customer photo before generating the AI image.' },
+        { status: 400 }
+      );
+    }
+
+    if (!Array.isArray(garmentPhotos) || garmentPhotos.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Garment photo is missing. Upload at least one garment photo before generating the AI image.' },
+        { status: 400 }
+      );
+    }
+
     const isDemoAsset = AI_CONFIG.IS_DEMO_MODE;
     const nowIso = new Date().toISOString();
 
@@ -88,8 +102,10 @@ The final image should look like a premium Maharaja festive fashion campaign pho
         let imageBase64: string | null = null;
 
         // Multimodal image synthesis passing person & garment reference photo parts with explicit 9:16 aspect ratio
+        const imageModel = AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+
         const genResponse = await ai.models.generateContent({
-          model: AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
+          model: imageModel,
           contents,
           config: {
             responseModalities: ['TEXT', 'IMAGE'],
@@ -106,7 +122,7 @@ The final image should look like a premium Maharaja festive fashion campaign pho
         }
 
         if (!imageBase64) {
-          throw new Error('Gemini image generation model failed to return a valid master image payload.');
+          throw new Error(`Gemini image model ${imageModel} did not return image output. Check that this model supports image generation and that billing/API access is enabled for the Maharaja project.`);
         }
 
         masterImageUrl = `data:image/jpeg;base64,${imageBase64}`;
@@ -124,7 +140,7 @@ The final image should look like a premium Maharaja festive fashion campaign pho
     } catch (genError: any) {
       console.error('Gemini Master Image Generation Failed:', genError);
       return NextResponse.json(
-        { success: false, error: `Master Image generation failed: ${genError.message}` },
+        { success: false, error: `Master Image generation failed: ${genError?.message || 'Unknown Gemini error.'}` },
         { status: 500 }
       );
     }

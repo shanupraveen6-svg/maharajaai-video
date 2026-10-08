@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Garment Analysis Route Error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to analyze garment photos.' },
+      { success: false, error: `Failed to analyze garment photos: ${error?.message || 'Unknown Gemini error.'}` },
       { status: 500 }
     );
   }

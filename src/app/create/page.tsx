@@ -104,9 +104,15 @@ function deriveMasterTemplateId(
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
   if (!res.ok) {
-    const message = contentType.includes('application/json')
-      ? (await res.json()).error
-      : await res.text();
+    let message = '';
+    if (res.status === 413) {
+      message = 'Uploaded photos are too large for the server request. Retake/crop the photos or upload smaller images.';
+    } else if (contentType.includes('application/json')) {
+      const payload = await res.json();
+      message = payload.error || payload.message || '';
+    } else {
+      message = await res.text();
+    }
     throw new Error(message || `HTTP ${res.status}`);
   }
   if (!contentType.includes('application/json')) {
@@ -149,6 +155,8 @@ function xhrUploadFile(
 }
 
 const garmentLabels = ['Front View', 'Detail View', 'Additional View'];
+const aiPhotoMaxDimension = 1152;
+const aiPhotoQuality = 0.72;
 
 const progressCopy: Record<VideoPhase, string> = {
   idle: 'Ready to generate after approval.',
@@ -321,7 +329,7 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     if (!file) return;
 
     try {
-      const { dataUrl } = await compressImage(file, 1600, 0.85);
+      const { dataUrl } = await compressImage(file, aiPhotoMaxDimension, aiPhotoQuality);
       const nextPhotos = [...garmentPhotos];
       nextPhotos[slotIndex] = dataUrl;
       setGarmentPhotos(nextPhotos);
@@ -340,7 +348,7 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
     setIsAnalyzingPerson(true);
     setError(null);
     try {
-      const { dataUrl } = await compressImage(file, 1600, 0.85);
+      const { dataUrl } = await compressImage(file, aiPhotoMaxDimension, aiPhotoQuality);
       setPersonPhoto(dataUrl);
       resetGeneratedOutputs();
 
@@ -393,9 +401,12 @@ Make it realistic, premium, polished and suitable for a fashion retail store scr
         }),
       });
       const data = await parseJsonResponse(res);
+      if (!data.success || !data.masterImageUrl) {
+        throw new Error(data.error || 'Gemini returned no AI image. Check the image model and billing setup.');
+      }
       setMasterImageUrl(data.masterImageUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Master image generation failed.');
+      setError(err instanceof Error ? `AI image generation failed: ${err.message}` : 'AI image generation failed.');
     } finally {
       setIsGeneratingMaster(false);
     }
