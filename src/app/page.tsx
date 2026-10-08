@@ -22,7 +22,7 @@ const storeCards = [
     name: 'Maharaja',
     location: 'Thanjavur, Tamil Nadu',
     status: 'Active pilot',
-    href: '/create',
+    href: '/login?next=/create',
   },
 ];
 
@@ -46,7 +46,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/tv"
+              href="/tv-login?next=/tv"
               className="inline-flex items-center gap-2 rounded-full border border-[#6e0d1f]/20 bg-white/70 px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f] shadow-sm backdrop-blur hover:bg-white"
             >
               <Tv className="h-4 w-4 text-[#8A6A20]" />
