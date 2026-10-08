@@ -15,6 +15,25 @@ function getGenAIClient() {
   }
 }
 
+function formatGeminiImageError(error: any) {
+  const raw = error?.message || String(error || 'Unknown Gemini error.');
+  const lower = raw.toLowerCase();
+
+  if (lower.includes('resource_exhausted') || lower.includes('quota') || lower.includes('free tier')) {
+    return 'Gemini image quota is exhausted or the Vercel API key is connected to a free-tier Google AI project. Create/use an API key from the paid/prepay Maharaja project and update GOOGLE_AI_API_KEY_PRIMARY in Vercel.';
+  }
+
+  if (lower.includes('api key') || lower.includes('permission') || lower.includes('unauthenticated')) {
+    return 'Gemini API key is invalid or does not have access to image generation. Update GOOGLE_AI_API_KEY_PRIMARY in Vercel with the Maharaja project API key.';
+  }
+
+  if (lower.includes('model') || lower.includes('not found')) {
+    return `Gemini image model is not available for this API key/project. Current model: ${AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image'}.`;
+  }
+
+  return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -142,7 +161,7 @@ The final image should look like a premium Maharaja festive fashion campaign pho
     } catch (genError: any) {
       console.error('Gemini Master Image Generation Failed:', genError);
       return NextResponse.json(
-        { success: false, error: `Master Image generation failed: ${genError?.message || 'Unknown Gemini error.'}` },
+        { success: false, error: `Master Image generation failed: ${formatGeminiImageError(genError)}` },
         { status: 500 }
       );
     }
