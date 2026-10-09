@@ -381,49 +381,6 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           </Link>
         </div>
 
-        {liveSuccess && (
-          <div className="rounded-xl border border-emerald-500/45 bg-emerald-950/40 p-4 text-left text-emerald-200 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300/80">
-                  Maharaja TV Status
-                </p>
-                <p className="mt-1 text-sm font-bold text-[#F3E5AB]">
-                  {countdownSeconds && countdownSeconds > 0
-                    ? `Going live in ${countdownSeconds}s`
-                    : liveQueueStatus === 'playing'
-                    ? 'Playing on showroom TV'
-                    : liveQueueStatus === 'reserved'
-                    ? 'Preparing on showroom TV'
-                    : liveQueueStatus === 'completed'
-                    ? 'Completed, now looping on TV'
-                    : liveQueueStatus === 'playback_failed'
-                    ? 'TV playback needs attention'
-                    : 'Waiting in TV queue'}
-                </p>
-              </div>
-              <span className="rounded-full border border-[#D4AF37]/45 bg-black/40 px-3 py-1 text-xs font-black text-[#D4AF37]">
-                {liveQueueStatus === 'queued' && queuePosition ? `#${queuePosition}` : liveQueueStatus.toUpperCase()}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="rounded-lg border border-emerald-400/25 bg-black/30 p-3">
-                <p className="text-[10px] uppercase tracking-widest text-emerald-300/70">Queue No</p>
-                <p className="mt-1 text-xl font-mono font-black text-[#F3E5AB]">
-                  {queueNumber ? `#${queueNumber}` : '--'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-emerald-400/25 bg-black/30 p-3">
-                <p className="text-[10px] uppercase tracking-widest text-emerald-300/70">People Ahead</p>
-                <p className="mt-1 text-xl font-mono font-black text-[#F3E5AB]">
-                  {typeof peopleAhead === 'number' ? peopleAhead : '--'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {liveError && (
           <div className="p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs text-left flex items-start gap-3">
             <AlertCircle className="w-5 h-5 shrink-0 text-red-400 mt-0.5" />
@@ -446,6 +403,47 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
               <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
                 Advance Deepavali greetings from Maharaja. Your Diwali AI film has been sent to the showroom screen.
               </p>
+            </div>
+
+            <div className="rounded-xl border border-emerald-500/45 bg-emerald-950/40 p-4 text-left text-emerald-200 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300/80">
+                    Maharaja TV Status
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-[#F3E5AB]">
+                    {countdownSeconds && countdownSeconds > 0
+                      ? `Going live in ${countdownSeconds}s`
+                      : liveQueueStatus === 'playing'
+                      ? 'Playing on showroom TV'
+                      : liveQueueStatus === 'reserved'
+                      ? 'Preparing on showroom TV'
+                      : liveQueueStatus === 'completed'
+                      ? 'Completed, now looping on TV'
+                      : liveQueueStatus === 'playback_failed'
+                      ? 'TV playback needs attention'
+                      : 'Waiting in TV queue'}
+                  </p>
+                </div>
+                <span className="rounded-full border border-[#D4AF37]/45 bg-black/40 px-3 py-1 text-xs font-black text-[#D4AF37]">
+                  {liveQueueStatus === 'queued' && queuePosition ? `#${queuePosition}` : liveQueueStatus.toUpperCase()}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="rounded-lg border border-emerald-400/25 bg-black/30 p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-300/70">Queue No</p>
+                  <p className="mt-1 text-xl font-mono font-black text-[#F3E5AB]">
+                    {queueNumber ? `#${queueNumber}` : '--'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-emerald-400/25 bg-black/30 p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-300/70">People Ahead</p>
+                  <p className="mt-1 text-xl font-mono font-black text-[#F3E5AB]">
+                    {typeof peopleAhead === 'number' ? peopleAhead : '--'}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <a
