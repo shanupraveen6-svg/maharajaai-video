@@ -18,6 +18,13 @@ function cleanDisplayText(value: unknown, fallback: string): string {
   return cleaned || fallback;
 }
 
+function cleanLiveAudioUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = value.trim();
+  if (!cleaned.startsWith('/audio/maharaja/live/') || !cleaned.endsWith('.mp3')) return null;
+  return cleaned.slice(0, 96);
+}
+
 function compareQueueItems(a: any, b: any): number {
   const queueDiff = Number(a.queueNumber || 0) - Number(b.queueNumber || 0);
   if (queueDiff !== 0) return queueDiff;
@@ -48,6 +55,7 @@ export async function POST(req: NextRequest) {
     const { sessionId, videoId } = body;
     const customerName = cleanDisplayText(body.customerName, 'Maharaja Customer');
     const customerLocality = cleanDisplayText(body.customerLocality, 'Thanjavur');
+    const liveAudioUrl = cleanLiveAudioUrl(body.liveAudioUrl);
 
 
     if (!sessionId || !videoId) {
@@ -75,6 +83,7 @@ export async function POST(req: NextRequest) {
       sessionId,
       customerName,
       customerLocality,
+      liveAudioUrl,
       status: 'queued' as const,
       priority: 1,
       repeatCount: 1,
@@ -105,6 +114,7 @@ export async function POST(req: NextRequest) {
           transaction.update(existingActive.ref, {
             customerName,
             customerLocality,
+            liveAudioUrl,
             updatedAt: nowIso
           });
           return;
@@ -146,6 +156,7 @@ export async function POST(req: NextRequest) {
         reusedExistingQueue = true;
         (existingActive as any).customerName = customerName;
         (existingActive as any).customerLocality = customerLocality;
+        (existingActive as any).liveAudioUrl = liveAudioUrl;
       } else {
         queueNumber = mockStore.liveQueue.reduce((max: number, item: any) => Math.max(max, Number(item.queueNumber || 0)), 0) + 1;
         mockStore.liveQueue.push({

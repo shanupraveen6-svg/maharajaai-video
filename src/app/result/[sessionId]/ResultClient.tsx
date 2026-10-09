@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Download, Tv, Sparkles, CheckCircle2, RotateCcw, Flame, ShieldCheck, AlertCircle } from 'lucide-react';
+import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
 
 export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [showLiveConsent, setShowLiveConsent] = useState(false);
@@ -27,6 +28,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>('processing');
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
+  const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId), [sessionId]);
+  const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId), [sessionId]);
 
   useEffect(() => {
     if (!liveSuccess || countdownSeconds === null) return;
@@ -198,7 +201,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           sessionId,
           videoId: videoId || `video_${sessionId}`,
           customerName: customerName.trim(),
-          customerLocality: customerLocality.trim()
+          customerLocality: customerLocality.trim(),
+          liveAudioUrl
         })
       });
 
@@ -280,8 +284,16 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             controls
             loop
             playsInline
+            muted
             className="w-full h-full object-cover"
           />
+        </div>
+
+        <div className="rounded-xl border border-[#D4AF37]/25 bg-black/45 p-3 text-left">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
+            6-second preview music
+          </p>
+          <audio src={previewAudioUrl} controls loop className="w-full" />
         </div>
 
         {/* Primary Action Buttons */}

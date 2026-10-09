@@ -2,25 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Sparkles, Volume2 } from 'lucide-react';
+import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 
 const TV_PLAYBACK_RATE = 0.66;
-
-function playBell(ctx: AudioContext, frequency: number, delay: number, duration = 0.72, volume = 0.035) {
-  const now = ctx.currentTime + delay;
-  const oscillator = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  oscillator.type = 'sine';
-  oscillator.frequency.setValueAtTime(frequency, now);
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(volume, now + 0.04);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-  oscillator.connect(gain);
-  gain.connect(ctx.destination);
-  oscillator.start(now);
-  oscillator.stop(now + duration + 0.08);
-}
 
 export default function TvPlayerPage() {
   const [audioUnlocked, setAudioUnlocked] = useState(false);
@@ -29,48 +13,21 @@ export default function TvPlayerPage() {
     queueId: string;
     reservationId: string;
     videoUrl: string;
+    liveAudioUrl?: string | null;
     customerName?: string | null;
     customerLocality?: string | null;
   } | null>(null);
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const pollInFlightRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const musicContextRef = useRef<AudioContext | null>(null);
-  const musicTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  function startFestivalMusic() {
-    if (musicContextRef.current) return;
-
-    const AudioContextCtor =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-
-    if (!AudioContextCtor) return;
-
-    const ctx = new AudioContextCtor();
-    musicContextRef.current = ctx;
-
-    const scheduleBar = () => {
-      if (ctx.state === 'suspended') {
-        void ctx.resume();
-      }
-      playBell(ctx, 523.25, 0.0, 0.78, 0.03);
-      playBell(ctx, 659.25, 0.52, 0.7, 0.026);
-      playBell(ctx, 783.99, 1.04, 0.82, 0.03);
-      playBell(ctx, 1046.5, 1.58, 0.92, 0.02);
-    };
-
-    scheduleBar();
-    musicTimerRef.current = setInterval(scheduleBar, 2600);
-  }
 
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (musicTimerRef.current) clearInterval(musicTimerRef.current);
-      void musicContextRef.current?.close();
+      audioRef.current?.pause();
     };
   }, []);
 
@@ -94,6 +51,7 @@ export default function TvPlayerPage() {
             queueId: data.queueId,
             reservationId: data.reservationId,
             videoUrl: data.videoUrl,
+            liveAudioUrl: data.liveAudioUrl || getLiveAudioTrack(data.queueId || data.reservationId || data.videoUrl),
             customerName: data.customerName || null,
             customerLocality: data.customerLocality || null,
           });
@@ -124,6 +82,14 @@ export default function TvPlayerPage() {
     try {
       videoRef.current.defaultPlaybackRate = TV_PLAYBACK_RATE;
       videoRef.current.playbackRate = TV_PLAYBACK_RATE;
+      if (audioRef.current) {
+        audioRef.current.src = currentPlayback.liveAudioUrl || getLiveAudioTrack(currentPlayback.queueId);
+        audioRef.current.currentTime = 0;
+        audioRef.current.volume = 0.88;
+        audioRef.current.play().catch((audioErr) => {
+          console.warn('Live TV audio playback blocked or failed:', audioErr);
+        });
+      }
       await videoRef.current.play();
 
       fetch('/api/tv/playing', {
@@ -136,6 +102,7 @@ export default function TvPlayerPage() {
       }).catch((err) => console.error('Failed to notify playing status:', err));
     } catch (err) {
       console.error('Video playback error / autoplay blocked:', err);
+      audioRef.current?.pause();
       setPlaybackError('Autoplay blocked. Press play to start video.');
     }
   };
@@ -148,6 +115,7 @@ export default function TvPlayerPage() {
 
   const handleVideoEnded = async () => {
     if (!currentPlayback) return;
+    audioRef.current?.pause();
 
     try {
       await fetch('/api/live/complete', {
@@ -169,6 +137,7 @@ export default function TvPlayerPage() {
 
   const handleVideoError = async () => {
     if (!currentPlayback) return;
+    audioRef.current?.pause();
 
     try {
       await fetch('/api/live/fail', {
@@ -212,7 +181,6 @@ export default function TvPlayerPage() {
           <button
             onClick={() => {
               setAudioUnlocked(true);
-              startFestivalMusic();
             }}
             className="w-full rounded-xl bg-gradient-to-r from-[#F6D36A] via-[#FFF1A8] to-[#F6D36A] px-8 py-4 text-base font-black uppercase tracking-wider text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
           >
@@ -225,6 +193,7 @@ export default function TvPlayerPage() {
 
   return (
     <main className="fixed inset-0 flex h-screen w-screen items-center justify-center overflow-hidden bg-black select-none">
+      <audio ref={audioRef} preload="auto" />
       <div className="relative aspect-video h-full max-h-[56.25vw] w-full max-w-[177.78vh] overflow-hidden bg-[#4A0707] text-[#F8E8A8]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_20%,rgba(246,211,106,0.15),transparent_26%),radial-gradient(circle_at_82%_72%,rgba(255,241,168,0.12),transparent_30%),linear-gradient(135deg,#320405_0%,#5D0B09_42%,#210202_100%)]" />
         <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(0deg,rgba(255,255,255,0.18)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:9px_9px]" />

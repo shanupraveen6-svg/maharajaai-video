@@ -114,7 +114,8 @@ export async function GET(req: NextRequest) {
           reservationId,
           storagePath,
           customerName: queueData.customerName || null,
-          customerLocality: queueData.customerLocality || null
+          customerLocality: queueData.customerLocality || null,
+          liveAudioUrl: queueData.liveAudioUrl || null
         };
       });
 
@@ -135,7 +136,8 @@ export async function GET(req: NextRequest) {
         reservationId: result.reservationId,
         videoUrl: signedUrl,
         customerName: result.customerName || null,
-        customerLocality: result.customerLocality || null
+        customerLocality: result.customerLocality || null,
+        liveAudioUrl: result.liveAudioUrl || null
       });
 
     } else {
@@ -191,7 +193,8 @@ export async function GET(req: NextRequest) {
         reservationId,
         videoUrl: signedUrl,
         customerName: (nextItem as any).customerName || null,
-        customerLocality: (nextItem as any).customerLocality || null
+        customerLocality: (nextItem as any).customerLocality || null,
+        liveAudioUrl: (nextItem as any).liveAudioUrl || null
       });
     }
   } catch (error: any) {

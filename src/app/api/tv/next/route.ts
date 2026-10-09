@@ -107,7 +107,8 @@ export async function GET(req: NextRequest) {
           queueId: queueDoc.id,
           queueNumber: queueData.queueNumber || null,
           reservationId,
-          storagePath: videoData.storagePath
+          storagePath: videoData.storagePath,
+          liveAudioUrl: queueData.liveAudioUrl || null
         };
       });
 
@@ -122,7 +123,8 @@ export async function GET(req: NextRequest) {
         queueId: result.queueId,
         queueNumber: result.queueNumber || null,
         reservationId: result.reservationId,
-        videoUrl: signedUrl
+        videoUrl: signedUrl,
+        liveAudioUrl: result.liveAudioUrl || null
       });
 
     } else {
@@ -170,7 +172,8 @@ export async function GET(req: NextRequest) {
         queueId: nextItem.id,
         queueNumber: nextItem.queueNumber || null,
         reservationId,
-        videoUrl: signedUrl
+        videoUrl: signedUrl,
+        liveAudioUrl: (nextItem as any).liveAudioUrl || null
       });
     }
   } catch (error: any) {
