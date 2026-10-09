@@ -44,19 +44,27 @@ const masterTemplates: Record<
   {
     title: string;
     label: string;
+    poseTitle: string;
+    poseDescription: string;
     masterPrompt: string;
     videoPrompt: string;
   }
 > = {
   men: {
     title: 'Men Template',
-    label: 'Crackers runway',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, borders, silhouette and design. Dress the customer in the selected garment. Scene: a royal festive fashion-store walkway with warm gold lighting, tasteful distant crackers/fireworks, diyas, brass lamps, marigold decor, subtle rangoli floor detail and cinematic premium retail styling. Masculine, confident, modest, full-body head-to-toe framing. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
+    label: 'Indoor hero glow',
+    poseTitle: 'Indoor Hero Festival Portrait',
+    poseDescription: 'Still confident pose, royal indoor Diwali lights, hero-style camera push.',
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, borders, silhouette and design. Dress the customer in the selected garment. Scene: a royal indoor Diwali fashion-store interior with brass lamps, marigold garlands, warm gold spotlights, diyas, soft temple-style glow, subtle festive bokeh and distant crackers visible through an arch/window. Masculine, confident, modest, premium hero portrait, full-body head-to-toe framing. Subject stands still in a natural pose facing camera. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
     videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same man, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, and decorations throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
-Motion timing: 0-1s almost still with natural breathing/blink. 1-4s he walks forward naturally with 1-2 clean steps, confident and relaxed. 4-5s he stops. 5-6s he looks at camera and gives a gentle festive smile.
+The body remains still in the same pose for the full video. No walking, no dancing, no hand movement, no leg movement, no full-body turn.
 
-Camera: one continuous stable shot, full-body head-to-toe framing, no cuts, no scene change.
+Cinematic motion comes from camera and background only: low-angle hero-style camera push-in, slight side parallax, golden spotlight bloom, diya flicker, festive bokeh shimmer, and distant cracker sparkle.
+
+Motion timing: 0-1s exact first frame, natural blink. 1-3s camera push-in with background shimmer. 3-5s tiny head/eye adjustment toward camera and a casual happy festival smile. 5-6s polished hero portrait settle with a very slight zoom-out.
+
+Camera: one continuous stable shot, full outfit visible, no cuts, no scene change.
 
 Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
 
@@ -64,13 +72,19 @@ Do not change face, outfit, body, skin tone, or background. No added handheld pr
   },
   women: {
     title: 'Women Template',
-    label: 'Diyas palace',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design. Dress the customer in the selected garment. Scene: an elegant palace-inspired festive fashion-store interior with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Modest, respectful, family-friendly, no objectifying body focus, no waist/hip/body-part emphasis, no glamour pose, full outfit visible, full-body head-to-toe framing. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
+    label: 'Indoor diya grace',
+    poseTitle: 'Indoor Graceful Diya Portrait',
+    poseDescription: 'Still modest pose, diya palace mood, heroine-style soft camera move.',
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design. Dress the customer in the selected garment. Scene: an elegant indoor Diwali palace/store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Modest, respectful, family-friendly, no objectifying body focus, no waist/hip/body-part emphasis, no glamour pose, full outfit visible, full-body head-to-toe framing. Subject stands still in a graceful front-facing pose with a calm festival expression. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
     videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same woman, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, jewelry, background, lighting, and decorations throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
-Motion timing: 0-1s almost still with natural breathing/blink. 1-4s she walks forward naturally with 1-2 clean graceful steps. 4-5s she stops. 5-6s she looks at camera and gives a gentle festive smile.
+The body remains still in the same graceful pose for the full video. No walking, no dancing, no hand movement, no leg movement, no full-body turn.
 
-Camera: one continuous stable shot, modest full-body head-to-toe framing, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
+Cinematic motion comes from camera and background only: soft heroine-style side dolly with a gentle push-in, diya flame flicker, golden bokeh shimmer, marigold glow and premium festive light bloom.
+
+Motion timing: 0-1s exact first frame, natural blink. 1-3s soft camera side-dolly and push-in. 3-5s tiny head/eye adjustment toward camera and a gentle happy festival smile. 5-6s elegant portrait settle with a very slight zoom-out.
+
+Camera: one continuous stable shot, modest full-body framing, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
 
 Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
 
@@ -78,31 +92,43 @@ Do not change face, dress, body, skin tone, or background. No added handheld pro
   },
   boy: {
     title: 'Boy Template',
-    label: 'Family diya',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. The customer safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with diyas, brass lamps, marigold flowers, soft rangoli, gentle golden festive lights and safe distant festive sparkle. Modest, family-friendly, full-body head-to-toe framing. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young male customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and the same lit diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
+    label: 'Outdoor lights',
+    poseTitle: 'Outdoor Festival Lights Portrait',
+    poseDescription: 'Still cheerful pose, courtyard lights, safe festive sparkle.',
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. Scene: a wholesome outdoor Diwali courtyard/temple-street setting with lantern strings, marigold decor, safe distant fireworks, warm fairy lights, diyas on the ground, and festive golden evening glow. Modest, family-friendly, full-body head-to-toe framing. Subject stands still in a cheerful natural pose. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young male customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and any visible diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
-Motion timing: 0-1s almost still with natural breathing/blink. 1-4s he walks forward naturally with 1-2 small clean steps while holding the diya steadily. 4-5s he stops. 5-6s he looks at camera and gives a gentle festive smile.
+The body remains still in the same pose for the full video. No walking, no dancing, no hand movement, no leg movement, no full-body turn.
 
-Camera: one continuous stable shot, full-body head-to-toe framing, no cuts, no scene change.
+Cinematic motion comes from camera and background only: outdoor wide-to-portrait push-in, gentle side parallax, lantern glow, safe distant fireworks, diya flicker and warm festival bokeh.
+
+Motion timing: 0-1s exact first frame, natural blink. 1-3s camera push-in from slightly wide to hero portrait. 3-5s tiny head/eye adjustment toward camera and a controlled cheerful smile. 5-6s polished outdoor festival portrait settle.
+
+Camera: one continuous stable shot, full outfit visible, no cuts, no scene change.
 
 Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
 
-Do not change face, outfit, body, skin tone, diya, or background. Do not duplicate the diya. No extra limbs, no foot distortion, no flicker.`,
+Do not change face, outfit, body, skin tone, visible diya, or background. Do not add or duplicate a diya. No extra limbs, no foot distortion, no flicker.`,
   },
   girl: {
     title: 'Girl Template',
-    label: 'Family diya',
-    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. The customer safely holds a small glowing clay diya in both hands. Scene: a wholesome family-store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli and gentle golden festive lights. Modest, family-friendly, no waist/hip/body-part emphasis, full-body head-to-toe framing. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young female customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and the same lit diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
+    label: 'Outdoor courtyard',
+    poseTitle: 'Outdoor Diwali Courtyard Portrait',
+    poseDescription: 'Still sweet pose, courtyard diyas, princess-like festival glow.',
+    masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment. Scene: a wholesome outdoor Diwali courtyard/garden/temple-light setting with glowing diyas, lantern strings, marigold flowers, soft rangoli, warm fairy lights and gentle golden festival atmosphere. Modest, family-friendly, no waist/hip/body-part emphasis, no glamour pose, full-body head-to-toe framing. Subject stands or sits still in a simple respectful festive pose. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young female customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and any visible diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
-Motion timing: 0-1s almost still with natural breathing/blink. 1-4s she walks forward naturally with 1-2 small clean steps while holding the diya steadily. 4-5s she stops. 5-6s she looks at camera and gives a gentle festive smile.
+The body remains still in the same pose for the full video. No walking, no dancing, no hand movement, no leg movement, no full-body turn.
 
-Camera: one continuous stable shot, modest full-body head-to-toe framing, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
+Cinematic motion comes from camera and background only: soft outdoor push-in, gentle side parallax, diya flicker, lantern glow, marigold bokeh and warm festival light bloom.
+
+Motion timing: 0-1s exact first frame, natural blink. 1-3s camera push-in with courtyard lights shimmering. 3-5s tiny head/eye adjustment toward camera and a small sweet festival smile. 5-6s polished outdoor Diwali portrait settle.
+
+Camera: one continuous stable shot, modest full-body framing, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
 
 Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
 
-Do not change face, outfit, body, skin tone, diya, or background. Do not duplicate the diya. No extra limbs, no foot distortion, no flicker, no glamour/body-emphasis pose.`,
+Do not change face, outfit, body, skin tone, visible diya, or background. Do not add or duplicate a diya. No extra limbs, no foot distortion, no flicker, no glamour/body-emphasis pose.`,
   },
 };
 
@@ -168,10 +194,10 @@ const categoryOptions: Array<{
   title: string;
   subtitle: string;
 }> = [
-  { id: 'men', title: 'Men', subtitle: 'Crackers runway' },
-  { id: 'women', title: 'Women', subtitle: 'Diyas palace' },
-  { id: 'boy', title: 'Boy', subtitle: 'Child-safe diya' },
-  { id: 'girl', title: 'Girl', subtitle: 'Child-safe diya' },
+  { id: 'men', title: 'Men', subtitle: 'Indoor hero Diwali' },
+  { id: 'women', title: 'Women', subtitle: 'Indoor diya grace' },
+  { id: 'boy', title: 'Boy', subtitle: 'Outdoor lights, below 18' },
+  { id: 'girl', title: 'Girl', subtitle: 'Outdoor courtyard, below 18' },
 ];
 
 const progressCopy: Record<VideoPhase, string> = {
@@ -361,6 +387,10 @@ export default function CreatePage() {
       setPersonPhoto(dataUrl);
       resetGeneratedOutputs();
       setLocalPersonReady();
+
+      if (mode === 'proof' && selectedCategory) {
+        await registerManualMasterImage(file, dataUrl, 'Uploaded ready AI image from customer photo slot. Master image approved automatically.');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Customer photo analysis failed.');
     }
@@ -420,10 +450,7 @@ export default function CreatePage() {
     }
   }
 
-  async function handleManualMasterUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !selectedCategory) return;
-
+  async function registerManualMasterImage(file: File, dataUrl: string, successMessage: string) {
     setIsUploadingManualMaster(true);
     setError(null);
     try {
@@ -439,7 +466,6 @@ export default function CreatePage() {
       }
 
       await xhrUploadFile(signedData.uploadUrl, 'PUT', { 'Content-Type': contentType }, file, () => {});
-      const { dataUrl } = await compressImage(file, 1600, 0.85);
 
       const completeRes = await fetch('/api/upload/master-complete', {
         method: 'POST',
@@ -453,11 +479,23 @@ export default function CreatePage() {
       const completeData = await parseJsonResponse(completeRes);
       setMasterImageUrl(completeData.masterImageUrl || dataUrl);
       setMasterApproved(true);
-      setMasterGenerationMessage('Uploaded AI image registered. Ready for 6-second video generation.');
+      setMasterGenerationMessage(successMessage);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Manual master image upload failed.');
     } finally {
       setIsUploadingManualMaster(false);
+    }
+  }
+
+  async function handleManualMasterUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !selectedCategory) return;
+
+    try {
+      const { dataUrl } = await compressImage(file, 1600, 0.85);
+      await registerManualMasterImage(file, dataUrl, 'Uploaded AI image registered. Ready for 6-second video generation.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Manual master image upload failed.');
     }
   }
 
@@ -606,6 +644,18 @@ export default function CreatePage() {
               </button>
             );
           })}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-amber-200 bg-[#fffaf0] p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-800">
+            Selected Diwali Pose
+          </p>
+          <p className="mt-1 font-serif text-lg font-bold text-[#6e0d1f]">
+            {selectedMasterTemplate.poseTitle}
+          </p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">
+            {selectedMasterTemplate.poseDescription} Body motion is locked low-risk; video motion comes from camera, lights, diyas and festive background only.
+          </p>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
     const db = getDb();
     
     let videoUrl: string | null = null;
+    let masterImageUrl: string | null = null;
     let status: string = 'processing';
     let operationName: string | null = null;
     let requestId: string | null = null;
@@ -72,12 +73,14 @@ export async function GET(req: NextRequest) {
         const sessionDoc = await db.collection('sessions').doc(targetSessionId).get();
         if (sessionDoc.exists) {
           const sData = sessionDoc.data();
+          masterImageUrl = sData?.masterImageUrl || masterImageUrl;
           if (sData?.videoStatus === 'failed') {
             return NextResponse.json({
               success: false,
               jobId: jobId || sData?.jobId || null,
               sessionId: targetSessionId,
               status: 'failed',
+              masterImageUrl,
               error: sData?.videoError || 'Video generation failed.'
             }, { status: 500 });
           }
@@ -114,12 +117,14 @@ export async function GET(req: NextRequest) {
       if (targetSessionId) {
         const session = mockStore.sessions.get(targetSessionId);
         if (session) {
+          masterImageUrl = session.masterImageUrl || masterImageUrl;
           if (session.videoStatus === 'failed') {
             return NextResponse.json({
               success: false,
               jobId: jobId || session.jobId || null,
               sessionId: targetSessionId,
               status: 'failed',
+              masterImageUrl,
               error: session.videoError || 'Video generation failed.'
             }, { status: 500 });
           }
@@ -238,6 +243,7 @@ export async function GET(req: NextRequest) {
               sessionId: targetSessionId,
               status: 'ready',
               videoUrl,
+              masterImageUrl,
               videoId: `video_${targetSessionId}`
             });
           }
@@ -248,6 +254,7 @@ export async function GET(req: NextRequest) {
               jobId,
               sessionId: targetSessionId,
               status: 'processing',
+              masterImageUrl,
               message: 'MiniMax Hailuo video rendering in progress via Fal.ai...'
             });
           }
@@ -451,7 +458,8 @@ export async function GET(req: NextRequest) {
         jobId,
         sessionId: targetSessionId,
         status: 'processing',
-        videoUrl: null
+        videoUrl: null,
+        masterImageUrl
       });
     }
 
@@ -463,6 +471,7 @@ export async function GET(req: NextRequest) {
       sessionId: targetSessionId,
       status: 'ready',
       videoUrl,
+      masterImageUrl,
       videoId: `video_${targetSessionId}`,
       qaResult
     });

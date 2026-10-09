@@ -29,6 +29,8 @@ export default function TvPlayerPage() {
     queueId: string;
     reservationId: string;
     videoUrl: string;
+    customerName?: string | null;
+    customerLocality?: string | null;
   } | null>(null);
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
 
@@ -92,6 +94,8 @@ export default function TvPlayerPage() {
             queueId: data.queueId,
             reservationId: data.reservationId,
             videoUrl: data.videoUrl,
+            customerName: data.customerName || null,
+            customerLocality: data.customerLocality || null,
           });
           setIsPlayingVideo(true);
         }
@@ -308,13 +312,13 @@ export default function TvPlayerPage() {
                 className="mt-9 text-[clamp(2rem,3vw,3.4rem)] font-black leading-tight text-white"
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
-                கவிதா
+                {currentPlayback?.customerName || 'Maharaja Customer'}
               </p>
               <p
                 className="mt-3 text-[clamp(1.5rem,2.2vw,2.5rem)] font-bold text-[#F6D36A]"
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
-                திருவையாறு
+                {currentPlayback?.customerLocality || 'Thanjavur'}
               </p>
 
               <p className="mt-10 max-w-md text-sm font-bold uppercase tracking-[0.22em] text-[#FFF1A8]/70">

@@ -202,7 +202,7 @@ Return STRICT JSON:
 export function buildVideoPrompt(analysis: any, conceptPrompt?: string): string {
   const prompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
     ? conceptPrompt.trim()
-    : `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Preserve the exact same person, face, skin tone, body, outfit, garment color, fabric, background, lighting and decorations. The subject walks forward naturally, stops, looks at camera, and smiles gently. No dialogue, no lip-sync, no text, no captions, no signage, no letters, no face change, no outfit change, no extra limbs.`;
+    : `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same person, face, identity, skin tone, body, outfit, garment color, fabric, background, lighting and decorations throughout. The body remains still in the same modest festival pose. No walking, no dancing, no hand movement, no leg movement, no full-body turn. Cinematic motion comes only from a gentle camera push-in, slight side parallax, diya flicker, festive bokeh shimmer and warm Diwali light bloom. The subject may naturally blink, make a tiny eye/head adjustment toward camera, and smile softly. No dialogue, no lip-sync, no mouth speaking, no text, no captions, no signage, no letters, no face change, no outfit change, no extra limbs.`;
 
   return prompt.length > 1950 ? prompt.slice(0, 1950) : prompt;
 }

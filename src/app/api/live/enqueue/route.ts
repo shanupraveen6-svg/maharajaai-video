@@ -12,6 +12,12 @@ function getMillis(value: any): number {
 
 const ACTIVE_STATUSES = new Set(['queued', 'reserved', 'playing']);
 
+function cleanDisplayText(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  const cleaned = value.trim().replace(/\s+/g, ' ').slice(0, 48);
+  return cleaned || fallback;
+}
+
 function compareQueueItems(a: any, b: any): number {
   const queueDiff = Number(a.queueNumber || 0) - Number(b.queueNumber || 0);
   if (queueDiff !== 0) return queueDiff;
@@ -40,6 +46,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { sessionId, videoId } = body;
+    const customerName = cleanDisplayText(body.customerName, 'Maharaja Customer');
+    const customerLocality = cleanDisplayText(body.customerLocality, 'Thanjavur');
 
 
     if (!sessionId || !videoId) {
@@ -65,6 +73,8 @@ export async function POST(req: NextRequest) {
       screenId: 'maharaja-main',
       videoId,
       sessionId,
+      customerName,
+      customerLocality,
       status: 'queued' as const,
       priority: 1,
       repeatCount: 1,
@@ -93,6 +103,8 @@ export async function POST(req: NextRequest) {
           queueNumber = Number(existingActive.queueNumber || 1);
           reusedExistingQueue = true;
           transaction.update(existingActive.ref, {
+            customerName,
+            customerLocality,
             updatedAt: nowIso
           });
           return;
@@ -132,6 +144,8 @@ export async function POST(req: NextRequest) {
         queueId = existingActive.id;
         queueNumber = existingActive.queueNumber || 1;
         reusedExistingQueue = true;
+        (existingActive as any).customerName = customerName;
+        (existingActive as any).customerLocality = customerLocality;
       } else {
         queueNumber = mockStore.liveQueue.reduce((max: number, item: any) => Math.max(max, Number(item.queueNumber || 0)), 0) + 1;
         mockStore.liveQueue.push({

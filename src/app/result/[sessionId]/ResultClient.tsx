@@ -9,6 +9,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
   const [privacyAction, setPrivacyAction] = useState<'download' | 'live' | null>(null);
   const [publicConsent, setPublicConsent] = useState(true);
+  const [customerName, setCustomerName] = useState('');
+  const [customerLocality, setCustomerLocality] = useState('');
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [liveSuccess, setLiveSuccess] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
@@ -20,6 +22,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [liveQueueStatus, setLiveQueueStatus] = useState<'queued' | 'reserved' | 'playing' | 'completed' | 'playback_failed'>('queued');
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
   const [videoId, setVideoId] = useState<string>(sessionId ? `video_${sessionId}` : '');
   const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>('processing');
   const [videoError, setVideoError] = useState<string | null>(null);
@@ -97,6 +100,9 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         }
 
         if (data.success) {
+          if (data.masterImageUrl) {
+            setMasterImageUrl(data.masterImageUrl);
+          }
           if (data.status === 'ready' || data.status === 'succeeded') {
             setVideoUrl(data.videoUrl);
             setVideoId(data.videoId || `video_${sessionId}`);
@@ -136,15 +142,23 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const executeDownload = () => {
-    if (!videoUrl) return;
+  const downloadAsset = (url: string, filename: string) => {
     const a = document.createElement('a');
-    a.href = videoUrl;
-    const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
-    a.download = `Maharaja-Diwali-${sessionId}.${extension}`;
+    a.href = url;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const executeDownload = () => {
+    if (masterImageUrl) {
+      downloadAsset(masterImageUrl, `Maharaja-Diwali-Master-${sessionId}.jpg`);
+    }
+    if (videoUrl) {
+      const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
+      downloadAsset(videoUrl, `Maharaja-Diwali-Video-${sessionId}.${extension}`);
+    }
   };
 
   const requestPrivacyConfirmation = (action: 'download' | 'live') => {
@@ -168,16 +182,23 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
 
   const handleConfirmGoLive = async () => {
     if (!publicConsent) return;
+    if (!customerName.trim() || !customerLocality.trim()) {
+      setLiveError('Enter customer name and locality for the Maharaja TV greeting.');
+      return;
+    }
     setIsGoingLive(true);
     setLiveError(null);
 
     try {
+      executeDownload();
       const res = await fetch('/api/live/enqueue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          videoId: videoId || `video_${sessionId}`
+          videoId: videoId || `video_${sessionId}`,
+          customerName: customerName.trim(),
+          customerLocality: customerLocality.trim()
         })
       });
 
@@ -269,15 +290,19 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             onClick={() => requestPrivacyConfirmation('download')}
             className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-sm shadow-xl hover:scale-[1.02] transition flex items-center justify-center gap-3"
           >
-            <Download className="w-5 h-5 fill-black" /> DOWNLOAD DIWALI FILM
+            <Download className="w-5 h-5 fill-black" /> DOWNLOAD IMAGE + VIDEO
           </button>
 
           <button
             onClick={() => requestPrivacyConfirmation('live')}
             className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#800A1D] via-[#6e0d1f] to-[#800A1D] border border-[#D4AF37]/50 text-[#F3E5AB] font-bold uppercase tracking-wider text-sm shadow-xl hover:scale-[1.02] transition flex items-center justify-center gap-3"
           >
-            <Tv className="w-5 h-5 text-[#D4AF37]" /> OPEN GO LIVE CONFIRMATION
+            <Tv className="w-5 h-5 text-[#D4AF37]" /> GO LIVE ON MAHARAJA SCREEN
           </button>
+
+          <div className="rounded-xl border border-[#D4AF37]/25 bg-black/45 p-3 text-[11px] leading-5 text-[#F3E5AB]/80">
+            Download saves the approved image and video. Go Live also downloads both files, then sends the video to the showroom TV with festival music and Tamil greeting.
+          </div>
 
           <Link
             href="/create"
@@ -366,11 +391,11 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             </div>
 
             <p className="text-xs text-gray-300 leading-relaxed">
-              This AI video is created only for this Maharaja experience. Use download if the customer wants to keep it. Use Go Live only with customer permission for showroom TV display.
+              This AI image and video are created only for this Maharaja Diwali experience. Download keeps a copy for the customer. Go Live plays it on the showroom TV only after permission.
             </p>
 
             <div className="rounded-xl border border-[#D4AF37]/30 bg-black/60 p-3 text-xs leading-relaxed text-[#F3E5AB]">
-              After the event/test, the store operator can clear generated files from storage for privacy. Do not reuse customer photos or videos without consent.
+              Privacy note: customer photos and generated files can be cleared after delivery. Do not reuse customer media without permission.
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -399,12 +424,33 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="max-w-md w-full maharaja-card p-6 rounded-2xl border border-[#D4AF37]/50 space-y-4">
             <div className="flex items-center gap-2 text-[#D4AF37] font-serif font-bold text-lg uppercase tracking-wider">
-              <ShieldCheck className="w-6 h-6" /> PUBLIC DISPLAY CONSENT
+              <ShieldCheck className="w-6 h-6" /> GO LIVE DETAILS
             </div>
 
             <p className="text-xs text-gray-300 leading-relaxed">
-              Before playing your video on Maharaja&apos;s store display, please confirm public display authorization:
+              Add the customer display name and locality for the right side of the Maharaja TV screen.
             </p>
+
+            <div className="grid grid-cols-1 gap-3">
+              <label className="space-y-1 text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Customer Name</span>
+                <input
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Example: Kavitha"
+                  className="w-full rounded-xl border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37]"
+                />
+              </label>
+              <label className="space-y-1 text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Locality</span>
+                <input
+                  value={customerLocality}
+                  onChange={(e) => setCustomerLocality(e.target.value)}
+                  placeholder="Example: Thiruvaiyaru"
+                  className="w-full rounded-xl border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37]"
+                />
+              </label>
+            </div>
 
             <label className="flex items-start gap-3 p-3 rounded-lg bg-black/60 border border-[#D4AF37]/30 cursor-pointer">
               <input
@@ -414,9 +460,15 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                 className="w-5 h-5 mt-0.5 accent-[#D4AF37]"
               />
               <span className="text-xs text-gray-200">
-                “I agree that my completed AI-generated video may be displayed on Maharaja&apos;s public promotional screens.”
+                I agree that this completed AI-generated video may be displayed on Maharaja&apos;s public promotional screen for this Diwali experience.
               </span>
             </label>
+
+            {liveError && (
+              <div className="rounded-lg border border-red-400/50 bg-red-950/50 p-3 text-xs font-bold text-red-200">
+                {liveError}
+              </div>
+            )}
 
             <div className="flex gap-3 pt-2">
               <button
