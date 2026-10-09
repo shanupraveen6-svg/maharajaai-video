@@ -60,9 +60,9 @@ const masterTemplates: Record<
 
 Failure-proof body rule: the person stays in the same front-facing or slight three-quarter still pose for the full video. No walking, no dancing, no hand movement, no leg movement, no body turn, no fabric stretch, no slimming, no body resizing, no outfit tightening or loosening.
 
-Cinematic hero motion comes from virtual camera, focus, lighting and background only: rack-focus blur reveal, smooth low-angle dolly-in, tiny left-to-right truck, premium lens flare sweep, golden spotlight bloom, diya flicker, festive bokeh shimmer, and distant cracker sparkle. No 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
+Cinematic hero motion uses two safe effects: smooth low-angle dolly-in with tiny left-to-right truck, plus golden spotlight sweep and distant cracker sparkle. Add diya flicker and festive bokeh shimmer. Start sharp immediately. no 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
 
-Motion timing: 0-1.2s exact first frame, rack-focus/blur reveal, natural blink. 1.2-4.8s smooth dolly-in plus tiny truck/parallax with background shimmer. 4.8-6s polished hero portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
+Motion timing: 0-0.5s exact sharp first frame. 0.5-4.8s smooth dolly-in plus tiny truck/parallax with background shimmer, casual tiny head/eye movement and soft smile. 4.8-6s polished hero portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
 
 Camera: one continuous stable front-view shot, full outfit and premium footwear visible when possible, no cuts, no scene change, no crop that hides garment silhouette.
 
@@ -80,9 +80,9 @@ Do not change face, outfit, body, skin tone, footwear, or background. No slipper
 
 Failure-proof modesty rule: the person stays in the same graceful front-facing or slight three-quarter still pose for the full video. No walking, no dancing, no hand movement, no leg movement, no body turn, no fabric stretch, no slimming, no body resizing, no outfit tightening or loosening, no glamour/body-emphasis pose.
 
-Cinematic heroine-style motion comes from virtual camera, focus, lighting and background only: soft rack-focus blur reveal, gentle dolly-in, tiny side truck, premium lens flare sweep, diya flame flicker, golden bokeh shimmer, marigold glow and festive light bloom. No 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
+Cinematic heroine-style motion uses two safe effects: gentle dolly-in with tiny side truck, plus diya flame shimmer and soft gold lens flare. Add marigold glow and festive bokeh. Start sharp immediately. no 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
 
-Motion timing: 0-1.2s exact first frame, rack-focus/blur reveal, natural blink. 1.2-4.8s graceful dolly-in plus tiny side-truck/parallax with diya shimmer. 4.8-6s elegant portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
+Motion timing: 0-0.5s exact sharp first frame. 0.5-4.8s graceful dolly-in plus tiny side-truck/parallax with diya shimmer, casual tiny head/eye movement and soft smile. 4.8-6s elegant portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
 
 Camera: one continuous stable front-view shot, modest full-body framing, footwear visible when possible, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
 
@@ -100,9 +100,9 @@ Do not change face, dress, body, skin tone, footwear, or background. No slippers
 
 Failure-proof child-safe rule: the young customer stays in the same front-facing or slight three-quarter still pose for the full video. No walking, no dancing, no hand movement, no leg movement, no body turn, no adult styling, no fabric stretch, no slimming, no body resizing, no outfit tightening or loosening.
 
-Cinematic motion comes from virtual camera, focus, lighting and background only: outdoor rack-focus blur reveal, smooth wide-to-portrait hero dolly-in, tiny side truck, lantern glow, safe distant fireworks, diya flicker and warm festival bokeh. No 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
+Cinematic motion uses two safe effects: smooth wide-to-portrait dolly-in with tiny side truck, plus lantern glow movement and safe distant fireworks. Add diya flicker and warm festival bokeh. Start sharp immediately. no 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
 
-Motion timing: 0-1.2s exact first frame, rack-focus/blur reveal, natural blink. 1.2-4.8s smooth dolly-in plus tiny truck/parallax with outdoor lights shimmering. 4.8-6s polished outdoor festival portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
+Motion timing: 0-0.5s exact sharp first frame. 0.5-4.8s smooth dolly-in plus tiny truck/parallax with outdoor lights shimmering, casual tiny head/eye movement and soft smile. 4.8-6s polished outdoor festival portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
 
 Camera: one continuous stable front-view shot, full outfit and neat footwear visible when possible, no cuts, no scene change, no crop that hides garment silhouette.
 
@@ -120,9 +120,9 @@ Do not change face, outfit, body, skin tone, footwear, visible diya, or backgrou
 
 Failure-proof child-safe modesty rule: the young customer stays in the same front-facing or slight three-quarter still pose for the full video. No walking, no dancing, no hand movement, no leg movement, no body turn, no adult styling, no glamour pose, no fabric stretch, no slimming, no body resizing, no outfit tightening or loosening.
 
-Cinematic motion comes from virtual camera, focus, lighting and background only: outdoor rack-focus blur reveal, smooth soft dolly-in, tiny side truck, diya flicker, lantern glow, marigold bokeh and warm festival light bloom. No 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
+Cinematic motion uses two safe effects: smooth soft dolly-in with tiny side truck, plus fairy-light glow and marigold/diya shimmer. Add warm festival bokeh. Start sharp immediately. no 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
 
-Motion timing: 0-1.2s exact first frame, rack-focus/blur reveal, natural blink. 1.2-4.8s smooth dolly-in plus tiny truck/parallax with courtyard lights shimmering. 4.8-6s polished outdoor Diwali portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
+Motion timing: 0-0.5s exact sharp first frame. 0.5-4.8s smooth dolly-in plus tiny truck/parallax with courtyard lights shimmering, casual tiny head/eye movement and soft smile. 4.8-6s polished outdoor Diwali portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
 
 Camera: one continuous stable front-view shot, modest full-body framing, footwear visible when possible, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
 

@@ -21,6 +21,7 @@ export default function TvPlayerPage() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const liveAudioStartedRef = useRef(false);
   const pollInFlightRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -79,6 +80,7 @@ export default function TvPlayerPage() {
     if (!videoRef.current || !currentPlayback) return;
 
     setPlaybackError(null);
+    liveAudioStartedRef.current = false;
     try {
       videoRef.current.defaultPlaybackRate = TV_PLAYBACK_RATE;
       videoRef.current.playbackRate = TV_PLAYBACK_RATE;
@@ -86,9 +88,6 @@ export default function TvPlayerPage() {
         audioRef.current.src = currentPlayback.liveAudioUrl || getLiveAudioTrack(currentPlayback.queueId);
         audioRef.current.currentTime = 0;
         audioRef.current.volume = 0.88;
-        audioRef.current.play().catch((audioErr) => {
-          console.warn('Live TV audio playback blocked or failed:', audioErr);
-        });
       }
       await videoRef.current.play();
 
@@ -105,6 +104,17 @@ export default function TvPlayerPage() {
       audioRef.current?.pause();
       setPlaybackError('Autoplay blocked. Press play to start video.');
     }
+  };
+
+  const startLiveAudioWithVisibleVideo = () => {
+    if (!currentPlayback || !audioRef.current || liveAudioStartedRef.current) return;
+    liveAudioStartedRef.current = true;
+    audioRef.current.src = currentPlayback.liveAudioUrl || getLiveAudioTrack(currentPlayback.queueId);
+    audioRef.current.currentTime = 0;
+    audioRef.current.volume = 0.88;
+    audioRef.current.play().catch((audioErr) => {
+      console.warn('Live TV audio playback blocked or failed:', audioErr);
+    });
   };
 
   useEffect(() => {
@@ -228,6 +238,7 @@ export default function TvPlayerPage() {
                     event.currentTarget.defaultPlaybackRate = TV_PLAYBACK_RATE;
                     event.currentTarget.playbackRate = TV_PLAYBACK_RATE;
                   }}
+                  onPlaying={startLiveAudioWithVisibleVideo}
                   onEnded={handleVideoEnded}
                   onError={handleVideoError}
                   className="h-full w-full object-cover"
