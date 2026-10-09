@@ -56,17 +56,17 @@ const masterTemplates: Record<
     poseTitle: 'Indoor Hero Festival Portrait',
     poseDescription: 'Still confident pose, royal indoor Diwali lights, hero-style camera push.',
     masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, borders, silhouette and design. Dress the customer in the selected garment with neat premium festive closed footwear if feet are visible; no slippers, no casual bathroom sandals. Scene: a royal indoor Diwali fashion-store interior with brass lamps, marigold garlands, warm gold spotlights, diyas, soft temple-style glow, subtle festive bokeh and distant crackers visible through an arch/window. Masculine, confident, modest, premium hero portrait, full-body head-to-toe framing. Subject stands still in a natural pose facing camera. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same man, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, and decorations throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same man, face, identity, age, skin tone, hairstyle, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting, and decorations throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
-The body remains still in the same pose for the full video. No walking, no dancing, no hand movement, no leg movement, no full-body turn.
+Failure-proof body rule: the person stays in the same front-facing or slight three-quarter still pose for the full video. No walking, no dancing, no hand movement, no leg movement, no body turn, no fabric stretch, no slimming, no body resizing, no outfit tightening or loosening.
 
-Cinematic hero motion comes from camera and background only: a fast but smooth low-angle fashion-camera push, subtle left-to-right parallax, premium lens flare sweep, golden spotlight bloom, diya flicker, festive bokeh shimmer, and distant cracker sparkle. The person does not move like a ramp walk.
+Cinematic hero motion comes from virtual camera, focus, lighting and background only: rack-focus blur reveal, smooth low-angle dolly-in, tiny left-to-right truck, premium lens flare sweep, golden spotlight bloom, diya flicker, festive bokeh shimmer, and distant cracker sparkle. No 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
 
-Motion timing: 0-1s exact first frame, natural blink. 1-2.8s energetic cinematic camera push with background shimmer. 2.8-4.8s tiny head/eye adjustment toward camera and a casual happy festival smile. 4.8-6s polished hero portrait settle with a clean zoom-out reveal for slow-motion TV playback.
+Motion timing: 0-1.2s exact first frame, rack-focus/blur reveal, natural blink. 1.2-4.8s smooth dolly-in plus tiny truck/parallax with background shimmer. 4.8-6s polished hero portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
 
-Camera: one continuous stable shot, full outfit and premium footwear visible when possible, no cuts, no scene change.
+Camera: one continuous stable front-view shot, full outfit and premium footwear visible when possible, no cuts, no scene change, no crop that hides garment silhouette.
 
-Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
+Audio/mouth: no dialogue, no lip-sync, no mouth speaking. Soft smile only. If audio is supported, use only soft festive instrumental ambience.
 
 Do not change face, outfit, body, skin tone, footwear, or background. No slippers, no casual bathroom sandals, no added handheld prop. No extra limbs, no foot distortion, no flicker.`,
   },
@@ -76,19 +76,19 @@ Do not change face, outfit, body, skin tone, footwear, or background. No slipper
     poseTitle: 'Indoor Graceful Diya Portrait',
     poseDescription: 'Still modest pose, diya palace mood, heroine-style soft camera move.',
     masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design. Dress the customer in the selected garment with neat premium festive footwear if feet are visible; no slippers, no casual bathroom sandals. Scene: an elegant indoor Diwali palace/store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Modest, respectful, family-friendly, no objectifying body focus, no waist/hip/body-part emphasis, no glamour pose, full outfit visible, full-body head-to-toe framing. Subject stands still in a graceful front-facing pose with a calm festival expression. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same woman, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, jewelry, background, lighting, and decorations throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same woman, face, identity, age, skin tone, hairstyle, body size, body proportions, outfit fit, garment color, fabric texture, jewelry, footwear, background, lighting, and decorations throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
-The body remains still in the same graceful pose for the full video. No walking, no dancing, no hand movement, no leg movement, no full-body turn.
+Failure-proof modesty rule: the person stays in the same graceful front-facing or slight three-quarter still pose for the full video. No walking, no dancing, no hand movement, no leg movement, no body turn, no fabric stretch, no slimming, no body resizing, no outfit tightening or loosening, no glamour/body-emphasis pose.
 
-Cinematic heroine-style motion comes from camera and background only: a fast but smooth soft side-dolly, gentle push-in, premium lens flare sweep, diya flame flicker, golden bokeh shimmer, marigold glow and festive light bloom. The person remains calm and does not walk or dance.
+Cinematic heroine-style motion comes from virtual camera, focus, lighting and background only: soft rack-focus blur reveal, gentle dolly-in, tiny side truck, premium lens flare sweep, diya flame flicker, golden bokeh shimmer, marigold glow and festive light bloom. No 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
 
-Motion timing: 0-1s exact first frame, natural blink. 1-2.8s elegant side-dolly and push-in. 2.8-4.8s tiny head/eye adjustment toward camera and a gentle happy festival smile. 4.8-6s elegant portrait settle with a clean zoom-out reveal for slow-motion TV playback.
+Motion timing: 0-1.2s exact first frame, rack-focus/blur reveal, natural blink. 1.2-4.8s graceful dolly-in plus tiny side-truck/parallax with diya shimmer. 4.8-6s elegant portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
 
-Camera: one continuous stable shot, modest full-body framing, premium footwear visible when possible, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
+Camera: one continuous stable front-view shot, modest full-body framing, footwear visible when possible, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
 
-Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
+Audio/mouth: no dialogue, no lip-sync, no mouth speaking. Soft smile only. If audio is supported, use only soft festive instrumental ambience.
 
-Do not change face, dress, body, skin tone, footwear, or background. No slippers, no casual bathroom sandals, no added handheld prop. No extra limbs, no foot distortion, no flicker, no glamour/body-emphasis pose.`,
+Do not change face, dress, body, skin tone, footwear, or background. No slippers, no casual bathroom sandals, no added handheld prop. No extra limbs, no foot distortion, no flicker.`,
   },
   boy: {
     title: 'Boy Template',
@@ -96,17 +96,17 @@ Do not change face, dress, body, skin tone, footwear, or background. No slippers
     poseTitle: 'Outdoor Festival Lights Portrait',
     poseDescription: 'Still cheerful pose, courtyard lights, safe festive sparkle.',
     masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment with neat festive footwear if feet are visible; no slippers, no casual bathroom sandals. Scene: a wholesome outdoor Diwali courtyard/temple-street setting with lantern strings, marigold decor, safe distant fireworks, warm fairy lights, diyas on the ground, and festive golden evening glow. Modest, family-friendly, full-body head-to-toe framing. Subject stands still in a cheerful natural pose. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young male customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and any visible diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young male customer, face, identity, age, skin tone, hairstyle, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting, decorations, and any visible diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
-The body remains still in the same pose for the full video. No walking, no dancing, no hand movement, no leg movement, no full-body turn.
+Failure-proof child-safe rule: the young customer stays in the same front-facing or slight three-quarter still pose for the full video. No walking, no dancing, no hand movement, no leg movement, no body turn, no adult styling, no fabric stretch, no slimming, no body resizing, no outfit tightening or loosening.
 
-Cinematic motion comes from camera and background only: fast but smooth outdoor wide-to-portrait hero push-in, subtle side parallax, lantern glow, safe distant fireworks, diya flicker and warm festival bokeh. The young customer stays still and natural.
+Cinematic motion comes from virtual camera, focus, lighting and background only: outdoor rack-focus blur reveal, smooth wide-to-portrait hero dolly-in, tiny side truck, lantern glow, safe distant fireworks, diya flicker and warm festival bokeh. No 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
 
-Motion timing: 0-1s exact first frame, natural blink. 1-2.8s camera push-in from slightly wide to hero portrait. 2.8-4.8s tiny head/eye adjustment toward camera and a controlled cheerful smile. 4.8-6s polished outdoor festival portrait settle with a clean zoom-out reveal for slow-motion TV playback.
+Motion timing: 0-1.2s exact first frame, rack-focus/blur reveal, natural blink. 1.2-4.8s smooth dolly-in plus tiny truck/parallax with outdoor lights shimmering. 4.8-6s polished outdoor festival portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
 
-Camera: one continuous stable shot, full outfit and neat footwear visible when possible, no cuts, no scene change.
+Camera: one continuous stable front-view shot, full outfit and neat footwear visible when possible, no cuts, no scene change, no crop that hides garment silhouette.
 
-Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
+Audio/mouth: no dialogue, no lip-sync, no mouth speaking. Soft smile only. If audio is supported, use only soft festive instrumental ambience.
 
 Do not change face, outfit, body, skin tone, footwear, visible diya, or background. No slippers, no casual bathroom sandals. Do not add or duplicate a diya. No extra limbs, no foot distortion, no flicker.`,
   },
@@ -116,19 +116,19 @@ Do not change face, outfit, body, skin tone, footwear, visible diya, or backgrou
     poseTitle: 'Outdoor Diwali Courtyard Portrait',
     poseDescription: 'Still sweet pose, courtyard diyas, princess-like festival glow.',
     masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment with neat festive footwear if feet are visible; no slippers, no casual bathroom sandals. Scene: a wholesome outdoor Diwali courtyard/garden/temple-light setting with glowing diyas, lantern strings, marigold flowers, soft rangoli, warm fairy lights and gentle golden festival atmosphere. Modest, family-friendly, no waist/hip/body-part emphasis, no glamour pose, full-body head-to-toe framing. Subject stands or sits still in a simple respectful festive pose. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
-    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young female customer, face, identity, skin tone, hairstyle, body shape, outfit, garment color, fabric, background, lighting, decorations, and any visible diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
+    videoPrompt: `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Use the image as the exact first frame. Preserve the exact same young female customer, face, identity, age, skin tone, hairstyle, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting, decorations, and any visible diya throughout. Do not add text, captions, signs, letters, logos, banners or greeting words inside the video.
 
-The body remains still in the same pose for the full video. No walking, no dancing, no hand movement, no leg movement, no full-body turn.
+Failure-proof child-safe modesty rule: the young customer stays in the same front-facing or slight three-quarter still pose for the full video. No walking, no dancing, no hand movement, no leg movement, no body turn, no adult styling, no glamour pose, no fabric stretch, no slimming, no body resizing, no outfit tightening or loosening.
 
-Cinematic motion comes from camera and background only: fast but smooth outdoor princess-style push-in, subtle side parallax, diya flicker, lantern glow, marigold bokeh and warm festival light bloom. The young customer stays still and natural.
+Cinematic motion comes from virtual camera, focus, lighting and background only: outdoor rack-focus blur reveal, smooth soft dolly-in, tiny side truck, diya flicker, lantern glow, marigold bokeh and warm festival light bloom. No 180 orbit, no 360 orbit, no fast spin, no dutch roll, no snap zoom, no back view.
 
-Motion timing: 0-1s exact first frame, natural blink. 1-2.8s camera push-in with courtyard lights shimmering. 2.8-4.8s tiny head/eye adjustment toward camera and a small sweet festival smile. 4.8-6s polished outdoor Diwali portrait settle with a clean zoom-out reveal for slow-motion TV playback.
+Motion timing: 0-1.2s exact first frame, rack-focus/blur reveal, natural blink. 1.2-4.8s smooth dolly-in plus tiny truck/parallax with courtyard lights shimmering. 4.8-6s polished outdoor Diwali portrait settle with a clean slow zoom-out reveal for TV slow-motion playback.
 
-Camera: one continuous stable shot, modest full-body framing, neat footwear visible when possible, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
+Camera: one continuous stable front-view shot, modest full-body framing, footwear visible when possible, no close-up on waist, hip, chest, legs, or any body part, no cuts, no scene change.
 
-Audio/mouth: no dialogue, no lip-sync, no mouth speaking. If audio is supported, use only soft festive instrumental ambience.
+Audio/mouth: no dialogue, no lip-sync, no mouth speaking. Soft smile only. If audio is supported, use only soft festive instrumental ambience.
 
-Do not change face, outfit, body, skin tone, footwear, visible diya, or background. No slippers, no casual bathroom sandals. Do not add or duplicate a diya. No extra limbs, no foot distortion, no flicker, no glamour/body-emphasis pose.`,
+Do not change face, outfit, body, skin tone, footwear, visible diya, or background. No slippers, no casual bathroom sandals. Do not add or duplicate a diya. No extra limbs, no foot distortion, no flicker.`,
   },
 };
 
