@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Shirt,
   Sparkles,
-  Upload,
   User,
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
@@ -36,7 +35,6 @@ type PersonAnalysis = {
 };
 
 type VideoPhase = 'idle' | 'starting' | 'rendering' | 'saving' | 'ready' | 'failed';
-type CreateMode = 'proof' | 'test';
 type MasterTemplateId = 'men' | 'women' | 'boy' | 'girl';
 
 const masterTemplates: Record<
@@ -136,40 +134,6 @@ async function parseJsonResponse(res: Response) {
   return await res.json();
 }
 
-function xhrUploadFile(
-  url: string,
-  method: string,
-  headers: Record<string, string>,
-  body: XMLHttpRequestBodyInit | File | Blob | FormData,
-  onProgress: (percent: number) => void
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open(method, url, true);
-
-    Object.entries(headers).forEach(([key, value]) => {
-      xhr.setRequestHeader(key, value);
-    });
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with HTTP ${xhr.status}`));
-      }
-    };
-    xhr.onerror = () => reject(new Error('Network failure uploading file.'));
-    xhr.send(body);
-  });
-}
-
-const garmentLabels = ['Front View', 'Detail View', 'Additional View'];
 const aiPhotoMaxDimension = 1152;
 const aiPhotoQuality = 0.72;
 
@@ -259,7 +223,6 @@ const recentLogs = [
 export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
-  const [mode, setMode] = useState<CreateMode>('test');
   const [selectedCategory, setSelectedCategory] = useState<MasterTemplateId | null>(null);
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
@@ -270,20 +233,17 @@ export default function CreatePage() {
   const [isGeneratingMaster, setIsGeneratingMaster] = useState(false);
   const [masterGenerationMessage, setMasterGenerationMessage] = useState<string | null>(null);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
-  const [masterApproved, setMasterApproved] = useState(false);
 
   const [videoPhase, setVideoPhase] = useState<VideoPhase>('idle');
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isUploadingManualMaster, setIsUploadingManualMaster] = useState(false);
 
   const activeGarmentPhotos = useMemo(() => garmentPhotos.filter(Boolean) as string[], [garmentPhotos]);
   const hasRequiredPhotos = activeGarmentPhotos.length >= 1 && !!personPhoto;
-  const canGenerateMaster = mode === 'test' && hasRequiredPhotos && !!selectedCategory;
-  const canUploadManualMaster = mode === 'proof' && !!selectedCategory;
-  const canGenerateVideo = !!selectedCategory && !!masterImageUrl && masterApproved && videoPhase === 'idle';
+  const canGenerateMaster = hasRequiredPhotos && !!selectedCategory;
+  const canGenerateVideo = !!selectedCategory && !!masterImageUrl && videoPhase === 'idle';
   const selectedMasterTemplate = selectedCategory ? masterTemplates[selectedCategory] : masterTemplates.women;
 
   useEffect(() => {
@@ -345,18 +305,11 @@ export default function CreatePage() {
 
   function resetGeneratedOutputs() {
     setMasterImageUrl(null);
-    setMasterApproved(false);
     setMasterGenerationMessage(null);
     setVideoPhase('idle');
     setVideoProgress(0);
     setVideoError(null);
     setJobId(null);
-  }
-
-  function selectMode(nextMode: CreateMode) {
-    setMode(nextMode);
-    setError(null);
-    resetGeneratedOutputs();
   }
 
   function selectCategory(nextCategory: MasterTemplateId) {
@@ -371,17 +324,28 @@ export default function CreatePage() {
     }
   }
 
-  async function handleGarmentUpload(e: React.ChangeEvent<HTMLInputElement>, slotIndex: number) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleGarmentUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    e.currentTarget.value = '';
+    if (!files.length) return;
 
+    if (files.length > 3) {
+      setError('Please select only up to 3 garment photos. Retry again with 3 photos or fewer.');
+      return;
+    }
+
+    setError(null);
     try {
-      const { dataUrl } = await compressImage(file, aiPhotoMaxDimension, aiPhotoQuality);
-      const nextPhotos = [...garmentPhotos];
-      nextPhotos[slotIndex] = dataUrl;
+      const compressed = await Promise.all(
+        files.map((file) => compressImage(file, aiPhotoMaxDimension, aiPhotoQuality))
+      );
+      const nextPhotos: (string | null)[] = [
+        compressed[0]?.dataUrl || null,
+        compressed[1]?.dataUrl || null,
+        compressed[2]?.dataUrl || null,
+      ];
       setGarmentPhotos(nextPhotos);
-      setMasterImageUrl(null);
-      setMasterApproved(false);
+      resetGeneratedOutputs();
       setLocalGarmentReady(nextPhotos);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Garment upload failed.');
@@ -398,10 +362,6 @@ export default function CreatePage() {
       setPersonPhoto(dataUrl);
       resetGeneratedOutputs();
       setLocalPersonReady();
-
-      if (mode === 'proof' && selectedCategory) {
-        await registerManualMasterImage(file, dataUrl, 'Uploaded ready AI image from customer photo slot. Master image approved automatically.');
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Customer photo analysis failed.');
     }
@@ -411,7 +371,6 @@ export default function CreatePage() {
     if (!canGenerateMaster || !personPhoto || !selectedCategory) return;
 
     setIsGeneratingMaster(true);
-    setMasterApproved(false);
     setError(null);
     setMasterGenerationMessage('Sending compressed photos to Gemini image generation...');
 
@@ -446,7 +405,7 @@ export default function CreatePage() {
       if (!data.success || !data.masterImageUrl) {
         throw new Error(data.error || 'Gemini returned no AI image. Check the image model and billing setup.');
       }
-      setMasterGenerationMessage('AI image generated. Review and approve it.');
+      setMasterGenerationMessage('AI image generated. Ready to generate Diwali video.');
       setMasterImageUrl(data.masterImageUrl);
     } catch (err) {
       const message = err instanceof Error && err.name === 'AbortError'
@@ -458,55 +417,6 @@ export default function CreatePage() {
       setError(`AI image generation failed: ${message}`);
     } finally {
       setIsGeneratingMaster(false);
-    }
-  }
-
-  async function registerManualMasterImage(file: File, dataUrl: string, successMessage: string) {
-    setIsUploadingManualMaster(true);
-    setError(null);
-    try {
-      const contentType = file.type || 'image/jpeg';
-      const signedRes = await fetch('/api/upload/signed-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, assetType: 'master', contentType }),
-      });
-      const signedData = await parseJsonResponse(signedRes);
-      if (!signedData.success || !signedData.directUpload || !signedData.uploadUrl) {
-        throw new Error('Firebase direct master image upload is unavailable.');
-      }
-
-      await xhrUploadFile(signedData.uploadUrl, 'PUT', { 'Content-Type': contentType }, file, () => {});
-
-      const completeRes = await fetch('/api/upload/master-complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          storagePath: signedData.storagePath || `sessions/${sessionId}/master/master.jpg`,
-          masterImageUrl: dataUrl,
-        }),
-      });
-      const completeData = await parseJsonResponse(completeRes);
-      setMasterImageUrl(completeData.masterImageUrl || dataUrl);
-      setMasterApproved(true);
-      setMasterGenerationMessage(successMessage);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Manual master image upload failed.');
-    } finally {
-      setIsUploadingManualMaster(false);
-    }
-  }
-
-  async function handleManualMasterUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !selectedCategory) return;
-
-    try {
-      const { dataUrl } = await compressImage(file, 1600, 0.85);
-      await registerManualMasterImage(file, dataUrl, 'Uploaded AI image registered. Ready for 6-second video generation.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Manual master image upload failed.');
     }
   }
 
@@ -582,7 +492,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
   }
 
   return (
-    <main className="min-h-screen bg-[#FDFCF9] text-slate-900 p-4 sm:p-6 lg:p-10 font-sans max-w-7xl mx-auto pb-24 space-y-8">
+    <main className="min-h-screen bg-[#FDFCF9] text-slate-900 p-3 sm:p-5 lg:p-8 font-sans max-w-5xl mx-auto pb-24 space-y-5">
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-[#12070B] p-5 md:p-6 rounded-xl border border-amber-400/35 shadow-sm text-white">
         <div>
           <p className="text-[11px] text-amber-300 font-bold tracking-[0.24em] uppercase">
@@ -600,7 +510,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </div>
       </header>
 
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3">
         {productTabs.map((tab, index) => {
           const active = index === 1;
           return (
@@ -642,7 +552,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
             {selectedCategory ? `${masterTemplates[selectedCategory].title} locked` : 'Choose first'}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3">
           {categoryOptions.map((option) => {
             const active = option.id === selectedCategory;
             return (
@@ -677,37 +587,6 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => selectMode('proof')}
-            className={`rounded-xl border p-4 text-left transition ${
-              mode === 'proof'
-                ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-sm'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'
-            }`}
-          >
-            <p className="text-sm font-bold uppercase tracking-wider">Upload Ready AI Image</p>
-            <p className="mt-1 text-xs font-semibold text-slate-500">
-              Skip Gemini image cost. Upload your generated master image, then generate video.
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => selectMode('test')}
-            className={`rounded-xl border p-4 text-left transition ${
-              mode === 'test'
-                ? 'border-[#6e0d1f] bg-[#fff7e6] text-[#6e0d1f] shadow-sm'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-amber-300'
-            }`}
-          >
-            <p className="text-sm font-bold uppercase tracking-wider">Generate AI Image</p>
-            <p className="mt-1 text-xs font-semibold text-slate-500">
-              Use Gemini image API from garment photos and customer photo.
-            </p>
-          </button>
-        </div>
       </section>
 
       {error && (
@@ -717,7 +596,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         <section className="space-y-6 p-6 md:p-8 rounded-2xl bg-white border border-slate-200 shadow-md">
           <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
             <Shirt className="w-6 h-6 text-[#6e0d1f]" />
@@ -727,28 +606,40 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           </div>
 
           <div className="space-y-4">
-            <p className="text-xs font-mono font-bold text-amber-800 uppercase">Garment photos, up to 3</p>
-            <div className="grid grid-cols-3 gap-3">
-              {garmentLabels.map((label, index) => (
-                <div key={label} className="space-y-2 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-                  <p className="text-[10px] font-mono text-slate-500 font-bold uppercase truncate">{label}</p>
-                  {garmentPhotos[index] ? (
-                    <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden border-2 border-amber-400 bg-black">
-                      <img src={garmentPhotos[index]!} alt={label} className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="aspect-[3/4] w-full rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-white text-xs text-slate-400 font-mono font-bold">
-                      SLOT {index + 1}
-                    </div>
-                  )}
-                  <label className="w-full py-2 px-1 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer hover:bg-[#800A1D]">
-                    <Camera className="w-3.5 h-3.5 text-amber-300" />
-                    Upload
-                    <input type="file" accept="image/*" onChange={(e) => handleGarmentUpload(e, index)} className="hidden" />
-                  </label>
-                </div>
-              ))}
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-mono font-bold text-amber-800 uppercase">Garment photos</p>
+              <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                Select up to 3
+              </span>
             </div>
+
+            <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-amber-300 bg-[#fffaf0] p-4 transition hover:bg-amber-50">
+              <div className="grid grid-cols-3 gap-3">
+                {[0, 1, 2].map((index) => (
+                  <div
+                    key={index}
+                    className="aspect-[3/4] overflow-hidden rounded-xl border border-amber-200 bg-white flex items-center justify-center"
+                  >
+                    {garmentPhotos[index] ? (
+                      <img src={garmentPhotos[index]!} alt={`Garment ${index + 1}`} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-center text-slate-400">
+                        <ImageIcon className="h-6 w-6" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Dress {index + 1}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-[#6e0d1f] px-4 py-3 text-xs font-bold uppercase tracking-wider text-white">
+                <Camera className="h-4 w-4 text-amber-300" />
+                Upload 1 to 3 dress photos
+              </div>
+              <input type="file" accept="image/*" multiple onChange={handleGarmentUpload} className="hidden" />
+            </label>
+            <p className="text-[11px] font-semibold text-slate-500">
+              Single upload picker. If more than 3 images are selected, retry with 3.
+            </p>
           </div>
 
           <div className="space-y-4 pt-4 border-t border-slate-100">
@@ -763,18 +654,11 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
                   <User className="w-10 h-10 text-slate-400" />
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3 flex-1">
-                <label className="py-3.5 px-3 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer hover:bg-[#800A1D]">
-                  <Camera className="w-4 h-4 text-amber-300" />
-                  Take Photo
-                  <input type="file" accept="image/*" capture="user" onChange={handlePersonUpload} className="hidden" />
-                </label>
-                <label className="py-3.5 px-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-800 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-200">
-                  <ImageIcon className="w-4 h-4 text-slate-600" />
-                  Gallery
-                  <input type="file" accept="image/*" onChange={handlePersonUpload} className="hidden" />
-                </label>
-              </div>
+              <label className="py-3.5 px-3 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex flex-1 items-center justify-center gap-2 cursor-pointer hover:bg-[#800A1D]">
+                <User className="w-4 h-4 text-amber-300" />
+                Upload person photo
+                <input type="file" accept="image/*" onChange={handlePersonUpload} className="hidden" />
+              </label>
             </div>
           </div>
 
@@ -803,30 +687,18 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
             <Sparkles className="w-6 h-6 text-[#6e0d1f]" />
             <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-              Master Image Approval
+              AI Image Generation
             </h2>
           </div>
 
-          {mode === 'proof' ? (
-            <label
-              className={`w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 ${
-                !canUploadManualMaster || isUploadingManualMaster ? 'opacity-50 pointer-events-none' : 'cursor-pointer hover:brightness-110'
-              }`}
-            >
-              {isUploadingManualMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5 text-amber-200" />}
-              Upload Ready AI Image
-              <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleManualMasterUpload} disabled={!canUploadManualMaster || isUploadingManualMaster} className="hidden" />
-            </label>
-          ) : (
-            <button
-              onClick={generateMasterImage}
-              disabled={!canGenerateMaster || isGeneratingMaster}
-              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
-            >
-              {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
-              {masterImageUrl ? 'Regenerate AI Image' : 'Generate AI Image'}
-            </button>
-          )}
+          <button
+            onClick={generateMasterImage}
+            disabled={!canGenerateMaster || isGeneratingMaster}
+            className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
+          >
+            {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
+            {masterImageUrl ? 'Regenerate AI Image' : 'Generate AI Image'}
+          </button>
 
           {masterGenerationMessage && (
             <div className={`rounded-xl border p-3 text-xs font-bold ${
@@ -849,16 +721,9 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
                 </div>
               </div>
 
-              <button
-                onClick={() => setMasterApproved(true)}
-                className={`w-full py-4 rounded-2xl border font-bold uppercase tracking-wider text-xs transition ${
-                  masterApproved
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'bg-white border-[#6e0d1f] text-[#6e0d1f] hover:bg-amber-50'
-                }`}
-              >
-                {masterApproved ? 'Master Image Approved' : 'Approve Master Image'}
-              </button>
+              <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-center text-xs font-bold uppercase tracking-wider text-emerald-800">
+                AI image ready. Generate Diwali video below.
+              </div>
             </div>
           ) : (
             <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 text-slate-400 font-mono text-xs">
@@ -876,13 +741,9 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
             <div>
               <h2 className="font-serif font-bold uppercase tracking-wider text-lg text-[#F3E5AB]">6-Second Video Generation</h2>
               <p className="text-xs text-amber-100/80">
-                {mode === 'proof'
-                  ? selectedCategory
-                    ? `${masterTemplates[selectedCategory].title} prompt locked · uploaded AI image to video`
-                    : 'Select Men, Women, Boy, or Girl before video generation'
-                  : selectedCategory
-                    ? `${masterTemplates[selectedCategory].title} prompt locked · AI 6-second video generation`
-                    : 'Select Men, Women, Boy, or Girl before generation'}
+                {selectedCategory
+                  ? `${masterTemplates[selectedCategory].title} prompt locked · AI 6-second video generation`
+                  : 'Select Men, Women, Boy, or Girl before generation'}
               </p>
             </div>
           </div>
@@ -891,7 +752,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
             disabled={!canGenerateVideo}
             className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
           >
-            Generate 6-sec Video <ArrowRight className="w-4 h-4" />
+            Generate Diwali Video <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
