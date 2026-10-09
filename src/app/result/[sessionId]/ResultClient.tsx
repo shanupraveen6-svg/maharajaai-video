@@ -167,22 +167,49 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const downloadAsset = (url: string, filename: string) => {
+  const fetchDownloadBlob = async (url: string) => {
+    try {
+      const directRes = await fetch(url);
+      if (directRes.ok) return await directRes.blob();
+    } catch {
+      // Cross-origin Firebase signed URLs often block browser-side blob reads.
+    }
+
+    const proxyRes = await fetch('/api/download/asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+
+    if (!proxyRes.ok) {
+      const payload = await proxyRes.json().catch(() => null);
+      throw new Error(payload?.error || 'Download failed.');
+    }
+
+    return await proxyRes.blob();
+  };
+
+  const downloadAsset = async (url: string, filename: string) => {
+    const blob = await fetchDownloadBlob(url);
+    const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = objectUrl;
     a.download = filename;
+    a.rel = 'noopener';
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
   };
 
-  const executeDownload = () => {
+  const executeDownload = async () => {
     if (masterImageUrl) {
-      downloadAsset(masterImageUrl, `Maharaja-Diwali-Master-${sessionId}.jpg`);
+      await downloadAsset(masterImageUrl, `Maharaja-Diwali-Master-${sessionId}.jpg`);
     }
     if (videoUrl) {
       const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
-      downloadAsset(videoUrl, `Maharaja-Diwali-Video-${sessionId}.${extension}`);
+      await downloadAsset(videoUrl, `Maharaja-Diwali-Video-${sessionId}.${extension}`);
     }
   };
 
@@ -197,7 +224,9 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     setPrivacyAction(null);
 
     if (action === 'download') {
-      executeDownload();
+      executeDownload().catch((err) => {
+        setLiveError(err instanceof Error ? err.message : 'Download failed.');
+      });
     }
 
     if (action === 'live') {
@@ -216,7 +245,9 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
 
     try {
       pausePreviewAudio();
-      executeDownload();
+      const autoDownloadError = await executeDownload()
+        .then(() => null)
+        .catch((err) => (err instanceof Error ? err.message : 'Auto-download failed.'));
       const res = await fetch('/api/live/enqueue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -240,6 +271,9 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         setLiveSuccess(true);
         setShowThankYou(true);
         setShowLiveConsent(false);
+        if (autoDownloadError) {
+          setLiveError(`Sent to TV. ${autoDownloadError} Use Download again if the files did not save.`);
+        }
       } else {
         setLiveError(data.error || 'Failed to enqueue video');
       }

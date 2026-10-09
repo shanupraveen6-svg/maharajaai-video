@@ -5,6 +5,7 @@ import { AlertCircle, Sparkles, Volume2 } from 'lucide-react';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 
 const TV_PLAYBACK_RATE = 0.66;
+const SOURCE_SECONDS_FOR_LIVE = 6;
 
 export default function TvPlayerPage() {
   const [audioUnlocked, setAudioUnlocked] = useState(false);
@@ -24,6 +25,7 @@ export default function TvPlayerPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentPlaybackRef = useRef<PlaybackItem | null>(null);
   const liveAudioStartedRef = useRef(false);
+  const loopInProgressRef = useRef(false);
   const completedQueueIdsRef = useRef<Set<string>>(new Set());
   const pollInFlightRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,6 +113,7 @@ export default function TvPlayerPage() {
 
     setPlaybackError(null);
     liveAudioStartedRef.current = false;
+    loopInProgressRef.current = false;
     try {
       videoRef.current.defaultPlaybackRate = TV_PLAYBACK_RATE;
       videoRef.current.playbackRate = TV_PLAYBACK_RATE;
@@ -137,15 +140,36 @@ export default function TvPlayerPage() {
     }
   };
 
-  const startLiveAudioWithVisibleVideo = () => {
-    if (!currentPlayback || !audioRef.current || liveAudioStartedRef.current) return;
+  const startLiveAudioWithVisibleVideo = (video?: HTMLVideoElement) => {
+    const activeVideo = video || videoRef.current;
+    if (!currentPlayback || !audioRef.current || !activeVideo || liveAudioStartedRef.current) return;
+    if (activeVideo.readyState < 2 || activeVideo.currentTime < 0.08 || activeVideo.paused) return;
     liveAudioStartedRef.current = true;
-    audioRef.current.src = currentPlayback.liveAudioUrl || getLiveAudioTrack(currentPlayback.queueId);
-    audioRef.current.currentTime = 0;
-    audioRef.current.volume = 0.88;
-    audioRef.current.play().catch((audioErr) => {
-      console.warn('Live TV audio playback blocked or failed:', audioErr);
+    window.requestAnimationFrame(() => {
+      if (!audioRef.current || !videoRef.current || videoRef.current.paused) return;
+      audioRef.current.src = currentPlayback.liveAudioUrl || getLiveAudioTrack(currentPlayback.queueId);
+      audioRef.current.currentTime = Math.min(videoRef.current.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
+      audioRef.current.volume = 0.88;
+      audioRef.current.play().catch((audioErr) => {
+        console.warn('Live TV audio playback blocked or failed:', audioErr);
+      });
     });
+  };
+
+  const handleVideoProgress = () => {
+    const video = videoRef.current;
+    if (!video || !currentPlayback) return;
+
+    startLiveAudioWithVisibleVideo(video);
+
+    const duration = Number.isFinite(video.duration) && video.duration > 0
+      ? Math.min(video.duration, SOURCE_SECONDS_FOR_LIVE)
+      : SOURCE_SECONDS_FOR_LIVE;
+
+    if (video.currentTime >= duration - 0.05 && !loopInProgressRef.current) {
+      loopInProgressRef.current = true;
+      void handleVideoEnded();
+    }
   };
 
   useEffect(() => {
@@ -168,7 +192,11 @@ export default function TvPlayerPage() {
       videoRef.current.play().catch((err) => {
         console.error('Failed to loop current TV video:', err);
         setPlaybackError('Autoplay blocked. Press play to continue video.');
+      }).finally(() => {
+        loopInProgressRef.current = false;
       });
+    } else {
+      loopInProgressRef.current = false;
     }
   };
 
@@ -265,7 +293,8 @@ export default function TvPlayerPage() {
                     event.currentTarget.defaultPlaybackRate = TV_PLAYBACK_RATE;
                     event.currentTarget.playbackRate = TV_PLAYBACK_RATE;
                   }}
-                  onPlaying={startLiveAudioWithVisibleVideo}
+                  onPlaying={(event) => startLiveAudioWithVisibleVideo(event.currentTarget)}
+                  onTimeUpdate={handleVideoProgress}
                   onEnded={handleVideoEnded}
                   onError={handleVideoError}
                   className="h-full w-full object-cover"
