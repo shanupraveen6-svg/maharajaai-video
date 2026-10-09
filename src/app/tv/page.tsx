@@ -19,11 +19,18 @@ export default function TvPlayerPage() {
   } | null>(null);
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
 
+  type PlaybackItem = NonNullable<typeof currentPlayback>;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentPlaybackRef = useRef<PlaybackItem | null>(null);
   const liveAudioStartedRef = useRef(false);
+  const completedQueueIdsRef = useRef<Set<string>>(new Set());
   const pollInFlightRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    currentPlaybackRef.current = currentPlayback;
+  }, [currentPlayback]);
 
   useEffect(() => {
     return () => {
@@ -32,13 +39,30 @@ export default function TvPlayerPage() {
     };
   }, []);
 
+  async function notifyPlaybackComplete(playback: PlaybackItem) {
+    if (completedQueueIdsRef.current.has(playback.queueId)) return;
+    completedQueueIdsRef.current.add(playback.queueId);
+    try {
+      await fetch('/api/live/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          queueId: playback.queueId,
+          reservationId: playback.reservationId,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to notify completion:', err);
+    }
+  }
+
   useEffect(() => {
-    if (!audioUnlocked || isPlayingVideo) return;
+    if (!audioUnlocked) return;
 
     let isMounted = true;
 
     const pollNextVideo = async () => {
-      if (pollInFlightRef.current || isPlayingVideo) return;
+      if (pollInFlightRef.current) return;
       pollInFlightRef.current = true;
 
       try {
@@ -48,6 +72,12 @@ export default function TvPlayerPage() {
         const data = await res.json();
 
         if (data.status === 'play' && data.videoUrl) {
+          const previousPlayback = currentPlaybackRef.current;
+          if (previousPlayback && previousPlayback.queueId !== data.queueId) {
+            await notifyPlaybackComplete(previousPlayback);
+          }
+          audioRef.current?.pause();
+          liveAudioStartedRef.current = false;
           setCurrentPlayback({
             queueId: data.queueId,
             reservationId: data.reservationId,
@@ -62,7 +92,7 @@ export default function TvPlayerPage() {
         console.warn('TV polling network error, retrying:', err);
       } finally {
         pollInFlightRef.current = false;
-        if (isMounted && !isPlayingVideo) {
+        if (isMounted) {
           timeoutRef.current = setTimeout(pollNextVideo, 2000);
         }
       }
@@ -74,7 +104,7 @@ export default function TvPlayerPage() {
       isMounted = false;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [audioUnlocked, isPlayingVideo]);
+  }, [audioUnlocked]);
 
   const startVideoPlayback = async () => {
     if (!videoRef.current || !currentPlayback) return;
@@ -84,6 +114,7 @@ export default function TvPlayerPage() {
     try {
       videoRef.current.defaultPlaybackRate = TV_PLAYBACK_RATE;
       videoRef.current.playbackRate = TV_PLAYBACK_RATE;
+      videoRef.current.currentTime = 0;
       if (audioRef.current) {
         audioRef.current.src = currentPlayback.liveAudioUrl || getLiveAudioTrack(currentPlayback.queueId);
         audioRef.current.currentTime = 0;
@@ -127,21 +158,17 @@ export default function TvPlayerPage() {
     if (!currentPlayback) return;
     audioRef.current?.pause();
 
-    try {
-      await fetch('/api/live/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          queueId: currentPlayback.queueId,
-          reservationId: currentPlayback.reservationId,
-        }),
+    await notifyPlaybackComplete(currentPlayback);
+
+    liveAudioStartedRef.current = false;
+    setPlaybackError(null);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.playbackRate = TV_PLAYBACK_RATE;
+      videoRef.current.play().catch((err) => {
+        console.error('Failed to loop current TV video:', err);
+        setPlaybackError('Autoplay blocked. Press play to continue video.');
       });
-    } catch (err) {
-      console.error('Failed to notify completion:', err);
-    } finally {
-      setIsPlayingVideo(false);
-      setCurrentPlayback(null);
-      setPlaybackError(null);
     }
   };
 
@@ -272,11 +299,8 @@ export default function TvPlayerPage() {
 
           <section className="flex h-full flex-col justify-center">
             <div className="border-l border-[#F6D36A]/35 pl-10">
-              <p className="text-sm font-black uppercase tracking-[0.32em] text-[#F6D36A]/85">
-                தீபாவளி வாழ்த்து
-              </p>
               <h1
-                className="mt-6 text-[clamp(3.4rem,5.6vw,6.3rem)] font-black leading-[1.04] text-[#FFF1A8] [text-shadow:0_5px_22px_rgba(0,0,0,0.55)]"
+                className="text-[clamp(3.4rem,5.6vw,6.3rem)] font-black leading-[1.04] text-[#FFF1A8] [text-shadow:0_5px_22px_rgba(0,0,0,0.55)]"
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
                 இனிய
@@ -299,10 +323,6 @@ export default function TvPlayerPage() {
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
                 {currentPlayback?.customerLocality || 'Thanjavur'}
-              </p>
-
-              <p className="mt-10 max-w-md text-sm font-bold uppercase tracking-[0.22em] text-[#FFF1A8]/70">
-                Maharaja Ready-Made Store
               </p>
             </div>
           </section>

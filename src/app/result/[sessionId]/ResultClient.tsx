@@ -2,12 +2,13 @@
 
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Download, Tv, Sparkles, CheckCircle2, RotateCcw, Flame, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
 import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
 
 export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [showLiveConsent, setShowLiveConsent] = useState(false);
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
+  const [showThankYou, setShowThankYou] = useState(false);
   const [privacyAction, setPrivacyAction] = useState<'download' | 'live' | null>(null);
   const [publicConsent, setPublicConsent] = useState(true);
   const [customerName, setCustomerName] = useState('');
@@ -214,6 +215,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     setLiveError(null);
 
     try {
+      pausePreviewAudio();
       executeDownload();
       const res = await fetch('/api/live/enqueue', {
         method: 'POST',
@@ -236,6 +238,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         setLiveQueueStatus('queued');
         setCountdownSeconds(5);
         setLiveSuccess(true);
+        setShowThankYou(true);
         setShowLiveConsent(false);
       } else {
         setLiveError(data.error || 'Failed to enqueue video');
@@ -344,67 +347,6 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           </Link>
         </div>
 
-        {/* Success / Error Banners */}
-        {liveSuccess && (
-          <div className="p-4 rounded-xl bg-emerald-950/70 border border-emerald-500/60 text-emerald-300 text-sm text-left space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                <span className="font-bold text-emerald-200 uppercase tracking-wider text-xs">🎉 YOU&apos;RE GOING LIVE!</span>
-              </div>
-              {countdownSeconds !== null && (
-                <span className="px-2.5 py-1 rounded-full bg-[#D4AF37] text-black font-mono font-bold text-xs animate-pulse">
-                  {countdownSeconds > 0
-                    ? `LIVE IN ${countdownSeconds}s`
-                    : liveQueueStatus === 'playing'
-                    ? '📺 LIVE NOW ON TV'
-                    : liveQueueStatus === 'reserved'
-                    ? '⏳ PREPARING ON MAHARAJA SCREEN...'
-                    : liveQueueStatus === 'completed'
-                    ? '✅ PLAYBACK COMPLETED'
-                    : liveQueueStatus === 'playback_failed'
-                    ? '⚠️ PLAYBACK FAILED'
-                    : '⏳ WAITING FOR MAHARAJA SCREEN...'}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-emerald-300/90 leading-relaxed">
-              {countdownSeconds && countdownSeconds > 0 
-                ? `Preparing live stream... Look at the Maharaja showroom TV in ${countdownSeconds} seconds!`
-                : liveQueueStatus === 'playing'
-                ? 'Your video is now playing live on the Maharaja store display screen!'
-                : liveQueueStatus === 'reserved'
-                ? 'Preparing video stream on the Maharaja screen...'
-                : liveQueueStatus === 'completed'
-                ? 'Your video has completed playing on the TV screen.'
-                : liveQueueStatus === 'playback_failed'
-                ? 'Playback encountered an issue on the TV screen.'
-                : 'Waiting for Maharaja screen to start playing your video...'}
-            </p>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="rounded-lg border border-emerald-400/30 bg-black/30 p-3 text-center">
-                <p className="text-[10px] text-emerald-300/70 uppercase tracking-widest">Queue No</p>
-                <p className="text-2xl font-mono font-black text-[#F3E5AB]">
-                  {queueNumber ? `#${queueNumber}` : '--'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-emerald-400/30 bg-black/30 p-3 text-center">
-                <p className="text-[10px] text-emerald-300/70 uppercase tracking-widest">Now Position</p>
-                <p className="text-2xl font-mono font-black text-[#F3E5AB]">
-                  {liveQueueStatus === 'queued' && queuePosition ? `#${queuePosition}` : liveQueueStatus === 'playing' ? 'LIVE' : liveQueueStatus === 'completed' ? 'DONE' : '--'}
-                </p>
-                {liveQueueStatus === 'queued' && peopleAhead !== null && (
-                  <p className="mt-1 text-[10px] text-emerald-200/80">
-                    {peopleAhead === 0 ? 'You are next' : `${peopleAhead} ahead`}
-                  </p>
-                )}
-              </div>
-            </div>
-
-          </div>
-        )}
-
         {liveError && (
           <div className="p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs text-left flex items-start gap-3">
             <AlertCircle className="w-5 h-5 shrink-0 text-red-400 mt-0.5" />
@@ -412,6 +354,40 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           </div>
         )}
       </div>
+      )}
+
+      {showThankYou && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-md w-full rounded-2xl border border-[#D4AF37]/55 bg-[#120203] p-6 text-center shadow-2xl space-y-5">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#D4AF37]/60 bg-[#6e0d1f]/80 text-[#F3E5AB]">
+              <Sparkles className="h-7 w-7 text-[#D4AF37]" />
+            </div>
+            <div>
+              <h2 className="font-serif text-2xl font-black text-[#F3E5AB]">
+                Thank you for your purchase
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
+                Advance Deepavali greetings from Maharaja. Your Diwali AI film has been sent to the showroom screen.
+              </p>
+            </div>
+
+            <a
+              href="https://www.instagram.com/majestic__maharaja/?hl=en"
+              target="_blank"
+              rel="noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black"
+            >
+              <ExternalLink className="h-5 w-5" /> Follow on Instagram
+            </a>
+
+            <button
+              onClick={() => setShowThankYou(false)}
+              className="w-full rounded-xl border border-[#D4AF37]/35 bg-black/50 px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]"
+            >
+              Replay preview
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Privacy Notice Modal */}
