@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Download, Tv, Sparkles, CheckCircle2, RotateCcw, Flame, ShieldCheck, AlertCircle } from 'lucide-react';
 import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
@@ -30,6 +30,27 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
   const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId), [sessionId]);
   const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId), [sessionId]);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const syncPreviewAudioToVideo = (video: HTMLVideoElement) => {
+    if (!previewAudioRef.current) return;
+    if (Number.isFinite(video.currentTime)) {
+      previewAudioRef.current.currentTime = video.currentTime % Math.max(previewAudioRef.current.duration || 6, 1);
+    }
+  };
+
+  const playPreviewAudioWithVideo = (video: HTMLVideoElement) => {
+    if (!previewAudioRef.current) return;
+    syncPreviewAudioToVideo(video);
+    previewAudioRef.current.volume = 0.9;
+    previewAudioRef.current.play().catch((err) => {
+      console.warn('Preview audio playback blocked:', err);
+    });
+  };
+
+  const pausePreviewAudio = () => {
+    previewAudioRef.current?.pause();
+  };
 
   useEffect(() => {
     if (!liveSuccess || countdownSeconds === null) return;
@@ -285,15 +306,14 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             loop
             playsInline
             muted
+            onPlay={(event) => playPreviewAudioWithVideo(event.currentTarget)}
+            onPlaying={(event) => playPreviewAudioWithVideo(event.currentTarget)}
+            onPause={pausePreviewAudio}
+            onSeeking={(event) => syncPreviewAudioToVideo(event.currentTarget)}
+            onEnded={pausePreviewAudio}
             className="w-full h-full object-cover"
           />
-        </div>
-
-        <div className="rounded-xl border border-[#D4AF37]/25 bg-black/45 p-3 text-left">
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
-            6-second preview music
-          </p>
-          <audio src={previewAudioUrl} controls loop className="w-full" />
+          <audio ref={previewAudioRef} src={previewAudioUrl} loop preload="auto" className="hidden" />
         </div>
 
         {/* Primary Action Buttons */}
