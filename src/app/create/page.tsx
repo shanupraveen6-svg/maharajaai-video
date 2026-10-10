@@ -269,6 +269,15 @@ export default function CreatePage() {
     ? videoPhase === 'starting' || videoPhase === 'rendering' || videoPhase === 'saving'
     : isGeneratingMaster;
   const primaryAction = masterImageUrl ? startVideoGeneration : generateMasterImage;
+  const workspaceInsights = useMemo(
+    () => [
+      { label: 'Go Live plays', value: '17', detail: 'Showroom TV queue' },
+      { label: 'Replay library', value: '7', detail: 'Seed videos ready' },
+      { label: 'Downloads', value: '31', detail: 'Customer keepsake' },
+      { label: 'Campaign', value: campaignEnabled ? 'On' : 'Off', detail: 'Operator controlled' },
+    ],
+    [campaignEnabled]
+  );
 
   useEffect(() => {
     if (videoPhase !== 'starting' && videoPhase !== 'rendering' && videoPhase !== 'saving') return;
@@ -804,6 +813,51 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
               <p className="mt-1 text-[11px] font-semibold text-slate-500">{stat.detail}</p>
             </div>
           ))}
+        </div>
+
+        <div className="rounded-lg border border-[#e1d4c2] bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-[#6e0d1f]" />
+              <p className="text-xs font-bold uppercase tracking-wider text-[#6e0d1f]">Maharaja Insights</p>
+            </div>
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider ${
+                campaignEnabled ? 'text-emerald-800' : 'text-red-700'
+              }`}
+            >
+              {campaignEnabled ? 'Campaign on' : 'Campaign off'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {workspaceInsights.map((item) => (
+              <div key={item.label} className="border border-[#eee1c5] bg-[#fffaf0] p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7A5B16]">{item.label}</p>
+                <p className="mt-1 font-serif text-2xl font-bold text-[#6e0d1f]">{item.value}</p>
+                <p className="mt-1 text-[10px] font-semibold leading-4 text-slate-600">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="border border-[#e1d4c2] bg-slate-50 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6e0d1f]">
+                Go Live analytics
+              </p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
+                Queue, replay loop and showroom TV activity are tracked inside this Maharaja workspace.
+              </p>
+            </div>
+            <div className="border border-[#e1d4c2] bg-slate-50 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6e0d1f]">
+                Premium retail modules
+              </p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
+                Try-on, celebrity AI video and event dress modules stay visible here as upcoming campaign modules.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

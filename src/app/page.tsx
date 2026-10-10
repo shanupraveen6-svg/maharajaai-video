@@ -4,9 +4,7 @@ import {
   Activity,
   ArrowRight,
   BadgeCheck,
-  BarChart3,
   Camera,
-  Crown,
   Image as ImageIcon,
   LockKeyhole,
   MapPin,
@@ -56,13 +54,6 @@ const pricingIncludes = [
   'Full customer protection',
   '100% secured',
   'Privacy and brand value maintained',
-];
-
-const portalInsights = [
-  { label: 'Go Live plays', value: '17', detail: 'Showroom TV queue' },
-  { label: 'Replay library', value: '7', detail: 'Seed videos ready' },
-  { label: 'Downloads', value: '31', detail: 'Customer keepsake' },
-  { label: 'Campaign', value: 'On', detail: 'Operator controlled' },
 ];
 
 export default function LandingPage() {
@@ -208,39 +199,6 @@ export default function LandingPage() {
                   Store login opens the selected campaign workspace. New client stores can be added to this portal as they go live.
                 </p>
               </div>
-            </div>
-
-            <div className="mt-5 border border-[#d8c49b] bg-white p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#6e0d1f]">
-                  Maharaja insights
-                </p>
-                <BarChart3 className="h-4 w-4 text-[#8A6A20]" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {portalInsights.map((item) => (
-                  <div key={item.label} className="border border-[#eee1c5] bg-[#fffaf0] p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#7A5B16]">{item.label}</p>
-                    <p className="mt-1 font-serif text-xl font-bold text-[#6e0d1f]">{item.value}</p>
-                    <p className="mt-1 text-[10px] font-semibold leading-4 text-[#5C4B43]">{item.detail}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              {[
-                { icon: MonitorPlay, text: 'Go Live analytics' },
-                { icon: Crown, text: 'Premium retail modules' },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.text} className="rounded-lg border border-[#6e0d1f]/10 bg-white p-3">
-                    <Icon className="mb-2 h-4 w-4 text-[#8A6A20]" />
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#5C4B43]">{item.text}</p>
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>
