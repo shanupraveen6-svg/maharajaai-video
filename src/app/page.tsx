@@ -58,6 +58,13 @@ const pricingIncludes = [
   'Privacy and brand value maintained',
 ];
 
+const portalInsights = [
+  { label: 'Go Live plays', value: '17', detail: 'Showroom TV queue' },
+  { label: 'Replay library', value: '7', detail: 'Seed videos ready' },
+  { label: 'Downloads', value: '31', detail: 'Customer keepsake' },
+  { label: 'Campaign', value: 'On', detail: 'Operator controlled' },
+];
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-[#F8F5EE] text-[#1A1412] font-sans overflow-hidden">
@@ -141,7 +148,10 @@ export default function LandingPage() {
                   Select the retail workspace assigned to your store.
                 </p>
               </div>
-              <ShieldCheck className="h-6 w-6 text-emerald-700" />
+              <div className="flex items-center gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                Active
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -200,9 +210,27 @@ export default function LandingPage() {
               </div>
             </div>
 
+            <div className="mt-5 border border-[#d8c49b] bg-white p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#6e0d1f]">
+                  Maharaja insights
+                </p>
+                <BarChart3 className="h-4 w-4 text-[#8A6A20]" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {portalInsights.map((item) => (
+                  <div key={item.label} className="border border-[#eee1c5] bg-[#fffaf0] p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#7A5B16]">{item.label}</p>
+                    <p className="mt-1 font-serif text-xl font-bold text-[#6e0d1f]">{item.value}</p>
+                    <p className="mt-1 text-[10px] font-semibold leading-4 text-[#5C4B43]">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="mt-5 grid grid-cols-2 gap-3">
               {[
-                { icon: BarChart3, text: 'Campaign analytics' },
+                { icon: MonitorPlay, text: 'Go Live analytics' },
                 { icon: Crown, text: 'Premium retail modules' },
               ].map((item) => {
                 const Icon = item.icon;

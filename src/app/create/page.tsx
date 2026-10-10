@@ -240,6 +240,7 @@ const pricingIncludes = [
 export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+  const [campaignEnabled, setCampaignEnabled] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<MasterTemplateId | null>(null);
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
@@ -262,8 +263,8 @@ export default function CreatePage() {
   const canGenerateMaster = hasRequiredPhotos && !!selectedCategory;
   const canGenerateVideo = !!selectedCategory && !!masterImageUrl && videoPhase === 'idle';
   const selectedMasterTemplate = selectedCategory ? masterTemplates[selectedCategory] : masterTemplates.women;
-  const canUsePrimaryAction = masterImageUrl ? canGenerateVideo : canGenerateMaster;
-  const primaryActionText = masterImageUrl ? 'Generate Diwali Video' : 'Generate AI Image';
+  const canUsePrimaryAction = campaignEnabled && (masterImageUrl ? canGenerateVideo : canGenerateMaster);
+  const primaryActionText = !campaignEnabled ? 'Campaign Paused' : masterImageUrl ? 'Generate Diwali Video' : 'Generate AI Image';
   const primaryActionBusy = masterImageUrl
     ? videoPhase === 'starting' || videoPhase === 'rendering' || videoPhase === 'saving'
     : isGeneratingMaster;
@@ -529,15 +530,30 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
             Store operator webapp for AI image, video, download and live TV queue.
           </p>
         </div>
-        <div className="mt-3 flex items-center justify-between gap-6 border-t border-white/10 pt-3 lg:mt-0 lg:border-t-0 lg:pt-0">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200">
-            Campaign active
-          </span>
+        <div className="mt-3 flex items-center justify-between gap-4 border-t border-white/10 pt-3 lg:mt-0 lg:border-t-0 lg:pt-0">
+          <button
+            type="button"
+            onClick={() => setCampaignEnabled((value) => !value)}
+            className={`flex items-center gap-2 border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition ${
+              campaignEnabled
+                ? 'border-emerald-300/40 bg-emerald-950/40 text-emerald-200'
+                : 'border-red-300/35 bg-red-950/40 text-red-200'
+            }`}
+          >
+            <span className={`h-2.5 w-2.5 rounded-full ${campaignEnabled ? 'bg-emerald-300' : 'bg-red-300'}`} />
+            {campaignEnabled ? 'Campaign on' : 'Campaign off'}
+          </button>
           <span className="max-w-[220px] truncate text-[10px] font-mono font-bold text-[#F3E5AB] lg:max-w-none">
             {sessionId}
           </span>
         </div>
       </header>
+
+      {!campaignEnabled && (
+        <div className="mt-5 border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-800">
+          Campaign is turned off on this operator screen. Turn it on from the header before generating a new customer video.
+        </div>
+      )}
 
       <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {productTabs.map((tab, index) => {
