@@ -155,15 +155,20 @@ Return ONLY valid JSON:
 
 function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   if (decision.recommendedMotion === 'micro_walk') {
-    return `Motion safety decision: lower body and feet are clearly visible, so allow only 2 to 3 tiny slow controlled forward steps before stopping. This is not full walking. Keep steps small, straight, and stable. No dancing, no leg crossing, no fast stride, no spin, no hip or waist emphasis. Preserve exact face, body size, outfit fit, garment edges and footwear. If the model becomes unstable, switch to a grounded still pose with camera movement only.`;
+    return `Motion safety: legs and feet are clear. Allow only 2 tiny slow straight steps, then stop and smile. No dancing, no leg crossing, no fast stride, no spin, no hip or waist emphasis. Preserve exact face, body size, outfit fit, garment edges and footwear.`;
   }
 
-  return `Motion safety decision: lower body is hidden, partially visible, or risky for cloth motion. Do not walk. The person stays grounded in a modest still pose with only tiny head/eye movement and a soft festival smile. Make the video feel premium using camera movement only: controlled dolly-in, side truck, rack focus, light sweep, diya glow, bokeh, background crackers or lantern shimmer, and a final slow zoom-out. No dancing, no leg movement, no body spin, no hip or waist emphasis.`;
+  return `Motion safety: lower body is hidden or risky. Do not walk. Subject stays in a modest still pose with tiny head/eye movement and a soft festival smile. Cinematic energy comes from camera only: dolly-in, side truck, rack focus, light sweep, diya glow, bokeh, background shimmer, final slow zoom-out. No dancing, no leg movement, no body spin, no hip or waist emphasis.`;
 }
 
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
-  const finalPrompt = `${basePrompt}\n\n${buildMotionSafetyRule(decision)}`;
-  return finalPrompt.length > 2400 ? finalPrompt.slice(0, 2400) : finalPrompt;
+  const compactBase = basePrompt
+    .replace(/\s+/g, ' ')
+    .replace(/Timing:[^]+$/i, '')
+    .trim()
+    .slice(0, 1050);
+  const finalPrompt = `${compactBase}\n\n${buildMotionSafetyRule(decision)}`;
+  return finalPrompt.length > 1550 ? finalPrompt.slice(0, 1550) : finalPrompt;
 }
 
 export async function POST(req: NextRequest) {
@@ -272,11 +277,9 @@ export async function POST(req: NextRequest) {
         console.log('Attempting Primary Provider: Fal.ai MiniMax Hailuo-02...');
         fal.config({ credentials: falKey.trim() });
 
-        let hostedImageUrl: string | null = (masterImageUrl && masterImageUrl.startsWith('http'))
-          ? masterImageUrl
-          : null;
+        let hostedImageUrl: string | null = null;
 
-        if (!hostedImageUrl && masterBase64) {
+        if (masterBase64) {
           try {
             const buffer = Buffer.from(masterBase64, 'base64');
             const blob = new Blob([buffer], { type: masterMimeType || 'image/jpeg' });
@@ -310,7 +313,7 @@ export async function POST(req: NextRequest) {
             prompt,
             image_url: hostedImageUrl,
             duration: '6',
-            prompt_optimizer: true,
+            prompt_optimizer: false,
             resolution: '768P'
           }
         });
