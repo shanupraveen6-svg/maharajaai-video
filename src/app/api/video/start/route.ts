@@ -155,7 +155,7 @@ Return ONLY valid JSON:
 
 function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   if (decision.recommendedMotion === 'micro_walk') {
-    return `Motion safety: legs and feet are clear. Allow only 2 tiny slow straight steps, then stop and smile. No dancing, no leg crossing, no fast stride, no spin, no hip or waist emphasis. Preserve exact face, body size, outfit fit, garment edges and footwear.`;
+    return `Motion safety: legs and feet are clear. Perform 2 to 3 normal natural casual steps forward at 1.0x fluid pace, then stop and smile naturally. No dancing, no leg crossing, no fast stride, no spin, no hip or waist emphasis. Preserve exact face, body size, outfit fit, garment edges and footwear.`;
   }
 
   return `Motion safety: lower body is hidden or risky. Do not walk. Subject stays in a modest still pose with tiny head/eye movement and a soft festival smile. Cinematic energy comes from camera only: dolly-in, side truck, rack focus, light sweep, diya glow, bokeh, background shimmer, final slow zoom-out. No dancing, no leg movement, no body spin, no hip or waist emphasis.`;
@@ -164,11 +164,10 @@ function buildMotionSafetyRule(decision: MotionSafetyDecision) {
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
   const compactBase = basePrompt
     .replace(/\s+/g, ' ')
-    .replace(/Timing:[^]+$/i, '')
     .trim()
-    .slice(0, 1050);
+    .slice(0, 1100);
   const finalPrompt = `${compactBase}\n\n${buildMotionSafetyRule(decision)}`;
-  return finalPrompt.length > 1550 ? finalPrompt.slice(0, 1550) : finalPrompt;
+  return finalPrompt.length > 1500 ? finalPrompt.slice(0, 1500) : finalPrompt;
 }
 
 export async function POST(req: NextRequest) {

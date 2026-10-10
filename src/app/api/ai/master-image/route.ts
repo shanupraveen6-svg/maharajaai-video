@@ -102,12 +102,13 @@ export async function POST(req: NextRequest) {
           ? conceptPrompt.trim()
           : 'Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.';
 
-        const prompt = `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image.
-Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness.
-Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design.
-Dress the same customer naturally in the selected garment.
-Apply this selected template: ${templatePrompt}
-Maintain strict full-body head-to-toe framing. Modest, family-friendly, premium fashion campaign look.`;
+        const prompt = `Create a hyper-photorealistic vertical 9:16 full-body Indian festive fashion master photograph.
+STYLE & OPTICS: Photorealistic 8K RAW commercial fashion photography, shot on Hasselblad 100MP camera, 85mm f/1.8 portrait lens, authentic human skin texture, natural pores, real fabric weaves, commercial studio lighting. ZERO illustration, ZERO 3D render look, ZERO CGI or anime aesthetics.
+IDENTITY LOCK: Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness.
+OUTFIT LOCK: Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric texture, embroidery, motifs, borders, silhouette and design.
+Dress the same customer naturally in the selected garment as a complete full-length outfit.
+ENVIRONMENT: ${templatePrompt}
+Maintain strict full-body head-to-toe framing. Modest, family-friendly, high-end Maharaja fashion campaign look.`;
 
         contents.push(prompt);
 
