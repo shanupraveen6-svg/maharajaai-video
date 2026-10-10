@@ -499,33 +499,36 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
 
   return (
     <main className="min-h-screen bg-[#f6efe5] text-slate-900 font-sans">
-      <div className="mx-auto min-h-screen max-w-md bg-[#FDFCF9] px-3 pb-28 pt-3 shadow-2xl shadow-black/10 sm:rounded-[2rem] sm:my-4 sm:border sm:border-amber-200">
-      <header className="sticky top-0 z-30 -mx-3 -mt-3 border-b border-amber-200/60 bg-[#12070B]/95 px-4 py-3 text-white backdrop-blur">
+      <div className="mx-auto min-h-screen max-w-7xl px-3 pb-28 pt-3 sm:px-5 lg:px-8 lg:pt-6">
+      <header className="sticky top-3 z-30 rounded-[1.6rem] border border-amber-400/35 bg-[#12070B]/95 px-4 py-3 text-white shadow-xl shadow-black/10 backdrop-blur lg:flex lg:items-center lg:justify-between lg:px-6">
         <div>
           <p className="text-[10px] text-amber-300 font-bold tracking-[0.2em] uppercase">
-            focusAI · Maharaja
+            focusAI · Maharaja workspace
           </p>
-          <h1 className="mt-1 text-lg font-serif font-bold text-[#F3E5AB] tracking-wider uppercase">
+          <h1 className="mt-1 text-lg font-serif font-bold text-[#F3E5AB] tracking-wider uppercase lg:text-2xl">
             Diwali Video Studio
           </h1>
+          <p className="mt-1 hidden text-xs font-semibold uppercase tracking-widest text-amber-100/70 lg:block">
+            Store operator webapp for AI image, video, download and live TV queue.
+          </p>
         </div>
-        <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="mt-2 flex items-center justify-between gap-3 lg:mt-0">
           <span className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200">
-            Active
+            Active campaign
           </span>
-          <span className="max-w-[170px] truncate rounded-full bg-black/45 px-3 py-1 text-[10px] font-mono font-bold text-[#F3E5AB]">
+          <span className="max-w-[210px] truncate rounded-full bg-black/45 px-3 py-1 text-[10px] font-mono font-bold text-[#F3E5AB] lg:max-w-none">
             {sessionId}
           </span>
         </div>
       </header>
 
-      <section className="mt-4 grid grid-cols-2 gap-2.5">
+      <section className="mt-4 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {productTabs.map((tab, index) => {
           const active = index === 1;
           return (
             <div
               key={tab.title}
-              className={`min-h-[94px] rounded-2xl border p-3 ${
+              className={`min-h-[94px] rounded-2xl border p-3 lg:min-h-[110px] lg:p-4 ${
                 active
                   ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-lg shadow-[#6e0d1f]/20'
                   : 'border-slate-200 bg-white text-slate-500'
@@ -549,7 +552,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         })}
       </section>
 
-      <section className="mt-4 rounded-[1.6rem] border border-amber-200 bg-white p-4 shadow-sm">
+      <section className="mt-4 rounded-[1.6rem] border border-amber-200 bg-white p-4 shadow-sm lg:p-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-black uppercase tracking-wider text-amber-800">1. Select category</p>
@@ -559,7 +562,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
             {selectedCategory ? `${masterTemplates[selectedCategory].title} locked` : 'Choose first'}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {categoryOptions.map((option) => {
             const active = option.id === selectedCategory;
             return (
@@ -603,8 +606,8 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </div>
       )}
 
-      <div className="space-y-4">
-        <section className="space-y-5 rounded-[1.6rem] bg-white p-4 shadow-sm border border-slate-200">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+        <section className="space-y-5 rounded-[1.6rem] bg-white p-4 shadow-sm border border-slate-200 lg:p-5">
           <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
             <Shirt className="w-6 h-6 text-[#6e0d1f]" />
             <h2 className="text-sm font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
@@ -690,7 +693,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           )}
         </section>
 
-        <section className="space-y-5 rounded-[1.6rem] bg-white p-4 shadow-sm border border-slate-200">
+        <section className="space-y-5 rounded-[1.6rem] bg-white p-4 shadow-sm border border-slate-200 lg:sticky lg:top-28 lg:p-5">
           <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
             <Sparkles className="w-6 h-6 text-[#6e0d1f]" />
             <h2 className="text-sm font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
@@ -732,7 +735,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </section>
       </div>
 
-      <section className="rounded-[1.6rem] bg-[#12070B] border border-amber-500/30 shadow-xl text-white space-y-5 p-4">
+      <section className="mt-4 rounded-[1.6rem] bg-[#12070B] border border-amber-500/30 shadow-xl text-white space-y-5 p-4 lg:p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Film className="w-7 h-7 text-amber-300" />
@@ -767,8 +770,8 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </div>
       </section>
 
-      <section className="space-y-3">
-        <div className="grid grid-cols-2 gap-2.5">
+      <section className="mt-4 space-y-3">
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {maharajaStats.map((stat) => (
             <div key={stat.label} className="rounded-2xl border border-amber-200 bg-white p-3 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">{stat.label}</p>
@@ -802,16 +805,18 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </div>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-amber-200 bg-[#FDFCF9]/95 p-3 shadow-2xl backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-amber-200 bg-[#FDFCF9]/95 p-3 shadow-2xl backdrop-blur">
+        <div className="mx-auto max-w-7xl">
         <button
           onClick={primaryAction}
           disabled={!canUsePrimaryAction || primaryActionBusy}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] px-5 py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl disabled:opacity-45"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] px-5 py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl disabled:opacity-45 lg:ml-auto lg:max-w-md"
         >
           {primaryActionBusy ? <RefreshCw className="h-5 w-5 animate-spin" /> : masterImageUrl ? <Film className="h-5 w-5 text-amber-200" /> : <Sparkles className="h-5 w-5 text-amber-200" />}
           {primaryActionText}
           {!primaryActionBusy && <ArrowRight className="h-4 w-4" />}
         </button>
+        </div>
       </div>
       </div>
     </main>
