@@ -31,5 +31,8 @@ export const AI_CONFIG = {
   },
   get VIDEO_GENERATION_MODE() {
     return process.env.VIDEO_GENERATION_MODE || 'manual';
+  },
+  get ENABLE_VEO_FALLBACK() {
+    return process.env.ENABLE_VEO_FALLBACK === 'true';
   }
 };

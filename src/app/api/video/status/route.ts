@@ -185,34 +185,32 @@ export async function GET(req: NextRequest) {
             }
 
             let fileBuffer: Buffer | null = null;
-            try {
-              const fetchRes = await fetch(outputVideoUrl);
-              if (fetchRes.ok) {
-                fileBuffer = Buffer.from(await fetchRes.arrayBuffer());
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                const fetchRes = await fetch(outputVideoUrl);
+                if (fetchRes.ok) {
+                  fileBuffer = Buffer.from(await fetchRes.arrayBuffer());
+                  break;
+                }
+              } catch (netErr) {
+                console.warn(`Fal.ai video download attempt ${attempt} network warning:`, netErr);
+                if (attempt < 3) await new Promise((r) => setTimeout(r, 1200));
               }
-            } catch (netErr) {
-              console.error('Fal.ai video download network error:', netErr);
-            }
-
-            if (!fileBuffer) {
-              await markVideoFailed(db, targetSessionId, 'Failed to download generated video output from Fal.ai.');
-              return NextResponse.json({
-                success: false,
-                jobId,
-                sessionId: targetSessionId,
-                status: 'failed',
-                error: 'Failed to download generated video output from Fal.ai.'
-              }, { status: 500 });
             }
 
             const storagePath = `sessions/${targetSessionId}/video/final.mp4`;
             const bucket = getStorageBucket();
 
-            if (bucket) {
-              const file = bucket.file(storagePath);
-              await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
-              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-              videoUrl = signedUrl;
+            if (bucket && fileBuffer) {
+              try {
+                const file = bucket.file(storagePath);
+                await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
+                const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+                videoUrl = signedUrl;
+              } catch (stSaveErr) {
+                console.warn('Storage save fallback to outputVideoUrl warning:', stSaveErr);
+                videoUrl = outputVideoUrl;
+              }
             } else {
               videoUrl = outputVideoUrl;
             }
@@ -276,19 +274,19 @@ export async function GET(req: NextRequest) {
             jobId,
             sessionId: targetSessionId,
             status: 'processing',
+            masterImageUrl,
             message: `MiniMax Hailuo queue status: ${queueState || 'processing'}`
           });
         } catch (falPollErr: any) {
-          console.error('Fal.ai Queue Polling Error:', falPollErr);
-          const rawMessage = falPollErr?.message || 'Fal.ai queue polling failed.';
-          await markVideoFailed(db, targetSessionId, rawMessage);
+          console.warn('Fal.ai Queue Polling Transient Network Warning:', falPollErr?.message || falPollErr);
           return NextResponse.json({
-            success: false,
+            success: true,
             jobId,
             sessionId: targetSessionId,
-            status: 'failed',
-            error: rawMessage
-          }, { status: 500 });
+            status: 'processing',
+            masterImageUrl,
+            message: 'Fal.ai status check transient network delay, retrying status...'
+          });
         }
       }
     }

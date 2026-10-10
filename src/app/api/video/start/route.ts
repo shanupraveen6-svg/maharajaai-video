@@ -349,6 +349,18 @@ export async function POST(req: NextRequest) {
     // SECONDARY PROVIDER (FALLBACK): Google Veo
     // ====================================================
     if (!jobData) {
+      if (!AI_CONFIG.ENABLE_VEO_FALLBACK) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: falErrorReason
+              ? `MiniMax Hailuo video generation failed: ${falErrorReason}. Automatic Google Veo fallback is disabled (ENABLE_VEO_FALLBACK=false) to protect credits.`
+              : 'Primary video generation is unavailable and Google Veo fallback is disabled.'
+          },
+          { status: 500 }
+        );
+      }
+
       const ai = getGenAIClient();
       if (!ai) {
         return NextResponse.json(
