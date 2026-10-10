@@ -142,38 +142,50 @@ export default function LandingPage() {
             </div>
 
             <div className="space-y-4">
-              {storeCards.map((store) => (
-                <Link
-                  key={store.name}
-                  href={store.href}
-                  className="group block rounded-lg border border-[#6e0d1f]/18 bg-[#fffaf0] p-5 transition hover:border-[#6e0d1f]/45 hover:bg-white"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex gap-4">
-                      <div className="flex h-13 w-13 items-center justify-center rounded-lg border border-[#6e0d1f]/20 bg-[#6e0d1f]/8 text-[#6e0d1f]">
-                        <Store className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="font-serif text-2xl font-bold text-[#2A060C]">{store.name}</h3>
-                        <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#6B5A52]">
-                          <MapPin className="h-3.5 w-3.5 text-[#8A6A20]" />
-                          {store.location}
-                        </p>
-                      </div>
-                    </div>
-                    <BadgeCheck className="h-5 w-5 text-emerald-700" />
+              <div className="rounded-lg border border-[#6e0d1f]/18 bg-[#fffaf0] p-5">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-13 w-13 items-center justify-center rounded-lg border border-[#6e0d1f]/20 bg-[#6e0d1f]/8 text-[#6e0d1f]">
+                    <Store className="h-6 w-6" />
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor="store-select" className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8A6A20]">
+                      Select customer store
+                    </label>
+                    <select
+                      id="store-select"
+                      defaultValue="maharaja"
+                      className="mt-2 w-full appearance-none rounded-lg border border-[#6e0d1f]/20 bg-white px-4 py-3 font-serif text-2xl font-bold text-[#2A060C] outline-none focus:border-[#6e0d1f]"
+                    >
+                      {storeCards.map((store) => (
+                        <option key={store.name} value={store.name.toLowerCase()}>
+                          {store.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#6B5A52]">
+                      <MapPin className="h-3.5 w-3.5 text-[#8A6A20]" />
+                      {storeCards[0].location}
+                    </p>
+                  </div>
+                  <BadgeCheck className="h-5 w-5 shrink-0 text-emerald-700" />
+                </div>
 
-                  <div className="mt-5 flex items-center justify-between gap-4">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                      {store.status}
-                    </span>
-                    <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f]">
-                      Login and create <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-                    </span>
-                  </div>
+                <div className="mt-5 flex items-center justify-between gap-4">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                    {storeCards[0].status}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#6e0d1f]">
+                    One of focusAI customers
+                  </span>
+                </div>
+
+                <Link
+                  href={storeCards[0].href}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#6e0d1f] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#F3E5AB] transition hover:bg-[#800A1D]"
+                >
+                  Login to Maharaja workspace <ArrowRight className="h-4 w-4" />
                 </Link>
-              ))}
+              </div>
             </div>
 
             <div className="mt-5 rounded-lg border border-[#6e0d1f]/10 bg-[#F8F5EE] p-4">
