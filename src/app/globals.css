@@ -37,7 +37,7 @@
   background: linear-gradient(145deg, rgba(35, 12, 20, 0.85) 0%, rgba(12, 6, 10, 0.95) 100%);
   backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
-  border-radius: 1rem;
+  border-radius: 0.5rem;
 }
 
 /* HUD Scanning Scanline Animation */

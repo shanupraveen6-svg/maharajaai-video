@@ -36,6 +36,8 @@ export default function TvPlayerPage() {
   const pendingSlotRef = useRef<Slot | null>(null);
   const playlistRef = useRef<PlaybackItem[]>([]);
   const playlistIndexRef = useRef(0);
+  const preloadedSlotRef = useRef<Slot | null>(null);
+  const preloadedQueueIdRef = useRef<string | null>(null);
   const liveAudioStartedRef = useRef(false);
   const loopInProgressRef = useRef(false);
   const completedQueueIdsRef = useRef<Set<string>>(new Set());
@@ -68,6 +70,11 @@ export default function TvPlayerPage() {
   const getVideoRef = (slot: Slot) => (slot === 'a' ? videoARef.current : videoBRef.current);
   const getInactiveSlot = () => (activeSlotRef.current === 'a' ? 'b' : 'a');
 
+  function setSlotPlayback(slot: Slot, playback: PlaybackItem) {
+    slotItemsRef.current = { ...slotItemsRef.current, [slot]: playback };
+    setSlotItems((prev) => ({ ...prev, [slot]: playback }));
+  }
+
   async function notifyPlaybackComplete(playback: PlaybackItem) {
     if (completedQueueIdsRef.current.has(playback.queueId)) return;
     completedQueueIdsRef.current.add(playback.queueId);
@@ -89,8 +96,27 @@ export default function TvPlayerPage() {
     const slot = getInactiveSlot();
     liveAudioStartedRef.current = false;
     loopInProgressRef.current = false;
-    setSlotItems((prev) => ({ ...prev, [slot]: playback }));
+    pendingSlotRef.current = slot;
     setPendingSlot(slot);
+    setSlotPlayback(slot, playback);
+  }
+
+  function preloadNextPlaylistItem() {
+    const playlist = playlistRef.current;
+    const current = currentPlaybackRef.current;
+    if (!current || playlist.length <= 1 || pendingSlotRef.current) return;
+
+    const nextIndex = (playlistIndexRef.current + 1) % playlist.length;
+    const nextPlayback = playlist[nextIndex];
+    if (!nextPlayback || nextPlayback.queueId === current.queueId) return;
+
+    const slot = getInactiveSlot();
+    const alreadyPreloaded = slotItemsRef.current[slot]?.queueId === nextPlayback.queueId;
+    preloadedSlotRef.current = slot;
+    preloadedQueueIdRef.current = nextPlayback.queueId;
+
+    if (alreadyPreloaded) return;
+    setSlotPlayback(slot, nextPlayback);
   }
 
   function appendPlaylistItem(playback: PlaybackItem) {
@@ -129,6 +155,9 @@ export default function TvPlayerPage() {
     const nextPlaylist = [...playlistRef.current];
     nextPlaylist.splice(insertAt, 0, { ...playback, source: 'live' });
     playlistRef.current = nextPlaylist;
+    preloadedSlotRef.current = null;
+    preloadedQueueIdRef.current = null;
+    window.setTimeout(preloadNextPlaylistItem, 50);
   }
 
   async function loadReplayLibrary() {
@@ -234,6 +263,13 @@ export default function TvPlayerPage() {
     }
   }, [isPlayingVideo, currentPlayback, activeSlot]);
 
+  useEffect(() => {
+    if (!currentPlayback) return;
+
+    const timeout = window.setTimeout(preloadNextPlaylistItem, 500);
+    return () => window.clearTimeout(timeout);
+  }, [currentPlayback, activeSlot]);
+
   const startLiveAudioWithVisibleVideo = (slot: Slot, video: HTMLVideoElement) => {
     const playback = currentPlaybackRef.current;
     if (slot !== activeSlotRef.current || !playback || !audioRef.current || liveAudioStartedRef.current) return;
@@ -265,8 +301,27 @@ export default function TvPlayerPage() {
     setCurrentPlayback(playback);
     setActiveSlot(slot);
     setPendingSlot(null);
+    pendingSlotRef.current = null;
+    preloadedSlotRef.current = null;
+    preloadedQueueIdRef.current = null;
     setIsPlayingVideo(true);
   };
+
+  useEffect(() => {
+    if (!pendingSlot) return;
+
+    const tryActivate = () => {
+      activatePendingSlot(pendingSlot);
+    };
+
+    const frame = window.requestAnimationFrame(tryActivate);
+    const timeout = window.setTimeout(tryActivate, 350);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [pendingSlot, slotItems]);
 
   const queueNextPlaylistItem = () => {
     const playlist = playlistRef.current;
@@ -286,8 +341,22 @@ export default function TvPlayerPage() {
       return;
     }
 
-    playlistIndexRef.current = (playlistIndexRef.current + 1) % playlist.length;
-    preparePlayback(playlist[playlistIndexRef.current]);
+    const nextIndex = (playlistIndexRef.current + 1) % playlist.length;
+    const nextPlayback = playlist[nextIndex];
+    const preloadedSlot = preloadedSlotRef.current;
+
+    if (
+      preloadedSlot &&
+      preloadedQueueIdRef.current === nextPlayback.queueId &&
+      slotItemsRef.current[preloadedSlot]?.queueId === nextPlayback.queueId
+    ) {
+      pendingSlotRef.current = preloadedSlot;
+      setPendingSlot(preloadedSlot);
+      activatePendingSlot(preloadedSlot);
+      return;
+    }
+
+    preparePlayback(nextPlayback);
   };
 
   const handleVideoEnded = async () => {
@@ -367,6 +436,12 @@ export default function TvPlayerPage() {
         onCanPlay={() => {
           if (isPending) activatePendingSlot(slot);
         }}
+        onLoadedData={() => {
+          if (isPending) activatePendingSlot(slot);
+        }}
+        onCanPlayThrough={() => {
+          if (isPending) activatePendingSlot(slot);
+        }}
         onPlaying={(event) => startLiveAudioWithVisibleVideo(slot, event.currentTarget)}
         onTimeUpdate={(event) => handleVideoProgress(slot, event.currentTarget)}
         onEnded={handleVideoEnded}
@@ -381,11 +456,11 @@ export default function TvPlayerPage() {
   if (!audioUnlocked) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[#2B0506] p-6 text-center select-none font-sans">
-        <div className="max-w-xl w-full rounded-2xl border border-[#F6D36A]/45 bg-[#170202]/92 p-10 shadow-2xl space-y-6">
+        <div className="max-w-xl w-full rounded-lg border border-[#F6D36A]/45 bg-[#170202]/92 p-10 shadow-2xl space-y-6">
           <img
             src="/maharaja-logo.png"
             alt="Majestic Maharaja"
-            className="mx-auto h-32 w-32 rounded-2xl object-cover border border-[#F6D36A]/35"
+            className="mx-auto h-32 w-32 rounded-lg object-cover border border-[#F6D36A]/35"
           />
           <div>
             <h1 className="font-serif text-3xl font-bold tracking-widest text-[#F8E8A8] uppercase">
@@ -402,7 +477,7 @@ export default function TvPlayerPage() {
             onClick={() => {
               setAudioUnlocked(true);
             }}
-            className="w-full rounded-xl bg-gradient-to-r from-[#F6D36A] via-[#FFF1A8] to-[#F6D36A] px-8 py-4 text-base font-black uppercase tracking-wider text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
+            className="w-full rounded-lg bg-[#F6D36A] px-8 py-4 text-base font-black uppercase tracking-wider text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
           >
             <Volume2 className="h-6 w-6" /> Start Maharaja Screen
           </button>
@@ -423,7 +498,7 @@ export default function TvPlayerPage() {
             <img
               src="/maharaja-logo.png"
               alt="Majestic Maharaja"
-              className="w-[82%] max-w-[330px] rounded-[1.85rem] border border-[#F6D36A]/45 object-cover shadow-[0_24px_80px_rgba(0,0,0,0.42)]"
+              className="w-[82%] max-w-[330px] rounded-lg border border-[#F6D36A]/45 object-cover shadow-[0_24px_80px_rgba(0,0,0,0.42)]"
             />
             <div className="text-center">
               <p className="font-serif text-4xl font-black uppercase tracking-[0.16em] text-[#FFF1A8]">
@@ -436,7 +511,7 @@ export default function TvPlayerPage() {
           </section>
 
           <section className="flex h-full items-center justify-center">
-            <div className="relative h-[92%] aspect-[9/16] overflow-hidden rounded-[1.6rem] border-[3px] border-[#F6D36A] bg-black shadow-[0_0_58px_rgba(246,211,106,0.22),0_22px_70px_rgba(0,0,0,0.52)]">
+            <div className="relative h-[92%] aspect-[9/16] overflow-hidden rounded-lg border-[3px] border-[#F6D36A] bg-black shadow-[0_0_58px_rgba(246,211,106,0.22),0_22px_70px_rgba(0,0,0,0.52)]">
               {renderVideoSlot('a')}
               {renderVideoSlot('b')}
 

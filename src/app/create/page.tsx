@@ -498,9 +498,9 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
   }
 
   return (
-    <main className="min-h-screen bg-[#f6efe5] text-slate-900 font-sans">
-      <div className="mx-auto min-h-screen max-w-7xl px-3 pb-28 pt-3 sm:px-5 lg:px-8 lg:pt-6">
-      <header className="sticky top-3 z-30 rounded-[1.6rem] border border-amber-400/35 bg-[#12070B]/95 px-4 py-3 text-white shadow-xl shadow-black/10 backdrop-blur lg:flex lg:items-center lg:justify-between lg:px-6">
+    <main className="min-h-screen bg-[#f7f1e8] text-slate-900 font-sans">
+      <div className="mx-auto min-h-screen max-w-[1500px] px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:pt-6">
+      <header className="sticky top-0 z-30 -mx-4 border-b border-[#d8c49b] bg-[#17070a]/96 px-4 py-4 text-white shadow-lg shadow-black/10 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:flex lg:items-center lg:justify-between lg:px-8">
         <div>
           <p className="text-[10px] text-amber-300 font-bold tracking-[0.2em] uppercase">
             focusAI · Maharaja workspace
@@ -512,55 +512,47 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
             Store operator webapp for AI image, video, download and live TV queue.
           </p>
         </div>
-        <div className="mt-2 flex items-center justify-between gap-3 lg:mt-0">
-          <span className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200">
-            Active campaign
+        <div className="mt-3 flex items-center justify-between gap-6 border-t border-white/10 pt-3 lg:mt-0 lg:border-t-0 lg:pt-0">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200">
+            Campaign active
           </span>
-          <span className="max-w-[210px] truncate rounded-full bg-black/45 px-3 py-1 text-[10px] font-mono font-bold text-[#F3E5AB] lg:max-w-none">
+          <span className="max-w-[220px] truncate text-[10px] font-mono font-bold text-[#F3E5AB] lg:max-w-none">
             {sessionId}
           </span>
         </div>
       </header>
 
-      <section className="mt-4 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {productTabs.map((tab, index) => {
           const active = index === 1;
           return (
             <div
               key={tab.title}
-              className={`min-h-[94px] rounded-2xl border p-3 lg:min-h-[110px] lg:p-4 ${
+              className={`min-h-[98px] rounded-lg border p-4 lg:min-h-[112px] ${
                 active
-                  ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-lg shadow-[#6e0d1f]/20'
-                  : 'border-slate-200 bg-white text-slate-500'
+                  ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-sm'
+                  : 'border-[#e1d4c2] bg-white text-slate-500'
               }`}
             >
-              <div className="flex flex-col gap-2">
-                <p className="text-[12px] font-serif font-bold uppercase tracking-wider leading-4">{tab.title}</p>
-                <span
-                  className={`w-fit rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                    active ? 'bg-[#F3E5AB] text-[#6e0d1f]' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {tab.status}
-                </span>
-              </div>
-              <p className={`mt-2 text-[11px] font-semibold leading-4 ${active ? 'text-amber-100' : 'text-slate-500'}`}>
+              <p className="text-[12px] font-serif font-bold uppercase tracking-wider leading-4">{tab.title}</p>
+              <p className={`mt-3 text-[11px] font-semibold leading-4 ${active ? 'text-amber-100' : 'text-slate-500'}`}>
                 {tab.subtitle}
               </p>
+              <p className={`mt-3 h-px w-10 ${active ? 'bg-[#F3E5AB]' : 'bg-[#d8c49b]'}`} />
             </div>
           );
         })}
       </section>
 
-      <section className="mt-4 rounded-[1.6rem] border border-amber-200 bg-white p-4 shadow-sm lg:p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
+      <section className="mt-6 rounded-lg border border-[#e1d4c2] bg-white p-5 shadow-sm lg:p-6">
+        <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-wider text-amber-800">1. Select category</p>
             <p className="mt-1 text-[11px] font-semibold text-slate-500">Prompt locks from this choice.</p>
           </div>
-          <span className="rounded-full bg-[#6e0d1f] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#F3E5AB]">
+          <p className="text-right text-[10px] font-bold uppercase tracking-wider text-[#6e0d1f]">
             {selectedCategory ? `${masterTemplates[selectedCategory].title} locked` : 'Choose first'}
-          </span>
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {categoryOptions.map((option) => {
@@ -570,10 +562,10 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
                 key={option.id}
                 type="button"
                 onClick={() => selectCategory(option.id)}
-                className={`rounded-2xl border p-3 text-left transition ${
+                className={`rounded-lg border p-4 text-left transition ${
                   active
-                    ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-md'
-                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-amber-300'
+                    ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-sm'
+                    : 'border-[#e1d4c2] bg-[#faf7f2] text-slate-700 hover:border-[#b99648]'
                 }`}
               >
                 <p className="font-serif text-base font-bold uppercase tracking-wider">{option.title}</p>
@@ -585,7 +577,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           })}
         </div>
 
-        <div className="mt-3 rounded-2xl border border-amber-200 bg-[#fffaf0] p-3">
+        <div className="mt-4 rounded-lg border border-[#e1d4c2] bg-[#fffaf0] p-4">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-800">
             Selected Diwali Pose
           </p>
@@ -600,14 +592,14 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
       </section>
 
       {error && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-300 text-red-800 text-sm flex items-start gap-3">
+        <div className="mt-5 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
-        <section className="space-y-5 rounded-[1.6rem] bg-white p-4 shadow-sm border border-slate-200 lg:p-5">
+      <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+        <section className="space-y-5 rounded-lg border border-[#e1d4c2] bg-white p-5 shadow-sm lg:p-6">
           <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
             <Shirt className="w-6 h-6 text-[#6e0d1f]" />
             <h2 className="text-sm font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
@@ -618,17 +610,17 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-mono font-bold text-amber-800 uppercase">Garment photos</p>
-              <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
                 Select up to 3
               </span>
             </div>
 
-            <label className="block cursor-pointer rounded-[1.4rem] border-2 border-dashed border-amber-300 bg-[#fffaf0] p-3 transition hover:bg-amber-50">
+            <label className="block cursor-pointer rounded-lg border-2 border-dashed border-amber-300 bg-[#fffaf0] p-4 transition hover:bg-amber-50">
               <div className="grid grid-cols-3 gap-3">
                 {[0, 1, 2].map((index) => (
                   <div
                     key={index}
-                    className="aspect-[3/4] overflow-hidden rounded-xl border border-amber-200 bg-white flex items-center justify-center"
+                    className="aspect-[3/4] overflow-hidden rounded-md border border-amber-200 bg-white flex items-center justify-center"
                   >
                     {garmentPhotos[index] ? (
                       <img src={garmentPhotos[index]!} alt={`Garment ${index + 1}`} className="h-full w-full object-cover" />
@@ -641,7 +633,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
                   </div>
                 ))}
               </div>
-              <div className="mt-3 flex items-center justify-center gap-2 rounded-2xl bg-[#6e0d1f] px-4 py-3 text-xs font-bold uppercase tracking-wider text-white">
+              <div className="mt-4 flex items-center justify-center gap-2 rounded-md bg-[#6e0d1f] px-4 py-3 text-xs font-bold uppercase tracking-wider text-white">
                 <Camera className="h-4 w-4 text-amber-300" />
                 Upload 1 to 3 dress photos
               </div>
@@ -657,14 +649,14 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
               <User className="w-4 h-4 text-[#6e0d1f]" /> Customer person photo
             </p>
             <div className="flex gap-5 items-center">
-              <div className="w-24 aspect-[3/4] rounded-2xl border-2 border-amber-300 bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
+              <div className="w-24 aspect-[3/4] rounded-md border-2 border-amber-300 bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
                 {personPhoto ? (
                   <img src={personPhoto} alt="Customer" className="w-full h-full object-cover" />
                 ) : (
                   <User className="w-10 h-10 text-slate-400" />
                 )}
               </div>
-              <label className="py-3.5 px-3 rounded-xl bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex flex-1 items-center justify-center gap-2 cursor-pointer hover:bg-[#800A1D]">
+              <label className="py-3.5 px-3 rounded-md bg-[#6e0d1f] border border-amber-300 text-white text-xs font-bold uppercase tracking-wider flex flex-1 items-center justify-center gap-2 cursor-pointer hover:bg-[#800A1D]">
                 <User className="w-4 h-4 text-amber-300" />
                 Upload person photo
                 <input type="file" accept="image/*" onChange={handlePersonUpload} className="hidden" />
@@ -673,7 +665,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           </div>
 
           {garmentAnalysis && (
-            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 font-mono space-y-1">
+            <div className="space-y-1 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-xs text-emerald-900">
               <div className="flex items-center justify-between font-bold">
                 <span>{garmentAnalysis.garmentType || 'Garment'} · {garmentAnalysis.primaryColor || 'Color detected'}</span>
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
@@ -683,7 +675,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           )}
 
           {personAnalysis && (
-            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 font-mono space-y-1">
+            <div className="space-y-1 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-xs text-emerald-900">
               <div className="flex items-center justify-between font-bold">
                 <span>Customer photo verified</span>
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
@@ -693,7 +685,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           )}
         </section>
 
-        <section className="space-y-5 rounded-[1.6rem] bg-white p-4 shadow-sm border border-slate-200 lg:sticky lg:top-28 lg:p-5">
+        <section className="space-y-5 rounded-lg border border-[#e1d4c2] bg-white p-5 shadow-sm lg:sticky lg:top-28 lg:p-6">
           <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
             <Sparkles className="w-6 h-6 text-[#6e0d1f]" />
             <h2 className="text-sm font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
@@ -702,7 +694,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           </div>
 
           {masterGenerationMessage && (
-            <div className={`rounded-xl border p-3 text-xs font-bold ${
+            <div className={`rounded-lg border p-3 text-xs font-bold ${
               masterGenerationMessage.startsWith('Stopped')
                 ? 'border-red-300 bg-red-50 text-red-800'
                 : masterGenerationMessage.includes('generated')
@@ -715,19 +707,19 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
 
           {masterImageUrl ? (
             <div className="space-y-4">
-              <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-2xl overflow-hidden border-2 border-amber-400 shadow-2xl bg-black">
+              <div className="relative aspect-[9/16] w-full max-w-xs mx-auto overflow-hidden rounded-lg border-2 border-amber-400 bg-black shadow-xl">
                 <img src={masterImageUrl} alt="Generated master reference" className="w-full h-full object-cover" />
-                <div className="absolute top-3 right-3 bg-emerald-600 text-white px-3 py-1.5 rounded-full text-[10px] font-mono font-bold">
+                <div className="absolute right-3 top-3 bg-emerald-700 px-3 py-1.5 text-[10px] font-bold text-white">
                   GENERATED
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-center text-xs font-bold uppercase tracking-wider text-emerald-800">
+              <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-center text-xs font-bold uppercase tracking-wider text-emerald-800">
                 AI image ready. Generate Diwali video below.
               </div>
             </div>
           ) : (
-            <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 text-slate-400 font-mono text-xs">
+            <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 text-slate-400 font-mono text-xs">
               <ImageIcon className="w-12 h-12 mb-2 text-slate-300" />
               <span>Generated image preview</span>
             </div>
@@ -735,7 +727,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </section>
       </div>
 
-      <section className="mt-4 rounded-[1.6rem] bg-[#12070B] border border-amber-500/30 shadow-xl text-white space-y-5 p-4 lg:p-5">
+      <section className="mt-6 rounded-lg border border-amber-500/30 bg-[#12070B] p-5 text-white shadow-lg lg:p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Film className="w-7 h-7 text-amber-300" />
@@ -751,9 +743,9 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </div>
 
         <div className="space-y-2">
-          <div className="h-3 bg-white/10 rounded-full overflow-hidden border border-amber-300/20">
+          <div className="h-3 overflow-hidden rounded-sm border border-amber-300/20 bg-white/10">
             <div
-              className="h-full bg-gradient-to-r from-amber-300 to-emerald-400 transition-all duration-500"
+              className="h-full bg-[#d4af37] transition-all duration-500"
               style={{ width: `${videoProgress}%` }}
             />
           </div>
@@ -763,17 +755,17 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           </div>
           {jobId && <p className="text-[11px] text-amber-200/80 font-mono">JOB: {jobId}</p>}
           {videoError && (
-            <div className="rounded-xl border border-red-400/50 bg-red-500/15 p-3 text-xs font-bold text-red-100">
+            <div className="rounded-lg border border-red-400/50 bg-red-500/15 p-3 text-xs font-bold text-red-100">
               {videoError}
             </div>
           )}
         </div>
       </section>
 
-      <section className="mt-4 space-y-3">
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <section className="mt-6 space-y-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {maharajaStats.map((stat) => (
-            <div key={stat.label} className="rounded-2xl border border-amber-200 bg-white p-3 shadow-sm">
+            <div key={stat.label} className="rounded-lg border border-amber-200 bg-white p-4 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">{stat.label}</p>
               <p className="mt-2 font-serif text-3xl font-bold text-[#6e0d1f]">{stat.value}</p>
               <p className="mt-1 text-[11px] font-semibold text-slate-500">{stat.detail}</p>
@@ -781,19 +773,19 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           ))}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-[#6e0d1f]" />
               <p className="text-xs font-bold uppercase tracking-wider text-[#6e0d1f]">Activity Logs</p>
             </div>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
               Pilot live
             </span>
           </div>
           <div className="space-y-2">
             {recentLogs.map((log) => (
-              <div key={`${log.time}-${log.category}`} className="grid grid-cols-[72px_1fr] gap-3 rounded-lg bg-slate-50 p-3">
+              <div key={`${log.time}-${log.category}`} className="grid grid-cols-[72px_1fr] gap-3 rounded-md bg-slate-50 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{log.time}</p>
                 <div>
                   <p className="text-xs font-bold text-slate-900">{log.category}</p>
@@ -810,7 +802,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         <button
           onClick={primaryAction}
           disabled={!canUsePrimaryAction || primaryActionBusy}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] px-5 py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl disabled:opacity-45 lg:ml-auto lg:max-w-md"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#800A1D] px-5 py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl disabled:opacity-45 lg:ml-auto lg:max-w-md"
         >
           {primaryActionBusy ? <RefreshCw className="h-5 w-5 animate-spin" /> : masterImageUrl ? <Film className="h-5 w-5 text-amber-200" /> : <Sparkles className="h-5 w-5 text-amber-200" />}
           {primaryActionText}

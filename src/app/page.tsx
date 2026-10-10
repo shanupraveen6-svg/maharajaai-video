@@ -47,7 +47,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/tv-login?next=/tv"
-              className="inline-flex items-center gap-2 rounded-full border border-[#6e0d1f]/20 bg-white/70 px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f] shadow-sm backdrop-blur hover:bg-white"
+              className="inline-flex items-center gap-2 border border-[#6e0d1f]/20 bg-white/70 px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f] shadow-sm backdrop-blur hover:bg-white"
             >
               <Tv className="h-4 w-4 text-[#8A6A20]" />
               TV
@@ -57,7 +57,7 @@ export default function LandingPage() {
 
         <div className="relative z-10 mx-auto grid min-h-[calc(100vh-84px)] max-w-7xl grid-cols-1 items-center gap-10 px-5 pb-12 pt-10 md:grid-cols-[1.05fr_0.95fr] md:px-8">
           <div className="max-w-3xl">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#6e0d1f]/15 bg-white/74 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6e0d1f] shadow-sm backdrop-blur">
+            <div className="mb-6 inline-flex items-center gap-2 border-l-2 border-[#6e0d1f] bg-white/68 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6e0d1f] shadow-sm backdrop-blur">
               <Activity className="h-4 w-4 text-[#8A6A20]" />
               AI marketing OS for fashion stores
             </div>
@@ -100,7 +100,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#6e0d1f]/14 bg-white/86 p-5 shadow-2xl backdrop-blur md:p-6">
+          <div className="rounded-lg border border-[#6e0d1f]/14 bg-white/86 p-6 shadow-2xl backdrop-blur md:p-7">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8A6A20]">Enter Workspace</p>
@@ -114,7 +114,7 @@ export default function LandingPage() {
                 <Link
                   key={store.name}
                   href={store.href}
-                  className="group block rounded-xl border border-[#6e0d1f]/18 bg-[#fffaf0] p-5 transition hover:border-[#6e0d1f]/45 hover:bg-white"
+                  className="group block rounded-lg border border-[#6e0d1f]/18 bg-[#fffaf0] p-5 transition hover:border-[#6e0d1f]/45 hover:bg-white"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex gap-4">
@@ -133,7 +133,7 @@ export default function LandingPage() {
                   </div>
 
                   <div className="mt-5 flex items-center justify-between gap-4">
-                    <span className="rounded-full border border-emerald-700/18 bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
                       {store.status}
                     </span>
                     <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f]">

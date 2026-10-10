@@ -160,7 +160,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
         <h1 className="text-xl font-serif font-bold text-[#F3E5AB] uppercase mb-2">Invalid Session</h1>
         <p className="text-sm text-gray-400 mb-6">No valid session ID was provided in the URL.</p>
-        <Link href="/create" className="px-6 py-3 bg-[#6e0d1f] border border-[#D4AF37] text-[#F3E5AB] rounded-xl text-sm font-semibold uppercase tracking-wider">
+        <Link href="/create" className="px-6 py-3 bg-[#6e0d1f] border border-[#D4AF37] text-[#F3E5AB] rounded-lg text-sm font-semibold uppercase tracking-wider">
           Create New Video
         </Link>
       </main>
@@ -303,7 +303,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
       {/* Rendering / Loading State */}
       {videoStatus === 'failed' ? (
         <div className="py-20 text-center space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-full bg-red-950/60 border-2 border-red-500 flex items-center justify-center text-red-300">
+          <div className="w-20 h-20 mx-auto rounded-lg bg-red-950/60 border-2 border-red-500 flex items-center justify-center text-red-300">
             <AlertCircle className="w-10 h-10" />
           </div>
           <h2 className="text-xl font-serif font-bold text-red-200 uppercase tracking-wider">
@@ -312,13 +312,13 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           <p className="text-xs text-gray-300 max-w-xs mx-auto">
             {videoError || 'Please create another video after checking the setup.'}
           </p>
-          <Link href="/create" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37]/50 bg-[#6e0d1f] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">
+          <Link href="/create" className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-[#6e0d1f] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">
             <RotateCcw className="w-4 h-4" /> Create Again
           </Link>
         </div>
       ) : isLoadingVideo || videoStatus === 'processing' || !videoUrl ? (
         <div className="py-20 text-center space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-full bg-[#6e0d1f]/40 border-2 border-[#D4AF37] flex items-center justify-center text-[#D4AF37] animate-pulse">
+          <div className="w-20 h-20 mx-auto rounded-lg bg-[#6e0d1f]/40 border-2 border-[#D4AF37] flex items-center justify-center text-[#D4AF37] animate-pulse">
             <Sparkles className="w-10 h-10 animate-spin" />
           </div>
           <h2 className="text-xl font-serif font-bold text-[#F3E5AB] uppercase tracking-wider">
@@ -331,12 +331,12 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
       ) : (
         /* Main Result Card when Ready */
         <div className="space-y-6 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#6e0d1f]/40 border border-[#D4AF37]/40 text-[#F3E5AB] text-xs font-semibold uppercase tracking-widest">
+          <div className="inline-flex items-center gap-2 border-l-2 border-[#D4AF37] bg-[#6e0d1f]/40 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F3E5AB]">
             <Sparkles className="w-4 h-4 text-[#D4AF37]" /> ✨ YOUR DIWALI FILM IS READY
           </div>
 
         {/* 9:16 Video Preview Frame */}
-        <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-2xl overflow-hidden border-2 border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
+        <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border-2 border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
           <video
             src={videoUrl}
             controls
@@ -357,32 +357,32 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         <div className="space-y-3 pt-2">
           <button
             onClick={() => requestPrivacyConfirmation('download')}
-            className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-sm shadow-xl hover:scale-[1.02] transition flex items-center justify-center gap-3"
+            className="w-full rounded-lg bg-[#D4AF37] px-6 py-4 text-sm font-bold uppercase tracking-wider text-black shadow-xl transition hover:brightness-105 flex items-center justify-center gap-3"
           >
             <Download className="w-5 h-5 fill-black" /> DOWNLOAD IMAGE + VIDEO
           </button>
 
           <button
             onClick={() => requestPrivacyConfirmation('live')}
-            className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#800A1D] via-[#6e0d1f] to-[#800A1D] border border-[#D4AF37]/50 text-[#F3E5AB] font-bold uppercase tracking-wider text-sm shadow-xl hover:scale-[1.02] transition flex items-center justify-center gap-3"
+            className="w-full rounded-lg border border-[#D4AF37]/50 bg-[#800A1D] px-6 py-4 text-sm font-bold uppercase tracking-wider text-[#F3E5AB] shadow-xl transition hover:brightness-110 flex items-center justify-center gap-3"
           >
             <Tv className="w-5 h-5 text-[#D4AF37]" /> GO LIVE ON MAHARAJA SCREEN
           </button>
 
-          <div className="rounded-xl border border-[#D4AF37]/25 bg-black/45 p-3 text-[11px] leading-5 text-[#F3E5AB]/80">
+          <div className="rounded-lg border border-[#D4AF37]/25 bg-black/45 p-3 text-[11px] leading-5 text-[#F3E5AB]/80">
             Download saves the approved image and video. Go Live also downloads both files, then sends the video to the showroom TV with festival music and Tamil greeting.
           </div>
 
           <Link
             href="/create"
-            className="w-full py-3 px-6 rounded-xl bg-black/60 border border-gray-700 text-gray-300 text-xs font-semibold uppercase tracking-wider hover:bg-black transition flex items-center justify-center gap-2 block"
+            className="w-full rounded-lg border border-gray-700 bg-black/60 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-300 transition hover:bg-black flex items-center justify-center gap-2 block"
           >
             <RotateCcw className="w-4 h-4" /> CREATE ANOTHER VIDEO
           </Link>
         </div>
 
         {liveError && (
-          <div className="p-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs text-left flex items-start gap-3">
+          <div className="flex items-start gap-3 rounded-lg border border-red-500/50 bg-red-950/60 p-4 text-left text-xs text-red-300">
             <AlertCircle className="w-5 h-5 shrink-0 text-red-400 mt-0.5" />
             <div>{liveError}</div>
           </div>
@@ -392,8 +392,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
 
       {showThankYou && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full rounded-2xl border border-[#D4AF37]/55 bg-[#120203] p-6 text-center shadow-2xl space-y-5">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#D4AF37]/60 bg-[#6e0d1f]/80 text-[#F3E5AB]">
+          <div className="max-w-md w-full rounded-lg border border-[#D4AF37]/55 bg-[#120203] p-6 text-center shadow-2xl space-y-5">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg border border-[#D4AF37]/60 bg-[#6e0d1f]/80 text-[#F3E5AB]">
               <Sparkles className="h-7 w-7 text-[#D4AF37]" />
             </div>
             <div>
@@ -405,7 +405,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
               </p>
             </div>
 
-            <div className="rounded-xl border border-emerald-500/45 bg-emerald-950/40 p-4 text-left text-emerald-200 space-y-3">
+            <div className="rounded-lg border border-emerald-500/45 bg-emerald-950/40 p-4 text-left text-emerald-200 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300/80">
@@ -425,19 +425,19 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                       : 'Waiting in TV queue'}
                   </p>
                 </div>
-                <span className="rounded-full border border-[#D4AF37]/45 bg-black/40 px-3 py-1 text-xs font-black text-[#D4AF37]">
+                <span className="border border-[#D4AF37]/45 bg-black/40 px-3 py-1 text-xs font-black text-[#D4AF37]">
                   {liveQueueStatus === 'queued' && queuePosition ? `#${queuePosition}` : liveQueueStatus.toUpperCase()}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="rounded-lg border border-emerald-400/25 bg-black/30 p-3">
+                <div className="rounded-md border border-emerald-400/25 bg-black/30 p-3">
                   <p className="text-[10px] uppercase tracking-widest text-emerald-300/70">Queue No</p>
                   <p className="mt-1 text-xl font-mono font-black text-[#F3E5AB]">
                     {queueNumber ? `#${queueNumber}` : '--'}
                   </p>
                 </div>
-                <div className="rounded-lg border border-emerald-400/25 bg-black/30 p-3">
+                <div className="rounded-md border border-emerald-400/25 bg-black/30 p-3">
                   <p className="text-[10px] uppercase tracking-widest text-emerald-300/70">People Ahead</p>
                   <p className="mt-1 text-xl font-mono font-black text-[#F3E5AB]">
                     {typeof peopleAhead === 'number' ? peopleAhead : '--'}
@@ -450,14 +450,14 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
               href="https://www.instagram.com/majestic__maharaja/?hl=en"
               target="_blank"
               rel="noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black"
             >
               <ExternalLink className="h-5 w-5" /> Follow on Instagram
             </a>
 
             <button
               onClick={() => setShowThankYou(false)}
-              className="w-full rounded-xl border border-[#D4AF37]/35 bg-black/50 px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]"
+              className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/50 px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]"
             >
               Close and stay on preview
             </button>
@@ -468,7 +468,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
       {/* Privacy Notice Modal */}
       {showPrivacyNotice && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full maharaja-card p-6 rounded-2xl border border-[#D4AF37]/50 space-y-4">
+          <div className="max-w-md w-full maharaja-card p-6 rounded-lg border border-[#D4AF37]/50 space-y-4">
             <div className="flex items-center gap-2 text-[#D4AF37] font-serif font-bold text-lg uppercase tracking-wider">
               <ShieldCheck className="w-6 h-6" /> Privacy Notice
             </div>
@@ -477,7 +477,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
               This AI image and video are created only for this Maharaja Diwali experience. Download keeps a copy for the customer. Go Live plays it on the showroom TV only after permission.
             </p>
 
-            <div className="rounded-xl border border-[#D4AF37]/30 bg-black/60 p-3 text-xs leading-relaxed text-[#F3E5AB]">
+            <div className="rounded-lg border border-[#D4AF37]/30 bg-black/60 p-3 text-xs leading-relaxed text-[#F3E5AB]">
               Privacy note: customer photos and generated files can be cleared after delivery. Do not reuse customer media without permission.
             </div>
 
@@ -487,13 +487,13 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                   setShowPrivacyNotice(false);
                   setPrivacyAction(null);
                 }}
-                className="w-1/2 py-3 rounded-xl bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider hover:bg-gray-700"
+                className="w-1/2 rounded-lg bg-gray-800 py-3 text-xs font-bold uppercase tracking-wider text-gray-300 hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePrivacyContinue}
-                className="w-1/2 py-3 rounded-xl bg-gradient-to-r from-[#800A1D] via-[#D4AF37] to-[#800A1D] text-black font-bold text-xs uppercase tracking-wider hover:brightness-110"
+                className="w-1/2 rounded-lg bg-[#D4AF37] py-3 text-xs font-bold uppercase tracking-wider text-black hover:brightness-110"
               >
                 Continue
               </button>
@@ -505,7 +505,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
       {/* Public Display Consent Modal */}
       {showLiveConsent && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full maharaja-card p-6 rounded-2xl border border-[#D4AF37]/50 space-y-4">
+          <div className="max-w-md w-full maharaja-card p-6 rounded-lg border border-[#D4AF37]/50 space-y-4">
             <div className="flex items-center gap-2 text-[#D4AF37] font-serif font-bold text-lg uppercase tracking-wider">
               <ShieldCheck className="w-6 h-6" /> GO LIVE DETAILS
             </div>
@@ -521,7 +521,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Example: Kavitha"
-                  className="w-full rounded-xl border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37]"
                 />
               </label>
               <label className="space-y-1 text-left">
@@ -530,12 +530,12 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                   value={customerLocality}
                   onChange={(e) => setCustomerLocality(e.target.value)}
                   placeholder="Example: Thiruvaiyaru"
-                  className="w-full rounded-xl border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37]"
                 />
               </label>
             </div>
 
-            <label className="flex items-start gap-3 p-3 rounded-lg bg-black/60 border border-[#D4AF37]/30 cursor-pointer">
+            <label className="flex items-start gap-3 p-3 rounded-md bg-black/60 border border-[#D4AF37]/30 cursor-pointer">
               <input
                 type="checkbox"
                 checked={publicConsent}
@@ -548,7 +548,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             </label>
 
             {liveError && (
-              <div className="rounded-lg border border-red-400/50 bg-red-950/50 p-3 text-xs font-bold text-red-200">
+              <div className="rounded-md border border-red-400/50 bg-red-950/50 p-3 text-xs font-bold text-red-200">
                 {liveError}
               </div>
             )}
@@ -556,14 +556,14 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setShowLiveConsent(false)}
-                className="w-1/2 py-3 rounded-xl bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider hover:bg-gray-700"
+                className="w-1/2 rounded-lg bg-gray-800 py-3 text-xs font-bold uppercase tracking-wider text-gray-300 hover:bg-gray-700"
               >
                 CANCEL
               </button>
               <button
                 onClick={handleConfirmGoLive}
                 disabled={!publicConsent || isGoingLive}
-                className="w-1/2 py-3 rounded-xl bg-gradient-to-r from-[#800A1D] via-[#D4AF37] to-[#800A1D] text-black font-bold text-xs uppercase tracking-wider hover:brightness-110 disabled:opacity-50"
+                className="w-1/2 rounded-lg bg-[#D4AF37] py-3 text-xs font-bold uppercase tracking-wider text-black hover:brightness-110 disabled:opacity-50"
               >
                 {isGoingLive ? 'ENQUEUING...' : 'CONFIRM & GO LIVE'}
               </button>
