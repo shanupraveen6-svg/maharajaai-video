@@ -221,9 +221,9 @@ const recentLogs = [
 ];
 
 const pricingPlans = [
-  { title: 'Pilot', volume: '500 video + 500 try-on', retry: '15% retry included', price: 'Rs 1 lakh' },
-  { title: 'Growth', volume: '1000 video + 1000 try-on', retry: '15% retry included', price: 'Rs 1.5 lakhs' },
-  { title: 'Scale', volume: '2000 videos + 2000 try-on', retry: '15% retry included', price: 'Rs 2.75 lakhs' },
+  { title: 'Growth', volume: '1000 video + 1000 try-on', retry: '15% retry included', price: 'Rs 2 lakhs' },
+  { title: 'Scale', volume: '2000 videos + 2000 try-on', retry: '15% retry included', price: 'Rs 3.5 lakhs' },
+  { title: 'Enterprise', volume: '3000 videos + 5000 try-on', retry: '20% retry included', price: 'Rs 5 lakhs' },
 ];
 
 const pricingIncludes = [
@@ -838,6 +838,16 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
               <p className="mt-1 text-[11px] font-bold text-amber-800">{plan.retry}</p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-4 border border-amber-200 bg-white p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-800">
+            Future model coming soon
+          </p>
+          <p className="mt-2 font-serif text-2xl font-bold text-[#6e0d1f]">100 free try-ons</p>
+          <p className="mt-2 text-xs font-black uppercase tracking-wider text-slate-800">
+            Celebrity AI Video + Event Dress Try-On
+          </p>
         </div>
 
         <div className="mt-4 border border-slate-200 bg-slate-50 p-4">

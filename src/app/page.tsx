@@ -28,22 +28,22 @@ const storeCards = [
 
 const pricingPlans = [
   {
-    title: 'Pilot',
-    volume: '500 videos + 500 try-ons',
-    retry: '15% retry included',
-    price: 'Rs 1 lakh',
-  },
-  {
     title: 'Growth',
     volume: '1000 videos + 1000 try-ons',
     retry: '15% retry included',
-    price: 'Rs 1.5 lakhs',
+    price: 'Rs 2 lakhs',
   },
   {
     title: 'Scale',
     volume: '2000 videos + 2000 try-ons',
     retry: '15% retry included',
-    price: 'Rs 2.75 lakhs',
+    price: 'Rs 3.5 lakhs',
+  },
+  {
+    title: 'Enterprise',
+    volume: '3000 videos + 5000 try-ons',
+    retry: '20% retry included',
+    price: 'Rs 5 lakhs',
   },
 ];
 
@@ -231,6 +231,18 @@ export default function LandingPage() {
                 <p className="mt-2 text-xs font-semibold text-[#7A5B16]">{plan.retry}</p>
               </div>
             ))}
+          </div>
+
+          <div className="mt-5 border border-[#D4AF37]/40 bg-white p-6 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8A6A20]">
+              Future model coming soon
+            </p>
+            <h3 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">
+              100 free try-ons
+            </h3>
+            <p className="mt-3 text-sm font-bold uppercase tracking-wider text-[#6e0d1f]">
+              Celebrity AI Video + Event Dress Try-On
+            </p>
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
