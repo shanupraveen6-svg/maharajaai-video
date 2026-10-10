@@ -104,11 +104,11 @@ export async function POST(req: NextRequest) {
 
         const prompt = `Create a hyper-photorealistic vertical 9:16 full-body Indian festive fashion master photograph.
 STYLE & OPTICS: Photorealistic 8K RAW commercial fashion photography, shot on Hasselblad 100MP camera, 85mm f/1.8 portrait lens, authentic human skin texture, natural pores, real fabric weaves, commercial studio lighting. ZERO illustration, ZERO 3D render look, ZERO CGI or anime aesthetics.
-IDENTITY LOCK: Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness.
+IDENTITY LOCK: Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, body size, age appearance and likeness. Keep natural premium grooming/beauty lighting and polished skin while preserving the real skin tone and real face.
 OUTFIT LOCK: Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric texture, embroidery, motifs, borders, silhouette and design.
 Dress the same customer naturally in the selected garment as a complete full-length outfit.
 ENVIRONMENT: ${templatePrompt}
-Maintain strict full-body head-to-toe framing. Modest, family-friendly, high-end Maharaja fashion campaign look.`;
+Maintain strict full-body head-to-toe framing. Prefer a front-facing or very slight three-quarter standing pose with both feet naturally planted, clean footwear, stable hands, no crossed legs, no side-profile stance, no awkward foot pose and no cropped feet. Modest, family-friendly, high-end Maharaja fashion campaign look.`;
 
         contents.push(prompt);
 

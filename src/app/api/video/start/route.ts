@@ -47,7 +47,13 @@ function formatVeoError(error: any) {
 }
 
 function formatFalError(error: any) {
-  const raw = error?.message || String(error || 'Unknown Fal.ai error.');
+  const detail = error?.body?.detail || error?.response?.data?.detail || error?.data?.detail;
+  const detailText = typeof detail === 'string'
+    ? detail
+    : detail
+      ? JSON.stringify(detail)
+      : '';
+  const raw = detailText || error?.message || String(error || 'Unknown Fal.ai error.');
   const lower = raw.toLowerCase();
 
   if (lower.includes('credit') || lower.includes('balance') || lower.includes('quota') || lower.includes('402')) {
@@ -58,13 +64,17 @@ function formatFalError(error: any) {
     return 'Fal.ai API key (FAL_KEY) is invalid or unauthorized. Please verify FAL_KEY in your environment variables.';
   }
 
+  if (lower.includes('unprocessable') || lower.includes('422')) {
+    return 'Fal.ai rejected the video request before rendering. The app did not start Google/Veo fallback, so no extra fallback credit was spent. Check the uploaded master image and provider input settings before retrying.';
+  }
+
   return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
 }
 
 type MotionSafetyDecision = {
   lowerBodyVisibility: 'clear' | 'partial' | 'hidden';
   garmentMotionRisk: 'low' | 'medium' | 'high';
-  recommendedMotion: 'micro_walk' | 'still_cinematic';
+  recommendedMotion: 'still_cinematic';
   reason: string;
 };
 
@@ -87,14 +97,10 @@ function parseMotionSafetyDecision(text: string): MotionSafetyDecision | null {
     const garmentMotionRisk = ['low', 'medium', 'high'].includes(parsed.garmentMotionRisk)
       ? parsed.garmentMotionRisk
       : DEFAULT_MOTION_SAFETY.garmentMotionRisk;
-    const recommendedMotion = parsed.recommendedMotion === 'micro_walk' && lowerBodyVisibility === 'clear' && garmentMotionRisk === 'low'
-      ? 'micro_walk'
-      : 'still_cinematic';
-
     return {
       lowerBodyVisibility,
       garmentMotionRisk,
-      recommendedMotion,
+      recommendedMotion: 'still_cinematic',
       reason: typeof parsed.reason === 'string' && parsed.reason.trim()
         ? parsed.reason.trim().slice(0, 180)
         : DEFAULT_MOTION_SAFETY.reason
@@ -125,19 +131,18 @@ async function analyzeMasterMotionSafety(masterBase64: string | null, masterMime
           }
         },
         `Analyze this generated fashion master image only for safe video motion planning.
-Decide if the person's legs and lower garment are clearly visible enough for 2 to 3 tiny slow steps without AI leg/cloth distortion.
+Decide whether the lower body is risky for AI motion. For this showroom workflow, always choose still_cinematic because walking can distort feet, ankles, slippers, sandals, pants, sarees, lehengas and long garments.
 
 Rules:
 - If a lehenga, saree, gown, long anarkali, long kurta, dupatta, or any loose/covered garment hides the legs, use still_cinematic.
 - If legs are only partly visible, cropped, shadowed, or covered by fabric, use still_cinematic.
-- Use micro_walk only when both legs/feet are clearly visible and the garment shape supports tiny controlled steps.
-- Never recommend normal walking, dancing, spinning, or large body movement.
+- Never recommend walking, stepping, dancing, spinning, pose change, side turn, or large body movement.
 
 Return ONLY valid JSON:
 {
   "lowerBodyVisibility": "clear" | "partial" | "hidden",
   "garmentMotionRisk": "low" | "medium" | "high",
-  "recommendedMotion": "micro_walk" | "still_cinematic",
+  "recommendedMotion": "still_cinematic",
   "reason": "short reason"
 }`
       ]
@@ -154,11 +159,10 @@ Return ONLY valid JSON:
 }
 
 function buildMotionSafetyRule(decision: MotionSafetyDecision) {
-  if (decision.recommendedMotion === 'micro_walk') {
-    return `Motion safety: legs and feet are clear. Perform 2 to 3 normal natural casual steps forward at 1.0x fluid pace, then stop and smile naturally. No dancing, no leg crossing, no fast stride, no spin, no hip or waist emphasis. Preserve exact face, body size, outfit fit, garment edges and footwear.`;
-  }
-
-  return `Motion safety: lower body is hidden or risky. Do not walk. Subject stays in a modest still pose with tiny head/eye movement and a soft festival smile. Cinematic energy comes from camera only: dolly-in, side truck, rack focus, light sweep, diya glow, bokeh, background shimmer, final slow zoom-out. No dancing, no leg movement, no body spin, no hip or waist emphasis.`;
+  const visibility = decision.lowerBodyVisibility === 'clear'
+    ? 'lower body visible but still locked'
+    : 'lower body risky';
+  return `Motion safety: ${visibility}. The uploaded master image is the exact first frame and the exact final identity reference. Do not walk, step, pivot, turn the body, change stance, change pose, change foot angle, change hand placement, or recompose the person. Keep the exact face, skin tone, body size, body proportions, outfit fit, garment edges, feet, toes, ankles, footwear, pant hem and floor contact planted in the same position for the full clip. No side turn, no body rotation, no leg movement, no foot slide, no dancing, no hip or waist emphasis. The subject only has tiny natural eye life, gentle breathing impression and a soft festival smile. Cinematic energy must come only from camera/background: motion begins immediately at frame 1 with golden light sweep, smooth dolly-in, small side truck, rack focus, diya glow, bokeh, festive sparks or distant crackers, and final slow zoom-out.`;
 }
 
 function truncateAtWordBoundary(text: string, maxLength: number): string {
@@ -172,9 +176,25 @@ function truncateAtWordBoundary(text: string, maxLength: number): string {
 }
 
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
-  const compactBase = truncateAtWordBoundary(basePrompt.replace(/\s+/g, ' ').trim(), 1050);
-  const finalPrompt = `${compactBase}\n\n${buildMotionSafetyRule(decision)}`;
-  return truncateAtWordBoundary(finalPrompt, 1500);
+  const lowerPrompt = basePrompt.toLowerCase();
+  const audience = lowerPrompt.includes('girl')
+    ? 'young girl'
+    : lowerPrompt.includes('boy')
+      ? 'young boy'
+      : lowerPrompt.includes('woman') || lowerPrompt.includes('women')
+        ? 'woman'
+        : lowerPrompt.includes('man') || lowerPrompt.includes('men')
+          ? 'man'
+          : 'person';
+
+  const sceneCue = lowerPrompt.includes('outdoor') || lowerPrompt.includes('cracker') || lowerPrompt.includes('firework')
+    ? 'Animate the existing outdoor Diwali background with safe distant crackers, lantern glow, warm bokeh and festival light streaks.'
+    : 'Animate the existing indoor Diwali background with diya flicker, brass-lamp glow, marigold shimmer, warm bokeh and festival light streaks.';
+
+  const canonicalPrompt = `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion film from the uploaded master image of the ${audience}. The video must start moving from frame 1 with no blank screen, no static hold, no delayed intro and no freeze-frame pause. Preserve the exact same face, identity, skin tone, hairstyle, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting and decorations. Keep natural premium grooming and beautiful commercial fashion lighting without changing the person's real likeness. ${sceneCue} Make the 6-second preview feel slightly energetic so it still feels cinematic when slowed to 9 seconds on the TV screen. No text, no captions, no greeting words, no logo, no dialogue, no lip-sync, no forehead mark, no extra limbs, no face change, no outfit change.`;
+
+  const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision)}`;
+  return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), 1500);
 }
 
 export async function POST(req: NextRequest) {

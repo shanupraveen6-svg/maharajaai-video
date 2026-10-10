@@ -52,15 +52,15 @@ const masterTemplates: Record<
     title: 'Men Template',
     label: 'Indoor hero glow',
     poseTitle: 'Indoor Hero Festival Portrait',
-    poseDescription: 'Still confident pose, royal indoor Diwali lights, hero-style camera push.',
+    poseDescription: 'Locked confident pose, royal indoor Diwali lights, hero-style camera and light motion.',
     masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, borders, silhouette and design. Dress the customer in the selected garment with neat premium festive closed footwear if feet are visible; no slippers, no casual bathroom sandals. Scene: a royal indoor Diwali fashion-store interior with brass lamps, marigold garlands, warm gold spotlights, diyas, soft temple-style glow, subtle festive bokeh and distant crackers visible through an arch/window. Masculine, confident, modest, premium fashion-model posture with relaxed shoulders, full-body head-to-toe framing. Subject stands still in a natural hero pose facing camera with a soft confident smile. Gentle family-friendly retail styling only; no glamour pose, no tight body contour focus, no hip/waist/chest/leg emphasis, no awkward crop. Keep forehead clean: no vibhuti, kumkum, tilak, bindi, religious symbol, white mark, red mark or decorative forehead mark. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
     videoPrompt: `Create a premium 6-second vertical 9:16 Diwali fashion hero video from the uploaded image. Use the uploaded image as the exact identity, face, body, outfit, garment color, footwear, background and lighting reference.
 
-The man must look like a premium fashion model, not like a still doll. Keep him grounded and stable, with only a small natural head turn toward the camera, confident eye contact, and a soft heroic smile. No full walking, no dancing, no body spin, no hand waving, no lip-sync.
+The man must look like a premium fashion model, not like a still doll. Keep him grounded and stable in the exact uploaded pose, with tiny natural eye life, gentle breathing impression, confident eye contact, and a soft heroic smile. No walking, no stepping, no head turn, no body angle change, no dancing, no body spin, no hand waving, no lip-sync.
 
-CapCut-style hero energy: start with a fast cinematic whip reveal from golden Diwali lights, then a rapid crash-zoom/dolly-in toward the subject, with background motion blur, sparks, diya glow and distant crackers. Then slow down into a powerful hero freeze, with a subtle final zoom-out showing the full outfit.
+CapCut-style hero energy must come from camera, lighting and background only. Start moving immediately from frame 1 with a golden Diwali light sweep, then a clean dolly-in plus small side truck toward the subject, with background motion blur, sparks, diya glow and distant crackers. Then slow into a powerful hero smile moment, with a subtle final zoom-out showing the full outfit.
 
-Timing: 0-1s fast festive light reveal, 1-3s crash zoom/dolly-in with background blur, 3-5s subject turns head slightly to camera and smiles, 5-6s slow hero zoom-out full-body frame.
+Timing: 0-1s immediate festive light sweep, 1-3s dolly-in plus small side truck with background blur, 3-5s exact pose locked with soft smile and eye life, 5-6s slow hero zoom-out full-body frame.
 
 No text, no captions, no greeting words, no logos. No forehead mark of any kind. No vibhuti, kumkum, tilak, bindi, religious symbol, white mark or red mark. Preserve exact face, body and garment.`,
   },
@@ -68,15 +68,15 @@ No text, no captions, no greeting words, no logos. No forehead mark of any kind.
     title: 'Women Template',
     label: 'Indoor diya grace',
     poseTitle: 'Indoor Graceful Diya Portrait',
-    poseDescription: 'Still modest pose, diya palace mood, heroine-style soft camera move.',
+    poseDescription: 'Locked modest pose, diya palace mood, heroine-style camera and light motion.',
     masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, age appearance and likeness. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery, motifs, borders, silhouette and design. Dress the customer in the selected garment with neat premium festive footwear if feet are visible; no slippers, no casual bathroom sandals. Scene: an elegant indoor Diwali palace/store setting with glowing diyas, brass lamps, marigold flowers, soft rangoli, warm golden lighting, gentle festive bokeh and graceful cinematic premium retail styling. Modest, respectful, family-friendly, no waist/hip/chest/leg/body-part emphasis, no glamour pose, no tight body contour focus, no awkward crop. Full outfit visible, full-body head-to-toe framing. Subject stands still with graceful fashion-model posture, relaxed shoulders and a soft festival smile. Keep forehead clean: no vibhuti, kumkum, tilak, bindi, religious symbol, white mark, red mark or decorative forehead mark. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
     videoPrompt: `Create a premium 6-second vertical 9:16 Diwali fashion hero video from the uploaded image. Use the uploaded image as the exact identity, face, body, outfit, garment color, jewelry, footwear, background and lighting reference.
 
-The woman must look like an elegant premium fashion model, not like a still doll. Keep her modest, graceful and stable, with only a small natural head turn toward the camera, soft eye movement, and a warm festival smile. No full walking, no dancing, no body spin, no hip or waist emphasis, no glamour pose, no lip-sync.
+The woman must look like an elegant premium fashion model, not like a still doll. Keep her modest, graceful and stable in the exact uploaded pose, with tiny natural eye life, gentle breathing impression, and a warm festival smile. No walking, no stepping, no head turn, no body angle change, no dancing, no body spin, no hip or waist emphasis, no glamour pose, no lip-sync.
 
-CapCut-style heroine energy: start with a fast golden diya-light reveal, rack focus from glowing lamps to the subject, then a smooth dolly-in with soft motion blur in the background. Add gold light sweep, marigold shimmer, diya flicker and premium festive bokeh. End with a slow elegant zoom-out showing the full outfit.
+CapCut-style heroine energy must come from camera, lighting and background only. Start moving immediately from frame 1 with a fast golden diya-light sweep, rack focus from glowing lamps to the subject, then a smooth dolly-in with soft motion blur in the background. Add marigold shimmer, diya flicker and premium festive bokeh. End with a slow elegant zoom-out showing the full outfit.
 
-Timing: 0-1s fast diya/rangoli light reveal, 1-3s dolly-in and rack focus to subject, 3-5s gentle head turn to camera with soft smile, 5-6s full-body elegant hero frame.
+Timing: 0-1s immediate diya/rangoli light sweep, 1-3s dolly-in and rack focus to subject, 3-5s exact pose locked with soft smile and eye life, 5-6s full-body elegant hero frame.
 
 No text, no captions, no greeting words, no logos. No forehead mark of any kind. No vibhuti, kumkum, tilak, bindi, religious symbol, white mark or red mark. Preserve exact face, body and garment.`,
   },
@@ -84,15 +84,15 @@ No text, no captions, no greeting words, no logos. No forehead mark of any kind.
     title: 'Boy Template',
     label: 'Outdoor lights',
     poseTitle: 'Outdoor Festival Lights Portrait',
-    poseDescription: 'Still cheerful pose, courtyard lights, safe festive sparkle.',
+    poseDescription: 'Locked cheerful pose, courtyard lights, safe festive sparkle and camera motion.',
     masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment with neat festive footwear if feet are visible; no slippers, no casual bathroom sandals. Scene: a wholesome outdoor Diwali courtyard/temple-street setting with lantern strings, marigold decor, safe distant fireworks, warm fairy lights, diyas on the ground, and festive golden evening glow. Modest, child-safe, family-friendly, no body-part emphasis, no adult styling, no awkward crop, full-body head-to-toe framing. Subject stands still in a cheerful natural pose, gently holding a small glowing clay diya with both hands at mid-torso, simple natural fingers. Keep forehead clean: no vibhuti, kumkum, tilak, bindi, religious symbol, white mark, red mark or decorative forehead mark. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
     videoPrompt: `Create a premium 6-second vertical 9:16 Diwali fashion hero video from the uploaded image. Use the uploaded image as the exact identity, face, age, body, outfit, garment color, footwear, background and lighting reference.
 
-The boy must look cheerful and natural, not like a still doll. Keep him child-safe and stable, with only a small head turn toward the camera, natural eye movement, and a soft happy smile. If a diya is visible, keep it steady. No full walking, no dancing, no body spin, no adult styling, no lip-sync.
+The boy must look cheerful and natural, not like a still doll. Keep him child-safe and stable in the exact uploaded pose, with tiny natural eye life, gentle breathing impression, and a soft happy smile. If a diya is visible, keep it steady in the same hand position. No walking, no stepping, no head turn, no body angle change, no dancing, no body spin, no adult styling, no lip-sync.
 
-CapCut-style festive energy: start with a fast outdoor lantern/cracker reveal, then a quick cinematic dolly-in toward the boy with background light streaks, safe distant fireworks, diya glow and warm festival bokeh. Slow down into a clean hero smile moment, then final zoom-out to show the full outfit.
+CapCut-style festive energy must come from camera, lighting and background only. Start moving immediately from frame 1 with a fast outdoor lantern/cracker light sweep, then a quick cinematic dolly-in toward the boy with background light streaks, safe distant fireworks, diya glow and warm festival bokeh. Slow down into a clean hero smile moment, then final zoom-out to show the full outfit.
 
-Timing: 0-1s fast lantern/firework reveal, 1-3s dolly-in with background motion blur, 3-5s boy turns head slightly to camera and smiles, 5-6s full-body festival hero frame.
+Timing: 0-1s immediate lantern/firework light sweep, 1-3s dolly-in with background motion blur, 3-5s exact pose locked with soft smile and eye life, 5-6s full-body festival hero frame.
 
 No text, no captions, no greeting words, no logos. No forehead mark of any kind. No vibhuti, kumkum, tilak, bindi, religious symbol, white mark or red mark. Preserve exact face, body and garment.`,
   },
@@ -100,15 +100,15 @@ No text, no captions, no greeting words, no logos. No forehead mark of any kind.
     title: 'Girl Template',
     label: 'Outdoor courtyard',
     poseTitle: 'Outdoor Diwali Courtyard Portrait',
-    poseDescription: 'Still sweet pose, courtyard diyas, princess-like festival glow.',
+    poseDescription: 'Locked sweet pose, courtyard diyas, princess-like festival glow and camera motion.',
     masterPrompt: `Create a photorealistic vertical 9:16 full-body Indian festive fashion master image. Use the first uploaded image as the exact young customer identity reference. Preserve facial identity, facial features, skin tone, hairstyle, body proportions and age appearance. Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric, embroidery and design. Dress the customer in the selected garment with neat festive footwear if feet are visible; no slippers, no casual bathroom sandals. Scene: a wholesome outdoor Diwali courtyard/garden/temple-light setting with glowing diyas, lantern strings, marigold flowers, soft rangoli, warm fairy lights and gentle golden festival atmosphere. Modest, child-safe, family-friendly, no waist/hip/chest/leg/body-part emphasis, no glamour pose, no adult styling, no tight body contour focus, no awkward crop, full-body head-to-toe framing. Subject stands still in a simple respectful festive pose, gently holding a small glowing clay diya with both hands at mid-torso, simple natural fingers. Keep forehead clean: no vibhuti, kumkum, tilak, bindi, religious symbol, white mark, red mark or decorative forehead mark. Do not add text, captions, signs, letters, logos, banners or greeting words inside the image.`,
     videoPrompt: `Create a premium 6-second vertical 9:16 Diwali fashion hero video from the uploaded image. Use the uploaded image as the exact identity, face, age, body, outfit, garment color, footwear, background and lighting reference.
 
-The girl must look sweet, natural and festive, not like a still doll. Keep her child-safe, modest and stable, with only a small head turn toward the camera, natural eye movement, and a soft happy smile. If a diya is visible, keep it steady. No full walking, no dancing, no body spin, no adult styling, no hip or waist emphasis, no lip-sync.
+The girl must look sweet, natural and festive, not like a still doll. Keep her child-safe, modest and stable in the exact uploaded pose, with tiny natural eye life, gentle breathing impression, and a soft happy smile. If a diya is visible, keep it steady in the same hand position. No walking, no stepping, no head turn, no body angle change, no dancing, no body spin, no adult styling, no hip or waist emphasis, no lip-sync.
 
-CapCut-style festive energy: start with a fast fairy-light and diya reveal, rack focus from glowing lights to the girl, then a smooth dolly-in with warm golden bokeh, marigold shimmer and soft festival sparkles. Slow down into a sweet smile moment, then final zoom-out to show the full outfit.
+CapCut-style festive energy must come from camera, lighting and background only. Start moving immediately from frame 1 with a fast fairy-light and diya light sweep, rack focus from glowing lights to the girl, then a smooth dolly-in with warm golden bokeh, marigold shimmer and soft festival sparkles. Slow down into a sweet smile moment, then final zoom-out to show the full outfit.
 
-Timing: 0-1s fast diya/fairy-light reveal, 1-3s dolly-in and rack focus to subject, 3-5s girl turns head slightly to camera and smiles, 5-6s full-body festive hero frame.
+Timing: 0-1s immediate diya/fairy-light sweep, 1-3s dolly-in and rack focus to subject, 3-5s exact pose locked with soft smile and eye life, 5-6s full-body festive hero frame.
 
 No text, no captions, no greeting words, no logos. No forehead mark of any kind. No vibhuti, kumkum, tilak, bindi, religious symbol, white mark or red mark. Preserve exact face, body and garment.`,
   },
@@ -151,19 +151,19 @@ const categoryOptions: Array<{
 const cameraMotionTemplates = [
   {
     title: 'Top Crane Gold Sweep',
-    prompt: `Fresh camera template 1: start from a high top-angle view of Diwali lights/rangoli, crane down quickly toward the subject, add a gold light sweep across the frame, then settle into a slow hero zoom-out. Keep the subject stable with only a tiny head turn and soft smile.`,
+    prompt: `Fresh camera template 1: begin moving immediately from frame 1 with a high top-angle view of Diwali lights/rangoli, crane down quickly toward the subject, add a gold light sweep across the frame, then settle into a slow hero zoom-out. Keep the subject pose, head angle, hands, feet and garment edges locked, with only eye life and soft smile.`,
   },
   {
     title: 'Side Truck Diya Reveal',
-    prompt: `Fresh camera template 2: start with a blurred foreground diya or lamp on one side, truck the camera from left to right into a clear front view, rack focus from diya glow to the subject, then end with a full-body hero frame. Keep the subject stable with only a tiny head turn and soft smile.`,
+    prompt: `Fresh camera template 2: begin moving immediately from frame 1 with a blurred foreground diya or lamp on one side, truck the camera from left to right into a clear front view, rack focus from diya glow to the subject, then end with a full-body hero frame. Keep the subject pose, head angle, hands, feet and garment edges locked, with only eye life and soft smile.`,
   },
   {
     title: 'Low-Angle Light Surge',
-    prompt: `Fresh camera template 3: start from a low premium hero angle, surge forward with background festive light streaks and warm motion blur, then slow into a sharp confident portrait and final zoom-out. Keep the subject stable with only a tiny head turn and soft smile.`,
+    prompt: `Fresh camera template 3: begin moving immediately from frame 1 with a low premium hero angle, smoothly push forward with background festive light streaks and warm motion blur, then slow into a sharp confident portrait and final zoom-out. Keep the subject pose, head angle, hands, feet and garment edges locked, with only eye life and soft smile.`,
   },
   {
     title: 'Poster Whip Reveal',
-    prompt: `Fresh camera template 4: begin with a fast whip-pan blur of marigold lights and gold particles, reveal the subject like a movie-poster hero shot, add soft sparkles/cracker glow in the background, then finish with a clean slow zoom-out full outfit frame. Keep the subject stable with only a tiny head turn and soft smile.`,
+    prompt: `Fresh camera template 4: begin moving immediately from frame 1 with a fast gold-particle light sweep across marigold lights, reveal the subject like a movie-poster hero shot, add soft sparkles/cracker glow in the background, then finish with a clean slow zoom-out full outfit frame. Keep the subject pose, head angle, hands, feet and garment edges locked, with only eye life and soft smile.`,
   },
 ] as const;
 
@@ -441,7 +441,7 @@ export default function CreatePage() {
 Use this exact fresh camera motion for this generation:
 ${cameraTemplate.prompt}
 
-Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no awkward crop, no forehead mark, no religious mark, no text inside video. The subject must feel alive through eye movement, tiny head turn, soft smile, lights, camera motion and background motion.`;
+Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no awkward crop, no forehead mark, no religious mark, no text inside video. The subject must feel alive through eye movement, gentle breathing impression, soft smile, lights, camera motion and background motion only.`;
 
       const startRes = await fetch('/api/video/start', {
         method: 'POST',

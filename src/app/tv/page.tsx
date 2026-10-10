@@ -44,6 +44,7 @@ export default function TvPlayerPage() {
   const pollInFlightRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playbackWatchdogRef = useRef<number | null>(null);
+  const pendingWatchdogRef = useRef<number | null>(null);
   const badQueueIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function TvPlayerPage() {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (playbackWatchdogRef.current) clearTimeout(playbackWatchdogRef.current);
+      if (pendingWatchdogRef.current) clearTimeout(pendingWatchdogRef.current);
       audioRef.current?.pause();
     };
   }, []);
@@ -73,7 +75,7 @@ export default function TvPlayerPage() {
   const getVideoRef = (slot: Slot) => (slot === 'a' ? videoARef.current : videoBRef.current);
   const getInactiveSlot = () => (activeSlotRef.current === 'a' ? 'b' : 'a');
 
-  function setSlotPlayback(slot: Slot, playback: PlaybackItem) {
+  function setSlotPlayback(slot: Slot, playback: PlaybackItem | null) {
     slotItemsRef.current = { ...slotItemsRef.current, [slot]: playback };
     setSlotItems((prev) => ({ ...prev, [slot]: playback }));
   }
@@ -82,6 +84,12 @@ export default function TvPlayerPage() {
     if (!playbackWatchdogRef.current) return;
     clearTimeout(playbackWatchdogRef.current);
     playbackWatchdogRef.current = null;
+  }
+
+  function clearPendingWatchdog() {
+    if (!pendingWatchdogRef.current) return;
+    clearTimeout(pendingWatchdogRef.current);
+    pendingWatchdogRef.current = null;
   }
 
   function removePlaybackFromPlaylist(queueId: string) {
@@ -117,6 +125,23 @@ export default function TvPlayerPage() {
     }
   }
 
+  function skipPendingPlayback(slot: Slot, reason: string) {
+    const playback = slotItemsRef.current[slot];
+    if (!playback) return;
+
+    console.warn('Skipping pending TV playback:', reason, playback.queueId);
+    badQueueIdsRef.current.add(playback.queueId);
+    removePlaybackFromPlaylist(playback.queueId);
+    setSlotPlayback(slot, null);
+    if (pendingSlotRef.current === slot) {
+      pendingSlotRef.current = null;
+      setPendingSlot(null);
+    }
+    clearPendingWatchdog();
+
+    window.setTimeout(queueNextPlaylistItem, 80);
+  }
+
   async function notifyPlaybackComplete(playback: PlaybackItem) {
     if (completedQueueIdsRef.current.has(playback.queueId)) return;
     completedQueueIdsRef.current.add(playback.queueId);
@@ -136,11 +161,20 @@ export default function TvPlayerPage() {
 
   function preparePlayback(playback: PlaybackItem) {
     const slot = getInactiveSlot();
+    clearPendingWatchdog();
     liveAudioStartedRef.current = false;
     loopInProgressRef.current = false;
     pendingSlotRef.current = slot;
     setPendingSlot(slot);
     setSlotPlayback(slot, playback);
+    pendingWatchdogRef.current = window.setTimeout(() => {
+      if (
+        pendingSlotRef.current === slot &&
+        slotItemsRef.current[slot]?.queueId === playback.queueId
+      ) {
+        skipPendingPlayback(slot, 'video could not preload quickly');
+      }
+    }, 6500);
   }
 
   function preloadNextPlaylistItem() {
@@ -349,6 +383,7 @@ export default function TvPlayerPage() {
     const video = getVideoRef(slot);
     if (!playback || !video || video.readyState < 2) return;
 
+    clearPendingWatchdog();
     const index = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
     if (index >= 0) playlistIndexRef.current = index;
 
@@ -457,11 +492,18 @@ export default function TvPlayerPage() {
     }
   };
 
-  const handleVideoError = async () => {
-    const playback = currentPlaybackRef.current;
+  const handleVideoError = async (slot: Slot) => {
+    const playback = slot === activeSlotRef.current
+      ? currentPlaybackRef.current
+      : slotItemsRef.current[slot];
     if (!playback) return;
     clearPlaybackWatchdog();
     audioRef.current?.pause();
+
+    if (slot !== activeSlotRef.current) {
+      skipPendingPlayback(slot, 'pending video browser playback error');
+      return;
+    }
 
     try {
       if (playback.source !== 'replay') {
@@ -514,7 +556,7 @@ export default function TvPlayerPage() {
         onPlaying={(event) => startLiveAudioWithVisibleVideo(slot, event.currentTarget)}
         onTimeUpdate={(event) => handleVideoProgress(slot, event.currentTarget)}
         onEnded={handleVideoEnded}
-        onError={handleVideoError}
+        onError={() => handleVideoError(slot)}
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
           isActive ? 'opacity-100' : 'opacity-0'
         }`}
@@ -584,14 +626,14 @@ export default function TvPlayerPage() {
               {renderVideoSlot('a')}
               {renderVideoSlot('b')}
 
-              {!currentPlayback && !pendingSlot && (
+              {!currentPlayback && (
                 <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center bg-[#120203] p-7 text-center">
                   <Sparkles className="mb-5 h-14 w-14 text-[#F6D36A] animate-pulse" />
                   <p className="font-serif text-3xl font-black leading-tight text-[#FFF1A8]">
-                    Waiting for next AI ad
+                    {pendingSlot ? 'Preparing next AI ad' : 'Waiting for next AI ad'}
                   </p>
                   <p className="mt-4 text-xs font-bold uppercase tracking-[0.22em] text-[#F6D36A]/70">
-                    Portrait screen ready
+                    {pendingSlot ? 'Loading portrait video' : 'Portrait screen ready'}
                   </p>
                 </div>
               )}
