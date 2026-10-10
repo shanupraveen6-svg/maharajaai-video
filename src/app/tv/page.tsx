@@ -15,6 +15,7 @@ type PlaybackItem = {
   liveAudioUrl?: string | null;
   customerName?: string | null;
   customerLocality?: string | null;
+  source?: 'live' | 'replay';
 };
 
 export default function TvPlayerPage() {
@@ -93,8 +94,12 @@ export default function TvPlayerPage() {
   }
 
   function appendPlaylistItem(playback: PlaybackItem) {
-    const exists = playlistRef.current.some((item) => item.queueId === playback.queueId);
-    if (!exists) {
+    const existingIndex = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
+    if (existingIndex >= 0) {
+      playlistRef.current = playlistRef.current.map((item, index) => (
+        index === existingIndex ? { ...item, ...playback } : item
+      ));
+    } else {
       playlistRef.current = [...playlistRef.current, playback];
     }
 
@@ -104,10 +109,50 @@ export default function TvPlayerPage() {
     }
   }
 
+  function insertLivePlaybackNext(playback: PlaybackItem) {
+    const existingIndex = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
+    if (existingIndex >= 0) {
+      playlistRef.current = playlistRef.current.map((item, index) => (
+        index === existingIndex ? { ...item, ...playback, source: 'live' } : item
+      ));
+      return;
+    }
+
+    if (!currentPlaybackRef.current && !pendingSlotRef.current) {
+      playlistRef.current = [{ ...playback, source: 'live' }];
+      playlistIndexRef.current = 0;
+      preparePlayback({ ...playback, source: 'live' });
+      return;
+    }
+
+    const insertAt = Math.min(playlistIndexRef.current + 1, playlistRef.current.length);
+    const nextPlaylist = [...playlistRef.current];
+    nextPlaylist.splice(insertAt, 0, { ...playback, source: 'live' });
+    playlistRef.current = nextPlaylist;
+  }
+
+  async function loadReplayLibrary() {
+    try {
+      const res = await fetch('/api/live/replays?limit=24');
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.items)) return;
+      data.items.forEach((item: PlaybackItem) => {
+        appendPlaylistItem({ ...item, source: 'replay' });
+      });
+    } catch (err) {
+      console.warn('Replay library load failed:', err);
+    }
+  }
+
   useEffect(() => {
     if (!audioUnlocked) return;
 
     let isMounted = true;
+
+    void loadReplayLibrary();
+    const replayRefresh = window.setInterval(() => {
+      void loadReplayLibrary();
+    }, 10 * 60 * 1000);
 
     const pollNextVideo = async () => {
       if (pollInFlightRef.current) return;
@@ -120,13 +165,14 @@ export default function TvPlayerPage() {
         const data = await res.json();
 
         if (data.status === 'play' && data.videoUrl) {
-          appendPlaylistItem({
+          insertLivePlaybackNext({
             queueId: data.queueId,
             reservationId: data.reservationId,
             videoUrl: data.videoUrl,
             liveAudioUrl: data.liveAudioUrl || getLiveAudioTrack(data.queueId || data.reservationId || data.videoUrl),
             customerName: data.customerName || null,
             customerLocality: data.customerLocality || null,
+            source: 'live',
           });
         }
       } catch (err) {
@@ -143,6 +189,7 @@ export default function TvPlayerPage() {
 
     return () => {
       isMounted = false;
+      window.clearInterval(replayRefresh);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [audioUnlocked]);
@@ -248,7 +295,10 @@ export default function TvPlayerPage() {
     if (!playback) return;
     audioRef.current?.pause();
 
-    await notifyPlaybackComplete(playback);
+    if (playback.source !== 'replay') {
+      await notifyPlaybackComplete(playback);
+      playback.source = 'replay';
+    }
 
     liveAudioStartedRef.current = false;
     setPlaybackError(null);
@@ -276,15 +326,17 @@ export default function TvPlayerPage() {
     audioRef.current?.pause();
 
     try {
-      await fetch('/api/live/fail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          queueId: playback.queueId,
-          reservationId: playback.reservationId,
-          reason: 'TV browser playback error',
-        }),
-      });
+      if (playback.source !== 'replay') {
+        await fetch('/api/live/fail', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            queueId: playback.queueId,
+            reservationId: playback.reservationId,
+            reason: 'TV browser playback error',
+          }),
+        });
+      }
     } catch (err) {
       console.error('Failed to notify playback failure:', err);
     } finally {
@@ -434,13 +486,13 @@ export default function TvPlayerPage() {
                 className="mt-7 text-[clamp(1.55rem,2.35vw,2.7rem)] font-black leading-tight text-white"
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
-                {currentPlayback?.customerName || 'Maharaja Customer'}
+                {currentPlayback?.customerName || 'காவ்யா'}
               </p>
               <p
                 className="mt-3 text-[clamp(1.15rem,1.75vw,2rem)] font-bold text-[#F6D36A]"
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
-                {currentPlayback?.customerLocality || 'Thanjavur'}
+                {currentPlayback?.customerLocality || 'தஞ்சாவூர்'}
               </p>
             </div>
           </section>
