@@ -164,7 +164,7 @@ function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   const visibility = decision.lowerBodyVisibility === 'clear'
     ? 'lower body visible but still locked'
     : 'lower body risky';
-  return `Motion safety: ${visibility}. Lock the uploaded pose exactly. No walking, stepping, pivot, body turn, stance change, pose change, foot-angle change, hand movement, side turn, body rotation, leg movement, foot slide, dance, hip/waist emphasis, or recomposed person. Keep exact face, skin tone, body size, body proportions, outfit fit, garment edges, feet, toes, ankles, footwear, pant hem and floor contact planted throughout. Only tiny natural eye life, gentle breathing impression and soft festival smile.`;
+  return `Motion safety: ${visibility}. Lock pose, feet, hands, garment edges and floor contact. No walking, stepping, turning, dancing, body spin, foot slide, hand movement, hip/waist emphasis or recomposed person. Only tiny eye life, gentle breathing impression and soft festival smile.`;
 }
 
 function truncateAtWordBoundary(text: string, maxLength: number): string {
@@ -189,11 +189,29 @@ function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
           ? 'man'
           : 'person';
 
-  const sceneCue = lowerPrompt.includes('outdoor') || lowerPrompt.includes('cracker') || lowerPrompt.includes('firework')
-    ? 'Outdoor Diwali background motion: safe distant crackers, lantern glow, warm bokeh and festival light streaks.'
-    : 'Indoor Diwali background motion: diya flicker, brass-lamp glow, marigold shimmer, warm bokeh and festival light streaks.';
+  const audienceCue = audience === 'woman'
+    ? 'Modest graceful heroine feel, no glamour/body-part focus.'
+    : audience === 'young girl'
+      ? 'Child-safe sweet festival feel; diya steady if visible; no adult styling.'
+      : audience === 'young boy'
+        ? 'Child-safe cheerful festival feel; diya steady if visible; no adult styling.'
+        : 'Premium confident hero feel, masculine but modest.';
 
-  const canonicalPrompt = `Premium photorealistic 6-second vertical 9:16 Diwali fashion film from the uploaded master image of the ${audience}. Start motion at frame 1: no blank screen, no static hold, no delayed intro, no freeze-frame pause. Preserve exact face, identity, eye shape, nose, mouth, jawline, skin tone, hairstyle, hairline, beard/moustache if present, glasses if present, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting and decorations. Do not beautify, age, slim, reshape, fair-skin, glamourize, or replace the person with a different model. Premium feel comes only from lighting, color grade, camera movement and background motion. ${sceneCue} Camera effects: golden light sweep, smooth dolly-in, small side truck, rack focus, bokeh, festive sparks, final slow zoom-out. Energetic 6-sec preview for 9-sec TV slow-mo. No text, captions, greeting words, logo, dialogue, lip-sync, forehead mark, extra limbs, face change, outfit change.`;
+  const sceneCue = lowerPrompt.includes('outdoor') || lowerPrompt.includes('cracker') || lowerPrompt.includes('firework')
+    ? 'Outdoor Diwali background: safe distant crackers, lanterns, warm bokeh, festival light streaks.'
+    : 'Indoor Diwali background: diya flicker, brass lamps, marigold shimmer, warm bokeh, festival light streaks.';
+
+  const cameraCue = lowerPrompt.includes('fresh camera template 1')
+    ? 'Camera: high top-angle over Diwali lights/rangoli, immediate crane down, gold light sweep, dolly-in, final slow zoom-out.'
+    : lowerPrompt.includes('fresh camera template 2')
+      ? 'Camera: blurred foreground diya/lamp, side truck left-to-right into clean front view, rack focus to subject, full-body finish.'
+      : lowerPrompt.includes('fresh camera template 3')
+        ? 'Camera: low premium hero angle, smooth push-in with warm background light streaks, sharp smile moment, final zoom-out.'
+        : lowerPrompt.includes('fresh camera template 4')
+          ? 'Camera: fast gold-particle sweep across marigold lights, movie-poster reveal, soft sparkles/cracker glow, clean zoom-out.'
+          : 'Camera: immediate golden light sweep, smooth dolly-in, small side truck, rack focus, bokeh, final slow zoom-out.';
+
+  const canonicalPrompt = `Premium photorealistic 6-second vertical 9:16 Diwali fashion film from the uploaded master image of the ${audience}. Start motion at frame 1: no blank screen, no static hold, no delayed intro. Preserve exact face, identity, eye shape, nose, mouth, jawline, skin tone, hairstyle, hairline, beard/moustache if present, glasses if present, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting and decorations. Do not beautify, age, slim, reshape, fair-skin, glamourize or replace the person. ${audienceCue} Premium feel comes only from lighting, color grade, camera movement and background motion. ${sceneCue} ${cameraCue} Energetic 6-sec preview suitable for 9-sec TV slow-mo. No text, captions, greeting words, logo, dialogue, lip-sync, forehead mark, extra limbs, face change or outfit change.`;
 
   const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision)}`;
   return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_PROVIDER_PROMPT_CHARS);
