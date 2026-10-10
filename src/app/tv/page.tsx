@@ -313,9 +313,11 @@ export default function TvPlayerPage() {
   };
 
   useEffect(() => {
-    if (isPlayingVideo && currentPlayback) {
+    if (!isPlayingVideo || !currentPlayback) return;
+    const timeout = window.setTimeout(() => {
       void startVideoPlayback();
-    }
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [isPlayingVideo, currentPlayback, activeSlot]);
 
   useEffect(() => {
@@ -378,7 +380,7 @@ export default function TvPlayerPage() {
     };
   }, [pendingSlot, slotItems]);
 
-  const queueNextPlaylistItem = () => {
+  function queueNextPlaylistItem() {
     const playlist = playlistRef.current;
     if (!playlist.length) return;
 
@@ -419,7 +421,7 @@ export default function TvPlayerPage() {
     }
 
     preparePlayback(nextPlayback);
-  };
+  }
 
   const handleVideoEnded = async () => {
     const playback = currentPlaybackRef.current;

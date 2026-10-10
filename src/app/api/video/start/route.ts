@@ -61,6 +61,111 @@ function formatFalError(error: any) {
   return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
 }
 
+type MotionSafetyDecision = {
+  lowerBodyVisibility: 'clear' | 'partial' | 'hidden';
+  garmentMotionRisk: 'low' | 'medium' | 'high';
+  recommendedMotion: 'micro_walk' | 'still_cinematic';
+  reason: string;
+};
+
+const DEFAULT_MOTION_SAFETY: MotionSafetyDecision = {
+  lowerBodyVisibility: 'hidden',
+  garmentMotionRisk: 'high',
+  recommendedMotion: 'still_cinematic',
+  reason: 'Default safe mode when lower-body motion is not verified.'
+};
+
+function parseMotionSafetyDecision(text: string): MotionSafetyDecision | null {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    const lowerBodyVisibility = ['clear', 'partial', 'hidden'].includes(parsed.lowerBodyVisibility)
+      ? parsed.lowerBodyVisibility
+      : DEFAULT_MOTION_SAFETY.lowerBodyVisibility;
+    const garmentMotionRisk = ['low', 'medium', 'high'].includes(parsed.garmentMotionRisk)
+      ? parsed.garmentMotionRisk
+      : DEFAULT_MOTION_SAFETY.garmentMotionRisk;
+    const recommendedMotion = parsed.recommendedMotion === 'micro_walk' && lowerBodyVisibility === 'clear' && garmentMotionRisk === 'low'
+      ? 'micro_walk'
+      : 'still_cinematic';
+
+    return {
+      lowerBodyVisibility,
+      garmentMotionRisk,
+      recommendedMotion,
+      reason: typeof parsed.reason === 'string' && parsed.reason.trim()
+        ? parsed.reason.trim().slice(0, 180)
+        : DEFAULT_MOTION_SAFETY.reason
+    };
+  } catch (parseErr) {
+    console.warn('Motion safety JSON parse warning:', parseErr);
+    return null;
+  }
+}
+
+async function analyzeMasterMotionSafety(masterBase64: string | null, masterMimeType: string): Promise<MotionSafetyDecision> {
+  const ai = getGenAIClient();
+  if (!ai || !masterBase64) {
+    return {
+      ...DEFAULT_MOTION_SAFETY,
+      reason: 'Motion analysis unavailable, so safe still-camera mode is enforced.'
+    };
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
+      contents: [
+        {
+          inlineData: {
+            mimeType: masterMimeType || 'image/jpeg',
+            data: masterBase64
+          }
+        },
+        `Analyze this generated fashion master image only for safe video motion planning.
+Decide if the person's legs and lower garment are clearly visible enough for 2 to 3 tiny slow steps without AI leg/cloth distortion.
+
+Rules:
+- If a lehenga, saree, gown, long anarkali, long kurta, dupatta, or any loose/covered garment hides the legs, use still_cinematic.
+- If legs are only partly visible, cropped, shadowed, or covered by fabric, use still_cinematic.
+- Use micro_walk only when both legs/feet are clearly visible and the garment shape supports tiny controlled steps.
+- Never recommend normal walking, dancing, spinning, or large body movement.
+
+Return ONLY valid JSON:
+{
+  "lowerBodyVisibility": "clear" | "partial" | "hidden",
+  "garmentMotionRisk": "low" | "medium" | "high",
+  "recommendedMotion": "micro_walk" | "still_cinematic",
+  "reason": "short reason"
+}`
+      ]
+    });
+
+    return parseMotionSafetyDecision(response.text || '') || DEFAULT_MOTION_SAFETY;
+  } catch (err) {
+    console.warn('Motion safety analysis warning:', err);
+    return {
+      ...DEFAULT_MOTION_SAFETY,
+      reason: 'Motion analysis failed, so safe still-camera mode is enforced.'
+    };
+  }
+}
+
+function buildMotionSafetyRule(decision: MotionSafetyDecision) {
+  if (decision.recommendedMotion === 'micro_walk') {
+    return `Motion safety decision: lower body and feet are clearly visible, so allow only 2 to 3 tiny slow controlled forward steps before stopping. This is not full walking. Keep steps small, straight, and stable. No dancing, no leg crossing, no fast stride, no spin, no hip or waist emphasis. Preserve exact face, body size, outfit fit, garment edges and footwear. If the model becomes unstable, switch to a grounded still pose with camera movement only.`;
+  }
+
+  return `Motion safety decision: lower body is hidden, partially visible, or risky for cloth motion. Do not walk. The person stays grounded in a modest still pose with only tiny head/eye movement and a soft festival smile. Make the video feel premium using camera movement only: controlled dolly-in, side truck, rack focus, light sweep, diya glow, bokeh, background crackers or lantern shimmer, and a final slow zoom-out. No dancing, no leg movement, no body spin, no hip or waist emphasis.`;
+}
+
+function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
+  const finalPrompt = `${basePrompt}\n\n${buildMotionSafetyRule(decision)}`;
+  return finalPrompt.length > 2400 ? finalPrompt.slice(0, 2400) : finalPrompt;
+}
+
 export async function POST(req: NextRequest) {
   const db = getDb();
 
@@ -77,7 +182,6 @@ export async function POST(req: NextRequest) {
     }
 
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const prompt = buildVideoPrompt(garmentAnalysis, conceptPrompt);
     const nowIso = new Date().toISOString();
 
     if (AI_CONFIG.IS_DEMO_MODE) {
@@ -153,6 +257,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const motionSafety = await analyzeMasterMotionSafety(masterBase64, masterMimeType);
+    const prompt = buildFinalPrompt(buildVideoPrompt(garmentAnalysis, conceptPrompt), motionSafety);
+
     const falKey = AI_CONFIG.FAL_KEY;
     let jobData: any = null;
     let falErrorReason: string | null = null;
@@ -216,6 +323,7 @@ export async function POST(req: NextRequest) {
             requestId: falSubmitResult.request_id,
             provider: 'fal-minimax',
             model: 'fal-ai/minimax/hailuo-02/standard/image-to-video',
+            motionSafety,
             status: 'processing',
             videoUrl: null,
             createdAt: nowIso
@@ -290,6 +398,7 @@ export async function POST(req: NextRequest) {
           operationName,
           provider: 'google-veo',
           model: AI_CONFIG.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview',
+          motionSafety,
           status: 'processing',
           videoUrl: null,
           createdAt: nowIso
@@ -317,6 +426,8 @@ export async function POST(req: NextRequest) {
         jobId,
         videoStatus: jobData.status,
         provider: jobData.provider,
+        motionSafety,
+        motionMode: motionSafety.recommendedMotion,
         updatedAt: nowIso
       }, { merge: true });
     } else {
@@ -329,6 +440,8 @@ export async function POST(req: NextRequest) {
         jobId,
         videoStatus: jobData.status,
         provider: jobData.provider,
+        motionSafety,
+        motionMode: motionSafety.recommendedMotion,
         updatedAt: nowIso
       });
     }
@@ -338,6 +451,7 @@ export async function POST(req: NextRequest) {
       jobId,
       sessionId,
       provider: jobData.provider,
+      motionSafety,
       status: jobData.status,
       message: jobData.provider === 'fal-minimax'
         ? 'MiniMax Hailuo video generation initialized via Fal.ai (Primary).'
