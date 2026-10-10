@@ -132,29 +132,32 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-[#6e0d1f]/14 bg-white/86 p-6 shadow-2xl backdrop-blur md:p-7">
+          <div className="border border-[#6e0d1f]/14 bg-white/88 p-6 shadow-2xl backdrop-blur md:p-7">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8A6A20]">Enter Workspace</p>
-                <h2 className="mt-2 font-serif text-3xl font-bold text-[#2A060C]">Select store</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8A6A20]">Client Portal</p>
+                <h2 className="mt-2 font-serif text-3xl font-bold text-[#2A060C]">Choose your store</h2>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#5C4B43]">
+                  Select the retail workspace assigned to your store.
+                </p>
               </div>
               <ShieldCheck className="h-6 w-6 text-emerald-700" />
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-lg border border-[#6e0d1f]/18 bg-[#fffaf0] p-5">
+              <div className="border border-[#6e0d1f]/18 bg-[#fffaf0] p-5">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-13 w-13 items-center justify-center rounded-lg border border-[#6e0d1f]/20 bg-[#6e0d1f]/8 text-[#6e0d1f]">
+                  <div className="flex h-13 w-13 items-center justify-center border border-[#6e0d1f]/20 bg-white text-[#6e0d1f]">
                     <Store className="h-6 w-6" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <label htmlFor="store-select" className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8A6A20]">
-                      Select customer store
+                      Store
                     </label>
                     <select
                       id="store-select"
                       defaultValue="maharaja"
-                      className="mt-2 w-full appearance-none rounded-lg border border-[#6e0d1f]/20 bg-white px-4 py-3 font-serif text-2xl font-bold text-[#2A060C] outline-none focus:border-[#6e0d1f]"
+                      className="mt-2 w-full appearance-none border border-[#6e0d1f]/20 bg-white px-4 py-3 font-serif text-2xl font-bold text-[#2A060C] outline-none focus:border-[#6e0d1f]"
                     >
                       {storeCards.map((store) => (
                         <option key={store.name} value={store.name.toLowerCase()}>
@@ -170,29 +173,29 @@ export default function LandingPage() {
                   <BadgeCheck className="h-5 w-5 shrink-0 text-emerald-700" />
                 </div>
 
-                <div className="mt-5 flex items-center justify-between gap-4">
+                <div className="mt-5 flex items-center justify-between gap-4 border-t border-[#e7d9b7] pt-4">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
                     {storeCards[0].status}
                   </span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#6e0d1f]">
-                    One of focusAI customers
+                    Workspace ready
                   </span>
                 </div>
 
                 <Link
                   href={storeCards[0].href}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#6e0d1f] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#F3E5AB] transition hover:bg-[#800A1D]"
+                  className="mt-5 flex w-full items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#F3E5AB] transition hover:bg-[#800A1D]"
                 >
-                  Login to Maharaja workspace <ArrowRight className="h-4 w-4" />
+                  Continue to login <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             </div>
 
-            <div className="mt-5 rounded-lg border border-[#6e0d1f]/10 bg-[#F8F5EE] p-4">
+            <div className="mt-5 border border-[#6e0d1f]/10 bg-[#F8F5EE] p-4">
               <div className="flex items-center gap-3">
                 <LockKeyhole className="h-4 w-4 text-[#6e0d1f]" />
                 <p className="text-xs font-semibold leading-5 text-[#5C4B43]">
-                  Store login opens the focusAI workspace for that client. Maharaja is active now; more stores and campaigns can be added later.
+                  Store login opens the selected campaign workspace. New client stores can be added to this portal as they go live.
                 </p>
               </div>
             </div>
