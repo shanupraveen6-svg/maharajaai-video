@@ -43,6 +43,8 @@ export default function TvPlayerPage() {
   const completedQueueIdsRef = useRef<Set<string>>(new Set());
   const pollInFlightRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playbackWatchdogRef = useRef<number | null>(null);
+  const badQueueIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     currentPlaybackRef.current = currentPlayback;
@@ -63,6 +65,7 @@ export default function TvPlayerPage() {
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (playbackWatchdogRef.current) clearTimeout(playbackWatchdogRef.current);
       audioRef.current?.pause();
     };
   }, []);
@@ -73,6 +76,45 @@ export default function TvPlayerPage() {
   function setSlotPlayback(slot: Slot, playback: PlaybackItem) {
     slotItemsRef.current = { ...slotItemsRef.current, [slot]: playback };
     setSlotItems((prev) => ({ ...prev, [slot]: playback }));
+  }
+
+  function clearPlaybackWatchdog() {
+    if (!playbackWatchdogRef.current) return;
+    clearTimeout(playbackWatchdogRef.current);
+    playbackWatchdogRef.current = null;
+  }
+
+  function removePlaybackFromPlaylist(queueId: string) {
+    const removeIndex = playlistRef.current.findIndex((item) => item.queueId === queueId);
+    playlistRef.current = playlistRef.current.filter((item) => item.queueId !== queueId);
+    if (removeIndex >= 0 && playlistIndexRef.current >= removeIndex) {
+      playlistIndexRef.current = Math.max(playlistIndexRef.current - 1, 0);
+    }
+  }
+
+  function resetActivePlaybackState() {
+    clearPlaybackWatchdog();
+    audioRef.current?.pause();
+    liveAudioStartedRef.current = false;
+    loopInProgressRef.current = false;
+    setIsPlayingVideo(false);
+    setCurrentPlayback(null);
+    currentPlaybackRef.current = null;
+    setPlaybackError(null);
+  }
+
+  function skipCurrentPlayback(reason: string) {
+    const playback = currentPlaybackRef.current;
+    if (!playback) return;
+
+    console.warn('Skipping TV playback:', reason, playback.queueId);
+    badQueueIdsRef.current.add(playback.queueId);
+    removePlaybackFromPlaylist(playback.queueId);
+    resetActivePlaybackState();
+
+    if (playlistRef.current.length > 0) {
+      window.setTimeout(queueNextPlaylistItem, 80);
+    }
   }
 
   async function notifyPlaybackComplete(playback: PlaybackItem) {
@@ -120,6 +162,8 @@ export default function TvPlayerPage() {
   }
 
   function appendPlaylistItem(playback: PlaybackItem) {
+    if (badQueueIdsRef.current.has(playback.queueId)) return;
+
     const existingIndex = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
     if (existingIndex >= 0) {
       playlistRef.current = playlistRef.current.map((item, index) => (
@@ -136,6 +180,8 @@ export default function TvPlayerPage() {
   }
 
   function insertLivePlaybackNext(playback: PlaybackItem) {
+    badQueueIdsRef.current.delete(playback.queueId);
+
     const existingIndex = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
     if (existingIndex >= 0) {
       playlistRef.current = playlistRef.current.map((item, index) => (
@@ -241,6 +287,15 @@ export default function TvPlayerPage() {
         audioRef.current.volume = 0.88;
       }
       await video.play();
+      clearPlaybackWatchdog();
+      playbackWatchdogRef.current = window.setTimeout(() => {
+        const activeVideo = getVideoRef(activeSlotRef.current);
+        const activePlayback = currentPlaybackRef.current;
+        if (!activeVideo || !activePlayback || activePlayback.queueId !== playback.queueId) return;
+        if (activeVideo.paused || activeVideo.readyState < 2 || activeVideo.currentTime < 0.12) {
+          skipCurrentPlayback('video did not visibly start');
+        }
+      }, 2800);
 
       fetch('/api/tv/playing', {
         method: 'POST',
@@ -327,6 +382,13 @@ export default function TvPlayerPage() {
     const playlist = playlistRef.current;
     if (!playlist.length) return;
 
+    if (!currentPlaybackRef.current) {
+      const index = playlistIndexRef.current % playlist.length;
+      playlistIndexRef.current = index;
+      preparePlayback(playlist[index]);
+      return;
+    }
+
     if (playlist.length === 1) {
       const video = getVideoRef(activeSlotRef.current);
       if (!video) return;
@@ -362,6 +424,7 @@ export default function TvPlayerPage() {
   const handleVideoEnded = async () => {
     const playback = currentPlaybackRef.current;
     if (!playback) return;
+    clearPlaybackWatchdog();
     audioRef.current?.pause();
 
     if (playback.source !== 'replay') {
@@ -378,6 +441,9 @@ export default function TvPlayerPage() {
     if (slot !== activeSlotRef.current || !currentPlaybackRef.current) return;
 
     startLiveAudioWithVisibleVideo(slot, video);
+    if (video.currentTime > 0.18) {
+      clearPlaybackWatchdog();
+    }
 
     const duration = Number.isFinite(video.duration) && video.duration > 0
       ? Math.min(video.duration, SOURCE_SECONDS_FOR_LIVE)
@@ -392,6 +458,7 @@ export default function TvPlayerPage() {
   const handleVideoError = async () => {
     const playback = currentPlaybackRef.current;
     if (!playback) return;
+    clearPlaybackWatchdog();
     audioRef.current?.pause();
 
     try {
@@ -409,10 +476,10 @@ export default function TvPlayerPage() {
     } catch (err) {
       console.error('Failed to notify playback failure:', err);
     } finally {
-      setIsPlayingVideo(false);
-      setCurrentPlayback(null);
-      setPlaybackError(null);
-      queueNextPlaylistItem();
+      badQueueIdsRef.current.add(playback.queueId);
+      removePlaybackFromPlaylist(playback.queueId);
+      resetActivePlaybackState();
+      window.setTimeout(queueNextPlaylistItem, 80);
     }
   };
 
