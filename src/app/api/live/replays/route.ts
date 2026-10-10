@@ -70,26 +70,32 @@ export async function GET(req: NextRequest) {
         });
 
       const bucket = getStorageBucket();
+      let existingVideoStoragePaths: Set<string> | null = null;
+
       if (bucket) {
         const [files] = await bucket.getFiles({ prefix: 'sessions/' });
-        files
+        const storageVideoPaths = files
           .map((file: any) => file.name as string)
-          .filter((storagePath: string) => /^sessions\/[^/]+\/video\/final\.(mp4|webm|mov)$/i.test(storagePath))
-          .forEach((storagePath: string) => {
-            if (!videosByStoragePath.has(storagePath)) {
-              const sessionId = sessionIdFromStoragePath(storagePath);
-              videosByStoragePath.set(storagePath, {
-                id: `video_${sessionId}`,
-                sessionId,
-                storagePath,
-                status: 'ready',
-                createdAt: ''
-              });
-            }
-          });
+          .filter((storagePath: string) => /^sessions\/[^/]+\/video\/final\.(mp4|webm|mov)$/i.test(storagePath));
+
+        existingVideoStoragePaths = new Set(storageVideoPaths);
+
+        storageVideoPaths.forEach((storagePath: string) => {
+          if (!videosByStoragePath.has(storagePath)) {
+            const sessionId = sessionIdFromStoragePath(storagePath);
+            videosByStoragePath.set(storagePath, {
+              id: `video_${sessionId}`,
+              sessionId,
+              storagePath,
+              status: 'ready',
+              createdAt: ''
+            });
+          }
+        });
       }
 
       const readyVideos = Array.from(videosByStoragePath.values())
+        .filter((video: any) => !existingVideoStoragePaths || existingVideoStoragePaths.has(video.storagePath))
         .sort((a: any, b: any) => getMillis(a.createdAt) - getMillis(b.createdAt));
 
       const items = await Promise.all(
