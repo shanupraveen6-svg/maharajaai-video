@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
         const prompt = `Create a hyper-photorealistic vertical 9:16 full-body Indian festive fashion master photograph.
 STYLE & OPTICS: Photorealistic 8K RAW commercial fashion photography, shot on Hasselblad 100MP camera, 85mm f/1.8 portrait lens, authentic human skin texture, natural pores, real fabric weaves, commercial studio lighting. ZERO illustration, ZERO 3D render look, ZERO CGI or anime aesthetics.
-IDENTITY LOCK: Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, skin tone, hairstyle, body proportions, body size, age appearance and likeness. Keep natural premium grooming/beauty lighting and polished skin while preserving the real skin tone and real face.
+IDENTITY LOCK: Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, eye shape, nose, mouth, jawline, forehead, ears if visible, beard/moustache if present, glasses if present, skin tone, hairstyle, hairline, body proportions, body size, age appearance and likeness. Do not make the person younger, older, slimmer, heavier, fairer, darker, more muscular, more glamorous, or into a different model. Use premium lighting, color grade and neat grooming only; do not remodel the real face or body.
 OUTFIT LOCK: Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric texture, embroidery, motifs, borders, silhouette and design.
 Dress the same customer naturally in the selected garment as a complete full-length outfit.
 ENVIRONMENT: ${templatePrompt}

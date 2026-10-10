@@ -85,6 +85,8 @@ const DEFAULT_MOTION_SAFETY: MotionSafetyDecision = {
   reason: 'Default safe mode when lower-body motion is not verified.'
 };
 
+const MAX_PROVIDER_PROMPT_CHARS = 1350;
+
 function parseMotionSafetyDecision(text: string): MotionSafetyDecision | null {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return null;
@@ -162,7 +164,7 @@ function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   const visibility = decision.lowerBodyVisibility === 'clear'
     ? 'lower body visible but still locked'
     : 'lower body risky';
-  return `Motion safety: ${visibility}. The uploaded master image is the exact first frame and the exact final identity reference. Do not walk, step, pivot, turn the body, change stance, change pose, change foot angle, change hand placement, or recompose the person. Keep the exact face, skin tone, body size, body proportions, outfit fit, garment edges, feet, toes, ankles, footwear, pant hem and floor contact planted in the same position for the full clip. No side turn, no body rotation, no leg movement, no foot slide, no dancing, no hip or waist emphasis. The subject only has tiny natural eye life, gentle breathing impression and a soft festival smile. Cinematic energy must come only from camera/background: motion begins immediately at frame 1 with golden light sweep, smooth dolly-in, small side truck, rack focus, diya glow, bokeh, festive sparks or distant crackers, and final slow zoom-out.`;
+  return `Motion safety: ${visibility}. Lock the uploaded pose exactly. No walking, stepping, pivot, body turn, stance change, pose change, foot-angle change, hand movement, side turn, body rotation, leg movement, foot slide, dance, hip/waist emphasis, or recomposed person. Keep exact face, skin tone, body size, body proportions, outfit fit, garment edges, feet, toes, ankles, footwear, pant hem and floor contact planted throughout. Only tiny natural eye life, gentle breathing impression and soft festival smile.`;
 }
 
 function truncateAtWordBoundary(text: string, maxLength: number): string {
@@ -188,13 +190,13 @@ function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
           : 'person';
 
   const sceneCue = lowerPrompt.includes('outdoor') || lowerPrompt.includes('cracker') || lowerPrompt.includes('firework')
-    ? 'Animate the existing outdoor Diwali background with safe distant crackers, lantern glow, warm bokeh and festival light streaks.'
-    : 'Animate the existing indoor Diwali background with diya flicker, brass-lamp glow, marigold shimmer, warm bokeh and festival light streaks.';
+    ? 'Outdoor Diwali background motion: safe distant crackers, lantern glow, warm bokeh and festival light streaks.'
+    : 'Indoor Diwali background motion: diya flicker, brass-lamp glow, marigold shimmer, warm bokeh and festival light streaks.';
 
-  const canonicalPrompt = `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion film from the uploaded master image of the ${audience}. The video must start moving from frame 1 with no blank screen, no static hold, no delayed intro and no freeze-frame pause. Preserve the exact same face, identity, skin tone, hairstyle, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting and decorations. Keep natural premium grooming and beautiful commercial fashion lighting without changing the person's real likeness. ${sceneCue} Make the 6-second preview feel slightly energetic so it still feels cinematic when slowed to 9 seconds on the TV screen. No text, no captions, no greeting words, no logo, no dialogue, no lip-sync, no forehead mark, no extra limbs, no face change, no outfit change.`;
+  const canonicalPrompt = `Premium photorealistic 6-second vertical 9:16 Diwali fashion film from the uploaded master image of the ${audience}. Start motion at frame 1: no blank screen, no static hold, no delayed intro, no freeze-frame pause. Preserve exact face, identity, eye shape, nose, mouth, jawline, skin tone, hairstyle, hairline, beard/moustache if present, glasses if present, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting and decorations. Do not beautify, age, slim, reshape, fair-skin, glamourize, or replace the person with a different model. Premium feel comes only from lighting, color grade, camera movement and background motion. ${sceneCue} Camera effects: golden light sweep, smooth dolly-in, small side truck, rack focus, bokeh, festive sparks, final slow zoom-out. Energetic 6-sec preview for 9-sec TV slow-mo. No text, captions, greeting words, logo, dialogue, lip-sync, forehead mark, extra limbs, face change, outfit change.`;
 
   const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision)}`;
-  return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), 1500);
+  return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_PROVIDER_PROMPT_CHARS);
 }
 
 export async function POST(req: NextRequest) {
