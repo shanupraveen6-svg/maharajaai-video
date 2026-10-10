@@ -26,6 +26,38 @@ const storeCards = [
   },
 ];
 
+const pricingPlans = [
+  {
+    title: 'Pilot',
+    volume: '500 videos + 500 try-ons',
+    retry: '15% retry included',
+    price: 'Rs 1 lakh',
+  },
+  {
+    title: 'Growth',
+    volume: '1000 videos + 1000 try-ons',
+    retry: '15% retry included',
+    price: 'Rs 1.5 lakhs',
+  },
+  {
+    title: 'Scale',
+    volume: '2000 videos + 2000 try-ons',
+    retry: '15% retry included',
+    price: 'Rs 2.75 lakhs',
+  },
+];
+
+const pricingIncludes = [
+  'No leakage',
+  'No duplication',
+  'No competitor support',
+  'Regional courtesy',
+  'Future branding workouts',
+  'Full customer protection',
+  '100% secured',
+  'Privacy and brand value maintained',
+];
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-[#F8F5EE] text-[#1A1412] font-sans overflow-hidden">
@@ -166,6 +198,68 @@ export default function LandingPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#FBF7EF] px-5 py-16 md:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-3xl">
+            <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#8A6A20]">
+              Pricing for retail campaigns
+            </p>
+            <h2 className="mt-3 font-serif text-4xl font-bold leading-tight text-[#2A060C] md:text-5xl">
+              Built for Diwali volume, showroom safety and brand control.
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-[#5C4B43] md:text-base">
+              Each plan includes AI video generation, AI try-on allocation, retry buffer, customer privacy handling and Maharaja-style campaign support.
+            </p>
+          </div>
+
+          <div className="mt-9 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {pricingPlans.map((plan) => (
+              <div key={plan.title} className="border border-[#d8c49b] bg-white p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-[#6e0d1f]">{plan.title}</p>
+                    <h3 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">{plan.price}</h3>
+                  </div>
+                  <BadgeCheck className="h-6 w-6 text-emerald-700" />
+                </div>
+                <p className="mt-5 text-sm font-bold uppercase tracking-wider text-[#3B2D28]">{plan.volume}</p>
+                <p className="mt-2 text-xs font-semibold text-[#7A5B16]">{plan.retry}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
+            <div className="border border-[#d8c49b] bg-[#fffaf0] p-6">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#6e0d1f]">All prices include</p>
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {pricingIncludes.map((item) => (
+                  <div key={item} className="flex items-center gap-3 border border-[#e7d9b7] bg-white px-3 py-3">
+                    <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" />
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#4A3B35]">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">
+                Add-on support
+              </p>
+              <h3 className="mt-3 font-serif text-3xl font-bold">Rs 25,000</h3>
+              <p className="mt-3 text-sm font-semibold leading-6 text-[#F3E5AB]/82">
+                Digital support + branding workouts for campaign setup, improvements and store-level rollout.
+              </p>
+              <div className="mt-6 border-t border-[#D4AF37]/25 pt-5">
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">Enterprise</p>
+                <p className="mt-2 text-sm font-semibold text-[#F3E5AB]/86">
+                  Contact sales for custom volume: <span className="font-black text-white">9994837342</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>

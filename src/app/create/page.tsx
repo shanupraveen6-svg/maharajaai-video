@@ -220,6 +220,23 @@ const recentLogs = [
   { time: 'Pilot', category: 'TV Queue', action: 'Maharaja main display connected' },
 ];
 
+const pricingPlans = [
+  { title: 'Pilot', volume: '500 video + 500 try-on', retry: '15% retry included', price: 'Rs 1 lakh' },
+  { title: 'Growth', volume: '1000 video + 1000 try-on', retry: '15% retry included', price: 'Rs 1.5 lakhs' },
+  { title: 'Scale', volume: '2000 videos + 2000 try-on', retry: '15% retry included', price: 'Rs 2.75 lakhs' },
+];
+
+const pricingIncludes = [
+  'No leakage',
+  'No duplication',
+  'No competitor support',
+  'Regional courtesy',
+  'Future branding workouts',
+  'Full customer protection',
+  '100% secured',
+  'Privacy and brand value maintained',
+];
+
 export default function CreatePage() {
   const router = useRouter();
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
@@ -793,6 +810,62 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-lg border border-[#e1d4c2] bg-white p-5 shadow-sm lg:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-800">
+              Campaign Pricing
+            </p>
+            <h2 className="mt-1 font-serif text-xl font-bold text-[#6e0d1f]">
+              focusAI retail plans
+            </h2>
+          </div>
+          <span className="border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-800">
+            Secured pilot
+          </span>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
+          {pricingPlans.map((plan) => (
+            <div key={plan.title} className="border border-amber-200 bg-[#fffaf0] p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6e0d1f]">{plan.title}</p>
+              <p className="mt-2 font-serif text-2xl font-bold text-[#6e0d1f]">{plan.price}</p>
+              <p className="mt-3 text-xs font-black uppercase tracking-wider text-slate-800">{plan.volume}</p>
+              <p className="mt-1 text-[11px] font-bold text-amber-800">{plan.retry}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 border border-slate-200 bg-slate-50 p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#6e0d1f]">
+            Included in all plans
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {pricingIncludes.map((item) => (
+              <div key={item} className="flex items-center gap-2 bg-white px-3 py-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" />
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-700">{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr]">
+          <div className="border border-amber-200 bg-[#fffaf0] p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-800">
+              Digital Support + Branding Workouts
+            </p>
+            <p className="mt-2 font-serif text-2xl font-bold text-[#6e0d1f]">Rs 25,000</p>
+          </div>
+          <div className="border border-[#6e0d1f]/25 bg-[#17070a] p-4 text-[#F3E5AB]">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300">Enterprise</p>
+            <p className="mt-2 text-sm font-bold">
+              Contact sales: <span className="text-white">9994837342</span>
+            </p>
           </div>
         </div>
       </section>
