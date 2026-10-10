@@ -245,6 +245,12 @@ export default function CreatePage() {
   const canGenerateMaster = hasRequiredPhotos && !!selectedCategory;
   const canGenerateVideo = !!selectedCategory && !!masterImageUrl && videoPhase === 'idle';
   const selectedMasterTemplate = selectedCategory ? masterTemplates[selectedCategory] : masterTemplates.women;
+  const canUsePrimaryAction = masterImageUrl ? canGenerateVideo : canGenerateMaster;
+  const primaryActionText = masterImageUrl ? 'Generate Diwali Video' : 'Generate AI Image';
+  const primaryActionBusy = masterImageUrl
+    ? videoPhase === 'starting' || videoPhase === 'rendering' || videoPhase === 'saving'
+    : isGeneratingMaster;
+  const primaryAction = masterImageUrl ? startVideoGeneration : generateMasterImage;
 
   useEffect(() => {
     if (videoPhase !== 'starting' && videoPhase !== 'rendering' && videoPhase !== 'saving') return;
@@ -492,47 +498,50 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
   }
 
   return (
-    <main className="min-h-screen bg-[#FDFCF9] text-slate-900 p-3 sm:p-5 lg:p-8 font-sans max-w-5xl mx-auto pb-24 space-y-5">
-      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-[#12070B] p-5 md:p-6 rounded-xl border border-amber-400/35 shadow-sm text-white">
+    <main className="min-h-screen bg-[#f6efe5] text-slate-900 font-sans">
+      <div className="mx-auto min-h-screen max-w-md bg-[#FDFCF9] px-3 pb-28 pt-3 shadow-2xl shadow-black/10 sm:rounded-[2rem] sm:my-4 sm:border sm:border-amber-200">
+      <header className="sticky top-0 z-30 -mx-3 -mt-3 border-b border-amber-200/60 bg-[#12070B]/95 px-4 py-3 text-white backdrop-blur">
         <div>
-          <p className="text-[11px] text-amber-300 font-bold tracking-[0.24em] uppercase">
-            focusAI workspace · Maharaja selected
+          <p className="text-[10px] text-amber-300 font-bold tracking-[0.2em] uppercase">
+            focusAI · Maharaja
           </p>
-          <h1 className="mt-1 text-xl md:text-2xl font-serif font-bold text-[#F3E5AB] tracking-widest uppercase">
-            Maharaja Campaign Console
+          <h1 className="mt-1 text-lg font-serif font-bold text-[#F3E5AB] tracking-wider uppercase">
+            Diwali Video Studio
           </h1>
-          <p className="mt-1 text-xs text-amber-100/75 font-semibold tracking-widest uppercase">
-            Diwali Greeting is active now. Other products are coming soon.
-          </p>
         </div>
-        <div className="text-xs md:text-sm font-mono font-bold text-[#F3E5AB] bg-black/50 px-4 py-2 rounded-full border border-amber-300/40 shadow-sm">
-          SESSION ID: {sessionId}
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200">
+            Active
+          </span>
+          <span className="max-w-[170px] truncate rounded-full bg-black/45 px-3 py-1 text-[10px] font-mono font-bold text-[#F3E5AB]">
+            {sessionId}
+          </span>
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-3">
+      <section className="mt-4 grid grid-cols-2 gap-2.5">
         {productTabs.map((tab, index) => {
           const active = index === 1;
           return (
             <div
               key={tab.title}
-              className={`rounded-xl border p-4 ${
+              className={`min-h-[94px] rounded-2xl border p-3 ${
                 active
-                  ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-md'
+                  ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-lg shadow-[#6e0d1f]/20'
                   : 'border-slate-200 bg-white text-slate-500'
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-serif font-bold uppercase tracking-wider">{tab.title}</p>
+              <div className="flex flex-col gap-2">
+                <p className="text-[12px] font-serif font-bold uppercase tracking-wider leading-4">{tab.title}</p>
                 <span
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                  className={`w-fit rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
                     active ? 'bg-[#F3E5AB] text-[#6e0d1f]' : 'bg-slate-100 text-slate-500'
                   }`}
                 >
                   {tab.status}
                 </span>
               </div>
-              <p className={`mt-2 text-xs font-semibold ${active ? 'text-amber-100' : 'text-slate-500'}`}>
+              <p className={`mt-2 text-[11px] font-semibold leading-4 ${active ? 'text-amber-100' : 'text-slate-500'}`}>
                 {tab.subtitle}
               </p>
             </div>
@@ -540,13 +549,11 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         })}
       </section>
 
-      <section className="rounded-2xl border border-amber-200 bg-white p-4 shadow-sm">
+      <section className="mt-4 rounded-[1.6rem] border border-amber-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-amber-800">Select customer category</p>
-            <p className="mt-1 text-xs font-semibold text-slate-500">
-              This locks the exact prompt. No auto category detection credit is used.
-            </p>
+            <p className="text-[11px] font-black uppercase tracking-wider text-amber-800">1. Select category</p>
+            <p className="mt-1 text-[11px] font-semibold text-slate-500">Prompt locks from this choice.</p>
           </div>
           <span className="rounded-full bg-[#6e0d1f] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#F3E5AB]">
             {selectedCategory ? `${masterTemplates[selectedCategory].title} locked` : 'Choose first'}
@@ -560,13 +567,13 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
                 key={option.id}
                 type="button"
                 onClick={() => selectCategory(option.id)}
-                className={`rounded-xl border p-4 text-left transition ${
+                className={`rounded-2xl border p-3 text-left transition ${
                   active
                     ? 'border-[#6e0d1f] bg-[#6e0d1f] text-white shadow-md'
                     : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-amber-300'
                 }`}
               >
-                <p className="font-serif text-lg font-bold uppercase tracking-wider">{option.title}</p>
+                <p className="font-serif text-base font-bold uppercase tracking-wider">{option.title}</p>
                 <p className={`mt-1 text-[11px] font-semibold ${active ? 'text-amber-100' : 'text-slate-500'}`}>
                   {option.subtitle}
                 </p>
@@ -575,11 +582,11 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           })}
         </div>
 
-        <div className="mt-4 rounded-xl border border-amber-200 bg-[#fffaf0] p-4">
+        <div className="mt-3 rounded-2xl border border-amber-200 bg-[#fffaf0] p-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-800">
             Selected Diwali Pose
           </p>
-          <p className="mt-1 font-serif text-lg font-bold text-[#6e0d1f]">
+          <p className="mt-1 font-serif text-base font-bold text-[#6e0d1f]">
             {selectedMasterTemplate.poseTitle}
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">
@@ -596,12 +603,12 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-        <section className="space-y-6 p-6 md:p-8 rounded-2xl bg-white border border-slate-200 shadow-md">
+      <div className="space-y-4">
+        <section className="space-y-5 rounded-[1.6rem] bg-white p-4 shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
             <Shirt className="w-6 h-6 text-[#6e0d1f]" />
-            <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-              Garment and Customer Photos
+            <h2 className="text-sm font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+              2. Upload Photos
             </h2>
           </div>
 
@@ -613,7 +620,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
               </span>
             </div>
 
-            <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-amber-300 bg-[#fffaf0] p-4 transition hover:bg-amber-50">
+            <label className="block cursor-pointer rounded-[1.4rem] border-2 border-dashed border-amber-300 bg-[#fffaf0] p-3 transition hover:bg-amber-50">
               <div className="grid grid-cols-3 gap-3">
                 {[0, 1, 2].map((index) => (
                   <div
@@ -631,7 +638,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-[#6e0d1f] px-4 py-3 text-xs font-bold uppercase tracking-wider text-white">
+              <div className="mt-3 flex items-center justify-center gap-2 rounded-2xl bg-[#6e0d1f] px-4 py-3 text-xs font-bold uppercase tracking-wider text-white">
                 <Camera className="h-4 w-4 text-amber-300" />
                 Upload 1 to 3 dress photos
               </div>
@@ -647,7 +654,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
               <User className="w-4 h-4 text-[#6e0d1f]" /> Customer person photo
             </p>
             <div className="flex gap-5 items-center">
-              <div className="w-28 aspect-[3/4] rounded-2xl border-2 border-amber-300 bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
+              <div className="w-24 aspect-[3/4] rounded-2xl border-2 border-amber-300 bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
                 {personPhoto ? (
                   <img src={personPhoto} alt="Customer" className="w-full h-full object-cover" />
                 ) : (
@@ -683,22 +690,13 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           )}
         </section>
 
-        <section className="space-y-6 p-6 md:p-8 rounded-2xl bg-white border border-slate-200 shadow-md">
+        <section className="space-y-5 rounded-[1.6rem] bg-white p-4 shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 border-b border-amber-100 pb-4">
             <Sparkles className="w-6 h-6 text-[#6e0d1f]" />
-            <h2 className="text-base md:text-lg font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
-              AI Image Generation
+            <h2 className="text-sm font-serif font-bold text-[#6e0d1f] uppercase tracking-wider">
+              3. AI Image
             </h2>
           </div>
-
-          <button
-            onClick={generateMasterImage}
-            disabled={!canGenerateMaster || isGeneratingMaster}
-            className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] text-white font-bold uppercase tracking-wider text-xs md:text-sm shadow-md flex items-center justify-center gap-2.5 hover:brightness-110 transition disabled:opacity-50"
-          >
-            {isGeneratingMaster ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-amber-200" />}
-            {masterImageUrl ? 'Regenerate AI Image' : 'Generate AI Image'}
-          </button>
 
           {masterGenerationMessage && (
             <div className={`rounded-xl border p-3 text-xs font-bold ${
@@ -734,12 +732,12 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </section>
       </div>
 
-      <section className="p-6 md:p-8 rounded-2xl bg-[#12070B] border border-amber-500/30 shadow-xl text-white space-y-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <section className="rounded-[1.6rem] bg-[#12070B] border border-amber-500/30 shadow-xl text-white space-y-5 p-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Film className="w-7 h-7 text-amber-300" />
             <div>
-              <h2 className="font-serif font-bold uppercase tracking-wider text-lg text-[#F3E5AB]">6-Second Video Generation</h2>
+              <h2 className="font-serif font-bold uppercase tracking-wider text-sm text-[#F3E5AB]">4. Diwali Video</h2>
               <p className="text-xs text-amber-100/80">
                 {selectedCategory
                   ? `${masterTemplates[selectedCategory].title} prompt locked · AI 6-second video generation`
@@ -747,13 +745,6 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
               </p>
             </div>
           </div>
-          <button
-            onClick={startVideoGeneration}
-            disabled={!canGenerateVideo}
-            className="py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#F5E089] to-[#D4AF37] text-black font-bold uppercase tracking-wider text-xs shadow-lg flex items-center justify-center gap-2 disabled:opacity-40"
-          >
-            Generate Diwali Video <ArrowRight className="w-4 h-4" />
-          </button>
         </div>
 
         <div className="space-y-2">
@@ -776,10 +767,10 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_0.9fr]">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="space-y-3">
+        <div className="grid grid-cols-2 gap-2.5">
           {maharajaStats.map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm">
+            <div key={stat.label} className="rounded-2xl border border-amber-200 bg-white p-3 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">{stat.label}</p>
               <p className="mt-2 font-serif text-3xl font-bold text-[#6e0d1f]">{stat.value}</p>
               <p className="mt-1 text-[11px] font-semibold text-slate-500">{stat.detail}</p>
@@ -787,7 +778,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           ))}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-[#6e0d1f]" />
@@ -810,6 +801,19 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           </div>
         </div>
       </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-amber-200 bg-[#FDFCF9]/95 p-3 shadow-2xl backdrop-blur">
+        <button
+          onClick={primaryAction}
+          disabled={!canUsePrimaryAction || primaryActionBusy}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#800A1D] via-amber-600 to-[#800A1D] px-5 py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl disabled:opacity-45"
+        >
+          {primaryActionBusy ? <RefreshCw className="h-5 w-5 animate-spin" /> : masterImageUrl ? <Film className="h-5 w-5 text-amber-200" /> : <Sparkles className="h-5 w-5 text-amber-200" />}
+          {primaryActionText}
+          {!primaryActionBusy && <ArrowRight className="h-4 w-4" />}
+        </button>
+      </div>
+      </div>
     </main>
   );
 }
