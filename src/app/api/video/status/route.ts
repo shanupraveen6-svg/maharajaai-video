@@ -191,6 +191,9 @@ export async function GET(req: NextRequest) {
                 if (fetchRes.ok) {
                   fileBuffer = Buffer.from(await fetchRes.arrayBuffer());
                   break;
+                } else {
+                  console.warn(`Fal.ai video download attempt ${attempt} HTTP ${fetchRes.status}`);
+                  if (attempt < 3) await new Promise((r) => setTimeout(r, 1200));
                 }
               } catch (netErr) {
                 console.warn(`Fal.ai video download attempt ${attempt} network warning:`, netErr);

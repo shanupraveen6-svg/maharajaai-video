@@ -161,13 +161,20 @@ function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   return `Motion safety: lower body is hidden or risky. Do not walk. Subject stays in a modest still pose with tiny head/eye movement and a soft festival smile. Cinematic energy comes from camera only: dolly-in, side truck, rack focus, light sweep, diya glow, bokeh, background shimmer, final slow zoom-out. No dancing, no leg movement, no body spin, no hip or waist emphasis.`;
 }
 
+function truncateAtWordBoundary(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  const sliced = text.slice(0, maxLength);
+  const lastSpace = sliced.lastIndexOf(' ');
+  if (lastSpace > Math.floor(maxLength * 0.75)) {
+    return sliced.slice(0, lastSpace).replace(/[,;:\-\s]+$/, '') + '.';
+  }
+  return sliced;
+}
+
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
-  const compactBase = basePrompt
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 1100);
+  const compactBase = truncateAtWordBoundary(basePrompt.replace(/\s+/g, ' ').trim(), 1050);
   const finalPrompt = `${compactBase}\n\n${buildMotionSafetyRule(decision)}`;
-  return finalPrompt.length > 1500 ? finalPrompt.slice(0, 1500) : finalPrompt;
+  return truncateAtWordBoundary(finalPrompt, 1500);
 }
 
 export async function POST(req: NextRequest) {
