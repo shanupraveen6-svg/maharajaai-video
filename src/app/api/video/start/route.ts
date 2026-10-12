@@ -197,7 +197,7 @@ function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
         ? 'Child-safe cheerful festival feel; diya steady if visible; no adult styling.'
         : 'Premium confident hero feel, masculine but modest.';
 
-  const sceneCue = lowerPrompt.includes('outdoor') || lowerPrompt.includes('cracker') || lowerPrompt.includes('firework')
+  const sceneCue = lowerPrompt.includes('outdoor') || lowerPrompt.includes('courtyard') || lowerPrompt.includes('garden') || lowerPrompt.includes('temple-street')
     ? 'Outdoor Diwali background: safe distant crackers, lanterns, warm bokeh, festival light streaks.'
     : 'Indoor Diwali background: diya flicker, brass lamps, marigold shimmer, warm bokeh, festival light streaks.';
 
