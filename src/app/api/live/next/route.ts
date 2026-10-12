@@ -25,6 +25,12 @@ function isEligibleToPlay(queueData: any, nowMs: number): boolean {
   return !playAtMs || playAtMs <= nowMs;
 }
 
+function cleanDisplayText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = value.trim().replace(/\s+/g, ' ').slice(0, 48);
+  return cleaned || null;
+}
+
 // Helper for expired reservation cleanup
 async function cleanupExpiredReservations(db: any) {
   try {
@@ -113,8 +119,8 @@ export async function GET(req: NextRequest) {
           queueNumber: queueData.queueNumber || null,
           reservationId,
           storagePath,
-          customerName: queueData.customerName || null,
-          customerLocality: queueData.customerLocality || null,
+          customerName: cleanDisplayText(queueData.customerName) || cleanDisplayText(videoData.customerName),
+          customerLocality: cleanDisplayText(queueData.customerLocality) || cleanDisplayText(videoData.customerLocality),
           liveAudioUrl: queueData.liveAudioUrl || null
         };
       });
@@ -192,8 +198,8 @@ export async function GET(req: NextRequest) {
         queueNumber: nextItem.queueNumber || null,
         reservationId,
         videoUrl: signedUrl,
-        customerName: (nextItem as any).customerName || null,
-        customerLocality: (nextItem as any).customerLocality || null,
+        customerName: cleanDisplayText((nextItem as any).customerName) || cleanDisplayText((video as any).customerName),
+        customerLocality: cleanDisplayText((nextItem as any).customerLocality) || cleanDisplayText((video as any).customerLocality),
         liveAudioUrl: (nextItem as any).liveAudioUrl || null
       });
     }

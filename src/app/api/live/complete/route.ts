@@ -25,6 +25,19 @@ export async function POST(req: NextRequest) {
         completedAt: nowIso,
         timesPlayed: (doc.data()?.timesPlayed || 0) + 1
       });
+      const queueData = doc.data() || {};
+      const displayMetadata = {
+        customerName: queueData.customerName || null,
+        customerLocality: queueData.customerLocality || null,
+        liveAudioUrl: queueData.liveAudioUrl || null,
+        displayUpdatedAt: nowIso
+      };
+      if (queueData.videoId) {
+        await db.collection('videos').doc(queueData.videoId).set(displayMetadata, { merge: true });
+      }
+      if (queueData.sessionId) {
+        await db.collection('sessions').doc(queueData.sessionId).set(displayMetadata, { merge: true });
+      }
     } else {
       const mockStore = getMockStore();
       const item = mockStore.liveQueue.find((i) => i.id === queueId && i.reservationId === reservationId);
@@ -34,6 +47,16 @@ export async function POST(req: NextRequest) {
       item.status = 'completed';
       item.completedAt = nowIso;
       item.timesPlayed = (item.timesPlayed || 0) + 1;
+      const displayMetadata = {
+        customerName: (item as any).customerName || null,
+        customerLocality: (item as any).customerLocality || null,
+        liveAudioUrl: (item as any).liveAudioUrl || null,
+        displayUpdatedAt: nowIso
+      };
+      const mockVideo = mockStore.videos.get(item.videoId);
+      if (mockVideo) mockStore.videos.set(item.videoId, { ...mockVideo, ...displayMetadata });
+      const mockSession = mockStore.sessions.get(item.sessionId);
+      if (mockSession) mockStore.sessions.set(item.sessionId, { ...mockSession, ...displayMetadata });
     }
 
     return NextResponse.json({ success: true, status: 'completed' });

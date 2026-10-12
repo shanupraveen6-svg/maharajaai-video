@@ -72,6 +72,12 @@ export async function POST(req: NextRequest) {
     const playAtMs = nowMs + 5000;
     const playAtTimestamp = Timestamp.fromMillis(playAtMs);
     const playAtIso = new Date(playAtMs).toISOString();
+    const displayMetadata = {
+      customerName,
+      customerLocality,
+      liveAudioUrl,
+      displayUpdatedAt: nowIso
+    };
     let queueNumber = 1;
     let queuePosition: number | null = 1;
     let reusedExistingQueue = false;
@@ -112,11 +118,11 @@ export async function POST(req: NextRequest) {
           queueNumber = Number(existingActive.queueNumber || 1);
           reusedExistingQueue = true;
           transaction.update(existingActive.ref, {
-            customerName,
-            customerLocality,
-            liveAudioUrl,
+            ...displayMetadata,
             updatedAt: nowIso
           });
+          transaction.set(db.collection('videos').doc(videoId), displayMetadata, { merge: true });
+          transaction.set(db.collection('sessions').doc(sessionId), displayMetadata, { merge: true });
           return;
         }
 
@@ -132,6 +138,8 @@ export async function POST(req: NextRequest) {
           ...baseQueueItem,
           queueNumber
         });
+        transaction.set(db.collection('videos').doc(videoId), displayMetadata, { merge: true });
+        transaction.set(db.collection('sessions').doc(sessionId), displayMetadata, { merge: true });
       });
       queuePosition = await getQueuePosition(db, queueId);
     } else {
@@ -154,9 +162,7 @@ export async function POST(req: NextRequest) {
         queueId = existingActive.id;
         queueNumber = existingActive.queueNumber || 1;
         reusedExistingQueue = true;
-        (existingActive as any).customerName = customerName;
-        (existingActive as any).customerLocality = customerLocality;
-        (existingActive as any).liveAudioUrl = liveAudioUrl;
+        Object.assign(existingActive as any, displayMetadata, { updatedAt: nowIso });
       } else {
         queueNumber = mockStore.liveQueue.reduce((max: number, item: any) => Math.max(max, Number(item.queueNumber || 0)), 0) + 1;
         mockStore.liveQueue.push({
@@ -166,6 +172,10 @@ export async function POST(req: NextRequest) {
           playAt: playAtIso
         });
       }
+      const mockVideo = mockStore.videos.get(videoId) || { id: videoId, sessionId };
+      mockStore.videos.set(videoId, { ...mockVideo, ...displayMetadata });
+      const mockSession = mockStore.sessions.get(sessionId) || { sessionId };
+      mockStore.sessions.set(sessionId, { ...mockSession, ...displayMetadata });
 
       const queuedItems = mockStore.liveQueue
         .filter((item: any) => item.screenId === 'maharaja-main' && item.status === 'queued')
