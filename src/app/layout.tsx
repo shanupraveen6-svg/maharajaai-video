@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MAHARAJA THANJAVUR — AI Diwali Fashion Experience",
-  description: "Turn every ₹5,000+ Diwali purchase into a personalized AI Diwali fashion film on the big screen.",
+  title: "tryfocus — AI Fashion Marketing for Retail Stores",
+  description: "AI try-on, personalized festival videos, QR-led campaigns and showroom TV experiences for fashion retail brands.",
 };
 
 export default function RootLayout({
