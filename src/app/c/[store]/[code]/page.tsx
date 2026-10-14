@@ -244,7 +244,7 @@ export default function CustomerPassPage() {
                   Open the Maharaja operator studio at the photo stand. This keeps expensive generation controlled by staff.
                 </p>
                 <Link
-                  href={`/login?next=/create`}
+                  href={`/login?next=/studio`}
                   className="mt-5 flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-4 text-xs font-black uppercase tracking-wider text-black"
                 >
                   Open Video Studio <ArrowRight className="h-4 w-4" />
