@@ -57,6 +57,17 @@ const pricingIncludes = [
   'Privacy and brand value maintained',
 ];
 
+const eventModules = [
+  { title: 'Diwali', status: 'Active pilot' },
+  { title: 'Pongal', status: 'Template ready' },
+  { title: 'Christmas', status: 'Coming soon' },
+  { title: 'New Year', status: 'Coming soon' },
+  { title: 'Ramzan', status: 'Coming soon' },
+  { title: 'Birthday', status: 'Coming soon' },
+  { title: 'Store Anniversary', status: 'Coming soon' },
+  { title: 'Wedding Season', status: 'Coming soon' },
+];
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-[#F8F5EE] text-[#1A1412] font-sans">
@@ -87,16 +98,16 @@ export default function LandingPage() {
           <div className="pt-2">
             <p className="text-xs font-black uppercase tracking-[0.28em] text-[#8A6A20]">FocusAI Retail Platform</p>
             <h1 className="mt-4 max-w-2xl font-serif text-4xl font-bold leading-tight text-[#2A060C] md:text-6xl">
-              AI try-on and festival video marketing for fashion stores.
+              AI try-on and event video marketing for fashion stores.
             </h1>
             <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-[#5C4B43]">
-              tryfocus helps retail teams turn real shoppers, garments and festival moments into personalized AI visuals, showroom TV ads, QR-led campaigns and measurable customer engagement.
+              tryfocus helps retail teams turn real shoppers, garments and store events into personalized AI visuals, showroom TV ads, QR-led campaigns and measurable customer engagement.
             </p>
 
             <div className="mt-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
               {[
                 ['AI try-on', 'Customer dress previews'],
-                ['AI video', 'Personalized festival ads'],
+                ['AI video', 'Personalized event ads'],
                 ['Go live', 'Store TV engagement'],
               ].map(([step, label]) => (
                 <div key={step} className="border border-[#d8c49b] bg-white p-4">
@@ -199,7 +210,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {[
                 ['Customer entry', 'QR links can be issued from store billing for eligible shoppers.'],
-                ['AI fashion assets', 'Create try-on images and festival videos from real customer and garment photos.'],
+                ['AI fashion assets', 'Create try-on images and event videos from real customer and garment photos.'],
                 ['Showroom TV', 'Approved videos can go live on the store screen with brand-safe greeting layout.'],
                 ['Client control', 'Stores get package usage, downloads, go-live activity and campaign controls.'],
               ].map(([title, copy]) => (
@@ -209,6 +220,31 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-[#e1d1ad] bg-[#fbf7ef] px-5 py-12 md:px-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#8A6A20]">Event library</p>
+              <h2 className="mt-3 font-serif text-4xl font-bold leading-tight text-[#2A060C]">
+                One platform, many retail moments.
+              </h2>
+            </div>
+            <p className="max-w-xl text-sm font-semibold leading-6 text-[#5C4B43]">
+              Diwali is the current Maharaja pilot. The same product structure can run seasonal, birthday, wedding and store-led campaigns without changing the client portal.
+            </p>
+          </div>
+
+          <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-4">
+            {eventModules.map((event) => (
+              <div key={event.title} className="border border-[#d8c49b] bg-white p-4">
+                <p className="font-serif text-xl font-bold text-[#6e0d1f]">{event.title}</p>
+                <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-[#8A6A20]">{event.status}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

@@ -187,8 +187,8 @@ export default function CustomerPassPage() {
                 <Shirt className="h-6 w-6" />
               )}
               {optionCard(
-                'AI Festival Video',
-                'Create a premium festive fashion video for showroom TV and download.',
+                'AI Event Video',
+                'Create a premium event fashion video for showroom TV and download.',
                 'Allowed above Rs 5000',
                 pass.aiVideoEnabled && pass.aiVideoEligible,
                 () => setActiveFlow('ai-video'),

@@ -39,13 +39,24 @@ const maharajaStats = [
   { label: 'Go Live Plays', value: '17', detail: 'Showroom TV queue' },
   { label: 'Replay Library', value: '7', detail: 'Seed videos ready' },
   { label: 'Downloads', value: '31', detail: 'Customer keepsake' },
-  { label: 'Campaign', value: 'On', detail: 'Operator controlled' },
+  { label: 'Event Campaign', value: 'On', detail: 'Operator controlled' },
 ];
 
 const recentLogs = [
   { time: 'Today', category: 'Customer Pass', action: 'Billing-gated QR/pass link created' },
   { time: 'Today', category: 'Go Live', action: 'TV queue and replay loop active' },
-  { time: 'Pilot', category: 'Maharaja', action: 'AI Diwali campaign workspace ready' },
+  { time: 'Pilot', category: 'Maharaja', action: 'Event campaign workspace ready' },
+];
+
+const eventModules = [
+  { title: 'Diwali', status: 'Active', detail: 'Maharaja pilot campaign' },
+  { title: 'Pongal', status: 'Ready next', detail: 'Tamil retail seasonal module' },
+  { title: 'New Year', status: 'Coming soon', detail: 'Greeting and offer campaign' },
+  { title: 'Christmas', status: 'Coming soon', detail: 'Mall and family retail campaign' },
+  { title: 'Ramzan', status: 'Coming soon', detail: 'Festive modest fashion campaign' },
+  { title: 'Birthday', status: 'Coming soon', detail: 'Customer celebration campaign' },
+  { title: 'Wedding Season', status: 'Coming soon', detail: 'Bridal and family occasion campaign' },
+  { title: 'Store Anniversary', status: 'Coming soon', detail: 'Brand loyalty campaign' },
 ];
 
 const pricingPlans = [
@@ -207,7 +218,7 @@ export default function MaharajaClientPortal() {
               Maharaja Workspace
             </h1>
             <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-amber-100/70">
-              Billing-gated customer entry, campaign control, insights and TV status.
+              Billing-gated customer entry, event campaign control, insights and TV status.
             </p>
           </div>
 
@@ -252,7 +263,7 @@ export default function MaharajaClientPortal() {
         <nav className="mb-5 grid grid-cols-2 gap-3">
           {[
             ['pass', '5K AI Video Pass', 'Phone + bill last 4 QR/link'],
-            ['insights', 'Client Insights', 'Usage, package and logs'],
+            ['insights', 'Events + Insights', 'Event modules, usage and logs'],
           ].map(([key, title, subtitle]) => (
             <button
               key={key}
@@ -450,6 +461,25 @@ export default function MaharajaClientPortal() {
                 <Power className="h-5 w-5 text-[#6e0d1f]" />
                 <p className="mt-2 text-xs font-black uppercase tracking-wider text-[#7A5B16]">Campaign</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">Operator can pause new pass creation from this screen.</p>
+              </div>
+            </div>
+
+            <div className="mt-5 border border-[#eee1c5] bg-white p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#7A5B16]">Event Library</p>
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {eventModules.map((event) => (
+                  <div key={event.title} className="border border-[#eee1c5] bg-[#fffaf0] p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-serif text-lg font-bold text-[#6e0d1f]">{event.title}</p>
+                      <span className={`text-[9px] font-black uppercase tracking-wider ${
+                        event.status === 'Active' ? 'text-emerald-800' : 'text-amber-800'
+                      }`}>
+                        {event.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] font-semibold leading-4 text-slate-500">{event.detail}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
