@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Avenir Next", "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+}
+
 @layer base {
   :root {
     --bg-dark: #070609;
@@ -11,6 +16,8 @@
     --maroon-accent: #6E0D1F;
     --text-gold: #F3E5AB;
     --glass-border: rgba(212, 175, 55, 0.25);
+    --font-sans: "Avenir Next", "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
   }
 
   body {
