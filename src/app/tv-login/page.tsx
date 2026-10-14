@@ -49,7 +49,7 @@ function TvLoginForm() {
       <section className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-5 py-8">
         <Link href="/" className="mb-8 inline-flex w-fit items-center gap-3 text-[#D4AF37]">
           <Tv className="h-6 w-6" />
-          <span className="text-xs font-bold uppercase tracking-[0.24em]">focusAI TV</span>
+          <span className="text-xs font-bold uppercase tracking-[0.24em]">tryfocus TV</span>
         </Link>
 
         <form onSubmit={handleSubmit} className="rounded-2xl border border-[#D4AF37]/35 bg-[#12070a] p-6 shadow-[0_0_48px_rgba(212,175,55,0.14)]">

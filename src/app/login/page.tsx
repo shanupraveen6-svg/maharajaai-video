@@ -53,7 +53,7 @@ function MaharajaLoginForm() {
             <WandSparkles className="h-5 w-5" />
           </span>
           <span>
-            <span className="block font-serif text-2xl font-bold text-[#6e0d1f]">focusAI</span>
+            <span className="block font-serif text-2xl font-bold text-[#6e0d1f]">tryfocus</span>
             <span className="block text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">Maharaja workspace</span>
           </span>
         </Link>

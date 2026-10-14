@@ -69,8 +69,8 @@ export default function LandingPage() {
               <WandSparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-serif text-2xl font-bold tracking-[0.02em] text-[#6e0d1f]">focusAI</p>
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">Fashion retail AI studio</p>
+              <p className="font-serif text-2xl font-bold tracking-[0.02em] text-[#6e0d1f]">tryfocus</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">Fashion retail AI portal</p>
             </div>
           </div>
 
@@ -89,7 +89,7 @@ export default function LandingPage() {
           <div className="max-w-3xl">
             <div className="mb-6 inline-flex items-center gap-2 border-l-2 border-[#6e0d1f] bg-white/68 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6e0d1f] shadow-sm backdrop-blur">
               <Activity className="h-4 w-4 text-[#8A6A20]" />
-              AI marketing OS for fashion stores
+              AI customer engagement for fashion stores
             </div>
 
             <h1 className="font-serif text-5xl font-bold leading-[0.98] tracking-wide text-[#2A060C] md:text-7xl">
@@ -97,7 +97,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="mt-6 max-w-2xl text-base leading-8 text-[#4A3B35] md:text-lg">
-              focusAI helps retail teams create AI fashion images, festive greeting videos, showroom TV moments and campaign-ready content from real customer and garment photos.
+              tryfocus helps retail teams create AI try-ons, festive fashion videos, showroom TV moments and customer campaign content from purchase-led store workflows.
             </p>
 
             <div className="mt-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
@@ -130,67 +130,48 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="border border-[#6e0d1f]/14 bg-white/88 p-6 shadow-2xl backdrop-blur md:p-7">
+          <div className="border border-[#6e0d1f]/14 bg-white/90 p-5 shadow-xl backdrop-blur md:p-7">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8A6A20]">Client Portal</p>
-                <h2 className="mt-2 font-serif text-3xl font-bold text-[#2A060C]">Choose your store</h2>
+                <h2 className="mt-2 font-serif text-3xl font-bold text-[#2A060C]">Select workspace</h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#5C4B43]">
-                  Select the retail workspace assigned to your store.
+                  Choose the client store, then continue to the secured operator login.
                 </p>
               </div>
-              <div className="flex items-center gap-2 border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-800">
-                <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                Active
+              <Store className="h-5 w-5 shrink-0 text-[#8A6A20]" />
+            </div>
+
+            <div className="border border-[#e7d9b7] bg-[#fffaf0] p-4">
+              <label htmlFor="store-select" className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8A6A20]">
+                Store workspace
+              </label>
+              <select
+                id="store-select"
+                defaultValue="maharaja"
+                className="mt-2 w-full appearance-none border border-[#6e0d1f]/20 bg-white px-4 py-4 text-base font-black uppercase tracking-wider text-[#2A060C] outline-none focus:border-[#6e0d1f]"
+              >
+                {storeCards.map((store) => (
+                  <option key={store.name} value={store.name.toLowerCase()}>
+                    {store.name} - {store.location}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-3 flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-wider">
+                <span className="flex items-center gap-1.5 text-emerald-800">
+                  <BadgeCheck className="h-3.5 w-3.5" />
+                  {storeCards[0].status}
+                </span>
+                <span className="text-[#6e0d1f]">Workspace ready</span>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="border border-[#6e0d1f]/18 bg-[#fffaf0] p-5">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-13 w-13 items-center justify-center border border-[#6e0d1f]/20 bg-white text-[#6e0d1f]">
-                    <Store className="h-6 w-6" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <label htmlFor="store-select" className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8A6A20]">
-                      Store
-                    </label>
-                    <select
-                      id="store-select"
-                      defaultValue="maharaja"
-                      className="mt-2 w-full appearance-none border border-[#6e0d1f]/20 bg-white px-4 py-3 font-serif text-2xl font-bold text-[#2A060C] outline-none focus:border-[#6e0d1f]"
-                    >
-                      {storeCards.map((store) => (
-                        <option key={store.name} value={store.name.toLowerCase()}>
-                          {store.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#6B5A52]">
-                      <MapPin className="h-3.5 w-3.5 text-[#8A6A20]" />
-                      {storeCards[0].location}
-                    </p>
-                  </div>
-                  <BadgeCheck className="h-5 w-5 shrink-0 text-emerald-700" />
-                </div>
-
-                <div className="mt-5 flex items-center justify-between gap-4 border-t border-[#e7d9b7] pt-4">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                    {storeCards[0].status}
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#6e0d1f]">
-                    Workspace ready
-                  </span>
-                </div>
-
-                <Link
-                  href={storeCards[0].href}
-                  className="mt-5 flex w-full items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#F3E5AB] transition hover:bg-[#800A1D]"
-                >
-                  Continue to login <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-            </div>
+            <Link
+              href={storeCards[0].href}
+              className="mt-4 flex w-full items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#F3E5AB] transition hover:bg-[#800A1D]"
+            >
+              Continue to login <ArrowRight className="h-4 w-4" />
+            </Link>
 
             <div className="mt-5 border border-[#6e0d1f]/10 bg-[#F8F5EE] p-4">
               <div className="flex items-center gap-3">
@@ -261,12 +242,20 @@ export default function LandingPage() {
 
             <div className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">
-                Add-on support
+                Branding services
               </p>
-              <h3 className="mt-3 font-serif text-3xl font-bold">Rs 25,000</h3>
+              <h3 className="mt-3 font-serif text-3xl font-bold">Explore wefocus.in</h3>
               <p className="mt-3 text-sm font-semibold leading-6 text-[#F3E5AB]/82">
-                Digital support + branding workouts for campaign setup, improvements and store-level rollout.
+                Brand identity, campaign design, reels, photoshoots and retail marketing systems from the wider wefocus team.
               </p>
+              <a
+                href="https://wefocus.in"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-4 text-xs font-black uppercase tracking-wider text-black"
+              >
+                Open wefocus.in <ArrowRight className="h-4 w-4" />
+              </a>
               <div className="mt-6 border-t border-[#D4AF37]/25 pt-5">
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">Enterprise</p>
                 <p className="mt-2 text-sm font-semibold text-[#F3E5AB]/86">

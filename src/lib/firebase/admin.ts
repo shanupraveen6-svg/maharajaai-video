@@ -80,6 +80,7 @@ type MockStore = {
   sessions: Map<string, any>;
   videos: Map<string, any>;
   consents: Map<string, any>;
+  customerPasses: Map<string, unknown>;
 };
 
 const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
@@ -95,7 +96,8 @@ const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
   liveQueue: [],
   sessions: new Map(),
   videos: new Map(),
-  consents: new Map()
+  consents: new Map(),
+  customerPasses: new Map()
 };
 
 (global as any).__MAHARAJA_MOCK_STORE__ = globalMockStore;

@@ -8,8 +8,13 @@ import {
   Activity,
   Camera,
   CheckCircle2,
+  Copy,
+  ExternalLink,
   Film,
   Image as ImageIcon,
+  IndianRupee,
+  LockKeyhole,
+  QrCode,
   RefreshCw,
   Shirt,
   Sparkles,
@@ -36,6 +41,19 @@ type PersonAnalysis = {
 
 type VideoPhase = 'idle' | 'starting' | 'rendering' | 'saving' | 'ready' | 'failed';
 type MasterTemplateId = 'men' | 'women' | 'boy' | 'girl';
+type AccessType = 'try-on' | 'ai-video' | 'both';
+
+type GeneratedPass = {
+  code: string;
+  phoneMasked: string;
+  billLast4: string;
+  purchaseAmount: number;
+  accessType: AccessType;
+  tryOnEligible: boolean;
+  aiVideoEligible: boolean;
+  link: string;
+  expiresAt: string;
+};
 
 const masterTemplates: Record<
   MasterTemplateId,
@@ -242,6 +260,13 @@ export default function CreatePage() {
   const [sessionId] = useState(() => `mah_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
   const [campaignEnabled, setCampaignEnabled] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<MasterTemplateId | null>(null);
+  const [passPhone, setPassPhone] = useState('');
+  const [passBillLast4, setPassBillLast4] = useState('');
+  const [passPurchaseAmount, setPassPurchaseAmount] = useState('');
+  const [passAccessType, setPassAccessType] = useState<AccessType>('both');
+  const [generatedPass, setGeneratedPass] = useState<GeneratedPass | null>(null);
+  const [passMessage, setPassMessage] = useState<string | null>(null);
+  const [isCreatingPass, setIsCreatingPass] = useState(false);
 
   const [garmentPhotos, setGarmentPhotos] = useState<(string | null)[]>([null, null, null]);
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
@@ -269,6 +294,7 @@ export default function CreatePage() {
     ? videoPhase === 'starting' || videoPhase === 'rendering' || videoPhase === 'saving'
     : isGeneratingMaster;
   const primaryAction = masterImageUrl ? startVideoGeneration : generateMasterImage;
+  const sampleCustomerLink = generatedPass?.link || `${typeof window !== 'undefined' ? window.location.origin : ''}/c/maharaja/khfs78k`;
   const workspaceInsights = useMemo(
     () => [
       { label: 'Go Live plays', value: '17', detail: 'Showroom TV queue' },
@@ -293,6 +319,43 @@ export default function CreatePage() {
 
     return () => window.clearInterval(timer);
   }, [videoPhase]);
+
+  async function createCustomerPass() {
+    setPassMessage(null);
+    setGeneratedPass(null);
+    setIsCreatingPass(true);
+
+    try {
+      const res = await fetch('/api/customer-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: passPhone,
+          billLast4: passBillLast4,
+          purchaseAmount: passPurchaseAmount,
+          accessType: passAccessType,
+        }),
+      });
+      const data = await parseJsonResponse(res);
+      setGeneratedPass(data.pass);
+      setPassMessage('Customer QR/pass created. Share or scan this link at the photo stand.');
+    } catch (err) {
+      setPassMessage(err instanceof Error ? err.message : 'Customer pass creation failed.');
+    } finally {
+      setIsCreatingPass(false);
+    }
+  }
+
+  async function copyCustomerLink() {
+    const link = generatedPass?.link;
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setPassMessage('Customer QR link copied.');
+    } catch {
+      setPassMessage('Copy failed. Long-press and copy the link manually.');
+    }
+  }
 
 
   function setLocalGarmentReady(nextPhotos: (string | null)[], category: MasterTemplateId | null = selectedCategory) {
@@ -530,7 +593,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
       <header className="sticky top-0 z-30 -mx-4 border-b border-[#d8c49b] bg-[#17070a]/96 px-4 py-4 text-white shadow-lg shadow-black/10 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:flex lg:items-center lg:justify-between lg:px-8">
         <div>
           <p className="text-[10px] text-amber-300 font-bold tracking-[0.2em] uppercase">
-            focusAI · Maharaja workspace
+            tryfocus · Maharaja workspace
           </p>
           <h1 className="mt-1 text-lg font-serif font-bold text-[#F3E5AB] tracking-wider uppercase lg:text-2xl">
             Diwali Video Studio
@@ -563,6 +626,137 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
           Campaign is turned off on this operator screen. Turn it on from the header before generating a new customer video.
         </div>
       )}
+
+      <section className="mt-6 grid grid-cols-1 gap-4 rounded-lg border border-[#e1d4c2] bg-white p-5 shadow-sm lg:grid-cols-[1fr_360px] lg:p-6">
+        <div>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-800">
+                Customer Entry QR
+              </p>
+              <h2 className="mt-1 font-serif text-2xl font-bold text-[#6e0d1f]">
+                Create Maharaja customer pass
+              </h2>
+              <p className="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-600">
+                Staff enters phone, bill last 4 and purchase amount. Try-On opens above Rs 500. AI Festival Video opens above Rs 5000.
+              </p>
+            </div>
+            <span className="hidden border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-800 sm:inline-flex">
+              Billing controlled
+            </span>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <label className="space-y-1 md:col-span-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#7A5B16]">Phone</span>
+              <input
+                value={passPhone}
+                onChange={(event) => setPassPhone(event.target.value)}
+                inputMode="numeric"
+                placeholder="9994837342"
+                className="w-full rounded-md border border-[#d8c49b] bg-[#fffaf0] px-3 py-3 text-sm font-bold outline-none focus:border-[#6e0d1f]"
+              />
+            </label>
+            <label className="space-y-1 md:col-span-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#7A5B16]">Bill last 4</span>
+              <input
+                value={passBillLast4}
+                onChange={(event) => setPassBillLast4(event.target.value)}
+                placeholder="1847"
+                maxLength={4}
+                className="w-full rounded-md border border-[#d8c49b] bg-[#fffaf0] px-3 py-3 text-sm font-bold uppercase outline-none focus:border-[#6e0d1f]"
+              />
+            </label>
+            <label className="space-y-1 md:col-span-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#7A5B16]">Purchase Rs</span>
+              <div className="relative">
+                <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6e0d1f]" />
+                <input
+                  value={passPurchaseAmount}
+                  onChange={(event) => setPassPurchaseAmount(event.target.value)}
+                  inputMode="numeric"
+                  placeholder="5000"
+                  className="w-full rounded-md border border-[#d8c49b] bg-[#fffaf0] py-3 pl-9 pr-3 text-sm font-bold outline-none focus:border-[#6e0d1f]"
+                />
+              </div>
+            </label>
+            <label className="space-y-1 md:col-span-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#7A5B16]">Access</span>
+              <select
+                value={passAccessType}
+                onChange={(event) => setPassAccessType(event.target.value as AccessType)}
+                className="w-full rounded-md border border-[#d8c49b] bg-[#fffaf0] px-3 py-3 text-sm font-bold outline-none focus:border-[#6e0d1f]"
+              >
+                <option value="both">Try-On + AI Video</option>
+                <option value="try-on">Try-On only</option>
+                <option value="ai-video">AI Video only</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={createCustomerPass}
+              disabled={isCreatingPass}
+              className="flex items-center justify-center gap-2 rounded-md bg-[#6e0d1f] px-5 py-3 text-xs font-black uppercase tracking-wider text-[#F3E5AB] disabled:opacity-50"
+            >
+              {isCreatingPass ? <RefreshCw className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+              Generate QR Pass
+            </button>
+            <p className={`text-xs font-bold ${passMessage?.includes('failed') || passMessage?.includes('eligible') || passMessage?.includes('valid') ? 'text-red-700' : 'text-emerald-800'}`}>
+              {passMessage || 'Pass expires after the pilot window and is tied to phone + bill.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="border border-[#d8c49b] bg-[#fffaf0] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#7A5B16]">QR Preview</p>
+            <LockKeyhole className="h-4 w-4 text-[#6e0d1f]" />
+          </div>
+          <div className="mt-4 grid aspect-square place-items-center border border-[#6e0d1f]/20 bg-white p-4">
+            <div className="grid h-full w-full grid-cols-5 grid-rows-5 gap-1">
+              {Array.from({ length: 25 }).map((_, index) => (
+                <span
+                  key={index}
+                  className={`${generatedPass ? (index % 2 === 0 || index % 7 === 0 ? 'bg-[#6e0d1f]' : 'bg-[#F3E5AB]') : 'bg-slate-200'}`}
+                />
+              ))}
+            </div>
+          </div>
+          <p className="mt-3 break-all font-mono text-[10px] font-bold leading-4 text-slate-600">
+            {sampleCustomerLink}
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={copyCustomerLink}
+              disabled={!generatedPass}
+              className="flex items-center justify-center gap-1.5 rounded-md border border-[#d8c49b] bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#6e0d1f] disabled:opacity-40"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copy
+            </button>
+            <a
+              href={generatedPass?.link || '#'}
+              target="_blank"
+              rel="noreferrer"
+              className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[10px] font-black uppercase tracking-wider ${
+                generatedPass ? 'bg-[#6e0d1f] text-[#F3E5AB]' : 'pointer-events-none bg-slate-200 text-slate-400'
+              }`}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open
+            </a>
+          </div>
+          {generatedPass && (
+            <div className="mt-3 border border-emerald-200 bg-emerald-50 p-3 text-[10px] font-bold uppercase tracking-wider text-emerald-900">
+              {generatedPass.phoneMasked} · Bill ****{generatedPass.billLast4} · Rs {generatedPass.purchaseAmount}
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {productTabs.map((tab, index) => {
@@ -891,7 +1085,7 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
               Campaign Pricing
             </p>
             <h2 className="mt-1 font-serif text-xl font-bold text-[#6e0d1f]">
-              focusAI retail plans
+              tryfocus retail plans
             </h2>
           </div>
           <span className="border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-800">
@@ -935,12 +1129,20 @@ Final safety: no glamour/body-part emphasis, no hip/waist/chest/leg focus, no aw
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr]">
-          <div className="border border-amber-200 bg-[#fffaf0] p-4">
+          <a
+            href="https://wefocus.in"
+            target="_blank"
+            rel="noreferrer"
+            className="border border-amber-200 bg-[#fffaf0] p-4 transition hover:border-[#6e0d1f]"
+          >
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-800">
-              Digital Support + Branding Workouts
+              Branding services
             </p>
-            <p className="mt-2 font-serif text-2xl font-bold text-[#6e0d1f]">Rs 25,000</p>
-          </div>
+            <p className="mt-2 font-serif text-2xl font-bold text-[#6e0d1f]">Explore wefocus.in</p>
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">
+              Brand campaigns, reels, shoots and retail marketing extensions.
+            </p>
+          </a>
           <div className="border border-[#6e0d1f]/25 bg-[#17070a] p-4 text-[#F3E5AB]">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300">Enterprise</p>
             <p className="mt-2 text-sm font-bold">

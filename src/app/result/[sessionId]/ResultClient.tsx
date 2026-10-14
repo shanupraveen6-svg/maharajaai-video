@@ -2,15 +2,21 @@
 
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
 import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
 
 export default function ResultClient({ sessionId }: { sessionId: string }) {
+  const router = useRouter();
   const [showLiveConsent, setShowLiveConsent] = useState(false);
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
+  const [thankYouMode, setThankYouMode] = useState<'download' | 'live' | null>(null);
   const [privacyAction, setPrivacyAction] = useState<'download' | 'live' | null>(null);
   const [publicConsent, setPublicConsent] = useState(true);
+  const [showRetryPin, setShowRetryPin] = useState(false);
+  const [retryPin, setRetryPin] = useState('');
+  const [retryError, setRetryError] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerLocality, setCustomerLocality] = useState('');
   const [isGoingLive, setIsGoingLive] = useState(false);
@@ -32,6 +38,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId), [sessionId]);
   const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId), [sessionId]);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
+  const googleReviewUrl = 'https://www.google.com/search?q=Majestic+Maharaja+Thanjavur+Google+review';
 
   const syncPreviewAudioToVideo = (video: HTMLVideoElement) => {
     if (!previewAudioRef.current) return;
@@ -218,15 +226,19 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     setShowPrivacyNotice(true);
   };
 
-  const handlePrivacyContinue = () => {
+  const handlePrivacyContinue = async () => {
     const action = privacyAction;
     setShowPrivacyNotice(false);
     setPrivacyAction(null);
 
     if (action === 'download') {
-      executeDownload().catch((err) => {
+      try {
+        await executeDownload();
+        setThankYouMode('download');
+        setShowThankYou(true);
+      } catch (err) {
         setLiveError(err instanceof Error ? err.message : 'Download failed.');
-      });
+      }
     }
 
     if (action === 'live') {
@@ -269,6 +281,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         setLiveQueueStatus('queued');
         setCountdownSeconds(5);
         setLiveSuccess(true);
+        setThankYouMode('live');
         setShowThankYou(true);
         setShowLiveConsent(false);
         if (autoDownloadError) {
@@ -282,6 +295,14 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     } finally {
       setIsGoingLive(false);
     }
+  };
+
+  const confirmRetryPin = () => {
+    if (retryPin.trim() !== '7070') {
+      setRetryError('Manager PIN is incorrect.');
+      return;
+    }
+    router.push(`/create?retry=${encodeURIComponent(sessionId)}`);
   };
 
   return (
@@ -337,6 +358,18 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
 
         {/* 9:16 Video Preview Frame */}
         <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border-2 border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
+          <button
+            type="button"
+            onClick={() => {
+              setRetryPin('');
+              setRetryError(null);
+              setShowRetryPin(true);
+            }}
+            className="absolute right-3 top-3 z-10 rounded-full border border-[#D4AF37]/50 bg-black/55 p-2 text-[#D4AF37] backdrop-blur"
+            aria-label="Manager retry"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
           <video
             src={videoUrl}
             controls
@@ -401,10 +434,13 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                 Thank you for your purchase
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
-                Advance Deepavali greetings from Maharaja. Your Diwali AI film has been sent to the showroom screen.
+                {thankYouMode === 'live'
+                  ? 'Advance Deepavali greetings from Maharaja. Your Diwali AI film has been sent to the showroom screen.'
+                  : 'Advance Deepavali greetings from Maharaja. Your image and video download has started.'}
               </p>
             </div>
 
+            {thankYouMode === 'live' && (
             <div className="rounded-lg border border-emerald-500/45 bg-emerald-950/40 p-4 text-left text-emerald-200 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -445,14 +481,24 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                 </div>
               </div>
             </div>
+            )}
 
             <a
-              href="https://www.instagram.com/majestic__maharaja/?hl=en"
+              href={instagramUrl}
               target="_blank"
               rel="noreferrer"
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black"
             >
               <ExternalLink className="h-5 w-5" /> Follow on Instagram
+            </a>
+
+            <a
+              href={googleReviewUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/45 bg-black/55 px-5 py-3 text-sm font-black uppercase tracking-wider text-[#F3E5AB]"
+            >
+              <ExternalLink className="h-5 w-5" /> Give Google Feedback
             </a>
 
             <button
@@ -461,6 +507,48 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             >
               Close and stay on preview
             </button>
+          </div>
+        </div>
+      )}
+
+      {showRetryPin && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-sm w-full rounded-lg border border-[#D4AF37]/55 bg-[#120203] p-6 text-center shadow-2xl space-y-4">
+            <div>
+              <h2 className="font-serif text-2xl font-black text-[#F3E5AB]">Manager Retry</h2>
+              <p className="mt-2 text-xs leading-5 text-[#F3E5AB]/75">
+                Retry is protected so customer credits are not spent accidentally.
+              </p>
+            </div>
+            <input
+              value={retryPin}
+              onChange={(event) => {
+                setRetryPin(event.target.value);
+                setRetryError(null);
+              }}
+              inputMode="numeric"
+              placeholder="Enter PIN"
+              className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-center text-lg font-black tracking-widest text-white outline-none focus:border-[#D4AF37]"
+            />
+            {retryError && (
+              <div className="rounded-md border border-red-400/50 bg-red-950/50 p-3 text-xs font-bold text-red-200">
+                {retryError}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRetryPin(false)}
+                className="w-1/2 rounded-lg bg-gray-800 py-3 text-xs font-bold uppercase tracking-wider text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRetryPin}
+                className="w-1/2 rounded-lg bg-[#D4AF37] py-3 text-xs font-bold uppercase tracking-wider text-black"
+              >
+                Unlock
+              </button>
+            </div>
           </div>
         </div>
       )}
