@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import QRCode from 'qrcode';
 import {
   Activity,
   BadgeIndianRupee,
@@ -97,6 +98,7 @@ export default function MaharajaClientPortal() {
   const [passMessage, setPassMessage] = useState('');
   const [isCreatingPass, setIsCreatingPass] = useState(false);
   const [recentPasses, setRecentPasses] = useState<GeneratedPass[]>([]);
+  const [passQrDataUrl, setPassQrDataUrl] = useState('');
 
   const customerLink = generatedPass?.link || '';
 
@@ -124,11 +126,39 @@ export default function MaharajaClientPortal() {
     });
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!customerLink) {
+      return;
+    }
+
+    QRCode.toDataURL(customerLink, {
+      width: 280,
+      margin: 2,
+      color: {
+        dark: '#2A060C',
+        light: '#FFFDF8',
+      },
+    })
+      .then((dataUrl) => {
+        if (!cancelled) setPassQrDataUrl(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setPassQrDataUrl('');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [customerLink]);
+
   async function createCustomerPass() {
     try {
       setIsCreatingPass(true);
       setPassMessage('');
       setGeneratedPass(null);
+      setPassQrDataUrl('');
 
       const res = await fetch('/api/customer-pass', {
         method: 'POST',
@@ -336,9 +366,17 @@ export default function MaharajaClientPortal() {
               <LockKeyhole className="h-4 w-4 text-[#6e0d1f]" />
             </div>
             <div className="mt-4 border border-dashed border-[#6e0d1f]/30 bg-white p-5 text-center">
-              <QrCode className="mx-auto h-12 w-12 text-[#6e0d1f]" />
+              {generatedPass && passQrDataUrl ? (
+                <img
+                  src={passQrDataUrl}
+                  alt="Customer entry QR code"
+                  className="mx-auto h-48 w-48 border border-[#e7d9b7] bg-white p-2"
+                />
+              ) : (
+                <QrCode className="mx-auto h-12 w-12 text-[#6e0d1f]" />
+              )}
               <p className="mt-3 text-xs font-black uppercase tracking-wider text-[#6e0d1f]">
-                {generatedPass ? 'Entry pass ready' : 'Generate pass first'}
+                {generatedPass ? 'Scan from customer phone' : 'Generate pass first'}
               </p>
               <p className="mt-2 break-all font-mono text-[10px] font-bold leading-4 text-slate-600">
                 {customerLink || 'Customer entry link will appear here.'}
