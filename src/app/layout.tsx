@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "tryfocus — AI Fashion Marketing for Retail Stores",
-  description: "AI try-on, personalized festival videos, QR-led campaigns and showroom TV experiences for fashion retail brands.",
+  description: "AI try-on, personalized event videos, QR-led campaigns and showroom TV experiences for fashion retail brands.",
 };
 
 export default function RootLayout({
