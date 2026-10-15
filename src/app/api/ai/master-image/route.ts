@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassImageDone, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { buildTryOnPrompt, CustomerCategory, isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 
 export const maxDuration = 60;
@@ -50,11 +50,21 @@ export async function POST(req: NextRequest) {
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
-    if (access.pass && access.pass.imageDone && access.pass.masterImageUrl) {
-      return NextResponse.json({
-        success: false,
-        error: 'This billing QR has already generated its approved fashion image. Use the existing image to create your video.',
-      }, { status: 409 });
+    // A billing pass owns exactly one Try-On image and one video master image.
+    // Asking again returns the stored image; the provider is never called twice.
+    if (access.pass) {
+      const existingUrl = service === 'try-on'
+        ? (access.pass.tryOnImageDone ? access.pass.tryOnImageUrl : '')
+        : (access.pass.videoMasterDone ? access.pass.videoMasterUrl : '');
+      if (existingUrl) {
+        return NextResponse.json({
+          success: true,
+          sessionId,
+          masterImageUrl: existingUrl,
+          reused: true,
+          operatorMessage: 'Existing approved image returned.',
+        });
+      }
     }
     const eventId = isEventId(body.eventId) ? body.eventId : access.pass?.eventId || 'diwali';
 
@@ -131,11 +141,16 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
         const templatePrompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
           ? conceptPrompt.trim()
           : 'Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.';
 
-        const prompt = `Create a hyper-photorealistic vertical 9:16 full-body Indian festive fashion master photograph.
+        // Try-On = clothing only (plain prompt built server-side, client prompt ignored).
+        // AI Video master = festival/cinematic scene used as the video source.
+        const prompt = service === 'try-on'
+          ? buildTryOnPrompt(customerCategory)
+          : `Create a hyper-photorealistic vertical 9:16 full-body Indian festive fashion master photograph.
 STYLE & OPTICS: Photorealistic 8K RAW commercial fashion photography, shot on Hasselblad 100MP camera, 85mm f/1.8 portrait lens, authentic human skin texture, natural pores, real fabric weaves, commercial studio lighting. ZERO illustration, ZERO 3D render look, ZERO CGI or anime aesthetics.
 IDENTITY LOCK: Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, eye shape, nose, mouth, jawline, forehead, ears if visible, beard/moustache if present, glasses if present, skin tone, hairstyle, hairline, body proportions, body size, age appearance and likeness. Do not make the person younger, older, slimmer, heavier, fairer, darker, more muscular, more glamorous, or into a different model. Use premium lighting, color grade and neat grooming only; do not remodel the real face or body.
 OUTFIT LOCK: Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric texture, embroidery, motifs, borders, silhouette and design.
@@ -165,7 +180,7 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
 
           const bucket = getStorageBucket();
           if (bucket) {
-            const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
+            const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/${service === 'try-on' ? 'try-on.jpg' : 'master.jpg'}`;
             const file = bucket.file(storagePath);
             await file.save(watermarkedBuffer, { contentType: 'image/jpeg', public: false });
             const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
@@ -190,6 +205,17 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
 
     const db = getDb();
 
+    // Try-On and video-master images live in separate fields/paths so one can never overwrite the other.
+    const imageFields = service === 'try-on'
+      ? {
+        tryOnImageUrl: masterImageUrl,
+        tryOnStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/try-on.jpg`,
+      }
+      : {
+        masterImageUrl,
+        masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
+      };
+
     if (db) {
       await db.collection('sessions').doc(sessionId).set({
         sessionId,
@@ -200,14 +226,14 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
         garmentAnalysis,
         personAnalysis,
         templateId: templateId || null,
-        masterImageUrl,
-        masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
+        ...imageFields,
         status: 'master_ready',
         updatedAt: nowIso
       }, { merge: true });
     } else {
       const mockStore = getMockStore();
       mockStore.sessions.set(sessionId, {
+        ...(mockStore.sessions.get(sessionId) || {}),
         sessionId,
         clientId: MAHARAJA_CLIENT_ID,
         accessCode: typeof accessCode === 'string' ? accessCode : null,
@@ -216,8 +242,7 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
         garmentAnalysis,
         personAnalysis,
         templateId: templateId || null,
-        masterImageUrl,
-        masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
+        ...imageFields,
         status: 'master_ready',
         updatedAt: nowIso
       });
@@ -225,9 +250,14 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
 
     if (service === 'try-on') {
       await incrementMaharajaUsage('tryOnGenerated');
-    } else if (access.pass) {
+    }
+    if (access.pass) {
       await incrementPassUsage(access.pass.code, 'imagesGenerated');
-      await markPassImageDone(access.pass.code, masterImageUrl);
+      if (service === 'try-on') {
+        await markPassTryOnImageDone(access.pass.code, masterImageUrl);
+      } else {
+        await markPassVideoMasterDone(access.pass.code, masterImageUrl);
+      }
     }
     await logMaharajaActivity('try-on', `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId });
     if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, true);

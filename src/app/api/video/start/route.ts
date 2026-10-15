@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoDone, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { acquirePassVideoLock, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoDone, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
@@ -188,15 +188,20 @@ function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
 
 export async function POST(req: NextRequest) {
   const db = getDb();
+  let lockedPassCode = '';
+  let videoSubmitted = false;
 
   try {
     const body = await req.json();
-    const { sessionId, garmentAnalysis, masterImageUrl, conceptPrompt, accessCode } = body;
+    const { sessionId, garmentAnalysis, conceptPrompt, accessCode } = body;
     const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
-    if (access.pass && access.pass.videoDone && !body.isRetry) {
+    // Billing passes always use the stored festival video master. The browser-supplied image
+    // (and any isRetry flag) is ignored, so the plain Try-On image can never become the video source.
+    const masterImageUrl: string | undefined = access.pass ? access.pass.videoMasterUrl : body.masterImageUrl;
+    if (access.pass && access.pass.videoDone) {
       return NextResponse.json({
         success: false,
         error: 'This billing pass has already completed its AI Video. Ask the manager if a retry is required.',
@@ -219,6 +224,15 @@ export async function POST(req: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // Claim the pass's single video slot atomically before any provider call (blocks double-click / second tab).
+    if (access.pass) {
+      const lock = await acquirePassVideoLock(access.pass.code);
+      if (!lock.ok) {
+        return NextResponse.json({ success: false, error: lock.error }, { status: 409 });
+      }
+      lockedPassCode = access.pass.code;
     }
 
     // ----------------------------------------------------
@@ -485,6 +499,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // The provider has accepted the job: consume the video now (and release the lock), before
+    // any bookkeeping that could throw, so a later error can never reopen the slot.
+    if (access.pass) {
+      await markPassVideoDone(access.pass.code);
+      videoSubmitted = true;
+    }
+
     // Record job state in Firestore or MockStore
     if (db) {
       await db.collection('generationJobs').doc(jobId).set(jobData);
@@ -522,7 +543,6 @@ export async function POST(req: NextRequest) {
     await incrementMaharajaUsage('videosGenerated');
     if (access.pass) {
       await incrementPassUsage(access.pass.code, 'videosGenerated');
-      await markPassVideoDone(access.pass.code);
     }
     await logMaharajaActivity('video', `${eventId} AI Video generation started`, { sessionId });
 
@@ -543,5 +563,10 @@ export async function POST(req: NextRequest) {
       { success: false, error: `Failed to start video generation job: ${formatFalError(error)}` },
       { status: 500 }
     );
+  } finally {
+    // Provider rejected / request failed before a job was accepted: free the slot so the customer can retry.
+    if (lockedPassCode && !videoSubmitted) {
+      await releasePassVideoLock(lockedPassCode).catch((releaseError) => console.error('Video lock release failed:', releaseError));
+    }
   }
 }

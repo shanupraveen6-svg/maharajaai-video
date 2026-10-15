@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
-import { getMaharajaWorkspace, getVideoPass, incrementMaharajaUsage, logMaharajaActivity, markPassRetryUsed, verifyMaharajaAccess, type MaharajaActivity } from '@/lib/maharaja/server';
+import { getMaharajaWorkspace, getVideoPass, incrementMaharajaUsage, logMaharajaActivity, markPassRetryApproved, verifyMaharajaAccess, type MaharajaActivity } from '@/lib/maharaja/server';
 
 const CUSTOMER_TYPES = new Set(['retry', 'download', 'share']);
 const MAX_RETRY_ALLOWANCE = Number(process.env.MAHARAJA_MAX_RETRY_ALLOWANCE) || 100;
@@ -37,8 +37,11 @@ export async function POST(req: NextRequest) {
           });
           return NextResponse.json({ success: false, error: 'Manager PIN is incorrect.' }, { status: 403 });
         }
+        if (access.pass && !access.pass.videoDone) {
+          return NextResponse.json({ success: false, error: 'A retry can only be approved after the first AI Video has been generated.' }, { status: 403 });
+        }
         if (access.pass) {
-          await markPassRetryUsed(access.pass.code);
+          await markPassRetryApproved(access.pass.code);
         }
       }
     }

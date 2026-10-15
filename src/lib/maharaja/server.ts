@@ -5,7 +5,7 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import {
   AI_VIDEO_MIN_PURCHASE,
-  EventId,
+  type EventId,
   MAHARAJA_CLIENT_ID,
   MAHARAJA_WORKSPACE_CODE,
   TRY_ON_MIN_PURCHASE,
@@ -54,8 +54,15 @@ export type MaharajaVideoPass = {
   createdAt: string;
   expiresAt: string;
   expiresAtMs: number;
-  imageDone?: boolean;
-  masterImageUrl?: string;
+  /** Plain, garment-focused Try-On image (never used as a video source). */
+  tryOnImageDone?: boolean;
+  tryOnImageUrl?: string;
+  /** Festival/cinematic master image; the only image ever sent to the video provider. */
+  videoMasterDone?: boolean;
+  videoMasterUrl?: string;
+  videoGenerating?: boolean;
+  /** Epoch ms when videoGenerating was set; lets a crashed request's lock expire. */
+  videoGeneratingAtMs?: number;
   videoDone?: boolean;
   retryUsed?: boolean;
   usage: { scans: number; imagesGenerated: number; videosGenerated: number; goLive: number };
@@ -401,9 +408,8 @@ export async function markVideoPassUsed(code: string) {
   }
 }
 
-export async function markPassImageDone(code: string, masterImageUrl: string) {
+async function mergePassUpdate(code: string, update: Partial<MaharajaVideoPass>) {
   const db = getDb();
-  const update = { imageDone: true, masterImageUrl };
   if (db) {
     await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
       .collection('customerPasses').doc(code).set(update, { merge: true });
@@ -415,32 +421,73 @@ export async function markPassImageDone(code: string, masterImageUrl: string) {
   }
 }
 
+export async function markPassTryOnImageDone(code: string, tryOnImageUrl: string) {
+  await mergePassUpdate(code, { tryOnImageDone: true, tryOnImageUrl });
+}
+
+export async function markPassVideoMasterDone(code: string, videoMasterUrl: string) {
+  await mergePassUpdate(code, { videoMasterDone: true, videoMasterUrl });
+}
+
+/** Called once the video provider has accepted the job: consumes the video and releases the lock. */
 export async function markPassVideoDone(code: string) {
-  const db = getDb();
-  const update = { videoDone: true };
-  if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
-      .collection('customerPasses').doc(code).set(update, { merge: true });
-  } else {
-    const pass = getMockStore().customerPasses.get(`${MAHARAJA_CLIENT_ID}:${code}`) as MaharajaVideoPass | undefined;
-    if (pass) {
-      getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${code}`, { ...pass, ...update });
-    }
-  }
+  await mergePassUpdate(code, { videoDone: true, videoGenerating: false });
 }
 
-export async function markPassRetryUsed(code: string) {
-  const db = getDb();
-  const update = { retryUsed: true };
-  if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
-      .collection('customerPasses').doc(code).set(update, { merge: true });
-  } else {
-    const pass = getMockStore().customerPasses.get(`${MAHARAJA_CLIENT_ID}:${code}`) as MaharajaVideoPass | undefined;
-    if (pass) {
-      getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${code}`, { ...pass, ...update });
-    }
+/** Releases the video lock after a provider rejection / failure (video stays available). */
+export async function releasePassVideoLock(code: string) {
+  await mergePassUpdate(code, { videoGenerating: false });
+}
+
+/**
+ * Manager retry approval, enforced entirely server-side (no client-sent isRetry flag).
+ * Allowed only after a completed first video and only once per pass.
+ */
+export async function markPassRetryApproved(code: string) {
+  await mergePassUpdate(code, { retryUsed: true, videoDone: false, videoGenerating: false });
+}
+
+const VIDEO_LOCK_STALE_MS = 3 * 60 * 1000;
+
+type VideoLockResult = { ok: true } | { ok: false; error: string };
+
+function evaluateVideoLock(pass: MaharajaVideoPass | undefined | null, now: number): VideoLockResult {
+  if (!pass) return { ok: false, error: 'This Maharaja AI Video pass is invalid or expired.' };
+  if (pass.videoDone) {
+    return { ok: false, error: 'This billing pass has already completed its AI Video. Ask the manager if a retry is required.' };
   }
+  if (!pass.videoMasterDone || !pass.videoMasterUrl) {
+    return { ok: false, error: 'Create the AI Video image first, then generate the video.' };
+  }
+  if (pass.videoGenerating && now - Number(pass.videoGeneratingAtMs || 0) < VIDEO_LOCK_STALE_MS) {
+    return { ok: false, error: 'A video is already being generated for this pass. Please wait.' };
+  }
+  return { ok: true };
+}
+
+/**
+ * Atomically claims the single video slot of a billing pass before any provider call,
+ * so a double-click or a second tab cannot reach the provider twice.
+ */
+export async function acquirePassVideoLock(code: string): Promise<VideoLockResult> {
+  const db = getDb();
+  const now = Date.now();
+  const lockUpdate = { videoGenerating: true, videoGeneratingAtMs: now };
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    return db.runTransaction(async (tx) => {
+      const snapshot = await tx.get(ref);
+      const result = evaluateVideoLock(snapshot.exists ? snapshot.data() as MaharajaVideoPass : null, now);
+      if (result.ok) tx.update(ref, lockUpdate);
+      return result;
+    });
+  }
+  // Mock store: check-and-set with no await in between is atomic on the single JS thread.
+  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+  const result = evaluateVideoLock(pass, now);
+  if (result.ok && pass) getMockStore().customerPasses.set(key, { ...pass, ...lockUpdate });
+  return result;
 }
 
 export async function verifyMaharajaAccess(

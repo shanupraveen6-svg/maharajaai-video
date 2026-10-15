@@ -73,48 +73,72 @@ async function run() {
   const accessAfter = await json(await fetch(`${BASE_URL}/api/maharaja/access/${tryOnCode}?service=try-on&deviceId=${deviceId}`));
   assert(accessAfter.data.access?.tryOnUsed === true, 'Completed Try-On remains server-side locked');
 
-  // Manager Video Retry PIN Tests
-  const wrongPin = await json(await fetch(`${BASE_URL}/api/maharaja/activity`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'retry', label: 'Manager approved AI Video retry', sessionId, accessCode: customerPassCode, pin: '1234' }),
+  // ---- Billing QR sequence: Try-On tab first, then AI Video tab (separate images) ----
+  const passSession = `e2e_pass_${Date.now()}`;
+  const passBody = {
+    ...masterBody, sessionId: passSession, accessCode: customerPassCode, deviceId: undefined, tryOnGrant: undefined,
+  };
+  const post = async (path, body) => json(await fetch(`${BASE_URL}${path}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   }));
+  const passAccess = async () => (await json(await fetch(`${BASE_URL}/api/maharaja/access/${customerPassCode}?service=ai-video`))).data.access || {};
+
+  const passTryOn = await post('/api/ai/master-image', { ...passBody, service: 'try-on' });
+  assert(passTryOn.response.ok && passTryOn.data.masterImageUrl && !passTryOn.data.reused, 'Billing QR: Try-On tab generates the plain Try-On image');
+  const afterTryOn = await passAccess();
+  assert(afterTryOn.tryOnImageDone === true && !!afterTryOn.tryOnImageUrl, 'Billing QR: Try-On image is stored on the pass');
+  assert(afterTryOn.videoMasterDone === false && !afterTryOn.videoMasterUrl, 'Billing QR: Try-On image does NOT consume the video master slot');
+
+  const passTryOnAgain = await post('/api/ai/master-image', { ...passBody, service: 'try-on' });
+  assert(passTryOnAgain.response.ok && passTryOnAgain.data.reused === true && passTryOnAgain.data.masterImageUrl === passTryOn.data.masterImageUrl, 'Billing QR: second Try-On request returns the stored image (no regeneration)');
+
+  const passVideoMaster = await post('/api/ai/master-image', { ...passBody, service: 'ai-video' });
+  assert(passVideoMaster.response.ok && passVideoMaster.data.masterImageUrl && !passVideoMaster.data.reused, 'Billing QR: AI Video tab creates its own festival master image after Try-On');
+  const afterMaster = await passAccess();
+  assert(afterMaster.tryOnImageDone === true && afterMaster.videoMasterDone === true && !!afterMaster.videoMasterUrl, 'Billing QR: both images stored independently');
+
+  const passVideoMasterAgain = await post('/api/ai/master-image', { ...passBody, service: 'ai-video' });
+  assert(passVideoMasterAgain.response.ok && passVideoMasterAgain.data.reused === true && passVideoMasterAgain.data.masterImageUrl === passVideoMaster.data.masterImageUrl, 'Billing QR: second video-master request returns the stored image (no regeneration)');
+
+  const retrySource = await json(await fetch(`${BASE_URL}/api/video/retry-source?sessionId=${passSession}&accessCode=${customerPassCode}`));
+  assert(retrySource.response.ok && retrySource.data.source?.masterImageUrl === afterMaster.videoMasterUrl, 'Video retry source is the stored video master (never the Try-On image)');
+
+  // ---- Manager retry PIN rules ----
+  const retryBody = (pin) => ({ type: 'retry', label: 'Manager approved AI Video retry', sessionId: passSession, accessCode: customerPassCode, pin });
+  const wrongPin = await post('/api/maharaja/activity', retryBody('1234'));
   assert(wrongPin.response.status === 403 && /incorrect/i.test(wrongPin.data.error || ''), 'Incorrect manager PIN is rejected');
 
-  const correctPin = await json(await fetch(`${BASE_URL}/api/maharaja/activity`, {
+  const earlyRetry = await post('/api/maharaja/activity', retryBody('7070'));
+  assert(earlyRetry.response.status === 403 && /after the first AI Video/i.test(earlyRetry.data.error || ''), 'Correct PIN cannot approve a retry before the first video exists');
+
+  // ---- /video/start guards that never reach the paid provider ----
+  const pass2Result = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'retry', label: 'Manager approved AI Video retry', sessionId, accessCode: customerPassCode, pin: '7070' }),
+    body: JSON.stringify({ billingCode, phone: '9888888888', billLast4: '1234', eventId: 'diwali', eligible: true }),
   }));
-  assert(correctPin.response.ok && correctPin.data.success, 'Correct manager PIN 7070 authorizes retry');
-
-  // Video Retry Source Test: Fetches approved master image without regenerating
-  const videoMasterBody = {
-    ...masterBody, sessionId: `video_sess_${Date.now()}`, accessCode: customerPassCode, service: 'ai-video',
-  };
-  await fetch(`${BASE_URL}/api/ai/master-image`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(videoMasterBody) });
-  
-  // Verify billing pass blocks duplicate image generation
-  const secondImageAttempt = await json(await fetch(`${BASE_URL}/api/ai/master-image`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...videoMasterBody, sessionId: `video_sess_dup_${Date.now()}` }) }));
-  assert(secondImageAttempt.response.status === 409 && /already generated/i.test(secondImageAttempt.data.error || ''), 'Billing customer blocked from generating duplicate AI image');
-
-  const accessWithImage = await json(await fetch(`${BASE_URL}/api/maharaja/access/${customerPassCode}?service=ai-video`));
-  assert(accessWithImage.data.access?.imageDone === true && accessWithImage.data.access?.masterImageUrl, 'Billing pass returns approved master image on access reload');
-
-  const retrySource = await json(await fetch(`${BASE_URL}/api/video/retry-source?sessionId=${videoMasterBody.sessionId}&accessCode=${customerPassCode}`));
-  assert(retrySource.response.ok && retrySource.data.source?.masterImageUrl, 'Video retry source retrieves existing approved master image');
-
-  // Verify second retry on same pass is blocked
-  const secondRetry = await json(await fetch(`${BASE_URL}/api/maharaja/activity`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'retry', label: 'Manager approved AI Video retry', sessionId, accessCode: customerPassCode, pin: '7070' }),
-  }));
-  assert(secondRetry.response.status === 403 && /already used/i.test(secondRetry.data.error || ''), 'Second manager retry on same billing pass is blocked');
+  const pass2Code = pass2Result.data.pass?.code;
+  assert(pass2Result.response.ok && pass2Code, 'Biller creates a second AI Video QR');
+  const noMasterStart = await post('/api/video/start', {
+    sessionId: `e2e_nomaster_${Date.now()}`, accessCode: pass2Code, eventId: 'diwali', isRetry: true,
+    masterImageUrl: afterTryOn.tryOnImageUrl, conceptPrompt: 'x',
+  });
+  assert(noMasterStart.response.status === 409 && /image first/i.test(noMasterStart.data.error || ''), 'Video cannot start without a stored video master, even with a spoofed Try-On image and isRetry:true');
 
   // Admin Reset Try-On Limits Test
   const resetGrants = await json(await fetch(`${BASE_URL}/api/maharaja/try-on-grants`, { method: 'DELETE', headers: { cookie } }));
   assert(resetGrants.response.ok && resetGrants.data.success, 'Admin reset successfully clears Try-On device limits');
 
   // Verify All Eight Video Prompt Combinations
-  const { buildEventVideoPrompt } = await import('../src/lib/maharaja/config.ts');
+  const { buildEventVideoPrompt, buildTryOnPrompt, buildMasterPrompt } = await import('../src/lib/maharaja/config.ts');
+
+  // Try-On prompt is garment-only; the festival scene belongs to the video master prompt only
+  for (const cat of ['women', 'men', 'girl', 'boy']) {
+    const tryOnPrompt = buildTryOnPrompt(cat);
+    assert(/Do not create a festival environment/.test(tryOnPrompt) && /neutral premium retail studio background/.test(tryOnPrompt), `${cat}: Try-On prompt is plain/neutral`);
+    assert(!/golden|Diwali|lamp-lit|rangoli(?!,)/i.test(tryOnPrompt.replace(/No diyas, no rangoli, no flowers, no festive props/, '')), `${cat}: Try-On prompt has no festival scene wording`);
+    assert(/Diwali/.test(buildMasterPrompt(cat, 'diwali')), `${cat}: video master prompt keeps the Diwali scene`);
+  }
+
   const categories = ['women', 'men', 'girl', 'boy'];
   const promptSets = ['set-1', 'set-2'];
   for (const cat of categories) {

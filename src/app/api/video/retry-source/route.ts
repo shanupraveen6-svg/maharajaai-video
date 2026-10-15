@@ -14,13 +14,14 @@ export async function GET(req: NextRequest) {
   const session = db
     ? (await db.collection('sessions').doc(sessionId).get()).data()
     : getMockStore().sessions.get(sessionId);
-  if (!session || session.accessCode !== accessCode || !session.masterImageUrl) {
+  const videoMasterUrl = access.pass?.videoMasterDone ? access.pass.videoMasterUrl : session?.masterImageUrl;
+  if (!session || session.accessCode !== accessCode || !videoMasterUrl) {
     return NextResponse.json({ success: false, error: 'The approved image for this video retry is unavailable.' }, { status: 404 });
   }
   return NextResponse.json({
     success: true,
     source: {
-      masterImageUrl: session.masterImageUrl,
+      masterImageUrl: videoMasterUrl,
       eventId: isEventId(session.eventId) ? session.eventId : access.pass?.eventId || 'diwali',
       category: ['women', 'men', 'girl', 'boy'].includes(session.templateId) ? session.templateId : 'women',
       garmentAnalysis: session.garmentAnalysis || null,

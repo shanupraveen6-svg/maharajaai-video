@@ -52,6 +52,22 @@ export function getEventOption(eventId: EventId) {
 export type CustomerCategory = 'men' | 'women' | 'boy' | 'girl';
 export type VideoPromptSet = 'set-1' | 'set-2';
 
+/** Plain garment-focused Try-On prompt: no festival scene, props or cinematic effects. */
+export function buildTryOnPrompt(category: CustomerCategory) {
+  const subject = category === 'men'
+    ? 'adult man'
+    : category === 'women'
+      ? 'adult woman'
+      : category === 'boy'
+        ? 'young boy'
+        : 'young girl';
+  const safety = category === 'boy' || category === 'girl'
+    ? 'Use child-safe, age-appropriate, natural styling with no adult glamour.'
+    : 'Use modest, family-friendly, natural styling.';
+
+  return `Create a photorealistic vertical 9:16 full-body virtual try-on image of the ${subject}. Preserve the exact customer's face, skin tone, hairstyle, body shape, body size and proportions. Dress the customer in the exact uploaded garment. Preserve the exact garment color, fabric, embroidery, patterns, borders, silhouette and fit. ${safety} Use a clean neutral premium retail studio background with natural realistic lighting. Natural standing posture with the full body visible head-to-toe, both feet visible and natural hands. Do not create a festival environment. No diyas, no rangoli, no flowers, no festive props, no cinematic effects, no text, no logos. The only purpose is to clearly show how this exact garment looks on this customer.`;
+}
+
 export function buildMasterPrompt(category: CustomerCategory, eventId: EventId) {
   const event = getEventOption(eventId);
   const subject = category === 'men'
