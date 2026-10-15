@@ -6,8 +6,6 @@ import QRCode from 'qrcode';
 import {
   BadgeIndianRupee,
   CheckCircle2,
-  Download,
-  ExternalLink,
   Film,
   LoaderCircle,
   Phone,
@@ -16,7 +14,6 @@ import {
   Store,
 } from 'lucide-react';
 import { AI_VIDEO_MIN_PURCHASE, EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
-import { downloadDataUrl } from '@/lib/maharaja/qr-poster';
 
 type GeneratedPass = {
   code: string;
@@ -193,17 +190,7 @@ export default function MaharajaBillingPage() {
                 <p className="mt-4 font-mono text-sm font-bold">{pass.phoneMasked} · ****{pass.billLast4}</p>
                 <p className="mt-1 text-xs font-bold uppercase text-[#D4AF37]">{EVENT_OPTIONS.find((option) => option.id === pass.eventId)?.label} AI Video</p>
                 <p className="mt-2 text-xs leading-5 text-[#F3E5AB]/70">Show this QR to the customer. They scan it on their phone to create the image and video.</p>
-                <a
-                  id="open-customer-pass-link"
-                  href={pass.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 text-xs font-bold uppercase text-black hover:brightness-105"
-                >
-                  <ExternalLink className="h-4 w-4" /> Open Customer AI Video
-                </a>
-                <button type="button" onClick={() => downloadDataUrl(qrDataUrl, `maharaja-ai-video-${pass.billLast4}.png`)} className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 border border-[#D4AF37]/50 px-4 text-xs font-bold uppercase text-[#F3E5AB] hover:bg-black/30"><Download className="h-4 w-4" /> Download QR PNG</button>
-                <button type="button" onClick={resetForm} className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 border border-[#D4AF37]/30 px-4 text-xs font-bold uppercase"><RefreshCw className="h-4 w-4" /> Next customer</button>
+                <button type="button" onClick={resetForm} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 border border-[#D4AF37]/30 px-4 text-xs font-bold uppercase"><RefreshCw className="h-4 w-4" /> Next customer</button>
               </>
             ) : (
               <div className="flex min-h-[480px] flex-col items-center justify-center"><QrCode className="h-24 w-24 text-[#D4AF37]" /><h2 className="mt-5 font-serif text-2xl font-bold">Customer QR appears here</h2><p className="mt-2 max-w-xs text-sm leading-6 text-[#F3E5AB]/65">Complete the billing form on this counter device, then let the customer scan from another phone.</p></div>
