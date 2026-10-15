@@ -65,8 +65,12 @@ export async function POST(req: NextRequest) {
       eventId: body.eventId,
       status: 'active',
       createdAt: new Date(now).toISOString(),
-      expiresAt: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
-      expiresAtMs: now + 2 * 60 * 60 * 1000,
+      expiresAt: new Date(now + 1 * 60 * 60 * 1000).toISOString(),
+      expiresAtMs: now + 1 * 60 * 60 * 1000,
+      imageDone: false,
+      masterImageUrl: '',
+      videoDone: false,
+      retryUsed: false,
       usage: { scans: 0, imagesGenerated: 0, videosGenerated: 0, goLive: 0 },
     };
 

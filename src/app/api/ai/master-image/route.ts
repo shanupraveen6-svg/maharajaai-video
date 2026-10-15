@@ -5,7 +5,7 @@ import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
 import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassImageDone, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 
 export const maxDuration = 60;
@@ -49,6 +49,12 @@ export async function POST(req: NextRequest) {
     const access = await verifyMaharajaAccess(req, accessCode, service);
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
+    }
+    if (access.pass && access.pass.imageDone && access.pass.masterImageUrl) {
+      return NextResponse.json({
+        success: false,
+        error: 'This billing QR has already generated its approved fashion image. Use the existing image to create your video.',
+      }, { status: 409 });
     }
     const eventId = isEventId(body.eventId) ? body.eventId : access.pass?.eventId || 'diwali';
 
@@ -221,6 +227,7 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
       await incrementMaharajaUsage('tryOnGenerated');
     } else if (access.pass) {
       await incrementPassUsage(access.pass.code, 'imagesGenerated');
+      await markPassImageDone(access.pass.code, masterImageUrl);
     }
     await logMaharajaActivity('try-on', `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId });
     if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, true);

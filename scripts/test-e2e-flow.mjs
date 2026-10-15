@@ -91,8 +91,23 @@ async function run() {
     ...masterBody, sessionId: `video_sess_${Date.now()}`, accessCode: customerPassCode, service: 'ai-video',
   };
   await fetch(`${BASE_URL}/api/ai/master-image`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(videoMasterBody) });
+  
+  // Verify billing pass blocks duplicate image generation
+  const secondImageAttempt = await json(await fetch(`${BASE_URL}/api/ai/master-image`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...videoMasterBody, sessionId: `video_sess_dup_${Date.now()}` }) }));
+  assert(secondImageAttempt.response.status === 409 && /already generated/i.test(secondImageAttempt.data.error || ''), 'Billing customer blocked from generating duplicate AI image');
+
+  const accessWithImage = await json(await fetch(`${BASE_URL}/api/maharaja/access/${customerPassCode}?service=ai-video`));
+  assert(accessWithImage.data.access?.imageDone === true && accessWithImage.data.access?.masterImageUrl, 'Billing pass returns approved master image on access reload');
+
   const retrySource = await json(await fetch(`${BASE_URL}/api/video/retry-source?sessionId=${videoMasterBody.sessionId}&accessCode=${customerPassCode}`));
   assert(retrySource.response.ok && retrySource.data.source?.masterImageUrl, 'Video retry source retrieves existing approved master image');
+
+  // Verify second retry on same pass is blocked
+  const secondRetry = await json(await fetch(`${BASE_URL}/api/maharaja/activity`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'retry', label: 'Manager approved AI Video retry', sessionId, accessCode: customerPassCode, pin: '7070' }),
+  }));
+  assert(secondRetry.response.status === 403 && /already used/i.test(secondRetry.data.error || ''), 'Second manager retry on same billing pass is blocked');
 
   // Admin Reset Try-On Limits Test
   const resetGrants = await json(await fetch(`${BASE_URL}/api/maharaja/try-on-grants`, { method: 'DELETE', headers: { cookie } }));

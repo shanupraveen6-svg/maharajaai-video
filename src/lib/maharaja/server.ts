@@ -54,6 +54,10 @@ export type MaharajaVideoPass = {
   createdAt: string;
   expiresAt: string;
   expiresAtMs: number;
+  imageDone?: boolean;
+  masterImageUrl?: string;
+  videoDone?: boolean;
+  retryUsed?: boolean;
   usage: { scans: number; imagesGenerated: number; videosGenerated: number; goLive: number };
 };
 
@@ -397,6 +401,48 @@ export async function markVideoPassUsed(code: string) {
   }
 }
 
+export async function markPassImageDone(code: string, masterImageUrl: string) {
+  const db = getDb();
+  const update = { imageDone: true, masterImageUrl };
+  if (db) {
+    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+      .collection('customerPasses').doc(code).set(update, { merge: true });
+  } else {
+    const pass = getMockStore().customerPasses.get(`${MAHARAJA_CLIENT_ID}:${code}`) as MaharajaVideoPass | undefined;
+    if (pass) {
+      getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${code}`, { ...pass, ...update });
+    }
+  }
+}
+
+export async function markPassVideoDone(code: string) {
+  const db = getDb();
+  const update = { videoDone: true };
+  if (db) {
+    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+      .collection('customerPasses').doc(code).set(update, { merge: true });
+  } else {
+    const pass = getMockStore().customerPasses.get(`${MAHARAJA_CLIENT_ID}:${code}`) as MaharajaVideoPass | undefined;
+    if (pass) {
+      getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${code}`, { ...pass, ...update });
+    }
+  }
+}
+
+export async function markPassRetryUsed(code: string) {
+  const db = getDb();
+  const update = { retryUsed: true };
+  if (db) {
+    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+      .collection('customerPasses').doc(code).set(update, { merge: true });
+  } else {
+    const pass = getMockStore().customerPasses.get(`${MAHARAJA_CLIENT_ID}:${code}`) as MaharajaVideoPass | undefined;
+    if (pass) {
+      getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${code}`, { ...pass, ...update });
+    }
+  }
+}
+
 export async function verifyMaharajaAccess(
   req: NextRequest,
   accessCode: unknown,
@@ -416,7 +462,7 @@ export async function verifyMaharajaAccess(
         return { allowed: false as const, error: 'This AI Video has been completed.' };
       }
       if (videoPass.expiresAtMs < Date.now()) {
-        return { allowed: false as const, error: 'This Maharaja AI Video pass has expired.' };
+        return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
       }
       if (videoPass.status === 'active') {
         return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: videoPass };
@@ -433,7 +479,7 @@ export async function verifyMaharajaAccess(
       return { allowed: false as const, error: 'This AI Video has been completed.' };
     }
     if (pass.expiresAtMs < Date.now()) {
-      return { allowed: false as const, error: 'This Maharaja AI Video pass has expired.' };
+      return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
     }
     if (pass.status === 'active') {
       return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass };

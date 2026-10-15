@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoDone, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
@@ -195,6 +195,12 @@ export async function POST(req: NextRequest) {
     const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
+    }
+    if (access.pass && access.pass.videoDone && !body.isRetry) {
+      return NextResponse.json({
+        success: false,
+        error: 'This billing pass has already completed its AI Video. Ask the manager if a retry is required.',
+      }, { status: 409 });
     }
     const eventId = isEventId(body.eventId) ? body.eventId : access.pass?.eventId || 'diwali';
 
@@ -514,7 +520,10 @@ export async function POST(req: NextRequest) {
     }
 
     await incrementMaharajaUsage('videosGenerated');
-    if (access.pass) await incrementPassUsage(access.pass.code, 'videosGenerated');
+    if (access.pass) {
+      await incrementPassUsage(access.pass.code, 'videosGenerated');
+      await markPassVideoDone(access.pass.code);
+    }
     await logMaharajaActivity('video', `${eventId} AI Video generation started`, { sessionId });
 
     return NextResponse.json({

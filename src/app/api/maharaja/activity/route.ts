@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
-import { getVideoPass, incrementMaharajaUsage, logMaharajaActivity, verifyMaharajaAccess, type MaharajaActivity } from '@/lib/maharaja/server';
+import { getMaharajaWorkspace, getVideoPass, incrementMaharajaUsage, logMaharajaActivity, markPassRetryUsed, verifyMaharajaAccess, type MaharajaActivity } from '@/lib/maharaja/server';
 
 const CUSTOMER_TYPES = new Set(['retry', 'download', 'share']);
+const MAX_RETRY_ALLOWANCE = Number(process.env.MAHARAJA_MAX_RETRY_ALLOWANCE) || 100;
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,12 +22,24 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: access.error }, { status: 401 });
         }
       }
-      if (type === 'retry' && String(body.pin || '') !== (process.env.MAHARAJA_MANAGER_PIN || '7070')) {
-        await logMaharajaActivity('retry', 'Manager retry rejected: incorrect PIN', {
-          sessionId: String(body.sessionId || ''),
-          success: false,
-        });
-        return NextResponse.json({ success: false, error: 'Manager PIN is incorrect.' }, { status: 403 });
+      if (type === 'retry') {
+        const workspace = await getMaharajaWorkspace();
+        if (workspace.usage.retries >= MAX_RETRY_ALLOWANCE) {
+          return NextResponse.json({ success: false, error: 'The store manager retry reserve has been reached.' }, { status: 403 });
+        }
+        if (access.pass?.retryUsed) {
+          return NextResponse.json({ success: false, error: 'This billing pass has already used its 1 allowed manager video retry.' }, { status: 403 });
+        }
+        if (String(body.pin || '') !== (process.env.MAHARAJA_MANAGER_PIN || '7070')) {
+          await logMaharajaActivity('retry', 'Manager retry rejected: incorrect PIN', {
+            sessionId: String(body.sessionId || ''),
+            success: false,
+          });
+          return NextResponse.json({ success: false, error: 'Manager PIN is incorrect.' }, { status: 403 });
+        }
+        if (access.pass) {
+          await markPassRetryUsed(access.pass.code);
+        }
       }
     }
 
