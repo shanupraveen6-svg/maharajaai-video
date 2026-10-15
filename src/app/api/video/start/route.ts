@@ -10,6 +10,8 @@ import sharp from 'sharp';
 import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { acquirePassVideoLock, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoDone, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
+export const maxDuration = 60;
+
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
   if (!apiKey || apiKey.trim() === '') return null;

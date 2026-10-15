@@ -6,6 +6,8 @@ import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
 
+export const maxDuration = 60;
+
 async function markVideoFailed(db: any, sessionId: string, message: string) {
   if (!db || !sessionId) return;
   await db.collection('sessions').doc(sessionId).set({

@@ -10,6 +10,8 @@ import {
   verifyMaharajaAccess,
 } from '@/lib/maharaja/server';
 
+export const maxDuration = 45;
+
 function parseDataUrl(value: unknown) {
   if (typeof value !== 'string') return null;
   const match = value.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/);

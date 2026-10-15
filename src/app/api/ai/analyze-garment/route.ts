@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeGarmentImages } from '@/lib/ai/gemini';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 
+export const maxDuration = 45;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
