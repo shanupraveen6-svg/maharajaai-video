@@ -105,8 +105,10 @@ export async function POST(req: NextRequest) {
       const presetPath = path.join(process.cwd(), 'public', 'test-master-women.jpg');
       if (fs.existsSync(presetPath)) {
         const rawBuffer = fs.readFileSync(presetPath);
-        const watermarkedBuffer = await applyMaharajaWatermark(rawBuffer);
-        masterImageUrl = `data:image/jpeg;base64,${watermarkedBuffer.toString('base64')}`;
+        const finalBuffer = service === 'try-on'
+          ? await applyMaharajaWatermark(rawBuffer)
+          : rawBuffer;
+        masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
       } else {
         masterImageUrl = '/test-master-women.jpg';
       }
@@ -175,14 +177,16 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
         if (part?.inlineData?.data) {
           const rawBase64 = part.inlineData.data;
           const rawBuffer = Buffer.from(rawBase64, 'base64');
-          const watermarkedBuffer = await applyMaharajaWatermark(rawBuffer);
-          masterImageUrl = `data:image/jpeg;base64,${watermarkedBuffer.toString('base64')}`;
+          const finalBuffer = service === 'try-on'
+            ? await applyMaharajaWatermark(rawBuffer)
+            : rawBuffer;
+          masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
 
           const bucket = getStorageBucket();
           if (bucket) {
             const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/${service === 'try-on' ? 'try-on.jpg' : 'master.jpg'}`;
             const file = bucket.file(storagePath);
-            await file.save(watermarkedBuffer, { contentType: 'image/jpeg', public: false });
+            await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
             const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
             masterImageUrl = signedUrl;
           }

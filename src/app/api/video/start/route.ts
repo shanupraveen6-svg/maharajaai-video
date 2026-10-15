@@ -6,7 +6,6 @@ import { GoogleGenAI } from '@google/genai';
 import { fal } from '@fal-ai/client';
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp';
 import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { acquirePassVideoLock, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoDone, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
@@ -182,7 +181,7 @@ function truncateAtWordBoundary(text: string, maxLength: number): string {
 }
 
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
-  const canonicalPrompt = `${basePrompt} Start camera and background animation at frame 1 with no blank screen or delayed intro. Follow only the camera path and background effects stated in this prompt. Do not invent subject motion. Preserve the existing Majestic Maharaja brand mark in the top-right corner exactly as shown; do not add any other text or logos.`;
+  const canonicalPrompt = `${basePrompt} Start camera and background animation at frame 1 with no blank screen or delayed intro. Follow only the camera path and background effects stated in this prompt. Do not invent subject motion. Do not add any text, words, titles or logos.`;
 
   const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision)}`;
   return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_PROVIDER_PROMPT_CHARS);
@@ -300,29 +299,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (masterBase64) {
-      try {
-        const input = Buffer.from(masterBase64, 'base64');
-        const metadata = await sharp(input).metadata();
-        const width = metadata.width || 900;
-        const markWidth = Math.max(150, Math.round(width * 0.25));
-        const margin = Math.max(18, Math.round(width * 0.025));
-        const mark = await sharp(path.join(process.cwd(), 'public', 'maharaja-logo.png'))
-          .resize({ width: markWidth, withoutEnlargement: true })
-          .png()
-          .toBuffer();
-        const markMetadata = await sharp(mark).metadata();
-        const branded = await sharp(input)
-          .composite([{ input: mark, top: margin, left: Math.max(margin, width - (markMetadata.width || markWidth) - margin) }])
-          .jpeg({ quality: 94 })
-          .toBuffer();
-        masterBase64 = branded.toString('base64');
-        masterMimeType = 'image/jpeg';
-        masterDataUrl = `data:image/jpeg;base64,${masterBase64}`;
-      } catch (brandError) {
-        console.warn('Maharaja source branding warning:', brandError);
-      }
-    }
 
     const motionSafety = await analyzeMasterMotionSafety(masterBase64, masterMimeType);
     const prompt = buildFinalPrompt(buildVideoPrompt(garmentAnalysis, conceptPrompt), motionSafety);
