@@ -41,7 +41,16 @@ export async function POST(req: NextRequest) {
         // Authorization: Check either operator cookie or manager PIN
         const isOperator = verifyOperatorRequest(req);
         if (!isOperator) {
-          const configuredPin = process.env.MAHARAJA_MANAGER_PIN?.trim() || '7070';
+          const configuredPin = process.env.MAHARAJA_MANAGER_PIN?.trim();
+
+          if (!configuredPin) {
+            console.error('CRITICAL: MAHARAJA_MANAGER_PIN is not configured.');
+            return NextResponse.json({
+              success: false,
+              error: 'Manager authorization is temporarily unavailable (MAHARAJA_MANAGER_PIN is not configured). Contact administrator.'
+            }, { status: 500 });
+          }
+
           const expectedPin = configuredPin;
           const rateLimitKey = String(body.accessCode || req.headers.get('x-forwarded-for') || 'default');
           const record = pinAttempts.get(rateLimitKey);

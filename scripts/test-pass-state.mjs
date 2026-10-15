@@ -85,26 +85,32 @@ pass = await getVideoPass(code);
 assert(pass.retryUsed === true && pass.videoDone === false && pass.videoGenerating === false, 'Manager approval sets retryUsed=true and videoDone=false');
 assert(pass.videoMasterUrl === 'master-url', 'Retry keeps the same video master');
 
-assert((await acquirePassVideoLock(code)).ok, 'Retry video can start through the normal lock path');
-await markPassVideoDone(code);
+assert((await acquirePassVideoLock(code, 'job_retry_1')).ok, 'Retry video can start through the normal lock path');
+await markPassVideoSubmitted(code, 'job_retry_1');
+// Old job from first render tries to update pass during retry:
+await markPassVideoReady(code, jobId1);
+pass = await getVideoPass(code);
+assert(pass.videoDone === false && pass.activeVideoJobId === 'job_retry_1', 'Stale first job cannot complete pass during active retry');
+await markPassVideoReady(code, 'job_retry_1');
 const afterRetry = await acquirePassVideoLock(code);
 assert(!afterRetry.ok && /already completed/i.test(afterRetry.error), 'No further video after the single retry');
 
 const stalePass = await freshPass();
 await markPassVideoMasterDone(stalePass, 'master-url');
-assert((await acquirePassVideoLock(stalePass)).ok, 'Fresh lock acquired');
+assert((await acquirePassVideoLock(stalePass, 'job_crash_pre_provider')).ok, 'Fresh lock acquired');
 assert(!(await acquirePassVideoLock(stalePass)).ok, 'Fresh lock blocks a second request');
-// Age the lock beyond the stale window, as if the holding request crashed without an active job.
+
+// Age the lock beyond the stale window, simulating a crashed server before provider acceptance (providerAccepted=false):
 const { getMockStore } = await import('../src/lib/firebase/admin.ts');
 const { MAHARAJA_CLIENT_ID } = await import('../src/lib/maharaja/config.ts');
 const key = `${MAHARAJA_CLIENT_ID}:${stalePass}`;
 const stored = getMockStore().customerPasses.get(key);
-getMockStore().customerPasses.set(key, { ...stored, videoGenerating: true, videoGeneratingAtMs: Date.now() - 10 * 60 * 1000 });
-assert((await acquirePassVideoLock(stalePass)).ok, 'A stale lock (crashed request) expires and can be re-acquired');
+getMockStore().customerPasses.set(key, { ...stored, videoGenerating: true, providerAccepted: false, videoGeneratingAtMs: Date.now() - 10 * 60 * 1000 });
+assert((await acquirePassVideoLock(stalePass)).ok, 'A crashed pre-provider lock (providerAccepted=false) expires and can be re-acquired');
 
-// Active provider render with activeVideoJobId does NOT expire even after 10 minutes:
-getMockStore().customerPasses.set(key, { ...stored, videoGenerating: true, activeVideoJobId: 'job_render_ongoing', videoGeneratingAtMs: Date.now() - 10 * 60 * 1000 });
-assert(!(await acquirePassVideoLock(stalePass)).ok, 'Active provider render with activeVideoJobId does not expire after 3 minutes');
+// Active provider render with providerAccepted=true does NOT expire even after 10 minutes:
+getMockStore().customerPasses.set(key, { ...stored, videoGenerating: true, activeVideoJobId: 'job_render_ongoing', providerAccepted: true, videoGeneratingAtMs: Date.now() - 10 * 60 * 1000 });
+assert(!(await acquirePassVideoLock(stalePass)).ok, 'Active provider render with providerAccepted=true does not expire after 3 minutes');
 
 // Atomic acquirePassVideoLock(code, jobId) and releasePassVideoLock:
 const atomicPass = await freshPass();
@@ -112,21 +118,21 @@ await markPassVideoMasterDone(atomicPass, 'master-url');
 const atomicLock = await acquirePassVideoLock(atomicPass, 'job_atomic_123');
 assert(atomicLock.ok, 'Atomic lock acquisition succeeded');
 const atomicPassDoc = await getVideoPass(atomicPass);
-assert(atomicPassDoc.videoGenerating === true && atomicPassDoc.activeVideoJobId === 'job_atomic_123', 'acquirePassVideoLock atomically sets videoGenerating and activeVideoJobId');
+assert(atomicPassDoc.videoGenerating === true && atomicPassDoc.activeVideoJobId === 'job_atomic_123' && atomicPassDoc.providerAccepted === false, 'acquirePassVideoLock atomically sets videoGenerating and activeVideoJobId with providerAccepted=false');
 await releasePassVideoLock(atomicPass);
 const releasedPassDoc = await getVideoPass(atomicPass);
-assert(releasedPassDoc.videoGenerating === false && !releasedPassDoc.activeVideoJobId, 'releasePassVideoLock clears videoGenerating and activeVideoJobId');
+assert(releasedPassDoc.videoGenerating === false && !releasedPassDoc.activeVideoJobId && releasedPassDoc.providerAccepted === false, 'releasePassVideoLock clears videoGenerating, activeVideoJobId and providerAccepted');
 
 // Test failed render recovery:
 const failedRenderPass = await freshPass();
 await markPassVideoMasterDone(failedRenderPass, 'master-url');
-assert((await acquirePassVideoLock(failedRenderPass)).ok, 'Lock acquired for failed-render test');
-await markPassVideoDone(failedRenderPass);
+assert((await acquirePassVideoLock(failedRenderPass, 'job_fail_1')).ok, 'Lock acquired for failed-render test');
+await markPassVideoSubmitted(failedRenderPass, 'job_fail_1');
 pass = await getVideoPass(failedRenderPass);
-assert(pass.videoDone === true, 'Initially consumed upon provider acceptance');
-await markPassVideoFailed(failedRenderPass);
+assert(pass.videoGenerating === true && pass.providerAccepted === true, 'Initially consumed upon provider acceptance');
+await markPassVideoFailed(failedRenderPass, 'job_fail_1');
 pass = await getVideoPass(failedRenderPass);
-assert(pass.videoDone === false && pass.lastVideoFailed === true, 'Failed render restores customer video slot');
-assert((await acquirePassVideoLock(failedRenderPass)).ok, 'Customer can re-acquire lock after failed render without manager PIN');
+assert(pass.videoDone === false && pass.lastVideoFailed === true && !pass.activeVideoJobId, 'Failed render restores customer video slot and clears activeVideoJobId');
+assert((await acquirePassVideoLock(failedRenderPass, 'job_fail_retry')).ok, 'Customer can re-acquire lock after failed render without manager PIN');
 
 console.log('All pass state-machine checks passed (mock-store branch).');

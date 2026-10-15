@@ -322,9 +322,8 @@ export async function validateFestivalMasterImage(
     });
   }
 
-  try {
-    const contents: any[] = [];
-    const masterBase64 = masterImageUrlOrBase64.split(',')[1] || masterImageUrlOrBase64;
+  const contents: any[] = [];
+  const masterBase64 = masterImageUrlOrBase64.split(',')[1] || masterImageUrlOrBase64;
     contents.push({ inlineData: { mimeType: 'image/jpeg', data: masterBase64 } });
 
     if (customerPhoto) {
@@ -362,33 +361,43 @@ Return STRICT JSON matching this schema:
   "reason": string
 }`;
 
-    contents.push(prompt);
-    const resp = await ai.models.generateContent({
-      model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
-      contents,
-    });
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const resp = await ai.models.generateContent({
+        model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
+        contents,
+      });
 
-    const text = resp.text || '';
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return MasterImageQASchema.parse(parsed);
+      const text = resp.text || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return MasterImageQASchema.parse(parsed);
+      }
+      throw new Error('Could not parse valid JSON from master image QA output');
+    } catch (err) {
+      lastErr = err;
+      console.warn(`Master image QA inspection attempt ${attempt + 1} failed:`, err);
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 600));
+      }
     }
-    throw new Error('Could not parse JSON from master image QA');
-  } catch (err) {
-    console.warn('Master image QA inspection warning:', err);
-    return MasterImageQASchema.parse({
-      valid: true,
-      identityPreserved: true,
-      garmentPreserved: true,
-      fullBodyVisible: true,
-      bothFeetVisible: true,
-      anatomyAcceptable: true,
-      cleanFrame: true,
-      videoSafe: true,
-      reason: 'Automated inspection passed.'
-    });
   }
+
+  // Fail closed: Never convert an inspection failure into an approval!
+  const errMsg = lastErr instanceof Error ? lastErr.message : String(lastErr || 'Unknown error');
+  return MasterImageQASchema.parse({
+    valid: false,
+    identityPreserved: false,
+    garmentPreserved: false,
+    fullBodyVisible: false,
+    bothFeetVisible: false,
+    anatomyAcceptable: false,
+    cleanFrame: false,
+    videoSafe: false,
+    reason: `Automated inspection unavailable (${errMsg.slice(0, 150)}). Master image cannot be verified as safe for video generation.`
+  });
 }
 
 /** Legacy QA stub retained for backwards-compatibility */

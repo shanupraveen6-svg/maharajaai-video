@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     let masterImageUrl = '';
 
-    if (body.usePreset) {
+    if (body.usePreset && process.env.NODE_ENV !== 'production') {
       const presetPath = path.join(process.cwd(), 'public', 'test-master-women.jpg');
       if (fs.existsSync(presetPath)) {
         const rawBuffer = fs.readFileSync(presetPath);
@@ -150,9 +150,21 @@ export async function POST(req: NextRequest) {
           : 'Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.';
 
         const tryOnRef = (service === 'ai-video' && (body.tryOnImageUrl || access.pass?.tryOnImageUrl)) || null;
-        if (tryOnRef && typeof tryOnRef === 'string' && !tryOnRef.startsWith('http')) {
-          const tryOnBase64 = tryOnRef.split(',')[1] || tryOnRef;
-          contents.push({ inlineData: { mimeType: 'image/jpeg', data: tryOnBase64 } });
+        if (tryOnRef && typeof tryOnRef === 'string') {
+          if (tryOnRef.startsWith('http')) {
+            try {
+              const res = await fetch(tryOnRef);
+              if (res.ok) {
+                const arrayBuffer = await res.arrayBuffer();
+                contents.push({ inlineData: { mimeType: 'image/jpeg', data: Buffer.from(arrayBuffer).toString('base64') } });
+              }
+            } catch (fetchErr) {
+              console.warn('Failed to fetch try-on image reference from URL for Gemini:', fetchErr);
+            }
+          } else {
+            const tryOnBase64 = tryOnRef.split(',')[1] || tryOnRef;
+            contents.push({ inlineData: { mimeType: 'image/jpeg', data: tryOnBase64 } });
+          }
         }
 
         const referenceHierarchy = `REFERENCE PRIORITY:
