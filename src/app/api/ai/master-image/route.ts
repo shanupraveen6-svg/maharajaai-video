@@ -223,7 +223,7 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
       await incrementPassUsage(access.pass.code, 'imagesGenerated');
     }
     await logMaharajaActivity('try-on', `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId });
-    if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, true, masterImageUrl);
+    if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, true);
 
     return NextResponse.json({
       success: true,

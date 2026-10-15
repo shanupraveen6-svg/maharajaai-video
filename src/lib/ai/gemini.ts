@@ -122,7 +122,7 @@ Return STRICT JSON matching this schema:
 }
 
 // 2. Validate Person Photo using Gemini + Zod Validation
-export async function analyzePersonImage(imageDataUrl: string) {
+export async function analyzePersonImage(imageDataUrl: string, expectedGroup?: 'adult' | 'child') {
   const ai = getGenAIClient();
 
   if (AI_CONFIG.IS_DEMO_MODE || !ai) {
@@ -176,7 +176,17 @@ Return STRICT JSON:
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      return PersonAnalysisSchema.parse(parsed);
+      const validated = PersonAnalysisSchema.parse(parsed);
+      if (expectedGroup && validated.subjectGroup !== expectedGroup) {
+        return PersonAnalysisSchema.parse({
+          ...validated,
+          valid: false,
+          additionalPhotoRequired: true,
+          requestedPhotos: ['Upload a photo matching the selected Adult or Child category.'],
+          operatorMessage: `The selected category expects an ${expectedGroup} photo. Change the category or upload the correct person photo.`,
+        });
+      }
+      return validated;
     }
     throw new Error('Could not parse JSON from person analysis');
   } catch (error) {
@@ -200,11 +210,11 @@ Return STRICT JSON:
 
 // 3. Controlled Video Base Prompt Builder (Movement-Neutral)
 export function buildVideoPrompt(analysis: any, conceptPrompt?: string): string {
-  const prompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
-    ? conceptPrompt.trim()
-    : `Create a premium photorealistic 6-second vertical 9:16 Diwali fashion video from the provided image. Start moving from frame 1 with no blank screen and no static hold. Use the image as the exact sharp first frame. Preserve the exact same person, face, identity, age, skin tone, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting and decorations throughout. Do not beautify, age, slim, reshape, fair-skin, glamourize, or replace the person with a different model. Keep the pose, hands, feet and garment edges locked; cinematic energy comes from camera, lighting and background motion only. Photorealistic 8K RAW commercial fashion video, authentic skin pores, natural texture, commercial studio lighting. No dialogue, no lip-sync, no text, no captions, no face change, no outfit change, no extra limbs.`;
-
-  return prompt;
+  void analysis;
+  if (typeof conceptPrompt !== 'string' || !conceptPrompt.trim()) {
+    throw new Error('An approved Maharaja event and category prompt is required for video generation.');
+  }
+  return conceptPrompt.trim();
 }
 
 // 4. Quality Assurance Evaluation (Fix 13: Freeze Fake QA)

@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const analysis = await analyzePersonImage(image);
+    const expectedGroup = body.category === 'boy' || body.category === 'girl' ? 'child' : 'adult';
+    const analysis = await analyzePersonImage(image, expectedGroup);
 
     return NextResponse.json({
       success: true,

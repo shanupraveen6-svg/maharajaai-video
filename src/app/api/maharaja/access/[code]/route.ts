@@ -42,10 +42,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         billLast4: access.pass?.billLast4 || null,
         expiresAt: access.pass?.expiresAt || null,
         tryOnUsed: deviceStatus?.status === 'used',
-        tryOnStatus: deviceStatus?.status || 'none',
-        masterImageUrl: deviceStatus?.masterImageUrl || null,
-        retriesCount: deviceStatus?.retriesCount || 0,
-        retriesLeft: Math.max(0, 2 - (deviceStatus?.retriesCount || 0)),
       },
     });
   } catch (error) {

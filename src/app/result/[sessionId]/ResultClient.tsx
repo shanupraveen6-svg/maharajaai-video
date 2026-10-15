@@ -214,22 +214,13 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
   };
 
-  const executeDownload = async () => {
-    // 1. Immediately complete and claim the single-use video pass before releasing downloads
-    if (accessCode) {
-      await fetch('/api/maharaja/video-pass/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: accessCode, sessionId, action: 'download' }),
-      }).catch((err) => console.warn('Could not record pass completion:', err));
-    }
+  const executeDownload = async (completePass = true) => {
     await fetch('/api/maharaja/activity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'download', label: `${eventLabel} customer result downloaded`, sessionId, accessCode }),
     }).catch(() => undefined);
 
-    // 2. Now dispatch the authorized file downloads
     if (masterImageUrl) {
       await downloadAsset(masterImageUrl, `Maharaja-${eventLabel}-Master-${sessionId}.jpg`);
     }
@@ -237,11 +228,20 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
       const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
       await downloadAsset(videoUrl, `Maharaja-${eventLabel}-Video-${sessionId}.${extension}`);
     }
+    if (completePass && accessCode) {
+      await fetch('/api/maharaja/video-pass/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: accessCode, sessionId, action: 'download' }),
+      }).catch((err) => console.warn('Could not record pass completion:', err));
+    }
   };
 
   const shareText = `My ${eventLabel} AI fashion film from Majestic Maharaja is ready.`;
-  const shareToWhatsApp = () => window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener,noreferrer');
+  const recordShare = () => fetch('/api/maharaja/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'share', label: `${eventLabel} branded result shared`, sessionId, accessCode }) }).catch(() => undefined);
+  const shareToWhatsApp = () => { void recordShare(); window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener,noreferrer'); };
   const shareAsStatus = async () => {
+    void recordShare();
     if (navigator.share) {
       await navigator.share({ title: 'Majestic Maharaja', text: shareText }).catch(() => undefined);
     } else {
@@ -285,7 +285,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
 
     try {
       pausePreviewAudio();
-      const autoDownloadError = await executeDownload()
+      const autoDownloadError = await executeDownload(false)
         .then(() => null)
         .catch((err) => (err instanceof Error ? err.message : 'Auto-download failed.'));
       const res = await fetch('/api/live/enqueue', {
@@ -368,9 +368,17 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
           <p className="text-xs text-gray-300 max-w-xs mx-auto">
             {videoError || 'Please create another video after checking the setup.'}
           </p>
-          <Link href={accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace'} className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-[#6e0d1f] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">
-            <RotateCcw className="w-4 h-4" /> Create Again
-          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setRetryPin('');
+              setRetryError(null);
+              setShowRetryPin(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-[#6e0d1f] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]"
+          >
+            <RotateCcw className="w-4 h-4" /> Manager Video Retry
+          </button>
         </div>
       ) : isLoadingVideo || videoStatus === 'processing' || !videoUrl ? (
         <div className="py-20 text-center space-y-6">
@@ -393,8 +401,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
 
         {/* 9:16 Video Preview Frame */}
         <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border-2 border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
-          {!accessCode && (
-            <button
+          <button
               type="button"
               onClick={() => {
                 setRetryPin('');
@@ -406,7 +413,6 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
             >
               <RotateCcw className="h-4 w-4" />
             </button>
-          )}
           <video
             src={videoUrl}
             controls
@@ -444,22 +450,6 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
             Download saves the approved image and video. Go Live also downloads both files, then sends the video to the showroom TV with festival music and Tamil greeting.
           </div>
 
-          {accessCode ? (
-            <Link
-              id="retry-video-btn"
-              href={`/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}`}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-black/60 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[#F3E5AB] transition hover:bg-black/80"
-            >
-              <RotateCcw className="w-4 h-4" /> Try Another Video / Retake
-            </Link>
-          ) : (
-            <Link
-              href="/maharaja/workspace"
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-black/60 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-300 transition hover:bg-black"
-            >
-              <RotateCcw className="w-4 h-4" /> CREATE ANOTHER VIDEO
-            </Link>
-          )}
         </div>
 
         {liveError && (

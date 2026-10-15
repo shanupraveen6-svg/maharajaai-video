@@ -16,7 +16,6 @@ import {
   ScanLine,
   Shirt,
   Sparkles,
-  RotateCcw,
   User,
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
@@ -28,6 +27,7 @@ import {
   getEventOption,
   type CustomerCategory,
   type EventId,
+  type VideoPromptSet,
 } from '@/lib/maharaja/config';
 
 type AccessResponse = {
@@ -39,10 +39,6 @@ type AccessResponse = {
     phoneMasked: string | null;
     billLast4: string | null;
     tryOnUsed: boolean;
-    tryOnStatus?: string;
-    masterImageUrl?: string | null;
-    retriesCount?: number;
-    retriesLeft?: number;
   };
 };
 
@@ -60,12 +56,22 @@ async function readJson(response: Response) {
   return data;
 }
 
-export default function MaharajaExperience({ service, accessCode }: { service: 'try-on' | 'ai-video'; accessCode: string }) {
+function customerError(caught: unknown, fallback: string) {
+  const message = caught instanceof Error ? caught.message : fallback;
+  if (/gemini|veo|fal\.ai|minimax|model|api key|quota|provider/i.test(message)) {
+    return 'The AI service is temporarily unavailable. Please ask Maharaja staff for assistance and try again later.';
+  }
+  return message || fallback;
+}
+
+export default function MaharajaExperience({ service, accessCode, retrySessionId = '' }: { service: 'try-on' | 'ai-video'; accessCode: string; retrySessionId?: string }) {
   const router = useRouter();
   const [access, setAccess] = useState<AccessResponse | null>(null);
   const [activeService, setActiveService] = useState<'try-on' | 'ai-video'>(service);
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [category, setCategory] = useState<CustomerCategory>('women');
+  const [videoPromptSet, setVideoPromptSet] = useState<VideoPromptSet>('set-1');
+  const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [priceTagPhoto, setPriceTagPhoto] = useState<string | null>(null);
   const [priceAmount, setPriceAmount] = useState<number | null>(null);
@@ -99,18 +105,22 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
         if (!active) return;
         setAccess(data);
         setEventId(data.access.eventId);
-        setPurchaseConfirmed(data.access.service === 'ai-video' || data.access.tryOnStatus === 'generated');
-        const used = data.access.service === 'try-on' && (data.access.tryOnUsed === true || data.access.tryOnStatus === 'used');
+        setPurchaseConfirmed(data.access.service === 'ai-video');
+        const used = data.access.service === 'try-on' && data.access.tryOnUsed === true;
         setTryOnUsed(used);
-        if (data.access.service === 'try-on' && data.access.tryOnStatus === 'generated' && data.access.masterImageUrl) {
-          setMasterImageUrl(data.access.masterImageUrl);
-          setMessage('Your Maharaja AI Try-On image is ready for download.');
+        if (retrySessionId && data.access.service === 'ai-video') {
+          const retryData = await readJson(await fetch(`/api/video/retry-source?sessionId=${encodeURIComponent(retrySessionId)}&accessCode=${encodeURIComponent(accessCode)}`, { cache: 'no-store' }));
+          setMasterImageUrl(retryData.source.masterImageUrl);
+          setEventId(retryData.source.eventId);
+          setCategory(retryData.source.category);
+          setGarmentAnalysis(retryData.source.garmentAnalysis);
+          setMessage('Manager retry approved. Generate a new video from the same approved image.');
         }
         if (!used) window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
         setStage('ready');
       } catch (caught) {
         if (!active) return;
-        setError(caught instanceof Error ? caught.message : 'Unable to verify this Maharaja QR.');
+        setError(customerError(caught, 'Unable to verify this Maharaja QR.'));
         setStage('ready');
       }
     }
@@ -118,49 +128,13 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
     return () => {
       active = false;
     };
-  }, [accessCode, deviceId, service]);
+  }, [accessCode, deviceId, retrySessionId, service]);
 
-  async function loadTestPriceTag() {
-    setStage('analyzing');
-    setError('');
-    try {
-      const res = await fetch('/maharaja-test-price-tag-rs-799.png');
-      const blob = await res.blob();
-      const file = new File([blob], 'maharaja-test-price-tag-rs-799.png', { type: 'image/png' });
-      await analyzePriceTag(file);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load test price tag.');
-      setStage('ready');
-    }
-  }
-
-  async function loadTestPerson() {
-    setStage('analyzing');
-    setError('');
-    try {
-      const res = await fetch('/test-master-women.jpg');
-      const blob = await res.blob();
-      const file = new File([blob], 'test-master-women.jpg', { type: 'image/jpeg' });
-      await analyzePerson(file);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load sample customer photo.');
-      setStage('ready');
-    }
-  }
-
-  async function loadTestGarment() {
-    setStage('analyzing');
-    setError('');
-    try {
-      const res = await fetch('/maharaja-logo.png');
-      const blob = await res.blob();
-      const file = new File([blob], 'maharaja-garment.png', { type: 'image/png' });
-      await analyzeGarments([file]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load sample garment photo.');
-      setStage('ready');
-    }
-  }
+  useEffect(() => {
+    if (stage !== 'video') return;
+    const timer = window.setInterval(() => setVideoProgressIndex((current) => Math.min(current + 1, 2)), 7000);
+    return () => window.clearInterval(timer);
+  }, [stage]);
 
   const canGenerateImage = purchaseConfirmed
     && (activeService === 'ai-video' || !!access?.access.phoneMasked || !!tryOnGrant)
@@ -191,7 +165,7 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
       if (!data.analysis.eligible) setError(data.analysis.message);
     } catch (caught) {
       setPurchaseConfirmed(false);
-      setError(caught instanceof Error ? caught.message : 'Price tag verification failed.');
+      setError(customerError(caught, 'The price tag could not be verified. Use a clear, well-lit photo of the complete tag.'));
     } finally {
       setStage('ready');
     }
@@ -208,7 +182,7 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
       const data = await readJson(await fetch('/api/ai/analyze-person', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, accessCode, service: activeService }),
+        body: JSON.stringify({ image: dataUrl, accessCode, service: activeService, category }),
       }));
       setPersonAnalysis(data.analysis);
       setMessage(data.analysis.operatorMessage || 'Person photo verified.');
@@ -218,7 +192,7 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
     } catch (caught) {
       setPersonPhoto(null);
       setPersonAnalysis(null);
-      setError(caught instanceof Error ? caught.message : 'Person photo analysis failed.');
+      setError(customerError(caught, 'The person photo could not be verified. Use one clear, well-lit full-body photo.'));
     } finally {
       setStage('ready');
     }
@@ -251,7 +225,7 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
     } catch (caught) {
       setGarmentPhotos([]);
       setGarmentAnalysis(null);
-      setError(caught instanceof Error ? caught.message : 'Garment image analysis failed.');
+      setError(customerError(caught, 'The garment photos could not be verified. Upload one to three clear garment photos.'));
     } finally {
       setStage('ready');
     }
@@ -287,7 +261,7 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
       }
       setMessage(activeService === 'try-on' ? 'Your Maharaja AI Try-On is ready.' : 'AI image ready. Continue to create the video.');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'AI image generation failed.');
+      setError(customerError(caught, 'The AI image could not be generated. Please ask Maharaja staff for assistance.'));
     } finally {
       setStage('ready');
     }
@@ -297,7 +271,8 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
     if (!masterImageUrl) return;
     setStage('video');
     setError('');
-    setMessage(`Starting the ${event.label} AI video. Keep this page open...`);
+    setVideoProgressIndex(0);
+    setMessage(`Preparing your ${event.label} film. Keep this page open.`);
     try {
       const start = await readJson(await fetch('/api/video/start', {
         method: 'POST',
@@ -308,7 +283,7 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
           eventId,
           garmentAnalysis,
           masterImageUrl,
-          conceptPrompt: buildEventVideoPrompt(category, eventId),
+          conceptPrompt: buildEventVideoPrompt(category, eventId, videoPromptSet),
         }),
       }));
 
@@ -323,7 +298,7 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
       }
       throw new Error('Video generation is taking longer than expected. Do not start another job; check this session again.');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'AI video generation failed.');
+      setError(customerError(caught, 'The AI video could not be generated. Please ask Maharaja staff for assistance.'));
       setStage('ready');
     }
   }
@@ -336,15 +311,7 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
     anchor.target = '_blank';
     anchor.rel = 'noreferrer';
     anchor.click();
-    if (activeService === 'try-on' && deviceId) {
-      await fetch('/api/maharaja/try-on-grants', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId, sessionId }),
-      }).catch(() => undefined);
-      setTryOnUsed(true);
-      setMessage('Your Maharaja AI Try-On has been downloaded. Thank you for visiting!');
-    }
+    setMessage('Your Maharaja AI Try-On has been downloaded. Thank you for visiting!');
     void fetch('/api/maharaja/activity', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'download', label: `${event.label} AI Try-On downloaded`, sessionId, accessCode }),
@@ -418,21 +385,11 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
                   id="scan-price-tag-file-input"
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   className="hidden"
                   disabled={busy}
                   onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePriceTag(file); }}
                 />
               </label>
-              <button
-                type="button"
-                id="use-test-price-tag-btn"
-                onClick={() => void loadTestPriceTag()}
-                disabled={busy}
-                className="flex min-h-11 w-full items-center justify-center gap-2 border border-[#D8C49B] bg-[#FFF9EC] text-xs font-bold uppercase text-[#6E0D1F] hover:bg-[#F8F1E2]"
-              >
-                Use Rs 799 Test Tag
-              </button>
             </div>
             {priceAmount !== null && <p className="mt-3 text-sm font-bold text-[#6E0D1F]">Detected price: Rs {priceAmount}</p>}
             {message && <p className="mt-3 text-xs font-semibold text-[#5C4B43]">{message}</p>}
@@ -442,20 +399,10 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
 
         {purchaseConfirmed && !tryOnUsed && (
           <>
-            <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
-              <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
+            <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
+              {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="text-xs font-bold uppercase text-[#5C4B43]">Customer category
-                    <select
-                      id="customer-category-select"
-                      value={category}
-                      onChange={(event) => { setCategory(event.target.value as CustomerCategory); setMasterImageUrl(null); }}
-                      disabled={busy}
-                      className="mt-2 min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] px-3 text-base font-bold"
-                    >
-                      <option value="women">Women</option><option value="men">Men</option><option value="girl">Girl</option><option value="boy">Boy</option>
-                    </select>
-                  </label>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-4 gap-2">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" disabled={busy} onClick={() => { setCategory(option); setMasterImageUrl(null); }} className={`min-h-11 border px-2 text-xs font-bold uppercase ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}>{option}</button>)}</div></fieldset>
                   <label className="text-xs font-bold uppercase text-[#5C4B43]">Event
                     <select
                       id="event-select"
@@ -464,11 +411,7 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
                       disabled={busy || service === 'ai-video'}
                       className="mt-2 min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] px-3 text-base font-bold disabled:opacity-70"
                     >
-                      {EVENT_OPTIONS.map((option) => (
-                        <option key={option.id} value={option.id} disabled={option.id !== 'diwali'}>
-                          {option.label} {option.id === 'diwali' ? '— Active Campaign' : '— (Coming Soon)'}
-                        </option>
-                      ))}
+                      {EVENT_OPTIONS.filter((option) => access?.workspace.activeEvents.includes(option.id) ?? true).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
                     </select>
                   </label>
                 </div>
@@ -478,17 +421,8 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
                     <div className="aspect-[3/4] overflow-hidden bg-white">{personPhoto ? <img src={personPhoto} alt="Customer preview" className="h-full w-full object-cover" /> : <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400"><User className="h-10 w-10" /><span className="text-xs font-bold uppercase">Person photo</span></div>}</div>
                     <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]">
                       <Camera className="h-4 w-4" /> Add person
-                      <input id="person-file-input" type="file" accept="image/*" capture="environment" className="hidden" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
+                      <input id="person-file-input" type="file" accept="image/*" className="hidden" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
                     </label>
-                    <button
-                      type="button"
-                      id="use-test-person-btn"
-                      onClick={() => void loadTestPerson()}
-                      disabled={busy}
-                      className="mt-2 flex min-h-9 w-full items-center justify-center border border-[#D8C49B] bg-white text-[11px] font-bold uppercase text-[#6E0D1F] hover:bg-[#F8F1E2]"
-                    >
-                      Use Test Customer
-                    </button>
                   </div>
 
                   <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4">
@@ -497,15 +431,6 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
                       <ImageIcon className="h-4 w-4" /> Add garment
                       <input id="garment-file-input" type="file" accept="image/*" multiple className="hidden" disabled={busy} onChange={(event) => { const files = Array.from(event.target.files || []); event.currentTarget.value = ''; void analyzeGarments(files); }} />
                     </label>
-                    <button
-                      type="button"
-                      id="use-test-garment-btn"
-                      onClick={() => void loadTestGarment()}
-                      disabled={busy}
-                      className="mt-2 flex min-h-9 w-full items-center justify-center border border-[#D8C49B] bg-white text-[11px] font-bold uppercase text-[#6E0D1F] hover:bg-[#F8F1E2]"
-                    >
-                      Use Test Garment
-                    </button>
                   </div>
                 </div>
 
@@ -515,41 +440,14 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
                 {error && <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</div>}
 
                 {!masterImageUrl && <button type="button" id="generate-master-image-btn" onClick={() => void generateImage()} disabled={!canGenerateImage || busy} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 bg-[#6E0D1F] px-5 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-40">{stage === 'image' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />} Generate AI Image</button>}
-              </div>
+              </div>}
 
               <aside className="border border-[#D8C49B] bg-[#21090E] p-5 text-center text-[#F3E5AB]">
                 <SecureTryOnViewer imageUrl={masterImageUrl} alt="Generated Maharaja AI fashion result" />
                 {masterImageUrl && activeService === 'try-on' && (
-                  <div className="mt-4 space-y-2">
-                    <button
-                      type="button"
-                      id="download-tryon-btn"
-                      onClick={downloadImage}
-                      className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black hover:brightness-105"
-                    >
-                      <Download className="h-4 w-4" /> Download Try-On
-                    </button>
-                    {(access?.access.retriesLeft ?? Math.max(0, 2 - (access?.access.retriesCount || 0))) > 0 ? (
-                      <button
-                        type="button"
-                        id="retake-tryon-btn"
-                        onClick={() => {
-                          setMasterImageUrl(null);
-                          const remaining = (access?.access.retriesLeft ?? 2) - 1;
-                          setMessage(`Try another garment or photo (${Math.max(0, remaining)} retries left), then tap Generate AI Image.`);
-                        }}
-                        className="flex min-h-11 w-full items-center justify-center gap-2 border border-[#D4AF37]/50 text-xs font-bold uppercase text-[#F3E5AB] hover:bg-black/30"
-                      >
-                        <RotateCcw className="h-4 w-4" /> Try Another Outfit / Retake ({access?.access.retriesLeft ?? 2} left)
-                      </button>
-                    ) : (
-                      <div className="rounded border border-[#D4AF37]/40 bg-black/50 p-2.5 text-center text-[11px] font-semibold text-[#F3E5AB]">
-                        Maximum 2 retries reached. Tap Download Try-On to complete and save your photo.
-                      </div>
-                    )}
-                  </div>
+                  <button type="button" id="download-tryon-btn" onClick={downloadImage} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black hover:brightness-105"><Download className="h-4 w-4" /> Download Try-On</button>
                 )}
-                {masterImageUrl && activeService === 'ai-video' && <button type="button" id="generate-video-btn" onClick={() => void generateVideo()} disabled={busy} className="mt-4 flex min-h-14 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black disabled:opacity-50">{stage === 'video' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />} Generate {event.label} Video <ArrowRight className="h-4 w-4" /></button>}
+                {masterImageUrl && activeService === 'ai-video' && <div className="mt-4 space-y-3"><div className="grid grid-cols-2 gap-2"><button type="button" disabled={busy} onClick={() => setVideoPromptSet('set-1')} className={`min-h-10 border text-xs font-bold uppercase ${videoPromptSet === 'set-1' ? 'border-[#D4AF37] bg-[#D4AF37] text-black' : 'border-[#D4AF37]/45 text-[#F3E5AB]'}`}>Festive Set</button><button type="button" disabled={busy} onClick={() => setVideoPromptSet('set-2')} className={`min-h-10 border text-xs font-bold uppercase ${videoPromptSet === 'set-2' ? 'border-[#D4AF37] bg-[#D4AF37] text-black' : 'border-[#D4AF37]/45 text-[#F3E5AB]'}`}>{category === 'men' || category === 'boy' ? 'Cracker Set' : 'Divine Set'}</button></div><button type="button" id="generate-video-btn" onClick={() => void generateVideo()} disabled={busy} className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black disabled:opacity-50">{stage === 'video' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />} Generate 6-Sec AI Video <ArrowRight className="h-4 w-4" /></button>{stage === 'video' && <div className="space-y-2 border border-[#D4AF37]/35 bg-black/30 p-3 text-left">{['Preparing festive lighting', 'Applying camera motion', 'Rendering your video'].map((step, index) => <div key={step} className={`flex items-center gap-2 text-xs font-semibold ${index <= videoProgressIndex ? 'text-[#F3E5AB]' : 'text-[#F3E5AB]/40'}`}><span className={`h-2 w-2 rounded-full ${index < videoProgressIndex ? 'bg-emerald-400' : index === videoProgressIndex ? 'animate-pulse bg-[#D4AF37]' : 'bg-white/20'}`} />{step}</div>)}</div>}</div>}
               </aside>
             </section>
           </>

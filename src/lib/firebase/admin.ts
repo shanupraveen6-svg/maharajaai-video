@@ -84,7 +84,6 @@ type MockStore = {
   clientWorkspaces: Map<string, unknown>;
   activityLogs: Map<string, unknown>;
   tryOnGrants: Map<string, unknown>;
-  usedPriceTags: Map<string, unknown>;
 };
 
 const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
@@ -104,8 +103,7 @@ const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
   customerPasses: new Map(),
   clientWorkspaces: new Map(),
   activityLogs: new Map(),
-  tryOnGrants: new Map(),
-  usedPriceTags: new Map()
+  tryOnGrants: new Map()
 };
 
 (global as any).__MAHARAJA_MOCK_STORE__ = globalMockStore;

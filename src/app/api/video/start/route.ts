@@ -166,7 +166,7 @@ function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   const visibility = decision.lowerBodyVisibility === 'clear'
     ? 'lower body visible but still locked'
     : 'lower body risky';
-  return `Motion safety: ${visibility}. Lock pose, feet, hands, garment edges and floor contact. No walking, stepping, turning, dancing, body spin, foot slide, hand movement, hip/waist emphasis or recomposed person. Only tiny eye life, gentle breathing impression and soft festival smile.`;
+  return `Motion safety: ${visibility}. Lock pose, feet, legs, torso, shoulders, head angle, arms, hands, fingers, garment edges and floor contact. No walking, stepping, turning, dancing, body spin, foot slide, hand movement, head movement, breathing motion, hip or waist motion, garment motion or recomposed person. The only subject action permitted is one gradual natural closed-mouth smile.`;
 }
 
 function truncateAtWordBoundary(text: string, maxLength: number): string {
@@ -180,36 +180,7 @@ function truncateAtWordBoundary(text: string, maxLength: number): string {
 }
 
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
-  const lowerPrompt = basePrompt.toLowerCase();
-  const audience = lowerPrompt.includes('girl')
-    ? 'young girl'
-    : lowerPrompt.includes('boy')
-      ? 'young boy'
-      : lowerPrompt.includes('woman') || lowerPrompt.includes('women')
-        ? 'woman'
-        : lowerPrompt.includes('man') || lowerPrompt.includes('men')
-          ? 'man'
-          : 'person';
-
-  const audienceCue = audience === 'woman'
-    ? 'Modest graceful heroine feel, no glamour/body-part focus.'
-    : audience === 'young girl'
-      ? 'Child-safe sweet festival feel; diya steady if visible; no adult styling.'
-      : audience === 'young boy'
-        ? 'Child-safe cheerful festival feel; diya steady if visible; no adult styling.'
-        : 'Premium confident hero feel, masculine but modest.';
-
-  const cameraCue = lowerPrompt.includes('fresh camera template 1')
-    ? 'Camera: high top-angle over Diwali lights/rangoli, immediate crane down, gold light sweep, dolly-in, final slow zoom-out.'
-    : lowerPrompt.includes('fresh camera template 2')
-      ? 'Camera: blurred foreground diya/lamp, side truck left-to-right into clean front view, rack focus to subject, full-body finish.'
-      : lowerPrompt.includes('fresh camera template 3')
-        ? 'Camera: low premium hero angle, smooth push-in with warm background light streaks, sharp smile moment, final zoom-out.'
-        : lowerPrompt.includes('fresh camera template 4')
-          ? 'Camera: fast gold-particle sweep across marigold lights, movie-poster reveal, soft sparkles/cracker glow, clean zoom-out.'
-          : 'Camera: immediate golden light sweep, smooth dolly-in, small side truck, rack focus, bokeh, final slow zoom-out.';
-
-  const canonicalPrompt = `${basePrompt} Start motion at frame 1 with no blank screen or delayed intro. Preserve exact face, identity, body, outfit and scene. ${audienceCue} ${cameraCue} Keep the approved event setting from the source image. Preserve the existing Majestic Maharaja brand mark in the top-right corner exactly as shown; do not add any other text or logos. No captions, greeting words, dialogue, lip-sync, forehead mark, extra limbs, face change or outfit change.`;
+  const canonicalPrompt = `${basePrompt} Start camera and background animation at frame 1 with no blank screen or delayed intro. Follow only the camera path and background effects stated in this prompt. Do not invent subject motion. Preserve the existing Majestic Maharaja brand mark in the top-right corner exactly as shown; do not add any other text or logos.`;
 
   const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision)}`;
   return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_PROVIDER_PROMPT_CHARS);

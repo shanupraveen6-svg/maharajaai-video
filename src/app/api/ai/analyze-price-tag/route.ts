@@ -1,13 +1,11 @@
-import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { AI_CONFIG } from '@/lib/ai/config';
-import { MAX_TRY_ON_RETRIES, TRY_ON_MIN_PURCHASE } from '@/lib/maharaja/config';
+import { TRY_ON_MIN_PURCHASE } from '@/lib/maharaja/config';
 import {
   getTryOnDeviceStatus,
-  isPriceTagUsed,
   issueTryOnGrant,
-  recordPriceTagUsed,
+  logMaharajaActivity,
   validTryOnDeviceId,
   verifyMaharajaAccess,
 } from '@/lib/maharaja/server';
@@ -33,24 +31,9 @@ export async function POST(req: NextRequest) {
     const existing = await getTryOnDeviceStatus(body.deviceId);
     if (existing?.status === 'used') return NextResponse.json({ success: false, error: 'This device has already completed its Maharaja AI Try-On.' }, { status: 409 });
     if (existing?.status === 'processing') return NextResponse.json({ success: false, error: 'A Try-On is already being generated on this device.' }, { status: 409 });
-    if (existing?.status === 'generated' && (existing.retriesCount || 0) >= MAX_TRY_ON_RETRIES) {
-      return NextResponse.json({
-        success: false,
-        error: `You have reached the maximum limit of ${MAX_TRY_ON_RETRIES} retries for this Try-On. Download your image to complete your session.`,
-      }, { status: 409 });
-    }
 
     const image = parseDataUrl(body.image);
     if (!image) return NextResponse.json({ success: false, error: 'Take a clear photo of the Maharaja price tag.' }, { status: 400 });
-
-    const tagFingerprint = crypto.createHash('sha256').update(image.data).digest('hex');
-    const tagAlreadyUsed = await isPriceTagUsed(tagFingerprint);
-    if (tagAlreadyUsed) {
-      return NextResponse.json({
-        success: false,
-        error: 'This price tag has already been used for a Maharaja Try-On. Please scan another qualifying price tag.',
-      }, { status: 409 });
-    }
 
     if (!AI_CONFIG.PRIMARY_API_KEY) return NextResponse.json({ success: false, error: 'Image verification is not configured.' }, { status: 503 });
 
@@ -83,10 +66,8 @@ export async function POST(req: NextRequest) {
     const eligible = validTag && amount >= TRY_ON_MIN_PURCHASE;
     const grant = eligible ? await issueTryOnGrant(body.deviceId, amount) : null;
     if (grant && !grant.allowed) return NextResponse.json({ success: false, error: grant.error }, { status: 409 });
+    if (grant?.allowed) await logMaharajaActivity('price-scan', `Eligible garment scanned at Rs ${amount}`, { amount });
 
-    if (eligible && grant?.allowed) {
-      await recordPriceTagUsed(tagFingerprint, body.deviceId, amount);
-    }
     return NextResponse.json({
       success: true,
       analysis: {

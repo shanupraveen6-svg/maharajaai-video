@@ -9,7 +9,6 @@ import {
   MAHARAJA_CLIENT_ID,
   MAHARAJA_WORKSPACE_CODE,
   TRY_ON_MIN_PURCHASE,
-  MAX_TRY_ON_RETRIES,
   EVENT_IDS,
 } from './config';
 
@@ -37,7 +36,7 @@ export type MaharajaWorkspace = {
 
 export type MaharajaActivity = {
   id: string;
-  type: 'campaign' | 'video-pass' | 'try-on' | 'video' | 'go-live' | 'retry' | 'download' | 'qr-download';
+  type: 'campaign' | 'video-pass' | 'price-scan' | 'try-on' | 'video' | 'go-live' | 'retry' | 'download' | 'share' | 'qr-download';
   label: string;
   createdAt: string;
   metadata?: Record<string, string | number | boolean | null>;
@@ -61,15 +60,12 @@ export type MaharajaVideoPass = {
 export type MaharajaTryOnGrant = {
   deviceHash: string;
   tokenHash: string;
-  status: 'active' | 'processing' | 'generated' | 'used';
+  status: 'active' | 'processing' | 'used';
   amount: number;
-  retriesCount?: number;
   createdAt: string;
   expiresAtMs: number;
   sessionId?: string;
-  masterImageUrl?: string;
   completedAt?: string;
-  downloadedAt?: string;
 };
 
 function deviceHash(deviceId: string) {
@@ -82,58 +78,6 @@ function grantTokenHash(token: string) {
 
 export function validTryOnDeviceId(value: unknown): value is string {
   return typeof value === 'string' && /^[a-zA-Z0-9_-]{16,80}$/.test(value);
-}
-
-export async function isPriceTagUsed(tagFingerprint: string): Promise<boolean> {
-  const db = getDb();
-  const nowMs = Date.now();
-  if (db) {
-    const doc = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
-      .collection('usedPriceTags').doc(tagFingerprint).get();
-    if (!doc.exists) return false;
-    const data = doc.data();
-    const expiresAtMs = typeof data?.expiresAtMs === 'number'
-      ? data.expiresAtMs
-      : (typeof data?.usedAtMs === 'number' ? data.usedAtMs + 24 * 60 * 60 * 1000 : Infinity);
-    return expiresAtMs > nowMs;
-  }
-  const store = getMockStore() as any;
-  if (!store.usedPriceTags || !store.usedPriceTags.has(tagFingerprint)) return false;
-  const entry = store.usedPriceTags.get(tagFingerprint);
-  const expiresAtMs = typeof entry?.expiresAtMs === 'number'
-    ? entry.expiresAtMs
-    : (typeof entry?.usedAtMs === 'number' ? entry.usedAtMs + 24 * 60 * 60 * 1000 : Infinity);
-  return expiresAtMs > nowMs;
-}
-
-export async function recordPriceTagUsed(tagFingerprint: string, deviceId: string, amount: number): Promise<void> {
-  const db = getDb();
-  const nowMs = Date.now();
-  const expiresAtMs = nowMs + 24 * 60 * 60 * 1000;
-  const nowIso = new Date(nowMs).toISOString();
-  if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
-      .collection('usedPriceTags').doc(tagFingerprint).set({
-        tagFingerprint,
-        deviceId,
-        amount,
-        usedAt: nowIso,
-        usedAtMs: nowMs,
-        expiresAtMs,
-        usedAtTimestamp: Timestamp.now(),
-      });
-    return;
-  }
-  const store = getMockStore() as any;
-  if (!store.usedPriceTags) store.usedPriceTags = new Map<string, unknown>();
-  store.usedPriceTags.set(tagFingerprint, {
-    tagFingerprint,
-    deviceId,
-    amount,
-    usedAt: nowIso,
-    usedAtMs: nowMs,
-    expiresAtMs,
-  });
 }
 
 export async function getTryOnDeviceStatus(deviceId: string) {
@@ -153,17 +97,8 @@ export async function issueTryOnGrant(deviceId: string, amount: number) {
     return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
   }
   if (existing?.status === 'processing') return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
+  if (existing?.status === 'active' && existing.expiresAtMs >= Date.now()) return { allowed: false as const, error: 'Price already verified on this device. Continue with the photo uploads.' };
   
-  const isRetry = existing?.status === 'generated';
-  const currentRetries = existing?.retriesCount || 0;
-  if (isRetry && currentRetries >= MAX_TRY_ON_RETRIES) {
-    return {
-      allowed: false as const,
-      error: `You have reached the maximum limit of ${MAX_TRY_ON_RETRIES} retries for this Try-On. Download your image to complete your session.`,
-    };
-  }
-
-  const nextRetriesCount = isRetry ? currentRetries + 1 : currentRetries;
   const token = crypto.randomBytes(24).toString('base64url');
   const now = Date.now();
   const grant: MaharajaTryOnGrant = {
@@ -171,7 +106,6 @@ export async function issueTryOnGrant(deviceId: string, amount: number) {
     tokenHash: grantTokenHash(token),
     status: 'active',
     amount,
-    retriesCount: nextRetriesCount,
     createdAt: new Date(now).toISOString(),
     expiresAtMs: now + 30 * 60 * 1000,
   };
@@ -182,7 +116,7 @@ export async function issueTryOnGrant(deviceId: string, amount: number) {
   } else {
     getMockStore().tryOnGrants.set(`${MAHARAJA_CLIENT_ID}:${grant.deviceHash}`, grant);
   }
-  return { allowed: true as const, token, expiresAtMs: grant.expiresAtMs, retriesCount: nextRetriesCount };
+  return { allowed: true as const, token, expiresAtMs: grant.expiresAtMs };
 }
 
 export async function reserveTryOnGrant(deviceId: string, token: string, sessionId: string) {
@@ -209,35 +143,16 @@ export async function reserveTryOnGrant(deviceId: string, token: string, session
   return { allowed: true as const };
 }
 
-export async function finishTryOnGrant(deviceId: string, sessionId: string, completed: boolean, masterImageUrl?: string) {
+export async function finishTryOnGrant(deviceId: string, sessionId: string, completed: boolean) {
   const hash = deviceHash(deviceId);
-  const existing = await getTryOnDeviceStatus(deviceId);
   const update = completed
     ? {
-        status: 'generated' as const,
+        status: 'used' as const,
         sessionId,
-        masterImageUrl: masterImageUrl || '',
-        retriesCount: existing?.retriesCount || 0,
         completedAt: new Date().toISOString(),
       }
     : { status: 'active' as const, sessionId: '' };
   const db = getDb();
-  if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('tryOnDevices').doc(hash).set(update, { merge: true });
-  } else {
-    const key = `${MAHARAJA_CLIENT_ID}:${hash}`;
-    const grant = getMockStore().tryOnGrants.get(key) as MaharajaTryOnGrant | undefined;
-    if (grant) getMockStore().tryOnGrants.set(key, { ...grant, ...update });
-  }
-}
-
-export async function markTryOnDeviceUsed(deviceId: string) {
-  const hash = deviceHash(deviceId);
-  const db = getDb();
-  const update = {
-    status: 'used' as const,
-    downloadedAt: new Date().toISOString(),
-  };
   if (db) {
     await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('tryOnDevices').doc(hash).set(update, { merge: true });
   } else {

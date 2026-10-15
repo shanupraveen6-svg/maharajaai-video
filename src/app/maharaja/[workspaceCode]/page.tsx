@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
-  AlertCircle,
   CheckCircle2,
   Copy,
   Download,
@@ -20,6 +19,9 @@ import {
   History,
   Tag,
   Trash2,
+  LogOut,
+  BarChart3,
+  IndianRupee,
 } from 'lucide-react';
 import { createTryOnPosterDataUrl, downloadDataUrl } from '@/lib/maharaja/qr-poster';
 import { EVENT_OPTIONS, getEventOption, type EventId } from '@/lib/maharaja/config';
@@ -53,6 +55,14 @@ type Workspace = {
   };
   recentPasses: RecentPass[];
   activity: Array<{ id: string; type: string; label: string; createdAt: string }>;
+  analytics: {
+    totalGmv: number;
+    totalGarments: number;
+    brandedReach: number;
+    luxuryCount: number;
+    festiveCount: number;
+    days: Array<{ date: string; scans: number; tryOns: number; gmv: number; averagePrice: number; downloads: number; conversion: number }>;
+  };
 };
 
 async function readJson(response: Response) {
@@ -132,6 +142,7 @@ export default function MaharajaAdminPage() {
     { label: 'Downloads', value: workspace.usage.downloads || 0 },
     { label: 'Manager retries', value: workspace.usage.retries || 0 },
   ] : [], [workspace]);
+  const formatMoney = (value: number) => `Rs ${new Intl.NumberFormat('en-IN').format(value || 0)}`;
 
   async function toggleCampaign() {
     if (!workspace) return;
@@ -195,6 +206,15 @@ export default function MaharajaAdminPage() {
     } finally { setSaving(false); }
   }
 
+  async function logout() {
+    setSaving(true);
+    try {
+      await fetch('/api/operator/logout', { method: 'POST' });
+    } finally {
+      window.location.assign('/login?store=maharaja');
+    }
+  }
+
   if (loading) {
     return <main className="flex min-h-screen items-center justify-center bg-[#F5F2EA] text-[#6E0D1F]"><LoaderCircle className="h-8 w-8 animate-spin" /></main>;
   }
@@ -211,10 +231,10 @@ export default function MaharajaAdminPage() {
             <p className="text-xs font-bold uppercase text-[#D4AF37]">TryFocus client workspace</p>
             <h1 className="mt-1 font-serif text-3xl font-bold text-[#F3E5AB]">Maharaja Admin</h1>
           </div>
-          <button type="button" onClick={toggleCampaign} disabled={saving} className={`inline-flex min-h-11 items-center justify-center gap-2 border px-4 py-3 text-xs font-bold uppercase ${workspace.campaignEnabled ? 'border-emerald-400 bg-emerald-950 text-emerald-200' : 'border-red-400 bg-red-950 text-red-200'}`}>
+          <div className="flex gap-3"><button type="button" onClick={toggleCampaign} disabled={saving} className={`inline-flex min-h-11 items-center justify-center gap-2 border px-4 py-3 text-xs font-bold uppercase ${workspace.campaignEnabled ? 'border-emerald-400 bg-emerald-950 text-emerald-200' : 'border-red-400 bg-red-950 text-red-200'}`}>
             {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
             Campaign {workspace.campaignEnabled ? 'On' : 'Off'}
-          </button>
+          </button><button type="button" onClick={() => void logout()} disabled={saving} className="inline-flex min-h-11 items-center justify-center gap-2 border border-[#D4AF37]/45 px-4 py-3 text-xs font-bold uppercase text-[#F3E5AB]"><LogOut className="h-4 w-4" /> Logout</button></div>
         </div>
       </header>
 
@@ -231,6 +251,16 @@ export default function MaharajaAdminPage() {
         </section>
 
         <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6">
+          <div className="flex items-start gap-3"><BarChart3 className="mt-1 h-6 w-6 text-[#6E0D1F]" /><div><p className="text-xs font-bold uppercase text-[#8A6A20]">Retail intelligence</p><h2 className="mt-1 font-serif text-2xl font-bold text-[#2A060C]">Merchandise performance</h2></div></div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="border border-[#DDD2BD] p-4"><IndianRupee className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Total garment value scanned</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{formatMoney(workspace.analytics.totalGmv)}</p></div>
+            <div className="border border-[#DDD2BD] p-4"><Download className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Watermarked brand recall</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{workspace.analytics.brandedReach}</p><p className="mt-1 text-xs text-slate-500">Recorded downloads and shares</p></div>
+            <div className="border border-[#DDD2BD] p-4"><Sparkles className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Luxury vs festive tier</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{workspace.analytics.luxuryCount} : {workspace.analytics.festiveCount}</p><p className="mt-1 text-xs text-slate-500">Luxury is Rs 3,000 and above</p></div>
+          </div>
+          <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-left text-sm"><thead><tr className="border-b border-[#DDD2BD] text-xs uppercase text-[#765E27]"><th className="py-3">Date</th><th>Garments scanned</th><th>Try-Ons</th><th>Total GMV</th><th>Avg price</th><th>Downloads</th><th>Conversion</th></tr></thead><tbody>{workspace.analytics.days.length ? workspace.analytics.days.map((day) => <tr key={day.date} className="border-b border-[#EEE7DA]"><td className="py-3 font-bold">{day.date}</td><td>{day.scans}</td><td>{day.tryOns}</td><td>{formatMoney(day.gmv)}</td><td>{formatMoney(day.averagePrice)}</td><td>{day.downloads}</td><td>{day.conversion}%</td></tr>) : <tr><td colSpan={7} className="py-7 text-center text-slate-500">Price scans and completed Try-Ons will appear here.</td></tr>}</tbody></table></div>
+        </section>
+
+        <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6">
           <div className="flex items-start gap-3">
             <CalendarRange className="mt-1 h-6 w-6 text-[#6E0D1F]" />
             <div>
@@ -244,39 +274,36 @@ export default function MaharajaAdminPage() {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {EVENT_OPTIONS.map((option) => {
-              const isSelected = workspace.defaultEvent === option.id;
-              const isReady = option.id === 'diwali';
+              const isActive = workspace.activeEvents.includes(option.id);
+              const isDefault = workspace.defaultEvent === option.id;
 
               return (
-                <label
+                <div
                   key={option.id}
-                  onClick={() => {
-                    if (!isReady) {
-                      setMessage(`✨ ${option.label} is Coming Soon! Diwali is currently the active production-tuned campaign for Maharaja Silks.`);
-                    }
-                  }}
-                  className={`relative flex cursor-pointer flex-col justify-between border p-4 transition ${
-                    isSelected
+                  className={`relative flex flex-col justify-between border p-4 transition ${
+                    isDefault
                       ? 'border-[#6E0D1F] bg-[#FFF8E8] shadow-sm'
                       : 'border-[#DDD2BD] bg-white hover:border-[#8A6A20]'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-serif text-lg font-bold text-[#2A060C]">{option.label}</span>
-                    <input
-                      type="radio"
-                      name="active-event"
-                      checked={isSelected}
-                      disabled={saving}
-                      onChange={() => {
-                        if (isReady) {
-                          void saveEventSettings(['diwali'], option.id);
-                        } else {
-                          setMessage(`✨ ${option.label} is Coming Soon! Diwali is currently the active production-tuned campaign for Maharaja Silks.`);
-                        }
-                      }}
-                      className="h-5 w-5 accent-[#6E0D1F]"
-                    />
+                    <label className="flex cursor-pointer items-center gap-2 text-xs font-bold uppercase text-[#6E0D1F]">
+                      Active
+                      <input
+                        type="checkbox"
+                        checked={isActive}
+                        disabled={saving || (isActive && workspace.activeEvents.length === 1)}
+                        onChange={() => {
+                          const activeEvents = isActive
+                            ? workspace.activeEvents.filter((eventId) => eventId !== option.id)
+                            : [...workspace.activeEvents, option.id];
+                          const defaultEvent = isDefault && isActive ? activeEvents[0] : workspace.defaultEvent;
+                          void saveEventSettings(activeEvents, defaultEvent);
+                        }}
+                        className="h-5 w-5 accent-[#6E0D1F]"
+                      />
+                    </label>
                   </div>
 
                   <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
@@ -284,34 +311,25 @@ export default function MaharajaAdminPage() {
                   </p>
 
                   <div className="mt-3 flex items-center justify-between border-t border-[#E8DFCF] pt-2">
-                    {isReady ? (
-                      <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
-                        <Sparkles className="h-3 w-3" /> Live Production
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">
-                        Coming Soon
-                      </span>
-                    )}
-                    {isSelected && (
-                      <span className="text-xs font-black uppercase tracking-wider text-[#6E0D1F]">
-                        Selected
-                      </span>
-                    )}
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+                      <Sparkles className="h-3 w-3" /> {isActive ? 'Available' : 'Inactive'}
+                    </span>
+                    <label className={`flex items-center gap-2 text-xs font-black uppercase ${isActive ? 'cursor-pointer text-[#6E0D1F]' : 'cursor-not-allowed text-slate-400'}`}>
+                      Default
+                      <input
+                        type="radio"
+                        name="default-event"
+                        checked={isDefault}
+                        disabled={saving || !isActive}
+                        onChange={() => void saveEventSettings(workspace.activeEvents, option.id)}
+                        className="h-4 w-4 accent-[#6E0D1F]"
+                      />
+                    </label>
                   </div>
-                </label>
+                </div>
               );
             })}
           </div>
-
-          {workspace.defaultEvent !== 'diwali' && (
-            <div className="mt-4 flex items-center gap-2 border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900">
-              <AlertCircle className="h-4 w-4 shrink-0 text-amber-700" />
-              <span>
-                Note: <strong>Diwali</strong> is currently the only live production campaign with verified AI fashion prompts and TV broadcast overlays. Other festivals will unlock for upcoming festival dates.
-              </span>
-            </div>
-          )}
         </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -347,6 +365,21 @@ export default function MaharajaAdminPage() {
                       className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#6E0D1F] px-4 py-3 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-40"
                     >
                       <Download className="h-4 w-4" /> Download Try-On PNG
+                    </button>
+                    <a
+                      href="/maharaja-test-price-tag-rs-799.png"
+                      download="maharaja-test-price-tag-rs-799.png"
+                      className="flex min-h-12 w-full items-center justify-center gap-2 border border-[#D8C49B] px-4 py-3 text-center text-xs font-bold uppercase text-[#6E0D1F]"
+                    >
+                      <Tag className="h-4 w-4" /> Download Rs 799 Test Tag
+                    </a>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => void resetTryOnLimits()}
+                      className="flex min-h-12 w-full items-center justify-center gap-2 border border-red-200 px-4 py-3 text-xs font-bold uppercase text-red-800 disabled:opacity-40"
+                    >
+                      <Trash2 className="h-4 w-4" /> Reset Test Try-On Limits
                     </button>
                   </div>
                 </div>
