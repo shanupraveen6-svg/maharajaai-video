@@ -86,8 +86,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (garmentPhotos.length > 1) {
-      return NextResponse.json({ success: false, error: 'Upload one garment photo only.' }, { status: 400 });
+    if (service === 'try-on' && garmentPhotos.length > 1) {
+      return NextResponse.json({ success: false, error: 'Upload one garment photo only for AI Try-On.' }, { status: 400 });
+    }
+    if (service === 'ai-video' && garmentPhotos.length > 3) {
+      return NextResponse.json({ success: false, error: 'Upload up to three garment photos only for AI Video.' }, { status: 400 });
     }
 
     if (service === 'try-on' && !access.pass) {

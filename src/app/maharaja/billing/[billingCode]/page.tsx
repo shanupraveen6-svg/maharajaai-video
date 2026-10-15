@@ -34,6 +34,7 @@ export default function MaharajaBillingPage() {
   const params = useParams<{ billingCode: string }>();
   const [phone, setPhone] = useState('');
   const [billLast4, setBillLast4] = useState('');
+  const [billAmount, setBillAmount] = useState('5000');
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [activeEvents, setActiveEvents] = useState<EventId[]>(EVENT_OPTIONS.map((event) => event.id));
   const [eligible, setEligible] = useState(false);
@@ -64,6 +65,7 @@ export default function MaharajaBillingPage() {
           billingCode: params.billingCode,
           phone,
           billLast4,
+          billAmount: Number(billAmount) || AI_VIDEO_MIN_PURCHASE,
           eventId,
           eligible,
         }),
@@ -86,6 +88,7 @@ export default function MaharajaBillingPage() {
   function resetForm() {
     setPhone('');
     setBillLast4('');
+    setBillAmount('5000');
     setEligible(false);
     setPass(null);
     setQrDataUrl('');
@@ -109,7 +112,7 @@ export default function MaharajaBillingPage() {
             <h1 className="mt-2 font-serif text-3xl font-bold text-[#2A060C]">Generate an AI Video QR</h1>
             <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Enter the details from the customer bill. The QR is tied to Maharaja and expires after 1 hour.</p>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
               <label className="text-xs font-bold uppercase text-[#5C4B43]">Phone number
                 <div className="relative mt-2">
                   <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E0D1F]" />
@@ -134,6 +137,21 @@ export default function MaharajaBillingPage() {
                   placeholder="1847"
                   className="mt-2 min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] px-3 text-base font-bold uppercase outline-none focus:border-[#6E0D1F]"
                 />
+              </label>
+              <label className="text-xs font-bold uppercase text-[#5C4B43]">Bill amount (₹)
+                <div className="relative mt-2">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-[#6E0D1F]">₹</span>
+                  <input
+                    id="billing-amount-input"
+                    type="number"
+                    min={5000}
+                    step={100}
+                    value={billAmount}
+                    onChange={(event) => setBillAmount(event.target.value)}
+                    placeholder="5000"
+                    className="min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] pl-8 pr-3 text-base font-bold outline-none focus:border-[#6E0D1F]"
+                  />
+                </div>
               </label>
             </div>
 

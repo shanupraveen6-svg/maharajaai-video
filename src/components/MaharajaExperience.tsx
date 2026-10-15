@@ -16,6 +16,8 @@ import {
   Shirt,
   Sparkles,
   User,
+  Plus,
+  X,
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
 import SecureTryOnViewer from '@/components/SecureTryOnViewer';
@@ -89,7 +91,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
-  const masterImageUrl = activeService === 'try-on' ? tryOnImageUrl : videoMasterUrl;
+  const isTryOn = activeService === 'try-on';
+  const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   // A billing pass owns its two stored images; they are never cleared or regenerated client-side.
   const passOwnsImages = service === 'ai-video';
   const imagesLocked = passOwnsImages && !!(tryOnImageUrl || videoMasterUrl);
@@ -206,10 +209,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     }
   }
 
-  async function analyzeGarments(files: File[]) {
+  async function analyzeGarments(files: File[], append = false) {
     if (!files.length) return;
-    if (files.length > 1) {
-      setError('Upload one garment photo only.');
+    const maxAllowed = isTryOn ? 1 : 3;
+    const currentCount = append ? garmentPhotos.length : 0;
+    if (currentCount + files.length > maxAllowed) {
+      setError(isTryOn ? 'Upload one garment photo only for AI Try-On.' : `Upload up to 3 garment photos max for AI Video (${garmentPhotos.length} already uploaded).`);
       return;
     }
     setStage('analyzing');
@@ -217,15 +222,28 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     clearActiveImage();
     try {
       const compressed = await Promise.all(files.map((file) => compressImage(file, 1400, 0.84)));
-      const images = compressed.map((item) => item.dataUrl);
-      setGarmentPhotos(images);
+      const newImages = compressed.map((item) => item.dataUrl);
+      const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
+      setGarmentPhotos(combined);
       setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'Uploaded garment', primaryColor: 'Original color' });
-      setMessage('Garment photo added.');
+      setMessage(isTryOn ? 'Garment photo added.' : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} added (up to 3).`);
     } catch (caught) {
       setGarmentAnalysis(null);
-      setError(customerError(caught, 'The garment photos could not be verified. Upload one to three clear garment photos.'));
+      setError(customerError(caught, isTryOn ? 'The garment photo could not be verified.' : 'The garment photos could not be verified. Upload up to 3 clear garment photos.'));
     } finally {
       setStage('ready');
+    }
+  }
+
+  function removeGarmentPhoto(index: number) {
+    if (imagesLocked) return;
+    const updated = garmentPhotos.filter((_, i) => i !== index);
+    setGarmentPhotos(updated);
+    if (!updated.length) {
+      setGarmentAnalysis(null);
+      setMessage('');
+    } else {
+      setMessage(`${updated.length} garment photo${updated.length === 1 ? '' : 's'} remaining.`);
     }
   }
 
@@ -424,19 +442,146 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 </div>
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4">
-                    <div className="aspect-[3/4] overflow-hidden bg-white">{personPhoto ? <img src={personPhoto} alt="Customer preview" className="h-full w-full object-cover" /> : <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400"><User className="h-10 w-10" /><span className="text-xs font-bold uppercase">Person photo</span></div>}</div>
+                  <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold uppercase text-[#6E0D1F]">Person Photo (1 only)</span>
+                        {personPhoto && !imagesLocked && (
+                          <button
+                            type="button"
+                            onClick={() => { setPersonPhoto(null); setPersonAnalysis(null); }}
+                            className="text-[11px] font-bold text-red-700 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <div className="aspect-[3/4] overflow-hidden bg-white">
+                        {personPhoto ? (
+                          <img src={personPhoto} alt="Customer preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
+                            <User className="h-10 w-10 text-slate-300" />
+                            <span className="text-xs font-bold uppercase">1 Person photo</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]"><Camera className="h-4 w-4" /> Camera<input id="person-camera-input" type="file" accept="image/*" capture="user" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} /></label>
-                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F]"><ImageIcon className="h-4 w-4" /> Gallery<input id="person-file-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} /></label>
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]">
+                        <Camera className="h-4 w-4" /> Camera
+                        <input id="person-camera-input" type="file" accept="image/*" capture="user" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
+                      </label>
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F]">
+                        <ImageIcon className="h-4 w-4" /> Gallery
+                        <input id="person-file-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
+                      </label>
                     </div>
                   </div>
 
-                  <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4">
-                    <div className="aspect-[3/4] overflow-hidden bg-white p-2">{garmentPhotos[0] ? <img src={garmentPhotos[0]} alt="Garment preview" className="h-full w-full object-cover" /> : <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400"><Shirt className="h-10 w-10" /><span className="text-xs font-bold uppercase">One garment photo</span></div>}</div>
+                  <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold uppercase text-[#6E0D1F]">
+                          {isTryOn ? 'Garment Photo (1 only)' : `Garment Photos (${garmentPhotos.length}/3 max)`}
+                        </span>
+                        {garmentPhotos.length > 0 && !imagesLocked && (
+                          <button
+                            type="button"
+                            onClick={() => { setGarmentPhotos([]); setGarmentAnalysis(null); }}
+                            className="text-[11px] font-bold text-red-700 hover:underline"
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+
+                      {garmentPhotos.length === 0 ? (
+                        <div className="aspect-[3/4] overflow-hidden bg-white p-2 flex flex-col items-center justify-center gap-2 text-slate-400">
+                          <Shirt className="h-10 w-10 text-slate-300" />
+                          <span className="text-xs font-bold uppercase text-center">
+                            {isTryOn ? 'One garment photo' : '1 to 3 garment photos'}
+                          </span>
+                          {!isTryOn && (
+                            <span className="text-[11px] text-center text-slate-400">
+                              Front view, border/detail, or back/pallu
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-2">
+                          {garmentPhotos.map((photo, idx) => (
+                            <div key={idx} className="relative aspect-[3/4] overflow-hidden bg-white border border-[#DDD2BD]">
+                              <img src={photo} alt={`Garment ${idx + 1}`} className="h-full w-full object-cover" />
+                              <span className="absolute bottom-1 left-1 bg-black/75 px-1 py-0.5 text-[9px] font-bold uppercase text-[#F3E5AB]">
+                                {idx === 0 ? 'Main' : `#${idx + 1}`}
+                              </span>
+                              {!imagesLocked && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeGarmentPhoto(idx)}
+                                  className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-700 text-white shadow"
+                                  title="Remove photo"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {garmentPhotos.length < (isTryOn ? 1 : 3) && (
+                            <label className="aspect-[3/4] flex flex-col items-center justify-center border-2 border-dashed border-[#B99A55] bg-white cursor-pointer text-slate-400 hover:text-[#6E0D1F] transition">
+                              <Plus className="h-5 w-5 mb-1 text-[#6E0D1F]" />
+                              <span className="text-[10px] font-bold uppercase text-center text-[#6E0D1F]">Add photo</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={busy || imagesLocked}
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0];
+                                  event.currentTarget.value = '';
+                                  if (file) void analyzeGarments([file], true);
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]"><Camera className="h-4 w-4" /> Camera<input id="garment-camera-input" type="file" accept="image/*" capture="environment" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzeGarments([file]); }} /></label>
-                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F]"><ImageIcon className="h-4 w-4" /> Gallery<input id="garment-file-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzeGarments([file]); }} /></label>
+                      <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] ${garmentPhotos.length >= (isTryOn ? 1 : 3) ? 'opacity-40 pointer-events-none' : ''}`}>
+                        <Camera className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < (isTryOn ? 1 : 3) ? '+ Snap' : 'Camera'}
+                        <input
+                          id="garment-camera-input"
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          disabled={busy || imagesLocked || garmentPhotos.length >= (isTryOn ? 1 : 3)}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.currentTarget.value = '';
+                            if (file) void analyzeGarments([file], !isTryOn && garmentPhotos.length > 0);
+                          }}
+                        />
+                      </label>
+                      <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F] ${garmentPhotos.length >= (isTryOn ? 1 : 3) ? 'opacity-40 pointer-events-none' : ''}`}>
+                        <ImageIcon className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < (isTryOn ? 1 : 3) ? '+ Add' : 'Gallery'}
+                        <input
+                          id="garment-file-input"
+                          type="file"
+                          accept="image/*"
+                          multiple={!isTryOn}
+                          className="hidden"
+                          disabled={busy || imagesLocked || garmentPhotos.length >= (isTryOn ? 1 : 3)}
+                          onChange={(event) => {
+                            const files = Array.from(event.target.files || []);
+                            event.currentTarget.value = '';
+                            if (files.length) void analyzeGarments(files, !isTryOn && garmentPhotos.length > 0);
+                          }}
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>

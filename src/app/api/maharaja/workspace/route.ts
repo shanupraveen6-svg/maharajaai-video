@@ -49,8 +49,32 @@ export async function GET(req: NextRequest) {
     }));
     const luxuryThreshold = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || LUXURY_TIER_MIN;
     const festiveThreshold = Number(process.env.MAHARAJA_FESTIVE_TIER_MIN) || FESTIVE_TIER_MIN;
-    const scannedPrices = allActivity.filter((item) => item.type === 'price-scan').map((item) => Number(item.metadata?.amount || 0));
+    const scannedPrices = allActivity
+      .filter((item) => item.type === 'price-scan' && item.metadata?.amount)
+      .map((item) => Number(item.metadata?.amount || 0));
     const totalGmv = scannedPrices.reduce((sum, amount) => sum + amount, 0);
+
+    const passAmounts = allActivity
+      .filter((item) => item.type === 'video-pass' && item.metadata?.amount)
+      .map((item) => Number(item.metadata?.amount || 0));
+
+    const scanAbove5k = scannedPrices.filter((amount) => amount >= 5000);
+    const passAbove5k = passAmounts.filter((amount) => amount >= 5000);
+    const totalAbove5kCount = Math.max(
+      workspace.usage.videoPasses || 0,
+      scanAbove5k.length + passAbove5k.length
+    );
+
+    const allKnownAbove5k = [...scanAbove5k, ...passAbove5k];
+    let tier5kTo7k = allKnownAbove5k.filter((amt) => amt >= 5000 && amt < 7000).length;
+    let tier7kTo10k = allKnownAbove5k.filter((amt) => amt >= 7000 && amt < 10000).length;
+    let tier10kPlus = allKnownAbove5k.filter((amt) => amt >= 10000).length;
+
+    const remainingPasses = totalAbove5kCount - (tier5kTo7k + tier7kTo10k + tier10kPlus);
+    if (remainingPasses > 0) {
+      tier5kTo7k += remainingPasses;
+    }
+
     const luxuryCount = scannedPrices.filter((amount) => amount >= luxuryThreshold).length;
     const brandedReach = allActivity.filter((item) => item.type === 'download' || item.type === 'share').length;
     return NextResponse.json({
@@ -63,6 +87,14 @@ export async function GET(req: NextRequest) {
         analytics: {
           totalGmv,
           totalGarments: scannedPrices.length,
+          tryOnsCount: workspace.usage.tryOnGenerated || 0,
+          shoppersAbove5000: totalAbove5kCount,
+          tiers: {
+            tier5kTo7k,
+            tier7kTo10k,
+            tier10kPlus,
+            total: totalAbove5kCount,
+          },
           brandedReach,
           luxuryCount,
           festiveCount: scannedPrices.length - luxuryCount,
@@ -89,14 +121,19 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.campaignEnabled === 'boolean') settings.campaignEnabled = body.campaignEnabled;
     if (Array.isArray(body.activeEvents)) {
       const activeEvents = body.activeEvents.filter(isEventId);
-      if (!activeEvents.length || activeEvents.length !== body.activeEvents.length) {
-        return NextResponse.json({ success: false, error: 'Keep at least one valid event active.' }, { status: 400 });
+      if (!activeEvents.length) {
+        return NextResponse.json({ success: false, error: 'Select a valid festival event.' }, { status: 400 });
       }
-      settings.activeEvents = activeEvents;
+      // Strictly enforce single event selection (no 2-3 events at the same time)
+      const singleEvent = activeEvents[0];
+      settings.activeEvents = [singleEvent];
+      settings.defaultEvent = singleEvent;
+    } else if (isEventId(body.defaultEvent)) {
+      settings.activeEvents = [body.defaultEvent];
+      settings.defaultEvent = body.defaultEvent;
     }
-    if (isEventId(body.defaultEvent)) settings.defaultEvent = body.defaultEvent;
     if (!Object.keys(settings).length) {
-      return NextResponse.json({ success: false, error: `Provide campaignEnabled, activeEvents, or defaultEvent (${EVENT_IDS.join(', ')}).` }, { status: 400 });
+      return NextResponse.json({ success: false, error: `Provide campaignEnabled or active event (${EVENT_IDS.join(', ')}).` }, { status: 400 });
     }
     const workspace = await updateMaharajaSettings(settings);
     await logMaharajaActivity('campaign', 'Maharaja campaign settings updated', {

@@ -22,6 +22,8 @@ import {
   LogOut,
   BarChart3,
   IndianRupee,
+  Users,
+  TrendingUp,
 } from 'lucide-react';
 import { createTryOnPosterDataUrl, downloadDataUrl } from '@/lib/maharaja/qr-poster';
 import { EVENT_OPTIONS, getEventOption, type EventId } from '@/lib/maharaja/config';
@@ -58,6 +60,14 @@ type Workspace = {
   analytics: {
     totalGmv: number;
     totalGarments: number;
+    tryOnsCount?: number;
+    shoppersAbove5000?: number;
+    tiers?: {
+      tier5kTo7k: number;
+      tier7kTo10k: number;
+      tier10kPlus: number;
+      total: number;
+    };
     brandedReach: number;
     luxuryCount: number;
     festiveCount: number;
@@ -78,6 +88,7 @@ export default function MaharajaAdminPage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [posterDataUrl, setPosterDataUrl] = useState('');
   const [posterVisible, setPosterVisible] = useState(false);
+  const [posterBuilding, setPosterBuilding] = useState(false);
   const [billingCopied, setBillingCopied] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -120,20 +131,21 @@ export default function MaharajaAdminPage() {
     };
   }, [params.workspaceCode]);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!workspace?.tryOnUrl) return;
-    createTryOnPosterDataUrl(workspace.tryOnUrl)
-      .then((dataUrl) => {
-        if (!cancelled) setPosterDataUrl(dataUrl);
-      })
-      .catch((error) => {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : 'Unable to build Try-On poster.');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [workspace?.tryOnUrl]);
+  async function ensurePoster(): Promise<string> {
+    if (posterDataUrl) return posterDataUrl;
+    if (!workspace?.tryOnUrl) return '';
+    setPosterBuilding(true);
+    try {
+      const url = await createTryOnPosterDataUrl(workspace.tryOnUrl);
+      setPosterDataUrl(url);
+      return url;
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Unable to build Try-On poster.');
+      return '';
+    } finally {
+      setPosterBuilding(false);
+    }
+  }
 
   const stats = useMemo(() => workspace ? [
     { label: 'Try-On scans', value: workspace.usage.tryOnScans || 0 },
@@ -174,25 +186,26 @@ export default function MaharajaAdminPage() {
     }
   }
 
-  async function saveEventSettings(activeEvents: EventId[], defaultEvent: EventId) {
-    if (!workspace || !activeEvents.length) return;
+  async function selectActiveEvent(eventId: EventId) {
+    if (!workspace) return;
     setSaving(true);
     setMessage('');
     try {
       const data = await readJson(await fetch('/api/maharaja/workspace', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activeEvents, defaultEvent }),
+        body: JSON.stringify({ activeEvents: [eventId], defaultEvent: eventId }),
       }));
-      setWorkspace((current) => current ? { ...current, activeEvents: data.workspace.activeEvents, defaultEvent: data.workspace.defaultEvent } : current);
-      setMessage('Event controls saved and aligned with generation prompts.');
+      setWorkspace((current) => current ? { ...current, activeEvents: [eventId], defaultEvent: eventId } : current);
+      setMessage(`${getEventOption(eventId).label} set as the active festival campaign.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to save event controls.');
+      setMessage(error instanceof Error ? error.message : 'Unable to save active festival campaign.');
     } finally { setSaving(false); }
   }
 
   async function downloadPoster() {
-    if (!posterDataUrl) return;
-    downloadDataUrl(posterDataUrl, 'maharaja-ai-try-on-rs-500.png');
+    const url = await ensurePoster();
+    if (!url) return;
+    downloadDataUrl(url, 'maharaja-ai-try-on-rs-500.png');
     await fetch('/api/maharaja/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'qr-download', label: 'Permanent AI Try-On wall QR downloaded' }) });
   }
 
@@ -225,6 +238,23 @@ export default function MaharajaAdminPage() {
     return <main className="flex min-h-screen items-center justify-center bg-[#F5F2EA] p-6 text-center font-bold text-red-800">{message || 'Maharaja workspace not found.'}</main>;
   }
 
+  const analytics = workspace.analytics;
+  const tryOnsCount = analytics.tryOnsCount ?? workspace.usage.tryOnGenerated ?? 0;
+  const shoppersAbove5000 = analytics.shoppersAbove5000 ?? workspace.usage.videoPasses ?? 0;
+  const totalGmv = analytics.totalGmv ?? 0;
+
+  const tiers = analytics.tiers || {
+    tier5kTo7k: 0,
+    tier7kTo10k: 0,
+    tier10kPlus: 0,
+    total: shoppersAbove5000,
+  };
+
+  const totalHighValue = tiers.total || shoppersAbove5000 || 0;
+  const pct5kTo7k = totalHighValue > 0 ? Math.round((tiers.tier5kTo7k / totalHighValue) * 100) : 0;
+  const pct7kTo10k = totalHighValue > 0 ? Math.round((tiers.tier7kTo10k / totalHighValue) * 100) : 0;
+  const pct10kPlus = totalHighValue > 0 ? Math.max(0, 100 - pct5kTo7k - pct7kTo10k) : 0;
+
   return (
     <main className="min-h-screen bg-[#F5F2EA] text-[#211A17]">
       <header className="border-b border-[#D4AF37]/30 bg-[#21090E] text-white">
@@ -243,94 +273,282 @@ export default function MaharajaAdminPage() {
       <div className="mx-auto max-w-7xl px-5 py-7">
         {message && <div className="mb-5 border border-[#D4AF37]/40 bg-white px-4 py-3 text-sm font-semibold text-[#6E0D1F]">{message}</div>}
 
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-          {stats.map((stat) => (
-            <div key={stat.label} className="border border-[#DDD2BD] bg-white p-4">
-              <p className="text-xs font-bold uppercase text-[#765E27]">{stat.label}</p>
-              <p className="mt-2 font-serif text-3xl font-bold text-[#6E0D1F]">{stat.value}</p>
+        {/* 4 PRIMARY METRICS */}
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Metric 1: Total AI Image Try-Ons Done */}
+          <div className="border border-[#D4AF37]/50 bg-white p-5 shadow-sm transition hover:border-[#6E0D1F]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">1. Image Try-Ons Done</span>
+              <Sparkles className="h-5 w-5 text-[#6E0D1F]" />
             </div>
-          ))}
-        </section>
-
-        <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6">
-          <div className="flex items-start gap-3"><BarChart3 className="mt-1 h-6 w-6 text-[#6E0D1F]" /><div><p className="text-xs font-bold uppercase text-[#8A6A20]">Retail intelligence</p><h2 className="mt-1 font-serif text-2xl font-bold text-[#2A060C]">Merchandise performance</h2></div></div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="border border-[#DDD2BD] p-4"><IndianRupee className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Total garment value scanned</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{formatMoney(workspace.analytics.totalGmv)}</p></div>
-            <div className="border border-[#DDD2BD] p-4"><Download className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Watermarked brand recall</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{workspace.analytics.brandedReach}</p><p className="mt-1 text-xs text-slate-500">Recorded downloads and shares</p></div>
-            <div className="border border-[#DDD2BD] p-4"><Sparkles className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Luxury vs festive tier</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{workspace.analytics.luxuryCount} : {workspace.analytics.festiveCount}</p><p className="mt-1 text-xs text-slate-500">Luxury is {formatMoney(workspace.analytics.luxuryThreshold || 3000)} and above</p></div>
+            <p className="mt-3 font-serif text-4xl font-bold text-[#6E0D1F]">
+              {new Intl.NumberFormat('en-IN').format(tryOnsCount)}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
+              Total customer virtual dressing room previews generated.
+            </p>
           </div>
-          <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-left text-sm"><thead><tr className="border-b border-[#DDD2BD] text-xs uppercase text-[#765E27]"><th className="py-3">Date</th><th>Garments scanned</th><th>Try-Ons</th><th>Total GMV</th><th>Avg price</th><th>Downloads</th><th>Conversion</th></tr></thead><tbody>{workspace.analytics.days.length ? workspace.analytics.days.map((day) => <tr key={day.date} className="border-b border-[#EEE7DA]"><td className="py-3 font-bold">{day.date}</td><td>{day.scans}</td><td>{day.tryOns}</td><td>{formatMoney(day.gmv)}</td><td>{formatMoney(day.averagePrice)}</td><td>{day.downloads}</td><td>{day.conversion}%</td></tr>) : <tr><td colSpan={7} className="py-7 text-center text-slate-500">Price scans and completed Try-Ons will appear here.</td></tr>}</tbody></table></div>
+
+          {/* Metric 2: Shoppers Above ₹5,000 */}
+          <div className="border border-[#D4AF37]/50 bg-white p-5 shadow-sm transition hover:border-[#6E0D1F]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">2. Shoppers Above ₹5,000</span>
+              <Users className="h-5 w-5 text-[#6E0D1F]" />
+            </div>
+            <p className="mt-3 font-serif text-4xl font-bold text-[#6E0D1F]">
+              {new Intl.NumberFormat('en-IN').format(shoppersAbove5000)}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
+              High-value qualifying customers issued Maharaja AI Video passes.
+            </p>
+          </div>
+
+          {/* Metric 3: Total Scanned Value (GMV) */}
+          <div className="border border-[#D4AF37]/50 bg-white p-5 shadow-sm transition hover:border-[#6E0D1F]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">3. Total Scanned Value</span>
+              <IndianRupee className="h-5 w-5 text-[#6E0D1F]" />
+            </div>
+            <p className="mt-3 font-serif text-4xl font-bold text-[#6E0D1F]">
+              {formatMoney(totalGmv)}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
+              Retail merchandise value across {workspace.analytics.totalGarments || 0} scanned garments.
+            </p>
+          </div>
+
+          {/* Metric 4: Spend Progression Summary */}
+          <div className="border border-[#D4AF37]/50 bg-white p-5 shadow-sm transition hover:border-[#6E0D1F]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">4. Spend Progression</span>
+              <TrendingUp className="h-5 w-5 text-[#6E0D1F]" />
+            </div>
+            <p className="mt-3 font-mono text-2xl font-black text-[#6E0D1F]">
+              {tiers.tier5kTo7k} <span className="text-[#8A6A20]">/</span> {tiers.tier7kTo10k} <span className="text-[#8A6A20]">/</span> {tiers.tier10kPlus}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
+              Customer breakdown: ₹5K–₹7K / ₹7K–₹10K / ₹10K+ shoppers.
+            </p>
+          </div>
         </section>
 
-        <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6">
+        {/* HIGH-VALUE SPEND PROGRESSION (SLASH BAR) */}
+        <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <BarChart3 className="mt-1 h-6 w-6 text-[#6E0D1F]" />
+              <div>
+                <p className="text-xs font-bold uppercase text-[#8A6A20]">Retail Intelligence · Spend Distribution</p>
+                <h2 className="mt-1 font-serif text-2xl font-bold text-[#2A060C]">
+                  Above ₹5,000 Spend Progression (Slash Bar)
+                </h2>
+                <p className="mt-1 text-sm text-[#5C4B43]">
+                  Progression of qualifying customers ({totalHighValue} total) who upgraded their purchases above ₹5,000 into ₹7,000 and ₹10,000+ festival spend tiers.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 border border-[#D4AF37]/45 bg-[#FFF8E8] px-3.5 py-2 font-mono text-xs font-bold uppercase text-[#6E0D1F]">
+              <span>₹5K–₹7K ({pct5kTo7k}%)</span>
+              <span className="font-mono text-base font-black text-[#8A6A20]">/</span>
+              <span>₹7K–₹10K ({pct7kTo10k}%)</span>
+              <span className="font-mono text-base font-black text-[#8A6A20]">/</span>
+              <span>₹10K+ ({pct10kPlus}%)</span>
+            </div>
+          </div>
+
+          {/* Segmented Slash Bar */}
+          <div className="mt-6">
+            <div className="flex h-8 w-full overflow-hidden rounded border border-[#D8C49B] bg-slate-100 p-0.5 shadow-inner">
+              <div
+                style={{ width: `${Math.max(pct5kTo7k, totalHighValue ? 5 : 33.3)}%` }}
+                className="flex items-center justify-center bg-[#D4AF37] px-2 text-[11px] font-black text-black transition-all"
+                title={`₹5,000–₹7,000: ${tiers.tier5kTo7k} shoppers (${pct5kTo7k}%)`}
+              >
+                {pct5kTo7k > 10 ? `₹5K–₹7K · ${pct5kTo7k}%` : `${pct5kTo7k}%`}
+              </div>
+              <div className="w-[3px] shrink-0 bg-white" />
+              <div
+                style={{ width: `${Math.max(pct7kTo10k, totalHighValue ? 5 : 33.3)}%` }}
+                className="flex items-center justify-center bg-[#059669] px-2 text-[11px] font-black text-white transition-all"
+                title={`₹7,000–₹10,000: ${tiers.tier7kTo10k} shoppers (${pct7kTo10k}%)`}
+              >
+                {pct7kTo10k > 10 ? `₹7K–₹10K · ${pct7kTo10k}%` : `${pct7kTo10k}%`}
+              </div>
+              <div className="w-[3px] shrink-0 bg-white" />
+              <div
+                style={{ width: `${Math.max(pct10kPlus, totalHighValue ? 5 : 33.4)}%` }}
+                className="flex items-center justify-center bg-[#6E0D1F] px-2 text-[11px] font-black text-[#F3E5AB] transition-all"
+                title={`₹10,000+: ${tiers.tier10kPlus} shoppers (${pct10kPlus}%)`}
+              >
+                {pct10kPlus > 10 ? `₹10K+ · ${pct10kPlus}%` : `${pct10kPlus}%`}
+              </div>
+            </div>
+            <div className="mt-2.5 flex items-center justify-between text-xs text-[#5C4B43]">
+              <span>Baseline: ₹5,000 AI Video qualifying threshold</span>
+              <span className="font-bold text-[#6E0D1F]">
+                {totalHighValue} qualifying high-value customer{totalHighValue === 1 ? '' : 's'} recorded
+              </span>
+            </div>
+          </div>
+
+          {/* 3 Detailed Breakdown Cards with Slash Dividers */}
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            <div className="border border-[#D4AF37]/60 bg-[#FFFDF7] p-4">
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-[#D4AF37]/20 px-2 py-0.5 text-[10px] font-bold uppercase text-[#765E27]">
+                  Tier 1 · Core
+                </span>
+                <span className="font-mono text-xs font-bold text-[#765E27]">{pct5kTo7k}%</span>
+              </div>
+              <p className="mt-2 font-serif text-lg font-bold text-[#2A060C]">₹5,000 – ₹7,000</p>
+              <p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{tiers.tier5kTo7k}</p>
+              <p className="mt-1 text-xs text-[#5C4B43]">Qualifying shoppers issued AI video passes at billing.</p>
+            </div>
+
+            <div className="border border-emerald-300 bg-[#F4FBF7] p-4">
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800">
+                  Tier 2 · Mid-Premium
+                </span>
+                <span className="font-mono text-xs font-bold text-emerald-800">{pct7kTo10k}%</span>
+              </div>
+              <p className="mt-2 font-serif text-lg font-bold text-[#2A060C]">₹7,000 – ₹10,000</p>
+              <p className="mt-1 font-serif text-3xl font-bold text-emerald-900">{tiers.tier7kTo10k}</p>
+              <p className="mt-1 text-xs text-[#5C4B43]">Shoppers upgrading into silk sarees, dhotis & festive sets.</p>
+            </div>
+
+            <div className="border border-[#6E0D1F]/40 bg-[#FFF5F7] p-4">
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-[#6E0D1F]/15 px-2 py-0.5 text-[10px] font-bold uppercase text-[#6E0D1F]">
+                  Tier 3 · Royal Luxury
+                </span>
+                <span className="font-mono text-xs font-bold text-[#6E0D1F]">{pct10kPlus}%</span>
+              </div>
+              <p className="mt-2 font-serif text-lg font-bold text-[#2A060C]">₹10,000 and Above</p>
+              <p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{tiers.tier10kPlus}</p>
+              <p className="mt-1 text-xs text-[#5C4B43]">Royal VIP bridal and luxury wedding collection purchasers.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ACTIVE FESTIVAL CAMPAIGN (RADIO BUTTONS ONLY, STRICTLY ONE ACTIVE EVENT) */}
+        <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6 shadow-sm">
           <div className="flex items-start gap-3">
             <CalendarRange className="mt-1 h-6 w-6 text-[#6E0D1F]" />
             <div>
               <p className="text-xs font-bold uppercase text-[#8A6A20]">Campaign & Theme Controls</p>
               <h2 className="mt-1 font-serif text-2xl font-bold text-[#2A060C]">Active Festival Campaign</h2>
               <p className="mt-1 text-sm text-[#5C4B43]">
-                Select the active festival campaign for Maharaja Silks. The selected festival controls the AI styling prompts, customer greetings, and TV broadcast overlays.
+                Strictly one active festival campaign at a time. Select the active festival via radio button. By default, the <strong>Diwali</strong> segment is active.
               </p>
             </div>
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {EVENT_OPTIONS.map((option) => {
-              const isActive = workspace.activeEvents.includes(option.id);
-              const isDefault = workspace.defaultEvent === option.id;
+              const isActive = (workspace.activeEvents?.[0] || workspace.defaultEvent) === option.id;
 
               return (
                 <div
                   key={option.id}
-                  className={`relative flex flex-col justify-between border p-4 transition ${
-                    isDefault
-                      ? 'border-[#6E0D1F] bg-[#FFF8E8] shadow-sm'
+                  onClick={() => { if (!saving) void selectActiveEvent(option.id); }}
+                  className={`relative flex cursor-pointer flex-col justify-between border-2 p-5 transition ${
+                    isActive
+                      ? 'border-[#D4AF37] bg-[#FFF8E8] shadow-md ring-2 ring-[#D4AF37]/30'
                       : 'border-[#DDD2BD] bg-white hover:border-[#8A6A20]'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-serif text-lg font-bold text-[#2A060C]">{option.label}</span>
-                    <label className="flex cursor-pointer items-center gap-2 text-xs font-bold uppercase text-[#6E0D1F]">
-                      Active
+                    <span className="font-serif text-xl font-bold text-[#2A060C]">{option.label}</span>
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex cursor-pointer items-center gap-2 text-xs font-black uppercase text-[#6E0D1F]"
+                    >
                       <input
-                        type="checkbox"
+                        type="radio"
+                        name="active-festival-event"
                         checked={isActive}
-                        disabled={saving || (isActive && workspace.activeEvents.length === 1)}
-                        onChange={() => {
-                          const activeEvents = isActive
-                            ? workspace.activeEvents.filter((eventId) => eventId !== option.id)
-                            : [...workspace.activeEvents, option.id];
-                          const defaultEvent = isDefault && isActive ? activeEvents[0] : workspace.defaultEvent;
-                          void saveEventSettings(activeEvents, defaultEvent);
-                        }}
-                        className="h-5 w-5 accent-[#6E0D1F]"
+                        disabled={saving}
+                        onChange={() => void selectActiveEvent(option.id)}
+                        className="h-5 w-5 accent-[#6E0D1F] cursor-pointer"
                       />
                     </label>
                   </div>
 
-                  <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
+                  <p className="mt-3 text-xs leading-5 text-[#5C4B43]">
                     {option.scene}
                   </p>
 
-                  <div className="mt-3 flex items-center justify-between border-t border-[#E8DFCF] pt-2">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
-                      <Sparkles className="h-3 w-3" /> {isActive ? 'Available' : 'Inactive'}
+                  <div className="mt-4 flex items-center justify-between border-t border-[#E8DFCF] pt-3">
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+                      <Sparkles className="h-3.5 w-3.5" /> {isActive ? 'Active Campaign' : 'Inactive'}
                     </span>
-                    <label className={`flex items-center gap-2 text-xs font-black uppercase ${isActive ? 'cursor-pointer text-[#6E0D1F]' : 'cursor-not-allowed text-slate-400'}`}>
-                      Default
-                      <input
-                        type="radio"
-                        name="default-event"
-                        checked={isDefault}
-                        disabled={saving || !isActive}
-                        onChange={() => void saveEventSettings(workspace.activeEvents, option.id)}
-                        className="h-4 w-4 accent-[#6E0D1F]"
-                      />
-                    </label>
+                    <span className="text-[11px] font-bold uppercase text-[#765E27]">
+                      {isActive ? 'Current Live Selection' : 'Click to Activate'}
+                    </span>
                   </div>
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* COMPACT OPERATIONAL TELEMETRY */}
+        <section className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
+          {stats.slice(2).map((stat) => (
+            <div key={stat.label} className="border border-[#DDD2BD] bg-white p-4">
+              <p className="text-xs font-bold uppercase text-[#765E27]">{stat.label}</p>
+              <p className="mt-1 font-serif text-2xl font-bold text-[#6E0D1F]">{stat.value}</p>
+            </div>
+          ))}
+        </section>
+
+        {/* DAILY PERFORMANCE AUDIT TABLE */}
+        <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs font-bold uppercase text-[#8A6A20]">Daily Analytics</p>
+              <h3 className="font-serif text-xl font-bold text-[#2A060C]">Garments Scanned & Completed Try-Ons</h3>
+            </div>
+            <div className="text-xs text-[#5C4B43]">
+              Recorded Downloads: <strong className="text-[#6E0D1F]">{workspace.analytics.brandedReach}</strong>
+            </div>
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#DDD2BD] text-xs uppercase text-[#765E27]">
+                  <th className="py-3">Date</th>
+                  <th>Garments scanned</th>
+                  <th>Try-Ons</th>
+                  <th>Total GMV</th>
+                  <th>Avg price</th>
+                  <th>Downloads</th>
+                  <th>Conversion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workspace.analytics.days.length ? (
+                  workspace.analytics.days.map((day) => (
+                    <tr key={day.date} className="border-b border-[#EEE7DA]">
+                      <td className="py-3 font-bold">{day.date}</td>
+                      <td>{day.scans}</td>
+                      <td>{day.tryOns}</td>
+                      <td>{formatMoney(day.gmv)}</td>
+                      <td>{formatMoney(day.averagePrice)}</td>
+                      <td>{day.downloads}</td>
+                      <td>{day.conversion}%</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="py-7 text-center text-slate-500">
+                      Price scans and completed Try-Ons will appear here.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
 
@@ -355,18 +573,21 @@ export default function MaharajaAdminPage() {
                     {posterDataUrl ? (
                       <img src={posterDataUrl} alt="Maharaja AI Try-On printable QR poster" className="h-full w-full object-contain" />
                     ) : (
-                      <LoaderCircle className="mx-auto mt-16 h-8 w-8 animate-spin text-[#6E0D1F]" />
+                      <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-slate-400">
+                        <LoaderCircle className="h-8 w-8 animate-spin text-[#6E0D1F]" />
+                        <span className="text-xs font-bold uppercase text-[#6E0D1F]">Generating High-Res Artwork...</span>
+                      </div>
                     )}
                   </div>
                   <div className="space-y-3">
                     <button
                       type="button"
                       id="download-tryon-png-btn"
-                      disabled={!posterDataUrl}
+                      disabled={posterBuilding}
                       onClick={() => void downloadPoster()}
                       className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#6E0D1F] px-4 py-3 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-40"
                     >
-                      <Download className="h-4 w-4" /> Download Try-On PNG
+                      {posterBuilding ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Download Try-On PNG
                     </button>
                     <a
                       href="/maharaja-test-price-tag-rs-799.png"
@@ -392,11 +613,14 @@ export default function MaharajaAdminPage() {
               <button
                 type="button"
                 id="generate-tryon-qr-btn"
-                disabled={!posterDataUrl}
-                onClick={() => setPosterVisible(true)}
+                disabled={posterBuilding}
+                onClick={async () => {
+                  setPosterVisible(true);
+                  await ensurePoster();
+                }}
                 className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 bg-[#6E0D1F] px-5 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-40"
               >
-                <QrCode className="h-5 w-5" /> Generate Try-On QR
+                {posterBuilding ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <QrCode className="h-5 w-5" />} Generate Try-On QR
               </button>
             )}
           </div>

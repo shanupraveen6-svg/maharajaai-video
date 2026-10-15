@@ -10,6 +10,7 @@ import {
   MAHARAJA_WORKSPACE_CODE,
   TRY_ON_MIN_PURCHASE,
   EVENT_IDS,
+  isEventId,
 } from './config';
 
 export type MaharajaWorkspace = {
@@ -214,7 +215,7 @@ function defaultWorkspace(): MaharajaWorkspace {
     clientName: 'Maharaja',
     workspaceCode: process.env.MAHARAJA_WORKSPACE_CODE || MAHARAJA_WORKSPACE_CODE,
     campaignEnabled: true,
-    activeEvents: [...EVENT_IDS],
+    activeEvents: ['diwali'],
     defaultEvent: 'diwali',
     tryOnCode: stableCode('permanent-try-on'),
     billingCode: stableCode('billing-counter'),
@@ -229,6 +230,20 @@ function defaultWorkspace(): MaharajaWorkspace {
       retries: 0,
       downloads: 0,
     },
+  };
+}
+
+function normalizeWorkspace(data: Partial<MaharajaWorkspace>, fallback: MaharajaWorkspace): MaharajaWorkspace {
+  const merged = { ...fallback, ...data, usage: { ...fallback.usage, ...data.usage } };
+  const defaultEv: EventId = isEventId(merged.defaultEvent) ? merged.defaultEvent : 'diwali';
+  // Strictly enforce single active event (no 2-3 events at the same time), defaulting to Diwali
+  const activeEv: EventId = (Array.isArray(merged.activeEvents) && merged.activeEvents.length === 1 && isEventId(merged.activeEvents[0]))
+    ? merged.activeEvents[0]
+    : defaultEv;
+  return {
+    ...merged,
+    activeEvents: [activeEv],
+    defaultEvent: activeEv,
   };
 }
 
@@ -248,15 +263,15 @@ export async function getMaharajaWorkspace(): Promise<MaharajaWorkspace> {
       const created = await ref.get();
       if (!created.exists) return fallback;
       const createdData = created.data() as Partial<MaharajaWorkspace>;
-      return { ...fallback, ...createdData, usage: { ...fallback.usage, ...createdData.usage } };
+      return normalizeWorkspace(createdData, fallback);
     }
     const data = snapshot.data() as Partial<MaharajaWorkspace>;
-    return { ...fallback, ...data, usage: { ...fallback.usage, ...data.usage } };
+    return normalizeWorkspace(data, fallback);
   }
 
   const mockStore = getMockStore();
   const existing = mockStore.clientWorkspaces.get(MAHARAJA_CLIENT_ID) as MaharajaWorkspace | undefined;
-  if (existing) return { ...fallback, ...existing, usage: { ...fallback.usage, ...existing.usage } };
+  if (existing) return normalizeWorkspace(existing, fallback);
   mockStore.clientWorkspaces.set(MAHARAJA_CLIENT_ID, fallback);
   return fallback;
 }
@@ -663,7 +678,7 @@ export async function verifyMaharajaAccess(
 
   if (service === 'try-on') {
     if (code && code === workspace.tryOnCode) {
-      return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null };
+      return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace };
     }
     const videoPass = code ? await getVideoPass(code) : null;
     if (videoPass) {
@@ -674,11 +689,11 @@ export async function verifyMaharajaAccess(
         return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
       }
       if (videoPass.status === 'active') {
-        return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: videoPass };
+        return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: videoPass, workspace };
       }
     }
     return verifyOperatorRequest(req)
-      ? { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null }
+      ? { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace }
       : { allowed: false as const, error: 'Invalid Maharaja Try-On access.' };
   }
 
@@ -691,11 +706,11 @@ export async function verifyMaharajaAccess(
       return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
     }
     if (pass.status === 'active') {
-      return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass };
+      return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass, workspace };
     }
   }
   return verifyOperatorRequest(req)
-    ? { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null }
+    ? { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace }
     : { allowed: false as const, error: 'This Maharaja AI Video pass is invalid or expired.' };
 }
 

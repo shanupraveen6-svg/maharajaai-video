@@ -21,13 +21,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
       return NextResponse.json({ success: false, error: access.error }, { status: 403 });
     }
 
-    const workspace = await getMaharajaWorkspace();
+    const workspace = access.workspace;
     const deviceId = req.nextUrl.searchParams.get('deviceId');
     const deviceStatus = validTryOnDeviceId(deviceId) ? await getTryOnDeviceStatus(deviceId) : null;
     if (service === 'try-on') {
-      await incrementMaharajaUsage('tryOnScans');
+      void incrementMaharajaUsage('tryOnScans').catch((err) => console.warn('Background tryOnScans increment error:', err));
     } else if (access.pass) {
-      await incrementPassUsage(access.pass.code, 'scans');
+      void incrementPassUsage(access.pass.code, 'scans').catch((err) => console.warn('Background pass scans increment error:', err));
     }
 
     return NextResponse.json({
