@@ -87,7 +87,7 @@ const DEFAULT_MOTION_SAFETY: MotionSafetyDecision = {
   reason: 'Default safe mode when lower-body motion is not verified.'
 };
 
-const MAX_PROVIDER_PROMPT_CHARS = 1350;
+const MAX_PROVIDER_PROMPT_CHARS = 2800;
 
 function parseMotionSafetyDecision(text: string): MotionSafetyDecision | null {
   const jsonMatch = text.match(/\{[\s\S]*\}/);

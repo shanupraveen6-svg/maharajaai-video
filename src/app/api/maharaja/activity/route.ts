@@ -22,6 +22,10 @@ export async function POST(req: NextRequest) {
         }
       }
       if (type === 'retry' && String(body.pin || '') !== (process.env.MAHARAJA_MANAGER_PIN || '7070')) {
+        await logMaharajaActivity('retry', 'Manager retry rejected: incorrect PIN', {
+          sessionId: String(body.sessionId || ''),
+          success: false,
+        });
         return NextResponse.json({ success: false, error: 'Manager PIN is incorrect.' }, { status: 403 });
       }
     }
@@ -30,6 +34,7 @@ export async function POST(req: NextRequest) {
     if (type === 'download') await incrementMaharajaUsage('downloads');
     await logMaharajaActivity(type as MaharajaActivity['type'], String(body.label || type), {
       sessionId: String(body.sessionId || ''),
+      success: true,
     });
     return NextResponse.json({ success: true });
   } catch (error) {

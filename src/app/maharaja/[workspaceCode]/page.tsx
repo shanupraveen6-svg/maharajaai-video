@@ -61,6 +61,8 @@ type Workspace = {
     brandedReach: number;
     luxuryCount: number;
     festiveCount: number;
+    luxuryThreshold?: number;
+    festiveThreshold?: number;
     days: Array<{ date: string; scans: number; tryOns: number; gmv: number; averagePrice: number; downloads: number; conversion: number }>;
   };
 };
@@ -255,7 +257,7 @@ export default function MaharajaAdminPage() {
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <div className="border border-[#DDD2BD] p-4"><IndianRupee className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Total garment value scanned</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{formatMoney(workspace.analytics.totalGmv)}</p></div>
             <div className="border border-[#DDD2BD] p-4"><Download className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Watermarked brand recall</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{workspace.analytics.brandedReach}</p><p className="mt-1 text-xs text-slate-500">Recorded downloads and shares</p></div>
-            <div className="border border-[#DDD2BD] p-4"><Sparkles className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Luxury vs festive tier</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{workspace.analytics.luxuryCount} : {workspace.analytics.festiveCount}</p><p className="mt-1 text-xs text-slate-500">Luxury is Rs 3,000 and above</p></div>
+            <div className="border border-[#DDD2BD] p-4"><Sparkles className="h-5 w-5 text-[#6E0D1F]" /><p className="mt-3 text-xs font-bold uppercase text-[#765E27]">Luxury vs festive tier</p><p className="mt-1 font-serif text-3xl font-bold text-[#6E0D1F]">{workspace.analytics.luxuryCount} : {workspace.analytics.festiveCount}</p><p className="mt-1 text-xs text-slate-500">Luxury is {formatMoney(workspace.analytics.luxuryThreshold || 3000)} and above</p></div>
           </div>
           <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-left text-sm"><thead><tr className="border-b border-[#DDD2BD] text-xs uppercase text-[#765E27]"><th className="py-3">Date</th><th>Garments scanned</th><th>Try-Ons</th><th>Total GMV</th><th>Avg price</th><th>Downloads</th><th>Conversion</th></tr></thead><tbody>{workspace.analytics.days.length ? workspace.analytics.days.map((day) => <tr key={day.date} className="border-b border-[#EEE7DA]"><td className="py-3 font-bold">{day.date}</td><td>{day.scans}</td><td>{day.tryOns}</td><td>{formatMoney(day.gmv)}</td><td>{formatMoney(day.averagePrice)}</td><td>{day.downloads}</td><td>{day.conversion}%</td></tr>) : <tr><td colSpan={7} className="py-7 text-center text-slate-500">Price scans and completed Try-Ons will appear here.</td></tr>}</tbody></table></div>
         </section>

@@ -8,7 +8,7 @@ import {
   logMaharajaActivity,
   updateMaharajaSettings,
 } from '@/lib/maharaja/server';
-import { EVENT_IDS, isEventId } from '@/lib/maharaja/config';
+import { EVENT_IDS, FESTIVE_TIER_MIN, LUXURY_TIER_MIN, isEventId } from '@/lib/maharaja/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,9 +47,11 @@ export async function GET(req: NextRequest) {
       averagePrice: row.scans ? Math.round(row.gmv / row.scans) : 0,
       conversion: row.scans ? Math.min(100, Math.round((row.tryOns / row.scans) * 100)) : 0,
     }));
+    const luxuryThreshold = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || LUXURY_TIER_MIN;
+    const festiveThreshold = Number(process.env.MAHARAJA_FESTIVE_TIER_MIN) || FESTIVE_TIER_MIN;
     const scannedPrices = allActivity.filter((item) => item.type === 'price-scan').map((item) => Number(item.metadata?.amount || 0));
     const totalGmv = scannedPrices.reduce((sum, amount) => sum + amount, 0);
-    const luxuryCount = scannedPrices.filter((amount) => amount >= 3000).length;
+    const luxuryCount = scannedPrices.filter((amount) => amount >= luxuryThreshold).length;
     const brandedReach = allActivity.filter((item) => item.type === 'download' || item.type === 'share').length;
     return NextResponse.json({
       success: true,
@@ -64,6 +66,8 @@ export async function GET(req: NextRequest) {
           brandedReach,
           luxuryCount,
           festiveCount: scannedPrices.length - luxuryCount,
+          luxuryThreshold,
+          festiveThreshold,
           days,
         },
       },

@@ -2,6 +2,8 @@ export const MAHARAJA_CLIENT_ID = 'maharaja';
 export const MAHARAJA_WORKSPACE_CODE = 'workspace';
 export const TRY_ON_MIN_PURCHASE = 500;
 export const AI_VIDEO_MIN_PURCHASE = 5000;
+export const FESTIVE_TIER_MIN = Number(process.env.MAHARAJA_FESTIVE_TIER_MIN) || 500;
+export const LUXURY_TIER_MIN = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || 3000;
 
 export const EVENT_IDS = ['diwali', 'new-year', 'pongal', 'christmas', 'ramadan', 'birthday'] as const;
 export type EventId = (typeof EVENT_IDS)[number];
