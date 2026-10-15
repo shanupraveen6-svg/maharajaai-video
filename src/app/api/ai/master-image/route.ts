@@ -9,7 +9,7 @@ import { buildTryOnPrompt, CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MAST
 import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
