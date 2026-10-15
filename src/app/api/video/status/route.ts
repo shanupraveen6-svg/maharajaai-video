@@ -6,15 +6,38 @@ import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
 
+import { markPassVideoFailed } from '@/lib/maharaja/server';
+
 export const maxDuration = 60;
 
-async function markVideoFailed(db: any, sessionId: string, message: string) {
-  if (!db || !sessionId) return;
-  await db.collection('sessions').doc(sessionId).set({
-    videoStatus: 'failed',
-    videoError: message,
-    updatedAt: new Date().toISOString()
-  }, { merge: true });
+async function markVideoFailed(db: any, sessionId: string, message: string, accessCode?: string | null) {
+  if (!sessionId) return;
+  const nowIso = new Date().toISOString();
+  if (db) {
+    await db.collection('sessions').doc(sessionId).set({
+      videoStatus: 'failed',
+      videoError: message,
+      updatedAt: nowIso
+    }, { merge: true });
+  } else {
+    const mockStore = getMockStore();
+    const existing = mockStore.sessions.get(sessionId) || {};
+    mockStore.sessions.set(sessionId, {
+      ...existing,
+      videoStatus: 'failed',
+      videoError: message,
+      updatedAt: nowIso
+    });
+  }
+
+  if (accessCode) {
+    try {
+      await markPassVideoFailed(accessCode);
+      console.log(`Reopened video slot for pass ${accessCode} following failed render.`);
+    } catch (passErr) {
+      console.warn('Could not reset failed pass video state:', passErr);
+    }
+  }
 }
 
 function getGenAIClient() {
@@ -70,6 +93,7 @@ export async function GET(req: NextRequest) {
     let provider: string | null = null;
     let eventId = 'diwali';
     let clientId: string | null = null;
+    let accessCode: string | null = null;
 
     if (db) {
       // 1. Fetch Session Doc first
@@ -79,6 +103,7 @@ export async function GET(req: NextRequest) {
           const sData = sessionDoc.data();
           eventId = sData?.eventId || eventId;
           clientId = sData?.clientId || clientId;
+          accessCode = sData?.accessCode || accessCode;
           masterImageUrl = sData?.masterImageUrl || masterImageUrl;
           if (sData?.videoStatus === 'failed') {
             return NextResponse.json({
@@ -113,6 +138,7 @@ export async function GET(req: NextRequest) {
           operationName = jobData?.operationName || null;
           requestId = jobData?.requestId || null;
           provider = jobData?.provider || provider;
+          accessCode = jobData?.accessCode || accessCode;
           if (!targetSessionId && jobData?.sessionId) {
             targetSessionId = jobData.sessionId;
           }
@@ -125,6 +151,7 @@ export async function GET(req: NextRequest) {
         if (session) {
           eventId = session.eventId || eventId;
           clientId = session.clientId || clientId;
+          accessCode = session.accessCode || accessCode;
           masterImageUrl = session.masterImageUrl || masterImageUrl;
           if (session.videoStatus === 'failed') {
             return NextResponse.json({
@@ -153,6 +180,7 @@ export async function GET(req: NextRequest) {
           requestId = jobData.requestId || null;
           operationName = jobData.operationName || null;
           provider = jobData.provider || provider;
+          accessCode = jobData.accessCode || accessCode;
         }
       }
     }
@@ -182,7 +210,7 @@ export async function GET(req: NextRequest) {
 
             if (!outputVideoUrl) {
               const errMessage = 'Fal.ai generation completed but did not return a valid video URL.';
-              await markVideoFailed(db, targetSessionId, errMessage);
+              await markVideoFailed(db, targetSessionId, errMessage, accessCode);
               return NextResponse.json({
                 success: false,
                 jobId,
@@ -274,7 +302,7 @@ export async function GET(req: NextRequest) {
 
           if (queueState === 'FAILED' || queueState === 'ERROR' || queueState === 'CANCELLED') {
             const errMessage = `MiniMax Hailuo generation ${queueState.toLowerCase()}. Stop and review the prompt/image before retrying.`;
-            await markVideoFailed(db, targetSessionId, errMessage);
+            await markVideoFailed(db, targetSessionId, errMessage, accessCode);
             return NextResponse.json({
               success: false,
               jobId,
@@ -324,7 +352,7 @@ export async function GET(req: NextRequest) {
 
           if (operation.error) {
             const message = formatVeoStatusError(operation.error);
-            await markVideoFailed(db, targetSessionId, message);
+            await markVideoFailed(db, targetSessionId, message, accessCode);
             return NextResponse.json({
               success: false,
               jobId,
@@ -392,7 +420,7 @@ export async function GET(req: NextRequest) {
 
           if (!fileBuffer) {
             status = 'failed';
-            await markVideoFailed(db, targetSessionId, 'Failed to download generated Veo video output');
+            await markVideoFailed(db, targetSessionId, 'Failed to download generated Veo video output', accessCode);
             return NextResponse.json({
               success: false,
               jobId,
@@ -409,7 +437,7 @@ export async function GET(req: NextRequest) {
           const bucket = getStorageBucket();
           if (!bucket) {
             status = 'failed';
-            await markVideoFailed(db, targetSessionId, 'Firebase Storage bucket is required to save generated Veo video output.');
+            await markVideoFailed(db, targetSessionId, 'Firebase Storage bucket is required to save generated Veo video output.', accessCode);
             return NextResponse.json({
               success: false,
               jobId,
@@ -455,7 +483,7 @@ export async function GET(req: NextRequest) {
         } catch (opErr: any) {
           console.error('Veo Operation Polling Error:', opErr);
           const message = formatVeoStatusError(opErr);
-          await markVideoFailed(db, targetSessionId, message);
+          await markVideoFailed(db, targetSessionId, message, accessCode);
           return NextResponse.json({
             success: false,
             jobId,

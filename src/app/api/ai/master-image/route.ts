@@ -184,11 +184,18 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
 
           const bucket = getStorageBucket();
           if (bucket) {
-            const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/${service === 'try-on' ? 'try-on.jpg' : 'master.jpg'}`;
-            const file = bucket.file(storagePath);
-            await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
-            const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-            masterImageUrl = signedUrl;
+            try {
+              const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/${service === 'try-on' ? 'try-on.jpg' : 'master.jpg'}`;
+              const file = bucket.file(storagePath);
+              await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
+              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+              masterImageUrl = signedUrl;
+            } catch (storageErr) {
+              console.error('Firebase Storage upload failed for master image:', storageErr);
+              throw new Error(`Cloud Storage error: Failed to persist ${service} image (${storageErr instanceof Error ? storageErr.message : String(storageErr)}). Verify Firebase Storage bucket permissions.`);
+            }
+          } else if (process.env.NODE_ENV === 'production' && !AI_CONFIG.ALLOW_MOCK_BACKEND) {
+            throw new Error('Cloud Storage configuration error: Firebase Storage bucket is unavailable in production. Master images must be persisted to Storage to prevent exceeding Firestore document size limits.');
           }
         } else {
           if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
@@ -220,6 +227,17 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
         masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
       };
 
+    // Protect Firestore against 1MB document size limit if Storage was bypassed
+    const safeImageFields = { ...imageFields };
+    if (db && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000) {
+      console.warn('Image data URI exceeds 700KB; truncating Firestore document cache to avoid 1MB document size limit.');
+      if (service === 'try-on') {
+        safeImageFields.tryOnImageUrl = masterImageUrl.slice(0, 500) + '...[truncated-data-url-use-storage]';
+      } else {
+        safeImageFields.masterImageUrl = masterImageUrl.slice(0, 500) + '...[truncated-data-url-use-storage]';
+      }
+    }
+
     if (db) {
       await db.collection('sessions').doc(sessionId).set({
         sessionId,
@@ -230,7 +248,7 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
         garmentAnalysis,
         personAnalysis,
         templateId: templateId || null,
-        ...imageFields,
+        ...safeImageFields,
         status: 'master_ready',
         updatedAt: nowIso
       }, { merge: true });
@@ -257,10 +275,13 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
     }
     if (access.pass) {
       await incrementPassUsage(access.pass.code, 'imagesGenerated');
+      const passImageUrl = (db && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000)
+        ? masterImageUrl.slice(0, 500) + '...[truncated-data-url]'
+        : masterImageUrl;
       if (service === 'try-on') {
-        await markPassTryOnImageDone(access.pass.code, masterImageUrl);
+        await markPassTryOnImageDone(access.pass.code, passImageUrl);
       } else {
-        await markPassVideoMasterDone(access.pass.code, masterImageUrl);
+        await markPassVideoMasterDone(access.pass.code, passImageUrl);
       }
     }
     await logMaharajaActivity('try-on', `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId });

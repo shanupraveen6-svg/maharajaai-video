@@ -11,7 +11,7 @@ process.env.ALLOW_MOCK_BACKEND = 'true';
 const server = await import('../src/lib/maharaja/server.ts');
 const {
   saveVideoPass, getVideoPass, markPassTryOnImageDone, markPassVideoMasterDone, markPassVideoDone,
-  markPassRetryApproved, releasePassVideoLock, acquirePassVideoLock,
+  markPassRetryApproved, releasePassVideoLock, acquirePassVideoLock, markPassVideoFailed,
 } = server;
 
 function assert(condition, label) {
@@ -86,5 +86,17 @@ const key = `${MAHARAJA_CLIENT_ID}:${stalePass}`;
 const stored = getMockStore().customerPasses.get(key);
 getMockStore().customerPasses.set(key, { ...stored, videoGenerating: true, videoGeneratingAtMs: Date.now() - 10 * 60 * 1000 });
 assert((await acquirePassVideoLock(stalePass)).ok, 'A stale lock (crashed request) expires and can be re-acquired');
+
+// Test failed render recovery:
+const failedRenderPass = await freshPass();
+await markPassVideoMasterDone(failedRenderPass, 'master-url');
+assert((await acquirePassVideoLock(failedRenderPass)).ok, 'Lock acquired for failed-render test');
+await markPassVideoDone(failedRenderPass);
+pass = await getVideoPass(failedRenderPass);
+assert(pass.videoDone === true, 'Initially consumed upon provider acceptance');
+await markPassVideoFailed(failedRenderPass);
+pass = await getVideoPass(failedRenderPass);
+assert(pass.videoDone === false && pass.lastVideoFailed === true, 'Failed render restores customer video slot');
+assert((await acquirePassVideoLock(failedRenderPass)).ok, 'Customer can re-acquire lock after failed render without manager PIN');
 
 console.log('All pass state-machine checks passed (mock-store branch).');

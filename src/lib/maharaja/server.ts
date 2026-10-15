@@ -65,6 +65,8 @@ export type MaharajaVideoPass = {
   videoGeneratingAtMs?: number;
   videoDone?: boolean;
   retryUsed?: boolean;
+  lastVideoFailed?: boolean;
+  lastVideoFailedAtMs?: number;
   usage: { scans: number; imagesGenerated: number; videosGenerated: number; goLive: number };
 };
 
@@ -437,6 +439,19 @@ export async function markPassVideoDone(code: string) {
 /** Releases the video lock after a provider rejection / failure (video stays available). */
 export async function releasePassVideoLock(code: string) {
   await mergePassUpdate(code, { videoGenerating: false });
+}
+
+/**
+ * Called when a submitted video generation job permanently fails on the provider queue.
+ * Reopens the pass video slot so the customer's legitimate 1-video entitlement is not consumed by a failed render.
+ */
+export async function markPassVideoFailed(code: string) {
+  await mergePassUpdate(code, {
+    videoDone: false,
+    videoGenerating: false,
+    lastVideoFailed: true,
+    lastVideoFailedAtMs: Date.now(),
+  });
 }
 
 /**
