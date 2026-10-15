@@ -12,7 +12,6 @@ import {
   Film,
   Image as ImageIcon,
   LoaderCircle,
-  ScanSearch,
   ScanLine,
   Shirt,
   Sparkles,
@@ -197,17 +196,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     try {
       const { dataUrl } = await compressImage(file, 1400, 0.84);
       setPersonPhoto(dataUrl);
-      setMessage('Checking the person photo...');
-      const data = await readJson(await fetch('/api/ai/analyze-person', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, accessCode, service: activeService, category }),
-      }));
-      setPersonAnalysis(data.analysis);
-      setMessage(data.analysis.operatorMessage || 'Person photo verified.');
-      if (!data.analysis.valid || data.analysis.additionalPhotoRequired) {
-        setError(data.analysis.operatorMessage || 'A clearer person photo is needed.');
-      }
+      setPersonAnalysis({ valid: true, additionalPhotoRequired: false, operatorMessage: 'Person photo added.' });
+      setMessage('Person photo added.');
     } catch (caught) {
       setPersonAnalysis(null);
       setError(customerError(caught, 'The person photo could not be verified. Use one clear, well-lit full-body photo.'));
@@ -229,17 +219,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const compressed = await Promise.all(files.map((file) => compressImage(file, 1400, 0.84)));
       const images = compressed.map((item) => item.dataUrl);
       setGarmentPhotos(images);
-      setMessage('Checking garment color, fabric and design...');
-      const data = await readJson(await fetch('/api/ai/analyze-garment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, accessCode, service: activeService }),
-      }));
-      setGarmentAnalysis(data.analysis);
-      setMessage(data.analysis.operatorMessage || 'Garment images verified.');
-      if (!data.analysis.valid || data.analysis.additionalPhotoRequired) {
-        setError(data.analysis.operatorMessage || 'Clearer garment photos are needed.');
-      }
+      setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'Uploaded garment', primaryColor: 'Original color' });
+      setMessage('Garment photo added.');
     } catch (caught) {
       setGarmentAnalysis(null);
       setError(customerError(caught, 'The garment photos could not be verified. Upload one to three clear garment photos.'));
@@ -459,8 +440,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                     </div>
                   </div>
                 </div>
-
-                {(personAnalysis || garmentAnalysis) && <div className="mt-4 border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold leading-5 text-emerald-900"><div className="flex items-center gap-2 font-bold uppercase"><ScanSearch className="h-4 w-4" /> Gemini photo quality checks</div>{personAnalysis && <p className="mt-2">Person: {String(personAnalysis.operatorMessage || 'Verified')}</p>}{garmentAnalysis && <p>Garment: {String(garmentAnalysis.garmentType || 'Verified')} · {String(garmentAnalysis.primaryColor || 'Color captured')}</p>}</div>}
 
                 {message && <div className="mt-4 border border-[#E2D4B8] bg-[#FFF9EC] p-3 text-sm font-semibold text-[#6E0D1F]">{message}</div>}
                 {error && <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</div>}
