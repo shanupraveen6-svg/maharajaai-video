@@ -1,7 +1,7 @@
 import fs from 'fs';
 import sharp from 'sharp';
 
-const BASE_URL = 'http://localhost:3001';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
 
 async function makeTestTag(amount, sku) {
   const svg = `
@@ -38,10 +38,12 @@ async function run() {
   console.log('Has continue-to-login-btn:', homeHtml.includes('id="continue-to-login-btn"'));
 
   console.log('\n--- 2. Testing Login ---');
+  const operatorUsername = process.env.OPERATOR_USERNAME || 'shanu7';
+  const operatorPassword = process.env.OPERATOR_PASSWORD || '9994837342';
   const loginRes = await fetch(`${BASE_URL}/api/operator/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'shanu7', password: '9994837342' }),
+    body: JSON.stringify({ username: operatorUsername, password: operatorPassword }),
   });
   console.log('Login status:', loginRes.status);
   const setCookie = loginRes.headers.get('set-cookie');

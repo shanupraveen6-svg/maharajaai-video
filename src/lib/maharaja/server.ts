@@ -86,18 +86,31 @@ export function validTryOnDeviceId(value: unknown): value is string {
 
 export async function isPriceTagUsed(tagFingerprint: string): Promise<boolean> {
   const db = getDb();
+  const nowMs = Date.now();
   if (db) {
     const doc = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
       .collection('usedPriceTags').doc(tagFingerprint).get();
-    return doc.exists;
+    if (!doc.exists) return false;
+    const data = doc.data();
+    const expiresAtMs = typeof data?.expiresAtMs === 'number'
+      ? data.expiresAtMs
+      : (typeof data?.usedAtMs === 'number' ? data.usedAtMs + 24 * 60 * 60 * 1000 : Infinity);
+    return expiresAtMs > nowMs;
   }
   const store = getMockStore() as any;
-  return !!(store.usedPriceTags && store.usedPriceTags.has(tagFingerprint));
+  if (!store.usedPriceTags || !store.usedPriceTags.has(tagFingerprint)) return false;
+  const entry = store.usedPriceTags.get(tagFingerprint);
+  const expiresAtMs = typeof entry?.expiresAtMs === 'number'
+    ? entry.expiresAtMs
+    : (typeof entry?.usedAtMs === 'number' ? entry.usedAtMs + 24 * 60 * 60 * 1000 : Infinity);
+  return expiresAtMs > nowMs;
 }
 
 export async function recordPriceTagUsed(tagFingerprint: string, deviceId: string, amount: number): Promise<void> {
   const db = getDb();
-  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+  const expiresAtMs = nowMs + 24 * 60 * 60 * 1000;
+  const nowIso = new Date(nowMs).toISOString();
   if (db) {
     await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
       .collection('usedPriceTags').doc(tagFingerprint).set({
@@ -105,13 +118,22 @@ export async function recordPriceTagUsed(tagFingerprint: string, deviceId: strin
         deviceId,
         amount,
         usedAt: nowIso,
+        usedAtMs: nowMs,
+        expiresAtMs,
         usedAtTimestamp: Timestamp.now(),
       });
     return;
   }
   const store = getMockStore() as any;
   if (!store.usedPriceTags) store.usedPriceTags = new Map<string, unknown>();
-  store.usedPriceTags.set(tagFingerprint, { tagFingerprint, deviceId, amount, usedAt: nowIso });
+  store.usedPriceTags.set(tagFingerprint, {
+    tagFingerprint,
+    deviceId,
+    amount,
+    usedAt: nowIso,
+    usedAtMs: nowMs,
+    expiresAtMs,
+  });
 }
 
 export async function getTryOnDeviceStatus(deviceId: string) {
@@ -243,7 +265,13 @@ export async function clearTryOnGrants() {
 }
 
 function stableCode(label: string, length = 20) {
-  const secret = process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD || 'tryfocus-local-development';
+  const secret = process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('OPERATOR_AUTH_SECRET or ADMIN_PASSWORD must be configured in production environment variables.');
+    }
+    return crypto.createHmac('sha256', 'maharaja-local-dev-secret-only').update(`${MAHARAJA_CLIENT_ID}:${label}`).digest('base64url').slice(0, length);
+  }
   return crypto.createHmac('sha256', secret).update(`${MAHARAJA_CLIENT_ID}:${label}`).digest('base64url').slice(0, length);
 }
 

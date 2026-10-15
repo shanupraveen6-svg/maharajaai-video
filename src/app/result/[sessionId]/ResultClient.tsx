@@ -215,6 +215,21 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
   };
 
   const executeDownload = async () => {
+    // 1. Immediately complete and claim the single-use video pass before releasing downloads
+    if (accessCode) {
+      await fetch('/api/maharaja/video-pass/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: accessCode, sessionId, action: 'download' }),
+      }).catch((err) => console.warn('Could not record pass completion:', err));
+    }
+    await fetch('/api/maharaja/activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'download', label: `${eventLabel} customer result downloaded`, sessionId, accessCode }),
+    }).catch(() => undefined);
+
+    // 2. Now dispatch the authorized file downloads
     if (masterImageUrl) {
       await downloadAsset(masterImageUrl, `Maharaja-${eventLabel}-Master-${sessionId}.jpg`);
     }
@@ -222,17 +237,6 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
       const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
       await downloadAsset(videoUrl, `Maharaja-${eventLabel}-Video-${sessionId}.${extension}`);
     }
-    if (accessCode) {
-      await fetch('/api/maharaja/video-pass/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: accessCode, sessionId, action: 'download' }),
-      }).catch(() => undefined);
-    }
-    await fetch('/api/maharaja/activity', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'download', label: `${eventLabel} customer result downloaded`, sessionId, accessCode }),
-    }).catch(() => undefined);
   };
 
   const shareText = `My ${eventLabel} AI fashion film from Majestic Maharaja is ready.`;

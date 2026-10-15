@@ -110,7 +110,7 @@ export default function MaharajaBillingPage() {
           <form onSubmit={generateCustomerQr} className="border border-[#D8C49B] bg-white p-5 md:p-7">
             <p className="text-xs font-bold uppercase text-[#8A6A20]">Customer eligibility</p>
             <h1 className="mt-2 font-serif text-3xl font-bold text-[#2A060C]">Generate an AI Video QR</h1>
-            <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Enter the details from the customer bill. The QR is tied to Maharaja and expires after 24 hours.</p>
+            <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Enter the details from the customer bill. The QR is tied to Maharaja and expires after 2 hours.</p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="text-xs font-bold uppercase text-[#5C4B43]">Phone number

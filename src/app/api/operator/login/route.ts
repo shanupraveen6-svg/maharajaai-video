@@ -1,12 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-const OPERATOR_USERNAME = 'shanu7';
-const OPERATOR_PASSWORDS = ['99948387342', '9994837342'];
 const OPERATOR_COOKIE = 'maharaja_operator_auth';
 
 function getAuthSecret() {
-  return process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD || '';
+  const secret = process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD;
+  if (!secret && process.env.NODE_ENV !== 'production') {
+    return 'maharaja-local-dev-operator-auth-secret';
+  }
+  return secret || '';
+}
+
+function getValidOperatorCredentials() {
+  const envUsername = (process.env.OPERATOR_USERNAME || '').trim();
+  const envPassword = (process.env.OPERATOR_PASSWORD || '').trim();
+  const envPasswordsRaw = (process.env.OPERATOR_PASSWORDS || '').trim();
+  const envPasswords = envPasswordsRaw ? envPasswordsRaw.split(',').map((p) => p.trim()) : [];
+
+  const validUsernames = [envUsername].filter(Boolean);
+  const validPasswords = [envPassword, ...envPasswords].filter(Boolean);
+
+  if (process.env.NODE_ENV === 'production' && (validUsernames.length === 0 || validPasswords.length === 0)) {
+    return { usernames: validUsernames, passwords: validPasswords, isConfigured: false };
+  }
+
+  // Non-production fallback
+  if (validUsernames.length === 0) validUsernames.push('shanu7');
+  if (validPasswords.length === 0) validPasswords.push('9994837342', '99948387342');
+
+  return { usernames: validUsernames, passwords: validPasswords, isConfigured: true };
 }
 
 function signToken(payload: string, secret: string) {
@@ -20,11 +42,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Operator auth secret is not configured.' }, { status: 500 });
     }
 
+    const creds = getValidOperatorCredentials();
+    if (!creds.isConfigured) {
+      return NextResponse.json(
+        { success: false, error: 'Operator credentials must be configured in environment variables.' },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
     const username = typeof body.username === 'string' ? body.username.trim() : '';
     const password = typeof body.password === 'string' ? body.password.trim() : '';
 
-    if (username !== OPERATOR_USERNAME || !OPERATOR_PASSWORDS.includes(password)) {
+    if (!creds.usernames.includes(username) || !creds.passwords.includes(password)) {
       return NextResponse.json({ success: false, error: 'Invalid login.' }, { status: 401 });
     }
 
