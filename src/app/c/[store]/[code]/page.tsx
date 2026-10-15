@@ -223,10 +223,14 @@ export default function CustomerPassPage() {
                           </div>
                         )}
                       </div>
-                      <div className="mt-2 grid grid-cols-2 gap-1">
-                        <label className="flex min-h-10 cursor-pointer items-center justify-center gap-1 bg-[#6e0d1f] px-1 text-[9px] font-black uppercase text-[#F3E5AB]"><Camera className="h-3.5 w-3.5" /> Camera<input type="file" accept="image/*" capture={label === 'Person' ? 'user' : 'environment'} className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>
-                        <label className="flex min-h-10 cursor-pointer items-center justify-center gap-1 border border-[#6e0d1f] bg-white px-1 text-[9px] font-black uppercase text-[#6e0d1f]"><ImageIcon className="h-3.5 w-3.5" /> Gallery<input type="file" accept="image/*" className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>
-                      </div>
+                      {label === 'Price tag' ? (
+                        <label className="mt-2 flex min-h-10 cursor-pointer items-center justify-center gap-1 bg-[#6e0d1f] px-2 text-[9px] font-black uppercase text-[#F3E5AB]"><Camera className="h-3.5 w-3.5" /> Open Camera<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>
+                      ) : (
+                        <div className="mt-2 grid grid-cols-2 gap-1">
+                          <label className="flex min-h-10 cursor-pointer items-center justify-center gap-1 bg-[#6e0d1f] px-1 text-[9px] font-black uppercase text-[#F3E5AB]"><Camera className="h-3.5 w-3.5" /> Camera<input type="file" accept="image/*" capture={label === 'Person' ? 'user' : 'environment'} className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>
+                          <label className="flex min-h-10 cursor-pointer items-center justify-center gap-1 border border-[#6e0d1f] bg-white px-1 text-[9px] font-black uppercase text-[#6e0d1f]"><ImageIcon className="h-3.5 w-3.5" /> Gallery<input type="file" accept="image/*" className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

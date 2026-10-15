@@ -398,9 +398,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Scan a Rs 500+ price tag</h2>
             <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Open the camera and keep the full Maharaja price tag and amount clearly visible.</p>
             {priceTagPhoto && <img src={priceTagPhoto} alt="Scanned Maharaja price tag" className="mx-auto mt-4 max-h-48 border border-[#D8C49B] object-contain" />}
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <label className="flex min-h-14 cursor-pointer items-center justify-center gap-2 bg-[#6E0D1F] px-3 text-xs font-bold uppercase text-[#F3E5AB]">
-                <Camera className="h-5 w-5" /> Camera
+            <div className="mt-5">
+              <label className="flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 bg-[#6E0D1F] px-5 text-xs font-bold uppercase text-[#F3E5AB]">
+                <Camera className="h-5 w-5" /> Open Camera
                 <input
                   id="scan-price-tag-camera-input"
                   type="file"
@@ -410,10 +410,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   disabled={busy}
                   onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePriceTag(file); }}
                 />
-              </label>
-              <label className="flex min-h-14 cursor-pointer items-center justify-center gap-2 border border-[#6E0D1F] bg-white px-3 text-xs font-bold uppercase text-[#6E0D1F]">
-                <ImageIcon className="h-5 w-5" /> Gallery
-                <input id="scan-price-tag-file-input" type="file" accept="image/*" className="hidden" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePriceTag(file); }} />
               </label>
             </div>
             {priceAmount !== null && <p className="mt-3 text-sm font-bold text-[#6E0D1F]">Detected price: Rs {priceAmount}</p>}
