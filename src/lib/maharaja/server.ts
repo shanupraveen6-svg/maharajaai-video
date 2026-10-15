@@ -67,6 +67,8 @@ export type MaharajaVideoPass = {
   retryUsed?: boolean;
   lastVideoFailed?: boolean;
   lastVideoFailedAtMs?: number;
+  /** Active generation job ID bound to this pass to prevent stale job updates. */
+  activeVideoJobId?: string;
   usage: { scans: number; imagesGenerated: number; videosGenerated: number; goLive: number };
 };
 
@@ -431,9 +433,36 @@ export async function markPassVideoMasterDone(code: string, videoMasterUrl: stri
   await mergePassUpdate(code, { videoMasterDone: true, videoMasterUrl });
 }
 
-/** Called once the video provider has accepted the job: consumes the video and releases the lock. */
+/** Called once the video provider has accepted the job: marks as rendering and binds the job ID. */
+export async function markPassVideoSubmitted(code: string, jobId: string) {
+  await mergePassUpdate(code, {
+    videoGenerating: true,
+    videoGeneratingAtMs: Date.now(),
+    videoDone: false,
+    activeVideoJobId: jobId,
+    lastVideoFailed: false,
+  });
+}
+
+/** Called once the final video is confirmed ready by /api/video/status: completes the video and releases lock. */
+export async function markPassVideoReady(code: string, jobId?: string) {
+  if (jobId) {
+    const pass = await getVideoPass(code);
+    if (pass && pass.activeVideoJobId && pass.activeVideoJobId !== jobId) {
+      console.warn(`Ignoring video ready from stale job ${jobId}; active job is ${pass.activeVideoJobId}`);
+      return;
+    }
+  }
+  await mergePassUpdate(code, {
+    videoDone: true,
+    videoGenerating: false,
+    lastVideoFailed: false,
+  });
+}
+
+/** Backwards-compatible alias for markPassVideoReady. */
 export async function markPassVideoDone(code: string) {
-  await mergePassUpdate(code, { videoDone: true, videoGenerating: false });
+  await markPassVideoReady(code);
 }
 
 /** Releases the video lock after a provider rejection / failure (video stays available). */
@@ -445,7 +474,14 @@ export async function releasePassVideoLock(code: string) {
  * Called when a submitted video generation job permanently fails on the provider queue.
  * Reopens the pass video slot so the customer's legitimate 1-video entitlement is not consumed by a failed render.
  */
-export async function markPassVideoFailed(code: string) {
+export async function markPassVideoFailed(code: string, jobId?: string) {
+  if (jobId) {
+    const pass = await getVideoPass(code);
+    if (pass && pass.activeVideoJobId && pass.activeVideoJobId !== jobId) {
+      console.warn(`Ignoring video failed from stale job ${jobId}; active job is ${pass.activeVideoJobId}`);
+      return;
+    }
+  }
   await mergePassUpdate(code, {
     videoDone: false,
     videoGenerating: false,
@@ -459,7 +495,12 @@ export async function markPassVideoFailed(code: string) {
  * Allowed only after a completed first video and only once per pass.
  */
 export async function markPassRetryApproved(code: string) {
-  await mergePassUpdate(code, { retryUsed: true, videoDone: false, videoGenerating: false });
+  await mergePassUpdate(code, {
+    retryUsed: true,
+    videoDone: false,
+    videoGenerating: false,
+    activeVideoJobId: undefined,
+  });
 }
 
 const VIDEO_LOCK_STALE_MS = 3 * 60 * 1000;

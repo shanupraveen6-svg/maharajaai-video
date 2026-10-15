@@ -12,6 +12,7 @@ const server = await import('../src/lib/maharaja/server.ts');
 const {
   saveVideoPass, getVideoPass, markPassTryOnImageDone, markPassVideoMasterDone, markPassVideoDone,
   markPassRetryApproved, releasePassVideoLock, acquirePassVideoLock, markPassVideoFailed,
+  markPassVideoSubmitted, markPassVideoReady,
 } = server;
 
 function assert(condition, label) {
@@ -59,9 +60,23 @@ await markPassVideoMasterDone(racePass, 'master-url');
 const racers = await Promise.all(Array.from({ length: 8 }, () => acquirePassVideoLock(racePass)));
 assert(racers.filter((result) => result.ok).length === 1, 'Exactly one of 8 simultaneous requests wins the lock');
 
-await markPassVideoDone(code);
+const jobId1 = 'job_test_001';
+await markPassVideoSubmitted(code, jobId1);
 pass = await getVideoPass(code);
-assert(pass.videoDone === true && pass.videoGenerating === false, 'Provider acceptance sets videoDone=true and clears the lock');
+assert(pass.videoGenerating === true && pass.videoDone === false && pass.activeVideoJobId === jobId1, 'Provider acceptance sets videoGenerating=true, videoDone=false, and binds activeVideoJobId');
+const duringRender = await acquirePassVideoLock(code);
+assert(!duringRender.ok && /already being generated/i.test(duringRender.error), 'Lock refused while video is rendering');
+
+// Stale job update rejection:
+const staleJobId = 'job_test_stale';
+await markPassVideoReady(code, staleJobId);
+pass = await getVideoPass(code);
+assert(pass.videoDone === false && pass.videoGenerating === true, 'Stale job ready does not set videoDone=true');
+
+// Real active job confirms ready:
+await markPassVideoReady(code, jobId1);
+pass = await getVideoPass(code);
+assert(pass.videoDone === true && pass.videoGenerating === false, 'Final video ready sets videoDone=true and clears videoGenerating');
 const afterDone = await acquirePassVideoLock(code);
 assert(!afterDone.ok && /already completed/i.test(afterDone.error), 'No second video once videoDone=true');
 

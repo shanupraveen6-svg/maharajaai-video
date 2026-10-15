@@ -6,11 +6,11 @@ import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
 import fs from 'fs';
 import path from 'path';
 
-import { markPassVideoFailed } from '@/lib/maharaja/server';
+import { getVideoPass, markPassVideoFailed, markPassVideoReady, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
 
-async function markVideoFailed(db: any, sessionId: string, message: string, accessCode?: string | null) {
+async function markVideoFailed(db: any, sessionId: string, message: string, accessCode?: string | null, jobId?: string | null) {
   if (!sessionId) return;
   const nowIso = new Date().toISOString();
   if (db) {
@@ -32,7 +32,7 @@ async function markVideoFailed(db: any, sessionId: string, message: string, acce
 
   if (accessCode) {
     try {
-      await markPassVideoFailed(accessCode);
+      await markPassVideoFailed(accessCode, jobId || undefined);
       console.log(`Reopened video slot for pass ${accessCode} following failed render.`);
     } catch (passErr) {
       console.warn('Could not reset failed pass video state:', passErr);
@@ -72,8 +72,9 @@ function formatVeoStatusError(error: any) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    let jobId = searchParams.get('jobId');
-    const sessionId = searchParams.get('sessionId');
+    let jobId = searchParams.get('jobId')?.trim() || null;
+    const sessionId = searchParams.get('sessionId')?.trim() || null;
+    const accessCodeParam = searchParams.get('accessCode')?.trim() || null;
 
     if (!jobId && !sessionId) {
       return NextResponse.json(
@@ -93,7 +94,7 @@ export async function GET(req: NextRequest) {
     let provider: string | null = null;
     let eventId = 'diwali';
     let clientId: string | null = null;
-    let accessCode: string | null = null;
+    let accessCode: string | null = accessCodeParam;
 
     if (db) {
       // 1. Fetch Session Doc first
@@ -103,8 +104,18 @@ export async function GET(req: NextRequest) {
           const sData = sessionDoc.data();
           eventId = sData?.eventId || eventId;
           clientId = sData?.clientId || clientId;
-          accessCode = sData?.accessCode || accessCode;
           masterImageUrl = sData?.masterImageUrl || masterImageUrl;
+
+          // Cross-validate that requested jobId belongs to this session
+          if (jobId && sData?.jobId && sData.jobId !== jobId) {
+            return NextResponse.json({ success: false, error: 'The specified jobId does not belong to this sessionId.' }, { status: 400 });
+          }
+          // Cross-validate that requested accessCode belongs to this session
+          if (accessCodeParam && sData?.accessCode && sData.accessCode !== accessCodeParam) {
+            return NextResponse.json({ success: false, error: 'The specified accessCode does not match this session.' }, { status: 403 });
+          }
+
+          accessCode = sData?.accessCode || accessCode;
           if (sData?.videoStatus === 'failed') {
             return NextResponse.json({
               success: false,
@@ -138,6 +149,15 @@ export async function GET(req: NextRequest) {
           operationName = jobData?.operationName || null;
           requestId = jobData?.requestId || null;
           provider = jobData?.provider || provider;
+
+          // Cross-validate that requested sessionId belongs to this job
+          if (targetSessionId && jobData?.sessionId && jobData.sessionId !== targetSessionId) {
+            return NextResponse.json({ success: false, error: 'The specified sessionId does not belong to this jobId.' }, { status: 400 });
+          }
+          if (accessCodeParam && jobData?.accessCode && jobData.accessCode !== accessCodeParam) {
+            return NextResponse.json({ success: false, error: 'The specified accessCode does not match this job.' }, { status: 403 });
+          }
+
           accessCode = jobData?.accessCode || accessCode;
           if (!targetSessionId && jobData?.sessionId) {
             targetSessionId = jobData.sessionId;
@@ -151,8 +171,16 @@ export async function GET(req: NextRequest) {
         if (session) {
           eventId = session.eventId || eventId;
           clientId = session.clientId || clientId;
-          accessCode = session.accessCode || accessCode;
           masterImageUrl = session.masterImageUrl || masterImageUrl;
+
+          if (jobId && session.jobId && session.jobId !== jobId) {
+            return NextResponse.json({ success: false, error: 'The specified jobId does not belong to this sessionId.' }, { status: 400 });
+          }
+          if (accessCodeParam && session.accessCode && session.accessCode !== accessCodeParam) {
+            return NextResponse.json({ success: false, error: 'The specified accessCode does not match this session.' }, { status: 403 });
+          }
+
+          accessCode = session.accessCode || accessCode;
           if (session.videoStatus === 'failed') {
             return NextResponse.json({
               success: false,
@@ -177,11 +205,29 @@ export async function GET(req: NextRequest) {
       if (jobId) {
         const jobData = mockStore.sessions.get(jobId) || mockStore.sessions.get(`job_${jobId}`);
         if (jobData) {
+          if (targetSessionId && jobData.sessionId && jobData.sessionId !== targetSessionId) {
+            return NextResponse.json({ success: false, error: 'The specified sessionId does not belong to this jobId.' }, { status: 400 });
+          }
+          if (accessCodeParam && jobData.accessCode && jobData.accessCode !== accessCodeParam) {
+            return NextResponse.json({ success: false, error: 'The specified accessCode does not match this job.' }, { status: 403 });
+          }
+
           requestId = jobData.requestId || null;
           operationName = jobData.operationName || null;
           provider = jobData.provider || provider;
           accessCode = jobData.accessCode || accessCode;
+          if (!targetSessionId && jobData.sessionId) {
+            targetSessionId = jobData.sessionId;
+          }
         }
+      }
+    }
+
+    // Verify customer pass access before generating/returning signed media URLs
+    if (accessCode) {
+      const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+      if (!access.allowed && access.error !== 'This AI Video has been completed.') {
+        return NextResponse.json({ success: false, error: access.error }, { status: 401 });
       }
     }
 
@@ -276,6 +322,11 @@ export async function GET(req: NextRequest) {
               }, { merge: true });
             }
 
+            if (accessCode) {
+              await markPassVideoReady(accessCode, jobId || undefined);
+            }
+            const pass = accessCode ? await getVideoPass(accessCode) : null;
+
             return NextResponse.json({
               success: true,
               jobId,
@@ -285,6 +336,8 @@ export async function GET(req: NextRequest) {
               masterImageUrl,
               videoId: `video_${targetSessionId}`,
               eventId,
+              retryUsed: !!pass?.retryUsed,
+              videoDone: !!pass?.videoDone,
             });
           }
 
@@ -302,7 +355,7 @@ export async function GET(req: NextRequest) {
 
           if (queueState === 'FAILED' || queueState === 'ERROR' || queueState === 'CANCELLED') {
             const errMessage = `MiniMax Hailuo generation ${queueState.toLowerCase()}. Stop and review the prompt/image before retrying.`;
-            await markVideoFailed(db, targetSessionId, errMessage, accessCode);
+            await markVideoFailed(db, targetSessionId, errMessage, accessCode, jobId);
             return NextResponse.json({
               success: false,
               jobId,
@@ -352,7 +405,7 @@ export async function GET(req: NextRequest) {
 
           if (operation.error) {
             const message = formatVeoStatusError(operation.error);
-            await markVideoFailed(db, targetSessionId, message, accessCode);
+            await markVideoFailed(db, targetSessionId, message, accessCode, jobId);
             return NextResponse.json({
               success: false,
               jobId,
@@ -420,7 +473,7 @@ export async function GET(req: NextRequest) {
 
           if (!fileBuffer) {
             status = 'failed';
-            await markVideoFailed(db, targetSessionId, 'Failed to download generated Veo video output', accessCode);
+            await markVideoFailed(db, targetSessionId, 'Failed to download generated Veo video output', accessCode, jobId);
             return NextResponse.json({
               success: false,
               jobId,
@@ -437,7 +490,7 @@ export async function GET(req: NextRequest) {
           const bucket = getStorageBucket();
           if (!bucket) {
             status = 'failed';
-            await markVideoFailed(db, targetSessionId, 'Firebase Storage bucket is required to save generated Veo video output.', accessCode);
+            await markVideoFailed(db, targetSessionId, 'Firebase Storage bucket is required to save generated Veo video output.', accessCode, jobId);
             return NextResponse.json({
               success: false,
               jobId,
@@ -483,7 +536,7 @@ export async function GET(req: NextRequest) {
         } catch (opErr: any) {
           console.error('Veo Operation Polling Error:', opErr);
           const message = formatVeoStatusError(opErr);
-          await markVideoFailed(db, targetSessionId, message, accessCode);
+          await markVideoFailed(db, targetSessionId, message, accessCode, jobId);
           return NextResponse.json({
             success: false,
             jobId,
@@ -509,6 +562,11 @@ export async function GET(req: NextRequest) {
 
     const qaResult = await runQualityAssurance('', videoUrl);
 
+    if (accessCode) {
+      await markPassVideoReady(accessCode, jobId || undefined);
+    }
+    const pass = accessCode ? await getVideoPass(accessCode) : null;
+
     return NextResponse.json({
       success: true,
       jobId,
@@ -519,6 +577,8 @@ export async function GET(req: NextRequest) {
       videoId: `video_${targetSessionId}`,
       qaResult,
       eventId,
+      retryUsed: !!pass?.retryUsed,
+      videoDone: !!pass?.videoDone,
     });
 
   } catch (error: any) {

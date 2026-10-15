@@ -7,7 +7,7 @@ import { fal } from '@fal-ai/client';
 import fs from 'fs';
 import path from 'path';
 import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { acquirePassVideoLock, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoDone, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { acquirePassVideoLock, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoSubmitted, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
 
@@ -477,10 +477,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // The provider has accepted the job: consume the video now (and release the lock), before
-    // any bookkeeping that could throw, so a later error can never reopen the slot.
+    // The provider has accepted the job: mark rendering on the pass and bind this jobId
     if (access.pass) {
-      await markPassVideoDone(access.pass.code);
+      await markPassVideoSubmitted(access.pass.code, jobId);
       videoSubmitted = true;
     }
 

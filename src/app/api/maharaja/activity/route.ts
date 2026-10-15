@@ -53,17 +53,16 @@ export async function POST(req: NextRequest) {
         const isOperator = verifyOperatorRequest(req);
         if (!isOperator) {
           const configuredPin = process.env.MAHARAJA_MANAGER_PIN?.trim();
-          const isProduction = process.env.NODE_ENV === 'production';
 
-          if (isProduction && !configuredPin) {
-            console.error('CRITICAL: MAHARAJA_MANAGER_PIN is not configured in production environment.');
+          if (!configuredPin) {
+            console.error('CRITICAL: MAHARAJA_MANAGER_PIN is not configured.');
             return NextResponse.json({
               success: false,
               error: 'Manager authorization is temporarily unavailable (MAHARAJA_MANAGER_PIN is not configured). Contact administrator.'
             }, { status: 500 });
           }
 
-          const expectedPin = configuredPin || (isProduction ? '' : '7070');
+          const expectedPin = configuredPin;
           const rateLimitKey = String(body.accessCode || req.headers.get('x-forwarded-for') || 'default');
           const record = pinAttempts.get(rateLimitKey);
           const now = Date.now();

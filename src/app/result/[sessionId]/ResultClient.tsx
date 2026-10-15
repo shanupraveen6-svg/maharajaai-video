@@ -37,6 +37,8 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
   const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>('processing');
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
+  const [retryUsed, setRetryUsed] = useState(false);
+  const [videoDone, setVideoDone] = useState(false);
   const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId), [sessionId]);
   const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId), [sessionId]);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -123,7 +125,9 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
 
     async function checkVideoStatus() {
       try {
-        const res = await fetch(`/api/video/status?sessionId=${sessionId}`);
+        const queryParams = new URLSearchParams({ sessionId });
+        if (accessCode) queryParams.set('accessCode', accessCode);
+        const res = await fetch(`/api/video/status?${queryParams.toString()}`);
         const data = await res.json();
         if (!isMounted) return;
 
@@ -139,6 +143,8 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
           if (data.masterImageUrl) {
             setMasterImageUrl(data.masterImageUrl);
           }
+          if (typeof data.retryUsed === 'boolean') setRetryUsed(data.retryUsed);
+          if (typeof data.videoDone === 'boolean') setVideoDone(data.videoDone);
           if (data.status === 'ready' || data.status === 'succeeded') {
             setVideoUrl(data.videoUrl);
             setVideoId(data.videoId || `video_${sessionId}`);
@@ -214,7 +220,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
   };
 
-  const executeDownload = async (completePass = true) => {
+  const executeDownload = async () => {
     await fetch('/api/maharaja/activity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -228,13 +234,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
       const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
       await downloadAsset(videoUrl, `Maharaja-${eventLabel}-Video-${sessionId}.${extension}`);
     }
-    if (completePass && accessCode) {
-      await fetch('/api/maharaja/video-pass/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: accessCode, sessionId, action: 'download' }),
-      }).catch((err) => console.warn('Could not record pass completion:', err));
-    }
+    // Downloading the video must NOT complete or void the billing pass. The pass remains valid for its full window.
   };
 
   const shareText = `My ${eventLabel} AI fashion film from Majestic Maharaja is ready.`;
@@ -285,7 +285,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
 
     try {
       pausePreviewAudio();
-      const autoDownloadError = await executeDownload(false)
+      const autoDownloadError = await executeDownload()
         .then(() => null)
         .catch((err) => (err instanceof Error ? err.message : 'Auto-download failed.'));
       const res = await fetch('/api/live/enqueue', {
@@ -337,6 +337,8 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
       setRetryError(payload?.error || 'Unable to verify the manager PIN.');
       return;
     }
+    setRetryUsed(true);
+    setShowRetryPin(false);
     router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}` : '/maharaja/workspace');
   };
 
@@ -366,18 +368,14 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
             VIDEO GENERATION FAILED
           </h2>
           <p className="text-xs text-gray-300 max-w-xs mx-auto">
-            {videoError || 'Please create another video after checking the setup.'}
+            {videoError || 'The AI video could not be completed. Your video slot has been automatically restored.'}
           </p>
           <button
             type="button"
-            onClick={() => {
-              setRetryPin('');
-              setRetryError(null);
-              setShowRetryPin(true);
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-[#6e0d1f] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]"
+            onClick={() => router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace')}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-lg hover:brightness-105"
           >
-            <RotateCcw className="w-4 h-4" /> Manager Video Retry
+            <RotateCcw className="w-4 h-4" /> Generate Video Again
           </button>
         </div>
       ) : isLoadingVideo || videoStatus === 'processing' || !videoUrl ? (
@@ -401,18 +399,21 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
 
         {/* 9:16 Video Preview Frame */}
         <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border-2 border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
-          <button
+          {videoDone && !retryUsed && (
+            <button
               type="button"
               onClick={() => {
                 setRetryPin('');
                 setRetryError(null);
                 setShowRetryPin(true);
               }}
-              className="absolute right-3 top-3 z-10 rounded-full border border-[#D4AF37]/50 bg-black/55 p-2 text-[#D4AF37] backdrop-blur"
+              className="absolute right-3 top-3 z-10 rounded-full border border-[#D4AF37]/50 bg-black/55 p-2 text-[#D4AF37] backdrop-blur hover:bg-black/75 transition"
               aria-label="Manager retry"
+              title="Manager Video Retry"
             >
               <RotateCcw className="h-4 w-4" />
             </button>
+          )}
           <video
             src={videoUrl}
             controls
@@ -560,14 +561,16 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
               </p>
             </div>
             <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
               value={retryPin}
               onChange={(event) => {
-                setRetryPin(event.target.value);
+                setRetryPin(event.target.value.replace(/\D/g, '').slice(0, 6));
                 setRetryError(null);
               }}
-              inputMode="numeric"
-              placeholder="Enter PIN"
-              className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-center text-lg font-black tracking-widest text-white outline-none focus:border-[#D4AF37]"
+              placeholder="••••••"
+              className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-center text-2xl font-black tracking-[0.5em] text-white outline-none focus:border-[#D4AF37]"
             />
             {retryError && (
               <div className="rounded-md border border-red-400/50 bg-red-950/50 p-3 text-xs font-bold text-red-200">
