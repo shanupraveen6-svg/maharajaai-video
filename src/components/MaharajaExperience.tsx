@@ -464,7 +464,11 @@ export default function MaharajaExperience({ service, accessCode }: { service: '
                       disabled={busy || service === 'ai-video'}
                       className="mt-2 min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] px-3 text-base font-bold disabled:opacity-70"
                     >
-                      {EVENT_OPTIONS.filter((option) => access?.workspace.activeEvents.includes(option.id) ?? true).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                      {EVENT_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id} disabled={option.id !== 'diwali'}>
+                          {option.label} {option.id === 'diwali' ? '— Active Campaign' : '— (Coming Soon)'}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 </div>

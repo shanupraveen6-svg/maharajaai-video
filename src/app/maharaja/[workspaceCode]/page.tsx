@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
+  AlertCircle,
   CheckCircle2,
   Copy,
   Download,
@@ -230,13 +231,87 @@ export default function MaharajaAdminPage() {
         </section>
 
         <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6">
-          <div className="flex items-start gap-3"><CalendarRange className="mt-1 h-6 w-6 text-[#6E0D1F]" /><div><p className="text-xs font-bold uppercase text-[#8A6A20]">Prompt controls</p><h2 className="mt-1 font-serif text-2xl font-bold text-[#2A060C]">Active events</h2><p className="mt-1 text-sm text-[#5C4B43]">Only active events appear at billing and in the customer experience. Each event uses its matching scene prompt.</p></div></div>
+          <div className="flex items-start gap-3">
+            <CalendarRange className="mt-1 h-6 w-6 text-[#6E0D1F]" />
+            <div>
+              <p className="text-xs font-bold uppercase text-[#8A6A20]">Campaign & Theme Controls</p>
+              <h2 className="mt-1 font-serif text-2xl font-bold text-[#2A060C]">Active Festival Campaign</h2>
+              <p className="mt-1 text-sm text-[#5C4B43]">
+                Select the active festival campaign for Maharaja Silks. The selected festival controls the AI styling prompts, customer greetings, and TV broadcast overlays.
+              </p>
+            </div>
+          </div>
+
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {EVENT_OPTIONS.map((option) => {
-              const checked = workspace.activeEvents.includes(option.id);
-              return <label key={option.id} className="flex min-h-12 items-center gap-3 border border-[#DDD2BD] px-4 text-sm font-bold"><input type="checkbox" checked={checked} disabled={saving || (checked && workspace.activeEvents.length === 1)} onChange={() => { const next = checked ? workspace.activeEvents.filter((id) => id !== option.id) : [...workspace.activeEvents, option.id]; const nextDefault = next.includes(workspace.defaultEvent) ? workspace.defaultEvent : next[0]; void saveEventSettings(next, nextDefault); }} className="h-5 w-5 accent-[#6E0D1F]" />{option.label}<input type="radio" name="default-event" checked={workspace.defaultEvent === option.id} disabled={!checked || saving} onChange={() => void saveEventSettings(workspace.activeEvents, option.id)} className="ml-auto h-4 w-4 accent-[#D4AF37]" title="Default event" /></label>;
+              const isSelected = workspace.defaultEvent === option.id;
+              const isReady = option.id === 'diwali';
+
+              return (
+                <label
+                  key={option.id}
+                  onClick={() => {
+                    if (!isReady) {
+                      setMessage(`✨ ${option.label} is Coming Soon! Diwali is currently the active production-tuned campaign for Maharaja Silks.`);
+                    }
+                  }}
+                  className={`relative flex cursor-pointer flex-col justify-between border p-4 transition ${
+                    isSelected
+                      ? 'border-[#6E0D1F] bg-[#FFF8E8] shadow-sm'
+                      : 'border-[#DDD2BD] bg-white hover:border-[#8A6A20]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-serif text-lg font-bold text-[#2A060C]">{option.label}</span>
+                    <input
+                      type="radio"
+                      name="active-event"
+                      checked={isSelected}
+                      disabled={saving}
+                      onChange={() => {
+                        if (isReady) {
+                          void saveEventSettings(['diwali'], option.id);
+                        } else {
+                          setMessage(`✨ ${option.label} is Coming Soon! Diwali is currently the active production-tuned campaign for Maharaja Silks.`);
+                        }
+                      }}
+                      className="h-5 w-5 accent-[#6E0D1F]"
+                    />
+                  </div>
+
+                  <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
+                    {option.scene}
+                  </p>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-[#E8DFCF] pt-2">
+                    {isReady ? (
+                      <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+                        <Sparkles className="h-3 w-3" /> Live Production
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                        Coming Soon
+                      </span>
+                    )}
+                    {isSelected && (
+                      <span className="text-xs font-black uppercase tracking-wider text-[#6E0D1F]">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                </label>
+              );
             })}
           </div>
+
+          {workspace.defaultEvent !== 'diwali' && (
+            <div className="mt-4 flex items-center gap-2 border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-700" />
+              <span>
+                Note: <strong>Diwali</strong> is currently the only live production campaign with verified AI fashion prompts and TV broadcast overlays. Other festivals will unlock for upcoming festival dates.
+              </span>
+            </div>
+          )}
         </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
