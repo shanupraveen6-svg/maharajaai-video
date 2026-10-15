@@ -21,7 +21,7 @@ const stores = [
     id: 'maharaja',
     name: 'Maharaja',
     location: 'Thanjavur, Tamil Nadu',
-    href: '/create',
+    href: '/maharaja/workspace',
   },
 ];
 
@@ -58,14 +58,12 @@ const pricingIncludes = [
 ];
 
 const eventModules = [
-  { title: 'Diwali', status: 'Active pilot' },
-  { title: 'Pongal', status: 'Template ready' },
-  { title: 'Christmas', status: 'Coming soon' },
-  { title: 'New Year', status: 'Coming soon' },
-  { title: 'Ramzan', status: 'Coming soon' },
-  { title: 'Birthday', status: 'Coming soon' },
-  { title: 'Store Anniversary', status: 'Coming soon' },
-  { title: 'Wedding Season', status: 'Coming soon' },
+  { title: 'Diwali', status: 'Active' },
+  { title: 'New Year', status: 'Active' },
+  { title: 'Pongal', status: 'Active' },
+  { title: 'Christmas', status: 'Active' },
+  { title: 'Ramadan', status: 'Active' },
+  { title: 'Birthday', status: 'Active' },
 ];
 
 export default function LandingPage() {
@@ -78,7 +76,7 @@ export default function LandingPage() {
               <WandSparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-serif text-2xl font-bold tracking-[0.02em] text-[#6e0d1f]">tryfocus</p>
+              <p className="font-serif text-2xl font-bold tracking-[0.02em] text-[#6e0d1f]">TryFocus</p>
               <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">AI retail growth platform</p>
             </div>
           </div>
@@ -101,7 +99,7 @@ export default function LandingPage() {
               AI try-on and event video marketing for fashion stores.
             </h1>
             <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-[#5C4B43]">
-              tryfocus helps retail teams turn real shoppers, garments and store events into personalized AI visuals, showroom TV ads, QR-led campaigns and measurable customer engagement.
+              TryFocus helps retail teams turn real shoppers, garments and store events into personalized AI visuals, showroom TV ads, QR-led campaigns and measurable customer engagement.
             </p>
 
             <div className="mt-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
@@ -148,7 +146,7 @@ export default function LandingPage() {
             </div>
 
             <form action="/login" method="get" className="border border-[#e7d9b7] bg-[#fffaf0] p-4 md:p-5">
-              <input type="hidden" name="next" value="/create" />
+              <input type="hidden" name="next" value="/maharaja/workspace" />
 
               <label htmlFor="store-select" className="text-[10px] font-black uppercase tracking-[0.24em] text-[#8A6A20]">
                 Store workspace
@@ -158,7 +156,7 @@ export default function LandingPage() {
                 name="store"
                 defaultValue=""
                 required
-                className="mt-3 w-full appearance-none border border-[#6e0d1f]/25 bg-white px-4 py-4 text-base font-black uppercase tracking-wider text-[#2A060C] outline-none focus:border-[#6e0d1f]"
+                className="mt-3 w-full border border-[#6e0d1f]/25 bg-white px-4 py-4 text-base font-black uppercase tracking-wider text-[#2A060C] outline-none focus:border-[#6e0d1f]"
               >
                 <option value="" disabled>
                   Select store
@@ -180,6 +178,7 @@ export default function LandingPage() {
 
               <button
                 type="submit"
+                id="continue-to-login-btn"
                 className="mt-5 flex w-full items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#F3E5AB] transition hover:bg-[#800A1D]"
               >
                 Continue to login <ArrowRight className="h-4 w-4" />
@@ -202,7 +201,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[0.75fr_1.25fr]">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#8A6A20]">What tryfocus does</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#8A6A20]">What TryFocus does</p>
               <h2 className="mt-3 font-serif text-4xl font-bold leading-tight text-[#2A060C]">
                 A campaign engine for fashion retail, not just a generator.
               </h2>
@@ -234,7 +233,7 @@ export default function LandingPage() {
               </h2>
             </div>
             <p className="max-w-xl text-sm font-semibold leading-6 text-[#5C4B43]">
-              Diwali is the current Maharaja pilot. The same product structure can run seasonal, birthday, wedding and store-led campaigns without changing the client portal.
+              Maharaja can activate or pause each event from its client admin. Every active event uses its own aligned image and video prompt.
             </p>
           </div>
 

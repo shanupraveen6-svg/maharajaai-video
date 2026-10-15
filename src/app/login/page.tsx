@@ -5,9 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, LockKeyhole, Store, WandSparkles } from 'lucide-react';
 
-const USERNAME = 'shanu7';
-const PASSWORDS = ['99948387342', '9994837342'];
-
 function MaharajaLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,16 +13,16 @@ function MaharajaLoginForm() {
   const [error, setError] = useState('');
 
   const nextPath = useMemo(() => {
-    const next = searchParams.get('next') || '/create';
-    return next.startsWith('/') ? next : '/create';
+    const next = searchParams.get('next') || '/maharaja/workspace';
+    return next.startsWith('/') && !next.startsWith('//') ? next : '/maharaja/workspace';
   }, [searchParams]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
 
-    if (username.trim() !== USERNAME || !PASSWORDS.includes(password.trim())) {
-      setError('Invalid Maharaja login. Please check username and password.');
+    if (!username.trim() || !password.trim()) {
+      setError('Please enter your username and password.');
       return;
     }
 
@@ -65,10 +62,10 @@ function MaharajaLoginForm() {
               Maharaja selected
             </div>
             <h1 className="font-serif text-5xl font-bold leading-tight text-[#2A060C] md:text-6xl">
-              Login to create Diwali greeting videos.
+              Login to manage Maharaja AI experiences.
             </h1>
             <p className="mt-5 max-w-xl text-base leading-8 text-[#4A3B35]">
-              Enter the Maharaja operator login to upload garment photos, generate the AI image, approve it, and send the final video to the store TV.
+              Download the permanent Try-On QR, open the billing-counter link, and track Maharaja customer usage from one workspace.
             </p>
           </div>
 
@@ -83,9 +80,10 @@ function MaharajaLoginForm() {
               </div>
             </div>
 
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#5C4B43]">
+            <label htmlFor="username-input" className="block text-xs font-bold uppercase tracking-wider text-[#5C4B43]">
               Username
               <input
+                id="username-input"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 className="mt-2 w-full rounded-xl border border-[#6e0d1f]/18 bg-[#fffaf0] px-4 py-3 text-base font-semibold text-[#2A060C] outline-none focus:border-[#6e0d1f]"
@@ -94,9 +92,10 @@ function MaharajaLoginForm() {
               />
             </label>
 
-            <label className="mt-4 block text-xs font-bold uppercase tracking-wider text-[#5C4B43]">
+            <label htmlFor="password-input" className="mt-4 block text-xs font-bold uppercase tracking-wider text-[#5C4B43]">
               Password
               <input
+                id="password-input"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -113,9 +112,10 @@ function MaharajaLoginForm() {
 
             <button
               type="submit"
+              id="login-submit-btn"
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#6e0d1f] px-5 py-4 text-sm font-bold uppercase tracking-wider text-[#F3E5AB] shadow-lg transition hover:bg-[#800A1D]"
             >
-              Enter Create Page <ArrowRight className="h-4 w-4" />
+              Enter Maharaja Admin <ArrowRight className="h-4 w-4" />
             </button>
           </form>
         </div>

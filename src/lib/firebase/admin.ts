@@ -81,6 +81,10 @@ type MockStore = {
   videos: Map<string, any>;
   consents: Map<string, any>;
   customerPasses: Map<string, unknown>;
+  clientWorkspaces: Map<string, unknown>;
+  activityLogs: Map<string, unknown>;
+  tryOnGrants: Map<string, unknown>;
+  usedPriceTags: Map<string, unknown>;
 };
 
 const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
@@ -97,7 +101,11 @@ const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
   sessions: new Map(),
   videos: new Map(),
   consents: new Map(),
-  customerPasses: new Map()
+  customerPasses: new Map(),
+  clientWorkspaces: new Map(),
+  activityLogs: new Map(),
+  tryOnGrants: new Map(),
+  usedPriceTags: new Map()
 };
 
 (global as any).__MAHARAJA_MOCK_STORE__ = globalMockStore;
@@ -129,6 +137,10 @@ export function getStorageBucket() {
 }
 
 export function getMockStore() {
+  if (!globalMockStore.activityLogs) globalMockStore.activityLogs = new Map();
+  if (!globalMockStore.clientWorkspaces) globalMockStore.clientWorkspaces = new Map();
+  if (!globalMockStore.customerPasses) globalMockStore.customerPasses = new Map();
+  if (!globalMockStore.tryOnGrants) globalMockStore.tryOnGrants = new Map();
   return globalMockStore;
 }
 

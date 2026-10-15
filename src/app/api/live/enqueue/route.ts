@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markVideoPassUsed, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -53,6 +54,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { sessionId, videoId } = body;
+    const access = await verifyMaharajaAccess(req, body.accessCode, 'ai-video');
+    if (!access.allowed) {
+      return NextResponse.json({ success: false, error: access.error }, { status: 401 });
+    }
     const customerName = cleanDisplayText(body.customerName, 'Maharaja Customer');
     const customerLocality = cleanDisplayText(body.customerLocality, 'Thanjavur');
     const liveAudioUrl = cleanLiveAudioUrl(body.liveAudioUrl);
@@ -87,6 +92,7 @@ export async function POST(req: NextRequest) {
       screenId: 'maharaja-main',
       videoId,
       sessionId,
+      clientId: 'maharaja',
       customerName,
       customerLocality,
       liveAudioUrl,
@@ -182,6 +188,15 @@ export async function POST(req: NextRequest) {
         .sort(compareQueueItems);
       const index = queuedItems.findIndex((item: any) => item.id === queueId);
       queuePosition = index >= 0 ? index + 1 : null;
+    }
+
+    if (!reusedExistingQueue) {
+      await incrementMaharajaUsage('goLive');
+      if (access.pass) {
+        await incrementPassUsage(access.pass.code, 'goLive');
+        await markVideoPassUsed(access.pass.code);
+      }
+      await logMaharajaActivity('go-live', 'Customer joined the Maharaja live-screen queue', { sessionId, queueNumber });
     }
 
     return NextResponse.json({

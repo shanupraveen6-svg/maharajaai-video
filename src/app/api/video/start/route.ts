@@ -6,7 +6,9 @@ import { GoogleGenAI } from '@google/genai';
 import { fal } from '@fal-ai/client';
 import fs from 'fs';
 import path from 'path';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
+import sharp from 'sharp';
+import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
@@ -197,10 +199,6 @@ function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
         ? 'Child-safe cheerful festival feel; diya steady if visible; no adult styling.'
         : 'Premium confident hero feel, masculine but modest.';
 
-  const sceneCue = lowerPrompt.includes('outdoor') || lowerPrompt.includes('courtyard') || lowerPrompt.includes('garden') || lowerPrompt.includes('temple-street')
-    ? 'Outdoor Diwali background: safe distant crackers, lanterns, warm bokeh, festival light streaks.'
-    : 'Indoor Diwali background: diya flicker, brass lamps, marigold shimmer, warm bokeh, festival light streaks.';
-
   const cameraCue = lowerPrompt.includes('fresh camera template 1')
     ? 'Camera: high top-angle over Diwali lights/rangoli, immediate crane down, gold light sweep, dolly-in, final slow zoom-out.'
     : lowerPrompt.includes('fresh camera template 2')
@@ -211,7 +209,7 @@ function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
           ? 'Camera: fast gold-particle sweep across marigold lights, movie-poster reveal, soft sparkles/cracker glow, clean zoom-out.'
           : 'Camera: immediate golden light sweep, smooth dolly-in, small side truck, rack focus, bokeh, final slow zoom-out.';
 
-  const canonicalPrompt = `Premium photorealistic 6-second vertical 9:16 Diwali fashion film from the uploaded master image of the ${audience}. Start motion at frame 1: no blank screen, no static hold, no delayed intro. Preserve exact face, identity, eye shape, nose, mouth, jawline, skin tone, hairstyle, hairline, beard/moustache if present, glasses if present, body size, body proportions, outfit fit, garment color, fabric texture, footwear, background, lighting and decorations. Do not beautify, age, slim, reshape, fair-skin, glamourize or replace the person. ${audienceCue} Premium feel comes only from lighting, color grade, camera movement and background motion. ${sceneCue} ${cameraCue} Energetic 6-sec preview suitable for 9-sec TV slow-mo. No text, captions, greeting words, logo, dialogue, lip-sync, forehead mark, extra limbs, face change or outfit change.`;
+  const canonicalPrompt = `${basePrompt} Start motion at frame 1 with no blank screen or delayed intro. Preserve exact face, identity, body, outfit and scene. ${audienceCue} ${cameraCue} Keep the approved event setting from the source image. Preserve the existing Majestic Maharaja brand mark in the top-right corner exactly as shown; do not add any other text or logos. No captions, greeting words, dialogue, lip-sync, forehead mark, extra limbs, face change or outfit change.`;
 
   const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision)}`;
   return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_PROVIDER_PROMPT_CHARS);
@@ -221,12 +219,13 @@ export async function POST(req: NextRequest) {
   const db = getDb();
 
   try {
-    if (!verifyOperatorRequest(req)) {
-      return NextResponse.json({ success: false, error: 'Unauthorized operator session. Please login again.' }, { status: 401 });
-    }
-
     const body = await req.json();
-    const { sessionId, garmentAnalysis, masterImageUrl, conceptPrompt } = body;
+    const { sessionId, garmentAnalysis, masterImageUrl, conceptPrompt, accessCode } = body;
+    const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+    if (!access.allowed) {
+      return NextResponse.json({ success: false, error: access.error }, { status: 401 });
+    }
+    const eventId = isEventId(body.eventId) ? body.eventId : access.pass?.eventId || 'diwali';
 
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'sessionId is required' }, { status: 400 });
@@ -273,7 +272,7 @@ export async function POST(req: NextRequest) {
       const bucket = getStorageBucket();
       if (bucket) {
         try {
-          const storagePath = `sessions/${sessionId}/master/master.jpg`;
+          const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
           const [buffer] = await bucket.file(storagePath).download();
           masterBase64 = buffer.toString('base64');
           masterMimeType = detectImageMimeType(buffer);
@@ -306,6 +305,30 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Approved master reference image is required to initialize video generation.' },
         { status: 400 }
       );
+    }
+
+    if (masterBase64) {
+      try {
+        const input = Buffer.from(masterBase64, 'base64');
+        const metadata = await sharp(input).metadata();
+        const width = metadata.width || 900;
+        const markWidth = Math.max(150, Math.round(width * 0.25));
+        const margin = Math.max(18, Math.round(width * 0.025));
+        const mark = await sharp(path.join(process.cwd(), 'public', 'maharaja-logo.png'))
+          .resize({ width: markWidth, withoutEnlargement: true })
+          .png()
+          .toBuffer();
+        const markMetadata = await sharp(mark).metadata();
+        const branded = await sharp(input)
+          .composite([{ input: mark, top: margin, left: Math.max(margin, width - (markMetadata.width || markWidth) - margin) }])
+          .jpeg({ quality: 94 })
+          .toBuffer();
+        masterBase64 = branded.toString('base64');
+        masterMimeType = 'image/jpeg';
+        masterDataUrl = `data:image/jpeg;base64,${masterBase64}`;
+      } catch (brandError) {
+        console.warn('Maharaja source branding warning:', brandError);
+      }
     }
 
     const motionSafety = await analyzeMasterMotionSafety(masterBase64, masterMimeType);
@@ -368,6 +391,9 @@ export async function POST(req: NextRequest) {
           jobData = {
             id: jobId,
             sessionId,
+            clientId: MAHARAJA_CLIENT_ID,
+            accessCode: typeof accessCode === 'string' ? accessCode : null,
+            eventId,
             prompt,
             requestId: falSubmitResult.request_id,
             provider: 'fal-minimax',
@@ -455,6 +481,9 @@ export async function POST(req: NextRequest) {
         jobData = {
           id: jobId,
           sessionId,
+          clientId: MAHARAJA_CLIENT_ID,
+          accessCode: typeof accessCode === 'string' ? accessCode : null,
+          eventId,
           prompt,
           operationName,
           provider: 'google-veo',
@@ -484,6 +513,9 @@ export async function POST(req: NextRequest) {
       await db.collection('generationJobs').doc(jobId).set(jobData);
       await db.collection('sessions').doc(sessionId).set({
         sessionId,
+        clientId: MAHARAJA_CLIENT_ID,
+        accessCode: typeof accessCode === 'string' ? accessCode : null,
+        eventId,
         jobId,
         videoStatus: jobData.status,
         provider: jobData.provider,
@@ -498,6 +530,9 @@ export async function POST(req: NextRequest) {
       mockStore.sessions.set(sessionId, {
         ...existingSession,
         sessionId,
+        clientId: MAHARAJA_CLIENT_ID,
+        accessCode: typeof accessCode === 'string' ? accessCode : null,
+        eventId,
         jobId,
         videoStatus: jobData.status,
         provider: jobData.provider,
@@ -506,6 +541,10 @@ export async function POST(req: NextRequest) {
         updatedAt: nowIso
       });
     }
+
+    await incrementMaharajaUsage('videosGenerated');
+    if (access.pass) await incrementPassUsage(access.pass.code, 'videosGenerated');
+    await logMaharajaActivity('video', `${eventId} AI Video generation started`, { sessionId });
 
     return NextResponse.json({
       success: true,

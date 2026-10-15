@@ -66,6 +66,8 @@ export async function GET(req: NextRequest) {
     let operationName: string | null = null;
     let requestId: string | null = null;
     let provider: string | null = null;
+    let eventId = 'diwali';
+    let clientId: string | null = null;
 
     if (db) {
       // 1. Fetch Session Doc first
@@ -73,6 +75,8 @@ export async function GET(req: NextRequest) {
         const sessionDoc = await db.collection('sessions').doc(targetSessionId).get();
         if (sessionDoc.exists) {
           const sData = sessionDoc.data();
+          eventId = sData?.eventId || eventId;
+          clientId = sData?.clientId || clientId;
           masterImageUrl = sData?.masterImageUrl || masterImageUrl;
           if (sData?.videoStatus === 'failed') {
             return NextResponse.json({
@@ -117,6 +121,8 @@ export async function GET(req: NextRequest) {
       if (targetSessionId) {
         const session = mockStore.sessions.get(targetSessionId);
         if (session) {
+          eventId = session.eventId || eventId;
+          clientId = session.clientId || clientId;
           masterImageUrl = session.masterImageUrl || masterImageUrl;
           if (session.videoStatus === 'failed') {
             return NextResponse.json({
@@ -201,7 +207,9 @@ export async function GET(req: NextRequest) {
               }
             }
 
-            const storagePath = `sessions/${targetSessionId}/video/final.mp4`;
+            const storagePath = clientId
+              ? `clients/${clientId}/sessions/${targetSessionId}/video/final.mp4`
+              : `sessions/${targetSessionId}/video/final.mp4`;
             const bucket = getStorageBucket();
 
             if (bucket && fileBuffer) {
@@ -245,7 +253,8 @@ export async function GET(req: NextRequest) {
               status: 'ready',
               videoUrl,
               masterImageUrl,
-              videoId: `video_${targetSessionId}`
+              videoId: `video_${targetSessionId}`,
+              eventId,
             });
           }
 
@@ -256,6 +265,7 @@ export async function GET(req: NextRequest) {
               sessionId: targetSessionId,
               status: 'processing',
               masterImageUrl,
+              eventId,
               message: 'MiniMax Hailuo video rendering in progress via Fal.ai...'
             });
           }
@@ -390,7 +400,9 @@ export async function GET(req: NextRequest) {
             }, { status: 500 });
           }
 
-          const storagePath = `sessions/${targetSessionId}/video/final.mp4`;
+          const storagePath = clientId
+            ? `clients/${clientId}/sessions/${targetSessionId}/video/final.mp4`
+            : `sessions/${targetSessionId}/video/final.mp4`;
 
           const bucket = getStorageBucket();
           if (!bucket) {
@@ -417,7 +429,7 @@ export async function GET(req: NextRequest) {
             await db.collection('videos').doc(`video_${targetSessionId}`).set({
               id: `video_${targetSessionId}`,
               sessionId: targetSessionId,
-              storagePath: `sessions/${targetSessionId}/video/final.mp4`,
+              storagePath,
               status: 'ready',
               createdAt: new Date().toISOString()
             }, { merge: true });
@@ -433,7 +445,7 @@ export async function GET(req: NextRequest) {
             mockStore.videos.set(`video_${targetSessionId}`, {
               id: `video_${targetSessionId}`,
               sessionId: targetSessionId,
-              storagePath: `sessions/${targetSessionId}/video/final.mp4`,
+              storagePath,
               status: 'ready',
               createdAt: new Date().toISOString()
             });
@@ -460,7 +472,8 @@ export async function GET(req: NextRequest) {
         sessionId: targetSessionId,
         status: 'processing',
         videoUrl: null,
-        masterImageUrl
+        masterImageUrl,
+        eventId,
       });
     }
 
@@ -474,7 +487,8 @@ export async function GET(req: NextRequest) {
       videoUrl,
       masterImageUrl,
       videoId: `video_${targetSessionId}`,
-      qaResult
+      qaResult,
+      eventId,
     });
 
   } catch (error: any) {

@@ -1,8 +1,12 @@
+import fs from 'fs';
+import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 
 export const maxDuration = 60;
 
@@ -36,13 +40,17 @@ function formatGeminiImageError(error: any) {
 }
 
 export async function POST(req: NextRequest) {
+  let reservedDeviceId = '';
+  let reservedSessionId = '';
   try {
-    if (!verifyOperatorRequest(req)) {
-      return NextResponse.json({ success: false, error: 'Unauthorized operator session. Please login again.' }, { status: 401 });
-    }
-
     const body = await req.json();
-    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, conceptPrompt, templateId } = body;
+    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, conceptPrompt, templateId, accessCode } = body;
+    const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
+    const access = await verifyMaharajaAccess(req, accessCode, service);
+    if (!access.allowed) {
+      return NextResponse.json({ success: false, error: access.error }, { status: 401 });
+    }
+    const eventId = isEventId(body.eventId) ? body.eventId : access.pass?.eventId || 'diwali';
 
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'sessionId is required.' }, { status: 400 });
@@ -62,14 +70,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (service === 'try-on' && !access.pass) {
+      if (!validTryOnDeviceId(body.deviceId) || typeof body.tryOnGrant !== 'string') {
+        return NextResponse.json({ success: false, error: 'Scan and verify the Maharaja price tag before generating.' }, { status: 403 });
+      }
+      const reservation = await reserveTryOnGrant(body.deviceId, body.tryOnGrant, sessionId);
+      if (!reservation.allowed) return NextResponse.json({ success: false, error: reservation.error }, { status: 409 });
+      reservedDeviceId = body.deviceId;
+      reservedSessionId = sessionId;
+    }
+
     const isDemoAsset = AI_CONFIG.IS_DEMO_MODE;
     const nowIso = new Date().toISOString();
 
     let masterImageUrl = '';
 
     if (body.usePreset) {
-      masterImageUrl = '/test-master-women.jpg';
+      const presetPath = path.join(process.cwd(), 'public', 'test-master-women.jpg');
+      if (fs.existsSync(presetPath)) {
+        const rawBuffer = fs.readFileSync(presetPath);
+        const watermarkedBuffer = await applyMaharajaWatermark(rawBuffer);
+        masterImageUrl = `data:image/jpeg;base64,${watermarkedBuffer.toString('base64')}`;
+      } else {
+        masterImageUrl = '/test-master-women.jpg';
+      }
     } else if (isDemoAsset) {
+      if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(
         { success: false, error: 'Real Gemini master image generation is disabled because DEMO_MODE=true.' },
         { status: 400 }
@@ -77,6 +103,7 @@ export async function POST(req: NextRequest) {
     } else {
       const ai = getGenAIClient();
       if (!ai) {
+        if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
         return NextResponse.json(
           { success: false, error: 'Gemini image generation key is missing. Upload an AI image manually or configure GOOGLE_AI_API_KEY_PRIMARY.' },
           { status: 500 }
@@ -125,19 +152,21 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
         const candidate = genResponse.candidates?.[0];
         const part = candidate?.content?.parts?.find((p: any) => p.inlineData);
         if (part?.inlineData?.data) {
-          const imageBase64 = part.inlineData.data;
-          masterImageUrl = `data:image/jpeg;base64,${imageBase64}`;
+          const rawBase64 = part.inlineData.data;
+          const rawBuffer = Buffer.from(rawBase64, 'base64');
+          const watermarkedBuffer = await applyMaharajaWatermark(rawBuffer);
+          masterImageUrl = `data:image/jpeg;base64,${watermarkedBuffer.toString('base64')}`;
 
           const bucket = getStorageBucket();
           if (bucket) {
-            const fileBuffer = Buffer.from(imageBase64, 'base64');
-            const storagePath = `sessions/${sessionId}/master/master.jpg`;
+            const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
             const file = bucket.file(storagePath);
-            await file.save(fileBuffer, { contentType: 'image/jpeg', public: false });
+            await file.save(watermarkedBuffer, { contentType: 'image/jpeg', public: false });
             const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
             masterImageUrl = signedUrl;
           }
         } else {
+          if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
           return NextResponse.json(
             { success: false, error: 'Gemini returned no image. No fallback image was used. Upload a manual AI image or retry after checking the model.' },
             { status: 502 }
@@ -145,6 +174,7 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
         }
       } catch (genError: any) {
         console.error('Gemini Master Image Generation Error:', genError);
+        if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
         return NextResponse.json(
           { success: false, error: formatGeminiImageError(genError) },
           { status: 500 }
@@ -157,11 +187,15 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
     if (db) {
       await db.collection('sessions').doc(sessionId).set({
         sessionId,
+        clientId: MAHARAJA_CLIENT_ID,
+        accessCode: typeof accessCode === 'string' ? accessCode : null,
+        service,
+        eventId,
         garmentAnalysis,
         personAnalysis,
         templateId: templateId || null,
         masterImageUrl,
-        masterStoragePath: `sessions/${sessionId}/master/master.jpg`,
+        masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
         status: 'master_ready',
         updatedAt: nowIso
       }, { merge: true });
@@ -169,15 +203,27 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
       const mockStore = getMockStore();
       mockStore.sessions.set(sessionId, {
         sessionId,
+        clientId: MAHARAJA_CLIENT_ID,
+        accessCode: typeof accessCode === 'string' ? accessCode : null,
+        service,
+        eventId,
         garmentAnalysis,
         personAnalysis,
         templateId: templateId || null,
         masterImageUrl,
-        masterStoragePath: `sessions/${sessionId}/master/master.jpg`,
+        masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
         status: 'master_ready',
         updatedAt: nowIso
       });
     }
+
+    if (service === 'try-on') {
+      await incrementMaharajaUsage('tryOnGenerated');
+    } else if (access.pass) {
+      await incrementPassUsage(access.pass.code, 'imagesGenerated');
+    }
+    await logMaharajaActivity('try-on', `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId });
+    if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, true, masterImageUrl);
 
     return NextResponse.json({
       success: true,
@@ -188,6 +234,7 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
     });
   } catch (error: any) {
     console.error('Master Image Route Error:', error);
+    if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false).catch(() => undefined);
     return NextResponse.json(
       { success: false, error: 'Failed to generate master reference image.' },
       { status: 500 }

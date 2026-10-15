@@ -3,10 +3,11 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
+import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MessageCircle, Share2 } from 'lucide-react';
 import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
+import { getEventOption, isEventId, type EventId } from '@/lib/maharaja/config';
 
-export default function ResultClient({ sessionId }: { sessionId: string }) {
+export default function ResultClient({ sessionId, accessCode = '' }: { sessionId: string; accessCode?: string }) {
   const router = useRouter();
   const [showLiveConsent, setShowLiveConsent] = useState(false);
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
@@ -28,6 +29,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [peopleAhead, setPeopleAhead] = useState<number | null>(null);
   const [liveQueueStatus, setLiveQueueStatus] = useState<'queued' | 'reserved' | 'playing' | 'completed' | 'playback_failed'>('queued');
+  const [eventId, setEventId] = useState<EventId>('diwali');
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
   const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId), [sessionId]);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
-  const googleReviewUrl = 'https://www.google.com/search?q=Majestic+Maharaja+Thanjavur+Google+review';
+  const eventLabel = getEventOption(eventId).label;
 
   const syncPreviewAudioToVideo = (video: HTMLVideoElement) => {
     if (!previewAudioRef.current) return;
@@ -133,6 +135,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         }
 
         if (data.success) {
+          if (isEventId(data.eventId)) setEventId(data.eventId);
           if (data.masterImageUrl) {
             setMasterImageUrl(data.masterImageUrl);
           }
@@ -168,7 +171,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
         <h1 className="text-xl font-serif font-bold text-[#F3E5AB] uppercase mb-2">Invalid Session</h1>
         <p className="text-sm text-gray-400 mb-6">No valid session ID was provided in the URL.</p>
-        <Link href="/create" className="px-6 py-3 bg-[#6e0d1f] border border-[#D4AF37] text-[#F3E5AB] rounded-lg text-sm font-semibold uppercase tracking-wider">
+        <Link href={accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace'} className="px-6 py-3 bg-[#6e0d1f] border border-[#D4AF37] text-[#F3E5AB] rounded-lg text-sm font-semibold uppercase tracking-wider">
           Create New Video
         </Link>
       </main>
@@ -213,11 +216,32 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
 
   const executeDownload = async () => {
     if (masterImageUrl) {
-      await downloadAsset(masterImageUrl, `Maharaja-Diwali-Master-${sessionId}.jpg`);
+      await downloadAsset(masterImageUrl, `Maharaja-${eventLabel}-Master-${sessionId}.jpg`);
     }
     if (videoUrl) {
       const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
-      await downloadAsset(videoUrl, `Maharaja-Diwali-Video-${sessionId}.${extension}`);
+      await downloadAsset(videoUrl, `Maharaja-${eventLabel}-Video-${sessionId}.${extension}`);
+    }
+    if (accessCode) {
+      await fetch('/api/maharaja/video-pass/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: accessCode, sessionId, action: 'download' }),
+      }).catch(() => undefined);
+    }
+    await fetch('/api/maharaja/activity', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'download', label: `${eventLabel} customer result downloaded`, sessionId, accessCode }),
+    }).catch(() => undefined);
+  };
+
+  const shareText = `My ${eventLabel} AI fashion film from Majestic Maharaja is ready.`;
+  const shareToWhatsApp = () => window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener,noreferrer');
+  const shareAsStatus = async () => {
+    if (navigator.share) {
+      await navigator.share({ title: 'Majestic Maharaja', text: shareText }).catch(() => undefined);
+    } else {
+      shareToWhatsApp();
     }
   };
 
@@ -268,7 +292,8 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           videoId: videoId || `video_${sessionId}`,
           customerName: customerName.trim(),
           customerLocality: customerLocality.trim(),
-          liveAudioUrl
+          liveAudioUrl,
+          accessCode,
         })
       });
 
@@ -297,12 +322,18 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const confirmRetryPin = () => {
-    if (retryPin.trim() !== '7070') {
-      setRetryError('Manager PIN is incorrect.');
+  const confirmRetryPin = async () => {
+    setRetryError(null);
+    const response = await fetch('/api/maharaja/activity', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'retry', label: 'Manager approved AI Video retry', sessionId, accessCode, pin: retryPin.trim() }),
+    }).catch(() => null);
+    if (!response?.ok) {
+      const payload = await response?.json().catch(() => ({}));
+      setRetryError(payload?.error || 'Unable to verify the manager PIN.');
       return;
     }
-    router.push(`/create?retry=${encodeURIComponent(sessionId)}`);
+    router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}` : '/maharaja/workspace');
   };
 
   return (
@@ -313,7 +344,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
         <div className="flex items-center gap-2">
           <Flame className="w-6 h-6 text-[#D4AF37] animate-diya" />
           <h1 className="text-base font-serif font-bold text-[#F3E5AB] tracking-widest uppercase">
-            MAHARAJA DIWALI FILM
+            MAHARAJA {eventLabel.toUpperCase()} FILM
           </h1>
         </div>
         <span className="text-[10px] font-mono text-[#D4AF37] bg-[#6e0d1f]/40 px-2 py-1 rounded border border-[#D4AF37]/30">
@@ -333,7 +364,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
           <p className="text-xs text-gray-300 max-w-xs mx-auto">
             {videoError || 'Please create another video after checking the setup.'}
           </p>
-          <Link href="/create" className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-[#6e0d1f] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">
+          <Link href={accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace'} className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-[#6e0d1f] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]">
             <RotateCcw className="w-4 h-4" /> Create Again
           </Link>
         </div>
@@ -343,33 +374,35 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             <Sparkles className="w-10 h-10 animate-spin" />
           </div>
           <h2 className="text-xl font-serif font-bold text-[#F3E5AB] uppercase tracking-wider">
-            RENDERING 6-SECOND DIWALI COMMERCIAL...
+            RENDERING 6-SECOND {eventLabel.toUpperCase()} FILM...
           </h2>
           <p className="text-xs text-gray-300 max-w-xs mx-auto animate-pulse">
-            Maharaja AI is rendering your full-body 6-second video with exact identity & garment preservation. Please wait...
+            Your Maharaja film is being prepared. Keep this page open.
           </p>
         </div>
       ) : (
         /* Main Result Card when Ready */
         <div className="space-y-6 text-center">
           <div className="inline-flex items-center gap-2 border-l-2 border-[#D4AF37] bg-[#6e0d1f]/40 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F3E5AB]">
-            <Sparkles className="w-4 h-4 text-[#D4AF37]" /> ✨ YOUR DIWALI FILM IS READY
+            <Sparkles className="w-4 h-4 text-[#D4AF37]" /> YOUR {eventLabel.toUpperCase()} FILM IS READY
           </div>
 
         {/* 9:16 Video Preview Frame */}
         <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border-2 border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
-          <button
-            type="button"
-            onClick={() => {
-              setRetryPin('');
-              setRetryError(null);
-              setShowRetryPin(true);
-            }}
-            className="absolute right-3 top-3 z-10 rounded-full border border-[#D4AF37]/50 bg-black/55 p-2 text-[#D4AF37] backdrop-blur"
-            aria-label="Manager retry"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
+          {!accessCode && (
+            <button
+              type="button"
+              onClick={() => {
+                setRetryPin('');
+                setRetryError(null);
+                setShowRetryPin(true);
+              }}
+              className="absolute right-3 top-3 z-10 rounded-full border border-[#D4AF37]/50 bg-black/55 p-2 text-[#D4AF37] backdrop-blur"
+              aria-label="Manager retry"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          )}
           <video
             src={videoUrl}
             controls
@@ -383,6 +416,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             onEnded={pausePreviewAudio}
             className="w-full h-full object-cover"
           />
+          <img src="/maharaja-logo.png" alt="Majestic Maharaja" className="pointer-events-none absolute right-3 top-14 z-[5] w-[27%] max-w-24 border border-[#D4AF37]/45 shadow-lg" />
           <audio ref={previewAudioRef} src={previewAudioUrl} loop preload="auto" className="hidden" />
         </div>
 
@@ -406,12 +440,22 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             Download saves the approved image and video. Go Live also downloads both files, then sends the video to the showroom TV with festival music and Tamil greeting.
           </div>
 
-          <Link
-            href="/create"
-            className="w-full rounded-lg border border-gray-700 bg-black/60 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-300 transition hover:bg-black flex items-center justify-center gap-2 block"
-          >
-            <RotateCcw className="w-4 h-4" /> CREATE ANOTHER VIDEO
-          </Link>
+          {accessCode ? (
+            <Link
+              id="retry-video-btn"
+              href={`/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}`}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-black/60 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[#F3E5AB] transition hover:bg-black/80"
+            >
+              <RotateCcw className="w-4 h-4" /> Try Another Video / Retake
+            </Link>
+          ) : (
+            <Link
+              href="/maharaja/workspace"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-black/60 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-300 transition hover:bg-black"
+            >
+              <RotateCcw className="w-4 h-4" /> CREATE ANOTHER VIDEO
+            </Link>
+          )}
         </div>
 
         {liveError && (
@@ -435,7 +479,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
                 {thankYouMode === 'live'
-                  ? 'Advance Deepavali greetings from Maharaja. Your Diwali AI film has been sent to the showroom screen.'
+                  ? `Your ${eventLabel} AI film has been sent to the Maharaja showroom screen.`
                   : 'Advance Deepavali greetings from Maharaja. Your image and video download has started.'}
               </p>
             </div>
@@ -492,14 +536,15 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
               <ExternalLink className="h-5 w-5" /> Follow on Instagram
             </a>
 
-            <a
-              href={googleReviewUrl}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              onClick={shareToWhatsApp}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/45 bg-black/55 px-5 py-3 text-sm font-black uppercase tracking-wider text-[#F3E5AB]"
             >
-              <ExternalLink className="h-5 w-5" /> Give Google Feedback
-            </a>
+              <MessageCircle className="h-5 w-5" /> Share on WhatsApp
+            </button>
+
+            <button type="button" onClick={() => void shareAsStatus()} className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/45 bg-black/55 px-5 py-3 text-sm font-black uppercase tracking-wider text-[#F3E5AB]"><Share2 className="h-5 w-5" /> Keep as WhatsApp Status</button>
 
             <button
               onClick={() => setShowThankYou(false)}
@@ -562,11 +607,11 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
             </div>
 
             <p className="text-xs text-gray-300 leading-relaxed">
-              This AI image and video are created only for this Maharaja Diwali experience. Download keeps a copy for the customer. Go Live plays it on the showroom TV only after permission.
+              This AI image and video are created only for this Maharaja {eventLabel} experience. Download keeps a copy for the customer. Go Live plays it on the showroom TV only after permission.
             </p>
 
             <div className="rounded-lg border border-[#D4AF37]/30 bg-black/60 p-3 text-xs leading-relaxed text-[#F3E5AB]">
-              Privacy note: customer photos and generated files can be cleared after delivery. Do not reuse customer media without permission.
+              We do not reuse your photos or generated media for any other purpose. Generated files are retained only as needed to deliver this experience and operate the approved showroom queue.
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -631,7 +676,7 @@ export default function ResultClient({ sessionId }: { sessionId: string }) {
                 className="w-5 h-5 mt-0.5 accent-[#D4AF37]"
               />
               <span className="text-xs text-gray-200">
-                I agree that this completed AI-generated video may be displayed on Maharaja&apos;s public promotional screen for this Diwali experience.
+                I agree that this completed AI-generated video may be displayed on Maharaja&apos;s public promotional screen for this {eventLabel} experience.
               </span>
             </label>
 
