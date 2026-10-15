@@ -1,16 +1,19 @@
-// Browser-side canvas image compression helper to ensure uploads stay below Vercel's 4.5MB request limit
+import { validateSourceImage } from './image-upload';
+
+// Browser-side canvas image compression helper to ensure uploads stay below Vercel's request limit.
 
 export async function compressImage(
   file: File,
   maxDimension = 2048,
   quality = 0.85
 ): Promise<{ blob: Blob; dataUrl: string; width: number; height: number }> {
+  validateSourceImage(file);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = (err) => reject(err);
+    reader.onerror = () => reject(new Error('The selected image could not be read. Choose another photo.'));
     reader.onload = () => {
       const img = new Image();
-      img.onerror = (err) => reject(err);
+      img.onerror = () => reject(new Error('This image format could not be opened on this device. Choose a JPG, PNG, or WEBP photo.'));
       img.onload = () => {
         let width = img.width;
         let height = img.height;
@@ -31,7 +34,7 @@ export async function compressImage(
 
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-          return reject(new Error('Failed to get 2D canvas context'));
+          return reject(new Error('The selected image could not be prepared. Choose another photo.'));
         }
 
         ctx.drawImage(img, 0, 0, width, height);
@@ -39,7 +42,7 @@ export async function compressImage(
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              return reject(new Error('Canvas toBlob failed'));
+              return reject(new Error('The selected image could not be compressed. Choose another photo.'));
             }
             const dataUrl = canvas.toDataURL('image/jpeg', quality);
             resolve({ blob, dataUrl, width, height });

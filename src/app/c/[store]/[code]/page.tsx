@@ -9,12 +9,14 @@ import {
   BadgeIndianRupee,
   CheckCircle2,
   Image as ImageIcon,
+  Camera,
   Phone,
   Shirt,
   Sparkles,
   Store,
   WandSparkles,
 } from 'lucide-react';
+import { compressImage } from '@/lib/utils/image';
 
 type CustomerPass = {
   code: string;
@@ -78,13 +80,17 @@ export default function CustomerPassPage() {
     };
   }, [code, store]);
 
-  function loadPreview(event: React.ChangeEvent<HTMLInputElement>, setter: (value: string | null) => void) {
+  async function loadPreview(event: React.ChangeEvent<HTMLInputElement>, setter: (value: string | null) => void) {
     const file = event.target.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setter(typeof reader.result === 'string' ? reader.result : null);
-    reader.readAsDataURL(file);
+    setError(null);
+    try {
+      const { dataUrl } = await compressImage(file, 1400, 0.84);
+      setter(dataUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The selected image could not be opened.');
+    }
   }
 
   const optionCard = (
@@ -206,7 +212,7 @@ export default function CustomerPassPage() {
 
                 <div className="mt-5 grid grid-cols-3 gap-3">
                   {tryOnPhotoSlots.map(({ label, preview, setter }) => (
-                    <label key={label} className="block cursor-pointer">
+                    <div key={label} className="block">
                       <div className="aspect-[3/4] border border-dashed border-[#d8c49b] bg-[#fffaf0]">
                         {preview ? (
                           <img src={preview} alt={label} className="h-full w-full object-cover" />
@@ -217,16 +223,11 @@ export default function CustomerPassPage() {
                           </div>
                         )}
                       </div>
-                      <div className="mt-2 bg-[#6e0d1f] px-2 py-2 text-center text-[10px] font-black uppercase tracking-wider text-[#F3E5AB]">
-                        Add Photo
+                      <div className="mt-2 grid grid-cols-2 gap-1">
+                        <label className="flex min-h-10 cursor-pointer items-center justify-center gap-1 bg-[#6e0d1f] px-1 text-[9px] font-black uppercase text-[#F3E5AB]"><Camera className="h-3.5 w-3.5" /> Camera<input type="file" accept="image/*" capture={label === 'Person' ? 'user' : 'environment'} className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>
+                        <label className="flex min-h-10 cursor-pointer items-center justify-center gap-1 border border-[#6e0d1f] bg-white px-1 text-[9px] font-black uppercase text-[#6e0d1f]"><ImageIcon className="h-3.5 w-3.5" /> Gallery<input type="file" accept="image/*" className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>
                       </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(event) => loadPreview(event, setter)}
-                      />
-                    </label>
+                    </div>
                   ))}
                 </div>
 

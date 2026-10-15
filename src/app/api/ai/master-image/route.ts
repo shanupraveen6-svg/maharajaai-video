@@ -86,6 +86,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    if (garmentPhotos.length > 1) {
+      return NextResponse.json({ success: false, error: 'Upload one garment photo only.' }, { status: 400 });
+    }
 
     if (service === 'try-on' && !access.pass) {
       if (!validTryOnDeviceId(body.deviceId) || typeof body.tryOnGrant !== 'string') {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadGarmentImage } from '@/lib/firebase/storage';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { validateSourceImage } from '@/lib/utils/image-upload';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest) {
     if (!file || !sessionId) {
       return NextResponse.json({ success: false, error: 'File and sessionId parameters are required.' }, { status: 400 });
     }
+    validateSourceImage(file);
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);

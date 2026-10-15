@@ -209,7 +209,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setError(data.analysis.operatorMessage || 'A clearer person photo is needed.');
       }
     } catch (caught) {
-      setPersonPhoto(null);
       setPersonAnalysis(null);
       setError(customerError(caught, 'The person photo could not be verified. Use one clear, well-lit full-body photo.'));
     } finally {
@@ -219,8 +218,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
   async function analyzeGarments(files: File[]) {
     if (!files.length) return;
-    if (files.length > 3) {
-      setError('Upload no more than 3 garment images.');
+    if (files.length > 1) {
+      setError('Upload one garment photo only.');
       return;
     }
     setStage('analyzing');
@@ -242,7 +241,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setError(data.analysis.operatorMessage || 'Clearer garment photos are needed.');
       }
     } catch (caught) {
-      setGarmentPhotos([]);
       setGarmentAnalysis(null);
       setError(customerError(caught, 'The garment photos could not be verified. Upload one to three clear garment photos.'));
     } finally {
@@ -400,17 +398,22 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Scan a Rs 500+ price tag</h2>
             <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Open the camera and keep the full Maharaja price tag and amount clearly visible.</p>
             {priceTagPhoto && <img src={priceTagPhoto} alt="Scanned Maharaja price tag" className="mx-auto mt-4 max-h-48 border border-[#D8C49B] object-contain" />}
-            <div className="mt-5 space-y-3">
-              <label className="flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 bg-[#6E0D1F] px-5 text-xs font-bold uppercase text-[#F3E5AB]">
-                <ScanLine className="h-5 w-5" /> Scan price tag
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <label className="flex min-h-14 cursor-pointer items-center justify-center gap-2 bg-[#6E0D1F] px-3 text-xs font-bold uppercase text-[#F3E5AB]">
+                <Camera className="h-5 w-5" /> Camera
                 <input
-                  id="scan-price-tag-file-input"
+                  id="scan-price-tag-camera-input"
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   className="hidden"
                   disabled={busy}
                   onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePriceTag(file); }}
                 />
+              </label>
+              <label className="flex min-h-14 cursor-pointer items-center justify-center gap-2 border border-[#6E0D1F] bg-white px-3 text-xs font-bold uppercase text-[#6E0D1F]">
+                <ImageIcon className="h-5 w-5" /> Gallery
+                <input id="scan-price-tag-file-input" type="file" accept="image/*" className="hidden" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePriceTag(file); }} />
               </label>
             </div>
             {priceAmount !== null && <p className="mt-3 text-sm font-bold text-[#6E0D1F]">Detected price: Rs {priceAmount}</p>}
@@ -421,8 +424,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
         {purchaseConfirmed && !tryOnUsed && (
           <>
-            <section className={retrySessionId || (activeService === 'ai-video' && !!masterImageUrl) ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
-              {!retrySessionId && !(activeService === 'ai-video' && !!masterImageUrl) && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
+            <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
+              {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-4 gap-2">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" disabled={busy || imagesLocked} onClick={() => { setCategory(option); clearActiveImage(); }} className={`min-h-11 border px-2 text-xs font-bold uppercase ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}>{option}</button>)}</div></fieldset>
                   <label className="text-xs font-bold uppercase text-[#5C4B43]">Event
@@ -441,22 +444,22 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4">
                     <div className="aspect-[3/4] overflow-hidden bg-white">{personPhoto ? <img src={personPhoto} alt="Customer preview" className="h-full w-full object-cover" /> : <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400"><User className="h-10 w-10" /><span className="text-xs font-bold uppercase">Person photo</span></div>}</div>
-                    <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]">
-                      <Camera className="h-4 w-4" /> Add person
-                      <input id="person-file-input" type="file" accept="image/*" className="hidden" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
-                    </label>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]"><Camera className="h-4 w-4" /> Camera<input id="person-camera-input" type="file" accept="image/*" capture="user" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} /></label>
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F]"><ImageIcon className="h-4 w-4" /> Gallery<input id="person-file-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} /></label>
+                    </div>
                   </div>
 
                   <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4">
-                    <div className="grid aspect-[3/4] grid-cols-2 gap-2 bg-white p-2">{garmentPhotos.length ? garmentPhotos.map((photo) => <img key={photo.slice(-30)} src={photo} alt="Garment preview" className="h-full min-h-0 w-full object-cover" />) : <div className="col-span-2 flex h-full flex-col items-center justify-center gap-2 text-slate-400"><Shirt className="h-10 w-10" /><span className="text-xs font-bold uppercase">1 to 3 garment photos</span></div>}</div>
-                    <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]">
-                      <ImageIcon className="h-4 w-4" /> Add garment
-                      <input id="garment-file-input" type="file" accept="image/*" multiple className="hidden" disabled={busy} onChange={(event) => { const files = Array.from(event.target.files || []); event.currentTarget.value = ''; void analyzeGarments(files); }} />
-                    </label>
+                    <div className="aspect-[3/4] overflow-hidden bg-white p-2">{garmentPhotos[0] ? <img src={garmentPhotos[0]} alt="Garment preview" className="h-full w-full object-cover" /> : <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400"><Shirt className="h-10 w-10" /><span className="text-xs font-bold uppercase">One garment photo</span></div>}</div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]"><Camera className="h-4 w-4" /> Camera<input id="garment-camera-input" type="file" accept="image/*" capture="environment" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzeGarments([file]); }} /></label>
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F]"><ImageIcon className="h-4 w-4" /> Gallery<input id="garment-file-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzeGarments([file]); }} /></label>
+                    </div>
                   </div>
                 </div>
 
-                {(personAnalysis || garmentAnalysis) && <div className="mt-4 border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold leading-5 text-emerald-900"><div className="flex items-center gap-2 font-bold uppercase"><ScanSearch className="h-4 w-4" /> Photo quality checks</div>{personAnalysis && <p className="mt-2">Person: {String(personAnalysis.operatorMessage || 'Verified')}</p>}{garmentAnalysis && <p>Garment: {String(garmentAnalysis.garmentType || 'Verified')} · {String(garmentAnalysis.primaryColor || 'Color captured')}</p>}</div>}
+                {(personAnalysis || garmentAnalysis) && <div className="mt-4 border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold leading-5 text-emerald-900"><div className="flex items-center gap-2 font-bold uppercase"><ScanSearch className="h-4 w-4" /> Gemini photo quality checks</div>{personAnalysis && <p className="mt-2">Person: {String(personAnalysis.operatorMessage || 'Verified')}</p>}{garmentAnalysis && <p>Garment: {String(garmentAnalysis.garmentType || 'Verified')} · {String(garmentAnalysis.primaryColor || 'Color captured')}</p>}</div>}
 
                 {message && <div className="mt-4 border border-[#E2D4B8] bg-[#FFF9EC] p-3 text-sm font-semibold text-[#6E0D1F]">{message}</div>}
                 {error && <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</div>}
