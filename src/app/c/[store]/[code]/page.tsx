@@ -213,19 +213,19 @@ export default function CustomerPassPage() {
                 <div className="mt-5 grid grid-cols-3 gap-3">
                   {tryOnPhotoSlots.map(({ label, preview, setter }) => (
                     <div key={label} className="block">
-                      <div className="aspect-[3/4] border border-dashed border-[#d8c49b] bg-[#fffaf0]">
+                      <div className="relative aspect-[3/4] border border-dashed border-[#d8c49b] bg-[#fffaf0]">
                         {preview ? (
                           <img src={preview} alt={label} className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-slate-400">
                             <ImageIcon className="h-6 w-6" />
                             <span className="text-[10px] font-black uppercase tracking-wider">{label}</span>
+                            {label === 'Price tag' && <span className="text-[9px] font-bold uppercase text-[#6e0d1f]">Open Camera</span>}
                           </div>
                         )}
+                        {label === 'Price tag' && <input type="file" accept="image/*" capture="environment" aria-label="Open price tag camera" className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => void loadPreview(event, setter)} />}
                       </div>
-                      {label === 'Price tag' ? (
-                        <label className="mt-2 flex min-h-10 cursor-pointer items-center justify-center gap-1 bg-[#6e0d1f] px-2 text-[9px] font-black uppercase text-[#F3E5AB]"><Camera className="h-3.5 w-3.5" /> Open Camera<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>
-                      ) : (
+                      {label !== 'Price tag' && (
                         <div className="mt-2 grid grid-cols-2 gap-1">
                           <label className="flex min-h-10 cursor-pointer items-center justify-center gap-1 bg-[#6e0d1f] px-1 text-[9px] font-black uppercase text-[#F3E5AB]"><Camera className="h-3.5 w-3.5" /> Camera<input type="file" accept="image/*" capture={label === 'Person' ? 'user' : 'environment'} className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>
                           <label className="flex min-h-10 cursor-pointer items-center justify-center gap-1 border border-[#6e0d1f] bg-white px-1 text-[9px] font-black uppercase text-[#6e0d1f]"><ImageIcon className="h-3.5 w-3.5" /> Gallery<input type="file" accept="image/*" className="hidden" onChange={(event) => void loadPreview(event, setter)} /></label>

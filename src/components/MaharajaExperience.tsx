@@ -397,10 +397,16 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <BadgeIndianRupee className="mx-auto h-10 w-10 text-[#6E0D1F]" />
             <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Scan a Rs 500+ price tag</h2>
             <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Open the camera and keep the full Maharaja price tag and amount clearly visible.</p>
-            {priceTagPhoto && <img src={priceTagPhoto} alt="Scanned Maharaja price tag" className="mx-auto mt-4 max-h-48 border border-[#D8C49B] object-contain" />}
-            <div className="mt-5">
-              <label className="flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 bg-[#6E0D1F] px-5 text-xs font-bold uppercase text-[#F3E5AB]">
-                <Camera className="h-5 w-5" /> Open Camera
+            <label className="mx-auto mt-5 flex aspect-[4/3] w-full max-w-sm cursor-pointer items-center justify-center overflow-hidden border-2 border-dashed border-[#B99A55] bg-[#FFF9EC]">
+              {priceTagPhoto ? (
+                <img src={priceTagPhoto} alt="Scanned Maharaja price tag" className="h-full w-full object-contain" />
+              ) : (
+                <span className="flex flex-col items-center gap-3 text-[#6E0D1F]">
+                  <Camera className="h-10 w-10" />
+                  <span className="text-xs font-bold uppercase">Open Camera</span>
+                  <span className="text-[11px] font-semibold normal-case text-[#5C4B43]">Keep the complete tag and price inside the frame</span>
+                </span>
+              )}
                 <input
                   id="scan-price-tag-camera-input"
                   type="file"
@@ -410,8 +416,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   disabled={busy}
                   onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePriceTag(file); }}
                 />
-              </label>
-            </div>
+            </label>
             {priceAmount !== null && <p className="mt-3 text-sm font-bold text-[#6E0D1F]">Detected price: Rs {priceAmount}</p>}
             {message && <p className="mt-3 text-xs font-semibold text-[#5C4B43]">{message}</p>}
             {error && <p className="mt-3 text-xs font-semibold text-red-700">{error}</p>}
