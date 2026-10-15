@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     const expectedGroup = body.category === 'boy' || body.category === 'girl' ? 'child' : 'adult';
-    const analysis = await analyzePersonImage(image, expectedGroup);
+    const analysis = await analyzePersonImage(image, expectedGroup, service);
 
     return NextResponse.json({
       success: true,

@@ -446,14 +446,34 @@ export async function markPassVideoSubmitted(code: string, jobId: string) {
 
 /** Called once the final video is confirmed ready by /api/video/status: completes the video and releases lock. */
 export async function markPassVideoReady(code: string, jobId?: string) {
-  if (jobId) {
-    const pass = await getVideoPass(code);
-    if (pass && pass.activeVideoJobId && pass.activeVideoJobId !== jobId) {
-      console.warn(`Ignoring video ready from stale job ${jobId}; active job is ${pass.activeVideoJobId}`);
-      return;
-    }
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    await db.runTransaction(async (tx) => {
+      const snapshot = await tx.get(ref);
+      if (!snapshot.exists) return;
+      const pass = snapshot.data() as MaharajaVideoPass;
+      if (jobId && pass.activeVideoJobId && pass.activeVideoJobId !== jobId) {
+        console.warn(`Ignoring video ready from stale job ${jobId}; active job is ${pass.activeVideoJobId}`);
+        return;
+      }
+      tx.update(ref, {
+        videoDone: true,
+        videoGenerating: false,
+        lastVideoFailed: false,
+      });
+    });
+    return;
   }
-  await mergePassUpdate(code, {
+  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+  if (!pass) return;
+  if (jobId && pass.activeVideoJobId && pass.activeVideoJobId !== jobId) {
+    console.warn(`Ignoring video ready from stale job ${jobId}; active job is ${pass.activeVideoJobId}`);
+    return;
+  }
+  getMockStore().customerPasses.set(key, {
+    ...pass,
     videoDone: true,
     videoGenerating: false,
     lastVideoFailed: false,
@@ -461,13 +481,28 @@ export async function markPassVideoReady(code: string, jobId?: string) {
 }
 
 /** Backwards-compatible alias for markPassVideoReady. */
-export async function markPassVideoDone(code: string) {
-  await markPassVideoReady(code);
+export async function markPassVideoDone(code: string, jobId?: string) {
+  await markPassVideoReady(code, jobId);
 }
 
 /** Releases the video lock after a provider rejection / failure (video stays available). */
 export async function releasePassVideoLock(code: string) {
-  await mergePassUpdate(code, { videoGenerating: false });
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    await ref.update({
+      videoGenerating: false,
+      activeVideoJobId: FieldValue.delete(),
+    });
+    return;
+  }
+  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+  if (pass) {
+    const copy = { ...pass, videoGenerating: false };
+    delete (copy as any).activeVideoJobId;
+    getMockStore().customerPasses.set(key, copy);
+  }
 }
 
 /**
@@ -475,14 +510,35 @@ export async function releasePassVideoLock(code: string) {
  * Reopens the pass video slot so the customer's legitimate 1-video entitlement is not consumed by a failed render.
  */
 export async function markPassVideoFailed(code: string, jobId?: string) {
-  if (jobId) {
-    const pass = await getVideoPass(code);
-    if (pass && pass.activeVideoJobId && pass.activeVideoJobId !== jobId) {
-      console.warn(`Ignoring video failed from stale job ${jobId}; active job is ${pass.activeVideoJobId}`);
-      return;
-    }
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    await db.runTransaction(async (tx) => {
+      const snapshot = await tx.get(ref);
+      if (!snapshot.exists) return;
+      const pass = snapshot.data() as MaharajaVideoPass;
+      if (jobId && pass.activeVideoJobId && pass.activeVideoJobId !== jobId) {
+        console.warn(`Ignoring video failed from stale job ${jobId}; active job is ${pass.activeVideoJobId}`);
+        return;
+      }
+      tx.update(ref, {
+        videoDone: false,
+        videoGenerating: false,
+        lastVideoFailed: true,
+        lastVideoFailedAtMs: Date.now(),
+      });
+    });
+    return;
   }
-  await mergePassUpdate(code, {
+  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+  if (!pass) return;
+  if (jobId && pass.activeVideoJobId && pass.activeVideoJobId !== jobId) {
+    console.warn(`Ignoring video failed from stale job ${jobId}; active job is ${pass.activeVideoJobId}`);
+    return;
+  }
+  getMockStore().customerPasses.set(key, {
+    ...pass,
     videoDone: false,
     videoGenerating: false,
     lastVideoFailed: true,
@@ -495,12 +551,29 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
  * Allowed only after a completed first video and only once per pass.
  */
 export async function markPassRetryApproved(code: string) {
-  await mergePassUpdate(code, {
-    retryUsed: true,
-    videoDone: false,
-    videoGenerating: false,
-    activeVideoJobId: undefined,
-  });
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    await ref.update({
+      retryUsed: true,
+      videoDone: false,
+      videoGenerating: false,
+      activeVideoJobId: FieldValue.delete(),
+    });
+    return;
+  }
+  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+  if (pass) {
+    const copy = {
+      ...pass,
+      retryUsed: true,
+      videoDone: false,
+      videoGenerating: false,
+    };
+    delete (copy as any).activeVideoJobId;
+    getMockStore().customerPasses.set(key, copy);
+  }
 }
 
 const VIDEO_LOCK_STALE_MS = 3 * 60 * 1000;
@@ -515,8 +588,16 @@ function evaluateVideoLock(pass: MaharajaVideoPass | undefined | null, now: numb
   if (!pass.videoMasterDone || !pass.videoMasterUrl) {
     return { ok: false, error: 'Create the AI Video image first, then generate the video.' };
   }
-  if (pass.videoGenerating && now - Number(pass.videoGeneratingAtMs || 0) < VIDEO_LOCK_STALE_MS) {
-    return { ok: false, error: 'A video is already being generated for this pass. Please wait.' };
+  if (pass.videoGenerating) {
+    // If activeVideoJobId exists, the job is rendering with the provider.
+    // It remains locked until that exact job reaches READY or FAILED, with no 3-minute expiration.
+    if (pass.activeVideoJobId) {
+      return { ok: false, error: 'A video is already being generated for this pass. Please wait.' };
+    }
+    // Stale timeout only recovers a crashed pre-provider/submission lock with no active provider job.
+    if (now - Number(pass.videoGeneratingAtMs || 0) < VIDEO_LOCK_STALE_MS) {
+      return { ok: false, error: 'A video is already being generated for this pass. Please wait.' };
+    }
   }
   return { ok: true };
 }
@@ -524,11 +605,19 @@ function evaluateVideoLock(pass: MaharajaVideoPass | undefined | null, now: numb
 /**
  * Atomically claims the single video slot of a billing pass before any provider call,
  * so a double-click or a second tab cannot reach the provider twice.
+ * Binds activeVideoJobId atomically within the lock transaction when provided.
  */
-export async function acquirePassVideoLock(code: string): Promise<VideoLockResult> {
+export async function acquirePassVideoLock(code: string, jobId?: string): Promise<VideoLockResult> {
   const db = getDb();
   const now = Date.now();
-  const lockUpdate = { videoGenerating: true, videoGeneratingAtMs: now };
+  const lockUpdate: Record<string, any> = {
+    videoGenerating: true,
+    videoGeneratingAtMs: now,
+    lastVideoFailed: false,
+  };
+  if (jobId) {
+    lockUpdate.activeVideoJobId = jobId;
+  }
   if (db) {
     const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
     return db.runTransaction(async (tx) => {

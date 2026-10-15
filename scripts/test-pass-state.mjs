@@ -94,13 +94,28 @@ const stalePass = await freshPass();
 await markPassVideoMasterDone(stalePass, 'master-url');
 assert((await acquirePassVideoLock(stalePass)).ok, 'Fresh lock acquired');
 assert(!(await acquirePassVideoLock(stalePass)).ok, 'Fresh lock blocks a second request');
-// Age the lock beyond the stale window, as if the holding request crashed.
+// Age the lock beyond the stale window, as if the holding request crashed without an active job.
 const { getMockStore } = await import('../src/lib/firebase/admin.ts');
 const { MAHARAJA_CLIENT_ID } = await import('../src/lib/maharaja/config.ts');
 const key = `${MAHARAJA_CLIENT_ID}:${stalePass}`;
 const stored = getMockStore().customerPasses.get(key);
 getMockStore().customerPasses.set(key, { ...stored, videoGenerating: true, videoGeneratingAtMs: Date.now() - 10 * 60 * 1000 });
 assert((await acquirePassVideoLock(stalePass)).ok, 'A stale lock (crashed request) expires and can be re-acquired');
+
+// Active provider render with activeVideoJobId does NOT expire even after 10 minutes:
+getMockStore().customerPasses.set(key, { ...stored, videoGenerating: true, activeVideoJobId: 'job_render_ongoing', videoGeneratingAtMs: Date.now() - 10 * 60 * 1000 });
+assert(!(await acquirePassVideoLock(stalePass)).ok, 'Active provider render with activeVideoJobId does not expire after 3 minutes');
+
+// Atomic acquirePassVideoLock(code, jobId) and releasePassVideoLock:
+const atomicPass = await freshPass();
+await markPassVideoMasterDone(atomicPass, 'master-url');
+const atomicLock = await acquirePassVideoLock(atomicPass, 'job_atomic_123');
+assert(atomicLock.ok, 'Atomic lock acquisition succeeded');
+const atomicPassDoc = await getVideoPass(atomicPass);
+assert(atomicPassDoc.videoGenerating === true && atomicPassDoc.activeVideoJobId === 'job_atomic_123', 'acquirePassVideoLock atomically sets videoGenerating and activeVideoJobId');
+await releasePassVideoLock(atomicPass);
+const releasedPassDoc = await getVideoPass(atomicPass);
+assert(releasedPassDoc.videoGenerating === false && !releasedPassDoc.activeVideoJobId, 'releasePassVideoLock clears videoGenerating and activeVideoJobId');
 
 // Test failed render recovery:
 const failedRenderPass = await freshPass();

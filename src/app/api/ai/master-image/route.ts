@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { buildTryOnPrompt, CustomerCategory, isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { validateFestivalMasterImage } from '@/lib/ai/gemini';
+import { buildTryOnPrompt, CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX } from '@/lib/maharaja/config';
 import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 
@@ -148,17 +149,29 @@ export async function POST(req: NextRequest) {
           ? conceptPrompt.trim()
           : 'Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.';
 
+        const tryOnRef = (service === 'ai-video' && (body.tryOnImageUrl || access.pass?.tryOnImageUrl)) || null;
+        if (tryOnRef && typeof tryOnRef === 'string' && !tryOnRef.startsWith('http')) {
+          const tryOnBase64 = tryOnRef.split(',')[1] || tryOnRef;
+          contents.push({ inlineData: { mimeType: 'image/jpeg', data: tryOnBase64 } });
+        }
+
+        const referenceHierarchy = `REFERENCE PRIORITY:
+- The first image (original customer photograph) is the authoritative identity reference.
+- The garment photograph(s) are the authoritative garment-design references.
+${tryOnRef ? '- The virtual try-on reference is supplied only to understand approximate garment placement and drape. If the virtual try-on differs from the original customer\'s face, body proportions, skin tone, hairstyle, age, or the original garment\'s color/design, IGNORE those differences and follow the original references.' : ''}`;
+
         // Try-On = clothing only (plain prompt built server-side, client prompt ignored).
         // AI Video master = festival/cinematic scene used as the video source.
         const prompt = service === 'try-on'
           ? buildTryOnPrompt(customerCategory)
-          : `Create a hyper-photorealistic vertical 9:16 full-body Indian festive fashion master photograph.
-STYLE & OPTICS: Photorealistic 8K RAW commercial fashion photography, shot on Hasselblad 100MP camera, 85mm f/1.8 portrait lens, authentic human skin texture, natural pores, real fabric weaves, commercial studio lighting. ZERO illustration, ZERO 3D render look, ZERO CGI or anime aesthetics.
-IDENTITY LOCK: Use the first uploaded image as the exact customer identity reference. Preserve facial identity, facial features, face shape, eye shape, nose, mouth, jawline, forehead, ears if visible, beard/moustache if present, glasses if present, skin tone, hairstyle, hairline, body proportions, body size, age appearance and likeness. Do not make the person younger, older, slimmer, heavier, fairer, darker, more muscular, more glamorous, or into a different model. Use premium lighting, color grade and neat grooming only; do not remodel the real face or body.
-OUTFIT LOCK: Use remaining garment images as exact clothing reference. Preserve garment primary color, fabric texture, embroidery, motifs, borders, silhouette and design.
-Dress the same customer naturally in the selected garment as a complete full-length outfit.
-ENVIRONMENT: ${templatePrompt}
-Maintain strict full-body head-to-toe framing. Prefer a front-facing or very slight three-quarter standing pose with both feet naturally planted, clean footwear, stable hands, no crossed legs, no side-profile stance, no awkward foot pose and no cropped feet. Modest, family-friendly, high-end Maharaja fashion campaign look.`;
+          : `${MASTER_IMAGE_UNIVERSAL_PREFIX}
+
+${referenceHierarchy}
+
+SUBJECT: An ${customerCategory === 'men' ? 'adult man' : customerCategory === 'women' ? 'adult woman' : customerCategory === 'boy' ? 'young boy' : 'young girl'}.
+ENVIRONMENT & SETTING: ${templatePrompt}
+
+Strictly preserve the real customer identity from Image 1 and the real garment design from the garment images. No text, logos, or watermarks. Full body head-to-toe with both feet visible.`;
 
         contents.push(prompt);
 
@@ -175,7 +188,53 @@ Maintain strict full-body head-to-toe framing. Prefer a front-facing or very sli
         const candidate = genResponse.candidates?.[0];
         const part = candidate?.content?.parts?.find((p: any) => p.inlineData);
         if (part?.inlineData?.data) {
-          const rawBase64 = part.inlineData.data;
+          let rawBase64 = part.inlineData.data;
+
+          // Section 6: Master Image Quality Gate validation before accepting festival master
+          if (service === 'ai-video') {
+            const qa = await validateFestivalMasterImage(
+              `data:image/jpeg;base64,${rawBase64}`,
+              personPhoto,
+              garmentPhotos?.[0]
+            );
+
+            if (!qa.videoSafe || !qa.valid) {
+              console.warn(`Master image initial QA check failed (${qa.reason}). Retrying generation once with corrective instruction...`);
+              const retryPrompt = `${prompt}\n\nCORRECTIVE RE-GENERATION INSTRUCTION: The previous image was rejected because: "${qa.reason}". You MUST correct this: ensure authentic customer face, accurate garment design, two natural hands, both feet fully visible on the floor with comfortable margin below, and zero text or watermarks.`;
+              const retryResponse = await ai.models.generateContent({
+                model: imageModel,
+                contents: [...contents.slice(0, -1), retryPrompt],
+                config: {
+                  responseModalities: ['TEXT', 'IMAGE'],
+                  imageConfig: { aspectRatio: '9:16' },
+                },
+              });
+              const retryCandidate = retryResponse.candidates?.[0];
+              const retryPart = retryCandidate?.content?.parts?.find((p: any) => p.inlineData);
+              if (retryPart?.inlineData?.data) {
+                const retryQA = await validateFestivalMasterImage(
+                  `data:image/jpeg;base64,${retryPart.inlineData.data}`,
+                  personPhoto,
+                  garmentPhotos?.[0]
+                );
+                if (!retryQA.videoSafe || !retryQA.valid) {
+                  if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
+                  return NextResponse.json(
+                    { success: false, error: `Festival master image validation failed: ${retryQA.reason || qa.reason}. Please try again with a clearer photograph.` },
+                    { status: 422 }
+                  );
+                }
+                rawBase64 = retryPart.inlineData.data;
+              } else {
+                if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
+                return NextResponse.json(
+                  { success: false, error: `Festival master image validation failed: ${qa.reason}. Please try again.` },
+                  { status: 422 }
+                );
+              }
+            }
+          }
+
           const rawBuffer = Buffer.from(rawBase64, 'base64');
           const finalBuffer = service === 'try-on'
             ? await applyMaharajaWatermark(rawBuffer)

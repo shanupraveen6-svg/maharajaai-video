@@ -46,8 +46,41 @@ export async function POST(req: NextRequest) {
       try {
         const resp = await ai.models.generateContent({
           model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
-          contents: [{ inlineData: image }, `Read this retail clothing price tag carefully. It must visibly be a genuine Maharaja/shop merchandise tag and show a rupee price. Do not guess hidden text. Return ONLY JSON:
-{"validTag":true,"amount":1250,"currency":"INR","brandOrStore":"visible text or unknown","confidence":0.95,"message":"short customer-safe result"}`],
+          contents: [
+            { inlineData: image },
+            `Inspect this retail clothing price tag carefully.
+
+VALIDATION REQUIREMENTS:
+1. A physical retail merchandise tag must be clearly visible.
+2. A valid Indian Rupee price must be clearly readable.
+3. Do not guess blurred, cut-off, hidden, folded, reflected, or partially visible digits.
+4. Ignore:
+   - barcode numbers
+   - SKU/style numbers
+   - size numbers
+   - dates
+   - phone numbers
+   - QR contents
+   - unrelated numeric strings
+5. If both MRP and a final/discounted selling price are clearly visible, return the final selling price.
+6. If the final selling price cannot be determined with high confidence, validTag=false and amount=null.
+7. The tag must show Maharaja / Majestic Maharaja branding or another explicitly server-approved store identifier.
+8. If store identity cannot be confidently verified, validTag=false.
+9. Glare, severe perspective distortion, finger obstruction, blur, cropping, or folded price digits must cause rejection instead of guessing.
+
+Return ONLY valid JSON matching this exact structure:
+{
+  "validTag": boolean,
+  "amount": number | null,
+  "currency": "INR",
+  "brandOrStore": "visible text or unknown",
+  "confidence": number,
+  "message": "short customer-safe result"
+}
+
+Never include markdown.
+Never include commentary before or after JSON.`
+          ],
         });
         if (resp.text) {
           responseText = resp.text;
@@ -60,11 +93,24 @@ export async function POST(req: NextRequest) {
     }
     if (!responseText && lastError) {
       console.warn('Gemini price tag analysis retry exhausted:', lastError);
+      const isQuotaError = String(lastError).includes('429') || String(lastError).includes('RESOURCE_EXHAUSTED') || String(lastError).includes('quota');
+      if (AI_CONFIG.ALLOW_MOCK_BACKEND && isQuotaError) {
+        responseText = JSON.stringify({
+          validTag: true,
+          amount: 799,
+          currency: 'INR',
+          brandOrStore: 'Majestic Maharaja',
+          confidence: 0.98,
+          message: 'Price verified: Rs 799 (local test mock fallback - Gemini quota exhausted).'
+        });
+      }
     }
     const result = parseJson(responseText);
     const amount = Number(result?.amount || 0);
-    const hasMaharaja = typeof result?.brandOrStore === 'string' && /maharaja/i.test(result.brandOrStore);
-    const validTag = (result?.validTag === true || hasMaharaja) && Number.isFinite(amount) && amount > 0;
+    const brand = String(result?.brandOrStore || '');
+    const hasMaharaja = /maharaja/i.test(brand) || /maharaja/i.test(String(result?.message || ''));
+    // Fail-closed: both validTag and verified Maharaja branding are required
+    const validTag = result?.validTag === true && hasMaharaja && Number.isFinite(amount) && amount > 0;
     const eligible = validTag && amount >= TRY_ON_MIN_PURCHASE;
     const grant = eligible ? await issueTryOnGrant(body.deviceId, amount) : null;
     if (grant && !grant.allowed) return NextResponse.json({ success: false, error: grant.error }, { status: 409 });
@@ -74,13 +120,13 @@ export async function POST(req: NextRequest) {
       success: true,
       analysis: {
         validTag,
-        amount,
+        amount: validTag ? amount : null,
         eligible,
-        brandOrStore: String(result?.brandOrStore || 'unknown'),
+        brandOrStore: brand || 'unknown',
         confidence: Number(result?.confidence || 0),
         message: validTag
           ? amount >= TRY_ON_MIN_PURCHASE ? `Price verified: Rs ${amount}.` : `Price verified: Rs ${amount}. Try-On requires Rs ${TRY_ON_MIN_PURCHASE} or more.`
-          : 'The price tag could not be verified. Retake it in bright light with the full tag visible.',
+          : 'The price tag could not be verified. Retake it in bright light with the full Maharaja tag and price clearly visible.',
       },
       grant: grant?.allowed ? { token: grant.token, expiresAtMs: grant.expiresAtMs } : null,
     });

@@ -22,6 +22,7 @@ import { compressImage } from '@/lib/utils/image';
 import SecureTryOnViewer from '@/components/SecureTryOnViewer';
 import {
   buildEventVideoPrompt,
+  buildFailSafeVideoPrompt,
   buildMasterPrompt,
   EVENT_OPTIONS,
   getEventOption,
@@ -302,13 +303,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           eventId,
           garmentAnalysis,
           masterImageUrl: videoMasterUrl,
-          conceptPrompt: buildEventVideoPrompt(category, eventId, videoPromptSet),
+          conceptPrompt: retrySessionId
+            ? buildFailSafeVideoPrompt(category, eventId)
+            : buildEventVideoPrompt(category, eventId, videoPromptSet),
         }),
       }));
 
       for (let attempt = 0; attempt < 180; attempt += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, 5000));
-        const status = await readJson(await fetch(`/api/video/status?sessionId=${encodeURIComponent(sessionId)}&jobId=${encodeURIComponent(start.jobId)}`));
+        const status = await readJson(await fetch(`/api/video/status?sessionId=${encodeURIComponent(sessionId)}&jobId=${encodeURIComponent(start.jobId)}&accessCode=${encodeURIComponent(accessCode)}`));
         if (status.status === 'ready' || status.status === 'succeeded') {
           router.push(`/result/${sessionId}?access=${encodeURIComponent(accessCode)}`);
           return;

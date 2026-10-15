@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
 
     // Claim the pass's single video slot atomically before any provider call (blocks double-click / second tab).
     if (access.pass) {
-      const lock = await acquirePassVideoLock(access.pass.code);
+      const lock = await acquirePassVideoLock(access.pass.code, jobId);
       if (!lock.ok) {
         return NextResponse.json({ success: false, error: lock.error }, { status: 409 });
       }

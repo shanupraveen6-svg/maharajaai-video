@@ -25,6 +25,7 @@ export const PersonAnalysisSchema = z.object({
   valid: z.boolean(),
   subjectGroup: z.enum(['adult', 'child']),
   fullBodyVisible: z.boolean(),
+  bothFeetVisible: z.boolean().default(true),
   faceVisible: z.boolean(),
   lightingQuality: z.enum(['excellent', 'acceptable', 'poor']),
   additionalPhotoRequired: z.boolean().default(false),
@@ -33,3 +34,18 @@ export const PersonAnalysisSchema = z.object({
 });
 
 export type PersonAnalysis = z.infer<typeof PersonAnalysisSchema>;
+
+export const MasterImageQASchema = z.object({
+  valid: z.boolean(),
+  identityPreserved: z.boolean(),
+  garmentPreserved: z.boolean(),
+  fullBodyVisible: z.boolean(),
+  bothFeetVisible: z.boolean(),
+  anatomyAcceptable: z.boolean(),
+  cleanFrame: z.boolean(),
+  videoSafe: z.boolean(),
+  reason: z.string().default(''),
+});
+
+export type MasterImageQA = z.infer<typeof MasterImageQASchema>;
+

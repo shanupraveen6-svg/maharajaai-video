@@ -74,7 +74,14 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     let jobId = searchParams.get('jobId')?.trim() || null;
     const sessionId = searchParams.get('sessionId')?.trim() || null;
-    const accessCodeParam = searchParams.get('accessCode')?.trim() || null;
+    const accessCode = searchParams.get('accessCode')?.trim() || null;
+
+    if (!accessCode) {
+      return NextResponse.json(
+        { success: false, error: 'accessCode parameter is required.' },
+        { status: 401 }
+      );
+    }
 
     if (!jobId && !sessionId) {
       return NextResponse.json(
@@ -94,7 +101,6 @@ export async function GET(req: NextRequest) {
     let provider: string | null = null;
     let eventId = 'diwali';
     let clientId: string | null = null;
-    let accessCode: string | null = accessCodeParam;
 
     if (db) {
       // 1. Fetch Session Doc first
@@ -110,12 +116,11 @@ export async function GET(req: NextRequest) {
           if (jobId && sData?.jobId && sData.jobId !== jobId) {
             return NextResponse.json({ success: false, error: 'The specified jobId does not belong to this sessionId.' }, { status: 400 });
           }
-          // Cross-validate that requested accessCode belongs to this session
-          if (accessCodeParam && sData?.accessCode && sData.accessCode !== accessCodeParam) {
+          // Cross-validate that caller-supplied accessCode belongs to this session
+          if (sData?.accessCode && sData.accessCode !== accessCode) {
             return NextResponse.json({ success: false, error: 'The specified accessCode does not match this session.' }, { status: 403 });
           }
 
-          accessCode = sData?.accessCode || accessCode;
           if (sData?.videoStatus === 'failed') {
             return NextResponse.json({
               success: false,
@@ -154,11 +159,10 @@ export async function GET(req: NextRequest) {
           if (targetSessionId && jobData?.sessionId && jobData.sessionId !== targetSessionId) {
             return NextResponse.json({ success: false, error: 'The specified sessionId does not belong to this jobId.' }, { status: 400 });
           }
-          if (accessCodeParam && jobData?.accessCode && jobData.accessCode !== accessCodeParam) {
+          if (jobData?.accessCode && jobData.accessCode !== accessCode) {
             return NextResponse.json({ success: false, error: 'The specified accessCode does not match this job.' }, { status: 403 });
           }
 
-          accessCode = jobData?.accessCode || accessCode;
           if (!targetSessionId && jobData?.sessionId) {
             targetSessionId = jobData.sessionId;
           }
@@ -176,11 +180,10 @@ export async function GET(req: NextRequest) {
           if (jobId && session.jobId && session.jobId !== jobId) {
             return NextResponse.json({ success: false, error: 'The specified jobId does not belong to this sessionId.' }, { status: 400 });
           }
-          if (accessCodeParam && session.accessCode && session.accessCode !== accessCodeParam) {
+          if (session.accessCode && session.accessCode !== accessCode) {
             return NextResponse.json({ success: false, error: 'The specified accessCode does not match this session.' }, { status: 403 });
           }
 
-          accessCode = session.accessCode || accessCode;
           if (session.videoStatus === 'failed') {
             return NextResponse.json({
               success: false,
@@ -208,14 +211,13 @@ export async function GET(req: NextRequest) {
           if (targetSessionId && jobData.sessionId && jobData.sessionId !== targetSessionId) {
             return NextResponse.json({ success: false, error: 'The specified sessionId does not belong to this jobId.' }, { status: 400 });
           }
-          if (accessCodeParam && jobData.accessCode && jobData.accessCode !== accessCodeParam) {
+          if (jobData.accessCode && jobData.accessCode !== accessCode) {
             return NextResponse.json({ success: false, error: 'The specified accessCode does not match this job.' }, { status: 403 });
           }
 
           requestId = jobData.requestId || null;
           operationName = jobData.operationName || null;
           provider = jobData.provider || provider;
-          accessCode = jobData.accessCode || accessCode;
           if (!targetSessionId && jobData.sessionId) {
             targetSessionId = jobData.sessionId;
           }
@@ -224,11 +226,9 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify customer pass access before generating/returning signed media URLs
-    if (accessCode) {
-      const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
-      if (!access.allowed && access.error !== 'This AI Video has been completed.') {
-        return NextResponse.json({ success: false, error: access.error }, { status: 401 });
-      }
+    const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+    if (!access.allowed && access.error !== 'This AI Video has been completed.') {
+      return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
 
     // =====================================================
@@ -256,7 +256,7 @@ export async function GET(req: NextRequest) {
 
             if (!outputVideoUrl) {
               const errMessage = 'Fal.ai generation completed but did not return a valid video URL.';
-              await markVideoFailed(db, targetSessionId, errMessage, accessCode);
+              await markVideoFailed(db, targetSessionId, errMessage, accessCode, jobId);
               return NextResponse.json({
                 success: false,
                 jobId,
