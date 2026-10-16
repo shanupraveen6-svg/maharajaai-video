@@ -169,20 +169,23 @@ Preserve exact customer identity, skin tone, body proportions, and exact garment
 /** Universal H3 rules shared by all eight category/theme prompts. */
 export const UNIVERSAL_HAILUO_VIDEO_BASE = `Create a 6-second vertical 9:16 cinematic festive fashion video using ONLY the provided approved master image.
 
-LOCKS:
-Preserve the exact identity, face, skin tone, facial features, age, hairstyle, and body proportions from the master image.
+ABSOLUTE IDENTITY & GARMENT LOCKS:
+Preserve the exact identity, face shape, skin tone, facial features, eyes, nose, mouth, age, hairstyle, and body proportions from the master image.
 Preserve the exact garment colours, fabric texture, embroidery, zari patterns, borders, sleeves, neckline, silhouette, and design. No face morphing, no body reshaping, no outfit redesign.
 
 SUBJECT & NATURAL PRESENCE:
-Keep feet anchored to the floor (no walking, stepping, sliding, or turning).
-The subject has lifelike, poised presence: natural gentle breathing motion, graceful subtle head tilt toward the camera with expressive eyes, and a warm radiant festive smile.
-Subtle fluid textile physics: the delicate edge of the saree pallu / dupatta / garment hem flutters softly as if in a gentle ambient indoor breeze, bringing the textile to life while keeping all patterns and colors 100% exact.
+Keep feet firmly anchored to the floor coordinates (no walking, stepping, sliding, or body turns).
+The subject has lifelike, poised presence: natural gentle breathing motion, graceful subtle head poise toward the camera with expressive eyes, and a warm genuine festive smile.
+Subtle fluid textile physics: the delicate edge of the saree pallu / dupatta / garment hem flutters softly as if in a gentle ambient indoor breeze, bringing authentic textile physics to life while keeping all patterns, zari, and colors 100% exact.
 
-CINEMATIC CAMERA:
-Dynamic smooth camera motion: a graceful upward pedestal tilt and gentle push with depth parallax, showcasing the subject from head-to-toe while revealing the glowing festive ambiance. No jerky shaking, no rapid spinning, no disorienting roll. Full body head-to-toe visible.
+CINEMATIC CAMERA WORK:
+Dynamic smooth camera motion: Begin with a Low-Angle Hero Shot looking slightly upward from floor diya height, highlighting majestic posture and garment drape. Sweep into a smooth, continuous 25-degree continuous arc orbit around the subject, generating stunning three-dimensional depth parallax between the foreground diyas, the subject, and the deep background lights. Concurrently execute a gentle, slow push-in master track toward a medium hero portrait, revealing the fine fabric zari and the subject's warm, genuine festive smile. Full body head-to-toe establishing framing. No jerky shake, no rapid spinning, no disorienting roll.
 
 ATMOSPHERIC BACKGROUND & LIGHTING:
-Animate the festive environment matching the image: diya and lamp flames flicker with dynamic warm golden light cast on the floor. Soft festive bokeh lights twinkle and pulse gently in the background. Subtle golden light dust and warm festive embers drift gently through the ambient air behind the subject.
+Animate the festive environment matching what is already present in the master image: the terracotta diyas and brass kutthu vilakku flames flicker with dynamic, organic golden flame motion, casting dancing warm amber reflections across the polished stone floor. The out-of-focus background festival lights and deep velvet bokeh orbs pulse softly with warm golden luminosity. Tiny golden festival dust particles and subtle sparkler embers drift slowly through the 3D air column.
+
+CINEMATIC OPTICS & POST-PROCESSING:
+A sleek horizontal anamorphic golden lens flare streak softly cuts across highlight points of the brass lamp as the camera arcs. Soft halation bloom warmly envelops the bright diya flame highlights. Subtle edge vignetting draws visual focus to the subject's face, smile, and outfit, with rich 35mm film warmth that removes digital artificiality.
 
 OUTPUT:
 Start on the source image at frame 1. Seamless, high-production cinematic fashion commercial aesthetic. No blank intro, no text, no titles, no watermarks, no extra limbs.`;
@@ -193,10 +196,10 @@ export function buildEventVideoPrompt(category: CustomerCategory, eventId: Event
   const child = category === 'boy' || category === 'girl';
 
   const directionPlans: Record<CustomerCategory, string> = {
-    women: 'CAMERA & MOTION: Elegant ascending vertical pedestal move with subtle parallax. Background temple lamps and floor diyas flicker with warm dynamic amber light reflections on the stone floor. Saree pallu / dupatta edge catches a gentle soft breeze with realistic fabric draping. The woman smiles warmly and gracefully.',
-    men: 'CAMERA & MOTION: Low-to-eye-level dynamic hero pedestal move with subtle parallax. Background architectural lights and traditional kutthu vilakku flames flicker softly with amber radiance. The man stands with confident, dignified posture and a natural, warm smile.',
-    girl: 'CAMERA & MOTION: Child eye-level gentle camera movement with warm festive depth. Background fairy lights and diyas twinkle softly. The young girl has a cheerful, natural festive smile with joyful innocent poise.',
-    boy: 'CAMERA & MOTION: Child eye-level smooth cinematic move. Background festive lanterns and warm lights shimmer with festive celebration. The young boy stands with a bright, proud, and cheerful smile.',
+    women: 'CAMERA & MOTION: Low-angle hero shot transitioning into an elegant sweeping arc with depth parallax and a slow push-in. Floor diyas and brass lamps flicker with living amber reflections. Saree pallu / dupatta edge catches a gentle soft breeze with realistic fabric draping. The woman smiles warmly and gracefully with expressive eyes.',
+    men: 'CAMERA & MOTION: Low-to-eye-level dynamic hero shot with smooth continuous orbital arc parallax and slow push-in. Architectural lights and traditional kutthu vilakku flames flicker with rich amber radiance. The man stands with dignified posture, confident poise, and a warm, genuine festive smile.',
+    girl: 'CAMERA & MOTION: Low-angle to child eye-level sweeping arc with warm festive depth parallax and gentle push-in. Background fairy lights and floor diyas twinkle and flicker softly. The young girl has a cheerful, natural festive smile with joyful innocent poise.',
+    boy: 'CAMERA & MOTION: Low-angle to child eye-level smooth cinematic arc move with gentle push-in. Background festive lanterns and warm diya lights shimmer with festive celebration. The young boy stands with a bright, proud, and cheerful smile.',
   };
   const directionPlan = directionPlans[category];
 

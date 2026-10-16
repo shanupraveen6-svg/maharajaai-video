@@ -66,7 +66,7 @@ function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   const visibility = decision.lowerBodyVisibility === 'clear'
     ? 'lower body visible and anchored'
     : 'lower body anchored';
-  return `Motion safety: ${visibility}. Feet stay firmly anchored to the floor with no walking, stepping, sliding, or body turns. Subject maintains poised posture with gentle natural breathing, subtle graceful head poise, and a warm genuine festive smile. Garment fabric shows soft, delicate micro-movement in the ambient air while preserving the exact weave, zari borders, colors, and motifs. Background festive lights, diya flames, and golden ambient reflections animate fluidly behind the subject.`;
+  return `Motion safety: ${visibility}. Feet stay firmly anchored to the floor coordinates with no walking, stepping, sliding, or body turns. Subject maintains poised posture with gentle natural breathing, subtle graceful head poise, and a warm genuine festive smile. Garment fabric shows soft, delicate micro-movement in the ambient air while preserving the exact weave, zari borders, colors, and motifs. Background festive lights, diya flames, and golden ambient reflections animate fluidly behind the subject with subtle camera arc parallax and gentle push-in.`;
 }
 
 function truncateAtWordBoundary(text: string, maxLength: number): string {
