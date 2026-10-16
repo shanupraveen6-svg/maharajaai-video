@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
@@ -103,39 +101,27 @@ export async function POST(req: NextRequest) {
       reservedSessionId = sessionId;
     }
 
-    const isDemoAsset = AI_CONFIG.IS_DEMO_MODE;
     const nowIso = new Date().toISOString();
+    const ai = getGenAIClient();
+    if (!ai) {
+      if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
+      return NextResponse.json(
+        { success: false, error: 'Gemini image generation is not configured.' },
+        { status: 503 }
+      );
+    }
+    const bucket = getStorageBucket();
+    if (!bucket) {
+      if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
+      return NextResponse.json(
+        { success: false, error: 'Maharaja secure media storage is unavailable. Please ask staff for assistance.' },
+        { status: 503 }
+      );
+    }
 
     let masterImageUrl = '';
 
-    if (body.usePreset && process.env.NODE_ENV !== 'production') {
-      const presetPath = path.join(process.cwd(), 'public', 'test-master-women.jpg');
-      if (fs.existsSync(presetPath)) {
-        const rawBuffer = fs.readFileSync(presetPath);
-        const finalBuffer = service === 'try-on'
-          ? await applyMaharajaWatermark(rawBuffer)
-          : rawBuffer;
-        masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
-      } else {
-        masterImageUrl = '/test-master-women.jpg';
-      }
-    } else if (isDemoAsset) {
-      if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
-      return NextResponse.json(
-        { success: false, error: 'Real Gemini master image generation is disabled because DEMO_MODE=true.' },
-        { status: 400 }
-      );
-    } else {
-      const ai = getGenAIClient();
-      if (!ai) {
-        if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
-        return NextResponse.json(
-          { success: false, error: 'Gemini image generation key is missing. Upload an AI image manually or configure GOOGLE_AI_API_KEY_PRIMARY.' },
-          { status: 500 }
-        );
-      }
-
-      try {
+    try {
         const contents: any[] = [];
 
         if (personPhoto) {
@@ -219,22 +205,17 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
             : rawBuffer;
           masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
 
-          const bucket = getStorageBucket();
-          if (bucket) {
-            try {
-              const storagePath = service === 'try-on'
-                ? `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/try-on.jpg`
-                : `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
-              const file = bucket.file(storagePath);
-              await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
-              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-              masterImageUrl = signedUrl;
-            } catch (storageErr) {
-              console.error('Firebase Storage upload failed for master image:', storageErr);
-              throw new Error(`Cloud Storage error: Failed to persist ${service} image (${storageErr instanceof Error ? storageErr.message : String(storageErr)}). Verify Firebase Storage bucket permissions.`);
-            }
-          } else if (process.env.NODE_ENV === 'production' && !AI_CONFIG.ALLOW_MOCK_BACKEND) {
-            throw new Error('Cloud Storage configuration error: Firebase Storage bucket is unavailable in production. Master images must be persisted to Storage to prevent exceeding Firestore document size limits.');
+          try {
+            const storagePath = service === 'try-on'
+              ? `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/try-on.jpg`
+              : `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
+            const file = bucket.file(storagePath);
+            await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
+            const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+            masterImageUrl = signedUrl;
+          } catch (storageErr) {
+            console.error('Firebase Storage upload failed for master image:', storageErr);
+            throw new Error(`Cloud Storage error: Failed to persist ${service} image (${storageErr instanceof Error ? storageErr.message : String(storageErr)}). Verify Firebase Storage bucket permissions.`);
           }
         } else {
           if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
@@ -243,14 +224,13 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
             { status: 502 }
           );
         }
-      } catch (genError: any) {
-        console.error('Gemini Master Image Generation Error:', genError);
-        if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
-        return NextResponse.json(
-          { success: false, error: formatGeminiImageError(genError) },
-          { status: 500 }
-        );
-      }
+    } catch (genError: any) {
+      console.error('Gemini Master Image Generation Error:', genError);
+      if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
+      return NextResponse.json(
+        { success: false, error: formatGeminiImageError(genError) },
+        { status: 500 }
+      );
     }
 
     const db = getDb();
@@ -333,7 +313,6 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       success: true,
       sessionId,
       masterImageUrl,
-      isDemoAsset,
       operatorMessage: 'Master fashion reference generated successfully.'
     });
   } catch (error: any) {

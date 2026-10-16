@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 const OPERATOR_COOKIE = 'maharaja_operator_auth';
 
 function getAuthSecret() {
-  return process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD || '';
+  return (process.env.OPERATOR_AUTH_SECRET || '').trim();
 }
 
 async function signPayload(payload: string, secret: string) {
@@ -33,7 +33,8 @@ async function hasValidSessionCookie(request: NextRequest) {
 
   const [username, expiresAtRaw, signature] = parts;
   const expiresAt = Number(expiresAtRaw);
-  if (username !== 'shanu7' || !Number.isFinite(expiresAt) || expiresAt < Date.now()) return false;
+  const validUsernames = (process.env.OPERATOR_USERNAME || '').split(',').map((item) => item.trim()).filter(Boolean);
+  if (!validUsernames.includes(username) || !Number.isFinite(expiresAt) || expiresAt < Date.now()) return false;
 
   const payload = `${username}.${expiresAtRaw}`;
   try {
@@ -48,11 +49,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const loginUrl = new URL(request.nextUrl.pathname.startsWith('/tv') ? '/tv-login' : '/login', request.url);
+  const loginUrl = new URL('/login', request.url);
   loginUrl.searchParams.set('next', request.nextUrl.pathname);
   return NextResponse.redirect(loginUrl);
 }
 
 export const config = {
-  matcher: ['/create/:path*', '/maharaja/workspace/:path*', '/tv/:path*'],
+  matcher: ['/maharaja/workspace/:path*', '/tv/:path*'],
 };

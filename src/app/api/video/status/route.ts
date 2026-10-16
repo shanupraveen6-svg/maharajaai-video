@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
     // =====================================================
     // Fal.ai MiniMax H3 Max Turbo queue polling.
     // =====================================================
-    if (!AI_CONFIG.IS_DEMO_MODE && (provider === 'fal-h3-max-turbo' || requestId) && status === 'processing') {
+    if ((provider === 'fal-h3-max-turbo' || requestId) && status === 'processing') {
       const falKey = AI_CONFIG.FAL_KEY;
       if (!falKey || !requestId) {
         const message = !falKey ? 'Fal.ai video service is not configured.' : 'Video provider request ID is missing.';

@@ -131,7 +131,7 @@ export default function LandingPage() {
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-[#8A6A20]">Client Portal</p>
                 <h2 className="mt-2 font-serif text-4xl font-bold text-[#2A060C]">Choose your store</h2>
                 <p className="mt-3 text-sm font-semibold leading-6 text-[#5C4B43]">
-                  Existing clients select their assigned workspace here. Maharaja is the active pilot store for this build.
+                  Existing clients select their assigned workspace here. Maharaja is the active client workspace.
                 </p>
               </div>
               <Store className="h-6 w-6 shrink-0 text-[#8A6A20]" />
@@ -163,7 +163,7 @@ export default function LandingPage() {
               <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#e7d9b7] pt-4 text-[10px] font-black uppercase tracking-wider">
                 <span className="flex items-center gap-1.5 text-emerald-800">
                   <BadgeCheck className="h-3.5 w-3.5" />
-                  Maharaja pilot ready
+                  Maharaja live
                 </span>
                 <span className="text-[#6e0d1f]">Secured login</span>
               </div>

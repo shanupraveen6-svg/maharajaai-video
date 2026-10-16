@@ -17,7 +17,6 @@ import {
   ScanLine,
   User,
   Plus,
-  RotateCcw,
   X,
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
@@ -148,20 +147,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       setError('');
     } catch (err) {
       setError(customerError(err, 'Could not initiate retry.'));
-    }
-  }
-
-  function resetTryOnForRetest() {
-    setTryOnUsed(false);
-    setPurchaseConfirmed(false);
-    setTryOnImageUrl(null);
-    setGarmentPhotos([]);
-    setGarmentAnalysis(null);
-    setTryOnGrant('');
-    setMessage('');
-    setError('');
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
     }
   }
 
@@ -514,14 +499,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-700" />
             <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Try-On completed</h2>
             <p className="mt-3 text-sm leading-6 text-[#5C4B43]">This device has completed its Maharaja AI Try-On. Thank you for visiting Maharaja!</p>
-            <button
-              type="button"
-              id="tryon-test-again-btn"
-              onClick={resetTryOnForRetest}
-              className="mx-auto mt-5 flex min-h-12 items-center justify-center gap-2 bg-[#6E0D1F] px-6 text-xs font-black uppercase text-[#F3E5AB] shadow"
-            >
-              <RotateCcw className="h-4 w-4 text-[#D4AF37]" /> Scan Another Garment / Test Again
-            </button>
           </section>
         )}
 

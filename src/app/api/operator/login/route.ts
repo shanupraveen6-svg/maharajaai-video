@@ -4,31 +4,23 @@ import crypto from 'crypto';
 const OPERATOR_COOKIE = 'maharaja_operator_auth';
 
 function getAuthSecret() {
-  const secret = process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD;
-  if (!secret && process.env.NODE_ENV !== 'production') {
-    return 'maharaja-local-dev-operator-auth-secret';
-  }
-  return secret || '';
+  return (process.env.OPERATOR_AUTH_SECRET || '').trim();
 }
 
 function getValidOperatorCredentials() {
   const envUsername = (process.env.OPERATOR_USERNAME || '').trim();
   const envPassword = (process.env.OPERATOR_PASSWORD || '').trim();
   const envPasswordsRaw = (process.env.OPERATOR_PASSWORDS || '').trim();
-  const envPasswords = envPasswordsRaw ? envPasswordsRaw.split(',').map((p) => p.trim()) : [];
+  const envPasswords = envPasswordsRaw ? envPasswordsRaw.split(',').map((p) => p.trim()).filter(Boolean) : [];
 
   const validUsernames = [envUsername].filter(Boolean);
   const validPasswords = [envPassword, ...envPasswords].filter(Boolean);
 
-  if (process.env.NODE_ENV === 'production' && (validUsernames.length === 0 || validPasswords.length === 0)) {
-    return { usernames: validUsernames, passwords: validPasswords, isConfigured: false };
-  }
-
-  // Non-production fallback
-  if (validUsernames.length === 0) validUsernames.push('shanu7');
-  if (validPasswords.length === 0) validPasswords.push('9994837342', '99948387342');
-
-  return { usernames: validUsernames, passwords: validPasswords, isConfigured: true };
+  return {
+    usernames: validUsernames,
+    passwords: validPasswords,
+    isConfigured: validUsernames.length > 0 && validPasswords.length > 0,
+  };
 }
 
 function signToken(payload: string, secret: string) {

@@ -93,7 +93,7 @@ const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
       id: 'maharaja-main',
       name: 'Maharaja Main Display (Thanjavur)',
       paired: true,
-      tokenHash: hashToken('demo-token-123'),
+      tokenHash: hashToken('local-automation-token'),
       lastSeenAt: new Date().toISOString()
     }]
   ]),

@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Sparkles,
   CalendarRange,
-  Tag,
   Trash2,
   LogOut,
   BarChart3,
@@ -202,20 +201,6 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'qr-download', label: 'Permanent AI Try-On wall QR downloaded' }),
     });
-  }
-
-  async function resetTryOnLimits() {
-    if (!window.confirm('Reset completed AI Try-On limits for all test devices? Use this only during controlled testing.')) return;
-    setSaving(true);
-    try {
-      const data = await readJson(await fetch('/api/maharaja/try-on-grants', { method: 'DELETE' }));
-      setMessage(`Try-On limits reset for ${data.cleared} device${data.cleared === 1 ? '' : 's'}.`);
-      await loadWorkspace();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to reset Try-On limits.');
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function resetLiveQueue() {
@@ -696,7 +681,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           </div>
 
           <p className="mt-2 text-xs text-[#5C4B43]">
-            Verified Go-Live moments pushed to the store TV screen. Review customer details and play rendered video proofs.
+            Completed Go-Live moments sent to the store TV screen. Review customer details and play the rendered videos.
           </p>
 
           <div className="mt-4 overflow-x-auto">
@@ -800,21 +785,6 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
                       className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6E0D1F] px-4 py-3 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-40 hover:bg-[#8A1127] transition shadow-sm"
                     >
                       {posterBuilding ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Download Try-On PNG
-                    </button>
-                    <a
-                      href="/maharaja-test-price-tag-rs-799.png"
-                      download="maharaja-test-price-tag-rs-799.png"
-                      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#D8C49B] bg-white px-4 py-3 text-center text-xs font-bold uppercase text-[#6E0D1F] hover:bg-[#FFFDF7] transition"
-                    >
-                      <Tag className="h-4 w-4" /> Download Rs 799 Test Tag
-                    </a>
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => void resetTryOnLimits()}
-                      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold uppercase text-red-800 disabled:opacity-40 hover:bg-red-100 transition"
-                    >
-                      <Trash2 className="h-4 w-4" /> Reset Test Limits
                     </button>
                   </div>
                 </div>
@@ -970,7 +940,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Live TV Video Proof</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Live TV Video</span>
                 <h4 className="font-serif text-lg font-bold text-[#F3E5AB]">
                   {playingVideo.customerName} ({playingVideo.phoneMasked})
                 </h4>
@@ -996,11 +966,10 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-center text-gray-400">
                   <Film className="h-10 w-10 text-[#D4AF37] mb-2" />
-                  <p className="text-sm font-semibold text-white">Video proof was rendered directly in session.</p>
+                  <p className="text-sm font-semibold text-white">This video was rendered for the customer session.</p>
                   {playingVideo.sessionId && (
                     <Link
                       href={`/result/${playingVideo.sessionId}`}
-                      target="_blank"
                       className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#D4AF37] text-black text-xs font-bold uppercase"
                     >
                       <ExternalLink className="h-3.5 w-3.5" /> View Session Result

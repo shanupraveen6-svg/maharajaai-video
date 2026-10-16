@@ -310,30 +310,10 @@ export async function finishTryOnGrant(deviceId: string, sessionId: string, comp
   }
 }
 
-export async function clearTryOnGrants() {
-  const db = getDb();
-  if (db) {
-    const snapshot = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('tryOnDevices').get();
-    for (let index = 0; index < snapshot.docs.length; index += 400) {
-      const batch = db.batch();
-      snapshot.docs.slice(index, index + 400).forEach((doc) => batch.delete(doc.ref));
-      await batch.commit();
-    }
-    return snapshot.size;
-  }
-  const store = getMockStore();
-  const keys = Array.from(store.tryOnGrants.keys()).filter((key) => key.startsWith(`${MAHARAJA_CLIENT_ID}:`));
-  keys.forEach((key) => store.tryOnGrants.delete(key));
-  return keys.length;
-}
-
 function stableCode(label: string, length = 20) {
-  const secret = process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD;
+  const secret = process.env.OPERATOR_AUTH_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('OPERATOR_AUTH_SECRET or ADMIN_PASSWORD must be configured in production environment variables.');
-    }
-    return crypto.createHmac('sha256', 'maharaja-local-dev-secret-only').update(`${MAHARAJA_CLIENT_ID}:${label}`).digest('base64url').slice(0, length);
+    throw new Error('OPERATOR_AUTH_SECRET must be configured.');
   }
   return crypto.createHmac('sha256', secret).update(`${MAHARAJA_CLIENT_ID}:${label}`).digest('base64url').slice(0, length);
 }

@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildVideoPrompt } from '@/lib/ai/gemini';
 import { AI_CONFIG } from '@/lib/ai/config';
-import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
+import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { fal } from '@fal-ai/client';
-import fs from 'fs';
-import path from 'path';
 import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { acquirePassVideoLock, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoSubmitted, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
 const FAL_VIDEO_MODEL = 'minimax/h3-max-turbo/image-to-video';
-
-function detectImageMimeType(buffer: Buffer, fallback = 'image/jpeg') {
-  if (buffer.length >= 12) {
-    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg';
-    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return 'image/png';
-    if (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
-  }
-  return fallback;
-}
 
 function formatFalError(error: any) {
   const detail = error?.body?.detail || error?.response?.data?.detail || error?.data?.detail;
@@ -82,7 +71,7 @@ function truncateAtWordBoundary(text: string, maxLength: number): string {
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
   const isFailSafe = basePrompt.startsWith('FAIL-SAFE REGENERATION MODE.') || basePrompt.startsWith('RETRY STABILIZED FASHION COMMERCIAL MODE.');
   const executionRule = isFailSafe
-    ? 'FAIL-PROOF COMMERCIAL REGENERATION MODE: Subject geometry, facial features, skin tone, and 100% garment weave, pattern, and embroidery are strictly locked from frame 1. Subject remains stationary and poised with feet firmly anchored to the floor coordinates with zero walking, turning, or leg movement. Only gentle natural breathing is permitted. The camera executes a smooth, steady, stabilized optical slow push-in starting immediately at frame 1. Festive background diya flames and ambient golden lighting shimmer naturally behind the subject. Zero limb duplication, zero texture swimming, zero distortion.'
+    ? 'STABILIZED COMMERCIAL REGENERATION: Subject geometry, facial features, skin tone, and 100% garment weave, pattern, and embroidery are strictly locked from frame 1. Subject remains stationary and poised with feet firmly anchored to the floor coordinates with zero walking, turning, or leg movement. Only gentle natural breathing is permitted. The camera executes a smooth, steady, stabilized optical slow push-in starting immediately at frame 1. Festive background diya flames and ambient golden lighting shimmer naturally behind the subject. Zero limb duplication, zero texture swimming, zero distortion.'
     : 'Execute the cinematic camera motion and background festive atmosphere starting at frame 1.';
   const canonicalPrompt = `${basePrompt} ${executionRule} No blank screen or delayed intro. Do not add text, words, titles or logos.`;
 
@@ -121,16 +110,6 @@ export async function POST(req: NextRequest) {
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const nowIso = new Date().toISOString();
 
-    if (AI_CONFIG.IS_DEMO_MODE) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Real video generation is disabled because DEMO_MODE=true. Set DEMO_MODE=false in Vercel before shop testing.'
-        },
-        { status: 400 }
-      );
-    }
-
     // Claim the pass's single video slot atomically before any provider call (blocks double-click / second tab).
     if (access.pass) {
       const lock = await acquirePassVideoLock(access.pass.code, jobId);
@@ -141,76 +120,29 @@ export async function POST(req: NextRequest) {
       console.log('VIDEO_PASS_LOCK_ACQUIRED', { sessionId, jobId });
     }
 
-    // ----------------------------------------------------
-    // Prepare Master Image Reference (URL or Data URI)
-    // ----------------------------------------------------
-    let masterBase64: string | null = null;
-    let masterMimeType = 'image/jpeg';
-    let masterDataUrl: string | null = null;
     let hostedImageUrl: string | null = masterImageUrl && /^https?:\/\//i.test(masterImageUrl)
       ? masterImageUrl
       : null;
 
-    if (masterImageUrl && masterImageUrl.startsWith('data:image')) {
-      masterDataUrl = masterImageUrl;
-      const mimeMatch = masterImageUrl.match(/^data:([^;]+);base64,/);
-      masterMimeType = mimeMatch?.[1] || masterMimeType;
-      masterBase64 = masterImageUrl.split(',')[1];
-    } else if (masterImageUrl && masterImageUrl.startsWith('/')) {
+    if (!hostedImageUrl) {
       try {
-        const localPath = path.join(process.cwd(), 'public', masterImageUrl);
-        if (fs.existsSync(localPath)) {
-          const buffer = fs.readFileSync(localPath);
-          masterBase64 = buffer.toString('base64');
-          masterMimeType = detectImageMimeType(buffer);
-          masterDataUrl = `data:${masterMimeType};base64,${masterBase64}`;
-        }
-      } catch (lErr) {
-        console.warn('Local master image read warning:', lErr);
-      }
-    } else if (!hostedImageUrl) {
-      const bucket = getStorageBucket();
-      if (bucket) {
-        try {
-          const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
-          const [buffer] = await bucket.file(storagePath).download();
-          masterBase64 = buffer.toString('base64');
-          masterMimeType = detectImageMimeType(buffer);
-          masterDataUrl = `data:${masterMimeType};base64,${masterBase64}`;
-        } catch (stErr) {
-          console.warn('Storage master image download warning:', stErr);
-        }
-      }
-
-      if (!masterBase64 && masterImageUrl && masterImageUrl.startsWith('http')) {
-        try {
-          const fetchRes = await fetch(masterImageUrl);
-          if (fetchRes.ok) {
-            const buffer = Buffer.from(await fetchRes.arrayBuffer());
-            masterBase64 = buffer.toString('base64');
-            masterMimeType = detectImageMimeType(
-              buffer,
-              fetchRes.headers.get('content-type')?.split(';')[0] || masterMimeType
-            );
-            masterDataUrl = masterImageUrl;
-          }
-        } catch (netErr) {
-          console.warn('Signed URL fetch fallback error:', netErr);
-        }
+        hostedImageUrl = await getSignedPlaybackUrl(`clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`);
+      } catch (storageError) {
+        console.warn('Stored video master URL could not be prepared:', storageError);
       }
     }
 
-    if (!masterBase64 && !masterImageUrl) {
+    if (!hostedImageUrl) {
       return NextResponse.json(
-        { success: false, error: 'Approved master reference image is required to initialize video generation.' },
-        { status: 400 }
+        { success: false, error: 'The approved Maharaja video image is unavailable. Generate the festival image again.' },
+        { status: 409 }
       );
     }
 
 
     const motionSafety = DEFAULT_MOTION_SAFETY;
     const prompt = buildFinalPrompt(buildVideoPrompt(garmentAnalysis, conceptPrompt), motionSafety);
-    console.log('VIDEO_MASTER_LOADED', { sessionId, jobId, hasImage: !!masterBase64 });
+    console.log('VIDEO_MASTER_LOADED', { sessionId, jobId, hasImage: true });
 
     const falKey = AI_CONFIG.FAL_KEY;
     if (!falKey || !falKey.trim()) {
@@ -222,35 +154,7 @@ export async function POST(req: NextRequest) {
         console.log('FAL_UPLOAD_START', { sessionId, jobId });
         fal.config({ credentials: falKey.trim() });
 
-        if (masterBase64) {
-          try {
-            const buffer = Buffer.from(masterBase64, 'base64');
-            const blob = new Blob([buffer], { type: masterMimeType || 'image/jpeg' });
-            hostedImageUrl = await fal.storage.upload(blob);
-            console.log('Successfully uploaded master image to Fal storage:', hostedImageUrl);
-          } catch (upErr) {
-            console.warn('Fal storage upload error:', upErr);
-          }
-        }
-
-        if (!hostedImageUrl && masterDataUrl) {
-          const parts = masterDataUrl.split(',');
-          if (parts.length > 1) {
-            try {
-              const buffer = Buffer.from(parts[1], 'base64');
-              const blob = new Blob([buffer], { type: masterMimeType || 'image/jpeg' });
-              hostedImageUrl = await fal.storage.upload(blob);
-              console.log('Successfully uploaded data URI to Fal storage:', hostedImageUrl);
-            } catch (upErr) {
-              console.warn('Fal storage upload from data URI error:', upErr);
-            }
-          }
-        }
-
-        if (!hostedImageUrl) {
-          throw new Error('Could not prepare a hosted image URL for Fal.ai generation.');
-        }
-        console.log('FAL_IMAGE_READY', { sessionId, jobId, reusedHostedUrl: !masterBase64 && !!hostedImageUrl });
+        console.log('FAL_IMAGE_READY', { sessionId, jobId, reusedHostedUrl: true });
 
         console.log('FAL_SUBMIT_START', { sessionId, jobId, model: FAL_VIDEO_MODEL });
         const falSubmitResult = await fal.queue.submit(FAL_VIDEO_MODEL, {
