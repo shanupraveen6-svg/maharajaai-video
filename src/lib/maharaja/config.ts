@@ -218,6 +218,11 @@ export function buildFailSafeVideoPrompt(category?: CustomerCategory, eventId?: 
 Create an ultra-stable 6-second vertical 9:16 video from the exact approved master image.
 This retry prioritizes identity and structural stability over cinematic movement.
 
+ABSOLUTE IDENTITY AND GARMENT LOCK:
+Preserve the exact face, identity, skin tone, age, hairstyle, body shape and proportions.
+Preserve the exact garment colours, neutral colours, fabric, embroidery, zari, motifs, borders, sleeves, neckline, silhouette, length and fit.
+No beautification, face replacement, body reshaping, garment redesign or colour shift.
+
 ABSOLUTE CAMERA LOCK:
 Camera remains 100% stationary for every frame.
 No zoom. No push-in. No pan. No tilt. No orbit. No shake. No reframing.
@@ -232,7 +237,6 @@ Hair silhouette remains fixed. Garment silhouette remains fixed.
 ALLOWED HUMAN MOTION ONLY:
 1. One very subtle natural eyelid blink.
 2. Extremely small closed-mouth facial warmth/smile.
-3. Imperceptible natural breathing only.
 If maintaining identity requires less facial movement, keep the face completely still.
 
 ENVIRONMENTAL MOTION ONLY:
@@ -241,5 +245,5 @@ Extremely subtle ambient light shimmer.
 No object displacement.
 
 ABSOLUTELY PROHIBITED:
-walking, stepping, sliding, turning, dancing, arm movement, hand movement, finger movement, head rotation, fabric billowing, garment transformation, camera movement, face morphing, body morphing, foot morphing, text, logos, watermarks, black intro frames.`;
+walking, stepping, sliding, turning, dancing, breathing motion, arm movement, hand movement, finger movement, head rotation, fabric billowing, garment transformation, colour shift, camera movement, face morphing, body morphing, foot morphing, text, logos, watermarks, black intro frames.`;
 }

@@ -53,13 +53,14 @@ type MotionSafetyDecision = {
 };
 
 const DEFAULT_MOTION_SAFETY: MotionSafetyDecision = {
-  lowerBodyVisibility: 'hidden',
+  lowerBodyVisibility: 'clear',
   garmentMotionRisk: 'high',
   recommendedMotion: 'still_cinematic',
   reason: 'Maharaja videos always use the approved stationary cinematic motion mode.'
 };
 
-const MAX_PROVIDER_PROMPT_CHARS = 2800;
+// fal currently publishes no prompt-length maximum; this local cap keeps H3 instructions focused.
+const MAX_VIDEO_PROMPT_CHARS = 2800;
 
 function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   const visibility = decision.lowerBodyVisibility === 'clear'
@@ -79,10 +80,14 @@ function truncateAtWordBoundary(text: string, maxLength: number): string {
 }
 
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
-  const canonicalPrompt = `${basePrompt} Start camera and background animation at frame 1 with no blank screen or delayed intro. Follow only the camera path and background effects stated in this prompt. Do not invent subject motion. Do not add any text, words, titles or logos.`;
+  const isFailSafe = basePrompt.startsWith('FAIL-SAFE REGENERATION MODE.');
+  const executionRule = isFailSafe
+    ? 'Keep the camera completely stationary. Start only the permitted background flame and ambient-light animation at frame 1. Do not invent camera or subject motion.'
+    : 'Start the stated camera path and background animation at frame 1. Follow only that camera path and those effects. Do not invent subject motion.';
+  const canonicalPrompt = `${basePrompt} ${executionRule} No blank screen or delayed intro. Do not add text, words, titles or logos.`;
 
   const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision)}`;
-  return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_PROVIDER_PROMPT_CHARS);
+  return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_VIDEO_PROMPT_CHARS);
 }
 
 export async function POST(req: NextRequest) {
