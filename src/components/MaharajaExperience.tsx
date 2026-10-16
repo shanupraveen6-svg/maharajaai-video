@@ -94,7 +94,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   // A billing pass owns its two stored images; they are never cleared or regenerated client-side.
   const passOwnsImages = service === 'ai-video';
-  const imagesLocked = passOwnsImages && !!(tryOnImageUrl || videoMasterUrl);
+  // Each billing-pass tab owns a separate result. Completing Try-On must not
+  // lock the source controls needed to prepare the AI Video master (or vice versa).
+  const imagesLocked = passOwnsImages && (isTryOn ? !!tryOnImageUrl : !!videoMasterUrl);
   function clearActiveImage() {
     if (passOwnsImages) return;
     setTryOnImageUrl(null);
