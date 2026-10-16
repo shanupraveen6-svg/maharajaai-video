@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { buildVideoPrompt } from '@/lib/ai/gemini';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
-import { GoogleGenAI } from '@google/genai';
 import { fal } from '@fal-ai/client';
 import fs from 'fs';
 import path from 'path';
@@ -10,16 +9,7 @@ import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { acquirePassVideoLock, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoSubmitted, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
-
-function getGenAIClient() {
-  const apiKey = AI_CONFIG.PRIMARY_API_KEY;
-  if (!apiKey || apiKey.trim() === '') return null;
-  try {
-    return new GoogleGenAI({ apiKey });
-  } catch (err) {
-    return null;
-  }
-}
+const FAL_VIDEO_MODEL = 'minimax/h3-max-turbo/image-to-video';
 
 function detectImageMimeType(buffer: Buffer, fallback = 'image/jpeg') {
   if (buffer.length >= 12) {
@@ -28,25 +18,6 @@ function detectImageMimeType(buffer: Buffer, fallback = 'image/jpeg') {
     if (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
   }
   return fallback;
-}
-
-function formatVeoError(error: any) {
-  const raw = error?.message || String(error || 'Unknown Veo error.');
-  const lower = raw.toLowerCase();
-
-  if (lower.includes('resource_exhausted') || lower.includes('quota') || lower.includes('free tier')) {
-    return 'Veo video quota is exhausted or too low for a 6-second generation. Add/enable paid quota for the Google AI project, or stop testing video and use Proof Mode/manual video upload.';
-  }
-
-  if (lower.includes('api key') || lower.includes('permission') || lower.includes('unauthenticated')) {
-    return 'Gemini/Veo API key is invalid or does not have video generation access. Update GOOGLE_AI_API_KEY_PRIMARY in Vercel with a paid project key that has Veo access.';
-  }
-
-  if (lower.includes('model') || lower.includes('not found')) {
-    return `Veo model is not available for this API key/project. Current model: ${AI_CONFIG.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview'}.`;
-  }
-
-  return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
 }
 
 function formatFalError(error: any) {
@@ -68,7 +39,7 @@ function formatFalError(error: any) {
   }
 
   if (lower.includes('unprocessable') || lower.includes('422')) {
-    return 'Fal.ai rejected the video request before rendering. The app did not start Google/Veo fallback, so no extra fallback credit was spent. Check the uploaded master image and provider input settings before retrying.';
+    return 'Fal.ai rejected the video request before rendering. Check the festival image and try again.';
   }
 
   return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
@@ -231,15 +202,13 @@ export async function POST(req: NextRequest) {
     const prompt = buildFinalPrompt(buildVideoPrompt(garmentAnalysis, conceptPrompt), motionSafety);
 
     const falKey = AI_CONFIG.FAL_KEY;
-    let jobData: any = null;
-    let falErrorReason: string | null = null;
+    if (!falKey || !falKey.trim()) {
+      return NextResponse.json({ success: false, error: 'Fal.ai video service is not configured.' }, { status: 503 });
+    }
 
-    // ====================================================
-    // PRIMARY PROVIDER: Fal.ai MiniMax Hailuo-02 Standard
-    // ====================================================
-    if (falKey && falKey.trim() !== '') {
-      try {
-        console.log('Attempting Primary Provider: Fal.ai MiniMax Hailuo-02...');
+    let jobData: any = null;
+    try {
+        console.log('Starting Fal.ai MiniMax H3 Max Turbo video...');
         fal.config({ credentials: falKey.trim() });
 
         let hostedImageUrl: string | null = null;
@@ -273,13 +242,14 @@ export async function POST(req: NextRequest) {
           throw new Error('Could not prepare a hosted image URL for Fal.ai generation.');
         }
 
-        const falSubmitResult = await fal.queue.submit('fal-ai/minimax/hailuo-02/standard/image-to-video', {
+        const falSubmitResult = await fal.queue.submit(FAL_VIDEO_MODEL, {
           input: {
             prompt,
             image_url: hostedImageUrl,
-            duration: '6',
-            prompt_optimizer: false,
-            resolution: '768P'
+            duration: 6,
+            resolution: '768P',
+            prompt_expansion_mode: 'disabled',
+            enable_safety_checker: true,
           }
         });
 
@@ -292,117 +262,22 @@ export async function POST(req: NextRequest) {
             eventId,
             prompt,
             requestId: falSubmitResult.request_id,
-            provider: 'fal-minimax',
-            model: 'fal-ai/minimax/hailuo-02/standard/image-to-video',
+            provider: 'fal-h3-max-turbo',
+            model: FAL_VIDEO_MODEL,
             motionSafety,
             status: 'processing',
             videoUrl: null,
             createdAt: nowIso
           };
-          console.log(`Fal.ai MiniMax Hailuo-02 job started successfully. Request ID: ${falSubmitResult.request_id}`);
+          console.log(`Fal.ai H3 Max Turbo job started successfully. Request ID: ${falSubmitResult.request_id}`);
         }
       } catch (falErr: any) {
-        falErrorReason = formatFalError(falErr);
-        console.error('Fal.ai MiniMax Hailuo-02 Primary Provider Error:', falErr);
+        console.error('Fal.ai H3 Max Turbo provider error:', falErr);
         return NextResponse.json(
-          {
-            success: false,
-            error: `MiniMax Hailuo video generation failed: ${falErrorReason}. Google/Veo fallback was not started, so no extra fallback credit was spent.`
-          },
+          { success: false, error: `Video generation could not be started: ${formatFalError(falErr)}` },
           { status: 500 }
         );
       }
-    }
-
-    // ====================================================
-    // SECONDARY PROVIDER (FALLBACK): Google Veo
-    // ====================================================
-    if (!jobData) {
-      if (!AI_CONFIG.ENABLE_VEO_FALLBACK) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: falErrorReason
-              ? `MiniMax Hailuo video generation failed: ${falErrorReason}. Automatic Google Veo fallback is disabled (ENABLE_VEO_FALLBACK=false) to protect credits.`
-              : 'Primary video generation is unavailable and Google Veo fallback is disabled.'
-          },
-          { status: 500 }
-        );
-      }
-
-      const ai = getGenAIClient();
-      if (!ai) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: falKey
-              ? `Primary Fal.ai provider failed (${falErrorReason || 'Unknown error'}) and Google AI API key is missing for secondary fallback.`
-              : 'Neither Fal.ai API Key (FAL_KEY) nor Google AI API key is configured.'
-          },
-          { status: 500 }
-        );
-      }
-
-      try {
-        if (!masterBase64) {
-          throw new Error('Approved master reference image bytes are required to initialize Veo generation.');
-        }
-
-        const videoConfig: any = {
-          aspectRatio: '9:16',
-          numberOfVideos: 1,
-          durationSeconds: 6,
-          resolution: '720p'
-        };
-
-        const generateParams: any = {
-          model: AI_CONFIG.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview',
-          source: {
-            prompt,
-            image: {
-              imageBytes: masterBase64,
-              mimeType: masterMimeType
-            }
-          },
-          config: videoConfig
-        };
-
-        const videoResponse = await ai.models.generateVideos(generateParams);
-        const operationName = videoResponse.name || null;
-
-        if (!operationName) {
-          throw new Error('Veo did not return an operation name for polling.');
-        }
-
-        jobData = {
-          id: jobId,
-          sessionId,
-          clientId: MAHARAJA_CLIENT_ID,
-          accessCode: typeof accessCode === 'string' ? accessCode : null,
-          eventId,
-          prompt,
-          operationName,
-          provider: 'google-veo',
-          model: AI_CONFIG.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview',
-          motionSafety,
-          status: 'processing',
-          videoUrl: null,
-          createdAt: nowIso
-        };
-        console.log(`Google Veo job started successfully. Operation Name: ${operationName}`);
-      } catch (veoError: any) {
-        console.error('Google Veo Secondary Provider Error:', veoError);
-        return NextResponse.json(
-          {
-            success: false,
-            error: falErrorReason
-              ? `Video generation failed: Primary Fal.ai error (${falErrorReason}) | Secondary Google Veo error (${formatVeoError(veoError)})`
-              : `Video generation failed to start: ${formatVeoError(veoError)}`
-          },
-          { status: 500 }
-        );
-      }
-    }
 
     // The provider has accepted the job: mark rendering on the pass and bind this jobId
     if (access.pass) {
@@ -457,9 +332,7 @@ export async function POST(req: NextRequest) {
       provider: jobData.provider,
       motionSafety,
       status: jobData.status,
-      message: jobData.provider === 'fal-minimax'
-        ? 'MiniMax Hailuo video generation initialized via Fal.ai (Primary).'
-        : 'Veo video generation job initialized via Google (Secondary).'
+      message: 'MiniMax H3 Max Turbo video generation initialized.'
     });
   } catch (error: any) {
     console.error('Video Start Route Error:', error);

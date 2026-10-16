@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runQualityAssurance } from '@/lib/ai/gemini';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
-import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
-import fs from 'fs';
-import path from 'path';
 
 import { getVideoPass, markPassVideoFailed, markPassVideoReady, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
+const FAL_VIDEO_MODEL = 'minimax/h3-max-turbo/image-to-video';
 
 async function markVideoFailed(db: any, sessionId: string, message: string, accessCode?: string | null, jobId?: string | null) {
   if (!sessionId) return;
@@ -40,35 +37,6 @@ async function markVideoFailed(db: any, sessionId: string, message: string, acce
   }
 }
 
-function getGenAIClient() {
-  const apiKey = AI_CONFIG.PRIMARY_API_KEY;
-  if (!apiKey || apiKey.trim() === '') return null;
-  try {
-    return new GoogleGenAI({ apiKey });
-  } catch (err) {
-    return null;
-  }
-}
-
-function formatVeoStatusError(error: any) {
-  const raw = error?.message || String(error || 'Unknown Veo error.');
-  const lower = raw.toLowerCase();
-
-  if (lower.includes('resource_exhausted') || lower.includes('quota') || lower.includes('free tier')) {
-    return 'Veo video quota is exhausted or too low for this 6-second generation. Add/enable paid video quota for the Google AI project before retrying.';
-  }
-
-  if (lower.includes('api key') || lower.includes('permission') || lower.includes('unauthenticated')) {
-    return 'Gemini/Veo API key is invalid or does not have video generation access. Update GOOGLE_AI_API_KEY_PRIMARY in Vercel with a paid project key that has Veo access.';
-  }
-
-  if (lower.includes('safety') || lower.includes('blocked') || lower.includes('policy')) {
-    return 'Veo blocked the video generation for policy/safety reasons. Try a calmer prompt or use Proof Mode/manual video upload for this customer.';
-  }
-
-  return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
-}
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -96,7 +64,6 @@ export async function GET(req: NextRequest) {
     let videoUrl: string | null = null;
     let masterImageUrl: string | null = null;
     let status: string = 'processing';
-    let operationName: string | null = null;
     let requestId: string | null = null;
     let provider: string | null = null;
     let eventId = 'diwali';
@@ -146,12 +113,11 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // 2. Fetch Generation Job Doc to retrieve operationName / requestId
+      // 2. Fetch the generation job document to retrieve its Fal request ID.
       if (jobId) {
         const jobDoc = await db.collection('generationJobs').doc(jobId).get();
         if (jobDoc.exists) {
           const jobData = jobDoc.data();
-          operationName = jobData?.operationName || null;
           requestId = jobData?.requestId || null;
           provider = jobData?.provider || provider;
 
@@ -216,7 +182,6 @@ export async function GET(req: NextRequest) {
           }
 
           requestId = jobData.requestId || null;
-          operationName = jobData.operationName || null;
           provider = jobData.provider || provider;
           if (!targetSessionId && jobData.sessionId) {
             targetSessionId = jobData.sessionId;
@@ -232,23 +197,23 @@ export async function GET(req: NextRequest) {
     }
 
     // =====================================================
-    // 1. Fal.ai MiniMax Hailuo-02 Queue Polling (Primary)
+    // Fal.ai MiniMax H3 Max Turbo queue polling.
     // =====================================================
-    if (!AI_CONFIG.IS_DEMO_MODE && (provider === 'fal-minimax' || requestId) && status === 'processing') {
+    if (!AI_CONFIG.IS_DEMO_MODE && (provider === 'fal-h3-max-turbo' || requestId) && status === 'processing') {
       const falKey = AI_CONFIG.FAL_KEY;
       if (falKey && requestId) {
         try {
           const { fal } = await import('@fal-ai/client');
           fal.config({ credentials: falKey.trim() });
 
-          const queueStatus = await fal.queue.status('fal-ai/minimax/hailuo-02/standard/image-to-video', {
+          const queueStatus = await fal.queue.status(FAL_VIDEO_MODEL, {
             requestId,
             logs: true
           });
           const queueState = String((queueStatus as { status?: string }).status || '');
 
           if (queueState === 'COMPLETED') {
-            const falResult: any = await fal.queue.result('fal-ai/minimax/hailuo-02/standard/image-to-video', {
+            const falResult: any = await fal.queue.result(FAL_VIDEO_MODEL, {
               requestId
             });
 
@@ -310,7 +275,7 @@ export async function GET(req: NextRequest) {
                 sessionId: targetSessionId,
                 storagePath,
                 status: 'ready',
-                provider: 'fal-minimax',
+                provider: 'fal-h3-max-turbo',
                 createdAt: new Date().toISOString()
               }, { merge: true });
 
@@ -349,12 +314,12 @@ export async function GET(req: NextRequest) {
               status: 'processing',
               masterImageUrl,
               eventId,
-              message: 'MiniMax Hailuo video rendering in progress via Fal.ai...'
+              message: 'MiniMax H3 Max Turbo video rendering in progress...'
             });
           }
 
           if (queueState === 'FAILED' || queueState === 'ERROR' || queueState === 'CANCELLED') {
-            const errMessage = `MiniMax Hailuo generation ${queueState.toLowerCase()}. Stop and review the prompt/image before retrying.`;
+            const errMessage = `Video generation ${queueState.toLowerCase()}. Please try again.`;
             await markVideoFailed(db, targetSessionId, errMessage, accessCode, jobId);
             return NextResponse.json({
               success: false,
@@ -371,7 +336,7 @@ export async function GET(req: NextRequest) {
             sessionId: targetSessionId,
             status: 'processing',
             masterImageUrl,
-            message: `MiniMax Hailuo queue status: ${queueState || 'processing'}`
+            message: `H3 Max Turbo queue status: ${queueState || 'processing'}`
           });
         } catch (falPollErr: any) {
           console.warn('Fal.ai Queue Polling Transient Network Warning:', falPollErr?.message || falPollErr);
@@ -383,167 +348,6 @@ export async function GET(req: NextRequest) {
             masterImageUrl,
             message: 'Fal.ai status check transient network delay, retrying status...'
           });
-        }
-      }
-    }
-
-    // =====================================================
-    // 2. Real Veo Operation Polling via Google (Secondary)
-    // =====================================================
-    if (!AI_CONFIG.IS_DEMO_MODE && operationName && status === 'processing') {
-      const ai = getGenAIClient();
-      if (ai) {
-        try {
-          // Rebuild a real SDK operation object from the stored operation name so the
-          // SDK can poll and convert the raw REST response into `generatedVideos`.
-          const pendingOperation = new GenerateVideosOperation();
-          pendingOperation.name = operationName;
-
-          const operation: any = await ai.operations.getVideosOperation({
-            operation: pendingOperation
-          });
-
-          if (operation.error) {
-            const message = formatVeoStatusError(operation.error);
-            await markVideoFailed(db, targetSessionId, message, accessCode, jobId);
-            return NextResponse.json({
-              success: false,
-              jobId,
-              sessionId: targetSessionId,
-              status: 'failed',
-              error: message
-            }, { status: 500 });
-          }
-
-          if (!operation.done) {
-            return NextResponse.json({
-              success: true,
-              jobId,
-              sessionId: targetSessionId,
-              status: 'processing',
-              message: 'Veo video rendering in progress...'
-            });
-          }
-
-          // Operation complete: download generated MP4 to temp file or Buffer
-          const generatedVideo = operation.response?.generatedVideos?.[0]?.video;
-          let fileBuffer: Buffer | null = null;
-
-          if (generatedVideo) {
-            if (generatedVideo.videoBytes) {
-              fileBuffer = Buffer.from(generatedVideo.videoBytes, 'base64');
-            } else if (generatedVideo.uri) {
-              const videoUri = generatedVideo.uri;
-
-              try {
-                const tempFileName = `veo_${jobId || targetSessionId}_${Date.now()}.mp4`;
-                const tempFilePath = path.join('/tmp', tempFileName);
-
-                await ai.files.download({
-                  file: generatedVideo as any,
-                  downloadPath: tempFilePath
-                });
-
-                if (fs.existsSync(tempFilePath)) {
-                  fileBuffer = fs.readFileSync(tempFilePath);
-                  try { fs.unlinkSync(tempFilePath); } catch (_) {}
-                }
-              } catch (dlErr: any) {
-                console.warn('ai.files.download fallback warning:', dlErr);
-              }
-
-              if (!fileBuffer && typeof videoUri === 'string' && videoUri.startsWith('http')) {
-                try {
-                  const fetchRes = await fetch(videoUri, {
-                    headers: {
-                      'x-goog-api-key': AI_CONFIG.PRIMARY_API_KEY
-                    }
-                  });
-                  if (fetchRes.ok) {
-                    fileBuffer = Buffer.from(await fetchRes.arrayBuffer());
-                  } else {
-                    console.error(`Direct video fetch failed with status ${fetchRes.status}`);
-                  }
-                } catch (netErr) {
-                  console.error('Direct video fetch network error:', netErr);
-                }
-              }
-            }
-          }
-
-          if (!fileBuffer) {
-            status = 'failed';
-            await markVideoFailed(db, targetSessionId, 'Failed to download generated Veo video output', accessCode, jobId);
-            return NextResponse.json({
-              success: false,
-              jobId,
-              sessionId: targetSessionId,
-              status: 'failed',
-              error: 'Veo video download failed.'
-            }, { status: 500 });
-          }
-
-          const storagePath = clientId
-            ? `clients/${clientId}/sessions/${targetSessionId}/video/final.mp4`
-            : `sessions/${targetSessionId}/video/final.mp4`;
-
-          const bucket = getStorageBucket();
-          if (!bucket) {
-            status = 'failed';
-            await markVideoFailed(db, targetSessionId, 'Firebase Storage bucket is required to save generated Veo video output.', accessCode, jobId);
-            return NextResponse.json({
-              success: false,
-              jobId,
-              sessionId: targetSessionId,
-              status: 'failed',
-              error: 'Firebase Storage bucket is required to save generated Veo video output.'
-            }, { status: 500 });
-          }
-
-          const file = bucket.file(storagePath);
-          await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
-          const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-          videoUrl = signedUrl;
-
-          status = 'ready';
-
-          // Store in Firestore: videos/video_{sessionId} and update session
-          if (db) {
-            await db.collection('videos').doc(`video_${targetSessionId}`).set({
-              id: `video_${targetSessionId}`,
-              sessionId: targetSessionId,
-              storagePath,
-              status: 'ready',
-              createdAt: new Date().toISOString()
-            }, { merge: true });
-
-            await db.collection('sessions').doc(targetSessionId).set({
-              videoStatus: 'ready',
-              videoUrl,
-              videoStoragePath: storagePath,
-              updatedAt: new Date().toISOString()
-            }, { merge: true });
-          } else {
-            const mockStore = getMockStore();
-            mockStore.videos.set(`video_${targetSessionId}`, {
-              id: `video_${targetSessionId}`,
-              sessionId: targetSessionId,
-              storagePath,
-              status: 'ready',
-              createdAt: new Date().toISOString()
-            });
-          }
-        } catch (opErr: any) {
-          console.error('Veo Operation Polling Error:', opErr);
-          const message = formatVeoStatusError(opErr);
-          await markVideoFailed(db, targetSessionId, message, accessCode, jobId);
-          return NextResponse.json({
-            success: false,
-            jobId,
-            sessionId: targetSessionId,
-            status: 'failed',
-            error: message
-          }, { status: 500 });
         }
       }
     }
@@ -560,8 +364,6 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const qaResult = await runQualityAssurance('', videoUrl);
-
     if (accessCode) {
       await markPassVideoReady(accessCode, jobId || undefined);
     }
@@ -575,7 +377,6 @@ export async function GET(req: NextRequest) {
       videoUrl,
       masterImageUrl,
       videoId: `video_${targetSessionId}`,
-      qaResult,
       eventId,
       retryUsed: !!pass?.retryUsed,
       videoDone: !!pass?.videoDone,
@@ -584,7 +385,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error('Video Status Route Error:', error);
     return NextResponse.json(
-      { success: false, error: `Failed to retrieve video status: ${formatVeoStatusError(error)}` },
+      { success: false, error: `Failed to retrieve video status: ${error instanceof Error ? error.message : 'Unknown error.'}` },
       { status: 500 }
     );
   }

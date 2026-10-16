@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       models: {
         analysis: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
         image: AI_CONFIG.GEMINI_IMAGE_MODEL,
-        video: AI_CONFIG.GEMINI_VIDEO_MODEL
+        video: 'minimax/h3-max-turbo/image-to-video'
       },
       qaStatus: 'not_implemented'
     }

@@ -71,7 +71,7 @@ export type MaharajaVideoPass = {
   lastVideoFailedAtMs?: number;
   /** Active generation job ID bound to this pass to prevent stale job updates. */
   activeVideoJobId?: string;
-  /** True once provider (Fal/Veo) has accepted the job and is actively rendering. */
+  /** True once Fal H3 has accepted the job and is actively rendering. */
   providerAccepted?: boolean;
   whatsappOptIn?: boolean;
   whatsappSentAt?: string;

@@ -131,7 +131,7 @@ ENVIRONMENT & SCENE: ${event.scene}.
 Preserve exact customer identity, skin tone, body proportions, and exact garment design head-to-toe with both feet planted on the floor.`;
 }
 
-/** Section 8: Universal Hailuo Video Prompt (Safest Motion Policy - Locked-off Tripod) */
+/** Section 8: Universal H3 Video Prompt (Safest Motion Policy - Locked-off Tripod) */
 export const UNIVERSAL_HAILUO_VIDEO_BASE = `Create a 6-second vertical 9:16 cinematic fashion video using ONLY the provided approved master image.
 
 SOURCE IMAGE LOCK:

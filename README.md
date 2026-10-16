@@ -39,8 +39,8 @@ TV_SETUP_PIN="482731"
 # Configurable Google AI Models
 GEMINI_ANALYSIS_MODEL="gemini-2.5-flash"
 GEMINI_IMAGE_MODEL="gemini-3.1-flash-image"
-GEMINI_VIDEO_MODEL="veo-3.1-generate-preview"
 GOOGLE_AI_API_KEY_PRIMARY="your-google-ai-api-key"
+FAL_KEY="your-fal-api-key"
 
 # Demo Mode (Enables graceful fallback to sample video)
 DEMO_MODE="true"

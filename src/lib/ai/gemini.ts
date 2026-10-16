@@ -309,18 +309,3 @@ Return STRICT JSON matching this schema:
     reason: `Automated inspection unavailable (${errMsg.slice(0, 150)}). Master image cannot be verified as safe for video generation.`
   });
 }
-
-/** Legacy QA stub retained for backwards-compatibility */
-export async function runQualityAssurance(masterImageUrl: string, videoUrl: string) {
-  void masterImageUrl;
-  void videoUrl;
-  return {
-    approved: false,
-    qaStatus: "not_implemented",
-    identityAcceptable: false,
-    garmentAcceptable: false,
-    motionAcceptable: false,
-    majorIssues: ["AI Keyframe QA is replaced by validateFestivalMasterImage pre-gate"],
-    operatorMessage: "AI QA inspection pending operator review."
-  };
-}
