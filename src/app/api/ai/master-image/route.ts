@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   let reservedSessionId = '';
   try {
     const body = await req.json();
-    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, conceptPrompt, templateId, accessCode } = body;
+    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, garmentRoles, conceptPrompt, templateId, accessCode } = body;
     const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
     const access = await verifyMaharajaAccess(req, accessCode, service);
     if (!access.allowed) {
@@ -148,9 +148,19 @@ export async function POST(req: NextRequest) {
 
         const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
 
+        const roleInstructions = (Array.isArray(garmentRoles) && garmentRoles.length)
+          ? garmentRoles.map((role: string, idx: number) => `- Garment Image ${idx + 1} = ${role.toUpperCase()}`).join('\n')
+          : `- Garment Image 1 = TOP / SHIRT / UPPER ATTIRE\n- Garment Image 2 = BOTTOM / PANT / LOWER ATTIRE\n- Garment Image 3 = EXTRA / ACCESSORY / DUPATTA`;
+
+        const garmentFidelityRules = `EXACT GARMENT ROLE & COLOR INSTRUCTIONS:
+${roleInstructions}
+- Preserve exact fabric colors, patterns, and dye hues from each garment reference.
+- If a Bottom / Pant reference is grey, it MUST remain pure neutral grey on the customer. Never shift or hallucinate it into beige, tan, cream, brown, or gold.
+- Professional model lighting must enhance clarity, contrast, and depth without altering the true dye color of any garment.`;
+
         let prompt = '';
         if (service === 'try-on') {
-          prompt = buildTryOnPrompt(customerCategory);
+          prompt = `${buildTryOnPrompt(customerCategory)}\n\n${garmentFidelityRules}`;
         } else {
           const tryOnRef = (service === 'ai-video' && (body.tryOnImageUrl || access.pass?.tryOnImageUrl)) || null;
           if (tryOnRef && typeof tryOnRef === 'string') {
@@ -179,7 +189,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
             ? conceptPrompt.trim()
             : buildMasterPrompt(customerCategory, eventId, sessionId);
 
-          prompt = `${fullConcept}\n\n${referenceHierarchy}`;
+          prompt = `${fullConcept}\n\n${garmentFidelityRules}\n\n${referenceHierarchy}`;
         }
 
         contents.push(prompt);

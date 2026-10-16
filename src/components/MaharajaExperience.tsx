@@ -83,6 +83,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [retryUsed, setRetryUsed] = useState(false);
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
   const [garmentPhotos, setGarmentPhotos] = useState<string[]>([]);
+  const [garmentRoles, setGarmentRoles] = useState<string[]>(['Top / Shirt', 'Bottom / Pant', 'Extra / Layer']);
   const [personAnalysis, setPersonAnalysis] = useState<Analysis | null>(null);
   const [garmentAnalysis, setGarmentAnalysis] = useState<Analysis | null>(null);
   const [tryOnImageUrl, setTryOnImageUrl] = useState<string | null>(null);
@@ -325,6 +326,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           templateId: category,
           personPhoto,
           garmentPhotos,
+          garmentRoles,
           personAnalysis,
           garmentAnalysis,
           deviceId,
@@ -617,24 +619,39 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         </div>
                       ) : (
                         <div className="grid grid-cols-3 gap-2">
-                          {garmentPhotos.map((photo, idx) => (
-                            <div key={idx} className="relative aspect-[3/4] overflow-hidden bg-white border border-[#DDD2BD]">
-                              <img src={photo} alt={`Garment ${idx + 1}`} className="h-full w-full object-cover" />
-                              <span className="absolute bottom-1 left-1 bg-black/75 px-1 py-0.5 text-[9px] font-bold uppercase text-[#F3E5AB]">
-                                {idx === 0 ? 'Main' : `#${idx + 1}`}
-                              </span>
-                              {!imagesLocked && (
+                          {garmentPhotos.map((photo, idx) => {
+                            const defaultRole = idx === 0 ? 'Top / Shirt' : idx === 1 ? 'Bottom / Pant' : 'Extra / Layer';
+                            const role = garmentRoles[idx] || defaultRole;
+                            return (
+                              <div key={idx} className="relative aspect-[3/4] overflow-hidden bg-white border border-[#DDD2BD] rounded-lg shadow-sm">
+                                <img src={photo} alt={role} className="h-full w-full object-cover" />
                                 <button
                                   type="button"
-                                  onClick={() => removeGarmentPhoto(idx)}
-                                  className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-700 text-white shadow"
-                                  title="Remove photo"
+                                  onClick={() => {
+                                    if (imagesLocked) return;
+                                    const nextRole = role.startsWith('Top') ? 'Bottom / Pant' : role.startsWith('Bottom') ? 'Extra / Layer' : 'Top / Shirt';
+                                    const updated = [...garmentRoles];
+                                    updated[idx] = nextRole;
+                                    setGarmentRoles(updated);
+                                  }}
+                                  className="absolute bottom-1 left-1 max-w-[90%] truncate rounded bg-black/85 px-1.5 py-0.5 text-[9px] font-bold uppercase text-[#F3E5AB] border border-[#D4AF37]/50"
+                                  title="Tap to toggle garment role (Top / Bottom / Extra)"
                                 >
-                                  <X className="h-3 w-3" />
+                                  {role}
                                 </button>
-                              )}
-                            </div>
-                          ))}
+                                {!imagesLocked && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeGarmentPhoto(idx)}
+                                    className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-700 text-white shadow"
+                                    title="Remove photo"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
                           {garmentPhotos.length < 3 && (
                             <label className="aspect-[3/4] flex flex-col items-center justify-center border-2 border-dashed border-[#B99A55] bg-white cursor-pointer text-slate-400 hover:text-[#6E0D1F] transition">
                               <Plus className="h-5 w-5 mb-1 text-[#6E0D1F]" />
