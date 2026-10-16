@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       const ai = getGenAIClient();
       if (ai) {
         const imageBase64 = body.image.split(',')[1] || body.image;
-        const models = Array.from(new Set([AI_CONFIG.GEMINI_ANALYSIS_MODEL, 'gemini-3.5-flash-lite']));
+        const models = Array.from(new Set([AI_CONFIG.GEMINI_ANALYSIS_MODEL, 'gemini-2.5-flash', 'gemini-1.5-flash'].filter(Boolean)));
         for (const model of models) {
           try {
             const resp = await ai.models.generateContent({
@@ -79,7 +79,9 @@ export async function POST(req: NextRequest) {
                 barcode = data.barcode.trim();
               }
             }
-            break;
+            if (parsed.amount !== null) {
+              break;
+            }
           } catch (visionErr) {
             console.warn(`Gemini price tag vision warning (${model}):`, visionErr);
           }
