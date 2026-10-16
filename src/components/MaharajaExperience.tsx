@@ -210,25 +210,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     try {
       const { dataUrl } = await compressImage(file, 1400, 0.84);
       setPersonPhoto(dataUrl);
-      if (activeService === 'try-on') {
-        setPersonAnalysis({ valid: true, additionalPhotoRequired: false, operatorMessage: 'Person photo added.' });
-        setMessage('Person photo is ready.');
-        return;
-      }
-      const data = await readJson(await fetch('/api/ai/analyze-person', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, accessCode, service: activeService, category }),
-      }));
-      setPersonAnalysis(data.analysis);
-      if (data.analysis.valid !== true) {
-        setError(data.analysis.operatorMessage || 'Use a clearer photo where the customer is visible.');
-      } else {
-        setMessage('Person photo is ready.');
-      }
+      setPersonAnalysis({ valid: true, additionalPhotoRequired: false, operatorMessage: 'Person photo added.' });
+      setMessage('Person photo is ready.');
     } catch (caught) {
       setPersonAnalysis(null);
-      setError(customerError(caught, 'The person photo could not be verified. Use one clear, well-lit full-body photo.'));
+      setError(customerError(caught, 'The person photo could not be prepared. Please take the photo again.'));
     } finally {
       setStage('ready');
     }
@@ -250,25 +236,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const newImages = compressed.map((item) => item.dataUrl);
       const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
       setGarmentPhotos(combined);
-      if (activeService === 'try-on') {
-        setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'Uploaded garment', primaryColor: 'Original color' });
-        setMessage('Garment photo is ready.');
-        return;
-      }
-      const data = await readJson(await fetch('/api/ai/analyze-garment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: newImages, accessCode, service: activeService }),
-      }));
-      setGarmentAnalysis(data.analysis);
-      if (data.analysis.valid !== true) {
-        setError(data.analysis.operatorMessage || 'Use a clearer photo where the garment is visible.');
-      } else {
-        setMessage(isTryOn ? 'Garment photo is ready.' : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
-      }
+      setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'Uploaded garment', primaryColor: 'Original color' });
+      setMessage(isTryOn ? 'Garment photo is ready.' : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
     } catch (caught) {
       setGarmentAnalysis(null);
-      setError(customerError(caught, isTryOn ? 'The garment photo could not be verified.' : 'The garment photos could not be verified. Upload up to 3 clear garment photos.'));
+      setError(customerError(caught, 'The garment photo could not be prepared. Please take the photo again.'));
     } finally {
       setStage('ready');
     }
