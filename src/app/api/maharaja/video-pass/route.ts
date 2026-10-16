@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       videoDone: false,
       retryUsed: false,
       whatsappOptIn: body.whatsappOptIn === true,
-      whatsappDeliveryStatus: body.whatsappOptIn === true ? 'pending' : undefined,
+      ...(body.whatsappOptIn === true ? { whatsappDeliveryStatus: 'pending' as const } : {}),
       usage: { scans: 0, imagesGenerated: 0, videosGenerated: 0, goLive: 0 },
     };
 
