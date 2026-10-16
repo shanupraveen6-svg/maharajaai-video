@@ -8,10 +8,8 @@ export const PREVIEW_AUDIO_TRACKS = [
 ] as const;
 
 export const LIVE_AUDIO_TRACKS = [
-  '/audio/maharaja/live/live-03.mp3',
-  '/audio/maharaja/live/live-04.mp3',
-  '/audio/maharaja/live/live-05.mp3',
-  '/audio/maharaja/live/live-06.mp3',
+  '/audio/maharaja/live/go-live-final.mp3',
+  '/audio/maharaja/live/go-live-enjoy.mp3',
 ] as const;
 
 function hashSeed(seed: string) {

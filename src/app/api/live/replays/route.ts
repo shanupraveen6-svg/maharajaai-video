@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
             videoId: video.id,
             sessionId: video.sessionId || null,
             videoUrl: await getSignedPlaybackUrl(video.storagePath),
-            liveAudioUrl: queueMeta?.liveAudioUrl || getLiveAudioTrack(replayId),
+            liveAudioUrl: getLiveAudioTrack(replayId),
             customerName: cleanDisplayText(queueMeta?.customerName || video.customerName, FALLBACK_NAME),
             customerLocality: cleanDisplayText(queueMeta?.customerLocality || video.customerLocality, FALLBACK_LOCALITY),
             source: 'replay'

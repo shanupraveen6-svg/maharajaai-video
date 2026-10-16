@@ -145,18 +145,23 @@ export default function TvPlayerPage() {
 
   async function notifyPlaybackComplete(playback: PlaybackItem) {
     if (completedQueueIdsRef.current.has(playback.queueId)) return;
-    completedQueueIdsRef.current.add(playback.queueId);
-    try {
-      await fetch('/api/live/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          queueId: playback.queueId,
-          reservationId: playback.reservationId,
-        }),
-      });
-    } catch (err) {
-      console.error('Failed to notify completion:', err);
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const response = await fetch('/api/live/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            queueId: playback.queueId,
+            reservationId: playback.reservationId,
+          }),
+        });
+        if (!response.ok) throw new Error(`Completion returned ${response.status}`);
+        completedQueueIdsRef.current.add(playback.queueId);
+        return;
+      } catch (err) {
+        console.error(`Failed to notify completion (attempt ${attempt}/3):`, err);
+        if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, attempt * 500));
+      }
     }
   }
 
@@ -317,7 +322,7 @@ export default function TvPlayerPage() {
       video.playbackRate = TV_PLAYBACK_RATE;
       video.currentTime = 0;
       if (audioRef.current) {
-        audioRef.current.src = playback.liveAudioUrl || getLiveAudioTrack(playback.queueId);
+        audioRef.current.src = getLiveAudioTrack(playback.queueId);
         audioRef.current.currentTime = 0;
         audioRef.current.volume = 0.88;
       }
@@ -369,7 +374,7 @@ export default function TvPlayerPage() {
     liveAudioStartedRef.current = true;
     window.requestAnimationFrame(() => {
       if (!audioRef.current || video.paused) return;
-      audioRef.current.src = playback.liveAudioUrl || getLiveAudioTrack(playback.queueId);
+      audioRef.current.src = getLiveAudioTrack(playback.queueId);
       audioRef.current.currentTime = Math.min(video.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
       audioRef.current.volume = 0.88;
       audioRef.current.play().catch((audioErr) => {
@@ -459,15 +464,15 @@ export default function TvPlayerPage() {
     preparePlayback(nextPlayback);
   }
 
-  const handleVideoEnded = async () => {
+  const handleVideoEnded = () => {
     const playback = currentPlaybackRef.current;
     if (!playback) return;
     clearPlaybackWatchdog();
     audioRef.current?.pause();
 
     if (playback.source !== 'replay') {
-      await notifyPlaybackComplete(playback);
       playback.source = 'replay';
+      void notifyPlaybackComplete(playback);
     }
 
     liveAudioStartedRef.current = false;
@@ -538,6 +543,7 @@ export default function TvPlayerPage() {
         key={`${slot}-${playback?.queueId || 'empty'}`}
         ref={slot === 'a' ? videoARef : videoBRef}
         src={playback?.videoUrl || undefined}
+        loop
         muted
         playsInline
         preload="auto"
@@ -556,6 +562,12 @@ export default function TvPlayerPage() {
         }}
         onPlaying={(event) => startLiveAudioWithVisibleVideo(slot, event.currentTarget)}
         onTimeUpdate={(event) => handleVideoProgress(slot, event.currentTarget)}
+        onEnded={() => {
+          if (isActive && !loopInProgressRef.current) {
+            loopInProgressRef.current = true;
+            handleVideoEnded();
+          }
+        }}
         onError={() => handleVideoError(slot)}
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
           isActive ? 'opacity-100' : 'opacity-0'
