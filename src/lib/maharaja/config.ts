@@ -102,156 +102,185 @@ SETTING & LIGHTING:
 The only purpose is to clearly and photorealistically show how this exact garment looks on this customer.`;
 }
 
-/** Section 5: Master Image Universal Prefix */
-export const MASTER_IMAGE_UNIVERSAL_PREFIX = `Create a hyper-photorealistic vertical 9:16 full-body Indian festive fashion photograph.
+/** Section 5: Universal Gemini Master Image Prompt & 8 Scene Variants */
+export const UNIVERSAL_GEMINI_IMAGE_PROMPT = `Create a premium festive fashion portrait of the customer using the uploaded customer photo and uploaded garment references.
 
-IDENTITY LOCK:
-Preserve the exact real customer identity from the original customer photograph.
-Preserve: facial structure, face shape, eyes, nose, mouth, jawline, forehead, ears when visible, beard/moustache, glasses, skin tone, hair texture, hairline, hairstyle, age appearance, body proportions, body size, height impression, shoulder width, natural likeness.
-Do NOT: beautify into another person, change age, change body size, change skin complexion, make slimmer, make heavier, make taller, make younger, make older, change facial geometry, change ethnicity, replace hairstyle, or create a model-like substitute face.
-Natural professional lighting and grooming are allowed. Identity remodeling is prohibited.
+PRIORITY RULES:
+1. Preserve the customer's exact face, identity, hairstyle, age impression, skin tone, and body proportions.
+2. Do not beautify the face. Do not reshape facial features. Do not change jawline, nose, eyes, lips, forehead, hairstyle, or complexion.
+3. Preserve the exact garment design, exact garment pattern, exact embroidery, and exact garment colours from the uploaded garment references.
+4. Warm festive lighting may add highlights and shadows, but it must not change the true garment colour. Neutral grey must remain neutral grey. Do not shift garments into beige, tan, khaki, cream, or other incorrect hues.
+5. Keep the customer standing in a clean, premium, elegant full-body fashion pose.
+6. The output must feel like a luxury festive fashion campaign image.
+7. Create the premium/model look only through professional lighting, environment, composition, and posture — never through facial beautification or identity alteration.
+8. Full body must be visible from head to feet. Both feet must remain visible.
+9. No extra people. No mannequins. No duplicated limbs. No distorted hands or feet.
+10. The customer must wear the uploaded garments exactly.
 
-GARMENT LOCK:
-Use the original garment references as authoritative.
-Preserve: primary color, secondary colors, fabric appearance, embroidery, zari, motifs, borders, sleeves, neckline, silhouette, length, design, garment type. Do not redesign the garment.
-Preserve neutral colours exactly: grey must remain grey and must never shift to beige, tan, khaki, cream, brown, or gold.
+GARMENT ROLE MAPPING:
+- Garment Reference 1 = Top / Shirt / Upper Garment
+- Garment Reference 2 = Bottom / Pant / Lower Garment
+- Garment Reference 3 = Extra / Optional Garment or Styling Layer
 
-MANNEQUIN / HANGER ISOLATION:
-Ignore any mannequin, hanger, rack, stand, shelf, store fixture or unrelated body visible in garment photographs. Transfer the textile garment only.
-
-ANATOMY:
-Exactly one real human subject. Natural human anatomy.
-Two arms. Two hands. Five fingers per visible hand. Two legs. Two feet.
-No duplicated limbs. No fused fingers. No missing limbs. No distorted hands. No deformed feet.
-
-FRAMING:
-Strict 9:16 vertical full-body framing. Entire head visible. Both feet fully visible.
-Maintain comfortable floor space below the feet. Do not crop toes or heels.
-Do not enlarge the subject so much that the feet approach the lower frame edge.
-Subject stands naturally upright. Feet should be separated naturally enough to make each foot visually distinguishable. Avoid crossed legs. Avoid unstable poses.
-
-FOOTWEAR:
-Preserve existing footwear when visible. If the source customer is barefoot and traditional styling reasonably permits barefoot presentation, do not automatically invent shoes. Do not randomly replace footwear.
-
-POSE:
-Front-facing or very slight three-quarter standing pose. Both feet planted naturally. Hands resting calmly at the side, gently in front, or another simple stable pose. Avoid complicated finger gestures. Avoid hands overlapping each other unnecessarily.
-
-FESTIVAL SAFETY:
-No handheld burning lamps. No handheld diya. No handheld fire. No sparklers in customer hands. All burning lamps must be securely placed on the floor or fixed environmental surfaces.
-For children: strictly age-appropriate, natural, cheerful, innocent, no adult glamour, no adult makeup styling, no sensual posing.
-
-CLEAN FRAME:
-No text. No titles. No captions. No subtitles. No logos. No brand marks. No watermarks. No random letters. No fake signage.
-
-STYLE:
-Photorealistic premium Indian retail campaign photography. Natural skin texture. Real fabric texture. Realistic lighting. No CGI appearance. No illustration. No anime. No plastic skin.`;
-
-export function buildMasterPrompt(category: CustomerCategory, eventId: EventId) {
-  const event = getEventOption(eventId);
-  const subject = category === 'men'
-    ? 'adult man'
-    : category === 'women'
-      ? 'adult woman'
-      : category === 'boy'
-        ? 'young boy'
-        : 'young girl';
-  const safety = category === 'boy' || category === 'girl'
-    ? 'Use child-safe, age-appropriate, cheerful styling with no adult glamour.'
-    : 'Use modest, family-friendly premium fashion styling with no glamour or body-part emphasis.';
-
-  return `${MASTER_IMAGE_UNIVERSAL_PREFIX}
-
-SUBJECT: An ${subject}. ${safety}
-ENVIRONMENT & SCENE: ${event.scene}.
-Preserve exact customer identity, skin tone, body proportions, and exact garment design head-to-toe with both feet planted on the floor.`;
-}
-
-/** Universal H3 rules shared by all eight category/theme prompts. */
-export const UNIVERSAL_HAILUO_VIDEO_BASE = `Create a 6-second vertical 9:16 cinematic festive fashion video using ONLY the provided approved master image.
-
-ABSOLUTE IDENTITY & GARMENT LOCKS:
-Preserve the exact identity, face shape, skin tone, facial features, eyes, nose, mouth, age, hairstyle, and body proportions from the master image.
-Preserve the exact garment colours, fabric texture, embroidery, zari patterns, borders, sleeves, neckline, silhouette, and design. No face morphing, no body reshaping, no outfit redesign.
-
-SUBJECT & NATURAL PRESENCE:
-Keep feet firmly anchored to the floor coordinates (no walking, stepping, sliding, or body turns).
-The subject has lifelike, poised presence: natural gentle breathing motion, graceful subtle head poise toward the camera with expressive eyes, and a warm genuine festive smile.
-Subtle fluid textile physics: the delicate edge of the saree pallu / dupatta / garment hem flutters softly as if in a gentle ambient indoor breeze, bringing authentic textile physics to life while keeping all patterns, zari, and colors 100% exact.
-
-CINEMATIC CAMERA WORK:
-Dynamic smooth camera motion: Begin with a Low-Angle Hero Shot looking slightly upward from floor diya height, highlighting majestic posture and garment drape. Sweep into a smooth, continuous 25-degree continuous arc orbit around the subject, generating stunning three-dimensional depth parallax between the foreground diyas, the subject, and the deep background lights. Concurrently execute a gentle, slow push-in master track toward a medium hero portrait, revealing the fine fabric zari and the subject's warm, genuine festive smile. Full body head-to-toe establishing framing. No jerky shake, no rapid spinning, no disorienting roll.
-
-ATMOSPHERIC BACKGROUND & LIGHTING:
-Animate the festive environment matching what is already present in the master image: the terracotta diyas and brass kutthu vilakku flames flicker with dynamic, organic golden flame motion, casting dancing warm amber reflections across the polished stone floor. The out-of-focus background festival lights and deep velvet bokeh orbs pulse softly with warm golden luminosity. Tiny golden festival dust particles and subtle sparkler embers drift slowly through the 3D air column.
-
-CINEMATIC OPTICS & POST-PROCESSING:
-A sleek horizontal anamorphic golden lens flare streak softly cuts across highlight points of the brass lamp as the camera arcs. Soft halation bloom warmly envelops the bright diya flame highlights. Subtle edge vignetting draws visual focus to the subject's face, smile, and outfit, with rich 35mm film warmth that removes digital artificiality.
+IMAGE STYLE:
+Bright flattering premium fashion lighting, elegant festive atmosphere, rich but tasteful Indian celebration mood, cinematic composition, realistic fabric rendering, natural skin texture, clean luxury presentation.
 
 OUTPUT:
-Start on the source image at frame 1. Seamless, high-production cinematic fashion commercial aesthetic. No blank intro, no text, no titles, no watermarks, no extra limbs.`;
+A polished premium full-body festive fashion image that looks aspirational, elegant, and realistic while preserving exact identity and exact dress fidelity.`;
 
-export function buildEventVideoPrompt(category: CustomerCategory, eventId: EventId, promptSet: VideoPromptSet = 'set-1') {
+export const GEMINI_IMAGE_SCENE_ADDONS: Record<CustomerCategory, [string, string]> = {
+  men: [
+    `SCENE STYLE:
+Place the customer in an elegant festive Indian setting with a traditional brass kuthu-vilakku / oil lamp in the foreground or near foreground. Use warm golden festive lighting, subtle diya glow, and rich premium ambience. The scene should feel regal, masculine, and rooted in Indian tradition. Keep the lamp as a tasteful cinematic foreground element without covering the customer's face or garments.`,
+    `SCENE STYLE:
+Place the customer in an elegant Indian heritage balcony or palace-style corridor with depth, pillars, or railings. Use refined festive lighting, warm background illumination, and a premium luxury ambience. The composition should feel regal, stylish, and cinematic.`,
+  ],
+  women: [
+    `SCENE STYLE:
+Place the customer in a graceful festive scene with a diya-lined walkway or richly lit festive floor arrangement. Include soft rangoli-inspired styling, warm glow, elegant highlights, and luxurious Indian festive ambience. The scene should feel elegant, graceful, and premium.`,
+    `SCENE STYLE:
+Place the customer near an ornate festive doorway or temple-inspired decorative entrance with warm divine golden light, elegant depth, and premium celebratory ambience. The scene should feel rich, graceful, and luxurious without becoming fantasy-like.`,
+  ],
+  boy: [
+    `SCENE STYLE:
+Place the child in a cheerful festive courtyard with warm decorative lights, festive ambience, and a bright celebratory background. The mood should feel joyful, energetic, and premium while remaining elegant and realistic.`,
+    `SCENE STYLE:
+Place the child in a festive environment with decorative hanging lanterns or festive hanging ornaments in the background. Use warm celebratory lighting, playful depth, and cheerful premium ambience. Keep it child-appropriate, elegant, and realistic.`,
+  ],
+  girl: [
+    `SCENE STYLE:
+Place the child in a beautiful festive balcony or decorative celebration setting with warm lights, elegant background depth, and a soft premium festive atmosphere. The mood should feel charming, graceful, and celebratory, like a festive princess portrait, while remaining realistic and child-appropriate.`,
+    `SCENE STYLE:
+Place the child in a festive setting featuring rangoli-inspired styling, warm lamps or diyas, and glowing celebration ambience. Use bright, joyful festive colour and elegant premium lighting while keeping the overall image realistic and child-appropriate.`,
+  ],
+};
+
+/** Deterministically alternates between scene 0 and scene 1 for a given session. */
+export function getSceneIndex(sessionId?: string): 0 | 1 {
+  if (!sessionId) return 0;
+  let hash = 0;
+  for (let i = 0; i < sessionId.length; i++) {
+    hash = (hash * 31 + sessionId.charCodeAt(i)) >>> 0;
+  }
+  return (hash % 2) as 0 | 1;
+}
+
+export function buildMasterPrompt(
+  category: CustomerCategory = 'women',
+  eventId: EventId = 'diwali',
+  sessionId?: string
+): string {
+  void eventId;
+  const sceneIdx = getSceneIndex(sessionId);
+  const variants = GEMINI_IMAGE_SCENE_ADDONS[category] || GEMINI_IMAGE_SCENE_ADDONS.women;
+  const addOn = variants[sceneIdx] || variants[0];
+  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\n${addOn}`;
+}
+
+/** Section 6: Universal Video Prompt & 8 Matching Video Scene Variants */
+export const UNIVERSAL_VIDEO_PROMPT = `Create a premium 6-second vertical cinematic fashion video from the provided festive master image.
+
+CORE RULES:
+1. Preserve the customer's exact face, identity, hairstyle, body proportions, garment design, garment embroidery, and garment colours.
+2. Do not beautify the face. Do not alter facial geometry. Do not change skin tone.
+3. The subject must remain essentially still, poised, and model-like.
+4. Feet remain firmly anchored to the floor coordinates.
+5. No walking, stepping, turning, dancing, hand acting, or body repositioning.
+6. No garment colour change. No garment design change. No fabric hallucination.
+7. Create the cinematic effect mainly through camera movement, foreground/background depth, lighting interaction, reflections, and festive environmental motion.
+8. Motion must be clean, premium, smooth, and easy for the model to execute.
+9. The shot must remain elegant and stable, not over-animated.
+10. This is a 6-second source film intended to remain beautiful when slowed for showroom playback, so motion should be controlled, graceful, and clean.
+
+VIDEO STYLE:
+High-end festive fashion film, premium Indian luxury ambience, bright flattering professional lighting, elegant depth, cinematic realism, polished composition.
+
+OUTPUT:
+A smooth premium 6-second fashion video in which the customer remains visually locked while the scene feels alive through camera and environment.`;
+
+export const VIDEO_SCENE_ADDONS: Record<CustomerCategory, [string, string]> = {
+  men: [
+    `SHOT DESIGN:
+Use a traditional brass lamp or oil lamp as a near-foreground cinematic element. Perform a smooth subtle reveal shot past the lamp, allowing the customer to remain centered and still. Let the flame flicker naturally and allow warm reflections and distant festive lights to shimmer gently. No subject movement. The cinematic energy comes from the foreground reveal, flame flicker, and elegant lighting depth.`,
+    `SHOT DESIGN:
+Use a heritage balcony or palace-corridor environment. Perform a gentle premium sideways camera move that creates soft parallax between foreground architecture, the stationary customer, and the festive background. Background lights shimmer subtly. No body motion. The cinematic feel comes from smooth parallax and elegant lighting.`,
+  ],
+  women: [
+    `SHOT DESIGN:
+Use a diya-lit festive floor or walkway with warm glowing ambience. Perform a smooth, gentle cinematic reveal or soft controlled tracking move while keeping the customer perfectly poised and still. Let the lamps flicker naturally and allow reflections and background bokeh to shimmer softly. No subject motion.`,
+    `SHOT DESIGN:
+Use an ornate festive doorway or temple-inspired decorative scene. Perform a smooth elegant camera reveal with subtle depth and premium lighting progression. Let warm golden background light glow softly while the customer remains completely still. The mood should feel rich, graceful, and luxurious.`,
+  ],
+  boy: [
+    `SHOT DESIGN:
+Use a festive courtyard setting with bright decorative lights and cheerful celebratory ambience. Perform a gentle simple cinematic move with small background light shimmer and subtle festive depth. The child remains still and centered. Keep motion clean, minimal, and child-appropriate.`,
+    `SHOT DESIGN:
+Use hanging lanterns or festive hanging decorations in the background. Perform a smooth easy cinematic camera move while the lanterns and background lights show subtle motion. The child remains still, centered, and calm. Keep the scene cheerful, premium, and realistic.`,
+  ],
+  girl: [
+    `SHOT DESIGN:
+Use a decorative festive balcony or elegant celebration backdrop. Perform a smooth subtle reveal or gentle lateral move while warm festive lights shimmer in the background. Keep the child perfectly still and poised. The video should feel charming, graceful, and premium.`,
+    `SHOT DESIGN:
+Use a festive scene with rangoli-inspired styling, lamps/diyas, and a glowing warm ambience. Perform a simple graceful camera move while lamp glow, reflections, and background light shimmer create visual life. The child remains still, centered, and elegant.`,
+  ],
+};
+
+export function buildEventVideoPrompt(
+  category: CustomerCategory = 'women',
+  eventId: EventId = 'diwali',
+  sessionId?: string,
+  promptSet: VideoPromptSet = 'set-1'
+): string {
+  void eventId;
   void promptSet;
-  const event = getEventOption(eventId);
-  const child = category === 'boy' || category === 'girl';
-
-  const directionPlans: Record<CustomerCategory, string> = {
-    women: 'CAMERA & MOTION: Low-angle hero shot transitioning into an elegant sweeping arc with depth parallax and a slow push-in. Floor diyas and brass lamps flicker with living amber reflections. Saree pallu / dupatta edge catches a gentle soft breeze with realistic fabric draping. The woman smiles warmly and gracefully with expressive eyes.',
-    men: 'CAMERA & MOTION: Low-to-eye-level dynamic hero shot with smooth continuous orbital arc parallax and slow push-in. Architectural lights and traditional kutthu vilakku flames flicker with rich amber radiance. The man stands with dignified posture, confident poise, and a warm, genuine festive smile.',
-    girl: 'CAMERA & MOTION: Low-angle to child eye-level sweeping arc with warm festive depth parallax and gentle push-in. Background fairy lights and floor diyas twinkle and flicker softly. The young girl has a cheerful, natural festive smile with joyful innocent poise.',
-    boy: 'CAMERA & MOTION: Low-angle to child eye-level smooth cinematic arc move with gentle push-in. Background festive lanterns and warm diya lights shimmer with festive celebration. The young boy stands with a bright, proud, and cheerful smile.',
-  };
-  const directionPlan = directionPlans[category];
-
-  return `${UNIVERSAL_HAILUO_VIDEO_BASE}
-
-${child ? 'CHILD SAFETY: Hands stay naturally at the sides. No handheld lamp, fire or sparkler.' : 'HANDS: Natural relaxed hand posture, no hand mutations or gesture changes.'}
-${directionPlan}
-
-EVENT ATMOSPHERE:
-Event: ${event.label} - ${event.scene}.
-The background lighting, ambient reflections, and particle effects strictly reflect the festive atmosphere of ${event.label}.
-
-FINAL PRIORITY: Preserve identity and the exact outfit above all effects. If an effect threatens the face, anatomy, or garment colour, prioritize the subject stability.`;
+  const sceneIdx = getSceneIndex(sessionId);
+  const variants = VIDEO_SCENE_ADDONS[category] || VIDEO_SCENE_ADDONS.women;
+  const addOn = variants[sceneIdx] || variants[0];
+  return `${UNIVERSAL_VIDEO_PROMPT}\n\n${addOn}`;
 }
 
-/** Section 10: Manager Retry Stabilized Fashion Video Prompt */
-export function buildFailSafeVideoPrompt(category: CustomerCategory = 'women', eventId: EventId = 'diwali') {
-  const event = getEventOption(eventId);
-  const isMale = category === 'men' || category === 'boy';
-  const isChild = category === 'boy' || category === 'girl';
+/** Section 7: Ultra-Safe Backup Video Prompt */
+export const ULTRA_SAFE_BACKUP_VIDEO_PROMPT = `FAIL-SAFE REGENERATION MODE. RETRY STABILIZED FASHION COMMERCIAL MODE.
 
-  const categoryDirection = isMale
-    ? isChild
-      ? 'SUBJECT & POSTURE: Young boy in traditional festive tailoring. Confident, cheerful standing posture with natural breathing and a bright, proud smile. CAMERA & MOTION: Controlled eye-level push-in with subtle background light parallax. Clean structural stability for young boy menswear.'
-      : 'SUBJECT & POSTURE: Adult man in refined festival attire. Dignified, stately standing posture with natural breathing and a warm, confident smile. Crisp shoulder line and collar tailoring. CAMERA & MOTION: Low-to-eye-level smooth pedestal push-in with subtle architectural light parallax.'
-    : isChild
-      ? 'SUBJECT & POSTURE: Young girl in traditional festive dress (pavadai / lehenga). Innocent, joyful poise with a cheerful radiant smile. Gentle fabric drape. CAMERA & MOTION: Soft child eye-level push-in with warm festive background depth and twinkle.'
-      : 'SUBJECT & POSTURE: Adult woman in elegant festival ensemble (saree / lehenga / salwar). Graceful, poised standing posture with natural breathing and a warm, radiant festive smile. Saree pallu / dupatta edge shows delicate micro-motion in the ambient indoor breeze. CAMERA & MOTION: Low-angle to eye-level graceful push-in with subtle depth parallax.';
+Create a premium 6-second vertical festive fashion video from the provided master image.
 
-  return `RETRY STABILIZED FASHION COMMERCIAL MODE.
+The customer must remain completely still in the exact pose.
+Preserve the exact face, identity, hairstyle, body proportions, garment design, garment embroidery, and garment colours.
+Do not beautify the face.
+Do not change facial geometry.
+Do not change garment colours.
+Do not change the pose.
 
-Create a premium, ultra-stable 6-second vertical 9:16 cinematic festive fashion video using ONLY the approved master image.
-Prioritize identity stability and garment perfection while maintaining natural, lifelike human presence.
+NO walking.
+NO stepping.
+NO turning.
+NO hand motion.
+NO head movement.
+NO body sway.
+NO garment flutter.
 
-ABSOLUTE IDENTITY & ANATOMY LOCK:
-- Preserve the exact customer face, facial structure, eyes, nose, mouth, skin tone, hairstyle, and body proportions from the master image.
-- Both feet stay firmly planted on their original floor coordinates (no walking, stepping, sliding, or body turns).
-- Exactly two arms and two natural hands resting calmly (no hand gestures, no limb mutations).
-${isChild ? '- CHILD SAFETY: Innocent, age-appropriate, cheerful styling with no adult glamour.' : '- Natural, modest, poised presence.'}
+Use only one simple safe cinematic move:
+a very gentle slow forward push-in / zoom-in combined with premium festive lighting and subtle background shimmer.
 
-GARMENT TEXTILE & PATTERN LOCK:
-- Preserve the exact uploaded garment: colors, fabric texture, zari borders, embroidery, motifs, neckline, sleeves, and silhouette.
-- Zero garment alteration, zero color shifts, zero pattern redesign. Present the outfit with crisp retail clarity.
+Allow only:
+- soft diya / lamp flicker
+- subtle background bokeh shimmer
+- slight floor reflection shimmer
+- soft warm festive light depth
 
-${categoryDirection}
+Keep the customer centered and full-body visible.
+The result must feel elegant, luxurious, and stable.
+Motion must be very easy, smooth, and safe for the model to generate.`;
 
-ATMOSPHERIC FESTIVE BACKGROUND:
-- Animate the scene from the master image (${event.label}): terracotta diya and vilakku flames flicker with warm organic amber glow casting reflections on the stone floor.
-- Background festive bokeh circles pulse softly with warm golden luminosity. Subtle golden light dust drifts gently in the background.
-
-CINEMATIC FINISHING:
-- Smooth, imperceptible camera push-in focusing on the garment and festive smile.
-- Soft halation glow on lamp highlights with rich 35mm film color warmth.
-- No jerky shake, no rapid spinning, no blank intro, no text, no watermarks, no distorted limbs.`;
+export function buildFailSafeVideoPrompt(
+  category: CustomerCategory = 'women',
+  eventId: EventId = 'diwali'
+): string {
+  void category;
+  void eventId;
+  return ULTRA_SAFE_BACKUP_VIDEO_PROMPT;
 }
+
+// Aliases for backward compatibility
+export const MASTER_IMAGE_UNIVERSAL_PREFIX = UNIVERSAL_GEMINI_IMAGE_PROMPT;
+export const UNIVERSAL_HAILUO_VIDEO_BASE = UNIVERSAL_VIDEO_PROMPT;

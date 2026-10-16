@@ -329,7 +329,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           garmentAnalysis,
           deviceId,
           tryOnGrant,
-          conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId) : undefined,
+          conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId) : undefined,
         }),
       }));
       if (activeService === 'try-on') setTryOnImageUrl(data.masterImageUrl);
@@ -360,7 +360,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           masterImageUrl: videoMasterUrl,
           conceptPrompt: retrySessionId
             ? buildFailSafeVideoPrompt(category, eventId)
-            : buildEventVideoPrompt(category, eventId),
+            : buildEventVideoPrompt(category, eventId, sessionId),
         }),
       }));
 

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt } from '@/lib/maharaja/config';
+import { CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, buildMasterPrompt } from '@/lib/maharaja/config';
 import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 
@@ -175,18 +175,11 @@ export async function POST(req: NextRequest) {
 - The garment photograph(s) are the authoritative garment-design references.
 ${tryOnRef ? '- The virtual try-on reference is supplied only to understand approximate garment placement and drape. If the virtual try-on differs from the original customer\'s face, body proportions, skin tone, hairstyle, age, or the original garment\'s color/design, IGNORE those differences and follow the original references.' : ''}`;
 
-          const templatePrompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
+          const fullConcept = typeof conceptPrompt === 'string' && conceptPrompt.trim()
             ? conceptPrompt.trim()
-            : 'Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.';
+            : buildMasterPrompt(customerCategory, eventId, sessionId);
 
-          prompt = `${MASTER_IMAGE_UNIVERSAL_PREFIX}
-
-${referenceHierarchy}
-
-SUBJECT: An ${customerCategory === 'men' ? 'adult man' : customerCategory === 'women' ? 'adult woman' : customerCategory === 'boy' ? 'young boy' : 'young girl'}.
-ENVIRONMENT & SETTING: ${templatePrompt}
-
-Strictly preserve the real customer identity from Image 1 and the real garment design from the garment images. No text, logos, or watermarks. Full body head-to-toe with both feet visible.`;
+          prompt = `${fullConcept}\n\n${referenceHierarchy}`;
         }
 
         contents.push(prompt);
