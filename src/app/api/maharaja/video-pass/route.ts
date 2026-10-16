@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { AI_VIDEO_MIN_PURCHASE, isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { AI_VIDEO_MIN_PURCHASE, isEventId, MAHARAJA_CLIENT_ID, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import {
   getMaharajaWorkspace,
   incrementMaharajaUsage,
@@ -80,13 +80,15 @@ export async function POST(req: NextRequest) {
       usage: { scans: 0, imagesGenerated: 0, videosGenerated: 0, goLive: 0 },
     };
 
-    const expiredCount = await expireActivePassesForPhone(phone);
-    if (expiredCount > 0) {
-      await incrementMaharajaUsage('retries');
-      await logMaharajaActivity('retry', `Previous AI Video QR superseded by retry (${maskPhone(phone)})`, {
-        phone: maskPhone(phone),
-        billLast4,
-      });
+    if (ENFORCE_REPEAT_LIMITS) {
+      const expiredCount = await expireActivePassesForPhone(phone);
+      if (expiredCount > 0) {
+        await incrementMaharajaUsage('retries');
+        await logMaharajaActivity('retry', `Previous AI Video QR superseded by retry (${maskPhone(phone)})`, {
+          phone: maskPhone(phone),
+          billLast4,
+        });
+      }
     }
 
     await saveVideoPass(pass);

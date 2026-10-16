@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { parseBarcodePrice } from '@/lib/maharaja/barcode-price';
-import { TRY_ON_MIN_PURCHASE } from '@/lib/maharaja/config';
+import { TRY_ON_MIN_PURCHASE, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import {
   analyzeTagDuplicate,
   getTryOnDeviceStatus,
@@ -27,9 +27,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'This device could not be verified. Reload the page and try again.' }, { status: 400 });
     }
 
-    const existing = await getTryOnDeviceStatus(body.deviceId);
-    if (existing?.status === 'used') return NextResponse.json({ success: false, error: 'This device has already completed its Maharaja AI Try-On.' }, { status: 409 });
-    if (existing?.status === 'processing') return NextResponse.json({ success: false, error: 'A Try-On is already being generated on this device.' }, { status: 409 });
+    if (ENFORCE_REPEAT_LIMITS) {
+      const existing = await getTryOnDeviceStatus(body.deviceId);
+      if (existing?.status === 'used') return NextResponse.json({ success: false, error: 'This device has already completed its Maharaja AI Try-On.' }, { status: 409 });
+      if (existing?.status === 'processing') return NextResponse.json({ success: false, error: 'A Try-On is already being generated on this device.' }, { status: 409 });
+    }
 
     // The price is always read server-side from the scanned tag; a client-sent amount is never trusted.
     const barcode = typeof body.barcode === 'string' ? body.barcode.trim().slice(0, 512) : '';
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
     // Duplicate check uses the product barcode only (OCR text varies frame to frame).
     if (barcode) {
       const duplicate = await analyzeTagDuplicate(body.deviceId, barcode, amount);
-      if (duplicate.duplicateType === 'different_device_used') {
+      if (ENFORCE_REPEAT_LIMITS && duplicate.duplicateType === 'different_device_used') {
         await logMaharajaActivity('duplicate-tag-scan', `Duplicate garment tag rejected (₹${amount})`, {
           amount,
           barcodeHash: crypto.createHash('sha256').update(barcode).digest('hex').slice(0, 16),

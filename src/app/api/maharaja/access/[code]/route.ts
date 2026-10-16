@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
-import { getEventOption } from '@/lib/maharaja/config';
+import { getEventOption, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import {
   getTryOnDeviceStatus,
   incrementMaharajaUsage,
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         phoneMasked: access.pass?.phoneMasked || null,
         billLast4: access.pass?.billLast4 || null,
         expiresAt: access.pass?.expiresAt || null,
-        tryOnUsed: deviceStatus?.status === 'used',
+        tryOnUsed: ENFORCE_REPEAT_LIMITS && deviceStatus?.status === 'used',
         tryOnImageDone: access.pass?.tryOnImageDone || false,
         tryOnImageUrl: access.pass?.tryOnImageUrl || null,
         videoMasterDone: access.pass?.videoMasterDone || false,

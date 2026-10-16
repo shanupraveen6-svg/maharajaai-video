@@ -11,6 +11,7 @@ import {
   TRY_ON_MIN_PURCHASE,
   EVENT_IDS,
   isEventId,
+  ENFORCE_REPEAT_LIMITS,
 } from './config';
 
 export type MaharajaWorkspace = {
@@ -176,8 +177,8 @@ export async function analyzeTagDuplicate(deviceId: string, barcodeOrText: strin
 
   if (isSameDevice) {
     return {
-      isDuplicate: true,
-      duplicateType: 'same_device',
+      isDuplicate: ENFORCE_REPEAT_LIMITS,
+      duplicateType: ENFORCE_REPEAT_LIMITS ? 'same_device' : 'none',
       scannedCount: updatedScanCount,
       firstScannedAt: tagRecord.firstScannedAt,
       previousAmount: tagRecord.amount,
@@ -186,8 +187,8 @@ export async function analyzeTagDuplicate(deviceId: string, barcodeOrText: strin
 
   if (isUsed) {
     return {
-      isDuplicate: true,
-      duplicateType: 'different_device_used',
+      isDuplicate: ENFORCE_REPEAT_LIMITS,
+      duplicateType: ENFORCE_REPEAT_LIMITS ? 'different_device_used' : 'none',
       scannedCount: updatedScanCount,
       firstScannedAt: tagRecord.firstScannedAt,
       previousAmount: tagRecord.amount,
@@ -195,8 +196,8 @@ export async function analyzeTagDuplicate(deviceId: string, barcodeOrText: strin
   }
 
   return {
-    isDuplicate: true,
-    duplicateType: 'different_device_active',
+    isDuplicate: ENFORCE_REPEAT_LIMITS,
+    duplicateType: ENFORCE_REPEAT_LIMITS ? 'different_device_active' : 'none',
     scannedCount: updatedScanCount,
     firstScannedAt: tagRecord.firstScannedAt,
     previousAmount: tagRecord.amount,
@@ -223,11 +224,13 @@ export async function markTagUsedForTryOn(barcodeOrText: string, sessionId?: str
 }
 
 export async function issueTryOnGrant(deviceId: string, amount: number) {
-  const existing = await getTryOnDeviceStatus(deviceId);
-  if (existing?.status === 'used') {
-    return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
+  if (ENFORCE_REPEAT_LIMITS) {
+    const existing = await getTryOnDeviceStatus(deviceId);
+    if (existing?.status === 'used') {
+      return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
+    }
+    if (existing?.status === 'processing') return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
   }
-  if (existing?.status === 'processing') return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
   
   const token = crypto.randomBytes(24).toString('base64url');
   const now = Date.now();
@@ -258,8 +261,8 @@ export async function reserveTryOnGrant(deviceId: string, token: string, session
       const snapshot = await transaction.get(ref);
       const grant = snapshot.exists ? snapshot.data() as MaharajaTryOnGrant : null;
       if (!grant || grant.tokenHash !== grantTokenHash(token) || grant.expiresAtMs < Date.now()) return { allowed: false as const, error: 'Scan the price tag again to start Try-On.' };
-      if (grant.status === 'used') return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
-      if (grant.status === 'processing' && grant.sessionId !== sessionId) return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
+      if (ENFORCE_REPEAT_LIMITS && grant.status === 'used') return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
+      if (ENFORCE_REPEAT_LIMITS && grant.status === 'processing' && grant.sessionId !== sessionId) return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
       transaction.set(ref, { status: 'processing', sessionId }, { merge: true });
       return { allowed: true as const };
     });
@@ -267,8 +270,8 @@ export async function reserveTryOnGrant(deviceId: string, token: string, session
   const key = `${MAHARAJA_CLIENT_ID}:${hash}`;
   const grant = getMockStore().tryOnGrants.get(key) as MaharajaTryOnGrant | undefined;
   if (!grant || grant.tokenHash !== grantTokenHash(token) || grant.expiresAtMs < Date.now()) return { allowed: false as const, error: 'Scan the price tag again to start Try-On.' };
-  if (grant.status === 'used') return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
-  if (grant.status === 'processing' && grant.sessionId !== sessionId) return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
+  if (ENFORCE_REPEAT_LIMITS && grant.status === 'used') return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
+  if (ENFORCE_REPEAT_LIMITS && grant.status === 'processing' && grant.sessionId !== sessionId) return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
   getMockStore().tryOnGrants.set(key, { ...grant, status: 'processing', sessionId });
   return { allowed: true as const };
 }
@@ -801,7 +804,7 @@ type VideoLockResult = { ok: true } | { ok: false; error: string };
 
 function evaluateVideoLock(pass: MaharajaVideoPass | undefined | null, now: number): VideoLockResult {
   if (!pass) return { ok: false, error: 'This Maharaja AI Video pass is invalid or expired.' };
-  if (pass.videoDone) {
+  if (ENFORCE_REPEAT_LIMITS && pass.videoDone) {
     return { ok: false, error: 'This billing pass has already completed its AI Video. Ask the manager if a retry is required.' };
   }
   if (!pass.videoMasterDone || !pass.videoMasterUrl) {
@@ -870,13 +873,13 @@ export async function verifyMaharajaAccess(
     }
     const videoPass = code ? await getVideoPass(code) : null;
     if (videoPass) {
-      if (videoPass.status === 'used') {
+      if (ENFORCE_REPEAT_LIMITS && videoPass.status === 'used') {
         return { allowed: false as const, error: 'This AI Video has been completed.' };
       }
       if (videoPass.expiresAtMs < Date.now()) {
         return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
       }
-      if (videoPass.status === 'active') {
+      if (videoPass.status === 'active' || !ENFORCE_REPEAT_LIMITS) {
         return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: videoPass, workspace };
       }
     }
@@ -887,16 +890,16 @@ export async function verifyMaharajaAccess(
 
   const pass = code ? await getVideoPass(code) : null;
   if (pass && pass.clientId === MAHARAJA_CLIENT_ID) {
-    if (pass.status === 'used') {
+    if (ENFORCE_REPEAT_LIMITS && pass.status === 'used') {
       return { allowed: false as const, error: 'This AI Video has been completed.' };
     }
-    if (pass.status === 'expired') {
+    if (ENFORCE_REPEAT_LIMITS && pass.status === 'expired') {
       return { allowed: false as const, error: 'This QR code was replaced by a retry at the billing counter. Please scan the newest QR code.' };
     }
     if (pass.expiresAtMs < Date.now()) {
       return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
     }
-    if (pass.status === 'active') {
+    if (pass.status === 'active' || !ENFORCE_REPEAT_LIMITS) {
       return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass, workspace };
     }
   }

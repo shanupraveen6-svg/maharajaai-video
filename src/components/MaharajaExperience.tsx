@@ -17,6 +17,7 @@ import {
   ScanLine,
   User,
   Plus,
+  RotateCcw,
   X,
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
@@ -102,6 +103,20 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     if (passOwnsImages) return;
     setTryOnImageUrl(null);
     setVideoMasterUrl(null);
+  }
+
+  function resetTryOnForRetest() {
+    setTryOnUsed(false);
+    setPurchaseConfirmed(false);
+    setTryOnImageUrl(null);
+    setGarmentPhotos([]);
+    setGarmentAnalysis(null);
+    setTryOnGrant('');
+    setMessage('');
+    setError('');
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
+    }
   }
 
   useEffect(() => {
@@ -285,9 +300,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       }));
       if (activeService === 'try-on') setTryOnImageUrl(data.masterImageUrl);
       else setVideoMasterUrl(data.masterImageUrl);
-      if (activeService === 'try-on' && !access?.access.phoneMasked) {
-        window.localStorage.setItem('tryfocus:maharaja:try-on-completed', new Date().toISOString());
-      }
       setMessage(activeService === 'try-on' ? 'Your Maharaja AI Try-On is ready.' : 'Festival image ready. Continue to create the video.');
     } catch (caught) {
       setError(customerError(caught, 'The AI image could not be generated. Please ask Maharaja staff for assistance.'));
@@ -435,6 +447,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-700" />
             <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Try-On completed</h2>
             <p className="mt-3 text-sm leading-6 text-[#5C4B43]">This device has completed its Maharaja AI Try-On. Thank you for visiting Maharaja!</p>
+            <button
+              type="button"
+              id="tryon-test-again-btn"
+              onClick={resetTryOnForRetest}
+              className="mx-auto mt-5 flex min-h-12 items-center justify-center gap-2 bg-[#6E0D1F] px-6 text-xs font-black uppercase text-[#F3E5AB] shadow"
+            >
+              <RotateCcw className="h-4 w-4 text-[#D4AF37]" /> Scan Another Garment / Test Again
+            </button>
           </section>
         )}
 
@@ -640,7 +660,17 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
               <aside className="border border-[#D8C49B] bg-[#21090E] p-5 text-center text-[#F3E5AB]">
                 <SecureTryOnViewer imageUrl={masterImageUrl} alt="Generated Maharaja AI fashion result" />
                 {masterImageUrl && activeService === 'try-on' && (
-                  <button type="button" id="download-tryon-btn" onClick={downloadImage} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black hover:brightness-105"><Download className="h-4 w-4" /> Download Try-On</button>
+                  <div className="mt-4 space-y-2">
+                    <button type="button" id="download-tryon-btn" onClick={downloadImage} className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black hover:brightness-105"><Download className="h-4 w-4" /> Download Try-On</button>
+                    <button
+                      type="button"
+                      id="scan-another-garment-btn"
+                      onClick={resetTryOnForRetest}
+                      className="flex min-h-11 w-full items-center justify-center gap-2 border border-[#D4AF37]/60 bg-transparent text-xs font-bold uppercase text-[#F3E5AB] hover:bg-[#D4AF37]/10"
+                    >
+                      <RotateCcw className="h-4 w-4 text-[#D4AF37]" /> Scan / Try Another Garment
+                    </button>
+                  </div>
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3">

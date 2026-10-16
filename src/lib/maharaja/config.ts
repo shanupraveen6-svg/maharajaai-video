@@ -5,6 +5,13 @@ export const AI_VIDEO_MIN_PURCHASE = 5000;
 export const FESTIVE_TIER_MIN = Number(process.env.MAHARAJA_FESTIVE_TIER_MIN) || 500;
 export const LUXURY_TIER_MIN = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || 3000;
 
+/**
+ * Repeat usage & duplicate limit enforcement.
+ * During testing: FALSE (no block for repeated attempts, so developer & client can test from the same phone/device many times).
+ * When going live: set to TRUE (or set ENFORCE_REPEAT_LIMITS=true in env).
+ */
+export const ENFORCE_REPEAT_LIMITS = process.env.ENFORCE_REPEAT_LIMITS === 'true';
+
 export const EVENT_IDS = ['diwali', 'new-year', 'pongal', 'christmas', 'ramadan', 'birthday'] as const;
 export type EventId = (typeof EVENT_IDS)[number];
 
