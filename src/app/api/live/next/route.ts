@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, generateReservationId, getSignedPlaybackUrl, MockQueueItem } from '@/lib/firebase/admin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { verifyOperatorRequest } from '@/lib/auth/operator';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -60,6 +61,7 @@ async function cleanupExpiredReservations(db: any) {
 
 export async function GET(req: NextRequest) {
   try {
+    if (!verifyOperatorRequest(req)) return NextResponse.json({ success: false, error: 'Unauthorized TV session.' }, { status: 401 });
     const db = getDb();
     const nowMs = Date.now();
     const nowIso = new Date(nowMs).toISOString();

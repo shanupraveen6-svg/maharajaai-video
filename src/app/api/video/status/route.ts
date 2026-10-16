@@ -201,10 +201,16 @@ export async function GET(req: NextRequest) {
     // =====================================================
     if (!AI_CONFIG.IS_DEMO_MODE && (provider === 'fal-h3-max-turbo' || requestId) && status === 'processing') {
       const falKey = AI_CONFIG.FAL_KEY;
+      if (!falKey || !requestId) {
+        const message = !falKey ? 'Fal.ai video service is not configured.' : 'Video provider request ID is missing.';
+        await markVideoFailed(db, targetSessionId, message, accessCode, jobId);
+        return NextResponse.json({ success: false, jobId, sessionId: targetSessionId, status: 'failed', error: message }, { status: 500 });
+      }
       if (falKey && requestId) {
         try {
           const { fal } = await import('@fal-ai/client');
           fal.config({ credentials: falKey.trim() });
+          console.log('STATUS_POLL', { sessionId: targetSessionId, jobId, requestId });
 
           const queueStatus = await fal.queue.status(FAL_VIDEO_MODEL, {
             requestId,
@@ -230,6 +236,7 @@ export async function GET(req: NextRequest) {
                 error: errMessage
               }, { status: 500 });
             }
+            console.log('RESULT_READY', { sessionId: targetSessionId, jobId, requestId });
 
             let fileBuffer: Buffer | null = null;
             for (let attempt = 1; attempt <= 3; attempt++) {
@@ -320,6 +327,7 @@ export async function GET(req: NextRequest) {
 
           if (queueState === 'FAILED' || queueState === 'ERROR' || queueState === 'CANCELLED') {
             const errMessage = `Video generation ${queueState.toLowerCase()}. Please try again.`;
+            console.error('RESULT_FAILED', { sessionId: targetSessionId, jobId, requestId, queueState });
             await markVideoFailed(db, targetSessionId, errMessage, accessCode, jobId);
             return NextResponse.json({
               success: false,

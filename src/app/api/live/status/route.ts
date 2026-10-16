@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -37,6 +38,11 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const queueId = searchParams.get('queueId');
+    const accessCode = searchParams.get('accessCode');
+    const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+    if (!access.allowed && access.error !== 'This AI Video has been completed.') {
+      return NextResponse.json({ success: false, error: access.error }, { status: 401 });
+    }
 
     if (!queueId) {
       return NextResponse.json(
@@ -59,6 +65,9 @@ export async function GET(req: NextRequest) {
       }
 
       const data = docSnap.data() || {};
+      if (data.accessCode && data.accessCode !== accessCode) {
+        return NextResponse.json({ success: false, error: 'This queue item does not belong to this AI Video pass.' }, { status: 403 });
+      }
       const status = data.status || 'queued';
       const queuePosition = status === 'queued' ? await getQueuePosition(db, queueId) : null;
 
@@ -86,6 +95,9 @@ export async function GET(req: NextRequest) {
           { success: false, error: 'Queue item not found.' },
           { status: 404 }
         );
+      }
+      if ((item as any).accessCode && (item as any).accessCode !== accessCode) {
+        return NextResponse.json({ success: false, error: 'This queue item does not belong to this AI Video pass.' }, { status: 403 });
       }
 
       const queuedItems = mockStore.liveQueue

@@ -80,6 +80,7 @@ Natural professional lighting and grooming are allowed. Identity remodeling is p
 GARMENT LOCK:
 Use the original garment references as authoritative.
 Preserve: primary color, secondary colors, fabric appearance, embroidery, zari, motifs, borders, sleeves, neckline, silhouette, length, design, garment type. Do not redesign the garment.
+Preserve neutral colours exactly: grey must remain grey and must never shift to beige, tan, khaki, cream, brown, or gold.
 
 MANNEQUIN / HANGER ISOLATION:
 Ignore any mannequin, hanger, rack, stand, shelf, store fixture or unrelated body visible in garment photographs. Transfer the textile garment only.

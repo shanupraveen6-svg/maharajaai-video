@@ -53,22 +53,22 @@ export async function GET(req: NextRequest) {
     const luxuryThreshold = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || LUXURY_TIER_MIN;
     const festiveThreshold = Number(process.env.MAHARAJA_FESTIVE_TIER_MIN) || FESTIVE_TIER_MIN;
     const scannedPrices = allActivity
-      .filter((item) => (item.type === 'price-scan' || item.type === 'video-pass') && item.metadata?.amount)
+      .filter((item) => item.type === 'price-scan' && item.metadata?.amount)
       .map((item) => Number(item.metadata?.amount || 0));
-    const totalGmv = scannedPrices.reduce((sum, amount) => sum + amount, 0);
 
     const passAmounts = allActivity
       .filter((item) => item.type === 'video-pass' && item.metadata?.amount)
       .map((item) => Number(item.metadata?.amount || 0));
+    const allMerchandiseAmounts = [...scannedPrices, ...passAmounts];
+    const totalGmv = allMerchandiseAmounts.reduce((sum, amount) => sum + amount, 0);
 
-    const scanAbove5k = scannedPrices.filter((amount) => amount >= 5000);
     const passAbove5k = passAmounts.filter((amount) => amount >= 5000);
     const totalAbove5kCount = Math.max(
       workspace.usage.videoPasses || 0,
-      scanAbove5k.length + passAbove5k.length
+      passAbove5k.length
     );
 
-    const allKnownAbove5k = [...scanAbove5k, ...passAbove5k];
+    const allKnownAbove5k = passAbove5k;
     let tier5kTo7k = allKnownAbove5k.filter((amt) => amt >= 5000 && amt < 7000).length;
     let tier7kTo10k = allKnownAbove5k.filter((amt) => amt >= 7000 && amt < 10000).length;
     let tier10kPlus = allKnownAbove5k.filter((amt) => amt >= 10000).length;
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
       tier5kTo7k += remainingPasses;
     }
 
-    const luxuryCount = scannedPrices.filter((amount) => amount >= luxuryThreshold).length;
+    const luxuryCount = allMerchandiseAmounts.filter((amount) => amount >= luxuryThreshold).length;
     const brandedReach = allActivity.filter((item) => item.type === 'download' || item.type === 'share').length;
 
     // Retrieve live queue items to ensure comprehensive Go-Live records

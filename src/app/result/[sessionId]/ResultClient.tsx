@@ -89,7 +89,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
 
     async function pollQueueStatus() {
       try {
-        const res = await fetch(`/api/live/status?queueId=${queueId}`);
+        const res = await fetch(`/api/live/status?queueId=${queueId}&accessCode=${encodeURIComponent(accessCode)}`);
         const data = await res.json();
         if (!isMounted) return;
 
@@ -294,9 +294,6 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
 
     try {
       pausePreviewAudio();
-      const autoDownloadError = await executeDownload()
-        .then(() => null)
-        .catch((err) => (err instanceof Error ? err.message : 'Auto-download failed.'));
       const res = await fetch('/api/live/enqueue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -313,19 +310,19 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
 
       const data = await res.json();
       if (data.success) {
+        void executeDownload().catch((err) => {
+          setLiveError(`Sent to TV. ${err instanceof Error ? err.message : 'Auto-download failed.'} Use Download again if needed.`);
+        });
         if (data.queueId) setQueueId(data.queueId);
         setQueueNumber(typeof data.queueNumber === 'number' ? data.queueNumber : null);
         setQueuePosition(typeof data.queuePosition === 'number' ? data.queuePosition : null);
         setPeopleAhead(typeof data.peopleAhead === 'number' ? data.peopleAhead : null);
         setLiveQueueStatus('queued');
-        setCountdownSeconds(5);
+        setCountdownSeconds(Number(data.peopleAhead || 0) > 0 ? 0 : 5);
         setLiveSuccess(true);
         setThankYouMode('live');
         setShowThankYou(true);
         setShowLiveConsent(false);
-        if (autoDownloadError) {
-          setLiveError(`Sent to TV. ${autoDownloadError} Use Download again if the files did not save.`);
-        }
       } else {
         setLiveError(data.error || 'Failed to enqueue video');
       }
@@ -507,6 +504,8 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
                       ? 'Completed, now looping on TV'
                       : liveQueueStatus === 'playback_failed'
                       ? 'TV playback needs attention'
+                      : typeof peopleAhead === 'number' && peopleAhead > 0
+                      ? `Added to TV queue • Queue #${queueNumber || '--'} • ${peopleAhead} people ahead`
                       : 'Waiting in TV queue'}
                   </p>
                 </div>

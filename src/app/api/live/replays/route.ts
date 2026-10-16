@@ -31,7 +31,7 @@ function buildReplayId(videoId: string, sessionId: string) {
 }
 
 function sessionIdFromStoragePath(storagePath: string): string {
-  const match = storagePath.match(/^sessions\/([^/]+)\/video\/final\.[a-z0-9]+$/i);
+  const match = storagePath.match(/^(?:clients\/maharaja\/)?sessions\/([^/]+)\/video\/final\.[a-z0-9]+$/i);
   return match?.[1] || storagePath.replace(/[^a-z0-9]+/gi, '_').slice(0, 64);
 }
 
@@ -73,10 +73,10 @@ export async function GET(req: NextRequest) {
       let existingVideoStoragePaths: Set<string> | null = null;
 
       if (bucket) {
-        const [files] = await bucket.getFiles({ prefix: 'sessions/' });
+        const [files] = await bucket.getFiles({ prefix: 'clients/maharaja/sessions/' });
         const storageVideoPaths = files
           .map((file: any) => file.name as string)
-          .filter((storagePath: string) => /^sessions\/[^/]+\/video\/final\.(mp4|webm|mov)$/i.test(storagePath));
+          .filter((storagePath: string) => /^clients\/maharaja\/sessions\/[^/]+\/video\/final\.(mp4|webm|mov)$/i.test(storagePath));
 
         existingVideoStoragePaths = new Set(storageVideoPaths);
 
@@ -96,6 +96,7 @@ export async function GET(req: NextRequest) {
 
       const readyVideos = Array.from(videosByStoragePath.values())
         .filter((video: any) => !existingVideoStoragePaths || existingVideoStoragePaths.has(video.storagePath))
+        .filter((video: any) => completedQueueByVideoId.has(video.id) || completedQueueByVideoId.has(`video_${video.sessionId}`))
         .sort((a: any, b: any) => getMillis(a.createdAt) - getMillis(b.createdAt));
 
       const items = await Promise.all(
@@ -125,8 +126,10 @@ export async function GET(req: NextRequest) {
     }
 
     const mockStore = getMockStore();
+    const completedVideoIds = new Set(mockStore.liveQueue.filter((item: any) => item.status === 'completed').map((item: any) => item.videoId));
     const readyVideos = Array.from(mockStore.videos.values())
       .filter((video: any) => video.storagePath && (!video.status || video.status === 'ready' || video.status === 'succeeded'))
+      .filter((video: any) => completedVideoIds.has(video.id) || completedVideoIds.has(`video_${video.sessionId}`))
       .sort((a: any, b: any) => getMillis(a.createdAt) - getMillis(b.createdAt));
 
     const items = await Promise.all(

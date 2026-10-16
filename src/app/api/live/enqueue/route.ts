@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markVideoPassUsed, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
@@ -77,9 +77,27 @@ export async function POST(req: NextRequest) {
     const playAtMs = nowMs + 5000;
     const playAtTimestamp = Timestamp.fromMillis(playAtMs);
     const playAtIso = new Date(playAtMs).toISOString();
-    const resolvedVideoUrl = (typeof body.videoUrl === 'string' && body.videoUrl)
-      ? body.videoUrl
-      : (access.pass?.videoMasterUrl || '');
+    const db = getDb();
+    let resolvedVideoUrl = '';
+    if (db) {
+      const [videoDoc, sessionDoc] = await Promise.all([
+        db.collection('videos').doc(videoId).get(),
+        db.collection('sessions').doc(sessionId).get(),
+      ]);
+      const videoData = videoDoc.data();
+      const sessionData = sessionDoc.data();
+      if (!videoDoc.exists || videoData?.sessionId !== sessionId || videoData?.status !== 'ready' || !videoData?.storagePath) {
+        return NextResponse.json({ success: false, error: 'The final AI Video is not ready for Go Live.' }, { status: 409 });
+      }
+      resolvedVideoUrl = sessionData?.videoUrl || await getSignedPlaybackUrl(videoData.storagePath);
+    } else {
+      const mockStore = getMockStore();
+      const videoData = mockStore.videos.get(videoId);
+      if (!videoData || videoData.sessionId !== sessionId || videoData.status !== 'ready' || !videoData.storagePath) {
+        return NextResponse.json({ success: false, error: 'The final AI Video is not ready for Go Live.' }, { status: 409 });
+      }
+      resolvedVideoUrl = videoData.videoUrl || await getSignedPlaybackUrl(videoData.storagePath);
+    }
 
     const displayMetadata = {
       customerName,
@@ -97,6 +115,7 @@ export async function POST(req: NextRequest) {
       screenId: 'maharaja-main',
       videoId,
       sessionId,
+      accessCode: typeof body.accessCode === 'string' ? body.accessCode.trim() : '',
       clientId: 'maharaja',
       customerName,
       customerLocality,
@@ -112,7 +131,6 @@ export async function POST(req: NextRequest) {
       playAtMs
     };
 
-    const db = getDb();
     if (db) {
       const counterRef = db.collection('appControl').doc('liveQueueCounter');
 

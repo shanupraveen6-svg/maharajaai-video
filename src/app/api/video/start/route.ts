@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { sessionId, garmentAnalysis, conceptPrompt, accessCode } = body;
+    console.log('VIDEO_START_RECEIVED', { sessionId: sessionId || null });
     const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: lock.error }, { status: 409 });
       }
       lockedPassCode = access.pass.code;
+      console.log('VIDEO_PASS_LOCK_ACQUIRED', { sessionId, jobId });
     }
 
     // ----------------------------------------------------
@@ -200,6 +202,7 @@ export async function POST(req: NextRequest) {
 
     const motionSafety = DEFAULT_MOTION_SAFETY;
     const prompt = buildFinalPrompt(buildVideoPrompt(garmentAnalysis, conceptPrompt), motionSafety);
+    console.log('VIDEO_MASTER_LOADED', { sessionId, jobId, hasImage: !!masterBase64 });
 
     const falKey = AI_CONFIG.FAL_KEY;
     if (!falKey || !falKey.trim()) {
@@ -208,7 +211,7 @@ export async function POST(req: NextRequest) {
 
     let jobData: any = null;
     try {
-        console.log('Starting Fal.ai MiniMax H3 Max Turbo video...');
+        console.log('FAL_UPLOAD_START', { sessionId, jobId });
         fal.config({ credentials: falKey.trim() });
 
         let hostedImageUrl: string | null = null;
@@ -241,7 +244,9 @@ export async function POST(req: NextRequest) {
         if (!hostedImageUrl) {
           throw new Error('Could not prepare a hosted image URL for Fal.ai generation.');
         }
+        console.log('FAL_UPLOAD_OK', { sessionId, jobId });
 
+        console.log('FAL_SUBMIT_START', { sessionId, jobId, model: FAL_VIDEO_MODEL });
         const falSubmitResult = await fal.queue.submit(FAL_VIDEO_MODEL, {
           input: {
             prompt,
@@ -253,7 +258,10 @@ export async function POST(req: NextRequest) {
           }
         });
 
-        if (falSubmitResult && falSubmitResult.request_id) {
+        if (!falSubmitResult?.request_id) {
+          throw new Error('Fal.ai accepted the request without returning a request ID.');
+        }
+        if (falSubmitResult.request_id) {
           jobData = {
             id: jobId,
             sessionId,
@@ -269,7 +277,7 @@ export async function POST(req: NextRequest) {
             videoUrl: null,
             createdAt: nowIso
           };
-          console.log(`Fal.ai H3 Max Turbo job started successfully. Request ID: ${falSubmitResult.request_id}`);
+          console.log('FAL_REQUEST_ID', { sessionId, jobId, requestId: falSubmitResult.request_id });
         }
       } catch (falErr: any) {
         console.error('Fal.ai H3 Max Turbo provider error:', falErr);

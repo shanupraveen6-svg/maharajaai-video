@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { verifyOperatorRequest } from '@/lib/auth/operator';
 
 export async function POST(req: NextRequest) {
   try {
+    if (!verifyOperatorRequest(req)) return NextResponse.json({ success: false, error: 'Unauthorized TV session.' }, { status: 401 });
     const body = await req.json();
     const { queueId, reservationId } = body;
 

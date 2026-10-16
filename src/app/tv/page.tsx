@@ -4,8 +4,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Sparkles, Volume2 } from 'lucide-react';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 
-const TV_PLAYBACK_RATE = 0.66;
 const SOURCE_SECONDS_FOR_LIVE = 6;
+const TV_SECONDS_FOR_LIVE = 9;
+const TV_PLAYBACK_RATE = SOURCE_SECONDS_FOR_LIVE / TV_SECONDS_FOR_LIVE;
 type Slot = 'a' | 'b';
 
 type PlaybackItem = {
@@ -555,7 +556,6 @@ export default function TvPlayerPage() {
         }}
         onPlaying={(event) => startLiveAudioWithVisibleVideo(slot, event.currentTarget)}
         onTimeUpdate={(event) => handleVideoProgress(slot, event.currentTarget)}
-        onEnded={handleVideoEnded}
         onError={() => handleVideoError(slot)}
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
           isActive ? 'opacity-100' : 'opacity-0'
