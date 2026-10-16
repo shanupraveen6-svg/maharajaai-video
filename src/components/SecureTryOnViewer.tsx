@@ -1,18 +1,28 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ShieldAlert, Sparkles, Lock } from 'lucide-react';
+import { ShieldAlert, Sparkles, Lock, MoreVertical, Image as ImageIcon } from 'lucide-react';
 
 interface SecureTryOnViewerProps {
   imageUrl: string | null;
   alt?: string;
   onDownloadRequested?: () => void;
+  onRetryRequested?: () => void;
+  retryUsed?: boolean;
+  serviceType?: 'try-on' | 'ai-video';
 }
 
-export default function SecureTryOnViewer({ imageUrl, alt = 'Maharaja AI Try-On' }: SecureTryOnViewerProps) {
+export default function SecureTryOnViewer({
+  imageUrl,
+  alt = 'Maharaja AI Try-On',
+  onRetryRequested,
+  retryUsed = false,
+  serviceType = 'try-on',
+}: SecureTryOnViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isBlackout, setIsBlackout] = useState(false);
   const [blackoutReason, setBlackoutReason] = useState<string>('');
+  const [showMenu, setShowMenu] = useState(false);
 
   const triggerBlackout = useCallback((reason: string) => {
     setIsBlackout(true);
@@ -156,6 +166,64 @@ export default function SecureTryOnViewer({ imageUrl, alt = 'Maharaja AI Try-On'
         <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-[#F3E5AB] backdrop-blur-sm border border-[#D4AF37]/30">
           <ShieldAlert className="h-3 w-3 text-[#D4AF37]" />
           Protected Preview
+        </div>
+      )}
+
+      {/* Top-Right Three-Dot Options Menu */}
+      {imageUrl && !isBlackout && onRetryRequested && (
+        <div className="absolute top-3 right-3 z-30">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu((prev) => !prev);
+            }}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-[#D4AF37] border border-[#D4AF37]/50 backdrop-blur-sm hover:bg-black/85 transition"
+            title="Options"
+            aria-label="Options"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </button>
+
+          {showMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40 cursor-default"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(false);
+                }}
+              />
+              <div className="absolute right-0 top-9 z-50 w-52 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-1.5 shadow-2xl backdrop-blur-md text-left space-y-1">
+                <div className="px-2.5 py-1 border-b border-[#D4AF37]/20 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">
+                  <span>Options</span>
+                  <span className="text-[9px] text-[#F3E5AB]/60">{retryUsed ? '0 retries left' : '1 retry available'}</span>
+                </div>
+
+                {!retryUsed ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      onRetryRequested();
+                    }}
+                    className="w-full flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs font-semibold text-[#F3E5AB] hover:bg-[#6e0d1f]/60 hover:text-white transition"
+                  >
+                    <ImageIcon className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
+                    <div>
+                      <div className="font-bold">Retry Image</div>
+                      <div className="text-[10px] text-gray-300 font-normal">Re-upload photos & generate again</div>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="px-2.5 py-2 text-[11px] text-[#F3E5AB]/65">
+                    1 of 1 retry has already been used.
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

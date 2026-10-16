@@ -3,7 +3,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
+import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MoreVertical, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
 import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
 import { getEventOption, isEventId, type EventId } from '@/lib/maharaja/config';
 
@@ -11,10 +11,14 @@ export default function ResultClient({
   sessionId,
   accessCode = '',
   onBack,
+  initialRetryUsed = false,
+  onRetryUsed,
 }: {
   sessionId: string;
   accessCode?: string;
   onBack?: () => void;
+  initialRetryUsed?: boolean;
+  onRetryUsed?: () => void;
 }) {
   const router = useRouter();
   const [showLiveConsent, setShowLiveConsent] = useState(false);
@@ -24,9 +28,7 @@ export default function ResultClient({
   const [liveFarewell, setLiveFarewell] = useState(false);
   const [privacyAction, setPrivacyAction] = useState<'download' | 'live' | null>(null);
   const [publicConsent, setPublicConsent] = useState(true);
-  const [showRetryPin, setShowRetryPin] = useState(false);
-  const [retryPin, setRetryPin] = useState('');
-  const [retryError, setRetryError] = useState<string | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerLocality, setCustomerLocality] = useState('');
   const [isGoingLive, setIsGoingLive] = useState(false);
@@ -46,7 +48,7 @@ export default function ResultClient({
   const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>('processing');
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
-  const [retryUsed, setRetryUsed] = useState(false);
+  const [retryUsed, setRetryUsed] = useState(initialRetryUsed);
   const [videoDone, setVideoDone] = useState(false);
   const whatsappSendRequested = useRef(false);
   const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId), [sessionId]);
@@ -370,20 +372,75 @@ export default function ResultClient({
     }
   };
 
-  const confirmRetryPin = async () => {
-    setRetryError(null);
-    const response = await fetch('/api/maharaja/activity', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'retry', label: 'Manager approved AI Video retry', sessionId, accessCode, pin: retryPin.trim() }),
-    }).catch(() => null);
-    if (!response?.ok) {
-      const payload = await response?.json().catch(() => ({}));
-      setRetryError(payload?.error || 'Unable to verify the manager PIN.');
-      return;
+  const handleRetryVideo = async () => {
+    setShowMenu(false);
+    setIsLoadingVideo(true);
+    setVideoStatus('processing');
+    setVideoUrl(null);
+    try {
+      await fetch('/api/maharaja/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'retry',
+          label: 'Customer AI Video retry (backup prompt)',
+          sessionId,
+          accessCode,
+          target: 'video',
+          service: 'ai-video',
+        }),
+      });
+      setRetryUsed(true);
+      onRetryUsed?.();
+
+      const startRes = await fetch('/api/video/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          accessCode,
+          eventId,
+          masterImageUrl,
+          conceptPrompt: 'FAIL-SAFE REGENERATION MODE. RETRY STABILIZED FASHION COMMERCIAL MODE.',
+        }),
+      });
+      const startData = await startRes.json();
+      if (!startRes.ok) {
+        throw new Error(startData.error || 'Failed to start retry video.');
+      }
+    } catch (err: any) {
+      console.error('Video retry error:', err);
+      setVideoStatus('failed');
+      setVideoError(err.message || 'Retry video generation could not be completed.');
+      setIsLoadingVideo(false);
     }
-    setRetryUsed(true);
-    setShowRetryPin(false);
-    router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}` : '/maharaja/workspace');
+  };
+
+  const handleRetryImage = async () => {
+    setShowMenu(false);
+    try {
+      await fetch('/api/maharaja/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'retry',
+          label: 'Customer AI Image re-upload retry',
+          sessionId,
+          accessCode,
+          target: 'image',
+          service: 'ai-video',
+        }),
+      });
+      setRetryUsed(true);
+      onRetryUsed?.();
+    } catch (err) {
+      console.warn('Image retry log warning:', err);
+    }
+    if (onBack) {
+      onBack();
+    } else {
+      router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}` : '/maharaja/workspace');
+    }
   };
 
   if (liveFarewell) {
@@ -495,21 +552,65 @@ export default function ResultClient({
 
         {/* 9:16 Video Preview Frame */}
         <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border-2 border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
-          {videoDone && !retryUsed && (
+          {/* Top-Right Three-Dot Options Menu */}
+          <div className="absolute right-3 top-3 z-20">
             <button
               type="button"
-              onClick={() => {
-                setRetryPin('');
-                setRetryError(null);
-                setShowRetryPin(true);
-              }}
-              className="absolute right-3 top-3 z-10 rounded-full border border-[#D4AF37]/50 bg-black/55 p-2 text-[#D4AF37] backdrop-blur hover:bg-black/75 transition"
-              aria-label="Manager retry"
-              title="Manager Video Retry"
+              onClick={() => setShowMenu((prev) => !prev)}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#D4AF37]/50 bg-black/65 text-[#D4AF37] backdrop-blur-sm hover:bg-black/90 transition shadow-lg"
+              aria-label="Options menu"
+              title="Options"
             >
-              <RotateCcw className="h-4 w-4" />
+              <MoreVertical className="h-4 w-4" />
             </button>
-          )}
+
+            {showMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-30 cursor-default"
+                  onClick={() => setShowMenu(false)}
+                />
+                <div className="absolute right-0 top-10 z-40 w-56 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-1.5 shadow-2xl backdrop-blur-md text-left space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-2.5 py-1 border-b border-[#D4AF37]/20 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">
+                    <span>Options</span>
+                    <span className="text-[9px] text-[#F3E5AB]/60">{retryUsed ? '0 retries left' : '1 retry available'}</span>
+                  </div>
+
+                  {!retryUsed ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleRetryVideo}
+                        className="w-full flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs font-semibold text-[#F3E5AB] hover:bg-[#6e0d1f]/60 hover:text-white transition"
+                      >
+                        <RotateCcw className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
+                        <div>
+                          <div className="font-bold">Retry Video</div>
+                          <div className="text-[10px] text-gray-300 font-normal">Regenerate with backup prompt</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleRetryImage}
+                        className="w-full flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs font-semibold text-[#F3E5AB] hover:bg-[#6e0d1f]/60 hover:text-white transition"
+                      >
+                        <ImageIcon className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
+                        <div>
+                          <div className="font-bold">Retry Image</div>
+                          <div className="text-[10px] text-gray-300 font-normal">Re-upload photos & start fresh</div>
+                        </div>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="px-2.5 py-2 text-[11px] text-[#F3E5AB]/65">
+                      1 of 1 retry has already been used.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
           <video
             src={videoUrl}
             controls
@@ -592,49 +693,7 @@ export default function ResultClient({
         </div>
       )}
 
-      {showRetryPin && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-sm w-full rounded-lg border border-[#D4AF37]/55 bg-[#120203] p-6 text-center shadow-2xl space-y-4">
-            <div>
-              <h2 className="font-serif text-2xl font-black text-[#F3E5AB]">Manager Retry</h2>
-              <p className="mt-2 text-xs leading-5 text-[#F3E5AB]/75">
-                Retry is protected so customer credits are not spent accidentally.
-              </p>
-            </div>
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              value={retryPin}
-              onChange={(event) => {
-                setRetryPin(event.target.value.replace(/\D/g, '').slice(0, 6));
-                setRetryError(null);
-              }}
-              placeholder="••••••"
-              className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-center text-2xl font-black tracking-[0.5em] text-white outline-none focus:border-[#D4AF37]"
-            />
-            {retryError && (
-              <div className="rounded-md border border-red-400/50 bg-red-950/50 p-3 text-xs font-bold text-red-200">
-                {retryError}
-              </div>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowRetryPin(false)}
-                className="w-1/2 rounded-lg bg-gray-800 py-3 text-xs font-bold uppercase tracking-wider text-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmRetryPin}
-                className="w-1/2 rounded-lg bg-[#D4AF37] py-3 text-xs font-bold uppercase tracking-wider text-black"
-              >
-                Unlock
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Privacy Notice Modal */}
       {showPrivacyNotice && (

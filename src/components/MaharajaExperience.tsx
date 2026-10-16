@@ -80,6 +80,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [deviceId, setDeviceId] = useState('');
   const [tryOnGrant, setTryOnGrant] = useState('');
   const [tryOnUsed, setTryOnUsed] = useState(false);
+  const [retryUsed, setRetryUsed] = useState(false);
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
   const [garmentPhotos, setGarmentPhotos] = useState<string[]>([]);
   const [personAnalysis, setPersonAnalysis] = useState<Analysis | null>(null);
@@ -102,6 +103,49 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     if (passOwnsImages) return;
     setTryOnImageUrl(null);
     setVideoMasterUrl(null);
+  }
+
+  async function handleRetryImage() {
+    if (retryUsed) return;
+    try {
+      const res = await fetch('/api/maharaja/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'retry',
+          label: activeService === 'try-on'
+            ? 'Customer Try-On photo re-upload retry'
+            : 'Customer AI Video photo re-upload retry',
+          accessCode,
+          target: 'image',
+          service: activeService,
+          deviceId,
+          sessionId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Retry request could not be processed.');
+      }
+      setRetryUsed(true);
+      if (activeService === 'try-on') {
+        setTryOnImageUrl(null);
+        setTryOnUsed(false);
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
+        }
+      } else {
+        setVideoMasterUrl(null);
+      }
+      setPersonPhoto(null);
+      setPersonAnalysis(null);
+      setGarmentPhotos([]);
+      setGarmentAnalysis(null);
+      setMessage('Retry granted. Please upload or capture fresh customer and garment photo(s).');
+      setError('');
+    } catch (err) {
+      setError(customerError(err, 'Could not initiate retry.'));
+    }
   }
 
   function resetTryOnForRetest() {
@@ -138,6 +182,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setPurchaseConfirmed(data.access.service === 'ai-video');
         const used = data.access.service === 'try-on' && data.access.tryOnUsed === true;
         setTryOnUsed(used);
+        if (data.access?.retryUsed) setRetryUsed(true);
         if (retrySessionId && data.access.service === 'ai-video') {
           const retryData = await readJson(await fetch(`/api/video/retry-source?sessionId=${encodeURIComponent(retrySessionId)}&accessCode=${encodeURIComponent(accessCode)}`, { cache: 'no-store' }));
           setVideoMasterUrl(retryData.source.masterImageUrl);
@@ -423,7 +468,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
       <div className="mx-auto max-w-5xl px-4 py-6">
         {stage === 'result' ? (
-          <ResultClient sessionId={sessionId} accessCode={accessCode} onBack={() => setStage('ready')} />
+          <ResultClient
+            sessionId={sessionId}
+            accessCode={accessCode}
+            initialRetryUsed={retryUsed}
+            onRetryUsed={() => setRetryUsed(true)}
+            onBack={() => setStage('ready')}
+          />
         ) : (
           <>
         {service === 'ai-video' && access?.access.phoneMasked && (
@@ -649,18 +700,16 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
               </div>}
 
               <aside className="border border-[#D8C49B] bg-[#21090E] p-5 text-center text-[#F3E5AB]">
-                <SecureTryOnViewer imageUrl={masterImageUrl} alt="Generated Maharaja AI fashion result" />
+                <SecureTryOnViewer
+                  imageUrl={masterImageUrl}
+                  alt="Generated Maharaja AI fashion result"
+                  onRetryRequested={handleRetryImage}
+                  retryUsed={retryUsed}
+                  serviceType={activeService}
+                />
                 {masterImageUrl && activeService === 'try-on' && (
                   <div className="mt-4 space-y-2">
                     <button type="button" id="download-tryon-btn" onClick={downloadImage} className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black hover:brightness-105"><Download className="h-4 w-4" /> Download Try-On</button>
-                    <button
-                      type="button"
-                      id="scan-another-garment-btn"
-                      onClick={resetTryOnForRetest}
-                      className="flex min-h-11 w-full items-center justify-center gap-2 border border-[#D4AF37]/60 bg-transparent text-xs font-bold uppercase text-[#F3E5AB] hover:bg-[#D4AF37]/10"
-                    >
-                      <RotateCcw className="h-4 w-4 text-[#D4AF37]" /> Scan / Try Another Garment
-                    </button>
                   </div>
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (

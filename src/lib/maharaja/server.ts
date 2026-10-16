@@ -89,6 +89,7 @@ export type MaharajaTryOnGrant = {
   expiresAtMs: number;
   sessionId?: string;
   completedAt?: string;
+  retryUsed?: boolean;
 };
 
 function deviceHash(deviceId: string) {
@@ -767,18 +768,41 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
 }
 
 /**
- * Manager retry approval, enforced entirely server-side (no client-sent isRetry flag).
- * Allowed only after a completed first video and only once per pass.
+ * Retry approval, enforced server-side.
+ * Allowed only once per pass/device (strict 1-retry limit across the customer lifecycle).
  */
-export async function markPassRetryApproved(code: string) {
+export async function markPassRetryApproved(
+  code: string,
+  target: 'image' | 'video' = 'video',
+  service: 'try-on' | 'ai-video' = 'ai-video'
+) {
   const db = getDb();
+  const updates: Record<string, any> = {
+    retryUsed: true,
+  };
+
+  if (target === 'image') {
+    if (service === 'try-on') {
+      updates.tryOnImageDone = false;
+      updates.tryOnImageUrl = '';
+    } else {
+      updates.videoMasterDone = false;
+      updates.videoMasterUrl = '';
+      updates.videoDone = false;
+      updates.videoGenerating = false;
+      updates.providerAccepted = false;
+    }
+  } else {
+    // target === 'video'
+    updates.videoDone = false;
+    updates.videoGenerating = false;
+    updates.providerAccepted = false;
+  }
+
   if (db) {
     const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
     await ref.update({
-      retryUsed: true,
-      videoDone: false,
-      videoGenerating: false,
-      providerAccepted: false,
+      ...updates,
       activeVideoJobId: FieldValue.delete(),
     });
     return;
@@ -788,13 +812,29 @@ export async function markPassRetryApproved(code: string) {
   if (pass) {
     const copy = {
       ...pass,
-      retryUsed: true,
-      videoDone: false,
-      videoGenerating: false,
-      providerAccepted: false,
+      ...updates,
     };
     delete (copy as any).activeVideoJobId;
     getMockStore().customerPasses.set(key, copy);
+  }
+}
+
+export async function markTryOnDeviceRetryApproved(deviceId: string) {
+  const hash = deviceHash(deviceId);
+  const db = getDb();
+  const update = {
+    status: 'active' as const,
+    retryUsed: true,
+    expiresAtMs: Date.now() + 30 * 60 * 1000,
+  };
+  if (db) {
+    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('tryOnDevices').doc(hash).set(update, { merge: true });
+    return;
+  }
+  const key = `${MAHARAJA_CLIENT_ID}:${hash}`;
+  const grant = getMockStore().tryOnGrants.get(key) as MaharajaTryOnGrant | undefined;
+  if (grant) {
+    getMockStore().tryOnGrants.set(key, { ...grant, ...update });
   }
 }
 

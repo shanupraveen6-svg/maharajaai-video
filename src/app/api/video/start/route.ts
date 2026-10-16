@@ -82,7 +82,7 @@ function truncateAtWordBoundary(text: string, maxLength: number): string {
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
   const isFailSafe = basePrompt.startsWith('FAIL-SAFE REGENERATION MODE.') || basePrompt.startsWith('RETRY STABILIZED FASHION COMMERCIAL MODE.');
   const executionRule = isFailSafe
-    ? 'Execute controlled stabilized camera push-in with subtle background flame and ambient-light animation starting at frame 1.'
+    ? 'FAIL-PROOF COMMERCIAL REGENERATION MODE: Subject geometry, facial features, skin tone, and 100% garment weave, pattern, and embroidery are strictly locked from frame 1. Subject remains stationary and poised with feet firmly anchored to the floor coordinates with zero walking, turning, or leg movement. Only gentle natural breathing is permitted. The camera executes a smooth, steady, stabilized optical slow push-in starting immediately at frame 1. Festive background diya flames and ambient golden lighting shimmer naturally behind the subject. Zero limb duplication, zero texture swimming, zero distortion.'
     : 'Execute the cinematic camera motion and background festive atmosphere starting at frame 1.';
   const canonicalPrompt = `${basePrompt} ${executionRule} No blank screen or delayed intro. Do not add text, words, titles or logos.`;
 

@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         videoMasterDone: access.pass?.videoMasterDone || false,
         videoMasterUrl: access.pass?.videoMasterUrl || null,
         videoDone: access.pass?.videoDone || false,
-        retryUsed: access.pass?.retryUsed || false,
+        retryUsed: Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed),
       },
     });
   } catch (error) {
