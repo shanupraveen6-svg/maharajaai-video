@@ -295,9 +295,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       });
     }
 
-    if (service === 'try-on') {
-      await incrementMaharajaUsage('tryOnGenerated');
-    }
+    await incrementMaharajaUsage('tryOnGenerated');
     if (access.pass) {
       await incrementPassUsage(access.pass.code, 'imagesGenerated');
       const passImageUrl = (db && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000)

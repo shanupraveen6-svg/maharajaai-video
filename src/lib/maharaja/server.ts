@@ -313,6 +313,93 @@ export async function clearTryOnGrants() {
   return keys.length;
 }
 
+export async function clearMaharajaTelemetry() {
+  const db = getDb();
+  const resetUsage: MaharajaWorkspace['usage'] = {
+    tryOnScans: 0,
+    tryOnGenerated: 0,
+    videoPasses: 0,
+    videosGenerated: 0,
+    goLive: 0,
+    retries: 0,
+    downloads: 0,
+  };
+
+  if (db) {
+    // 1. Reset usage on workspace doc
+    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).set({
+      usage: resetUsage,
+      updatedAt: new Date().toISOString(),
+      updatedAtTimestamp: Timestamp.now(),
+    }, { merge: true });
+
+    // 2. Delete all activity logs
+    const activitySnap = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+      .collection('activityLogs').get();
+    for (let index = 0; index < activitySnap.docs.length; index += 400) {
+      const batch = db.batch();
+      activitySnap.docs.slice(index, index + 400).forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+
+    // 3. Delete scanned tags
+    const tagSnap = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+      .collection('scannedTags').get();
+    for (let index = 0; index < tagSnap.docs.length; index += 400) {
+      const batch = db.batch();
+      tagSnap.docs.slice(index, index + 400).forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+
+    // 4. Delete tryOnDevices
+    const deviceSnap = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+      .collection('tryOnDevices').get();
+    for (let index = 0; index < deviceSnap.docs.length; index += 400) {
+      const batch = db.batch();
+      deviceSnap.docs.slice(index, index + 400).forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+
+    // 5. Delete liveQueue items for maharaja-main
+    try {
+      const liveQueueSnap = await db.collection('liveQueue')
+        .where('screenId', '==', 'maharaja-main').get();
+      for (let index = 0; index < liveQueueSnap.docs.length; index += 400) {
+        const batch = db.batch();
+        liveQueueSnap.docs.slice(index, index + 400).forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+      }
+    } catch (lqErr) {
+      console.warn('liveQueue purge warning:', lqErr);
+    }
+
+    return { success: true };
+  }
+
+  const store = getMockStore();
+  const ws = await getMaharajaWorkspace();
+  store.clientWorkspaces.set(MAHARAJA_CLIENT_ID, {
+    ...ws,
+    usage: resetUsage,
+  });
+
+  const actKeys = Array.from(store.activityLogs.keys()).filter((key) => key.startsWith(`${MAHARAJA_CLIENT_ID}:`));
+  actKeys.forEach((key) => store.activityLogs.delete(key));
+
+  if (store.scannedTags) {
+    store.scannedTags.clear();
+  }
+
+  const devKeys = Array.from(store.tryOnGrants.keys()).filter((key) => key.startsWith(`${MAHARAJA_CLIENT_ID}:`));
+  devKeys.forEach((key) => store.tryOnGrants.delete(key));
+
+  if (store.liveQueue) {
+    store.liveQueue = [];
+  }
+
+  return { success: true };
+}
+
 function stableCode(label: string, length = 20) {
   const secret = process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD;
   if (!secret) {

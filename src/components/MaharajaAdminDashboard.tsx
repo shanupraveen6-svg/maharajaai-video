@@ -65,6 +65,13 @@ export type Workspace = {
     totalGarments: number;
     tryOnsCount?: number;
     shoppersAbove5000?: number;
+    imagesSuccess?: number;
+    imageRetries?: number;
+    videosSuccess?: number;
+    videoRetries?: number;
+    tier1kPlus?: number;
+    tier5kPlus?: number;
+    tier7kPlus?: number;
     tiers?: {
       tier5kTo7k: number;
       tier7kTo10k: number;
@@ -77,6 +84,7 @@ export type Workspace = {
     luxuryThreshold?: number;
     festiveThreshold?: number;
     days: Array<{ date: string; scans: number; tryOns: number; gmv: number; averagePrice: number; downloads: number; conversion: number }>;
+    weeks?: Array<{ week: string; scans: number; tryOns: number; gmv: number; conversion: number }>;
   };
 };
 
@@ -96,6 +104,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [playingVideo, setPlayingVideo] = useState<{ url: string; customerName: string; phoneMasked: string; sessionId?: string } | null>(null);
+  const [logViewMode, setLogViewMode] = useState<'daily' | 'weekly'>('daily');
 
   async function loadWorkspace() {
     setLoading(true);
@@ -223,6 +232,25 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
     }
   }
 
+  async function resetTelemetry() {
+    if (!window.confirm('Reset ALL showroom telemetry, test price scans (clears ₹42,000 back to ₹0), and test image/video counts? This starts fresh live store telemetry.')) return;
+    setSaving(true);
+    setMessage('');
+    try {
+      const data = await readJson(await fetch('/api/maharaja/workspace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset-telemetry' }),
+      }));
+      setMessage(data.message || 'Telemetry successfully reset to ₹0 for live showroom operations.');
+      await loadWorkspace();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to reset telemetry.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function logout() {
     setSaving(true);
     try {
@@ -255,21 +283,18 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
   }
 
   const analytics = workspace.analytics;
-  const tryOnsCount = analytics.tryOnsCount ?? workspace.usage.tryOnGenerated ?? 0;
-  const shoppersAbove5000 = analytics.shoppersAbove5000 ?? workspace.usage.videoPasses ?? 0;
   const totalGmv = analytics.totalGmv ?? 0;
+  const totalGarments = analytics.totalGarments ?? 0;
 
-  const tiers = analytics.tiers || {
-    tier5kTo7k: 0,
-    tier7kTo10k: 0,
-    tier10kPlus: 0,
-    total: shoppersAbove5000,
-  };
+  const imagesSuccess = analytics.imagesSuccess ?? workspace.usage.tryOnGenerated ?? 0;
+  const imageRetries = analytics.imageRetries ?? 0;
 
-  const totalHighValue = tiers.total || shoppersAbove5000 || 0;
-  const pct5kTo7k = totalHighValue > 0 ? Math.round((tiers.tier5kTo7k / totalHighValue) * 100) : 0;
-  const pct7kTo10k = totalHighValue > 0 ? Math.round((tiers.tier7kTo10k / totalHighValue) * 100) : 0;
-  const pct10kPlus = totalHighValue > 0 ? Math.max(0, 100 - pct5kTo7k - pct7kTo10k) : 0;
+  const videosSuccess = analytics.videosSuccess ?? workspace.usage.videosGenerated ?? 0;
+  const videoRetries = analytics.videoRetries ?? 0;
+
+  const tier1kPlus = analytics.tier1kPlus ?? 0;
+  const tier5kPlus = analytics.tier5kPlus ?? analytics.shoppersAbove5000 ?? workspace.usage.videoPasses ?? 0;
+  const tier7kPlus = analytics.tier7kPlus ?? 0;
 
   // Compile Go Live Audit list
   const goLiveAuditList: GoLiveAuditItem[] = (workspace.goLiveAudit?.length
@@ -332,6 +357,16 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
 
             <button
               type="button"
+              onClick={() => void resetTelemetry()}
+              disabled={saving}
+              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-red-500/50 bg-red-950/70 px-3 py-2 text-xs font-bold uppercase text-red-200 hover:bg-red-900 transition"
+              title="Reset test scans and GMV back to ₹0 for live showroom launch"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Reset Test Data
+            </button>
+
+            <button
+              type="button"
               onClick={() => void logout()}
               disabled={saving}
               className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs font-bold uppercase text-gray-300 hover:bg-white/10 transition"
@@ -352,28 +387,12 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           </div>
         )}
 
-        {/* 1. TOP METRICS — EXACTLY 3 CARDS ONLY */}
+        {/* 1. TOP METRICS — LIVE SHOWROOM OPERATIONAL KPIS */}
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {/* Card 1: Image Try-On Done */}
+          {/* Card 1: Value Scanned (Total Scanned Retail GMV) */}
           <div className="rounded-2xl border border-[#D4AF37]/40 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">1. Image Try-On</span>
-              <div className="p-2.5 rounded-xl bg-[#FFF8E8] text-[#6E0D1F]">
-                <Sparkles className="h-5 w-5" />
-              </div>
-            </div>
-            <p className="mt-4 font-serif text-4xl font-bold text-[#6E0D1F]">
-              {new Intl.NumberFormat('en-IN').format(tryOnsCount)}
-            </p>
-            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
-              Virtual dressing room outfits generated on store floor.
-            </p>
-          </div>
-
-          {/* Card 2: Value Scanned (Total Scanned Retail GMV) */}
-          <div className="rounded-2xl border border-[#D4AF37]/40 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">2. Value Scanned</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">1. Value Scanned (GMV)</span>
               <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-800">
                 <IndianRupee className="h-5 w-5" />
               </div>
@@ -382,126 +401,111 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
               {formatMoney(totalGmv)}
             </p>
             <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
-              Total retail merchandise value scanned across garments.
+              {totalGarments} garment tag{totalGarments === 1 ? '' : 's'} verified live in showroom.
             </p>
           </div>
 
-          {/* Card 3: Shopper AI Video Count */}
+          {/* Card 2: AI Images Generated */}
           <div className="rounded-2xl border border-[#D4AF37]/40 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">3. Shopper AI Video Count</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">2. AI Images Generated</span>
+              <div className="p-2.5 rounded-xl bg-[#FFF8E8] text-[#6E0D1F]">
+                <Sparkles className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="mt-4 font-serif text-4xl font-bold text-[#6E0D1F]">
+              {new Intl.NumberFormat('en-IN').format(imagesSuccess)}
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                Success: {imagesSuccess}
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold">
+                Retries: {imageRetries}
+              </span>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
+              Festive fashion master photos generated on floor.
+            </p>
+          </div>
+
+          {/* Card 3: AI Videos Generated */}
+          <div className="rounded-2xl border border-[#D4AF37]/40 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">3. AI Videos Generated</span>
               <div className="p-2.5 rounded-xl bg-[#21090E] text-[#F3E5AB]">
                 <Film className="h-5 w-5" />
               </div>
             </div>
             <p className="mt-4 font-serif text-4xl font-bold text-[#6E0D1F]">
-              {new Intl.NumberFormat('en-IN').format(shoppersAbove5000)}
+              {new Intl.NumberFormat('en-IN').format(videosSuccess)}
             </p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                Ready: {videosSuccess}
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold">
+                Retries: {videoRetries}
+              </span>
+            </div>
             <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
-              High-value shoppers above ₹5,000 issued Maharaja AI Video passes.
+              Cinematic customer video reels rendered for shoppers.
             </p>
           </div>
         </section>
 
-        {/* 2. RETAIL INTELLIGENCE · SPEND DISTRIBUTION (ABOVE ₹5,000 SLASH BAR IN BEST SIMPLE UI) */}
+        {/* 2. SPEND CLASSIFICATION · ₹1,000+ / ₹5,000+ / ₹7,000+ (SIMPLE CLEAN UI) */}
         <section className="rounded-2xl border border-[#DDD2BD] bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-[#FFF8E8] text-[#6E0D1F]">
-                <BarChart3 className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8A6A20]">
-                  Retail Intelligence · Spend Distribution
-                </p>
-                <h2 className="font-serif text-xl md:text-2xl font-bold text-[#2A060C]">
-                  Above ₹5,000 Spend Progression (Slash Bar)
-                </h2>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-[#FFF8E8] text-[#6E0D1F]">
+              <BarChart3 className="h-5 w-5" />
             </div>
-
-            {/* Simple Clean Slash Bar Pill */}
-            <div className="flex items-center gap-2 rounded-xl border border-[#D4AF37]/50 bg-[#FFFDF7] px-4 py-2 font-mono text-xs font-bold text-[#6E0D1F]">
-              <span>₹5K–₹7K ({pct5kTo7k}%)</span>
-              <span className="font-black text-[#8A6A20] text-sm">/</span>
-              <span>₹7K–₹10K ({pct7kTo10k}%)</span>
-              <span className="font-black text-[#8A6A20] text-sm">/</span>
-              <span>₹10K+ ({pct10kPlus}%)</span>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#8A6A20]">
+                Customer Spend Classification
+              </p>
+              <h2 className="font-serif text-xl md:text-2xl font-bold text-[#2A060C]">
+                Purchase Tier Distribution
+              </h2>
             </div>
           </div>
 
-          {/* Segmented Slash Progress Bar */}
-          <div className="mt-6">
-            <div className="flex h-9 w-full overflow-hidden rounded-xl border border-[#D8C49B] bg-slate-100 p-0.5 shadow-inner">
-              <div
-                style={{ width: `${Math.max(pct5kTo7k, totalHighValue ? 5 : 33.3)}%` }}
-                className="flex items-center justify-center bg-[#D4AF37] px-2 text-[11px] font-black text-black transition-all rounded-l-lg"
-                title={`₹5,000–₹7,000: ${tiers.tier5kTo7k} shoppers (${pct5kTo7k}%)`}
-              >
-                {pct5kTo7k > 8 ? `₹5K–₹7K · ${pct5kTo7k}%` : `${pct5kTo7k}%`}
-              </div>
-              <div className="w-[2px] shrink-0 bg-white" />
-              <div
-                style={{ width: `${Math.max(pct7kTo10k, totalHighValue ? 5 : 33.3)}%` }}
-                className="flex items-center justify-center bg-[#059669] px-2 text-[11px] font-black text-white transition-all"
-                title={`₹7,000–₹10,000: ${tiers.tier7kTo10k} shoppers (${pct7kTo10k}%)`}
-              >
-                {pct7kTo10k > 8 ? `₹7K–₹10K · ${pct7kTo10k}%` : `${pct7kTo10k}%`}
-              </div>
-              <div className="w-[2px] shrink-0 bg-white" />
-              <div
-                style={{ width: `${Math.max(pct10kPlus, totalHighValue ? 5 : 33.4)}%` }}
-                className="flex items-center justify-center bg-[#6E0D1F] px-2 text-[11px] font-black text-[#F3E5AB] transition-all rounded-r-lg"
-                title={`₹10,000+: ${tiers.tier10kPlus} shoppers (${pct10kPlus}%)`}
-              >
-                {pct10kPlus > 8 ? `₹10K+ · ${pct10kPlus}%` : `${pct10kPlus}%`}
-              </div>
-            </div>
-
-            <div className="mt-2 flex items-center justify-between text-xs text-[#5C4B43]">
-              <span>Baseline: ₹5,000 AI Video qualifying threshold</span>
-              <span className="font-bold text-[#6E0D1F]">
-                {totalHighValue} qualifying customer{totalHighValue === 1 ? '' : 's'} recorded
-              </span>
-            </div>
-          </div>
-
-          {/* 3 Simple Tier Breakdown Cards */}
+          {/* Simple 3 KPI Cards */}
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-[#D4AF37]/50 bg-[#FFFDF7] p-4">
+            {/* Tier 1: ₹1,000+ */}
+            <div className="rounded-xl border border-[#D4AF37]/50 bg-[#FFFDF7] p-5 transition hover:shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="rounded-md bg-[#D4AF37]/20 px-2 py-0.5 text-[10px] font-bold uppercase text-[#765E27]">
-                  Tier 1 · Core
+                <span className="rounded-md bg-[#D4AF37]/20 px-2.5 py-1 text-[11px] font-bold uppercase text-[#765E27]">
+                  Tier 1 · ₹1,000+
                 </span>
-                <span className="font-mono text-xs font-bold text-[#765E27]">{pct5kTo7k}%</span>
+                <span className="text-xs font-bold text-[#8A6A20]">Festive Ready</span>
               </div>
-              <p className="mt-2 text-xs font-semibold text-[#5C4B43]">₹5,000 – ₹7,000</p>
-              <p className="mt-1 font-serif text-2xl font-bold text-[#6E0D1F]">{tiers.tier5kTo7k}</p>
-              <p className="mt-1 text-[11px] text-[#5C4B43]">Shoppers unlocking the ₹5K AI Video qualifying pass.</p>
+              <p className="mt-3 font-serif text-3xl font-bold text-[#6E0D1F]">{tier1kPlus}</p>
+              <p className="mt-1 text-xs text-[#5C4B43]">Shoppers scanning or purchasing festive garments ₹1,000 and above.</p>
             </div>
 
-            <div className="rounded-xl border border-emerald-300 bg-[#F4FBF7] p-4">
+            {/* Tier 2: ₹5,000+ */}
+            <div className="rounded-xl border border-emerald-300 bg-[#F4FBF7] p-5 transition hover:shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800">
-                  Tier 2 · Mid-Premium
+                <span className="rounded-md bg-emerald-100 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-800">
+                  Tier 2 · ₹5,000+
                 </span>
-                <span className="font-mono text-xs font-bold text-emerald-800">{pct7kTo10k}%</span>
+                <span className="text-xs font-bold text-emerald-700">AI Video Qualifier</span>
               </div>
-              <p className="mt-2 text-xs font-semibold text-[#5C4B43]">₹7,000 – ₹10,000</p>
-              <p className="mt-1 font-serif text-2xl font-bold text-emerald-900">{tiers.tier7kTo10k}</p>
-              <p className="mt-1 text-[11px] text-[#5C4B43]">Shoppers upgrading into silk sarees, dhotis & festive sets.</p>
+              <p className="mt-3 font-serif text-3xl font-bold text-emerald-900">{tier5kPlus}</p>
+              <p className="mt-1 text-xs text-[#5C4B43]">Qualifying shoppers eligible for Maharaja personalized cinematic AI Video.</p>
             </div>
 
-            <div className="rounded-xl border border-[#6E0D1F]/40 bg-[#FFF5F7] p-4">
+            {/* Tier 3: ₹7,000+ */}
+            <div className="rounded-xl border border-[#6E0D1F]/40 bg-[#FFF5F7] p-5 transition hover:shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="rounded-md bg-[#6E0D1F]/15 px-2 py-0.5 text-[10px] font-bold uppercase text-[#6E0D1F]">
-                  Tier 3 · Royal Luxury
+                <span className="rounded-md bg-[#6E0D1F]/15 px-2.5 py-1 text-[11px] font-bold uppercase text-[#6E0D1F]">
+                  Tier 3 · ₹7,000+
                 </span>
-                <span className="font-mono text-xs font-bold text-[#6E0D1F]">{pct10kPlus}%</span>
+                <span className="text-xs font-bold text-[#6E0D1F]">Royal Luxury</span>
               </div>
-              <p className="mt-2 text-xs font-semibold text-[#5C4B43]">₹10,000 and Above</p>
-              <p className="mt-1 font-serif text-2xl font-bold text-[#6E0D1F]">{tiers.tier10kPlus}</p>
-              <p className="mt-1 text-[11px] text-[#5C4B43]">Royal VIP bridal and wedding collection purchasers.</p>
+              <p className="mt-3 font-serif text-3xl font-bold text-[#6E0D1F]">{tier7kPlus}</p>
+              <p className="mt-1 text-xs text-[#5C4B43]">High-value silk sarees, bridal attire & VIP festive collections.</p>
             </div>
           </div>
         </section>
@@ -560,49 +564,112 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           </div>
         </section>
 
-        {/* 4. DAILY ANALYTICS WITH DATE LOGS ONLY */}
+        {/* 4. PERFORMANCE TABLE · DAILY DATE LOGS & WEEKLY SUMMARY */}
         <section className="rounded-2xl border border-[#DDD2BD] bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center justify-between gap-4 flex-wrap pb-4 border-b border-[#EEE7DA]">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#8A6A20]">Daily Performance</p>
-              <h3 className="font-serif text-xl font-bold text-[#2A060C]">Daily Analytics Date Logs</h3>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#8A6A20]">Store Performance Telemetry</p>
+              <h3 className="font-serif text-xl font-bold text-[#2A060C]">
+                {logViewMode === 'daily' ? 'Daily Analytics Date Logs' : 'Weekly Summary Logs'}
+              </h3>
             </div>
-            <div className="text-xs text-[#5C4B43]">
-              Recorded Downloads: <strong className="text-[#6E0D1F]">{workspace.analytics.brandedReach}</strong>
+            
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-xl border border-[#D4AF37]/40 bg-[#FFFDF7] p-1 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setLogViewMode('daily')}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    logViewMode === 'daily'
+                      ? 'bg-[#6E0D1F] text-[#F3E5AB] shadow-sm'
+                      : 'text-[#5C4B43] hover:text-black'
+                  }`}
+                >
+                  Daily Logs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLogViewMode('weekly')}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    logViewMode === 'weekly'
+                      ? 'bg-[#6E0D1F] text-[#F3E5AB] shadow-sm'
+                      : 'text-[#5C4B43] hover:text-black'
+                  }`}
+                >
+                  Weekly Logs
+                </button>
+              </div>
+
+              <div className="hidden sm:block text-xs text-[#5C4B43] pl-2 border-l border-[#EEE7DA]">
+                Downloads: <strong className="text-[#6E0D1F]">{workspace.analytics.brandedReach}</strong>
+              </div>
             </div>
           </div>
 
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[620px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-[#DDD2BD] text-xs uppercase text-[#765E27]">
-                  <th className="py-3 px-3">Date</th>
-                  <th className="py-3 px-3">Garments Scanned</th>
-                  <th className="py-3 px-3">Total Scanned GMV</th>
-                  <th className="py-3 px-3">Try-Ons Done</th>
-                  <th className="py-3 px-3">Conversion</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EEE7DA]">
-                {workspace.analytics.days.length ? (
-                  workspace.analytics.days.map((day) => (
-                    <tr key={day.date} className="hover:bg-[#FFFDF7] transition">
-                      <td className="py-3.5 px-3 font-mono font-bold text-[#2A060C]">{day.date}</td>
-                      <td className="py-3.5 px-3 text-[#5C4B43]">{day.scans}</td>
-                      <td className="py-3.5 px-3 font-semibold text-[#6E0D1F]">{formatMoney(day.gmv)}</td>
-                      <td className="py-3.5 px-3 text-[#5C4B43]">{day.tryOns}</td>
-                      <td className="py-3.5 px-3 font-semibold text-emerald-800">{day.conversion}%</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500">
-                      No price scans recorded yet. In-store garment scans will log daily figures here.
-                    </td>
+            {logViewMode === 'daily' ? (
+              <table className="w-full min-w-[620px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#DDD2BD] text-xs uppercase text-[#765E27]">
+                    <th className="py-3 px-3">Date</th>
+                    <th className="py-3 px-3">Garments Scanned</th>
+                    <th className="py-3 px-3">Total Scanned GMV</th>
+                    <th className="py-3 px-3">Try-Ons Done</th>
+                    <th className="py-3 px-3">Conversion</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#EEE7DA]">
+                  {workspace.analytics.days.length ? (
+                    workspace.analytics.days.map((day) => (
+                      <tr key={day.date} className="hover:bg-[#FFFDF7] transition">
+                        <td className="py-3.5 px-3 font-mono font-bold text-[#2A060C]">{day.date}</td>
+                        <td className="py-3.5 px-3 text-[#5C4B43]">{day.scans}</td>
+                        <td className="py-3.5 px-3 font-semibold text-[#6E0D1F]">{formatMoney(day.gmv)}</td>
+                        <td className="py-3.5 px-3 text-[#5C4B43]">{day.tryOns}</td>
+                        <td className="py-3.5 px-3 font-semibold text-emerald-800">{day.conversion}%</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-500">
+                        No price scans recorded yet. In-store garment scans will log daily figures here.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full min-w-[620px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#DDD2BD] text-xs uppercase text-[#765E27]">
+                    <th className="py-3 px-3">Weekly Period</th>
+                    <th className="py-3 px-3">Garments Scanned</th>
+                    <th className="py-3 px-3">Total Scanned GMV</th>
+                    <th className="py-3 px-3">Try-Ons Done</th>
+                    <th className="py-3 px-3">Conversion</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EEE7DA]">
+                  {workspace.analytics.weeks?.length ? (
+                    workspace.analytics.weeks.map((week) => (
+                      <tr key={week.week} className="hover:bg-[#FFFDF7] transition">
+                        <td className="py-3.5 px-3 font-mono font-bold text-[#2A060C]">{week.week}</td>
+                        <td className="py-3.5 px-3 text-[#5C4B43]">{week.scans}</td>
+                        <td className="py-3.5 px-3 font-semibold text-[#6E0D1F]">{formatMoney(week.gmv)}</td>
+                        <td className="py-3.5 px-3 text-[#5C4B43]">{week.tryOns}</td>
+                        <td className="py-3.5 px-3 font-semibold text-emerald-800">{week.conversion}%</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-500">
+                        No weekly aggregates recorded yet. Weekly figures will summarize in-store performance here.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </section>
 
@@ -862,6 +929,39 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
               ? `Approved template: ${workspace.integrations.whatsapp.templateName}`
               : 'WhatsApp secrets can be added in Vercel environment variables. In-store customer QR serves as the seamless primary flow.'}
           </p>
+        </section>
+
+        {/* WEFOCUS BRANDING & CLIENT SUPPORT TELEMETRY */}
+        <section className="rounded-2xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#21090E] via-[#2D0C13] to-[#1A060A] p-6 text-white shadow-md">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[10px] font-black uppercase tracking-wider text-[#F3E5AB]">
+                  Enterprise Platform
+                </span>
+                <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> Telemetry Live
+                </span>
+              </div>
+              <h3 className="font-serif text-2xl font-bold text-[#F3E5AB]">
+                wefocus.in
+              </h3>
+              <p className="text-xs leading-relaxed text-[#F3E5AB]/80 max-w-xl">
+                Advanced AI visual compute, store telemetry & high-conversion retail intelligence engineered for premier retail showrooms.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="https://wefocus.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-5 py-3 text-xs font-bold uppercase text-black transition hover:bg-[#E5C158] shadow-md hover:shadow-lg"
+              >
+                Client Support & Operations Telemetry <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          </div>
         </section>
 
         <footer className="pt-2 flex items-center justify-between text-xs text-slate-500">

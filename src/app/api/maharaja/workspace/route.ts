@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import {
+  clearMaharajaTelemetry,
   getMaharajaWorkspace,
   getWorkspaceLinks,
   listRecentVideoPasses,
@@ -62,6 +63,10 @@ export async function GET(req: NextRequest) {
     const allMerchandiseAmounts = [...scannedPrices, ...passAmounts];
     const totalGmv = allMerchandiseAmounts.reduce((sum, amount) => sum + amount, 0);
 
+    const tier1kPlus = allMerchandiseAmounts.filter((amt) => amt >= 1000).length;
+    const tier5kPlus = allMerchandiseAmounts.filter((amt) => amt >= 5000).length;
+    const tier7kPlus = allMerchandiseAmounts.filter((amt) => amt >= 7000).length;
+
     const passAbove5k = passAmounts.filter((amount) => amount >= 5000);
     const totalAbove5kCount = Math.max(
       workspace.usage.videoPasses || 0,
@@ -77,6 +82,35 @@ export async function GET(req: NextRequest) {
     if (remainingPasses > 0) {
       tier5kTo7k += remainingPasses;
     }
+
+    const imageRetries = allActivity.filter(
+      (item) => item.type === 'retry' && (item.metadata?.target === 'image' || item.metadata?.service === 'try-on')
+    ).length;
+    const videoRetries = allActivity.filter(
+      (item) => item.type === 'retry' && (item.metadata?.target === 'video' || item.metadata?.service === 'ai-video')
+    ).length;
+
+    const imagesSuccess = Math.max(workspace.usage.tryOnGenerated || 0, allActivity.filter((item) => item.type === 'try-on').length);
+    const videosSuccess = Math.max(workspace.usage.videosGenerated || 0, allActivity.filter((item) => item.type === 'video').length);
+
+    // Group days into weekly summary
+    const weeklyMap = new Map<string, { week: string; scans: number; tryOns: number; gmv: number; conversion: number }>();
+    for (const d of days) {
+      const dateObj = new Date(d.date);
+      const day = dateObj.getDay();
+      const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(dateObj.setDate(diff)).toISOString().slice(0, 10);
+      const weekLabel = `Week of ${monday}`;
+      const wRow = weeklyMap.get(weekLabel) || { week: weekLabel, scans: 0, tryOns: 0, gmv: 0, conversion: 0 };
+      wRow.scans += d.scans;
+      wRow.tryOns += d.tryOns;
+      wRow.gmv += d.gmv;
+      weeklyMap.set(weekLabel, wRow);
+    }
+    const weeks = Array.from(weeklyMap.values()).map((w) => ({
+      ...w,
+      conversion: w.scans ? Math.min(100, Math.round((w.tryOns / w.scans) * 100)) : 0,
+    }));
 
     const luxuryCount = allMerchandiseAmounts.filter((amount) => amount >= luxuryThreshold).length;
     const brandedReach = allActivity.filter((item) => item.type === 'download' || item.type === 'share').length;
@@ -187,8 +221,15 @@ export async function GET(req: NextRequest) {
         analytics: {
           totalGmv,
           totalGarments: scannedPrices.length,
-          tryOnsCount: workspace.usage.tryOnGenerated || 0,
-          shoppersAbove5000: totalAbove5kCount,
+          imagesSuccess,
+          imageRetries,
+          videosSuccess,
+          videoRetries,
+          tryOnsCount: imagesSuccess,
+          shoppersAbove5000: tier5kPlus,
+          tier1kPlus,
+          tier5kPlus,
+          tier7kPlus,
           tiers: {
             tier5kTo7k,
             tier7kTo10k,
@@ -201,11 +242,31 @@ export async function GET(req: NextRequest) {
           luxuryThreshold,
           festiveThreshold,
           days,
+          weeks,
         },
       },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load Maharaja workspace.';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  if (!verifyOperatorRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized Maharaja session.' }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json().catch(() => ({}));
+    if (body.action === 'reset-telemetry') {
+      await clearMaharajaTelemetry();
+      await logMaharajaActivity('campaign', 'Maharaja showroom telemetry reset to zero for live launch');
+      return NextResponse.json({ success: true, message: 'All test telemetry, GMV, and test activities reset to zero.' });
+    }
+    return NextResponse.json({ success: false, error: 'Unknown workspace action.' }, { status: 400 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to perform workspace action.';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

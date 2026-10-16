@@ -26,7 +26,7 @@ export async function createTryOnPosterDataUrl(targetUrl: string) {
   context.font = '700 82px Georgia, serif';
   context.fillText('MAHARAJA', canvas.width / 2, 145);
   context.font = '700 30px Arial, sans-serif';
-  context.fillText('POWERED BY TRYFOCUS', canvas.width / 2, 225);
+  context.fillText('POWERED BY WEFOCUS.IN', canvas.width / 2, 225);
 
   context.fillStyle = '#2A060C';
   context.font = '700 92px Georgia, serif';
