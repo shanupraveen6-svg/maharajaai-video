@@ -214,9 +214,12 @@ export async function GET(req: NextRequest) {
 
           const queueStatus = await fal.queue.status(FAL_VIDEO_MODEL, {
             requestId,
-            logs: true
+            logs: false
           });
           const queueState = String((queueStatus as { status?: string }).status || '');
+          const queuePosition = queueState === 'IN_QUEUE'
+            ? Number((queueStatus as { queue_position?: number }).queue_position ?? 0)
+            : null;
 
           if (queueState === 'COMPLETED') {
             const falResult: any = await fal.queue.result(FAL_VIDEO_MODEL, {
@@ -277,21 +280,22 @@ export async function GET(req: NextRequest) {
             status = 'ready';
 
             if (db) {
-              await db.collection('videos').doc(`video_${targetSessionId}`).set({
+              await Promise.all([
+                db.collection('videos').doc(`video_${targetSessionId}`).set({
                 id: `video_${targetSessionId}`,
                 sessionId: targetSessionId,
                 storagePath,
                 status: 'ready',
                 provider: 'fal-h3-max-turbo',
                 createdAt: new Date().toISOString()
-              }, { merge: true });
-
-              await db.collection('sessions').doc(targetSessionId).set({
+                }, { merge: true }),
+                db.collection('sessions').doc(targetSessionId).set({
                 videoStatus: 'ready',
                 videoUrl,
                 videoStoragePath: storagePath,
                 updatedAt: new Date().toISOString()
-              }, { merge: true });
+                }, { merge: true }),
+              ]);
             }
 
             if (accessCode) {
@@ -319,9 +323,13 @@ export async function GET(req: NextRequest) {
               jobId,
               sessionId: targetSessionId,
               status: 'processing',
+              queueState,
+              queuePosition,
               masterImageUrl,
               eventId,
-              message: 'MiniMax H3 Max Turbo video rendering in progress...'
+              message: queueState === 'IN_QUEUE'
+                ? `Your video is queued${queuePosition ? ` at position ${queuePosition}` : ''}.`
+                : 'MiniMax H3 Max Turbo video rendering in progress...'
             });
           }
 

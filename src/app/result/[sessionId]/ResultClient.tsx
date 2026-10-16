@@ -211,7 +211,7 @@ export default function ResultClient({
       }
 
       if (isMounted) {
-        timer = setTimeout(checkVideoStatus, 3000);
+        timer = setTimeout(checkVideoStatus, 2000);
       }
     }
 

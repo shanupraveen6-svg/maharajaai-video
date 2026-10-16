@@ -147,6 +147,9 @@ export async function POST(req: NextRequest) {
     let masterBase64: string | null = null;
     let masterMimeType = 'image/jpeg';
     let masterDataUrl: string | null = null;
+    let hostedImageUrl: string | null = masterImageUrl && /^https?:\/\//i.test(masterImageUrl)
+      ? masterImageUrl
+      : null;
 
     if (masterImageUrl && masterImageUrl.startsWith('data:image')) {
       masterDataUrl = masterImageUrl;
@@ -165,7 +168,7 @@ export async function POST(req: NextRequest) {
       } catch (lErr) {
         console.warn('Local master image read warning:', lErr);
       }
-    } else {
+    } else if (!hostedImageUrl) {
       const bucket = getStorageBucket();
       if (bucket) {
         try {
@@ -219,8 +222,6 @@ export async function POST(req: NextRequest) {
         console.log('FAL_UPLOAD_START', { sessionId, jobId });
         fal.config({ credentials: falKey.trim() });
 
-        let hostedImageUrl: string | null = null;
-
         if (masterBase64) {
           try {
             const buffer = Buffer.from(masterBase64, 'base64');
@@ -249,7 +250,7 @@ export async function POST(req: NextRequest) {
         if (!hostedImageUrl) {
           throw new Error('Could not prepare a hosted image URL for Fal.ai generation.');
         }
-        console.log('FAL_UPLOAD_OK', { sessionId, jobId });
+        console.log('FAL_IMAGE_READY', { sessionId, jobId, reusedHostedUrl: !masterBase64 && !!hostedImageUrl });
 
         console.log('FAL_SUBMIT_START', { sessionId, jobId, model: FAL_VIDEO_MODEL });
         const falSubmitResult = await fal.queue.submit(FAL_VIDEO_MODEL, {
@@ -279,6 +280,8 @@ export async function POST(req: NextRequest) {
             model: FAL_VIDEO_MODEL,
             motionSafety,
             status: 'processing',
+            queueState: falSubmitResult.status,
+            queuePosition: falSubmitResult.queue_position,
             videoUrl: null,
             createdAt: nowIso
           };
@@ -299,9 +302,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Record job state in Firestore or MockStore
+    const postSubmitTasks: Promise<unknown>[] = [];
     if (db) {
-      await db.collection('generationJobs').doc(jobId).set(jobData);
-      await db.collection('sessions').doc(sessionId).set({
+      postSubmitTasks.push(db.collection('generationJobs').doc(jobId).set(jobData));
+      postSubmitTasks.push(db.collection('sessions').doc(sessionId).set({
         sessionId,
         clientId: MAHARAJA_CLIENT_ID,
         accessCode: typeof accessCode === 'string' ? accessCode : null,
@@ -312,7 +316,7 @@ export async function POST(req: NextRequest) {
         motionSafety,
         motionMode: motionSafety.recommendedMotion,
         updatedAt: nowIso
-      }, { merge: true });
+      }, { merge: true }));
     } else {
       const mockStore = getMockStore();
       mockStore.sessions.set(`job_${jobId}`, jobData);
@@ -333,9 +337,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (access.pass) {
-      await incrementPassUsage(access.pass.code, 'videosGenerated');
+      postSubmitTasks.push(incrementPassUsage(access.pass.code, 'videosGenerated'));
     }
-    await logMaharajaActivity('video-start', `${eventId} AI Video generation started`, { sessionId });
+    postSubmitTasks.push(logMaharajaActivity('video-start', `${eventId} AI Video generation started`, { sessionId }));
+    await Promise.all(postSubmitTasks);
 
     return NextResponse.json({
       success: true,
@@ -344,6 +349,8 @@ export async function POST(req: NextRequest) {
       provider: jobData.provider,
       motionSafety,
       status: jobData.status,
+      queueState: jobData.queueState,
+      queuePosition: jobData.queuePosition,
       message: 'MiniMax H3 Max Turbo video generation initialized.'
     });
   } catch (error: any) {

@@ -85,8 +85,12 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (garmentPhotos.length > 3) {
-      return NextResponse.json({ success: false, error: 'Upload up to 3 garment photos max.' }, { status: 400 });
+    const maxGarmentPhotos = service === 'try-on' ? 1 : 3;
+    if (garmentPhotos.length > maxGarmentPhotos) {
+      return NextResponse.json({
+        success: false,
+        error: service === 'try-on' ? 'AI Try-On accepts one garment photo.' : 'Upload up to 3 garment photos max.',
+      }, { status: 400 });
     }
 
     if (service === 'try-on' && !access.pass) {
@@ -273,8 +277,9 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       }
     }
 
+    const persistenceTasks: Promise<unknown>[] = [];
     if (db) {
-      await db.collection('sessions').doc(sessionId).set({
+      persistenceTasks.push(db.collection('sessions').doc(sessionId).set({
         sessionId,
         clientId: MAHARAJA_CLIENT_ID,
         accessCode: typeof accessCode === 'string' ? accessCode : null,
@@ -286,7 +291,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
         ...safeImageFields,
         status: 'master_ready',
         updatedAt: nowIso
-      }, { merge: true });
+      }, { merge: true }));
     } else {
       const mockStore = getMockStore();
       mockStore.sessions.set(sessionId, {
@@ -305,21 +310,24 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       });
     }
 
-    await incrementMaharajaUsage('tryOnGenerated');
+    persistenceTasks.push(incrementMaharajaUsage('tryOnGenerated'));
     if (access.pass) {
-      await incrementPassUsage(access.pass.code, 'imagesGenerated');
       const passImageUrl = (db && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000)
         ? masterImageUrl.slice(0, 500) + '...[truncated-data-url]'
         : masterImageUrl;
-      if (service === 'try-on') {
-        await markPassTryOnImageDone(access.pass.code, passImageUrl);
-      } else {
-        await markPassVideoMasterDone(access.pass.code, passImageUrl);
-      }
+      persistenceTasks.push((async () => {
+        await incrementPassUsage(access.pass!.code, 'imagesGenerated');
+        if (service === 'try-on') {
+          await markPassTryOnImageDone(access.pass!.code, passImageUrl);
+        } else {
+          await markPassVideoMasterDone(access.pass!.code, passImageUrl);
+        }
+      })());
     }
     const activityType: 'try-on' | 'video-master' = service === 'try-on' ? 'try-on' : 'video-master';
-    await logMaharajaActivity(activityType, `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId, service });
-    if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, true);
+    persistenceTasks.push(logMaharajaActivity(activityType, `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId, service }));
+    if (reservedDeviceId) persistenceTasks.push(finishTryOnGrant(reservedDeviceId, reservedSessionId, true));
+    await Promise.all(persistenceTasks);
 
     return NextResponse.json({
       success: true,
