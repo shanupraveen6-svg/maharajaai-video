@@ -117,8 +117,6 @@ export default function TvPlayerPage() {
     if (!playback) return;
 
     console.warn('Skipping TV playback:', reason, playback.queueId);
-    badQueueIdsRef.current.add(playback.queueId);
-    removePlaybackFromPlaylist(playback.queueId);
     resetActivePlaybackState();
 
     if (playlistRef.current.length > 0) {
@@ -131,8 +129,6 @@ export default function TvPlayerPage() {
     if (!playback) return;
 
     console.warn('Skipping pending TV playback:', reason, playback.queueId);
-    badQueueIdsRef.current.add(playback.queueId);
-    removePlaybackFromPlaylist(playback.queueId);
     setSlotPlayback(slot, null);
     if (pendingSlotRef.current === slot) {
       pendingSlotRef.current = null;
@@ -180,7 +176,7 @@ export default function TvPlayerPage() {
       ) {
         skipPendingPlayback(slot, 'video could not preload quickly');
       }
-    }, 6500);
+    }, 30000);
   }
 
   function preloadNextPlaylistItem() {
@@ -335,7 +331,7 @@ export default function TvPlayerPage() {
         if (activeVideo.paused || activeVideo.readyState < 2 || activeVideo.currentTime < 0.12) {
           skipCurrentPlayback('video did not visibly start');
         }
-      }, 2800);
+      }, 12000);
 
       fetch('/api/tv/playing', {
         method: 'POST',

@@ -160,7 +160,7 @@ export async function getSignedPlaybackUrl(storagePath: string): Promise<string>
       const file = bucket.file(storagePath);
       const [url] = await file.getSignedUrl({
         action: 'read',
-        expires: Date.now() + 15 * 60 * 1000 // 15 minutes short-lived URL
+        expires: Date.now() + 24 * 60 * 60 * 1000 // 24 hours signed URL for continuous TV showroom display
       });
       return url;
     } catch (err: any) {
