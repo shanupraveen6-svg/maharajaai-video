@@ -44,7 +44,7 @@ export async function prepareTagImage(dataUrl: string, maxWidth = 1600, quality 
   return canvas.toDataURL('image/jpeg', quality);
 }
 
-export async function readPriceOnDevice(dataUrl: string, timeoutMs = 15000) {
+export async function readPriceOnDevice(dataUrl: string, timeoutMs = 2500) {
   const worker = await warmUpDeviceOcr();
   const prepared = await prepareTagImage(dataUrl);
   const result = await Promise.race([

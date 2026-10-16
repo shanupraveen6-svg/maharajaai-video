@@ -109,7 +109,7 @@ export default function BarcodePriceScanner({
         barcode: barcode?.text || '',
         format: barcode?.format || 'PRINTED_MRP',
         printedText,
-        image: localAmount === null ? await prepareTagImage(dataUrl, 1024, 0.8) : undefined,
+        image: await prepareTagImage(dataUrl, 800, 0.75),
       });
     } catch {
       result = { eligible: false, message: 'Could not verify the tag. Please try again.' };

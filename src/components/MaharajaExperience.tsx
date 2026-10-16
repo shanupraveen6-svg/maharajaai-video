@@ -222,7 +222,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
   // Scan → check ₹500+ → enter (open photo step) or reject (scanner stays open).
   const analyzeBarcode = useCallback(
-    async (payload: { barcode: string; format: string; printedText: string }) => {
+    async (payload: { barcode: string; format: string; printedText: string; image?: string }) => {
       setError('');
       try {
         const data = await readJson(await fetch('/api/ai/analyze-price-tag', {
