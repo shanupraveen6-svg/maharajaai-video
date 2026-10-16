@@ -213,20 +213,23 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           setDuplicateWarning(data.analysis.message);
           setError(data.analysis.message);
           setPurchaseConfirmed(false);
+          return { success: false, eligible: false, isDuplicate: true, message: data.analysis.message };
         } else if (!data.analysis.eligible) {
           setError(data.analysis.message);
           setPurchaseConfirmed(false);
+          return { success: false, eligible: false, isDuplicate: false, message: data.analysis.message };
         } else {
           setIsFullCameraOpen(false);
+          return { success: true, eligible: true, isDuplicate: false, message: data.analysis.message };
         }
       } catch (caught) {
         setPurchaseConfirmed(false);
-        setError(
-          customerError(
-            caught,
-            'The tag could not be verified. Keep the full tag, barcode and printed MRP inside the frame.'
-          )
+        const errMessage = customerError(
+          caught,
+          'The tag could not be verified. Keep the full tag, barcode and printed MRP inside the frame.'
         );
+        setError(errMessage);
+        return { success: false, eligible: false, message: errMessage };
       } finally {
         setStage('ready');
         setScannerResetKey((current) => current + 1);

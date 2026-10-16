@@ -194,11 +194,11 @@ export async function POST(req: NextRequest) {
 
     let successMessage = `Price verified: Rs ${amount}.`;
     if (!eligible) {
-      successMessage = `Price verified: Rs ${amount}. Try-On requires Rs ${TRY_ON_MIN_PURCHASE} or more.`;
+      successMessage = `REJECTED: Rs ${amount} is below Rs ${TRY_ON_MIN_PURCHASE} minimum. AI Try-On requires Rs ${TRY_ON_MIN_PURCHASE} or more.`;
     } else if (duplicate.duplicateType === 'same_device') {
-      successMessage = `Price verified: Rs ${amount}. Garment tag re-scan recognized.`;
+      successMessage = `ENTER APPROVED: Rs ${amount}. Garment tag verified.`;
     } else {
-      successMessage = `Price verified: Rs ${amount}. Tag is authentic and eligible.`;
+      successMessage = `ENTER APPROVED: Rs ${amount}. Tag verified and eligible.`;
     }
 
     return NextResponse.json({
