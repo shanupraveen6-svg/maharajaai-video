@@ -80,9 +80,9 @@ function truncateAtWordBoundary(text: string, maxLength: number): string {
 }
 
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
-  const isFailSafe = basePrompt.startsWith('FAIL-SAFE REGENERATION MODE.');
+  const isFailSafe = basePrompt.startsWith('FAIL-SAFE REGENERATION MODE.') || basePrompt.startsWith('RETRY STABILIZED FASHION COMMERCIAL MODE.');
   const executionRule = isFailSafe
-    ? 'Keep camera stationary. Start subtle background flame and ambient-light animation at frame 1.'
+    ? 'Execute controlled stabilized camera push-in with subtle background flame and ambient-light animation starting at frame 1.'
     : 'Execute the cinematic camera motion and background festive atmosphere starting at frame 1.';
   const canonicalPrompt = `${basePrompt} ${executionRule} No blank screen or delayed intro. Do not add text, words, titles or logos.`;
 

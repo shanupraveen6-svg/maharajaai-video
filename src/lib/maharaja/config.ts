@@ -215,41 +215,43 @@ The background lighting, ambient reflections, and particle effects strictly refl
 FINAL PRIORITY: Preserve identity and the exact outfit above all effects. If an effect threatens the face, anatomy, or garment colour, prioritize the subject stability.`;
 }
 
-/** Section 10: Manager Retry Fail-Safe Video Prompt */
-export function buildFailSafeVideoPrompt(category?: CustomerCategory, eventId?: EventId) {
-  void category;
-  void eventId;
-  return `FAIL-SAFE REGENERATION MODE.
+/** Section 10: Manager Retry Stabilized Fashion Video Prompt */
+export function buildFailSafeVideoPrompt(category: CustomerCategory = 'women', eventId: EventId = 'diwali') {
+  const event = getEventOption(eventId);
+  const isMale = category === 'men' || category === 'boy';
+  const isChild = category === 'boy' || category === 'girl';
 
-Create an ultra-stable 6-second vertical 9:16 video from the exact approved master image.
-This retry prioritizes identity and structural stability over cinematic movement.
+  const categoryDirection = isMale
+    ? isChild
+      ? 'SUBJECT & POSTURE: Young boy in traditional festive tailoring. Confident, cheerful standing posture with natural breathing and a bright, proud smile. CAMERA & MOTION: Controlled eye-level push-in with subtle background light parallax. Clean structural stability for young boy menswear.'
+      : 'SUBJECT & POSTURE: Adult man in refined festival attire. Dignified, stately standing posture with natural breathing and a warm, confident smile. Crisp shoulder line and collar tailoring. CAMERA & MOTION: Low-to-eye-level smooth pedestal push-in with subtle architectural light parallax.'
+    : isChild
+      ? 'SUBJECT & POSTURE: Young girl in traditional festive dress (pavadai / lehenga). Innocent, joyful poise with a cheerful radiant smile. Gentle fabric drape. CAMERA & MOTION: Soft child eye-level push-in with warm festive background depth and twinkle.'
+      : 'SUBJECT & POSTURE: Adult woman in elegant festival ensemble (saree / lehenga / salwar). Graceful, poised standing posture with natural breathing and a warm, radiant festive smile. Saree pallu / dupatta edge shows delicate micro-motion in the ambient indoor breeze. CAMERA & MOTION: Low-angle to eye-level graceful push-in with subtle depth parallax.';
 
-ABSOLUTE IDENTITY AND GARMENT LOCK:
-Preserve the exact face, identity, skin tone, age, hairstyle, body shape and proportions.
-Preserve the exact garment colours, neutral colours, fabric, embroidery, zari, motifs, borders, sleeves, neckline, silhouette, length and fit.
-No beautification, face replacement, body reshaping, garment redesign or colour shift.
+  return `RETRY STABILIZED FASHION COMMERCIAL MODE.
 
-ABSOLUTE CAMERA LOCK:
-Camera remains 100% stationary for every frame.
-No zoom. No push-in. No pan. No tilt. No orbit. No shake. No reframing.
+Create a premium, ultra-stable 6-second vertical 9:16 cinematic festive fashion video using ONLY the approved master image.
+Prioritize identity stability and garment perfection while maintaining natural, lifelike human presence.
 
-ABSOLUTE BODY LOCK:
-The subject remains in the exact source pose.
-Feet remain fixed to their original floor coordinates.
-Legs remain fixed. Waist remains fixed. Torso position remains fixed. Shoulders remain fixed.
-Arms remain fixed. Hands remain fixed. Finger positions remain fixed. Head orientation remains fixed.
-Hair silhouette remains fixed. Garment silhouette remains fixed.
+ABSOLUTE IDENTITY & ANATOMY LOCK:
+- Preserve the exact customer face, facial structure, eyes, nose, mouth, skin tone, hairstyle, and body proportions from the master image.
+- Both feet stay firmly planted on their original floor coordinates (no walking, stepping, sliding, or body turns).
+- Exactly two arms and two natural hands resting calmly (no hand gestures, no limb mutations).
+${isChild ? '- CHILD SAFETY: Innocent, age-appropriate, cheerful styling with no adult glamour.' : '- Natural, modest, poised presence.'}
 
-ALLOWED HUMAN MOTION ONLY:
-1. One very subtle natural eyelid blink.
-2. Extremely small closed-mouth facial warmth/smile.
-If maintaining identity requires less facial movement, keep the face completely still.
+GARMENT TEXTILE & PATTERN LOCK:
+- Preserve the exact uploaded garment: colors, fabric texture, zari borders, embroidery, motifs, neckline, sleeves, and silhouette.
+- Zero garment alteration, zero color shifts, zero pattern redesign. Present the outfit with crisp retail clarity.
 
-ENVIRONMENTAL MOTION ONLY:
-Very gentle floor-lamp flame flicker.
-Extremely subtle ambient light shimmer.
-No object displacement.
+${categoryDirection}
 
-ABSOLUTELY PROHIBITED:
-walking, stepping, sliding, turning, dancing, breathing motion, arm movement, hand movement, finger movement, head rotation, fabric billowing, garment transformation, colour shift, camera movement, face morphing, body morphing, foot morphing, text, logos, watermarks, black intro frames.`;
+ATMOSPHERIC FESTIVE BACKGROUND:
+- Animate the scene from the master image (${event.label}): terracotta diya and vilakku flames flicker with warm organic amber glow casting reflections on the stone floor.
+- Background festive bokeh circles pulse softly with warm golden luminosity. Subtle golden light dust drifts gently in the background.
+
+CINEMATIC FINISHING:
+- Smooth, imperceptible camera push-in focusing on the garment and festive smile.
+- Soft halation glow on lamp highlights with rich 35mm film color warmth.
+- No jerky shake, no rapid spinning, no blank intro, no text, no watermarks, no distorted limbs.`;
 }
