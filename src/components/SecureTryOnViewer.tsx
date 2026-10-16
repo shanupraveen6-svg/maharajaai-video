@@ -10,55 +10,19 @@ interface SecureTryOnViewerProps {
 }
 
 export default function SecureTryOnViewer({ imageUrl, alt = 'Maharaja AI Try-On' }: SecureTryOnViewerProps) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isBlackout, setIsBlackout] = useState(false);
   const [blackoutReason, setBlackoutReason] = useState<string>('');
-  const [imageLoaded, setImageLoaded] = useState(false);
-
-  // Redraw canvas with image or fill with solid black
-  const renderCanvas = useCallback(
-    (blackout: boolean) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      if (blackout || !imageUrl) {
-        // Pure pitch-black canvas
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        return;
-      }
-
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        canvas.width = img.naturalWidth || 768;
-        canvas.height = img.naturalHeight || 1024;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        setImageLoaded(true);
-      };
-      img.src = imageUrl;
-    },
-    [imageUrl]
-  );
 
   const triggerBlackout = useCallback((reason: string) => {
     setIsBlackout(true);
     setBlackoutReason(reason);
-    renderCanvas(true);
-  }, [renderCanvas]);
+  }, []);
 
   const resumeFromBlackout = useCallback(() => {
     setIsBlackout(false);
     setBlackoutReason('');
-    renderCanvas(false);
-  }, [renderCanvas]);
-
-  useEffect(() => {
-    renderCanvas(isBlackout);
-  }, [imageUrl, isBlackout, renderCanvas]);
+  }, []);
 
   // Anti-Screenshot Event Listeners
   useEffect(() => {
@@ -158,11 +122,12 @@ export default function SecureTryOnViewer({ imageUrl, alt = 'Maharaja AI Try-On'
         </div>
       )}
 
-      {/* Protective Canvas Render */}
+      {/* Signed Storage URLs render directly; canvas CORS can otherwise leave the preview blank. */}
       {imageUrl ? (
-        <canvas
-          ref={canvasRef}
-          aria-label={alt}
+        <img
+          src={imageUrl}
+          alt={alt}
+          draggable={false}
           onContextMenu={(e) => e.preventDefault()}
           className="h-full w-full object-cover pointer-events-none select-none"
         />
