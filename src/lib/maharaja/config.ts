@@ -107,15 +107,16 @@ export const UNIVERSAL_GEMINI_IMAGE_PROMPT = `Create a premium festive fashion p
 
 PRIORITY RULES:
 1. Preserve the customer's exact face, identity, hairstyle, age impression, skin tone, and body proportions.
-2. Do not beautify the face. Do not reshape facial features. Do not change jawline, nose, eyes, lips, forehead, hairstyle, or complexion.
-3. Preserve the exact garment design, exact garment pattern, exact embroidery, and exact garment colours from the uploaded garment references.
-4. Warm festive lighting may add highlights and shadows, but it must not change the true garment colour. Neutral grey must remain neutral grey. Do not shift garments into beige, tan, khaki, cream, or other incorrect hues.
-5. Keep the customer standing in a clean, premium, elegant full-body fashion pose.
-6. The output must feel like a luxury festive fashion campaign image.
-7. Create the premium/model look only through professional lighting, environment, composition, and posture — never through facial beautification or identity alteration.
-8. Full body must be visible from head to feet. Both feet must remain visible.
-9. No extra people. No mannequins. No duplicated limbs. No distorted hands or feet.
-10. The customer must wear the uploaded garments exactly.
+2. Feature a warm, confident, radiant festive smile with expressive, joyful eyes and celebratory presence. Avoid a flat, stiff, or stern expression.
+3. Do not beautify into another person. Do not reshape facial features. Do not change jawline, nose, eyes, lips, forehead, hairstyle, or complexion.
+4. Preserve the exact garment design, exact garment pattern, exact embroidery, and exact garment colours from the uploaded garment references.
+5. Warm festive lighting may add highlights and shadows, but it must not change the true garment colour. Neutral grey must remain neutral grey. Do not shift garments into beige, tan, khaki, cream, or other incorrect hues.
+6. Keep the customer standing in an elegant, upright, regal full-body high-fashion model pose.
+7. The output must feel like a ₹1-crore luxury festive fashion campaign image.
+8. Create the premium/model look through professional lighting, festive environment, composition, warm expression, and posture — never through facial beautification or identity alteration.
+9. Full body must be visible from head to feet. Both feet must remain visible.
+10. No extra people. No mannequins. No duplicated limbs. No distorted hands or feet.
+11. The customer must wear the uploaded garments exactly.
 
 GARMENT ROLE MAPPING:
 - Garment Reference 1 = Top / Shirt / Upper Garment
@@ -178,50 +179,62 @@ export function buildMasterPrompt(
 }
 
 /** Section 6: Universal Video Prompt & 8 Matching Video Scene Variants */
-export const UNIVERSAL_VIDEO_PROMPT = `Create a premium 6-second vertical cinematic fashion video from the provided festive master image.
+/** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */
+export const UNIVERSAL_VIDEO_PROMPT = `Create a premium luxury Indian festive fashion commercial with elegant human presence, cinematic depth, dynamic yet controlled camera movement, sophisticated lighting, and natural fabric physics.
 
-CORE RULES:
-1. Preserve the customer's exact face, identity, hairstyle, body proportions, garment design, garment embroidery, and garment colours.
-2. Do not beautify the face. Do not alter facial geometry. Do not change skin tone.
-3. The subject must remain essentially still, poised, and model-like.
-4. Feet remain firmly anchored to the floor coordinates.
-5. No walking, stepping, turning, dancing, hand acting, or body repositioning.
-6. No garment colour change. No garment design change. No fabric hallucination.
-7. Create the cinematic effect mainly through camera movement, foreground/background depth, lighting interaction, reflections, and festive environmental motion.
-8. Motion must be clean, premium, smooth, and easy for the model to execute.
-9. The shot must remain elegant and stable, not over-animated.
-10. This is a 6-second source film intended to remain beautiful when slowed for showroom playback, so motion should be controlled, graceful, and clean.
+PRIORITY 0 — NON-NEGOTIABLE REFERENCE FIDELITY:
+Preserve the customer's facial identity, facial geometry, natural skin tone, hairstyle, recognizable features, body proportions, and all visible jewelry.
+Preserve the supplied garment's exact design, silhouette, construction, dyes, embroidery, zari borders, motif arrangement, texture, and fabric characteristics. No garment redesign, invented details, pattern replacement, color transformation, or identity morphing.
 
-VIDEO STYLE:
-High-end festive fashion film, premium Indian luxury ambience, bright flattering professional lighting, elegant depth, cinematic realism, polished composition.
+PRIORITY 1 — NATURAL EXPRESSION & HUMAN PRESENCE:
+Animate a warm, confident, radiant festive smile with expressive eyes, natural blinking, subtle breathing, and an elegant high-fashion presence.
+The subject must feel alive, graceful, and celebratory without exaggerated movement, distorted facial features, or unnatural body mechanics.
 
-OUTPUT:
-A smooth premium 6-second fashion video in which the customer remains visually locked while the scene feels alive through camera and environment.`;
+PRIORITY 2 — CONTROLLED LUXURY CAMERA CHOREOGRAPHY:
+Begin with a cinematic foreground reveal past traditional golden brass lamps. Execute a smooth, physically plausible dolly-in combined with a modest lateral camera arc, approximately 10–15 degrees from the reference viewpoint.
+Create dimensional parallax between the brass lamps, the subject, and the heritage palace corridor.
+Maintain stable subject geometry, garment details, facial proportions, and jewelry across every frame.
+Never invent unseen surfaces or force a camera viewpoint that cannot be reliably supported by the provided visual references.
+
+PRIORITY 3 — LIVING FESTIVE ENVIRONMENT:
+Introduce realistic diya-flame flicker, elegant golden bokeh, subtle environmental shimmer, polished-floor reflections, and restrained floating festive particles.
+Allow gentle golden rim-light variation to reveal the silk and zari texture without altering the garment's original perceived colors.
+Keep lighting physically motivated, temporally consistent, and luxurious rather than excessive.
+
+PRIORITY 4 — NATURAL FABRIC PHYSICS:
+Permit subtle physically plausible fabric sway, folds, and drape response while keeping motif placement, embroidery, zari geometry, and material identity consistent.
+Avoid fabric melting, pattern crawling, shimmering artifacts, or invented cloth geometry.
+
+CONFLICT RESOLUTION RULE:
+Whenever cinematic motion, expression, lighting, or environmental animation conflicts with identity or garment fidelity, reduce the dynamic effect automatically. Never sacrifice reference fidelity to achieve more dramatic movement.
+
+FINAL QUALITY TARGET:
+Photorealistic luxury fashion cinematography, lively but controlled performance, premium festive atmosphere, stable temporal coherence, natural physics, and precise frame-to-frame identity and garment consistency.`;
 
 export const VIDEO_SCENE_ADDONS: Record<CustomerCategory, [string, string]> = {
   men: [
-    `SHOT DESIGN:
-Use a traditional brass lamp or oil lamp as a near-foreground cinematic element. Perform a smooth subtle reveal shot past the lamp, allowing the customer to remain centered and still. Let the flame flicker naturally and allow warm reflections and distant festive lights to shimmer gently. No subject movement. The cinematic energy comes from the foreground reveal, flame flicker, and elegant lighting depth.`,
-    `SHOT DESIGN:
-Use a heritage balcony or palace-corridor environment. Perform a gentle premium sideways camera move that creates soft parallax between foreground architecture, the stationary customer, and the festive background. Background lights shimmer subtly. No body motion. The cinematic feel comes from smooth parallax and elegant lighting.`,
+    `CINEMATIC SHOT DIRECTION:
+Begin with an editorial foreground reveal gliding smoothly past traditional brass kuthu-vilakku oil lamps. The camera tracks inward in a slow 10-15° orbital arc revealing the customer in a confident, regal posture with a warm, genuine festive smile. Brass lamp flames flicker naturally casting amber highlights on polished heritage flooring. Deep festive bokeh and golden light interplay in the background create cinematic luxury depth.`,
+    `CINEMATIC SHOT DIRECTION:
+In a grand heritage palace corridor with ornate carved pillars, the camera executes a fluid lateral tracking move creating rich dimensional parallax between the foreground pillars, the smiling customer, and warm festive lanterns in the background. Subtle golden rim light skims across the fabric texture as warm ambient celebratory light shimmers gently.`,
   ],
   women: [
-    `SHOT DESIGN:
-Use a diya-lit festive floor or walkway with warm glowing ambience. Perform a smooth, gentle cinematic reveal or soft controlled tracking move while keeping the customer perfectly poised and still. Let the lamps flicker naturally and allow reflections and background bokeh to shimmer softly. No subject motion.`,
-    `SHOT DESIGN:
-Use an ornate festive doorway or temple-inspired decorative scene. Perform a smooth elegant camera reveal with subtle depth and premium lighting progression. Let warm golden background light glow softly while the customer remains completely still. The mood should feel rich, graceful, and luxurious.`,
+    `CINEMATIC SHOT DIRECTION:
+Begin with a magical foreground reveal past warm glowing brass lamps. The camera executes an elegant 10-15° orbital dolly-in toward the customer, who presents a warm, radiant festive smile with lively expressive eyes. Diya flames dance naturally with realistic reflections across the polished floor. Floating golden festive particles and soft fabric drape sway in the ambient air create a ₹1-crore fashion campaign feel.`,
+    `CINEMATIC SHOT DIRECTION:
+Set before an ornate festive palace doorway lined with glowing diyas, the camera glides forward in an expansive hero tracking move with rich dimensional parallax. Golden festive light streams warmly, revealing rich silk and zari textures while the customer holds a poised, graceful festive presence with a radiant, welcoming smile.`,
   ],
   boy: [
-    `SHOT DESIGN:
-Use a festive courtyard setting with bright decorative lights and cheerful celebratory ambience. Perform a gentle simple cinematic move with small background light shimmer and subtle festive depth. The child remains still and centered. Keep motion clean, minimal, and child-appropriate.`,
-    `SHOT DESIGN:
-Use hanging lanterns or festive hanging decorations in the background. Perform a smooth easy cinematic camera move while the lanterns and background lights show subtle motion. The child remains still, centered, and calm. Keep the scene cheerful, premium, and realistic.`,
+    `CINEMATIC SHOT DIRECTION:
+In a joyful festive courtyard lined with warm decorative lights, the camera executes a gentle cinematic push-in. The child beams with a cheerful, proud festive smile and lively natural blinking while background festival lights shimmer softly.`,
+    `CINEMATIC SHOT DIRECTION:
+Floating festive lanterns and warm decorative lamps shimmer in the background as the camera executes an elegant smooth reveal. The child stands tall with a bright, charming celebratory smile and natural poise.`,
   ],
   girl: [
-    `SHOT DESIGN:
-Use a decorative festive balcony or elegant celebration backdrop. Perform a smooth subtle reveal or gentle lateral move while warm festive lights shimmer in the background. Keep the child perfectly still and poised. The video should feel charming, graceful, and premium.`,
-    `SHOT DESIGN:
-Use a festive scene with rangoli-inspired styling, lamps/diyas, and a glowing warm ambience. Perform a simple graceful camera move while lamp glow, reflections, and background light shimmer create visual life. The child remains still, centered, and elegant.`,
+    `CINEMATIC SHOT DIRECTION:
+Before an elegant festive palace balcony with glowing diyas and warm golden light, the camera tracks in smoothly with soft parallax. The girl presents a radiant, graceful festive smile with natural charm and celebratory elegance.`,
+    `CINEMATIC SHOT DIRECTION:
+Lively diya flames and soft golden bokeh shimmer gently as the camera executes a smooth orbital reveal. The girl holds an elegant festive posture with a bright, joyful festive smile and natural presence.`,
   ],
 };
 

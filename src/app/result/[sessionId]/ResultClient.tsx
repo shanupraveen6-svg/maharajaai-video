@@ -90,24 +90,26 @@ export default function ResultClient({
     return () => window.removeEventListener('popstate', keepFarewellOpen);
   }, [liveFarewell, sessionId]);
 
-  const syncPreviewAudioToVideo = (video: HTMLVideoElement) => {
-    if (!previewAudioRef.current) return;
-    if (Number.isFinite(video.currentTime)) {
-      previewAudioRef.current.currentTime = video.currentTime % Math.max(previewAudioRef.current.duration || 6, 1);
+  const handleVideoPlay = () => {
+    const audio = previewAudioRef.current;
+    if (!audio) return;
+    audio.volume = 0.9;
+    if (audio.paused) {
+      audio.play().catch((err) => console.warn('Preview audio playback blocked:', err));
     }
   };
 
-  const playPreviewAudioWithVideo = (video: HTMLVideoElement) => {
-    if (!previewAudioRef.current) return;
-    syncPreviewAudioToVideo(video);
-    previewAudioRef.current.volume = 0.9;
-    previewAudioRef.current.play().catch((err) => {
-      console.warn('Preview audio playback blocked:', err);
-    });
+  const handleVideoPause = () => {
+    previewAudioRef.current?.pause();
   };
 
-  const pausePreviewAudio = () => {
-    previewAudioRef.current?.pause();
+  const handleVideoSeek = (video: HTMLVideoElement) => {
+    const audio = previewAudioRef.current;
+    if (!audio || !Number.isFinite(video.currentTime)) return;
+    const target = video.currentTime % Math.max(audio.duration || 6, 1);
+    if (Math.abs(audio.currentTime - target) > 0.35) {
+      audio.currentTime = target;
+    }
   };
 
   useEffect(() => {
@@ -325,7 +327,7 @@ export default function ResultClient({
     setLiveError(null);
 
     try {
-      pausePreviewAudio();
+      handleVideoPause();
       const res = await fetch('/api/live/enqueue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -616,12 +618,10 @@ export default function ResultClient({
             controls
             loop
             playsInline
-            muted
-            onPlay={(event) => playPreviewAudioWithVideo(event.currentTarget)}
-            onPlaying={(event) => playPreviewAudioWithVideo(event.currentTarget)}
-            onPause={pausePreviewAudio}
-            onSeeking={(event) => syncPreviewAudioToVideo(event.currentTarget)}
-            onEnded={pausePreviewAudio}
+            onPlay={handleVideoPlay}
+            onPause={handleVideoPause}
+            onSeeking={(event) => handleVideoSeek(event.currentTarget)}
+            onSeeked={(event) => handleVideoSeek(event.currentTarget)}
             className="w-full h-full object-cover"
           />
           <img src="/maharaja-logo.png" alt="Majestic Maharaja" className="pointer-events-none absolute right-3 top-14 z-[5] w-[27%] max-w-24 border border-[#D4AF37]/45 shadow-lg" />
