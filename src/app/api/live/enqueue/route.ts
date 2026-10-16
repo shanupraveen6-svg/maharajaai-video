@@ -77,10 +77,15 @@ export async function POST(req: NextRequest) {
     const playAtMs = nowMs + 5000;
     const playAtTimestamp = Timestamp.fromMillis(playAtMs);
     const playAtIso = new Date(playAtMs).toISOString();
+    const resolvedVideoUrl = (typeof body.videoUrl === 'string' && body.videoUrl)
+      ? body.videoUrl
+      : (access.pass?.videoMasterUrl || '');
+
     const displayMetadata = {
       customerName,
       customerLocality,
       liveAudioUrl,
+      videoUrl: resolvedVideoUrl,
       displayUpdatedAt: nowIso
     };
     let queueNumber = 1;
@@ -96,6 +101,7 @@ export async function POST(req: NextRequest) {
       customerName,
       customerLocality,
       liveAudioUrl,
+      videoUrl: resolvedVideoUrl,
       status: 'queued' as const,
       priority: 1,
       repeatCount: 1,
@@ -190,13 +196,23 @@ export async function POST(req: NextRequest) {
       queuePosition = index >= 0 ? index + 1 : null;
     }
 
+    const phone = access.pass?.phone || '';
+    const phoneMasked = access.pass?.phoneMasked || (phone ? `${phone.slice(0, 2)}******${phone.slice(-2)}` : 'Customer');
+
     if (!reusedExistingQueue) {
       await incrementMaharajaUsage('goLive');
       if (access.pass) {
         await incrementPassUsage(access.pass.code, 'goLive');
         await markVideoPassUsed(access.pass.code);
       }
-      await logMaharajaActivity('go-live', 'Customer joined the Maharaja live-screen queue', { sessionId, queueNumber });
+      await logMaharajaActivity('go-live', `Customer ${customerName} joined the Maharaja live-screen queue`, {
+        sessionId,
+        queueNumber,
+        customerName,
+        phone,
+        phoneMasked,
+        videoUrl: resolvedVideoUrl,
+      });
     }
 
     return NextResponse.json({

@@ -6,6 +6,7 @@ import {
   incrementMaharajaUsage,
   MaharajaVideoPass,
   saveVideoPass,
+  expireActivePassesForPhone,
   logMaharajaActivity,
 } from '@/lib/maharaja/server';
 
@@ -78,6 +79,15 @@ export async function POST(req: NextRequest) {
       ...(body.whatsappOptIn === true ? { whatsappDeliveryStatus: 'pending' as const } : {}),
       usage: { scans: 0, imagesGenerated: 0, videosGenerated: 0, goLive: 0 },
     };
+
+    const expiredCount = await expireActivePassesForPhone(phone);
+    if (expiredCount > 0) {
+      await incrementMaharajaUsage('retries');
+      await logMaharajaActivity('retry', `Previous AI Video QR superseded by retry (${maskPhone(phone)})`, {
+        phone: maskPhone(phone),
+        billLast4,
+      });
+    }
 
     await saveVideoPass(pass);
     await incrementMaharajaUsage('videoPasses');

@@ -51,7 +51,8 @@ export type MaharajaVideoPass = {
   phoneMasked: string;
   billLast4: string;
   eventId: EventId;
-  status: 'active' | 'used' | 'revoked';
+  status: 'active' | 'used' | 'revoked' | 'expired';
+  expiredReason?: string;
   createdAt: string;
   expiresAt: string;
   expiresAtMs: number;
@@ -358,6 +359,55 @@ export async function saveVideoPass(pass: MaharajaVideoPass) {
   } else {
     getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${pass.code}`, pass);
   }
+}
+
+export async function expireActivePassesForPhone(phone: string, excludeCode?: string): Promise<number> {
+  const db = getDb();
+  if (db) {
+    const snapshot = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+      .collection('customerPasses')
+      .where('phone', '==', phone)
+      .where('status', '==', 'active')
+      .get();
+    if (snapshot.empty) return 0;
+
+    const batch = db.batch();
+    let count = 0;
+    const nowIso = new Date().toISOString();
+    snapshot.docs.forEach((doc) => {
+      if (!excludeCode || doc.id !== excludeCode) {
+        batch.set(doc.ref, {
+          status: 'expired',
+          expiredReason: 'superseded_by_retry',
+          updatedAt: nowIso,
+          updatedAtTimestamp: Timestamp.now(),
+        }, { merge: true });
+        count++;
+      }
+    });
+    if (count > 0) {
+      await batch.commit();
+    }
+    return count;
+  }
+
+  const store = getMockStore();
+  let count = 0;
+  const nowIso = new Date().toISOString();
+  for (const [key, rawPass] of store.customerPasses.entries()) {
+    if (key.startsWith(`${MAHARAJA_CLIENT_ID}:`)) {
+      const p = rawPass as MaharajaVideoPass;
+      if (p.phone === phone && p.status === 'active' && (!excludeCode || p.code !== excludeCode)) {
+        store.customerPasses.set(key, {
+          ...p,
+          status: 'expired',
+          expiredReason: 'superseded_by_retry',
+        });
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
 export async function listRecentVideoPasses(limit = 8): Promise<MaharajaVideoPass[]> {
@@ -731,6 +781,9 @@ export async function verifyMaharajaAccess(
   if (pass && pass.clientId === MAHARAJA_CLIENT_ID) {
     if (pass.status === 'used') {
       return { allowed: false as const, error: 'This AI Video has been completed.' };
+    }
+    if (pass.status === 'expired') {
+      return { allowed: false as const, error: 'This QR code was replaced by a retry at the billing counter. Please scan the newest QR code.' };
     }
     if (pass.expiresAtMs < Date.now()) {
       return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };

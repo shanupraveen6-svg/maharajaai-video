@@ -2,10 +2,17 @@ import crypto from 'crypto';
 import { NextRequest } from 'next/server';
 
 const OPERATOR_COOKIE = 'maharaja_operator_auth';
-const OPERATOR_USERNAME = 'shanu7';
+const VALID_USERNAMES = [
+  (process.env.OPERATOR_USERNAME || '').trim(),
+  'shanu7',
+].filter(Boolean);
 
 function getAuthSecret() {
-  return process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD || '';
+  const secret = process.env.OPERATOR_AUTH_SECRET || process.env.ADMIN_PASSWORD;
+  if (!secret && process.env.NODE_ENV !== 'production') {
+    return 'maharaja-local-dev-operator-auth-secret';
+  }
+  return secret || '';
 }
 
 function signToken(payload: string, secret: string) {
@@ -24,7 +31,7 @@ export function verifyOperatorRequest(req: NextRequest) {
 
   const [username, expiresAtRaw, signature] = parts;
   const expiresAt = Number(expiresAtRaw);
-  if (username !== OPERATOR_USERNAME || !Number.isFinite(expiresAt) || expiresAt < Date.now()) return false;
+  if (!VALID_USERNAMES.includes(username) || !Number.isFinite(expiresAt) || expiresAt < Date.now()) return false;
 
   const payload = `${username}.${expiresAtRaw}`;
   const expected = signToken(payload, secret);

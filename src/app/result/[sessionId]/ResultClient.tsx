@@ -303,6 +303,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
         body: JSON.stringify({
           sessionId,
           videoId: videoId || `video_${sessionId}`,
+          videoUrl: videoUrl || undefined,
           customerName: customerName.trim(),
           customerLocality: customerLocality.trim(),
           liveAudioUrl,

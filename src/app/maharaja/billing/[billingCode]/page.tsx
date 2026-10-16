@@ -203,8 +203,23 @@ export default function MaharajaBillingPage() {
                 <div className="mx-auto mt-4 max-w-[300px] bg-white p-4"><img src={qrDataUrl} alt="Customer AI Video QR code" className="h-auto w-full" /></div>
                 <p className="mt-4 font-mono text-sm font-bold">{pass.phoneMasked} · ****{pass.billLast4}</p>
                 <p className="mt-1 text-xs font-bold uppercase text-[#D4AF37]">{EVENT_OPTIONS.find((option) => option.id === pass.eventId)?.label} AI Video</p>
-                <p className="mt-2 text-xs leading-5 text-[#F3E5AB]/70">Show this QR to the customer. They scan it on their phone to create the image and video.</p>
-                <button type="button" onClick={resetForm} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 border border-[#D4AF37]/30 px-4 text-xs font-bold uppercase"><RefreshCw className="h-4 w-4" /> Next customer</button>
+                <div className="mt-5 space-y-2">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={(e) => void generateCustomerQr(e as any)}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 text-xs font-bold uppercase text-black hover:brightness-105 transition"
+                  >
+                    {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Retry QR (New Code)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 border border-[#D4AF37]/30 px-4 text-xs font-bold uppercase text-[#F3E5AB] hover:bg-white/5 transition"
+                  >
+                    Next Customer
+                  </button>
+                </div>
               </>
             ) : (
               <div className="flex min-h-[480px] flex-col items-center justify-center"><QrCode className="h-24 w-24 text-[#D4AF37]" /><h2 className="mt-5 font-serif text-2xl font-bold">Customer QR appears here</h2><p className="mt-2 max-w-xs text-sm leading-6 text-[#F3E5AB]/65">Complete the billing form on this counter device, then let the customer scan from another phone.</p></div>
