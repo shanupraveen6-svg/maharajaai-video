@@ -3,7 +3,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MessageCircle, Share2 } from 'lucide-react';
+import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
 import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
 import { getEventOption, isEventId, type EventId } from '@/lib/maharaja/config';
 
@@ -280,18 +280,6 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
     // Downloading the video must NOT complete or void the billing pass. The pass remains valid for its full window.
   };
 
-  const shareText = `My ${eventLabel} AI fashion film from Majestic Maharaja is ready.`;
-  const recordShare = () => fetch('/api/maharaja/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'share', label: `${eventLabel} branded result shared`, sessionId, accessCode }) }).catch(() => undefined);
-  const shareToWhatsApp = () => { void recordShare(); window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener,noreferrer'); };
-  const shareAsStatus = async () => {
-    void recordShare();
-    if (navigator.share) {
-      await navigator.share({ title: 'Majestic Maharaja', text: shareText }).catch(() => undefined);
-    } else {
-      shareToWhatsApp();
-    }
-  };
-
   const requestPrivacyConfirmation = (action: 'download' | 'live') => {
     setPrivacyAction(action);
     setShowPrivacyNotice(true);
@@ -422,12 +410,6 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
             <a href={instagramUrl} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black">
               <ExternalLink className="h-5 w-5" /> Follow Maharaja
             </a>
-            <button type="button" onClick={shareToWhatsApp} className="flex w-full items-center justify-center gap-2 border border-[#D4AF37]/45 bg-black/55 px-5 py-3 text-sm font-black uppercase tracking-wider text-[#F3E5AB]">
-              <MessageCircle className="h-5 w-5" /> Share on WhatsApp
-            </button>
-            <button type="button" onClick={() => void shareAsStatus()} className="flex w-full items-center justify-center gap-2 border border-[#D4AF37]/45 bg-black/55 px-5 py-3 text-sm font-black uppercase tracking-wider text-[#F3E5AB]">
-              <Share2 className="h-5 w-5" /> Keep as WhatsApp Status
-            </button>
           </div>
 
           <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thanks for experiencing Maharaja AI.</p>
@@ -579,16 +561,6 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
             >
               <ExternalLink className="h-5 w-5" /> Follow on Instagram
             </a>
-
-            <button
-              type="button"
-              onClick={shareToWhatsApp}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/45 bg-black/55 px-5 py-3 text-sm font-black uppercase tracking-wider text-[#F3E5AB]"
-            >
-              <MessageCircle className="h-5 w-5" /> Share on WhatsApp
-            </button>
-
-            <button type="button" onClick={() => void shareAsStatus()} className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/45 bg-black/55 px-5 py-3 text-sm font-black uppercase tracking-wider text-[#F3E5AB]"><Share2 className="h-5 w-5" /> Keep as WhatsApp Status</button>
 
             <button
               onClick={() => setShowThankYou(false)}
