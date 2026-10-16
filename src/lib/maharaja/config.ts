@@ -132,71 +132,42 @@ ENVIRONMENT & SCENE: ${event.scene}.
 Preserve exact customer identity, skin tone, body proportions, and exact garment design head-to-toe with both feet planted on the floor.`;
 }
 
-/** Section 8: Universal H3 Video Prompt (Safest Motion Policy - Locked-off Tripod) */
+/** Universal H3 rules shared by all eight category/theme prompts. */
 export const UNIVERSAL_HAILUO_VIDEO_BASE = `Create a 6-second vertical 9:16 cinematic fashion video using ONLY the provided approved master image.
 
-SOURCE IMAGE LOCK:
-The provided master image is the authoritative first frame.
-Preserve the exact: customer identity, face, body proportions, garment, garment color, garment embroidery, fabric structure, hairstyle, pose, hand placement, foot placement, environment composition.
-Do not redesign or reinterpret the subject.
+LOCKS: Preserve the exact identity, face, skin tone, age, hairstyle, body shape and proportions. Preserve the exact garment colours, neutral colours, fabric, embroidery, zari, motifs, borders, sleeves, neckline, silhouette, length and fit. No face morphing, beautification, body reshaping, outfit redesign or colour shift.
 
-CAMERA:
-100% stable locked-off tripod composition.
-Zero pan. Zero tilt. Zero rotation. Zero orbit. Zero handheld shake. Zero reframing. Zero zoom. Zero camera drift.
-Keep the entire body visible from head to feet for all frames.
+SUBJECT: Keep the source pose and head angle. Feet stay anchored. Legs, torso, shoulders, arms, hands and fingers stay fixed. Permit only one soft blink and one gradual restrained closed-mouth smile. No walking, stepping, sliding, turning, dancing, waving, talking, lip-sync, body sway or garment motion.
 
-GROUNDING:
-Both feet remain visually anchored to the exact same floor positions throughout the video.
-Zero: walking, stepping, sliding, floating, treadmill motion, leg repositioning, foot rotation, stance change.
+CAMERA: Follow only the stated camera plan. Use stabilized premium-fashion movement with no shake, roll, orbit, sudden acceleration or reframing. Keep the complete head and both feet visible in every frame.
 
-BODY:
-No intentional body displacement. No turning. No pose change. No arm gesture. No hand gesture. No finger movement. No head turn.
-Allow only imperceptible natural upper-chest breathing.
+EFFECTS: Animate only the stated background effects. Keep effects behind the subject; nothing crosses or alters the face or garment colour. Keep anatomy and structural objects stable. Children remain age-appropriate with no adult glamour or handheld fire.
 
-FACIAL MOTION:
-Allow only subtle natural facial micro-expression.
-One soft natural blink is allowed.
-A very small natural closed-mouth smile may develop gradually.
-No talking. No lip-sync. No exaggerated smile. No mouth deformation. No facial identity change.
-
-GARMENT LOCK:
-No garment transformation. No color change. No embroidery change. No border change. No fabric replacement. No sleeve transformation. No garment growth or shrinking. No uncontrolled fabric billowing.
-Only extremely subtle physically realistic fabric response from breathing is allowed.
-
-BACKGROUND MOTION:
-Environmental motion only.
-Allowed: gentle floor-diya flame flicker, subtle ambient golden light variation, very soft distant light shimmer, extremely subtle atmospheric dust particles when appropriate.
-Do not move structural objects. Do not move lamps across the scene.
-
-ANATOMY LOCK:
-Maintain anatomically stable: face, eyes, hands, fingers, legs, feet.
-No duplicated body parts. No fused fingers. No changing finger count. No melting hands. No warped feet. No morphing face. No body stretching.
-
-CHILD SAFETY:
-For child subjects: natural age-appropriate expression only, no glamour posing, no adult mannerisms, no dancing, no exaggerated body movement, no handheld fire.
-
-CLEAN VIDEO:
-Do not generate: text, captions, subtitles, words, letters, logos, watermarks, brand marks, UI elements.
-Start with the visible master image immediately at frame 1. No black frame. No blank intro. No fade-in from black.`;
+OUTPUT: Start on the source image at frame 1. No black intro, text, logo, watermark, extra limbs or morphing.`;
 
 export function buildEventVideoPrompt(category: CustomerCategory, eventId: EventId, promptSet: VideoPromptSet) {
   const event = getEventOption(eventId);
   const child = category === 'boy' || category === 'girl';
-  const feminine = category === 'women' || category === 'girl';
 
-  const cameraPath = promptSet === 'set-2'
-    ? 'Camera path: fixed locked-off tripod composition throughout all 6 seconds, keeping full body framed head-to-toe with zero camera shake, zero tilt, and zero horizontal panning.'
-    : 'Camera path: ultra-smooth, slow 3% cinematic forward push-in on a stabilized tripod, keeping the full body framed head-to-toe.';
-
-  const heldObject = child
-    ? 'Child safety constraint: The child holds NO lamps, NO fire, and NO sparklers (replaces previous lit brass lamp in both hands for strict child protection). Both hands remain stationary and resting naturally at sides.'
-    : 'Both arms, hands, and fingers remain stationary in their exact source-image positions in every frame.';
-
-  const theme = promptSet === 'set-2'
-    ? feminine
-      ? 'Divine-touch set: animate only background gold rays, temple-lamp glow, soft Kutthu Vilakku flicker on granite floor, and slow background-only gold shimmer.'
-      : 'Cracker set: animate only distant background festival illumination, soft amber glow, and gentle environmental reflections; no sparks crossing face or body.'
-    : 'Premium festive set: animate only background practical festival lights, gentle floor diya flame flickers, and soft light sheen across the fabric.';
+  const directionPlans: Record<CustomerCategory, Record<VideoPromptSet, string>> = {
+    women: {
+      'set-1': 'CAMERA PLAN: eye-level, ultra-smooth 3% forward push over 6 seconds. EFFECT PLAN: floor diyas flicker and warm background practical lights brighten gently. Keep light on the face and garment constant.',
+      'set-2': 'CAMERA PLAN: slightly low premium angle, ultra-smooth 2% pull-back over 6 seconds. EFFECT PLAN: divine gold rays rise slowly behind the subject, temple lamps flicker, and a restrained gold halo shimmers in the background.',
+    },
+    men: {
+      'set-1': 'CAMERA PLAN: slightly low hero angle, ultra-smooth 3% forward push over 6 seconds. EFFECT PLAN: warm architectural lights build gradually and floor lamps create stable background reflections.',
+      'set-2': 'CAMERA PLAN: eye-level, ultra-smooth 2% right-to-left slider move over 6 seconds with no orbit. EFFECT PLAN: distant cracker illumination blooms silently behind the set with amber reflections; no sparks near the subject.',
+    },
+    girl: {
+      'set-1': 'CAMERA PLAN: child eye-level, ultra-smooth 2% forward push over 6 seconds. EFFECT PLAN: soft floor-diya flicker and small background fairy lights twinkle slowly. Keep the presentation innocent and natural.',
+      'set-2': 'CAMERA PLAN: child eye-level, ultra-smooth 2% pull-back over 6 seconds. EFFECT PLAN: gentle divine rays and temple-lamp glow animate only behind the child with a soft background gold shimmer.',
+    },
+    boy: {
+      'set-1': 'CAMERA PLAN: child eye-level, ultra-smooth 2% left-to-right slider move over 6 seconds with no orbit. EFFECT PLAN: festive lanterns brighten gently and floor-lamp reflections shimmer behind the child.',
+      'set-2': 'CAMERA PLAN: slightly low but age-appropriate angle, ultra-smooth 2% forward push over 6 seconds. EFFECT PLAN: distant cracker-colour illumination pulses softly behind the set; no sparks, smoke or flashes near the child.',
+    },
+  };
+  const directionPlan = directionPlans[category][promptSet];
 
   let categoryAtmosphere = '';
   if (category === 'women') {
@@ -207,9 +178,9 @@ export function buildEventVideoPrompt(category: CustomerCategory, eventId: Event
     }
   } else if (category === 'men') {
     if (promptSet === 'set-2') {
-      categoryAtmosphere = "Dignified, grounded posture with feet fixed to the granite floor. Slight natural upper-chest breathing and a subtle, respectful smile. Floor Kutthu Vilakku flames flicker softly.";
+      categoryAtmosphere = "Dignified, grounded posture with feet fixed to the granite floor. A subtle, respectful closed-mouth smile develops gradually. Floor Kutthu Vilakku flames flicker softly.";
     } else {
-      categoryAtmosphere = "Confident, steady stance with feet locked to the floor. Subtle chest breathing and a confident, warm smile. Background festival lights pulse gently with warm amber tones.";
+      categoryAtmosphere = "Confident, steady stance with feet locked to the floor. A confident, warm closed-mouth smile develops gradually. Background festival lights pulse gently with warm amber tones.";
     }
   } else if (category === 'girl') {
     if (promptSet === 'set-2') {
@@ -220,7 +191,7 @@ export function buildEventVideoPrompt(category: CustomerCategory, eventId: Event
   } else {
     // boy
     if (promptSet === 'set-2') {
-      categoryAtmosphere = "Calm, respectful posture with feet motionless on the stone floor. Subtle breathing and a polite, happy smile. Temple lamps on the floor flicker gently.";
+      categoryAtmosphere = "Calm, respectful posture with feet motionless on the stone floor. A polite, happy closed-mouth smile develops gradually. Temple lamps on the floor flicker gently.";
     } else {
       categoryAtmosphere = "Upright, confident standing posture with feet locked to the floor. Hands remain stationary at his sides. A cheerful, bright smile spreads across his face.";
     }
@@ -228,16 +199,14 @@ export function buildEventVideoPrompt(category: CustomerCategory, eventId: Event
 
   return `${UNIVERSAL_HAILUO_VIDEO_BASE}
 
-SUBJECT LOCK: the subject remains completely stationary for all 6 seconds. Feet remain fixed to the floor with zero walking, stepping, sliding, or turning. Legs, torso, shoulders, arms, hands, fingers, and head angle remain fixed in the exact source pose.
-${heldObject}
-${cameraPath}
-${theme}
+${child ? 'CHILD SAFETY: Hands stay naturally fixed at the sides. No handheld lamp, fire or sparkler.' : 'HANDS: Arms, hands and fingers stay in their exact source positions.'}
+${directionPlan}
 
 ATMOSPHERE & SETTING:
 Event: ${event.label} - ${event.scene}.
 ${categoryAtmosphere}
 
-Prohibited: walking, stepping, turning, dancing, waving, hand movement, head movement, body sway, breathing motion, garment motion, pose transition, lip-sync, dialogue, text, captions, extra limbs, face change or outfit change.`;
+FINAL PRIORITY: Preserve identity and the exact outfit above all effects. If an effect threatens the face, anatomy, garment colour or framing, omit that effect and keep the subject stable.`;
 }
 
 /** Section 10: Manager Retry Fail-Safe Video Prompt */

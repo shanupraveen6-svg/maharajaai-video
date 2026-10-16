@@ -65,7 +65,7 @@ function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   const visibility = decision.lowerBodyVisibility === 'clear'
     ? 'lower body visible but still locked'
     : 'lower body risky';
-  return `Motion safety: ${visibility}. Lock pose, feet, legs, torso, shoulders, head angle, arms, hands, fingers, garment edges and floor contact. No walking, stepping, turning, dancing, body spin, foot slide, hand movement, head movement, breathing motion, hip or waist motion, garment motion or recomposed person. The only subject action permitted is one gradual natural closed-mouth smile.`;
+  return `Motion safety: ${visibility}. Lock pose, feet, legs, torso, shoulders, head angle, arms, hands, fingers, garment edges and floor contact. No walking, stepping, turning, dancing, body spin, foot slide, hand movement, head movement, breathing motion, hip or waist motion, garment motion or recomposed person. Permit only one soft blink and one gradual natural closed-mouth smile.`;
 }
 
 function truncateAtWordBoundary(text: string, maxLength: number): string {
