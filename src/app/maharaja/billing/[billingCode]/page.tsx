@@ -34,6 +34,7 @@ export default function MaharajaBillingPage() {
   const params = useParams<{ billingCode: string }>();
   const [phone, setPhone] = useState('');
   const [billLast4, setBillLast4] = useState('');
+  const [billAmount, setBillAmount] = useState('5000');
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [activeEvents, setActiveEvents] = useState<EventId[]>(EVENT_OPTIONS.map((event) => event.id));
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
@@ -64,7 +65,7 @@ export default function MaharajaBillingPage() {
           billingCode: params.billingCode,
           phone,
           billLast4,
-          billAmount: AI_VIDEO_MIN_PURCHASE,
+          billAmount: Number(billAmount) || AI_VIDEO_MIN_PURCHASE,
           eventId,
           eligible: true,
           whatsappOptIn,
@@ -88,6 +89,7 @@ export default function MaharajaBillingPage() {
   function resetForm() {
     setPhone('');
     setBillLast4('');
+    setBillAmount('5000');
     setWhatsappOptIn(false);
     setPass(null);
     setQrDataUrl('');
@@ -143,10 +145,22 @@ export default function MaharajaBillingPage() {
               <legend className="flex items-center gap-1 text-xs font-bold uppercase text-[#5C4B43]">
                 <BadgeIndianRupee className="h-4 w-4 text-[#6E0D1F]" /> Bill value
               </legend>
-              <div className="mt-2 border border-[#D8C49B] bg-[#FFFDF8] p-1">
-                <div className="flex min-h-12 items-center justify-center bg-[#6E0D1F] px-4 text-sm font-bold uppercase text-[#F3E5AB] shadow-sm">
-                  ₹5,000+
-                </div>
+              <div className="mt-2 grid grid-cols-3 border border-[#D8C49B] bg-[#FFFDF8] p-1">
+                {[
+                  { value: '5000', label: '₹5,000+' },
+                  { value: '7000', label: '₹7,000+' },
+                  { value: '10000', label: '₹10,000+' },
+                ].map((tier) => (
+                  <button
+                    key={tier.value}
+                    type="button"
+                    aria-pressed={billAmount === tier.value}
+                    onClick={() => setBillAmount(tier.value)}
+                    className={`min-h-12 px-2 text-xs font-bold uppercase transition ${billAmount === tier.value ? 'bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'text-[#5C4B43] hover:bg-[#F5EAD3]'}`}
+                  >
+                    {tier.label}
+                  </button>
+                ))}
               </div>
             </fieldset>
 
