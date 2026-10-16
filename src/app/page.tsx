@@ -280,10 +280,10 @@ export default function LandingPage() {
             </div>
 
             <div className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">Future module</p>
-              <h3 className="mt-3 font-serif text-3xl font-bold">100 free try-ons</h3>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">More from WeFocus</p>
+              <h3 className="mt-3 font-serif text-3xl font-bold">Explore more AI experiences</h3>
               <p className="mt-3 text-sm font-semibold leading-6 text-[#F3E5AB]/82">
-                Celebrity AI video and event dress try-on module planned for client expansion.
+                Discover Celebrity AI Videos, event-based dress try-ons, and more retail AI solutions from WeFocus.
               </p>
               <a
                 href="https://wefocus.in"
@@ -291,7 +291,7 @@ export default function LandingPage() {
                 rel="noreferrer"
                 className="mt-6 flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-4 text-xs font-black uppercase tracking-wider text-black"
               >
-                Explore wefocus.in <ArrowRight className="h-4 w-4" />
+                Visit WeFocus.in <ArrowRight className="h-4 w-4" />
               </a>
               <p className="mt-5 border-t border-[#D4AF37]/25 pt-5 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]/86">
                 Enterprise sales: 9994837342
