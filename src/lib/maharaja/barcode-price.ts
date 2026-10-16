@@ -1,6 +1,6 @@
 export type BarcodePriceResult = {
   amount: number | null;
-  source: 'json' | 'url' | 'label' | 'gs1' | 'retail-ean' | null;
+  source: 'json' | 'url' | 'label' | 'gs1' | 'retail-ean' | 'gemini-vision' | null;
 };
 
 const PRICE_KEYS = ['sellingprice', 'saleprice', 'mrp', 'price', 'amount', 'rate'];

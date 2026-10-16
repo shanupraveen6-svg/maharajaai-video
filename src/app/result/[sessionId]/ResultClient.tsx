@@ -7,7 +7,15 @@ import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, Ext
 import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
 import { getEventOption, isEventId, type EventId } from '@/lib/maharaja/config';
 
-export default function ResultClient({ sessionId, accessCode = '' }: { sessionId: string; accessCode?: string }) {
+export default function ResultClient({
+  sessionId,
+  accessCode = '',
+  onBack,
+}: {
+  sessionId: string;
+  accessCode?: string;
+  onBack?: () => void;
+}) {
   const router = useRouter();
   const [showLiveConsent, setShowLiveConsent] = useState(false);
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
@@ -422,6 +430,15 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
     <main className="min-h-screen bg-[#070609] text-[#F8F5EE] p-4 md:p-8 font-sans max-w-lg mx-auto relative">
       
       {/* Header */}
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#D4AF37] hover:underline"
+        >
+          ← Back to Outfits & Try-On
+        </button>
+      )}
       <header className="flex justify-between items-center border-b border-[#D4AF37]/20 pb-4 mb-6">
         <div className="flex items-center gap-2">
           <Flame className="w-6 h-6 text-[#D4AF37] animate-diya" />
@@ -448,7 +465,10 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
           </p>
           <button
             type="button"
-            onClick={() => router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace')}
+            onClick={() => {
+              if (onBack) onBack();
+              else router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace');
+            }}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-lg hover:brightness-105"
           >
             <RotateCcw className="w-4 h-4" /> Generate Video Again

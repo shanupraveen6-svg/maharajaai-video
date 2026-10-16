@@ -1,7 +1,9 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenAI } from '@google/genai';
 import { parseBarcodePrice } from '@/lib/maharaja/barcode-price';
 import { TRY_ON_MIN_PURCHASE, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
+import { AI_CONFIG } from '@/lib/ai/config';
 import {
   analyzeTagDuplicate,
   getTryOnDeviceStatus,
@@ -13,6 +15,16 @@ import {
 } from '@/lib/maharaja/server';
 
 export const maxDuration = 45;
+
+function getGenAIClient() {
+  const apiKey = AI_CONFIG.PRIMARY_API_KEY || process.env.GOOGLE_AI_API_KEY_PRIMARY || process.env.GEMINI_API_KEY || '';
+  if (!apiKey || apiKey.trim() === '') return null;
+  try {
+    return new GoogleGenAI({ apiKey });
+  } catch {
+    return null;
+  }
+}
 
 function reject(message: string, amount: number | null = null) {
   return NextResponse.json({ success: true, analysis: { validTag: amount !== null, amount, eligible: false, message }, grant: null });
@@ -34,13 +46,45 @@ export async function POST(req: NextRequest) {
     }
 
     // The price is always read server-side from the scanned tag; a client-sent amount is never trusted.
-    const barcode = typeof body.barcode === 'string' ? body.barcode.trim().slice(0, 512) : '';
+    let barcode = typeof body.barcode === 'string' ? body.barcode.trim().slice(0, 512) : '';
     const printedText = typeof body.printedText === 'string' ? body.printedText.trim().slice(0, 4_000) : '';
     const fromText = parseBarcodePrice(printedText);
     const parsed = fromText.amount !== null ? fromText : parseBarcodePrice(barcode);
 
+    // Fast Gemini Vision analysis when a photo/frame is supplied
+    if (parsed.amount === null && typeof body.image === 'string' && body.image.length > 50) {
+      const ai = getGenAIClient();
+      if (ai) {
+        try {
+          const imageBase64 = body.image.split(',')[1] || body.image;
+          const resp = await ai.models.generateContent({
+            model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
+            contents: [
+              { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
+              'Analyze this garment price tag or label photo. Extract the printed Maximum Retail Price (MRP) in Indian Rupees (INR) and the barcode numbers if visible. Return JSON strictly in this format: {"amount": number | null, "barcode": string | null}'
+            ],
+            config: { responseMimeType: 'application/json' }
+          });
+          const text = resp.text || '';
+          const match = text.match(/\{[\s\S]*\}/);
+          if (match) {
+            const data = JSON.parse(match[0]);
+            if (typeof data.amount === 'number' && Number.isFinite(data.amount) && data.amount > 0) {
+              parsed.amount = Math.round(data.amount);
+              parsed.source = 'gemini-vision';
+            }
+            if (typeof data.barcode === 'string' && data.barcode.trim() && !barcode) {
+              barcode = data.barcode.trim();
+            }
+          }
+        } catch (visionErr) {
+          console.warn('Gemini price tag vision analysis warning:', visionErr);
+        }
+      }
+    }
+
     if (parsed.amount === null) {
-      return reject('Price not read. Keep the printed MRP clearly inside the box and tap Scan again.');
+      return reject('Price not read. Take a clear photo of the printed MRP tag and try again.');
     }
     const amount = parsed.amount;
 

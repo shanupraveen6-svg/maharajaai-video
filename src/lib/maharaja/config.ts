@@ -75,15 +75,15 @@ export function buildTryOnPrompt(category: CustomerCategory) {
   return `Create a hyper-photorealistic vertical 9:16 full-body Indian virtual try-on photograph of the ${subject}.
 
 REFERENCE PRIORITY:
-- Image 1 is the authoritative real customer photograph.
-- Image 2 is the authoritative garment reference photograph.
+- Image 1 is the authoritative real customer photograph (identity reference).
+- Image 2 and any subsequent images are the authoritative garment reference photographs showing the exact outfit, color, fabric, and design details from front, border, or angle.
 
 IDENTITY & FACE LOCK:
 - Preserve the exact real customer identity from Image 1: facial structure, face shape, eyes, nose, mouth, jawline, ears, skin tone, hairstyle, hairline, facial hair, glasses, age appearance, height impression, and natural body proportions.
 - Do NOT beautify into another person, change age, alter body weight, change skin complexion, make slimmer or heavier, or substitute the face.
 
 GARMENT SPECIFICATION LOCK:
-- Dress the customer in the exact uploaded garment from Image 2.
+- Dress the customer in the exact uploaded garment from the garment reference photograph(s).
 - Preserve: exact primary and secondary colors (do not shift colors; keep neutrals, gold, and zari authentic), fabric material texture (silk, cotton, georgette, velvet, linen), embroidery patterns, zari borders, neckline shape, sleeve length, drape, and silhouette.
 - Natural fabric physics: render realistic cloth draping, gravity, and fold shadows conforming naturally to the customer's body contours without distortion.
 - Ignore any mannequin, hanger, rack, stand, or background elements in the garment photo. Transfer the textile garment only.

@@ -23,6 +23,7 @@ import {
 import { compressImage } from '@/lib/utils/image';
 import SecureTryOnViewer from '@/components/SecureTryOnViewer';
 import BarcodePriceScanner from '@/components/BarcodePriceScanner';
+import ResultClient from '@/app/result/[sessionId]/ResultClient';
 import {
   buildEventVideoPrompt,
   buildFailSafeVideoPrompt,
@@ -86,7 +87,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [tryOnImageUrl, setTryOnImageUrl] = useState<string | null>(null);
   const [videoMasterUrl, setVideoMasterUrl] = useState<string | null>(null);
   const [sessionId] = useState(() => `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
-  const [stage, setStage] = useState<'loading' | 'ready' | 'analyzing' | 'image' | 'video'>('loading');
+  const [stage, setStage] = useState<'loading' | 'ready' | 'analyzing' | 'image' | 'video' | 'result'>('loading');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
@@ -172,16 +173,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     return () => window.clearInterval(timer);
   }, [stage]);
 
-  useEffect(() => {
-    if (stage !== 'image' && stage !== 'video') return;
-    const protectGeneration = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', protectGeneration);
-    return () => window.removeEventListener('beforeunload', protectGeneration);
-  }, [stage]);
-
   const canGenerateImage = purchaseConfirmed
     && (activeService === 'ai-video' || !!access?.access.phoneMasked || !!tryOnGrant)
     && !!personPhoto
@@ -236,10 +227,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
   async function analyzeGarments(files: File[], append = false) {
     if (!files.length) return;
-    const maxAllowed = isTryOn ? 1 : 3;
+    const maxAllowed = 3;
     const currentCount = append ? garmentPhotos.length : 0;
     if (currentCount + files.length > maxAllowed) {
-      setError(isTryOn ? 'Upload one garment photo only for AI Try-On.' : `Upload up to 3 garment photos max for AI Video (${garmentPhotos.length} already uploaded).`);
+      setError(`Upload up to 3 garment photos max (${garmentPhotos.length} already uploaded).`);
       return;
     }
     setStage('analyzing');
@@ -251,7 +242,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
       setGarmentPhotos(combined);
       setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'Uploaded garment', primaryColor: 'Original color' });
-      setMessage(isTryOn ? 'Garment photo is ready.' : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
+      setMessage(`${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
     } catch (caught) {
       setGarmentAnalysis(null);
       setError(customerError(caught, 'The garment photo could not be prepared. Please take the photo again.'));
@@ -332,7 +323,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         await new Promise((resolve) => window.setTimeout(resolve, 5000));
         const status = await readJson(await fetch(`/api/video/status?sessionId=${encodeURIComponent(sessionId)}&jobId=${encodeURIComponent(start.jobId)}&accessCode=${encodeURIComponent(accessCode)}`));
         if (status.status === 'ready' || status.status === 'succeeded') {
-          router.push(`/result/${sessionId}?access=${encodeURIComponent(accessCode)}`);
+          setStage('result');
           return;
         }
         if (status.status === 'failed') throw new Error(status.error || 'Video generation failed.');
@@ -431,6 +422,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       </header>
 
       <div className="mx-auto max-w-5xl px-4 py-6">
+        {stage === 'result' ? (
+          <ResultClient sessionId={sessionId} accessCode={accessCode} onBack={() => setStage('ready')} />
+        ) : (
+          <>
         {service === 'ai-video' && access?.access.phoneMasked && (
           <div className="mb-5 border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">Pass verified for {access.access.phoneMasked} · Bill ****{access.access.billLast4}</div>
         )}
@@ -546,7 +541,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold uppercase text-[#6E0D1F]">
-                          {isTryOn ? 'Garment Photo (1 only)' : `Garment Photos (${garmentPhotos.length}/3 max)`}
+                          Garment Photos ({garmentPhotos.length}/3 max)
                         </span>
                         {garmentPhotos.length > 0 && !imagesLocked && (
                           <button
@@ -563,13 +558,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         <div className="aspect-[3/4] overflow-hidden bg-white p-2 flex flex-col items-center justify-center gap-2 text-slate-400">
                           <Shirt className="h-10 w-10 text-slate-300" />
                           <span className="text-xs font-bold uppercase text-center">
-                            {isTryOn ? 'One garment photo' : '1 to 3 garment photos'}
+                            1 to 3 garment photos
                           </span>
-                          {!isTryOn && (
-                            <span className="text-[11px] text-center text-slate-400">
-                              Front view, border/detail, or back/pallu
-                            </span>
-                          )}
+                          <span className="text-[11px] text-center text-slate-400">
+                            Front view, border/detail, or back/pallu
+                          </span>
                         </div>
                       ) : (
                         <div className="grid grid-cols-3 gap-2">
@@ -591,7 +584,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                               )}
                             </div>
                           ))}
-                          {garmentPhotos.length < (isTryOn ? 1 : 3) && (
+                          {garmentPhotos.length < 3 && (
                             <label className="aspect-[3/4] flex flex-col items-center justify-center border-2 border-dashed border-[#B99A55] bg-white cursor-pointer text-slate-400 hover:text-[#6E0D1F] transition">
                               <Plus className="h-5 w-5 mb-1 text-[#6E0D1F]" />
                               <span className="text-[10px] font-bold uppercase text-center text-[#6E0D1F]">Add photo</span>
@@ -613,35 +606,35 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] ${garmentPhotos.length >= (isTryOn ? 1 : 3) ? 'opacity-40 pointer-events-none' : ''}`}>
-                        <Camera className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < (isTryOn ? 1 : 3) ? '+ Snap' : 'Camera'}
+                      <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] ${garmentPhotos.length >= 3 ? 'opacity-40 pointer-events-none' : ''}`}>
+                        <Camera className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < 3 ? '+ Snap' : 'Camera'}
                         <input
                           id="garment-camera-input"
                           type="file"
                           accept="image/*"
                           capture="environment"
                           className="hidden"
-                          disabled={busy || imagesLocked || garmentPhotos.length >= (isTryOn ? 1 : 3)}
+                          disabled={busy || imagesLocked || garmentPhotos.length >= 3}
                           onChange={(event) => {
                             const file = event.target.files?.[0];
                             event.currentTarget.value = '';
-                            if (file) void analyzeGarments([file], !isTryOn && garmentPhotos.length > 0);
+                            if (file) void analyzeGarments([file], garmentPhotos.length > 0);
                           }}
                         />
                       </label>
-                      <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F] ${garmentPhotos.length >= (isTryOn ? 1 : 3) ? 'opacity-40 pointer-events-none' : ''}`}>
-                        <ImageIcon className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < (isTryOn ? 1 : 3) ? '+ Add' : 'Gallery'}
+                      <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F] ${garmentPhotos.length >= 3 ? 'opacity-40 pointer-events-none' : ''}`}>
+                        <ImageIcon className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < 3 ? '+ Add' : 'Gallery'}
                         <input
                           id="garment-file-input"
                           type="file"
                           accept="image/*"
-                          multiple={!isTryOn}
+                          multiple
                           className="hidden"
-                          disabled={busy || imagesLocked || garmentPhotos.length >= (isTryOn ? 1 : 3)}
+                          disabled={busy || imagesLocked || garmentPhotos.length >= 3}
                           onChange={(event) => {
                             const files = Array.from(event.target.files || []);
                             event.currentTarget.value = '';
-                            if (files.length) void analyzeGarments(files, !isTryOn && garmentPhotos.length > 0);
+                            if (files.length) void analyzeGarments(files, garmentPhotos.length > 0);
                           }}
                         />
                       </label>
@@ -678,6 +671,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
               </aside>
             </section>
+          </>
+        )}
           </>
         )}
       </div>
