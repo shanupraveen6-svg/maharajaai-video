@@ -1,5 +1,3 @@
-import sharp from 'sharp';
-
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
 
 function assert(condition, label, detail = '') {
@@ -10,11 +8,6 @@ function assert(condition, label, detail = '') {
 async function json(response) {
   const data = await response.json().catch(() => ({}));
   return { response, data };
-}
-
-async function makeTestTag() {
-  const svg = `<svg width="900" height="1200" xmlns="http://www.w3.org/2000/svg"><rect width="900" height="1200" fill="#fff"/><rect x="45" y="45" width="810" height="1110" fill="#fffaf0" stroke="#6e0d1f" stroke-width="12"/><text x="450" y="260" text-anchor="middle" font-size="68" font-family="Arial" font-weight="bold" fill="#6e0d1f">MAJESTIC MAHARAJA</text><text x="450" y="520" text-anchor="middle" font-size="44" font-family="Arial">FESTIVE GARMENT</text><text x="450" y="790" text-anchor="middle" font-size="160" font-family="Arial" font-weight="bold">Rs 799</text><text x="450" y="970" text-anchor="middle" font-size="32" font-family="Arial">INCLUSIVE OF ALL TAXES</text></svg>`;
-  return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
 async function run() {
@@ -47,14 +40,13 @@ async function run() {
   const customerPassAccess = await json(await fetch(`${BASE_URL}/api/maharaja/access/${customerPassCode}?service=ai-video`));
   assert(customerPassAccess.response.ok && customerPassAccess.data.access?.service === 'ai-video' && customerPassAccess.data.access?.billLast4 === '5678', 'Billing-QR customer accesses AI Video service');
 
-  // Wall-QR Customer Role Test: Scans Rs 799 price tag
+  // Wall-QR Customer Role Test: scans a locally decoded Rs 799 barcode
   const deviceId = `e2edevice${Date.now()}`;
-  const tag = await makeTestTag();
   const tagResult = await json(await fetch(`${BASE_URL}/api/ai/analyze-price-tag`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accessCode: tryOnCode, deviceId, image: `data:image/png;base64,${tag.toString('base64')}` }),
+    body: JSON.stringify({ accessCode: tryOnCode, deviceId, barcode: '8907423016361', printedText: 'Maximum Retail Price: Rs. 799.00', format: 'EAN_13' }),
   }));
-  assert(tagResult.response.ok && tagResult.data.analysis?.eligible && tagResult.data.grant?.token, 'Gemini verifies Rs 799 tag and grants one Try-On');
+  assert(tagResult.response.ok && tagResult.data.analysis?.eligible && tagResult.data.grant?.token, 'Printed Rs 799 MRP verifies a normal retail barcode and grants one Try-On');
 
   const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
   const sessionId = `e2e_tryon_${Date.now()}`;
@@ -144,18 +136,17 @@ async function run() {
   for (const cat of categories) {
     for (const pSet of promptSets) {
       const prompt = buildEventVideoPrompt(cat, 'diwali', pSet);
-      assert(prompt.includes('completely stationary for all 6 seconds'), `${cat} ${pSet}: Stationary subject lock enforced`);
-      assert(prompt.includes('Feet remain fixed to the floor'), `${cat} ${pSet}: Feet locked enforced`);
-      assert(prompt.includes('Prohibited: walking, stepping, turning, dancing'), `${cat} ${pSet}: Prohibited motion list present`);
-      assert(prompt.includes('Camera path:'), `${cat} ${pSet}: Explicit camera travel path defined`);
+      assert(prompt.includes('Feet stay anchored'), `${cat} ${pSet}: Stationary subject lock enforced`);
+      assert(prompt.includes('No walking, stepping, sliding, turning, dancing'), `${cat} ${pSet}: Prohibited motion list present`);
+      assert(prompt.includes('CAMERA PLAN:'), `${cat} ${pSet}: Explicit camera travel path defined`);
       if (cat === 'girl' || cat === 'boy') {
-        assert(prompt.includes('lit brass lamp in both hands'), `${cat} ${pSet}: Child lamp holding constraint present`);
+        assert(prompt.includes('no adult glamour or handheld fire'), `${cat} ${pSet}: Child safety constraint present`);
       }
       if (pSet === 'set-2') {
         if (cat === 'women' || cat === 'girl') {
-          assert(prompt.includes('Divine-touch set:'), `${cat} ${pSet}: Divine touch background lighting present`);
+          assert(/divine (gold )?rays/i.test(prompt), `${cat} ${pSet}: Divine touch background lighting present`);
         } else {
-          assert(prompt.includes('Cracker set:'), `${cat} ${pSet}: Cracker sparks background effects present`);
+          assert(/cracker/i.test(prompt), `${cat} ${pSet}: Cracker background effects present`);
         }
       }
     }

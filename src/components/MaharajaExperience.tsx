@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
 import SecureTryOnViewer from '@/components/SecureTryOnViewer';
+import BarcodePriceScanner from '@/components/BarcodePriceScanner';
 import {
   buildEventVideoPrompt,
   buildFailSafeVideoPrompt,
@@ -74,8 +75,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [videoPromptSet, setVideoPromptSet] = useState<VideoPromptSet>('set-1');
   const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
-  const [priceTagPhoto, setPriceTagPhoto] = useState<string | null>(null);
   const [priceAmount, setPriceAmount] = useState<number | null>(null);
+  const [scannerResetKey, setScannerResetKey] = useState(0);
   const [deviceId, setDeviceId] = useState('');
   const [tryOnGrant, setTryOnGrant] = useState('');
   const [tryOnUsed, setTryOnUsed] = useState(false);
@@ -178,17 +179,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     && garmentAnalysis.additionalPhotoRequired !== true;
   const event = useMemo(() => getEventOption(eventId), [eventId]);
 
-  async function analyzePriceTag(file: File) {
+  const analyzeBarcode = useCallback(async (barcode: string, format: string, printedText: string) => {
     setStage('analyzing');
     setError('');
     try {
-      const { dataUrl } = await compressImage(file, 1600, 0.88);
-      setPriceTagPhoto(dataUrl);
-      setMessage('Checking the price tag...');
+      setMessage('Checking the garment tag and printed MRP...');
       const data = await readJson(await fetch('/api/ai/analyze-price-tag', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, accessCode, deviceId }),
+        body: JSON.stringify({ barcode, format, printedText, accessCode, deviceId }),
       }));
       setPriceAmount(data.analysis.amount || null);
       setPurchaseConfirmed(data.analysis.eligible === true);
@@ -197,11 +196,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       if (!data.analysis.eligible) setError(data.analysis.message);
     } catch (caught) {
       setPurchaseConfirmed(false);
-      setError(customerError(caught, 'The price tag could not be verified. Use a clear, well-lit photo of the complete tag.'));
+      setError(customerError(caught, 'The tag could not be verified. Keep the full tag, barcode and printed MRP inside the frame.'));
     } finally {
       setStage('ready');
+      setScannerResetKey((current) => current + 1);
     }
-  }
+  }, [accessCode, deviceId]);
 
   async function analyzePerson(file: File) {
     setStage('analyzing');
@@ -440,28 +440,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         {activeService === 'try-on' && !tryOnUsed && !purchaseConfirmed && (
           <section className="mx-auto max-w-xl border border-[#D8C49B] bg-white p-6 text-center">
             <BadgeIndianRupee className="mx-auto h-10 w-10 text-[#6E0D1F]" />
-            <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Scan a Rs 500+ price tag</h2>
-            <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Open the camera and keep the full Maharaja price tag and amount clearly visible.</p>
-            <label className="mx-auto mt-5 flex aspect-[4/3] w-full max-w-sm cursor-pointer items-center justify-center overflow-hidden border-2 border-dashed border-[#B99A55] bg-[#FFF9EC]">
-              {priceTagPhoto ? (
-                <img src={priceTagPhoto} alt="Scanned Maharaja price tag" className="h-full w-full object-contain" />
-              ) : (
-                <span className="flex flex-col items-center gap-3 text-[#6E0D1F]">
-                  <Camera className="h-10 w-10" />
-                  <span className="text-xs font-bold uppercase">Open Camera</span>
-                  <span className="text-[11px] font-semibold normal-case text-[#5C4B43]">Keep the complete tag and price inside the frame</span>
-                </span>
-              )}
-                <input
-                  id="scan-price-tag-camera-input"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  disabled={busy}
-                  onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePriceTag(file); }}
-                />
-            </label>
+            <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Scan the Rs 500+ garment barcode</h2>
+            <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Keep the complete Maharaja barcode inside the frame. It scans automatically.</p>
+            <div className="mx-auto mt-5 w-full max-w-sm border-2 border-[#B99A55] bg-black">
+              <BarcodePriceScanner active={stage === 'ready'} resetKey={scannerResetKey} onDetected={analyzeBarcode} />
+            </div>
             {priceAmount !== null && <p className="mt-3 text-sm font-bold text-[#6E0D1F]">Detected price: Rs {priceAmount}</p>}
             {message && <p className="mt-3 text-xs font-semibold text-[#5C4B43]">{message}</p>}
             {error && <p className="mt-3 text-xs font-semibold text-red-700">{error}</p>}
