@@ -93,7 +93,8 @@ export default function BarcodePriceScanner({
           (result, error, scanControls) => {
             if (cancelled || detectedRef.current) return;
             if (result) {
-              void readCurrentFrame(result.getText(), result.getBarcodeFormat().toString(), scanControls);
+              // A retail barcode usually contains only the SKU, not the printed MRP.
+              // Keep the camera open until the customer frames the whole tag and taps Read MRP.
               return;
             }
             if (error && error.name !== 'NotFoundException') {

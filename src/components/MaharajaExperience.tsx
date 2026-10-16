@@ -440,8 +440,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         {activeService === 'try-on' && !tryOnUsed && !purchaseConfirmed && (
           <section className="mx-auto max-w-xl border border-[#D8C49B] bg-white p-6 text-center">
             <BadgeIndianRupee className="mx-auto h-10 w-10 text-[#6E0D1F]" />
-            <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Scan the Rs 500+ garment barcode</h2>
-            <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Keep the complete Maharaja barcode inside the frame. It scans automatically.</p>
+            <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Read the Rs 500+ garment price</h2>
+            <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Keep the full tag and printed MRP inside the frame, then tap Read MRP.</p>
             <div className="mx-auto mt-5 w-full max-w-sm border-2 border-[#B99A55] bg-black">
               <BarcodePriceScanner active={stage === 'ready'} resetKey={scannerResetKey} onDetected={analyzeBarcode} />
             </div>

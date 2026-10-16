@@ -48,7 +48,7 @@ export function parseBarcodePrice(rawValue: string): BarcodePriceResult {
     // Non-URL barcode.
   }
 
-  const labelled = raw.match(/(?:selling\s*price|sale\s*price|mrp|price|amount|rate)\s*[:=\-]?\s*(?:inr|rs\.?|₹)?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i)
+  const labelled = raw.match(/(?:selling\s*price|sale\s*price|m\s*\.?\s*r\s*\.?\s*p\s*\.?|price|amount|rate)\s*[:=\-]?\s*(?:inr|rs\.?|₹)?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i)
     || raw.match(/(?:inr|rs\.?|₹)\s*[:=\-]?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i);
   if (labelled) {
     const amount = normalizeAmount(labelled[1]);
@@ -71,4 +71,3 @@ export function parseBarcodePrice(rawValue: string): BarcodePriceResult {
 
   return { amount: null, source: null };
 }
-

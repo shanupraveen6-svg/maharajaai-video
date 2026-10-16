@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
           amount: null,
           eligible: false,
           format: typeof body.format === 'string' ? body.format.slice(0, 32) : 'unknown',
-          message: 'Barcode detected, but the printed MRP was not clear. Keep the full tag flat, well lit and inside the frame.',
+          message: 'The printed MRP was not clear. Keep the full tag flat and well lit, then tap Read MRP.',
         },
         grant: null,
       });
