@@ -267,7 +267,7 @@ export default function TvPlayerPage() {
     void loadReplayLibrary();
     const replayRefresh = window.setInterval(() => {
       void loadReplayLibrary();
-    }, 10 * 60 * 1000);
+    }, 2 * 60 * 1000);
 
     const pollNextVideo = async () => {
       if (pollInFlightRef.current) return;

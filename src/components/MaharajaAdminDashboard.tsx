@@ -209,6 +209,20 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
     }
   }
 
+  async function resetLiveQueue() {
+    if (!window.confirm('Reset TV broadcast queue? Stale queue entries will be cleared so the TV screen loops through ready videos.')) return;
+    setSaving(true);
+    try {
+      const data = await readJson(await fetch('/api/live/reset-queue', { method: 'POST' }));
+      setMessage(data.message || 'TV queue reset successfully.');
+      await loadWorkspace();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to reset TV queue.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function logout() {
     setSaving(true);
     try {
@@ -258,7 +272,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
   const pct10kPlus = totalHighValue > 0 ? Math.max(0, 100 - pct5kTo7k - pct7kTo10k) : 0;
 
   // Compile Go Live Audit list
-  const goLiveAuditList: GoLiveAuditItem[] = workspace.goLiveAudit?.length
+  const goLiveAuditList: GoLiveAuditItem[] = (workspace.goLiveAudit?.length
     ? workspace.goLiveAudit
     : workspace.activity
         .filter((item) => item.type === 'go-live')
@@ -271,7 +285,8 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           videoUrl: String(item.metadata?.videoUrl || ''),
           sessionId: String(item.metadata?.sessionId || ''),
           queueNumber: Number(item.metadata?.queueNumber || 1),
-        }));
+        }))
+  ).filter((item) => typeof item.videoUrl === 'string' && item.videoUrl.trim().length > 10);
 
   const activeEventId = workspace.activeEvents?.[0] || workspace.defaultEvent || 'diwali';
 
@@ -604,13 +619,23 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => void loadWorkspace()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D8C49B] text-xs font-bold uppercase text-[#6E0D1F] hover:bg-[#FFF8E8] transition"
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Refresh Log
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void resetLiveQueue()}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold uppercase text-red-700 hover:bg-red-50 transition disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Clear TV Queue
+              </button>
+              <button
+                type="button"
+                onClick={() => void loadWorkspace()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D8C49B] text-xs font-bold uppercase text-[#6E0D1F] hover:bg-[#FFF8E8] transition"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Refresh Log
+              </button>
+            </div>
           </div>
 
           <p className="mt-2 text-xs text-[#5C4B43]">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
-import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import {
   getMaharajaWorkspace,
   getWorkspaceLinks,
@@ -100,9 +100,20 @@ export async function GET(req: NextRequest) {
     }
 
     const seenSessions = new Set<string>();
-    const goLiveAudit = allActivity
+    const rawAudit: Array<{
+      id: string;
+      createdAt: string;
+      customerName: string;
+      phone: string;
+      phoneMasked: string;
+      videoUrl: string;
+      sessionId: string;
+      queueNumber: number;
+    }> = [];
+
+    allActivity
       .filter((item) => item.type === 'go-live')
-      .map((item) => {
+      .forEach((item) => {
         const metadata = item.metadata || {};
         const sessionId = String(metadata.sessionId || '');
         if (sessionId) seenSessions.add(sessionId);
@@ -114,36 +125,55 @@ export async function GET(req: NextRequest) {
         const videoUrl = String(metadata.videoUrl || matchedQueue?.videoUrl || '');
         const queueNumber = Number(metadata.queueNumber || matchedQueue?.queueNumber || 1);
 
-        return {
-          id: item.id,
-          createdAt: item.createdAt,
-          customerName,
-          phone,
-          phoneMasked,
-          videoUrl,
-          sessionId,
-          queueNumber,
-        };
+        if (videoUrl && videoUrl.trim().length > 10 && !videoUrl.includes('undefined')) {
+          rawAudit.push({
+            id: item.id,
+            createdAt: item.createdAt,
+            customerName,
+            phone,
+            phoneMasked,
+            videoUrl,
+            sessionId,
+            queueNumber,
+          });
+        }
       });
 
-    // Also include any items from liveQueue that were enqueued
+    // Also include any items from liveQueue that have a real video
     liveQueueItems.forEach((q) => {
-      if (q.sessionId && !seenSessions.has(q.sessionId)) {
-        seenSessions.add(q.sessionId);
-        goLiveAudit.push({
-          id: q.id,
-          createdAt: q.createdAt || new Date().toISOString(),
-          customerName: q.customerName || 'Maharaja Customer',
-          phone: '',
-          phoneMasked: 'Customer',
-          videoUrl: q.videoUrl || '',
-          sessionId: q.sessionId,
-          queueNumber: Number(q.queueNumber || 1),
-        });
+      const videoUrl = String(q.videoUrl || '');
+      if (videoUrl && videoUrl.trim().length > 10 && !videoUrl.includes('undefined')) {
+        if (!q.sessionId || !seenSessions.has(q.sessionId)) {
+          if (q.sessionId) seenSessions.add(q.sessionId);
+          rawAudit.push({
+            id: q.id,
+            createdAt: q.createdAt || new Date().toISOString(),
+            customerName: q.customerName || 'Maharaja Customer',
+            phone: '',
+            phoneMasked: 'Customer',
+            videoUrl,
+            sessionId: q.sessionId || '',
+            queueNumber: Number(q.queueNumber || 1),
+          });
+        }
       }
     });
 
-    goLiveAudit.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const resolvedGoLiveAudit = await Promise.all(
+      rawAudit.map(async (item) => {
+        let videoUrl = item.videoUrl;
+        if (videoUrl.startsWith('sessions/') || videoUrl.startsWith('clients/')) {
+          try {
+            videoUrl = await getSignedPlaybackUrl(videoUrl);
+          } catch {
+            // Keep original URL if signing fails
+          }
+        }
+        return { ...item, videoUrl };
+      })
+    );
+
+    resolvedGoLiveAudit.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
     return NextResponse.json({
       success: true,
@@ -152,7 +182,7 @@ export async function GET(req: NextRequest) {
         ...getWorkspaceLinks(req.nextUrl.origin, workspace),
         recentPasses: recentPasses.map(publicPass),
         activity: allActivity.slice(0, 30),
-        goLiveAudit,
+        goLiveAudit: resolvedGoLiveAudit,
         integrations: { whatsapp: getWhatsAppStatus() },
         analytics: {
           totalGmv,
