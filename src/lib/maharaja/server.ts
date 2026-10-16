@@ -38,10 +38,24 @@ export type MaharajaWorkspace = {
 
 export type MaharajaActivity = {
   id: string;
-  type: 'campaign' | 'video-pass' | 'price-scan' | 'duplicate-tag-scan' | 'try-on' | 'video' | 'go-live' | 'retry' | 'download' | 'share' | 'qr-download';
+  type:
+    | 'campaign'
+    | 'video-pass'
+    | 'price-scan'
+    | 'duplicate-tag-scan'
+    | 'try-on'
+    | 'video-master'
+    | 'video-start'
+    | 'video-ready'
+    | 'video'
+    | 'go-live'
+    | 'retry'
+    | 'download'
+    | 'share'
+    | 'qr-download';
   label: string;
   createdAt: string;
-  metadata?: Record<string, string | number | boolean | null>;
+  metadata?: Record<string, string | number | boolean | null | undefined>;
 };
 
 export type MaharajaVideoPass = {
@@ -373,6 +387,19 @@ export async function clearMaharajaTelemetry() {
       console.warn('liveQueue purge warning:', lqErr);
     }
 
+    // 6. Delete customer passes
+    try {
+      const passSnap = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+        .collection('customerPasses').get();
+      for (let index = 0; index < passSnap.docs.length; index += 400) {
+        const batch = db.batch();
+        passSnap.docs.slice(index, index + 400).forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+      }
+    } catch (passErr) {
+      console.warn('customerPasses purge warning:', passErr);
+    }
+
     return { success: true };
   }
 
@@ -395,6 +422,11 @@ export async function clearMaharajaTelemetry() {
 
   if (store.liveQueue) {
     store.liveQueue = [];
+  }
+
+  if (store.customerPasses) {
+    const passKeys = Array.from(store.customerPasses.keys()).filter((key) => key.startsWith(`${MAHARAJA_CLIENT_ID}:`));
+    passKeys.forEach((key) => store.customerPasses.delete(key));
   }
 
   return { success: true };
@@ -762,6 +794,8 @@ export async function markPassVideoReady(code: string, jobId?: string) {
         activeVideoJobId: FieldValue.delete(),
       });
     });
+    await incrementMaharajaUsage('videosGenerated');
+    await logMaharajaActivity('video-ready', 'Customer AI Video MP4 completed and ready', { code, jobId: jobId || null });
     return;
   }
   const key = `${MAHARAJA_CLIENT_ID}:${code}`;
@@ -780,6 +814,9 @@ export async function markPassVideoReady(code: string, jobId?: string) {
   };
   delete (copy as any).activeVideoJobId;
   getMockStore().customerPasses.set(key, copy);
+
+  await incrementMaharajaUsage('videosGenerated');
+  await logMaharajaActivity('video-ready', 'Customer AI Video MP4 completed and ready', { code, jobId: jobId || null });
 }
 
 /** Backwards-compatible alias for markPassVideoReady. */

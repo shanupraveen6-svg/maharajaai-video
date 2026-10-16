@@ -69,9 +69,9 @@ export type Workspace = {
     imageRetries?: number;
     videosSuccess?: number;
     videoRetries?: number;
-    tier1kPlus?: number;
     tier5kPlus?: number;
     tier7kPlus?: number;
+    tier10kPlus?: number;
     tiers?: {
       tier5kTo7k: number;
       tier7kTo10k: number;
@@ -292,9 +292,9 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
   const videosSuccess = analytics.videosSuccess ?? workspace.usage.videosGenerated ?? 0;
   const videoRetries = analytics.videoRetries ?? 0;
 
-  const tier1kPlus = analytics.tier1kPlus ?? 0;
   const tier5kPlus = analytics.tier5kPlus ?? analytics.shoppersAbove5000 ?? workspace.usage.videoPasses ?? 0;
   const tier7kPlus = analytics.tier7kPlus ?? 0;
+  const tier10kPlus = analytics.tier10kPlus ?? 0;
 
   // Compile Go Live Audit list
   const goLiveAuditList: GoLiveAuditItem[] = (workspace.goLiveAudit?.length
@@ -316,62 +316,62 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
   const activeEventId = workspace.activeEvents?.[0] || workspace.defaultEvent || 'diwali';
 
   return (
-    <main className="min-h-screen bg-[#F5F2EA] text-[#211A17] pb-16 font-sans">
+    <main className="min-h-screen bg-[#F7F4EE] text-[#211A17] pb-16 font-sans">
       {/* HEADER */}
-      <header className="border-b border-[#D4AF37]/30 bg-[#21090E] text-white sticky top-0 z-20 shadow-md">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <header className="border-b border-[#D4AF37]/35 bg-[#1C060B] text-white sticky top-0 z-20 shadow-md">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-3.5 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">STORE OPERATIONS DASHBOARD</p>
+              <span className="h-2 w-2 rounded-full bg-[#D4AF37]" />
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">STORE OPERATIONS MANAGEMENT</p>
             </div>
             <h1 className="mt-0.5 font-serif text-2xl md:text-3xl font-bold text-[#F3E5AB] tracking-wide">
-              MAHARAJA THANJAVUR — ADMIN
+              MAHARAJA THANJAVUR
             </h1>
           </div>
           
-          <div className="flex items-center gap-3">
+          {/* TOP 3 EXECUTIVE ACTION BUTTONS */}
+          <div className="flex items-center gap-2.5">
+            {/* 1. Campaign Live / Paused Status Toggle */}
             <button
               type="button"
               onClick={toggleCampaign}
               disabled={saving}
-              className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-xs font-bold uppercase transition ${
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-xs font-bold uppercase tracking-wider transition shadow-sm active:scale-[0.98] ${
                 workspace.campaignEnabled
-                  ? 'border-emerald-400/80 bg-emerald-950/80 text-emerald-200 hover:bg-emerald-900'
-                  : 'border-red-400/80 bg-red-950/80 text-red-200 hover:bg-red-900'
+                  ? 'border-emerald-600/70 bg-[#0E3523] text-emerald-200 hover:bg-[#13442D]'
+                  : 'border-rose-700/70 bg-[#380E15] text-rose-200 hover:bg-[#48121B]'
               }`}
             >
-              {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Power className="h-3.5 w-3.5" />}
-              {workspace.campaignEnabled ? 'Campaign Live' : 'Campaign Paused'}
+              {saving ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <span className={`h-2 w-2 rounded-full ${workspace.campaignEnabled ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+              )}
+              <span>{workspace.campaignEnabled ? 'Campaign Live' : 'Campaign Paused'}</span>
             </button>
 
+            {/* 2. Live TV Screen Link */}
             <a
               href="/tv"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/45 bg-black/40 px-3.5 py-2 text-xs font-bold uppercase text-[#F3E5AB] hover:bg-black/70 transition"
-              title="Open TV Live Display in new tab"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/60 bg-[#280C12] px-4 text-xs font-bold uppercase tracking-wider text-[#F3E5AB] hover:bg-[#381019] hover:border-[#D4AF37] transition shadow-sm active:scale-[0.98]"
+              title="Open Maharaja TV Screen display in new tab"
             >
-              <Tv className="h-3.5 w-3.5 text-[#D4AF37]" /> Live Screen
+              <Tv className="h-3.5 w-3.5 text-[#D4AF37]" />
+              <span>Live Screen</span>
             </a>
 
-            <button
-              type="button"
-              onClick={() => void resetTelemetry()}
-              disabled={saving}
-              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-red-500/50 bg-red-950/70 px-3 py-2 text-xs font-bold uppercase text-red-200 hover:bg-red-900 transition"
-              title="Reset test scans and GMV back to ₹0 for live showroom launch"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Reset Test Data
-            </button>
-
+            {/* 3. Sign Out Button */}
             <button
               type="button"
               onClick={() => void logout()}
               disabled={saving}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs font-bold uppercase text-gray-300 hover:bg-white/10 transition"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 text-xs font-bold uppercase tracking-wider text-[#E8DFD8] hover:bg-white/10 hover:text-white transition shadow-sm active:scale-[0.98]"
             >
-              <LogOut className="h-3.5 w-3.5" /> Logout
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
@@ -390,25 +390,28 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
         {/* 1. TOP METRICS — LIVE SHOWROOM OPERATIONAL KPIS */}
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {/* Card 1: Value Scanned (Total Scanned Retail GMV) */}
-          <div className="rounded-2xl border border-[#D4AF37]/40 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
+          <div className="rounded-2xl border border-[#D8C49B]/60 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">1. Value Scanned (GMV)</span>
-              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-800">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">Total Showroom GMV</span>
+              <div className="p-2.5 rounded-xl bg-[#FFF8E8] text-[#6E0D1F]">
                 <IndianRupee className="h-5 w-5" />
               </div>
             </div>
             <p className="mt-4 font-serif text-4xl font-bold text-[#2A060C]">
               {formatMoney(totalGmv)}
             </p>
-            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
-              {totalGarments} garment tag{totalGarments === 1 ? '' : 's'} verified live in showroom.
+            <div className="mt-2 text-xs text-[#5C4B43]">
+              <span>Verified showroom merchandise value scanned in store.</span>
+            </div>
+            <p className="mt-1 text-xs font-medium text-[#765E27]">
+              {totalGarments} garment tag{totalGarments === 1 ? '' : 's'} recorded.
             </p>
           </div>
 
-          {/* Card 2: AI Images Generated */}
-          <div className="rounded-2xl border border-[#D4AF37]/40 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
+          {/* Card 2: Virtual Dressing Room Photos */}
+          <div className="rounded-2xl border border-[#D8C49B]/60 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">2. AI Images Generated</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">Virtual Dressing Room Photos</span>
               <div className="p-2.5 rounded-xl bg-[#FFF8E8] text-[#6E0D1F]">
                 <Sparkles className="h-5 w-5" />
               </div>
@@ -416,23 +419,20 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
             <p className="mt-4 font-serif text-4xl font-bold text-[#6E0D1F]">
               {new Intl.NumberFormat('en-IN').format(imagesSuccess)}
             </p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                Success: {imagesSuccess}
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold">
-                Retries: {imageRetries}
-              </span>
+            <div className="mt-2 flex items-center gap-2 text-xs font-medium text-[#5C4B43]">
+              <span>Completed: <strong className="text-[#2A060C]">{imagesSuccess}</strong></span>
+              <span>·</span>
+              <span>Floor Retries: <strong className="text-[#6E0D1F]">{imageRetries}</strong></span>
             </div>
-            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
-              Festive fashion master photos generated on floor.
+            <p className="mt-1 text-xs leading-5 text-[#765E27]">
+              Festive fashion portraits generated for shoppers on floor.
             </p>
           </div>
 
-          {/* Card 3: AI Videos Generated */}
-          <div className="rounded-2xl border border-[#D4AF37]/40 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
+          {/* Card 3: Customer Festive Video Reels */}
+          <div className="rounded-2xl border border-[#D8C49B]/60 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-[#6E0D1F]">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">3. AI Videos Generated</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">Completed Festive Video Reels</span>
               <div className="p-2.5 rounded-xl bg-[#21090E] text-[#F3E5AB]">
                 <Film className="h-5 w-5" />
               </div>
@@ -440,21 +440,18 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
             <p className="mt-4 font-serif text-4xl font-bold text-[#6E0D1F]">
               {new Intl.NumberFormat('en-IN').format(videosSuccess)}
             </p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                Ready: {videosSuccess}
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold">
-                Retries: {videoRetries}
-              </span>
+            <div className="mt-2 flex items-center gap-2 text-xs font-medium text-[#5C4B43]">
+              <span>Ready MP4s: <strong className="text-[#2A060C]">{videosSuccess}</strong></span>
+              <span>·</span>
+              <span>Floor Retries: <strong className="text-[#6E0D1F]">{videoRetries}</strong></span>
             </div>
-            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
-              Cinematic customer video reels rendered for shoppers.
+            <p className="mt-1 text-xs leading-5 text-[#765E27]">
+              Cinematic customer video reels rendered and ready for playback.
             </p>
           </div>
         </section>
 
-        {/* 2. SPEND CLASSIFICATION · ₹1,000+ / ₹5,000+ / ₹7,000+ (SIMPLE CLEAN UI) */}
+        {/* 2. SPEND CLASSIFICATION · ₹5,000+ / ₹7,000+ / ₹10,000+ (AUTHENTIC REAL DATA) */}
         <section className="rounded-2xl border border-[#DDD2BD] bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-[#FFF8E8] text-[#6E0D1F]">
@@ -470,42 +467,54 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
             </div>
           </div>
 
-          {/* Simple 3 KPI Cards */}
+          {/* Authentic 3 Tier Cards: 5000+, 7000+, 10000+ */}
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
-            {/* Tier 1: ₹1,000+ */}
-            <div className="rounded-xl border border-[#D4AF37]/50 bg-[#FFFDF7] p-5 transition hover:shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="rounded-md bg-[#D4AF37]/20 px-2.5 py-1 text-[11px] font-bold uppercase text-[#765E27]">
-                  Tier 1 · ₹1,000+
+            {/* Tier 1: ₹5,000+ */}
+            <div className="rounded-xl border border-[#D4AF37]/40 bg-[#FFFDF8] p-5 transition hover:shadow-sm">
+              <div className="flex items-baseline justify-between border-b border-[#F0EAE1] pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">
+                  Tier 1 · ₹5,000+
                 </span>
-                <span className="text-xs font-bold text-[#8A6A20]">Festive Ready</span>
+                <span className="text-xs font-semibold text-[#5C4B43]">Video Qualifier</span>
               </div>
-              <p className="mt-3 font-serif text-3xl font-bold text-[#6E0D1F]">{tier1kPlus}</p>
-              <p className="mt-1 text-xs text-[#5C4B43]">Shoppers scanning or purchasing festive garments ₹1,000 and above.</p>
+              <p className="mt-3 font-serif text-3xl font-bold text-[#6E0D1F]">
+                {new Intl.NumberFormat('en-IN').format(tier5kPlus)}
+              </p>
+              <p className="mt-1.5 text-xs text-[#5C4B43]">
+                Qualifying shoppers eligible for personalized cinematic AI festive video reels.
+              </p>
             </div>
 
-            {/* Tier 2: ₹5,000+ */}
-            <div className="rounded-xl border border-emerald-300 bg-[#F4FBF7] p-5 transition hover:shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="rounded-md bg-emerald-100 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-800">
-                  Tier 2 · ₹5,000+
+            {/* Tier 2: ₹7,000+ */}
+            <div className="rounded-xl border border-[#D4AF37]/40 bg-[#FFFDF8] p-5 transition hover:shadow-sm">
+              <div className="flex items-baseline justify-between border-b border-[#F0EAE1] pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">
+                  Tier 2 · ₹7,000+
                 </span>
-                <span className="text-xs font-bold text-emerald-700">AI Video Qualifier</span>
+                <span className="text-xs font-semibold text-[#5C4B43]">Silk & Festive</span>
               </div>
-              <p className="mt-3 font-serif text-3xl font-bold text-emerald-900">{tier5kPlus}</p>
-              <p className="mt-1 text-xs text-[#5C4B43]">Qualifying shoppers eligible for Maharaja personalized cinematic AI Video.</p>
+              <p className="mt-3 font-serif text-3xl font-bold text-[#6E0D1F]">
+                {new Intl.NumberFormat('en-IN').format(tier7kPlus)}
+              </p>
+              <p className="mt-1.5 text-xs text-[#5C4B43]">
+                Premium silk sarees, festive designer outfits, and celebratory collections.
+              </p>
             </div>
 
-            {/* Tier 3: ₹7,000+ */}
-            <div className="rounded-xl border border-[#6E0D1F]/40 bg-[#FFF5F7] p-5 transition hover:shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="rounded-md bg-[#6E0D1F]/15 px-2.5 py-1 text-[11px] font-bold uppercase text-[#6E0D1F]">
-                  Tier 3 · ₹7,000+
+            {/* Tier 3: ₹10,000+ */}
+            <div className="rounded-xl border border-[#D4AF37]/40 bg-[#FFFDF8] p-5 transition hover:shadow-sm">
+              <div className="flex items-baseline justify-between border-b border-[#F0EAE1] pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#8A6A20]">
+                  Tier 3 · ₹10,000+
                 </span>
-                <span className="text-xs font-bold text-[#6E0D1F]">Royal Luxury</span>
+                <span className="text-xs font-semibold text-[#5C4B43]">Royal Bridal VIP</span>
               </div>
-              <p className="mt-3 font-serif text-3xl font-bold text-[#6E0D1F]">{tier7kPlus}</p>
-              <p className="mt-1 text-xs text-[#5C4B43]">High-value silk sarees, bridal attire & VIP festive collections.</p>
+              <p className="mt-3 font-serif text-3xl font-bold text-[#6E0D1F]">
+                {new Intl.NumberFormat('en-IN').format(tier10kPlus)}
+              </p>
+              <p className="mt-1.5 text-xs text-[#5C4B43]">
+                Heritage bridal silks, pure zari ensembles, and high-value VIP patrons.
+              </p>
             </div>
           </div>
         </section>
@@ -931,23 +940,18 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           </p>
         </section>
 
-        {/* WEFOCUS BRANDING & CLIENT SUPPORT TELEMETRY */}
-        <section className="rounded-2xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#21090E] via-[#2D0C13] to-[#1A060A] p-6 text-white shadow-md">
+        {/* WEFOCUS OPERATIONS & CLIENT SUPPORT */}
+        <section className="rounded-2xl border border-[#D4AF37]/40 bg-[#1D090E] p-6 text-white shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[10px] font-black uppercase tracking-wider text-[#F3E5AB]">
-                  Enterprise Platform
-                </span>
-                <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> Telemetry Live
-                </span>
-              </div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">
+                Store Visual Operations & Client Partner
+              </p>
               <h3 className="font-serif text-2xl font-bold text-[#F3E5AB]">
                 wefocus.in
               </h3>
               <p className="text-xs leading-relaxed text-[#F3E5AB]/80 max-w-xl">
-                Advanced AI visual compute, store telemetry & high-conversion retail intelligence engineered for premier retail showrooms.
+                Retail visual compute, showroom operations telemetry & high-conversion customer engagement engineered for Maharaja Thanjavur.
               </p>
             </div>
 
@@ -956,9 +960,10 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
                 href="https://wefocus.in"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-5 py-3 text-xs font-bold uppercase text-black transition hover:bg-[#E5C158] shadow-md hover:shadow-lg"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-5 text-xs font-bold uppercase tracking-wider text-black transition hover:bg-[#E5C158] shadow-sm"
               >
-                Client Support & Operations Telemetry <ExternalLink className="h-3.5 w-3.5" />
+                <span>Client Support & Operations</span>
+                <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>
           </div>

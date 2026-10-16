@@ -317,7 +317,8 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
         await markPassVideoMasterDone(access.pass.code, passImageUrl);
       }
     }
-    await logMaharajaActivity('try-on', `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId });
+    const activityType: 'try-on' | 'video-master' = service === 'try-on' ? 'try-on' : 'video-master';
+    await logMaharajaActivity(activityType, `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId, service });
     if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, true);
 
     return NextResponse.json({

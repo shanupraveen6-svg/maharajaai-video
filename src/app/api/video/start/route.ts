@@ -332,11 +332,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    await incrementMaharajaUsage('videosGenerated');
     if (access.pass) {
       await incrementPassUsage(access.pass.code, 'videosGenerated');
     }
-    await logMaharajaActivity('video', `${eventId} AI Video generation started`, { sessionId });
+    await logMaharajaActivity('video-start', `${eventId} AI Video generation started`, { sessionId });
 
     return NextResponse.json({
       success: true,

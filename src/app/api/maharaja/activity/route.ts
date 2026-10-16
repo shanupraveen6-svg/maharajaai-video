@@ -56,10 +56,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const target = body.target === 'image' ? 'image' : (body.target === 'video' ? 'video' : undefined);
+    const service = body.service === 'try-on' ? 'try-on' : (body.service === 'ai-video' ? 'ai-video' : undefined);
     if (type === 'retry') await incrementMaharajaUsage('retries');
     if (type === 'download') await incrementMaharajaUsage('downloads');
     await logMaharajaActivity(type as MaharajaActivity['type'], String(body.label || type), {
       sessionId: String(body.sessionId || ''),
+      target,
+      service,
       success: true,
     });
     return NextResponse.json({ success: true });

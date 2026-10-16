@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
         await logMaharajaActivity('retry', `Previous AI Video QR superseded by retry (${maskPhone(phone)})`, {
           phone: maskPhone(phone),
           billLast4,
+          target: 'video',
+          service: 'ai-video',
         });
       }
     }

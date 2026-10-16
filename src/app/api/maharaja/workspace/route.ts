@@ -63,9 +63,9 @@ export async function GET(req: NextRequest) {
     const allMerchandiseAmounts = [...scannedPrices, ...passAmounts];
     const totalGmv = allMerchandiseAmounts.reduce((sum, amount) => sum + amount, 0);
 
-    const tier1kPlus = allMerchandiseAmounts.filter((amt) => amt >= 1000).length;
     const tier5kPlus = allMerchandiseAmounts.filter((amt) => amt >= 5000).length;
     const tier7kPlus = allMerchandiseAmounts.filter((amt) => amt >= 7000).length;
+    const tier10kPlus = allMerchandiseAmounts.filter((amt) => amt >= 10000).length;
 
     const passAbove5k = passAmounts.filter((amount) => amount >= 5000);
     const totalAbove5kCount = Math.max(
@@ -76,7 +76,6 @@ export async function GET(req: NextRequest) {
     const allKnownAbove5k = passAbove5k;
     let tier5kTo7k = allKnownAbove5k.filter((amt) => amt >= 5000 && amt < 7000).length;
     let tier7kTo10k = allKnownAbove5k.filter((amt) => amt >= 7000 && amt < 10000).length;
-    let tier10kPlus = allKnownAbove5k.filter((amt) => amt >= 10000).length;
 
     const remainingPasses = totalAbove5kCount - (tier5kTo7k + tier7kTo10k + tier10kPlus);
     if (remainingPasses > 0) {
@@ -91,7 +90,11 @@ export async function GET(req: NextRequest) {
     ).length;
 
     const imagesSuccess = Math.max(workspace.usage.tryOnGenerated || 0, allActivity.filter((item) => item.type === 'try-on').length);
-    const videosSuccess = Math.max(workspace.usage.videosGenerated || 0, allActivity.filter((item) => item.type === 'video').length);
+    const readyPassesCount = recentPasses.filter((pass) => pass.videoDone === true).length;
+    const readyActivityCount = allActivity.filter(
+      (item) => item.type === 'video-ready' || (item.type === 'video' && Boolean(item.metadata?.videoUrl))
+    ).length;
+    const videosSuccess = Math.max(workspace.usage.videosGenerated || 0, readyPassesCount, readyActivityCount);
 
     // Group days into weekly summary
     const weeklyMap = new Map<string, { week: string; scans: number; tryOns: number; gmv: number; conversion: number }>();
@@ -227,9 +230,9 @@ export async function GET(req: NextRequest) {
           videoRetries,
           tryOnsCount: imagesSuccess,
           shoppersAbove5000: tier5kPlus,
-          tier1kPlus,
           tier5kPlus,
           tier7kPlus,
+          tier10kPlus,
           tiers: {
             tier5kTo7k,
             tier7kTo10k,
