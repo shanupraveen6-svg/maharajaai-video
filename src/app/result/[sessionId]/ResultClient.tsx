@@ -13,6 +13,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [thankYouMode, setThankYouMode] = useState<'download' | 'live' | null>(null);
+  const [liveFarewell, setLiveFarewell] = useState(false);
   const [privacyAction, setPrivacyAction] = useState<'download' | 'live' | null>(null);
   const [publicConsent, setPublicConsent] = useState(true);
   const [showRetryPin, setShowRetryPin] = useState(false);
@@ -45,6 +46,39 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
   const eventLabel = getEventOption(eventId).label;
+
+  useEffect(() => {
+    const storageKey = `maharaja:live-farewell:${sessionId}`;
+    const stored = window.sessionStorage.getItem(storageKey);
+    if (!stored) return;
+    try {
+      const data = JSON.parse(stored);
+      setQueueId(typeof data.queueId === 'string' ? data.queueId : null);
+      setQueueNumber(typeof data.queueNumber === 'number' ? data.queueNumber : null);
+      setQueuePosition(typeof data.queuePosition === 'number' ? data.queuePosition : null);
+      setPeopleAhead(typeof data.peopleAhead === 'number' ? data.peopleAhead : null);
+      setLiveQueueStatus('queued');
+      setCountdownSeconds(0);
+      setLiveSuccess(true);
+      setThankYouMode('live');
+      setShowThankYou(true);
+      setLiveFarewell(true);
+    } catch {
+      window.sessionStorage.removeItem(storageKey);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!liveFarewell) return;
+    const marker = { maharajaLiveFarewell: sessionId };
+    window.history.replaceState(marker, '', window.location.href);
+    window.history.pushState(marker, '', window.location.href);
+    const keepFarewellOpen = () => {
+      window.history.pushState(marker, '', window.location.href);
+    };
+    window.addEventListener('popstate', keepFarewellOpen);
+    return () => window.removeEventListener('popstate', keepFarewellOpen);
+  }, [liveFarewell, sessionId]);
 
   const syncPreviewAudioToVideo = (video: HTMLVideoElement) => {
     if (!previewAudioRef.current) return;
@@ -323,6 +357,13 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
         setThankYouMode('live');
         setShowThankYou(true);
         setShowLiveConsent(false);
+        window.sessionStorage.setItem(`maharaja:live-farewell:${sessionId}`, JSON.stringify({
+          queueId: data.queueId || null,
+          queueNumber: typeof data.queueNumber === 'number' ? data.queueNumber : null,
+          queuePosition: typeof data.queuePosition === 'number' ? data.queuePosition : null,
+          peopleAhead: typeof data.peopleAhead === 'number' ? data.peopleAhead : null,
+        }));
+        setLiveFarewell(true);
       } else {
         setLiveError(data.error || 'Failed to enqueue video');
       }
@@ -348,6 +389,52 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
     setShowRetryPin(false);
     router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}` : '/maharaja/workspace');
   };
+
+  if (liveFarewell) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#070609] px-5 py-10 text-center text-[#F8F5EE]">
+        <section className="w-full max-w-lg">
+          <img src="/maharaja-logo.png" alt="Majestic Maharaja" className="mx-auto h-24 w-24 border border-[#D4AF37]/45 object-cover shadow-xl" />
+          <Sparkles className="mx-auto mt-7 h-9 w-9 text-[#D4AF37]" />
+          <h1 className="mt-4 font-serif text-3xl font-black text-[#F3E5AB]">Thank you for your purchase</h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#F3E5AB]/80">
+            Your {eventLabel} AI film has been sent to the Maharaja showroom screen. Your image and video downloads have also started.
+          </p>
+
+          <div className="mt-7 border-y border-[#D4AF37]/30 py-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#D4AF37]">Maharaja TV Status</p>
+            <p className="mt-2 text-base font-bold text-[#F3E5AB]">
+              {liveQueueStatus === 'playing'
+                ? 'Playing on showroom TV'
+                : liveQueueStatus === 'reserved'
+                ? 'Preparing on showroom TV'
+                : liveQueueStatus === 'completed'
+                ? 'Completed and added to the TV loop'
+                : liveQueueStatus === 'playback_failed'
+                ? 'Maharaja staff are checking TV playback'
+                : typeof peopleAhead === 'number' && peopleAhead > 0
+                ? `Queue #${queueNumber || '--'} - ${peopleAhead} people ahead`
+                : `Added to the showroom queue${queueNumber ? ` - #${queueNumber}` : ''}`}
+            </p>
+          </div>
+
+          <div className="mt-7 space-y-3">
+            <a href={instagramUrl} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black">
+              <ExternalLink className="h-5 w-5" /> Follow Maharaja
+            </a>
+            <button type="button" onClick={shareToWhatsApp} className="flex w-full items-center justify-center gap-2 border border-[#D4AF37]/45 bg-black/55 px-5 py-3 text-sm font-black uppercase tracking-wider text-[#F3E5AB]">
+              <MessageCircle className="h-5 w-5" /> Share on WhatsApp
+            </button>
+            <button type="button" onClick={() => void shareAsStatus()} className="flex w-full items-center justify-center gap-2 border border-[#D4AF37]/45 bg-black/55 px-5 py-3 text-sm font-black uppercase tracking-wider text-[#F3E5AB]">
+              <Share2 className="h-5 w-5" /> Keep as WhatsApp Status
+            </button>
+          </div>
+
+          <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thanks for experiencing Maharaja AI.</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#070609] text-[#F8F5EE] p-4 md:p-8 font-sans max-w-lg mx-auto relative">
@@ -469,7 +556,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
       </div>
       )}
 
-      {showThankYou && (
+      {showThankYou && thankYouMode !== 'live' && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="max-w-md w-full rounded-lg border border-[#D4AF37]/55 bg-[#120203] p-6 text-center shadow-2xl space-y-5">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg border border-[#D4AF37]/60 bg-[#6e0d1f]/80 text-[#F3E5AB]">
@@ -480,56 +567,9 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
                 Thank you for your purchase
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
-                {thankYouMode === 'live'
-                  ? `Your ${eventLabel} AI film has been sent to the Maharaja showroom screen.`
-                  : 'Advance Deepavali greetings from Maharaja. Your image and video download has started.'}
+                Your image and video download has started. Thanks for experiencing Maharaja AI.
               </p>
             </div>
-
-            {thankYouMode === 'live' && (
-            <div className="rounded-lg border border-emerald-500/45 bg-emerald-950/40 p-4 text-left text-emerald-200 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300/80">
-                    Maharaja TV Status
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-[#F3E5AB]">
-                    {countdownSeconds && countdownSeconds > 0
-                      ? `Going live in ${countdownSeconds}s`
-                      : liveQueueStatus === 'playing'
-                      ? 'Playing on showroom TV'
-                      : liveQueueStatus === 'reserved'
-                      ? 'Preparing on showroom TV'
-                      : liveQueueStatus === 'completed'
-                      ? 'Completed, now looping on TV'
-                      : liveQueueStatus === 'playback_failed'
-                      ? 'TV playback needs attention'
-                      : typeof peopleAhead === 'number' && peopleAhead > 0
-                      ? `Added to TV queue • Queue #${queueNumber || '--'} • ${peopleAhead} people ahead`
-                      : 'Waiting in TV queue'}
-                  </p>
-                </div>
-                <span className="border border-[#D4AF37]/45 bg-black/40 px-3 py-1 text-xs font-black text-[#D4AF37]">
-                  {liveQueueStatus === 'queued' && queuePosition ? `#${queuePosition}` : liveQueueStatus.toUpperCase()}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="rounded-md border border-emerald-400/25 bg-black/30 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-emerald-300/70">Queue No</p>
-                  <p className="mt-1 text-xl font-mono font-black text-[#F3E5AB]">
-                    {queueNumber ? `#${queueNumber}` : '--'}
-                  </p>
-                </div>
-                <div className="rounded-md border border-emerald-400/25 bg-black/30 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-emerald-300/70">People Ahead</p>
-                  <p className="mt-1 text-xl font-mono font-black text-[#F3E5AB]">
-                    {typeof peopleAhead === 'number' ? peopleAhead : '--'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            )}
 
             <a
               href={instagramUrl}

@@ -365,7 +365,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
 
-      setMessage('Download completed. You can continue here in the Maharaja experience.');
+      setMessage(activeService === 'try-on'
+        ? 'Thanks for experiencing Maharaja AI. Your Try-On image has been downloaded.'
+        : 'Download completed. You can continue here in the Maharaja experience.');
       void fetch('/api/maharaja/activity', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'download', label: `${event.label} AI Try-On downloaded`, sessionId, accessCode }),
@@ -643,7 +645,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3">
-                    <button type="button" id="download-tryon-preview-btn" onClick={downloadImage} className="flex min-h-11 w-full items-center justify-center gap-2 border border-[#D4AF37]/50 bg-black/40 text-xs font-bold uppercase text-[#F3E5AB] hover:bg-black/60 transition"><Download className="h-4 w-4" /> Download Festival Image</button>
                     <div className="grid grid-cols-2 gap-2">
                       <button type="button" disabled={busy} onClick={() => setVideoPromptSet('set-1')} className={`min-h-10 border text-xs font-bold uppercase ${videoPromptSet === 'set-1' ? 'border-[#D4AF37] bg-[#D4AF37] text-black' : 'border-[#D4AF37]/45 text-[#F3E5AB]'}`}>Festive Set</button>
                       <button type="button" disabled={busy} onClick={() => setVideoPromptSet('set-2')} className={`min-h-10 border text-xs font-bold uppercase ${videoPromptSet === 'set-2' ? 'border-[#D4AF37] bg-[#D4AF37] text-black' : 'border-[#D4AF37]/45 text-[#F3E5AB]'}`}>{category === 'men' || category === 'boy' ? 'Cracker Set' : 'Divine Set'}</button>
