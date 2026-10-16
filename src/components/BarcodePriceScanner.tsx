@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, Image as ImageIcon, LoaderCircle, X, XCircle } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
+import { TRY_ON_MIN_PURCHASE } from '@/lib/maharaja/config';
+import { prepareTagImage, readPriceOnDevice, warmUpDeviceOcr } from '@/lib/maharaja/device-ocr';
 
 export type TagScanResult = { eligible: boolean; message?: string } | void;
 
@@ -36,6 +38,8 @@ export default function BarcodePriceScanner({
   useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
+    // Load the on-device OCR engine while the camera starts.
+    warmUpDeviceOcr().catch((error) => console.warn('On-device OCR unavailable:', error));
 
     (async () => {
       try {
@@ -78,13 +82,34 @@ export default function BarcodePriceScanner({
     const seen = lastBarcodeRef.current;
     const barcode = seen && Date.now() - seen.at < 6000 ? seen : null;
 
+    // 1. Read the printed MRP on the phone itself.
+    let printedText = '';
+    let localAmount: number | null = null;
+    try {
+      const local = await readPriceOnDevice(dataUrl);
+      printedText = local.text;
+      localAmount = local.amount;
+    } catch (error) {
+      console.warn('On-device OCR failed, falling back to server:', error);
+    }
+    if (!mountedRef.current) return;
+
+    if (localAmount !== null && localAmount < TRY_ON_MIN_PURCHASE) {
+      navigator.vibrate?.([150, 80, 150]);
+      setStatus('rejected');
+      setMessage(`₹${Math.round(localAmount)} — AI Try-On is for garments ₹${TRY_ON_MIN_PURCHASE} and above.`);
+      return;
+    }
+
+    // 2. Server confirms the amount from the text (and issues the grant).
+    //    A small image is sent only if the phone could not read a price.
     let result: TagScanResult;
     try {
       result = await onDetected({
         barcode: barcode?.text || '',
         format: barcode?.format || 'PRINTED_MRP',
-        printedText: '',
-        image: dataUrl,
+        printedText,
+        image: localAmount === null ? await prepareTagImage(dataUrl, 1024, 0.8) : undefined,
       });
     } catch {
       result = { eligible: false, message: 'Could not verify the tag. Please try again.' };

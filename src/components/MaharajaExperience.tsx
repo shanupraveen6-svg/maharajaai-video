@@ -56,7 +56,11 @@ type Analysis = Record<string, unknown> & {
 
 async function readJson(response: Response) {
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.success) throw new Error(data.error || 'Request failed.');
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || (response.status === 413
+      ? 'Photo is too large. Please capture the tag again.'
+      : `Request failed (${response.status}). Please try again.`));
+  }
   return data;
 }
 

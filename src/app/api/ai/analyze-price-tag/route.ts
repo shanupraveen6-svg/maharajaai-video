@@ -55,30 +55,34 @@ export async function POST(req: NextRequest) {
     if (parsed.amount === null && typeof body.image === 'string' && body.image.length > 50) {
       const ai = getGenAIClient();
       if (ai) {
-        try {
-          const imageBase64 = body.image.split(',')[1] || body.image;
-          const resp = await ai.models.generateContent({
-            model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
-            contents: [
-              { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-              'Analyze this garment price tag or label photo. Extract the printed Maximum Retail Price (MRP) in Indian Rupees (INR) and the barcode numbers if visible. Return JSON strictly in this format: {"amount": number | null, "barcode": string | null}'
-            ],
-            config: { responseMimeType: 'application/json' }
-          });
-          const text = resp.text || '';
-          const match = text.match(/\{[\s\S]*\}/);
-          if (match) {
-            const data = JSON.parse(match[0]);
-            if (typeof data.amount === 'number' && Number.isFinite(data.amount) && data.amount > 0) {
-              parsed.amount = Math.round(data.amount);
-              parsed.source = 'gemini-vision';
+        const imageBase64 = body.image.split(',')[1] || body.image;
+        const models = Array.from(new Set([AI_CONFIG.GEMINI_ANALYSIS_MODEL, 'gemini-3.5-flash-lite']));
+        for (const model of models) {
+          try {
+            const resp = await ai.models.generateContent({
+              model,
+              contents: [
+                { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
+                'Analyze this garment price tag or label photo. Extract the printed Maximum Retail Price (MRP) in Indian Rupees (INR) and the barcode numbers if visible. Return JSON strictly in this format: {"amount": number | null, "barcode": string | null}'
+              ],
+              config: { responseMimeType: 'application/json' }
+            });
+            const text = resp.text || '';
+            const match = text.match(/\{[\s\S]*\}/);
+            if (match) {
+              const data = JSON.parse(match[0]);
+              if (typeof data.amount === 'number' && Number.isFinite(data.amount) && data.amount > 0) {
+                parsed.amount = Math.round(data.amount);
+                parsed.source = 'gemini-vision';
+              }
+              if (typeof data.barcode === 'string' && data.barcode.trim() && !barcode) {
+                barcode = data.barcode.trim();
+              }
             }
-            if (typeof data.barcode === 'string' && data.barcode.trim() && !barcode) {
-              barcode = data.barcode.trim();
-            }
+            break;
+          } catch (visionErr) {
+            console.warn(`Gemini price tag vision warning (${model}):`, visionErr);
           }
-        } catch (visionErr) {
-          console.warn('Gemini price tag vision analysis warning:', visionErr);
         }
       }
     }
