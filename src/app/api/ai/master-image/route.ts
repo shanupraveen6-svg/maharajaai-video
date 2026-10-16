@@ -4,8 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { fal } from '@fal-ai/client';
-import { CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX } from '@/lib/maharaja/config';
+import { CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt } from '@/lib/maharaja/config';
 import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 
@@ -38,13 +37,6 @@ function formatGeminiImageError(error: any) {
   }
 
   return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
-}
-
-function formatFashnError(error: unknown) {
-  const raw = error instanceof Error ? error.message : String(error || 'Unknown FASHN error.');
-  if (/credit|balance|quota|402/i.test(raw)) return 'AI Try-On credits are unavailable. Please ask Maharaja staff for assistance.';
-  if (/unauthorized|api key|401/i.test(raw)) return 'AI Try-On service authentication is not configured correctly.';
-  return raw.length > 240 ? `${raw.slice(0, 240)}...` : raw;
 }
 
 export async function POST(req: NextRequest) {
@@ -132,51 +124,6 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Real Gemini master image generation is disabled because DEMO_MODE=true.' },
         { status: 400 }
       );
-    } else if (service === 'try-on') {
-      const falKey = AI_CONFIG.FAL_KEY;
-      if (!falKey) {
-        if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
-        return NextResponse.json({ success: false, error: 'AI Try-On service is not configured.' }, { status: 503 });
-      }
-      try {
-        fal.config({ credentials: falKey.trim() });
-        const mode = ['performance', 'balanced', 'quality'].includes(process.env.FASHN_TRYON_MODE || '')
-          ? process.env.FASHN_TRYON_MODE as 'performance' | 'balanced' | 'quality'
-          : 'performance';
-        const result = await fal.subscribe('fal-ai/fashn/tryon/v1.6', {
-          input: {
-            model_image: personPhoto,
-            garment_image: garmentPhotos[0],
-            category: 'auto',
-            mode,
-            garment_photo_type: 'auto',
-            moderation_level: 'permissive',
-            num_samples: 1,
-            segmentation_free: true,
-            output_format: 'jpeg',
-          },
-          logs: false,
-        });
-        const outputUrl = (result.data as { images?: Array<{ url?: string }> })?.images?.[0]?.url;
-        if (!outputUrl) throw new Error('FASHN returned no Try-On image.');
-        const outputResponse = await fetch(outputUrl);
-        if (!outputResponse.ok) throw new Error(`Unable to download FASHN result (${outputResponse.status}).`);
-        const watermarked = await applyMaharajaWatermark(Buffer.from(await outputResponse.arrayBuffer()));
-        masterImageUrl = `data:image/jpeg;base64,${watermarked.toString('base64')}`;
-        const bucket = getStorageBucket();
-        if (bucket) {
-          const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/try-on.jpg`;
-          const file = bucket.file(storagePath);
-          await file.save(watermarked, { contentType: 'image/jpeg', public: false });
-          const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-          masterImageUrl = signedUrl;
-        } else if (process.env.NODE_ENV === 'production' && !AI_CONFIG.ALLOW_MOCK_BACKEND) {
-          throw new Error('Firebase Storage is unavailable for the Try-On result.');
-        }
-      } catch (fashnError) {
-        if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
-        return NextResponse.json({ success: false, error: formatFashnError(fashnError) }, { status: 502 });
-      }
     } else {
       const ai = getGenAIClient();
       if (!ai) {
@@ -203,36 +150,39 @@ export async function POST(req: NextRequest) {
         }
 
         const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
-        const templatePrompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
-          ? conceptPrompt.trim()
-          : 'Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.';
 
-        const tryOnRef = (service === 'ai-video' && (body.tryOnImageUrl || access.pass?.tryOnImageUrl)) || null;
-        if (tryOnRef && typeof tryOnRef === 'string') {
-          if (tryOnRef.startsWith('http')) {
-            try {
-              const res = await fetch(tryOnRef);
-              if (res.ok) {
-                const arrayBuffer = await res.arrayBuffer();
-                contents.push({ inlineData: { mimeType: 'image/jpeg', data: Buffer.from(arrayBuffer).toString('base64') } });
+        let prompt = '';
+        if (service === 'try-on') {
+          prompt = buildTryOnPrompt(customerCategory);
+        } else {
+          const tryOnRef = (service === 'ai-video' && (body.tryOnImageUrl || access.pass?.tryOnImageUrl)) || null;
+          if (tryOnRef && typeof tryOnRef === 'string') {
+            if (tryOnRef.startsWith('http')) {
+              try {
+                const res = await fetch(tryOnRef);
+                if (res.ok) {
+                  const arrayBuffer = await res.arrayBuffer();
+                  contents.push({ inlineData: { mimeType: 'image/jpeg', data: Buffer.from(arrayBuffer).toString('base64') } });
+                }
+              } catch (fetchErr) {
+                console.warn('Failed to fetch try-on image reference from URL for Gemini:', fetchErr);
               }
-            } catch (fetchErr) {
-              console.warn('Failed to fetch try-on image reference from URL for Gemini:', fetchErr);
+            } else {
+              const tryOnBase64 = tryOnRef.split(',')[1] || tryOnRef;
+              contents.push({ inlineData: { mimeType: 'image/jpeg', data: tryOnBase64 } });
             }
-          } else {
-            const tryOnBase64 = tryOnRef.split(',')[1] || tryOnRef;
-            contents.push({ inlineData: { mimeType: 'image/jpeg', data: tryOnBase64 } });
           }
-        }
 
-        const referenceHierarchy = `REFERENCE PRIORITY:
+          const referenceHierarchy = `REFERENCE PRIORITY:
 - The first image (original customer photograph) is the authoritative identity reference.
 - The garment photograph(s) are the authoritative garment-design references.
 ${tryOnRef ? '- The virtual try-on reference is supplied only to understand approximate garment placement and drape. If the virtual try-on differs from the original customer\'s face, body proportions, skin tone, hairstyle, age, or the original garment\'s color/design, IGNORE those differences and follow the original references.' : ''}`;
 
-        // Try-On = clothing only (plain prompt built server-side, client prompt ignored).
-        // AI Video master = festival/cinematic scene used as the video source.
-        const prompt = `${MASTER_IMAGE_UNIVERSAL_PREFIX}
+          const templatePrompt = typeof conceptPrompt === 'string' && conceptPrompt.trim()
+            ? conceptPrompt.trim()
+            : 'Create an elegant premium Diwali fashion setting with warm glowing diyas, traditional lamps, subtle rangoli, floral decorations and refined festive golden lighting.';
+
+          prompt = `${MASTER_IMAGE_UNIVERSAL_PREFIX}
 
 ${referenceHierarchy}
 
@@ -240,6 +190,7 @@ SUBJECT: An ${customerCategory === 'men' ? 'adult man' : customerCategory === 'w
 ENVIRONMENT & SETTING: ${templatePrompt}
 
 Strictly preserve the real customer identity from Image 1 and the real garment design from the garment images. No text, logos, or watermarks. Full body head-to-toe with both feet visible.`;
+        }
 
         contents.push(prompt);
 
@@ -259,13 +210,17 @@ Strictly preserve the real customer identity from Image 1 and the real garment d
           const rawBase64 = part.inlineData.data;
 
           const rawBuffer = Buffer.from(rawBase64, 'base64');
-          const finalBuffer = rawBuffer;
+          const finalBuffer = service === 'try-on'
+            ? await applyMaharajaWatermark(rawBuffer)
+            : rawBuffer;
           masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
 
           const bucket = getStorageBucket();
           if (bucket) {
             try {
-              const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
+              const storagePath = service === 'try-on'
+                ? `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/try-on.jpg`
+                : `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
               const file = bucket.file(storagePath);
               await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
               const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });

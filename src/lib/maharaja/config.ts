@@ -59,7 +59,7 @@ export function getEventOption(eventId: EventId) {
 export type CustomerCategory = 'men' | 'women' | 'boy' | 'girl';
 export type VideoPromptSet = 'set-1' | 'set-2';
 
-/** Plain garment-focused Try-On prompt: no festival scene, props or cinematic effects. */
+/** High-accuracy virtual try-on prompt: strict identity lock + authentic garment transfer + clean studio. */
 export function buildTryOnPrompt(category: CustomerCategory) {
   const subject = category === 'men'
     ? 'adult man'
@@ -69,10 +69,37 @@ export function buildTryOnPrompt(category: CustomerCategory) {
         ? 'young boy'
         : 'young girl';
   const safety = category === 'boy' || category === 'girl'
-    ? 'Use child-safe, age-appropriate, natural styling with no adult glamour.'
+    ? 'Use child-safe, age-appropriate, natural modest styling with no adult glamour.'
     : 'Use modest, family-friendly, natural styling.';
 
-  return `Create a photorealistic vertical 9:16 full-body virtual try-on image of the ${subject}. Preserve the exact customer's face, skin tone, hairstyle, body shape, body size and proportions. Dress the customer in the exact uploaded garment. Preserve the exact garment color, fabric, embroidery, patterns, borders, silhouette and fit. ${safety} Use a clean neutral premium retail studio background with natural realistic lighting. Natural standing posture with the full body visible head-to-toe, both feet visible and natural hands. Do not create a festival environment. No diyas, no rangoli, no flowers, no festive props, no cinematic effects, no text, no logos. The only purpose is to clearly show how this exact garment looks on this customer.`;
+  return `Create a hyper-photorealistic vertical 9:16 full-body Indian virtual try-on photograph of the ${subject}.
+
+REFERENCE PRIORITY:
+- Image 1 is the authoritative real customer photograph.
+- Image 2 is the authoritative garment reference photograph.
+
+IDENTITY & FACE LOCK:
+- Preserve the exact real customer identity from Image 1: facial structure, face shape, eyes, nose, mouth, jawline, ears, skin tone, hairstyle, hairline, facial hair, glasses, age appearance, height impression, and natural body proportions.
+- Do NOT beautify into another person, change age, alter body weight, change skin complexion, make slimmer or heavier, or substitute the face.
+
+GARMENT SPECIFICATION LOCK:
+- Dress the customer in the exact uploaded garment from Image 2.
+- Preserve: exact primary and secondary colors (do not shift colors; keep neutrals, gold, and zari authentic), fabric material texture (silk, cotton, georgette, velvet, linen), embroidery patterns, zari borders, neckline shape, sleeve length, drape, and silhouette.
+- Natural fabric physics: render realistic cloth draping, gravity, and fold shadows conforming naturally to the customer's body contours without distortion.
+- Ignore any mannequin, hanger, rack, stand, or background elements in the garment photo. Transfer the textile garment only.
+
+ANATOMY & FRAMING:
+- Single subject standing naturally upright facing the camera.
+- Strict 9:16 vertical full-body framing head-to-toe: entire head visible, both feet fully visible on the floor with natural footwear.
+- Two arms, two natural hands with 5 distinct fingers each, no duplicated or distorted limbs.
+- ${safety}
+
+SETTING & LIGHTING:
+- Clean, premium, neutral indoor fashion retail studio background.
+- Soft, flattering multi-point studio lighting that illuminates both the face and garment fabric details clearly.
+- Do not create a festival environment. No diyas, no rangoli, no flowers, no festive props, no cinematic effects.
+- No text, no logos, no watermarks.
+The only purpose is to clearly and photorealistically show how this exact garment looks on this customer.`;
 }
 
 /** Section 5: Master Image Universal Prefix */
