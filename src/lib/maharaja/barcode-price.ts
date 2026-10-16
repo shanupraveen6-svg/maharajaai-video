@@ -1,9 +1,12 @@
 export type BarcodePriceResult = {
   amount: number | null;
-  source: 'json' | 'url' | 'label' | 'gs1' | 'retail-ean' | 'sku-delimiter' | 'numeric' | null;
+  source: 'json' | 'url' | 'label' | 'gs1' | 'retail-ean' | null;
 };
 
-const PRICE_KEYS = ['sellingprice', 'saleprice', 'mrp', 'price', 'amount', 'rate', 'netmrp', 'maxretailprice'];
+const PRICE_KEYS = ['sellingprice', 'saleprice', 'mrp', 'price', 'amount', 'rate'];
+
+// Accepts "1499", "1,499", "2,499.00", "1299.5"
+const NUMBER = '([0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]+)(?:\\.[0-9]{1,2})?';
 
 function normalizeAmount(value: unknown): number | null {
   const cleaned = typeof value === 'number'
@@ -18,8 +21,7 @@ function normalizeAmount(value: unknown): number | null {
 function findJsonPrice(value: unknown): number | null {
   if (!value || typeof value !== 'object') return null;
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    const normalizedKey = key.toLowerCase().replace(/[^a-z]/g, '');
-    if (PRICE_KEYS.includes(normalizedKey)) {
+    if (PRICE_KEYS.includes(key.toLowerCase().replace(/[^a-z]/g, ''))) {
       const amount = normalizeAmount(entry);
       if (amount !== null) return amount;
     }
@@ -27,79 +29,51 @@ function findJsonPrice(value: unknown): number | null {
   return null;
 }
 
+/**
+ * Reads a price only when it is explicitly marked as a price.
+ * A plain product barcode (e.g. EAN-13 SKU) never yields a price.
+ */
 export function parseBarcodePrice(rawValue: string): BarcodePriceResult {
-  const raw = rawValue.trim().slice(0, 1024);
+  const raw = rawValue.trim().slice(0, 4_000);
   if (!raw) return { amount: null, source: null };
 
-  // 1. JSON Barcode Payload
   try {
     const amount = findJsonPrice(JSON.parse(raw));
     if (amount !== null) return { amount, source: 'json' };
   } catch {
-    // Non-JSON barcode.
+    // Not JSON.
   }
 
-  // 2. URL Query Params (e.g. ?mrp=1499 or ?price=999)
   try {
     const url = new URL(raw);
-    for (const key of ['sellingPrice', 'salePrice', 'mrp', 'price', 'amount', 'rate', 'sp', 'netPrice']) {
+    for (const key of ['sellingPrice', 'salePrice', 'mrp', 'price', 'amount', 'rate']) {
       const amount = normalizeAmount(url.searchParams.get(key));
       if (amount !== null) return { amount, source: 'url' };
     }
   } catch {
-    // Non-URL barcode.
+    // Not a URL.
   }
 
-  // 3. Indian Retail Label Patterns (MRP, Price, Net MRP, Rate, Rs, ₹)
-  // Handles: "MRP: ₹1499", "M.R.P. Rs. 2,499.00", "MRP: 1499/-", "NET MRP: 850", "PRICE ₹1299"
-  const labelled = raw.match(
-    /(?:m\s*\.?\s*r\s*\.?\s*p\s*\.?|max(?:\.|\s+retail)?\s*price|selling\s*price|sale\s*price|net\s*mrp|price|amount|rate|s\.?\s*p\.?)\s*(?:\(?[^)\n\r]*\)?\s*)?[:=\-]?\s*(?:inr|rs\.?|₹)?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i
-  )
-  || raw.match(/(?:inr|rs\.?|₹)\s*[:=\-]?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i)
-  || raw.match(/([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:\/-|\s*inr|\s*rs\.?|\s*₹)/i);
-
+  // "MRP 1499", "M.R.P. Rs. 2,499.00", "MRP (Incl. of all taxes) Rs.1299/-", "Price: ₹899"
+  const labelled = raw.match(new RegExp(`(?:m\\s*\\.?\\s*r\\s*\\.?\\s*p\\b\\.?|\\bprice\\b|\\brate\\b)[^0-9\\n]{0,40}?${NUMBER}`, 'i'))
+    // "Rs. 1499", "₹ 1,299", "INR 999"
+    || raw.match(new RegExp(`(?:\\brs\\b\\.?|\\binr\\b|₹)\\s*[:\\-]?\\s*${NUMBER}`, 'i'));
   if (labelled) {
-    const amount = normalizeAmount(labelled[1]);
-    if (amount !== null && amount >= 50 && amount <= 500000) return { amount, source: 'label' };
+    const amount = normalizeAmount(labelled[0].slice(labelled[0].search(/[0-9]/)));
+    if (amount !== null) return { amount, source: 'label' };
   }
 
-  // 4. GS1 AI (392n / 393n / 390n) Variable Price
-  const gs1 = raw.match(/(?:\(392([0-3])\)|392([0-3]))([0-9]{1,15})/);
+  // GS1 price AI (392n) — only in explicit GS1 element-string form, never inside a plain EAN.
+  const gs1 = raw.match(/\(392([0-3])\)([0-9]{1,15})/) || raw.match(/^01[0-9]{14}392([0-3])([0-9]{1,15})/);
   if (gs1) {
-    const decimals = Number(gs1[1] || gs1[2] || 0);
-    const amount = normalizeAmount(Number(gs1[3]) / (10 ** decimals));
+    const amount = normalizeAmount(Number(gs1[2]) / (10 ** Number(gs1[1])));
     if (amount !== null) return { amount, source: 'gs1' };
   }
 
-  // 5. In-Store Variable-Price EAN-13 (20-29 prefix layout: 2x + item + paise)
+  // In-store variable-price EAN-13: 2x + 5-digit item + 5-digit paise + check digit.
   if (/^2\d{12}$/.test(raw)) {
     const amount = normalizeAmount(Number(raw.slice(7, 12)) / 100);
-    if (amount !== null && amount >= 50) return { amount, source: 'retail-ean' };
-  }
-
-  // 6. Garment SKU Delimited with Price (e.g. "MAH-1499", "MHA_DIW_2499", "SAREE/799", "ITEM-1299-XL")
-  const delimited = raw.match(/[_\-/:]([1-9][0-9]{2,4})(?:[_\-/:A-Za-z]|$)/);
-  if (delimited) {
-    const amount = normalizeAmount(delimited[1]);
-    if (amount !== null && amount >= 100 && amount <= 100000) {
-      return { amount, source: 'sku-delimiter' };
-    }
-  }
-
-  // 7. Suffix Embedded Price in Retail Barcode (e.g. 890...01499 where last 4-5 digits represent MRP)
-  if (/^\d{8,16}$/.test(raw)) {
-    const last5 = Number(raw.slice(-5));
-    if (last5 >= 100 && last5 <= 50000 && last5 % 10 === 0) {
-      return { amount: last5, source: 'retail-ean' };
-    }
-  }
-
-  // 8. Pure Numeric String (e.g. manual input or barcode that is purely the price: "1499")
-  if (/^\d{3,5}(?:\.\d{1,2})?$/.test(raw)) {
-    const amount = normalizeAmount(raw);
-    if (amount !== null && amount >= 100 && amount <= 200000) {
-      return { amount, source: 'numeric' };
-    }
+    if (amount !== null) return { amount, source: 'retail-ean' };
   }
 
   return { amount: null, source: null };

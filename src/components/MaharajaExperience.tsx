@@ -76,10 +76,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [videoPromptSet, setVideoPromptSet] = useState<VideoPromptSet>('set-1');
   const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
-  const [priceAmount, setPriceAmount] = useState<number | null>(null);
-  const [scannerResetKey, setScannerResetKey] = useState(0);
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
-  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState('');
   const [tryOnGrant, setTryOnGrant] = useState('');
   const [tryOnUsed, setTryOnUsed] = useState(false);
@@ -182,57 +179,26 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     && garmentAnalysis.additionalPhotoRequired !== true;
   const event = useMemo(() => getEventOption(eventId), [eventId]);
 
+  // Scan → check ₹500+ → enter (open photo step) or reject (scanner stays open).
   const analyzeBarcode = useCallback(
-    async (payload: { barcode: string; format: string; printedText: string; amount?: number; image?: string }) => {
-      setStage('analyzing');
+    async (payload: { barcode: string; format: string; printedText: string }) => {
       setError('');
-      setDuplicateWarning(null);
       try {
-        setMessage('Checking the garment tag and verifying MRP...');
-        const data = await readJson(
-          await fetch('/api/ai/analyze-price-tag', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              barcode: payload.barcode,
-              format: payload.format,
-              printedText: payload.printedText,
-              amount: payload.amount,
-              image: payload.image,
-              accessCode,
-              deviceId,
-            }),
-          })
-        );
-        setPriceAmount(data.analysis.amount || null);
-        setPurchaseConfirmed(data.analysis.eligible === true);
-        setTryOnGrant(data.grant?.token || '');
-        setMessage(data.analysis.message);
-
-        if (data.analysis.isDuplicate && data.analysis.duplicateType === 'different_device_used') {
-          setDuplicateWarning(data.analysis.message);
-          setError(data.analysis.message);
-          setPurchaseConfirmed(false);
-          return { success: false, eligible: false, isDuplicate: true, message: data.analysis.message };
-        } else if (!data.analysis.eligible) {
-          setError(data.analysis.message);
-          setPurchaseConfirmed(false);
-          return { success: false, eligible: false, isDuplicate: false, message: data.analysis.message };
-        } else {
+        const data = await readJson(await fetch('/api/ai/analyze-price-tag', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, accessCode, deviceId }),
+        }));
+        if (data.analysis.eligible === true && data.grant?.token) {
+          setTryOnGrant(data.grant.token);
+          setMessage(data.analysis.message);
+          setPurchaseConfirmed(true);
           setIsFullCameraOpen(false);
-          return { success: true, eligible: true, isDuplicate: false, message: data.analysis.message };
+          return { eligible: true, message: data.analysis.message as string };
         }
+        return { eligible: false, message: data.analysis.message as string };
       } catch (caught) {
-        setPurchaseConfirmed(false);
-        const errMessage = customerError(
-          caught,
-          'The tag could not be verified. Keep the full tag, barcode and printed MRP inside the frame.'
-        );
-        setError(errMessage);
-        return { success: false, eligible: false, message: errMessage };
-      } finally {
-        setStage('ready');
-        setScannerResetKey((current) => current + 1);
+        return { eligible: false, message: customerError(caught, 'Could not verify the tag. Please try again.') };
       }
     },
     [accessCode, deviceId]
@@ -478,70 +444,25 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
               <ScanLine className="h-7 w-7 text-[#6E0D1F]" />
             </div>
             <h2 className="font-serif text-2xl md:text-3xl font-bold text-[#2A060C]">
-              Scan Garment Price Tag (₹500+)
+              Scan the price tag
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#5C4B43] max-w-md mx-auto">
-              Open the full-size camera and point it at the garment price tag or barcode. Eligible for all dresses and garments above ₹500.
+              Garments ₹500 and above unlock AI Try-On.
             </p>
 
-            <div className="mt-6 flex flex-col gap-3 max-w-md mx-auto">
-              <button
-                type="button"
-                id="open-full-size-camera-btn"
-                onClick={() => setIsFullCameraOpen(true)}
-                className="flex min-h-14 w-full items-center justify-center gap-3 bg-[#6E0D1F] px-6 text-xs font-black uppercase text-[#F3E5AB] shadow-lg hover:bg-[#8B142A] active:scale-[0.99] transition"
-              >
-                <Camera className="h-5 w-5 text-[#D4AF37]" /> Open Full Size Camera Scanner
-              </button>
+            <button
+              type="button"
+              id="open-full-size-camera-btn"
+              onClick={() => { setError(''); setIsFullCameraOpen(true); }}
+              className="mx-auto mt-6 flex min-h-14 w-full max-w-md items-center justify-center gap-3 bg-[#6E0D1F] px-6 text-sm font-black uppercase text-[#F3E5AB] shadow-lg active:scale-[0.99]"
+            >
+              <Camera className="h-5 w-5 text-[#D4AF37]" /> Scan Price Tag
+            </button>
 
-              <label className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 border border-[#6E0D1F] bg-white px-4 text-xs font-bold uppercase text-[#6E0D1F] hover:bg-[#FFF9EC] transition">
-                <ImageIcon className="h-4 w-4" /> Upload Tag Photo from Gallery
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={busy}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    e.currentTarget.value = '';
-                    if (f) {
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        void analyzeBarcode({
-                          barcode: '',
-                          format: 'GALLERY_UPLOAD',
-                          printedText: '',
-                          image: reader.result as string,
-                        });
-                      };
-                      reader.readAsDataURL(f);
-                    }
-                  }}
-                />
-              </label>
-            </div>
-
-            {priceAmount !== null && (
-              <div className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm font-bold text-emerald-900">
-                Verified Price: ₹{priceAmount}
-              </div>
-            )}
-            {duplicateWarning && (
-              <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
-                {duplicateWarning}
-              </div>
-            )}
-            {message && !duplicateWarning && <p className="mt-3 text-xs font-semibold text-[#5C4B43]">{message}</p>}
             {error && <p className="mt-3 text-xs font-bold text-red-700">{error}</p>}
 
-            {/* Full-Size Interactive Scanner Modal */}
             {isFullCameraOpen && (
-              <BarcodePriceScanner
-                active={isFullCameraOpen}
-                resetKey={scannerResetKey}
-                onDetected={analyzeBarcode}
-                onClose={() => setIsFullCameraOpen(false)}
-              />
+              <BarcodePriceScanner onDetected={analyzeBarcode} onClose={() => setIsFullCameraOpen(false)} />
             )}
           </section>
         )}
