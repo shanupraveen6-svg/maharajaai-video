@@ -10,6 +10,21 @@ import {
   verifyMaharajaAccess,
 } from '@/lib/maharaja/server';
 
+export const maxDuration = 45;
+
+async function readLegacyTagPhoto(value: unknown) {
+  if (typeof value !== 'string' || !/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value)) return '';
+  const { createWorker, PSM } = await import('tesseract.js');
+  const worker = await createWorker('eng');
+  try {
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
+    const result = await worker.recognize(value);
+    return result.data.text;
+  } finally {
+    await worker.terminate();
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -22,7 +37,8 @@ export async function POST(req: NextRequest) {
     if (existing?.status === 'processing') return NextResponse.json({ success: false, error: 'A Try-On is already being generated on this device.' }, { status: 409 });
 
     const barcode = typeof body.barcode === 'string' ? body.barcode.trim().slice(0, 512) : '';
-    const printedText = typeof body.printedText === 'string' ? body.printedText.trim().slice(0, 4_000) : '';
+    let printedText = typeof body.printedText === 'string' ? body.printedText.trim().slice(0, 4_000) : '';
+    if (!printedText && body.image) printedText = (await readLegacyTagPhoto(body.image)).slice(0, 4_000);
     if (!barcode && !printedText) return NextResponse.json({ success: false, error: 'The printed MRP was not clear. Hold the complete tag steady in good light and tap Read MRP.' }, { status: 400 });
     const printedPrice = parseBarcodePrice(printedText);
     const parsed = printedPrice.amount !== null ? printedPrice : parseBarcodePrice(barcode);
