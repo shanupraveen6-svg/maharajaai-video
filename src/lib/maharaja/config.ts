@@ -75,15 +75,16 @@ export function buildTryOnPrompt(category: CustomerCategory) {
 
 REFERENCE PRIORITY:
 - Image 1 is the authoritative real customer photograph (identity reference).
-- Image 2 and any subsequent images are the authoritative garment reference photographs showing the exact outfit, color, fabric, and design details from front, border, or angle.
+- Images 2, 3, and 4 (up to 3 garment photos) are the authoritative garment reference photographs showing the exact outfit components (e.g. Top/Shirt, Bottom/Pant, Extra/Layer), colors, fabrics, and design details.
 
 IDENTITY & FACE LOCK:
 - Preserve the exact real customer identity from Image 1: facial structure, face shape, eyes, nose, mouth, jawline, ears, skin tone, hairstyle, hairline, facial hair, glasses, age appearance, height impression, and natural body proportions.
 - Do NOT beautify into another person, change age, alter body weight, change skin complexion, make slimmer or heavier, or substitute the face.
 
 GARMENT SPECIFICATION LOCK:
-- Dress the customer in the exact uploaded garment from the garment reference photograph(s).
-- Preserve: exact primary and secondary colors (do not shift colors; keep neutrals, gold, and zari authentic), fabric material texture (silk, cotton, georgette, velvet, linen), embroidery patterns, zari borders, neckline shape, sleeve length, drape, and silhouette.
+- Dress the customer in the exact uploaded garments from the garment reference photograph(s).
+- Combine the upper garment (Top/Shirt) and lower garment (Bottom/Pant/Skirt) into a realistic, cohesive complete outfit as designated by the garment roles.
+- Preserve: exact primary and secondary colors (do not shift colors; keep neutrals, grey, gold, and zari authentic), fabric material texture (silk, cotton, georgette, velvet, linen), embroidery patterns, zari borders, neckline shape, sleeve length, drape, and silhouette.
 - Natural fabric physics: render realistic cloth draping, gravity, and fold shadows conforming naturally to the customer's body contours without distortion.
 - Ignore any mannequin, hanger, rack, stand, or background elements in the garment photo. Transfer the textile garment only.
 

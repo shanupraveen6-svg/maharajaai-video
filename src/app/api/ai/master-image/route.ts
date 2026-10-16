@@ -83,11 +83,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const maxGarmentPhotos = service === 'try-on' ? 1 : 3;
+    const maxGarmentPhotos = 3;
     if (garmentPhotos.length > maxGarmentPhotos) {
       return NextResponse.json({
         success: false,
-        error: service === 'try-on' ? 'AI Try-On accepts one garment photo.' : 'Upload up to 3 garment photos max.',
+        error: 'Upload up to 3 garment photos max.',
       }, { status: 400 });
     }
 
@@ -175,9 +175,8 @@ ${roleInstructions}
 - The garment photograph(s) are the authoritative garment-design references.
 ${tryOnRef ? '- The virtual try-on reference is supplied only to understand approximate garment placement and drape. If the virtual try-on differs from the original customer\'s face, body proportions, skin tone, hairstyle, age, or the original garment\'s color/design, IGNORE those differences and follow the original references.' : ''}`;
 
-          const fullConcept = typeof conceptPrompt === 'string' && conceptPrompt.trim()
-            ? conceptPrompt.trim()
-            : buildMasterPrompt(customerCategory, eventId, sessionId);
+          // AI Video uses the Diwali festive presentation
+          const fullConcept = buildMasterPrompt(customerCategory, 'diwali', sessionId);
 
           prompt = `${fullConcept}\n\n${garmentFidelityRules}\n\n${referenceHierarchy}`;
         }

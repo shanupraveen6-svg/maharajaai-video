@@ -97,7 +97,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [error, setError] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
-  const maxGarmentPhotos = isTryOn ? 1 : 3;
+  const maxGarmentPhotos = 3;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   // A billing pass owns its two stored images; they are never cleared or regenerated client-side.
@@ -267,9 +267,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     const maxAllowed = maxGarmentPhotos;
     const currentCount = append ? garmentPhotos.length : 0;
     if (currentCount + files.length > maxAllowed) {
-      setError(isTryOn
-        ? 'AI Try-On uses one garment photo.'
-        : `Upload up to 3 garment photos max (${garmentPhotos.length} already uploaded).`);
+      setError(`Upload up to 3 garment photos max (${garmentPhotos.length} already uploaded).`);
       return;
     }
     setStage('analyzing');
@@ -281,9 +279,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
       setGarmentPhotos(combined);
       setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'Uploaded garment', primaryColor: 'Original color' });
-      setMessage(isTryOn
-        ? 'Garment photo ready.'
-        : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
+      setMessage(`${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
     } catch (caught) {
       setGarmentAnalysis(null);
       setError(customerError(caught, 'The garment photo could not be prepared. Please take the photo again.'));
@@ -308,7 +304,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     if (!canGenerateImage || !personPhoto) return;
     setStage('image');
     setError('');
-    setMessage(`Generating the ${event.label} AI fashion image...`);
+    setMessage(activeService === 'try-on' ? 'Generating your Maharaja AI Try-On image...' : 'Generating your Diwali AI festival portrait...');
     try {
       const data = await readJson(await fetch('/api/ai/master-image', {
         method: 'POST',
@@ -326,7 +322,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           garmentAnalysis,
           deviceId,
           tryOnGrant,
-          conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId) : undefined,
+          conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, 'diwali', sessionId) : undefined,
         }),
       }));
       if (activeService === 'try-on') setTryOnImageUrl(data.masterImageUrl);
@@ -596,7 +592,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold uppercase text-[#6E0D1F]">
-                          Garment Photo{maxGarmentPhotos === 1 ? '' : 's'} ({visibleGarmentPhotos.length}/{maxGarmentPhotos} max)
+                          Garment Photos ({visibleGarmentPhotos.length}/{maxGarmentPhotos} max)
                         </span>
                         {garmentPhotos.length > 0 && !imagesLocked && (
                           <button
@@ -613,10 +609,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         <div className="aspect-[3/4] overflow-hidden bg-white p-2 flex flex-col items-center justify-center gap-2 text-slate-400">
                           <Shirt className="h-10 w-10 text-slate-300" />
                           <span className="text-xs font-bold uppercase text-center">
-                            {isTryOn ? '1 garment photo' : '1 to 3 garment photos'}
+                            1 to 3 garment photos
                           </span>
                           <span className="text-[11px] text-center text-slate-400">
-                            Front view, border/detail, or back/pallu
+                            Front view, bottom/pant, or border/detail
                           </span>
                         </div>
                       ) : (
