@@ -26,15 +26,25 @@ export default function SecureTryOnViewer({ imageUrl, alt = 'Maharaja AI Try-On'
 
   // Anti-Screenshot Event Listeners
   useEffect(() => {
-    // 1. Detect Window Blur (triggered immediately when iOS / Android screenshot or swipe starts)
+    // 1. Detect Window Blur (only when truly blurred/switched away, and auto-resume on return)
     const handleBlur = () => {
+      // Avoid false-positive blackouts when focusing inputs or opening native file picker
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'BUTTON')) {
+        return;
+      }
       triggerBlackout('Screen capture or window blur detected.');
+    };
+
+    const handleFocus = () => {
+      resumeFromBlackout();
     };
 
     // 2. Detect Page Visibility Change (triggered when OS screenshot overlay or app switcher activates)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         triggerBlackout('Backgrounded or capture tool opened.');
+      } else if (document.visibilityState === 'visible') {
+        resumeFromBlackout();
       }
     };
 
@@ -72,17 +82,19 @@ export default function SecureTryOnViewer({ imageUrl, alt = 'Maharaja AI Try-On'
     };
 
     window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('beforeprint', handleBeforePrint);
 
     return () => {
       window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('beforeprint', handleBeforePrint);
     };
-  }, [triggerBlackout]);
+  }, [triggerBlackout, resumeFromBlackout]);
 
   return (
     <div
@@ -128,6 +140,7 @@ export default function SecureTryOnViewer({ imageUrl, alt = 'Maharaja AI Try-On'
           src={imageUrl}
           alt={alt}
           draggable={false}
+          referrerPolicy="no-referrer"
           onContextMenu={(e) => e.preventDefault()}
           className="h-full w-full object-cover pointer-events-none select-none"
         />
