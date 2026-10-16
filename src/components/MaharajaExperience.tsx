@@ -335,17 +335,44 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
   async function downloadImage() {
     if (!masterImageUrl) return;
-    const anchor = document.createElement('a');
-    anchor.href = masterImageUrl;
-    anchor.download = `maharaja-${eventId}-${activeService === 'try-on' ? 'ai-try-on' : 'festival-image'}.jpg`;
-    anchor.target = '_blank';
-    anchor.rel = 'noreferrer';
-    anchor.click();
-    setMessage('Your Maharaja AI Try-On has been downloaded. Thank you for visiting!');
-    void fetch('/api/maharaja/activity', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'download', label: `${event.label} AI Try-On downloaded`, sessionId, accessCode }),
-    }).catch(() => undefined);
+    setError('');
+    try {
+      let blob: Blob;
+      if (masterImageUrl.startsWith('data:')) {
+        const response = await fetch(masterImageUrl);
+        if (!response.ok) throw new Error('Unable to prepare the image download.');
+        blob = await response.blob();
+      } else {
+        const response = await fetch('/api/download/asset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: masterImageUrl }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error || 'Unable to download the image.');
+        }
+        blob = await response.blob();
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = `maharaja-${eventId}-${activeService === 'try-on' ? 'ai-try-on' : 'festival-image'}.jpg`;
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+
+      setMessage('Download completed. You can continue here in the Maharaja experience.');
+      void fetch('/api/maharaja/activity', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'download', label: `${event.label} AI Try-On downloaded`, sessionId, accessCode }),
+      }).catch(() => undefined);
+    } catch (caught) {
+      setError(customerError(caught, 'The image could not be downloaded. Please try again.'));
+    }
   }
 
   if (stage === 'loading') {
