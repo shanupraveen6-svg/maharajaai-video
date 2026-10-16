@@ -7,10 +7,6 @@ export const AI_CONFIG = {
   get GEMINI_IMAGE_MODEL() {
     return process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
   },
-  get TV_SETUP_PIN() {
-    // Strictly read from server environment variable. No hardcoded default.
-    return process.env.TV_SETUP_PIN || '';
-  },
   get ALLOW_MOCK_BACKEND() {
     return process.env.ALLOW_MOCK_BACKEND === 'true';
   },

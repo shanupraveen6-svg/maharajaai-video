@@ -39,8 +39,6 @@ FAL_KEY="..."
 OPERATOR_USERNAME="..."
 OPERATOR_PASSWORD="..."
 OPERATOR_AUTH_SECRET="..."
-MAHARAJA_MANAGER_PIN="..."
-TV_SETUP_PIN="..."
 ```
 
 Production fails closed when Firebase, Gemini, Fal.ai, or operator credentials are unavailable. Mock storage is restricted to non-production automated checks and cannot be enabled in a production build.
