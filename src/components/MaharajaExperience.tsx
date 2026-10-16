@@ -31,7 +31,6 @@ import {
   getEventOption,
   type CustomerCategory,
   type EventId,
-  type VideoPromptSet,
 } from '@/lib/maharaja/config';
 
 type AccessResponse = {
@@ -74,7 +73,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [activeService, setActiveService] = useState<'try-on' | 'ai-video'>(service);
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [category, setCategory] = useState<CustomerCategory>('women');
-  const [videoPromptSet, setVideoPromptSet] = useState<VideoPromptSet>('set-1');
   const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
@@ -326,7 +324,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           masterImageUrl: videoMasterUrl,
           conceptPrompt: retrySessionId
             ? buildFailSafeVideoPrompt(category, eventId)
-            : buildEventVideoPrompt(category, eventId, videoPromptSet),
+            : buildEventVideoPrompt(category, eventId),
         }),
       }));
 
@@ -674,10 +672,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <button type="button" disabled={busy} onClick={() => setVideoPromptSet('set-1')} className={`min-h-10 border text-xs font-bold uppercase ${videoPromptSet === 'set-1' ? 'border-[#D4AF37] bg-[#D4AF37] text-black' : 'border-[#D4AF37]/45 text-[#F3E5AB]'}`}>Festive Set</button>
-                      <button type="button" disabled={busy} onClick={() => setVideoPromptSet('set-2')} className={`min-h-10 border text-xs font-bold uppercase ${videoPromptSet === 'set-2' ? 'border-[#D4AF37] bg-[#D4AF37] text-black' : 'border-[#D4AF37]/45 text-[#F3E5AB]'}`}>{category === 'men' || category === 'boy' ? 'Cracker Set' : 'Divine Set'}</button>
-                    </div>
                     <button type="button" id="generate-video-btn" onClick={() => void generateVideo()} disabled={busy} className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black disabled:opacity-50">{stage === 'video' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />} Generate 6-Sec AI Video <ArrowRight className="h-4 w-4" /></button>
                     {stage === 'video' && <div className="space-y-2 border border-[#D4AF37]/35 bg-black/30 p-3 text-left">{['Preparing festive lighting', 'Applying camera motion', 'Rendering your video'].map((step, index) => <div key={step} className={`flex items-center gap-2 text-xs font-semibold ${index <= videoProgressIndex ? 'text-[#F3E5AB]' : 'text-[#F3E5AB]/40'}`}><span className={`h-2 w-2 rounded-full ${index < videoProgressIndex ? 'bg-emerald-400' : index === videoProgressIndex ? 'animate-pulse bg-[#D4AF37]' : 'bg-white/20'}`} />{step}</div>)}</div>}
                   </div>

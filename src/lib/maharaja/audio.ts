@@ -1,10 +1,7 @@
 export const PREVIEW_AUDIO_TRACKS = [
-  '/audio/maharaja/preview/preview-03.mp3',
-  '/audio/maharaja/preview/preview-04.mp3',
-  '/audio/maharaja/preview/preview-05.mp3',
+  '/audio/maharaja/preview/final-6.mp3',
+  '/audio/maharaja/preview/fina-2-6sec.mp3',
   '/audio/maharaja/preview/preview-06.mp3',
-  '/audio/maharaja/preview/preview-07.mp3',
-  '/audio/maharaja/preview/preview-08.mp3',
 ] as const;
 
 export const LIVE_AUDIO_TRACKS = [

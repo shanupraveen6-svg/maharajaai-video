@@ -167,80 +167,49 @@ Preserve exact customer identity, skin tone, body proportions, and exact garment
 }
 
 /** Universal H3 rules shared by all eight category/theme prompts. */
-export const UNIVERSAL_HAILUO_VIDEO_BASE = `Create a 6-second vertical 9:16 cinematic fashion video using ONLY the provided approved master image.
+export const UNIVERSAL_HAILUO_VIDEO_BASE = `Create a 6-second vertical 9:16 cinematic festive fashion video using ONLY the provided approved master image.
 
-LOCKS: Preserve the exact identity, face, skin tone, age, hairstyle, body shape and proportions. Preserve the exact garment colours, neutral colours, fabric, embroidery, zari, motifs, borders, sleeves, neckline, silhouette, length and fit. No face morphing, beautification, body reshaping, outfit redesign or colour shift.
+LOCKS:
+Preserve the exact identity, face, skin tone, facial features, age, hairstyle, and body proportions from the master image.
+Preserve the exact garment colours, fabric texture, embroidery, zari patterns, borders, sleeves, neckline, silhouette, and design. No face morphing, no body reshaping, no outfit redesign.
 
-SUBJECT: Keep the source pose and head angle. Feet stay anchored. Legs, torso, shoulders, arms, hands and fingers stay fixed. Permit only one soft blink and one gradual restrained closed-mouth smile. No walking, stepping, sliding, turning, dancing, waving, talking, lip-sync, body sway or garment motion.
+SUBJECT & NATURAL PRESENCE:
+Keep feet anchored to the floor (no walking, stepping, sliding, or turning).
+The subject has lifelike, poised presence: natural gentle breathing motion, graceful subtle head tilt toward the camera with expressive eyes, and a warm radiant festive smile.
+Subtle fluid textile physics: the delicate edge of the saree pallu / dupatta / garment hem flutters softly as if in a gentle ambient indoor breeze, bringing the textile to life while keeping all patterns and colors 100% exact.
 
-CAMERA: Follow only the stated camera plan. Use stabilized premium-fashion movement with no shake, roll, orbit, sudden acceleration or reframing. Keep the complete head and both feet visible in every frame.
+CINEMATIC CAMERA:
+Dynamic smooth camera motion: a graceful upward pedestal tilt and gentle push with depth parallax, showcasing the subject from head-to-toe while revealing the glowing festive ambiance. No jerky shaking, no rapid spinning, no disorienting roll. Full body head-to-toe visible.
 
-EFFECTS: Animate only the stated background effects. Keep effects behind the subject; nothing crosses or alters the face or garment colour. Keep anatomy and structural objects stable. Children remain age-appropriate with no adult glamour or handheld fire.
+ATMOSPHERIC BACKGROUND & LIGHTING:
+Animate the festive environment matching the image: diya and lamp flames flicker with dynamic warm golden light cast on the floor. Soft festive bokeh lights twinkle and pulse gently in the background. Subtle golden light dust and warm festive embers drift gently through the ambient air behind the subject.
 
-OUTPUT: Start on the source image at frame 1. No black intro, text, logo, watermark, extra limbs or morphing.`;
+OUTPUT:
+Start on the source image at frame 1. Seamless, high-production cinematic fashion commercial aesthetic. No blank intro, no text, no titles, no watermarks, no extra limbs.`;
 
-export function buildEventVideoPrompt(category: CustomerCategory, eventId: EventId, promptSet: VideoPromptSet) {
+export function buildEventVideoPrompt(category: CustomerCategory, eventId: EventId, promptSet: VideoPromptSet = 'set-1') {
+  void promptSet;
   const event = getEventOption(eventId);
   const child = category === 'boy' || category === 'girl';
 
-  const directionPlans: Record<CustomerCategory, Record<VideoPromptSet, string>> = {
-    women: {
-      'set-1': 'CAMERA PLAN: eye-level, ultra-smooth 3% forward push over 6 seconds. EFFECT PLAN: floor diyas flicker and warm background practical lights brighten gently. Keep light on the face and garment constant.',
-      'set-2': 'CAMERA PLAN: slightly low premium angle, ultra-smooth 2% pull-back over 6 seconds. EFFECT PLAN: divine gold rays rise slowly behind the subject, temple lamps flicker, and a restrained gold halo shimmers in the background.',
-    },
-    men: {
-      'set-1': 'CAMERA PLAN: slightly low hero angle, ultra-smooth 3% forward push over 6 seconds. EFFECT PLAN: warm architectural lights build gradually and floor lamps create stable background reflections.',
-      'set-2': 'CAMERA PLAN: eye-level, ultra-smooth 2% right-to-left slider move over 6 seconds with no orbit. EFFECT PLAN: distant cracker illumination blooms silently behind the set with amber reflections; no sparks near the subject.',
-    },
-    girl: {
-      'set-1': 'CAMERA PLAN: child eye-level, ultra-smooth 2% forward push over 6 seconds. EFFECT PLAN: soft floor-diya flicker and small background fairy lights twinkle slowly. Keep the presentation innocent and natural.',
-      'set-2': 'CAMERA PLAN: child eye-level, ultra-smooth 2% pull-back over 6 seconds. EFFECT PLAN: gentle divine rays and temple-lamp glow animate only behind the child with a soft background gold shimmer.',
-    },
-    boy: {
-      'set-1': 'CAMERA PLAN: child eye-level, ultra-smooth 2% left-to-right slider move over 6 seconds with no orbit. EFFECT PLAN: festive lanterns brighten gently and floor-lamp reflections shimmer behind the child.',
-      'set-2': 'CAMERA PLAN: slightly low but age-appropriate angle, ultra-smooth 2% forward push over 6 seconds. EFFECT PLAN: distant cracker-colour illumination pulses softly behind the set; no sparks, smoke or flashes near the child.',
-    },
+  const directionPlans: Record<CustomerCategory, string> = {
+    women: 'CAMERA & MOTION: Elegant ascending vertical pedestal move with subtle parallax. Background temple lamps and floor diyas flicker with warm dynamic amber light reflections on the stone floor. Saree pallu / dupatta edge catches a gentle soft breeze with realistic fabric draping. The woman smiles warmly and gracefully.',
+    men: 'CAMERA & MOTION: Low-to-eye-level dynamic hero pedestal move with subtle parallax. Background architectural lights and traditional kutthu vilakku flames flicker softly with amber radiance. The man stands with confident, dignified posture and a natural, warm smile.',
+    girl: 'CAMERA & MOTION: Child eye-level gentle camera movement with warm festive depth. Background fairy lights and diyas twinkle softly. The young girl has a cheerful, natural festive smile with joyful innocent poise.',
+    boy: 'CAMERA & MOTION: Child eye-level smooth cinematic move. Background festive lanterns and warm lights shimmer with festive celebration. The young boy stands with a bright, proud, and cheerful smile.',
   };
-  const directionPlan = directionPlans[category][promptSet];
-
-  let categoryAtmosphere = '';
-  if (category === 'women') {
-    if (promptSet === 'set-2') {
-      categoryAtmosphere = "The woman remains completely composed and stationary with feet firmly planted on the granite floor. Her serene facial expression softens into a warm, gentle smile with a natural eye blink.";
-    } else {
-      categoryAtmosphere = "The woman stands poised with feet stationary on the terracotta stone floor. Her expression becomes slightly warmer with one subtle blink and a gentle closed-mouth smile. Floor diyas flicker naturally.";
-    }
-  } else if (category === 'men') {
-    if (promptSet === 'set-2') {
-      categoryAtmosphere = "Dignified, grounded posture with feet fixed to the granite floor. A subtle, respectful closed-mouth smile develops gradually. Floor Kutthu Vilakku flames flicker softly.";
-    } else {
-      categoryAtmosphere = "Confident, steady stance with feet locked to the floor. A confident, warm closed-mouth smile develops gradually. Background festival lights pulse gently with warm amber tones.";
-    }
-  } else if (category === 'girl') {
-    if (promptSet === 'set-2') {
-      categoryAtmosphere = "Gentle, poised standing posture with feet fixed on the stone floor. Hands remain still. The girl smiles sweetly and naturally. Traditional floor lamps cast a gentle warm glow.";
-    } else {
-      categoryAtmosphere = "Joyful, innocent standing posture with feet firmly planted. Hands remain relaxed at her sides. A cheerful smile lights up her face with a soft blink. Floor diyas flicker gently.";
-    }
-  } else {
-    // boy
-    if (promptSet === 'set-2') {
-      categoryAtmosphere = "Calm, respectful posture with feet motionless on the stone floor. A polite, happy closed-mouth smile develops gradually. Temple lamps on the floor flicker gently.";
-    } else {
-      categoryAtmosphere = "Upright, confident standing posture with feet locked to the floor. Hands remain stationary at his sides. A cheerful, bright smile spreads across his face.";
-    }
-  }
+  const directionPlan = directionPlans[category];
 
   return `${UNIVERSAL_HAILUO_VIDEO_BASE}
 
-${child ? 'CHILD SAFETY: Hands stay naturally fixed at the sides. No handheld lamp, fire or sparkler.' : 'HANDS: Arms, hands and fingers stay in their exact source positions.'}
+${child ? 'CHILD SAFETY: Hands stay naturally at the sides. No handheld lamp, fire or sparkler.' : 'HANDS: Natural relaxed hand posture, no hand mutations or gesture changes.'}
 ${directionPlan}
 
-ATMOSPHERE & SETTING:
+EVENT ATMOSPHERE:
 Event: ${event.label} - ${event.scene}.
-${categoryAtmosphere}
+The background lighting, ambient reflections, and particle effects strictly reflect the festive atmosphere of ${event.label}.
 
-FINAL PRIORITY: Preserve identity and the exact outfit above all effects. If an effect threatens the face, anatomy, garment colour or framing, omit that effect and keep the subject stable.`;
+FINAL PRIORITY: Preserve identity and the exact outfit above all effects. If an effect threatens the face, anatomy, or garment colour, prioritize the subject stability.`;
 }
 
 /** Section 10: Manager Retry Fail-Safe Video Prompt */

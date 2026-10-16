@@ -64,9 +64,9 @@ const MAX_VIDEO_PROMPT_CHARS = 2800;
 
 function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   const visibility = decision.lowerBodyVisibility === 'clear'
-    ? 'lower body visible but still locked'
-    : 'lower body risky';
-  return `Motion safety: ${visibility}. Lock pose, feet, legs, torso, shoulders, head angle, arms, hands, fingers, garment edges and floor contact. No walking, stepping, turning, dancing, body spin, foot slide, hand movement, head movement, breathing motion, hip or waist motion, garment motion or recomposed person. Permit only one soft blink and one gradual natural closed-mouth smile.`;
+    ? 'lower body visible and anchored'
+    : 'lower body anchored';
+  return `Motion safety: ${visibility}. Feet stay firmly anchored to the floor with no walking, stepping, sliding, or body turns. Subject maintains poised posture with gentle natural breathing, subtle graceful head poise, and a warm genuine festive smile. Garment fabric shows soft, delicate micro-movement in the ambient air while preserving the exact weave, zari borders, colors, and motifs. Background festive lights, diya flames, and golden ambient reflections animate fluidly behind the subject.`;
 }
 
 function truncateAtWordBoundary(text: string, maxLength: number): string {
@@ -82,8 +82,8 @@ function truncateAtWordBoundary(text: string, maxLength: number): string {
 function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
   const isFailSafe = basePrompt.startsWith('FAIL-SAFE REGENERATION MODE.');
   const executionRule = isFailSafe
-    ? 'Keep the camera completely stationary. Start only the permitted background flame and ambient-light animation at frame 1. Do not invent camera or subject motion.'
-    : 'Start the stated camera path and background animation at frame 1. Follow only that camera path and those effects. Do not invent subject motion.';
+    ? 'Keep camera stationary. Start subtle background flame and ambient-light animation at frame 1.'
+    : 'Execute the cinematic camera motion and background festive atmosphere starting at frame 1.';
   const canonicalPrompt = `${basePrompt} ${executionRule} No blank screen or delayed intro. Do not add text, words, titles or logos.`;
 
   const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision)}`;
