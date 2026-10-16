@@ -37,7 +37,6 @@ export default function MaharajaBillingPage() {
   const [billAmount, setBillAmount] = useState('5000');
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [activeEvents, setActiveEvents] = useState<EventId[]>(EVENT_OPTIONS.map((event) => event.id));
-  const [eligible, setEligible] = useState(false);
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [pass, setPass] = useState<GeneratedPass | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -68,7 +67,7 @@ export default function MaharajaBillingPage() {
           billLast4,
           billAmount: Number(billAmount) || AI_VIDEO_MIN_PURCHASE,
           eventId,
-          eligible,
+          eligible: true,
           whatsappOptIn,
         }),
       }));
@@ -91,7 +90,6 @@ export default function MaharajaBillingPage() {
     setPhone('');
     setBillLast4('');
     setBillAmount('5000');
-    setEligible(false);
     setWhatsappOptIn(false);
     setPass(null);
     setQrDataUrl('');
@@ -115,7 +113,7 @@ export default function MaharajaBillingPage() {
             <h1 className="mt-2 font-serif text-3xl font-bold text-[#2A060C]">Generate an AI Video QR</h1>
             <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Enter the details from the customer bill. The QR is tied to Maharaja and expires after 1 hour.</p>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="text-xs font-bold uppercase text-[#5C4B43]">Phone number
                 <div className="relative mt-2">
                   <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E0D1F]" />
@@ -141,22 +139,30 @@ export default function MaharajaBillingPage() {
                   className="mt-2 min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] px-3 text-base font-bold uppercase outline-none focus:border-[#6E0D1F]"
                 />
               </label>
-              <label className="text-xs font-bold uppercase text-[#5C4B43]">Bill amount (₹)
-                <div className="relative mt-2">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-[#6E0D1F]">₹</span>
-                  <input
-                    id="billing-amount-input"
-                    type="number"
-                    min={5000}
-                    step={100}
-                    value={billAmount}
-                    onChange={(event) => setBillAmount(event.target.value)}
-                    placeholder="5000"
-                    className="min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] pl-8 pr-3 text-base font-bold outline-none focus:border-[#6E0D1F]"
-                  />
-                </div>
-              </label>
             </div>
+
+            <fieldset className="mt-4">
+              <legend className="flex items-center gap-1 text-xs font-bold uppercase text-[#5C4B43]">
+                <BadgeIndianRupee className="h-4 w-4 text-[#6E0D1F]" /> Bill value
+              </legend>
+              <div className="mt-2 grid grid-cols-3 border border-[#D8C49B] bg-[#FFFDF8] p-1">
+                {[
+                  { value: '5000', label: '₹5,000+' },
+                  { value: '7000', label: '₹7,000+' },
+                  { value: '10000', label: '₹10,000+' },
+                ].map((tier) => (
+                  <button
+                    key={tier.value}
+                    type="button"
+                    aria-pressed={billAmount === tier.value}
+                    onClick={() => setBillAmount(tier.value)}
+                    className={`min-h-12 px-2 text-xs font-bold uppercase transition ${billAmount === tier.value ? 'bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'text-[#5C4B43] hover:bg-[#F5EAD3]'}`}
+                  >
+                    {tier.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
 
             <label className="mt-4 block text-xs font-bold uppercase text-[#5C4B43]">Event
               <select
@@ -172,24 +178,6 @@ export default function MaharajaBillingPage() {
               </select>
             </label>
 
-            <label htmlFor="bill-verified-checkbox" className="mt-5 flex cursor-pointer items-start gap-3 border-2 border-[#E2D4B8] bg-[#FFF8E8] p-4 transition hover:border-[#6E0D1F]">
-              <input
-                id="bill-verified-checkbox"
-                type="checkbox"
-                checked={eligible}
-                onChange={(event) => setEligible(event.target.checked)}
-                className="mt-1 h-6 w-6 cursor-pointer accent-[#6E0D1F]"
-              />
-              <span className="cursor-pointer">
-                <span className="flex items-center gap-1 text-sm font-bold text-[#6E0D1F]">
-                  <BadgeIndianRupee className="h-4 w-4" /> Bill verified at Rs {AI_VIDEO_MIN_PURCHASE} or above
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-[#5C4B43]">
-                  The biller confirms eligibility before creating the customer QR.
-                </span>
-              </span>
-            </label>
-
             <label htmlFor="whatsapp-opt-in" className="mt-3 flex cursor-pointer items-start gap-3 border border-emerald-200 bg-emerald-50 p-4">
               <input id="whatsapp-opt-in" type="checkbox" checked={whatsappOptIn} onChange={(event) => setWhatsappOptIn(event.target.checked)} className="mt-1 h-5 w-5 accent-emerald-700" />
               <span><span className="block text-sm font-bold text-emerald-900">Customer uses WhatsApp and agrees to receive the AI Video link</span><span className="mt-1 block text-xs leading-5 text-emerald-800">If WhatsApp delivery is unavailable, the customer can still scan and reopen this QR.</span></span>
@@ -200,7 +188,7 @@ export default function MaharajaBillingPage() {
             <button
               type="submit"
               id="generate-customer-qr-btn"
-              disabled={loading || !eligible}
+              disabled={loading}
               className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 bg-[#6E0D1F] px-5 py-4 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-45"
             >
               {loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <QrCode className="h-5 w-5" />}
