@@ -40,33 +40,13 @@ export async function POST(req: NextRequest) {
     if (!AI_CONFIG.PRIMARY_API_KEY) return NextResponse.json({ success: false, error: 'Image verification is not configured.' }, { status: 503 });
 
     const ai = new GoogleGenAI({ apiKey: AI_CONFIG.PRIMARY_API_KEY });
-    let responseText = '';
-    let lastError: unknown = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const resp = await ai.models.generateContent({
-          model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
-          contents: [
-            { inlineData: image },
-            `Inspect this retail clothing price tag carefully.
+    const resp = await ai.models.generateContent({
+      model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
+      contents: [
+        { inlineData: image },
+        `Read this Maharaja clothing price tag.
 
-VALIDATION REQUIREMENTS:
-1. A physical retail merchandise tag must be clearly visible.
-2. A valid Indian Rupee price must be clearly readable.
-3. Do not guess blurred, cut-off, hidden, folded, reflected, or partially visible digits.
-4. Ignore:
-   - barcode numbers
-   - SKU/style numbers
-   - size numbers
-   - dates
-   - phone numbers
-   - QR contents
-   - unrelated numeric strings
-5. If both MRP and a final/discounted selling price are clearly visible, return the final selling price.
-6. If the final selling price cannot be determined with high confidence, validTag=false and amount=null.
-7. The tag must show Maharaja / Majestic Maharaja branding or another explicitly server-approved store identifier.
-8. If store identity cannot be confidently verified, validTag=false.
-9. Glare, severe perspective distortion, finger obstruction, blur, cropping, or folded price digits must cause rejection instead of guessing.
+Return the clearly visible selling price in Indian Rupees. Ignore barcode, SKU, size, dates and phone numbers. Accept an ordinary phone-camera photo as long as a retail tag and price can be read. If both MRP and discounted selling price are visible, use the selling price. Do not guess a price when the digits cannot be read.
 
 Return ONLY valid JSON matching this exact structure:
 {
@@ -80,31 +60,9 @@ Return ONLY valid JSON matching this exact structure:
 
 Never include markdown.
 Never include commentary before or after JSON.`
-          ],
-        });
-        if (resp.text) {
-          responseText = resp.text;
-          break;
-        }
-      } catch (err: unknown) {
-        lastError = err;
-        await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
-      }
-    }
-    if (!responseText && lastError) {
-      console.warn('Gemini price tag analysis retry exhausted:', lastError);
-      const isQuotaError = String(lastError).includes('429') || String(lastError).includes('RESOURCE_EXHAUSTED') || String(lastError).includes('quota');
-      if (AI_CONFIG.ALLOW_MOCK_BACKEND && isQuotaError) {
-        responseText = JSON.stringify({
-          validTag: true,
-          amount: 799,
-          currency: 'INR',
-          brandOrStore: 'Majestic Maharaja',
-          confidence: 0.98,
-          message: 'Price verified: Rs 799 (local test mock fallback - Gemini quota exhausted).'
-        });
-      }
-    }
+      ],
+    });
+    const responseText = resp.text || '';
     const result = parseJson(responseText);
     const amount = Number(result?.amount || 0);
     const brand = String(result?.brandOrStore || '');

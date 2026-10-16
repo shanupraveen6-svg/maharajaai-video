@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { validateFestivalMasterImage } from '@/lib/ai/gemini';
 import { buildTryOnPrompt, CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX } from '@/lib/maharaja/config';
 import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
@@ -206,52 +205,7 @@ Strictly preserve the real customer identity from Image 1 and the real garment d
         const candidate = genResponse.candidates?.[0];
         const part = candidate?.content?.parts?.find((p: any) => p.inlineData);
         if (part?.inlineData?.data) {
-          let rawBase64 = part.inlineData.data;
-
-          // Section 6: Master Image Quality Gate validation before accepting festival master
-          if (service === 'ai-video') {
-            const qa = await validateFestivalMasterImage(
-              `data:image/jpeg;base64,${rawBase64}`,
-              personPhoto,
-              garmentPhotos?.[0]
-            );
-
-            if (!qa.videoSafe || !qa.valid) {
-              console.warn(`Master image initial QA check failed (${qa.reason}). Retrying generation once with corrective instruction...`);
-              const retryPrompt = `${prompt}\n\nCORRECTIVE RE-GENERATION INSTRUCTION: The previous image was rejected because: "${qa.reason}". You MUST correct this: ensure authentic customer face, accurate garment design, two natural hands, both feet fully visible on the floor with comfortable margin below, and zero text or watermarks.`;
-              const retryResponse = await ai.models.generateContent({
-                model: imageModel,
-                contents: [...contents.slice(0, -1), retryPrompt],
-                config: {
-                  responseModalities: ['TEXT', 'IMAGE'],
-                  imageConfig: { aspectRatio: '9:16' },
-                },
-              });
-              const retryCandidate = retryResponse.candidates?.[0];
-              const retryPart = retryCandidate?.content?.parts?.find((p: any) => p.inlineData);
-              if (retryPart?.inlineData?.data) {
-                const retryQA = await validateFestivalMasterImage(
-                  `data:image/jpeg;base64,${retryPart.inlineData.data}`,
-                  personPhoto,
-                  garmentPhotos?.[0]
-                );
-                if (!retryQA.videoSafe || !retryQA.valid) {
-                  if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
-                  return NextResponse.json(
-                    { success: false, error: `Festival master image validation failed: ${retryQA.reason || qa.reason}. Please try again with a clearer photograph.` },
-                    { status: 422 }
-                  );
-                }
-                rawBase64 = retryPart.inlineData.data;
-              } else {
-                if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
-                return NextResponse.json(
-                  { success: false, error: `Festival master image validation failed: ${qa.reason}. Please try again.` },
-                  { status: 422 }
-                );
-              }
-            }
-          }
+          const rawBase64 = part.inlineData.data;
 
           const rawBuffer = Buffer.from(rawBase64, 'base64');
           const finalBuffer = service === 'try-on'

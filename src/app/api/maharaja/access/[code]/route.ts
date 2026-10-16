@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getEventOption } from '@/lib/maharaja/config';
 import {
-  getMaharajaWorkspace,
   getTryOnDeviceStatus,
   incrementMaharajaUsage,
   incrementPassUsage,
@@ -24,11 +23,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
     const workspace = access.workspace;
     const deviceId = req.nextUrl.searchParams.get('deviceId');
     const deviceStatus = validTryOnDeviceId(deviceId) ? await getTryOnDeviceStatus(deviceId) : null;
-    if (service === 'try-on') {
-      void incrementMaharajaUsage('tryOnScans').catch((err) => console.warn('Background tryOnScans increment error:', err));
-    } else if (access.pass) {
-      void incrementPassUsage(access.pass.code, 'scans').catch((err) => console.warn('Background pass scans increment error:', err));
-    }
+    after(async () => {
+      try {
+        if (service === 'try-on') await incrementMaharajaUsage('tryOnScans');
+        else if (access.pass) await incrementPassUsage(access.pass.code, 'scans');
+      } catch (err) {
+        console.warn('Maharaja access counter update failed:', err);
+      }
+    });
 
     return NextResponse.json({
       success: true,

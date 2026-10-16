@@ -15,7 +15,7 @@ function getGenAIClient() {
   }
 }
 
-// 1. Analyze Garment Photos using Gemini + Zod Validation (Section 3: Strict Isolation)
+// Lightweight source check. This should reject only unusable uploads.
 export async function analyzeGarmentImages(imageDataUrls: string[]) {
   const ai = getGenAIClient();
 
@@ -55,49 +55,11 @@ export async function analyzeGarmentImages(imageDataUrls: string[]) {
       };
     });
 
-    const prompt = `Analyze ONLY the clothing textile for Maharaja Ready-Made Store in Thanjavur.
+    const prompt = `Quickly check whether these uploads contain a visible clothing garment that can be used as an AI fashion reference.
 
-CRITICAL ISOLATION RULE:
-The garment photo may contain:
-- plastic mannequin
-- hanger
-- rack
-- shelf
-- mirror
-- store wall
-- price tag
-- human hand holding the garment
-- showroom fixture
-- background person
+Accept normal phone photos, garments on a person, mannequin, hanger, rack or shop counter. Do not demand a perfect background, exact pose, visible label, fabric identification or professional lighting. Reject only when no garment is visible, the image is extremely blurred/dark, or the garment is almost completely cropped out.
 
-Ignore all of these unless necessary for understanding garment scale.
-
-NEVER transfer:
-- mannequin body
-- mannequin skin
-- mannequin hands
-- mannequin neck
-- hanger shape
-- rack shape
-- showroom objects
-into the garment description.
-
-Determine only what is clearly visible.
-Do not invent:
-- embroidery
-- zari
-- fabric type
-- pattern
-- matching bottom
-- sleeves
-- borders
-- accessories
-when they cannot be confidently seen.
-
-Category must be aligned with customer selection: "women" | "men" | "girl" | "boy"
-
-If the garment photograph is insufficient to identify essential design details:
-set valid=false and additionalPhotoRequired=true rather than hallucinating missing information.
+Describe only clearly visible colors and garment details. Never copy mannequin, hanger, rack or showroom objects into the garment description.
 
 Return STRICT JSON matching this schema:
 {
@@ -155,12 +117,13 @@ Return STRICT JSON matching this schema:
   }
 }
 
-// 2. Validate Person Photo using Gemini + Zod Validation (Section 2: Stricter for AI Video)
+// Lightweight source check. Normal customer phone photos should pass.
 export async function analyzePersonImage(
   imageDataUrl: string,
   expectedGroup?: 'adult' | 'child',
   service: 'try-on' | 'ai-video' = 'ai-video'
 ) {
+  void service;
   const ai = getGenAIClient();
 
   if (AI_CONFIG.IS_DEMO_MODE || !ai) {
@@ -183,43 +146,11 @@ export async function analyzePersonImage(
 
   try {
     const base64Data = imageDataUrl.split(',')[1] || imageDataUrl;
-    const prompt = `Inspect this customer photograph.
+    const prompt = `Quickly check whether this is a usable customer photo for AI clothing visualization.
 
-REQUIREMENTS:
-Exactly one real person must be present.
+Accept ordinary phone photos and natural poses. The face and enough of the person should be visible to identify the customer and place clothing. Do not require perfect lighting, a studio background, visible hands, visible feet, a strict pose or full-body framing. Reject only if there is no person, the face is fully hidden, or blur/darkness/cropping makes the person unusable.
 
-Face:
-- clearly visible
-- unobstructed
-- in focus
-- sufficient resolution
-- no heavy motion blur
-
-Body:
-${service === 'ai-video'
-  ? `- MANDATORY FOR AI VIDEO: full body visible from head to feet
-- both legs visible
-- both feet visible
-- feet not cropped (toes and heels clearly inside the frame)
-- no extreme perspective distortion
-- no crossed legs that hide foot placement
-- no severe seated/crouching pose
-- no extreme body rotation
-- subject reasonably upright`
-  : `- body sufficiently visible for virtual clothing fitting`}
-
-Hands:
-- preferably visible
-- not severely cropped
-- not covering the face
-
-Lighting:
-- enough to identify natural skin tone
-- enough to identify face shape and hairline
-- no extreme backlighting
-
-Reject photographs where the model would need to invent major anatomy.
-${service === 'ai-video' ? 'For AI Video, a three-quarter crop without feet is NOT sufficient. If feet are cropped, set valid=false and additionalPhotoRequired=true.' : ''}
+The selected customer group is ${expectedGroup || 'adult or child'}. Use it as a helpful consistency check, but do not reject an otherwise usable photo for uncertain age alone.
 
 Return STRICT JSON:
 {
@@ -247,27 +178,6 @@ Return STRICT JSON:
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       const validated = PersonAnalysisSchema.parse(parsed);
-
-      if (expectedGroup && validated.subjectGroup !== expectedGroup) {
-        return PersonAnalysisSchema.parse({
-          ...validated,
-          valid: false,
-          additionalPhotoRequired: true,
-          requestedPhotos: ['Upload a photo matching the selected Adult or Child category.'],
-          operatorMessage: `The selected category expects an ${expectedGroup} photo. Change the category or upload the correct person photo.`,
-        });
-      }
-
-      // Mandatory AI-Video gate: head-to-toe with both feet visible
-      if (service === 'ai-video' && (!validated.fullBodyVisible || !validated.bothFeetVisible)) {
-        return PersonAnalysisSchema.parse({
-          ...validated,
-          valid: false,
-          additionalPhotoRequired: true,
-          requestedPhotos: ['Take a full-body photograph showing the customer head-to-toe with both feet clearly visible.'],
-          operatorMessage: 'AI Video requires the customer to be visible head-to-toe with both feet resting on the floor. Please retake the photo.',
-        });
-      }
 
       return validated;
     }

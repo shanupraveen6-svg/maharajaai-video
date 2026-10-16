@@ -85,83 +85,10 @@ const DEFAULT_MOTION_SAFETY: MotionSafetyDecision = {
   lowerBodyVisibility: 'hidden',
   garmentMotionRisk: 'high',
   recommendedMotion: 'still_cinematic',
-  reason: 'Default safe mode when lower-body motion is not verified.'
+  reason: 'Maharaja videos always use the approved stationary cinematic motion mode.'
 };
 
 const MAX_PROVIDER_PROMPT_CHARS = 2800;
-
-function parseMotionSafetyDecision(text: string): MotionSafetyDecision | null {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    const lowerBodyVisibility = ['clear', 'partial', 'hidden'].includes(parsed.lowerBodyVisibility)
-      ? parsed.lowerBodyVisibility
-      : DEFAULT_MOTION_SAFETY.lowerBodyVisibility;
-    const garmentMotionRisk = ['low', 'medium', 'high'].includes(parsed.garmentMotionRisk)
-      ? parsed.garmentMotionRisk
-      : DEFAULT_MOTION_SAFETY.garmentMotionRisk;
-    return {
-      lowerBodyVisibility,
-      garmentMotionRisk,
-      recommendedMotion: 'still_cinematic',
-      reason: typeof parsed.reason === 'string' && parsed.reason.trim()
-        ? parsed.reason.trim().slice(0, 180)
-        : DEFAULT_MOTION_SAFETY.reason
-    };
-  } catch (parseErr) {
-    console.warn('Motion safety JSON parse warning:', parseErr);
-    return null;
-  }
-}
-
-async function analyzeMasterMotionSafety(masterBase64: string | null, masterMimeType: string): Promise<MotionSafetyDecision> {
-  const ai = getGenAIClient();
-  if (!ai || !masterBase64) {
-    return {
-      ...DEFAULT_MOTION_SAFETY,
-      reason: 'Motion analysis unavailable, so safe still-camera mode is enforced.'
-    };
-  }
-
-  try {
-    const response = await ai.models.generateContent({
-      model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
-      contents: [
-        {
-          inlineData: {
-            mimeType: masterMimeType || 'image/jpeg',
-            data: masterBase64
-          }
-        },
-        `Analyze this generated fashion master image only for safe video motion planning.
-Decide whether the lower body is risky for AI motion. For this showroom workflow, always choose still_cinematic because walking can distort feet, ankles, slippers, sandals, pants, sarees, lehengas and long garments.
-
-Rules:
-- If a lehenga, saree, gown, long anarkali, long kurta, dupatta, or any loose/covered garment hides the legs, use still_cinematic.
-- If legs are only partly visible, cropped, shadowed, or covered by fabric, use still_cinematic.
-- Never recommend walking, stepping, dancing, spinning, pose change, side turn, or large body movement.
-
-Return ONLY valid JSON:
-{
-  "lowerBodyVisibility": "clear" | "partial" | "hidden",
-  "garmentMotionRisk": "low" | "medium" | "high",
-  "recommendedMotion": "still_cinematic",
-  "reason": "short reason"
-}`
-      ]
-    });
-
-    return parseMotionSafetyDecision(response.text || '') || DEFAULT_MOTION_SAFETY;
-  } catch (err) {
-    console.warn('Motion safety analysis warning:', err);
-    return {
-      ...DEFAULT_MOTION_SAFETY,
-      reason: 'Motion analysis failed, so safe still-camera mode is enforced.'
-    };
-  }
-}
 
 function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   const visibility = decision.lowerBodyVisibility === 'clear'
@@ -300,7 +227,7 @@ export async function POST(req: NextRequest) {
     }
 
 
-    const motionSafety = await analyzeMasterMotionSafety(masterBase64, masterMimeType);
+    const motionSafety = DEFAULT_MOTION_SAFETY;
     const prompt = buildFinalPrompt(buildVideoPrompt(garmentAnalysis, conceptPrompt), motionSafety);
 
     const falKey = AI_CONFIG.FAL_KEY;

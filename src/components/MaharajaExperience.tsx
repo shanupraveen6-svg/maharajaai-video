@@ -12,7 +12,6 @@ import {
   Film,
   Image as ImageIcon,
   LoaderCircle,
-  ScanLine,
   Shirt,
   Sparkles,
   User,
@@ -157,6 +156,16 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     return () => window.clearInterval(timer);
   }, [stage]);
 
+  useEffect(() => {
+    if (stage !== 'image' && stage !== 'video') return;
+    const protectGeneration = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', protectGeneration);
+    return () => window.removeEventListener('beforeunload', protectGeneration);
+  }, [stage]);
+
   const canGenerateImage = purchaseConfirmed
     && (activeService === 'ai-video' || !!access?.access.phoneMasked || !!tryOnGrant)
     && !!personPhoto
@@ -199,8 +208,17 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     try {
       const { dataUrl } = await compressImage(file, 1400, 0.84);
       setPersonPhoto(dataUrl);
-      setPersonAnalysis({ valid: true, additionalPhotoRequired: false, operatorMessage: 'Person photo added.' });
-      setMessage('Person photo added.');
+      const data = await readJson(await fetch('/api/ai/analyze-person', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl, accessCode, service: activeService, category }),
+      }));
+      setPersonAnalysis(data.analysis);
+      if (data.analysis.valid !== true) {
+        setError(data.analysis.operatorMessage || 'Use a clearer photo where the customer is visible.');
+      } else {
+        setMessage('Person photo is ready.');
+      }
     } catch (caught) {
       setPersonAnalysis(null);
       setError(customerError(caught, 'The person photo could not be verified. Use one clear, well-lit full-body photo.'));
@@ -225,8 +243,17 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const newImages = compressed.map((item) => item.dataUrl);
       const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
       setGarmentPhotos(combined);
-      setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'Uploaded garment', primaryColor: 'Original color' });
-      setMessage(isTryOn ? 'Garment photo added.' : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} added (up to 3).`);
+      const data = await readJson(await fetch('/api/ai/analyze-garment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images: newImages, accessCode, service: activeService }),
+      }));
+      setGarmentAnalysis(data.analysis);
+      if (data.analysis.valid !== true) {
+        setError(data.analysis.operatorMessage || 'Use a clearer photo where the garment is visible.');
+      } else {
+        setMessage(isTryOn ? 'Garment photo is ready.' : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
+      }
     } catch (caught) {
       setGarmentAnalysis(null);
       setError(customerError(caught, isTryOn ? 'The garment photo could not be verified.' : 'The garment photos could not be verified. Upload up to 3 clear garment photos.'));
@@ -366,6 +393,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
   return (
     <main className="min-h-screen bg-[#F5F2EA] pb-12 text-[#211A17]">
+      {(stage === 'image' || stage === 'video') && (
+        <div className="fixed inset-x-0 top-0 z-50 flex min-h-14 items-center justify-center gap-3 bg-[#21090E] px-4 py-3 text-center text-sm font-bold text-[#F3E5AB] shadow-lg" role="status" aria-live="polite">
+          <LoaderCircle className="h-5 w-5 shrink-0 animate-spin text-[#D4AF37]" />
+          <span>{stage === 'image' ? 'Generating your AI image.' : 'Generating your 6-second AI video.'} Please wait and do not reload or close this page.</span>
+        </div>
+      )}
       <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <div><p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by TryFocus</p><h1 className="mt-1 font-serif text-2xl font-bold">Maharaja AI Experience</h1></div>

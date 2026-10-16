@@ -20,8 +20,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (images.length > 1) {
-      return NextResponse.json({ success: false, error: 'Upload one garment photo only.' }, { status: 400 });
+    const maxImages = service === 'try-on' ? 1 : 3;
+    if (images.length > maxImages) {
+      return NextResponse.json({ success: false, error: service === 'try-on' ? 'Upload one garment photo only.' : 'Upload up to three garment photos.' }, { status: 400 });
     }
 
     const analysis = await analyzeGarmentImages(images);
