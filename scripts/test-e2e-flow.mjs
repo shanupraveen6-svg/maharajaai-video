@@ -44,9 +44,9 @@ async function run() {
   const deviceId = `e2edevice${Date.now()}`;
   const tagResult = await json(await fetch(`${BASE_URL}/api/ai/analyze-price-tag`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accessCode: tryOnCode, deviceId, barcode: '8907423016361', printedText: 'Maximum Retail Price: Rs. 799.00', format: 'EAN_13' }),
+    body: JSON.stringify({ accessCode: tryOnCode, deviceId, barcode: '', printedText: 'Maximum Retail Price: Rs. 799.00', format: 'PRINTED_MRP' }),
   }));
-  assert(tagResult.response.ok && tagResult.data.analysis?.eligible && tagResult.data.grant?.token, 'Printed Rs 799 MRP verifies a normal retail barcode and grants one Try-On');
+  assert(tagResult.response.ok && tagResult.data.analysis?.eligible && tagResult.data.grant?.token, 'Printed Rs 799 MRP grants one Try-On without requiring a readable barcode');
 
   const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
   const sessionId = `e2e_tryon_${Date.now()}`;

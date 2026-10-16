@@ -22,9 +22,8 @@ export async function POST(req: NextRequest) {
     if (existing?.status === 'processing') return NextResponse.json({ success: false, error: 'A Try-On is already being generated on this device.' }, { status: 409 });
 
     const barcode = typeof body.barcode === 'string' ? body.barcode.trim().slice(0, 512) : '';
-    if (!barcode) return NextResponse.json({ success: false, error: 'No barcode was detected. Keep the complete barcode inside the frame.' }, { status: 400 });
-
     const printedText = typeof body.printedText === 'string' ? body.printedText.trim().slice(0, 4_000) : '';
+    if (!barcode && !printedText) return NextResponse.json({ success: false, error: 'The printed MRP was not clear. Hold the complete tag steady in good light and tap Read MRP.' }, { status: 400 });
     const printedPrice = parseBarcodePrice(printedText);
     const parsed = printedPrice.amount !== null ? printedPrice : parseBarcodePrice(barcode);
     if (parsed.amount === null) {
@@ -46,7 +45,7 @@ export async function POST(req: NextRequest) {
     const grant = eligible ? await issueTryOnGrant(body.deviceId, amount) : null;
     if (grant && !grant.allowed) return NextResponse.json({ success: false, error: grant.error }, { status: 409 });
     if (grant?.allowed) {
-      const barcodeHash = crypto.createHash('sha256').update(barcode).digest('hex').slice(0, 16);
+      const barcodeHash = crypto.createHash('sha256').update(barcode || printedText).digest('hex').slice(0, 16);
       await logMaharajaActivity('price-scan', `Eligible garment barcode scanned at Rs ${amount}`, {
         amount,
         barcodeHash,

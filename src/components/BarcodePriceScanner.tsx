@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, LoaderCircle, RotateCcw, ScanLine, Zap } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
 import type { Worker } from 'tesseract.js';
@@ -50,6 +50,30 @@ export default function BarcodePriceScanner({
   const [readingPrice, setReadingPrice] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
 
+  const readCurrentFrame = useCallback(async (barcode = '', format = 'PRINTED_MRP', scannerControls?: IScannerControls) => {
+    if (detectedRef.current || !videoRef.current) return;
+    detectedRef.current = true;
+    const frame = captureFrame(videoRef.current);
+    scannerControls?.stop();
+    controlsRef.current?.stop();
+    navigator.vibrate?.(120);
+    setStarting(false);
+    setReadingPrice(true);
+    let printedText = '';
+    try {
+      if (frame) {
+        const worker = await getOcrWorker();
+        const recognized = await worker.recognize(frame);
+        printedText = recognized.data.text;
+      }
+    } catch (ocrError) {
+      console.warn('Printed price OCR failed:', ocrError);
+    } finally {
+      setReadingPrice(false);
+      onDetected(barcode, format, printedText);
+    }
+  }, [onDetected]);
+
   useEffect(() => {
     if (!active || !videoRef.current) return;
     let cancelled = false;
@@ -69,27 +93,7 @@ export default function BarcodePriceScanner({
           (result, error, scanControls) => {
             if (cancelled || detectedRef.current) return;
             if (result) {
-              detectedRef.current = true;
-              const frame = videoRef.current ? captureFrame(videoRef.current) : '';
-              scanControls.stop();
-              navigator.vibrate?.(120);
-              setStarting(false);
-              setReadingPrice(true);
-              void (async () => {
-                let printedText = '';
-                try {
-                  if (frame) {
-                    const worker = await getOcrWorker();
-                    const recognized = await worker.recognize(frame);
-                    printedText = recognized.data.text;
-                  }
-                } catch (ocrError) {
-                  console.warn('Printed price OCR failed:', ocrError);
-                } finally {
-                  setReadingPrice(false);
-                  onDetected(result.getText(), result.getBarcodeFormat().toString(), printedText);
-                }
-              })();
+              void readCurrentFrame(result.getText(), result.getBarcodeFormat().toString(), scanControls);
               return;
             }
             if (error && error.name !== 'NotFoundException') {
@@ -117,7 +121,7 @@ export default function BarcodePriceScanner({
       controlsRef.current?.stop();
       controlsRef.current = null;
     };
-  }, [active, onDetected, resetKey]);
+  }, [active, readCurrentFrame, resetKey]);
 
   async function toggleTorch() {
     if (!controlsRef.current?.switchTorch) return;
@@ -161,6 +165,11 @@ export default function BarcodePriceScanner({
       {!starting && !cameraError && controlsRef.current?.switchTorch && (
         <button type="button" onClick={() => void toggleTorch()} className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center bg-black/65 text-[#F6D36A]" aria-label="Toggle camera torch" title="Camera light">
           <Zap className={`h-5 w-5 ${torchOn ? 'fill-current' : ''}`} />
+        </button>
+      )}
+      {!starting && !readingPrice && !cameraError && (
+        <button type="button" onClick={() => void readCurrentFrame()} className="absolute bottom-10 left-1/2 inline-flex -translate-x-1/2 items-center gap-2 bg-[#F6D36A] px-5 py-3 text-xs font-black uppercase text-[#3A070D] shadow-lg" aria-label="Read printed MRP">
+          <Camera className="h-4 w-4" /> Read MRP
         </button>
       )}
     </div>
