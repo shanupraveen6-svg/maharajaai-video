@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Sparkles,
   Store,
-  Tv,
   Users,
   WandSparkles,
 } from 'lucide-react';
@@ -81,13 +80,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <Link
-            href="/tv-login?next=/tv"
-            className="inline-flex items-center gap-2 border border-[#6e0d1f]/20 bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f] shadow-sm hover:bg-[#fffaf0]"
-          >
-            <Tv className="h-4 w-4 text-[#8A6A20]" />
-            TV Login
-          </Link>
         </header>
       </section>
 
