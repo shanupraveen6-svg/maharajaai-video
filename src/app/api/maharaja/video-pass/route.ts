@@ -74,6 +74,8 @@ export async function POST(req: NextRequest) {
       videoGenerating: false,
       videoDone: false,
       retryUsed: false,
+      whatsappOptIn: body.whatsappOptIn === true,
+      whatsappDeliveryStatus: body.whatsappOptIn === true ? 'pending' : undefined,
       usage: { scans: 0, imagesGenerated: 0, videosGenerated: 0, goLive: 0 },
     };
 
@@ -83,7 +85,8 @@ export async function POST(req: NextRequest) {
     await logMaharajaActivity('video-pass', `${pass.eventId} AI Video QR created`, {
       phone: pass.phoneMasked,
       billLast4: pass.billLast4,
-      amount: billAmount,
+        amount: billAmount,
+        whatsappOptIn: pass.whatsappOptIn === true,
     });
 
     return NextResponse.json({

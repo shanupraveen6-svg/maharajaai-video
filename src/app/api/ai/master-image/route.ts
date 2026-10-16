@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { buildTryOnPrompt, CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX } from '@/lib/maharaja/config';
+import { fal } from '@fal-ai/client';
+import { CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX } from '@/lib/maharaja/config';
 import { finishTryOnGrant, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 
@@ -37,6 +38,13 @@ function formatGeminiImageError(error: any) {
   }
 
   return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
+}
+
+function formatFashnError(error: unknown) {
+  const raw = error instanceof Error ? error.message : String(error || 'Unknown FASHN error.');
+  if (/credit|balance|quota|402/i.test(raw)) return 'AI Try-On credits are unavailable. Please ask Maharaja staff for assistance.';
+  if (/unauthorized|api key|401/i.test(raw)) return 'AI Try-On service authentication is not configured correctly.';
+  return raw.length > 240 ? `${raw.slice(0, 240)}...` : raw;
 }
 
 export async function POST(req: NextRequest) {
@@ -124,6 +132,51 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Real Gemini master image generation is disabled because DEMO_MODE=true.' },
         { status: 400 }
       );
+    } else if (service === 'try-on') {
+      const falKey = AI_CONFIG.FAL_KEY;
+      if (!falKey) {
+        if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
+        return NextResponse.json({ success: false, error: 'AI Try-On service is not configured.' }, { status: 503 });
+      }
+      try {
+        fal.config({ credentials: falKey.trim() });
+        const mode = ['performance', 'balanced', 'quality'].includes(process.env.FASHN_TRYON_MODE || '')
+          ? process.env.FASHN_TRYON_MODE as 'performance' | 'balanced' | 'quality'
+          : 'performance';
+        const result = await fal.subscribe('fal-ai/fashn/tryon/v1.6', {
+          input: {
+            model_image: personPhoto,
+            garment_image: garmentPhotos[0],
+            category: 'auto',
+            mode,
+            garment_photo_type: 'auto',
+            moderation_level: 'permissive',
+            num_samples: 1,
+            segmentation_free: true,
+            output_format: 'jpeg',
+          },
+          logs: false,
+        });
+        const outputUrl = (result.data as { images?: Array<{ url?: string }> })?.images?.[0]?.url;
+        if (!outputUrl) throw new Error('FASHN returned no Try-On image.');
+        const outputResponse = await fetch(outputUrl);
+        if (!outputResponse.ok) throw new Error(`Unable to download FASHN result (${outputResponse.status}).`);
+        const watermarked = await applyMaharajaWatermark(Buffer.from(await outputResponse.arrayBuffer()));
+        masterImageUrl = `data:image/jpeg;base64,${watermarked.toString('base64')}`;
+        const bucket = getStorageBucket();
+        if (bucket) {
+          const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/try-on.jpg`;
+          const file = bucket.file(storagePath);
+          await file.save(watermarked, { contentType: 'image/jpeg', public: false });
+          const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+          masterImageUrl = signedUrl;
+        } else if (process.env.NODE_ENV === 'production' && !AI_CONFIG.ALLOW_MOCK_BACKEND) {
+          throw new Error('Firebase Storage is unavailable for the Try-On result.');
+        }
+      } catch (fashnError) {
+        if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
+        return NextResponse.json({ success: false, error: formatFashnError(fashnError) }, { status: 502 });
+      }
     } else {
       const ai = getGenAIClient();
       if (!ai) {
@@ -179,9 +232,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
 
         // Try-On = clothing only (plain prompt built server-side, client prompt ignored).
         // AI Video master = festival/cinematic scene used as the video source.
-        const prompt = service === 'try-on'
-          ? buildTryOnPrompt(customerCategory)
-          : `${MASTER_IMAGE_UNIVERSAL_PREFIX}
+        const prompt = `${MASTER_IMAGE_UNIVERSAL_PREFIX}
 
 ${referenceHierarchy}
 
@@ -208,15 +259,13 @@ Strictly preserve the real customer identity from Image 1 and the real garment d
           const rawBase64 = part.inlineData.data;
 
           const rawBuffer = Buffer.from(rawBase64, 'base64');
-          const finalBuffer = service === 'try-on'
-            ? await applyMaharajaWatermark(rawBuffer)
-            : rawBuffer;
+          const finalBuffer = rawBuffer;
           masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
 
           const bucket = getStorageBucket();
           if (bucket) {
             try {
-              const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/${service === 'try-on' ? 'try-on.jpg' : 'master.jpg'}`;
+              const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
               const file = bucket.file(storagePath);
               await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
               const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });

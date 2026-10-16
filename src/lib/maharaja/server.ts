@@ -72,6 +72,9 @@ export type MaharajaVideoPass = {
   activeVideoJobId?: string;
   /** True once provider (Fal/Veo) has accepted the job and is actively rendering. */
   providerAccepted?: boolean;
+  whatsappOptIn?: boolean;
+  whatsappSentAt?: string;
+  whatsappDeliveryStatus?: 'pending' | 'sending' | 'sent' | 'failed';
   usage: { scans: number; imagesGenerated: number; videosGenerated: number; goLive: number };
 };
 
@@ -448,6 +451,33 @@ export async function markPassTryOnImageDone(code: string, tryOnImageUrl: string
 
 export async function markPassVideoMasterDone(code: string, videoMasterUrl: string) {
   await mergePassUpdate(code, { videoMasterDone: true, videoMasterUrl });
+}
+
+export async function markPassWhatsAppDelivery(code: string, status: 'sent' | 'failed') {
+  await mergePassUpdate(code, {
+    whatsappDeliveryStatus: status,
+    ...(status === 'sent' ? { whatsappSentAt: new Date().toISOString() } : {}),
+  });
+}
+
+export async function claimPassWhatsAppDelivery(code: string) {
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    return db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) return false;
+      const pass = snapshot.data() as MaharajaVideoPass;
+      if (pass.whatsappDeliveryStatus === 'sending' || pass.whatsappDeliveryStatus === 'sent') return false;
+      transaction.set(ref, { whatsappDeliveryStatus: 'sending' }, { merge: true });
+      return true;
+    });
+  }
+  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+  if (!pass || pass.whatsappDeliveryStatus === 'sending' || pass.whatsappDeliveryStatus === 'sent') return false;
+  getMockStore().customerPasses.set(key, { ...pass, whatsappDeliveryStatus: 'sending' });
+  return true;
 }
 
 /** Called once the video provider has accepted the job: marks as rendering and binds the job ID. */

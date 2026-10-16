@@ -208,6 +208,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     try {
       const { dataUrl } = await compressImage(file, 1400, 0.84);
       setPersonPhoto(dataUrl);
+      if (activeService === 'try-on') {
+        setPersonAnalysis({ valid: true, additionalPhotoRequired: false, operatorMessage: 'Person photo added.' });
+        setMessage('Person photo is ready.');
+        return;
+      }
       const data = await readJson(await fetch('/api/ai/analyze-person', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -243,6 +248,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const newImages = compressed.map((item) => item.dataUrl);
       const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
       setGarmentPhotos(combined);
+      if (activeService === 'try-on') {
+        setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'Uploaded garment', primaryColor: 'Original color' });
+        setMessage('Garment photo is ready.');
+        return;
+      }
       const data = await readJson(await fetch('/api/ai/analyze-garment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

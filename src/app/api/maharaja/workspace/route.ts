@@ -9,6 +9,7 @@ import {
   updateMaharajaSettings,
 } from '@/lib/maharaja/server';
 import { EVENT_IDS, FESTIVE_TIER_MIN, LUXURY_TIER_MIN, isEventId } from '@/lib/maharaja/config';
+import { getWhatsAppStatus } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +85,7 @@ export async function GET(req: NextRequest) {
         ...getWorkspaceLinks(req.nextUrl.origin, workspace),
         recentPasses: recentPasses.map(publicPass),
         activity: allActivity.slice(0, 30),
+        integrations: { whatsapp: getWhatsAppStatus() },
         analytics: {
           totalGmv,
           totalGarments: scannedPrices.length,

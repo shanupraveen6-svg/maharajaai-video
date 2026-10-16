@@ -39,6 +39,7 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
   const [retryUsed, setRetryUsed] = useState(false);
   const [videoDone, setVideoDone] = useState(false);
+  const whatsappSendRequested = useRef(false);
   const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId), [sessionId]);
   const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId), [sessionId]);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -150,6 +151,14 @@ export default function ResultClient({ sessionId, accessCode = '' }: { sessionId
             setVideoId(data.videoId || `video_${sessionId}`);
             setVideoStatus('ready');
             setIsLoadingVideo(false);
+            if (accessCode && !whatsappSendRequested.current) {
+              whatsappSendRequested.current = true;
+              void fetch('/api/whatsapp/send-result', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId, accessCode }),
+              }).catch(() => undefined);
+            }
             return;
           }
         }

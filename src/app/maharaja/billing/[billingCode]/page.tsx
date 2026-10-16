@@ -38,6 +38,7 @@ export default function MaharajaBillingPage() {
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [activeEvents, setActiveEvents] = useState<EventId[]>(EVENT_OPTIONS.map((event) => event.id));
   const [eligible, setEligible] = useState(false);
+  const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [pass, setPass] = useState<GeneratedPass | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [error, setError] = useState('');
@@ -68,6 +69,7 @@ export default function MaharajaBillingPage() {
           billAmount: Number(billAmount) || AI_VIDEO_MIN_PURCHASE,
           eventId,
           eligible,
+          whatsappOptIn,
         }),
       }));
       const qr = await QRCode.toDataURL(data.pass.link, {
@@ -90,6 +92,7 @@ export default function MaharajaBillingPage() {
     setBillLast4('');
     setBillAmount('5000');
     setEligible(false);
+    setWhatsappOptIn(false);
     setPass(null);
     setQrDataUrl('');
     setError('');
@@ -185,6 +188,11 @@ export default function MaharajaBillingPage() {
                   The biller confirms eligibility before creating the customer QR.
                 </span>
               </span>
+            </label>
+
+            <label htmlFor="whatsapp-opt-in" className="mt-3 flex cursor-pointer items-start gap-3 border border-emerald-200 bg-emerald-50 p-4">
+              <input id="whatsapp-opt-in" type="checkbox" checked={whatsappOptIn} onChange={(event) => setWhatsappOptIn(event.target.checked)} className="mt-1 h-5 w-5 accent-emerald-700" />
+              <span><span className="block text-sm font-bold text-emerald-900">Customer uses WhatsApp and agrees to receive the AI Video link</span><span className="mt-1 block text-xs leading-5 text-emerald-800">If WhatsApp delivery is unavailable, the customer can still scan and reopen this QR.</span></span>
             </label>
 
             {error && <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</div>}

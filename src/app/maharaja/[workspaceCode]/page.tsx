@@ -24,6 +24,7 @@ import {
   IndianRupee,
   Users,
   TrendingUp,
+  MessageCircle,
 } from 'lucide-react';
 import { createTryOnPosterDataUrl, downloadDataUrl } from '@/lib/maharaja/qr-poster';
 import { EVENT_OPTIONS, getEventOption, type EventId } from '@/lib/maharaja/config';
@@ -57,6 +58,7 @@ type Workspace = {
   };
   recentPasses: RecentPass[];
   activity: Array<{ id: string; type: string; label: string; createdAt: string }>;
+  integrations: { whatsapp: { configured: boolean; missing: string[]; templateName: string } };
   analytics: {
     totalGmv: number;
     totalGarments: number;
@@ -668,6 +670,15 @@ export default function MaharajaAdminPage() {
               )}
             </button>
           </div>
+        </section>
+
+        <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3"><MessageCircle className="mt-1 h-6 w-6 text-emerald-700" /><div><p className="text-xs font-bold uppercase text-[#8A6A20]">Optional delivery channel</p><h2 className="mt-1 font-serif text-2xl font-bold text-[#2A060C]">WhatsApp AI Video delivery</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-[#5C4B43]">Customers who consent at billing receive the secure result-page link when their video is ready. QR remains the fallback when WhatsApp is declined, unavailable or fails.</p></div></div>
+            <span className={`shrink-0 border px-3 py-2 text-xs font-bold uppercase ${workspace.integrations.whatsapp.configured ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>{workspace.integrations.whatsapp.configured ? 'Connected' : 'Setup required'}</span>
+          </div>
+          {!workspace.integrations.whatsapp.configured && <div className="mt-4 border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-bold">Add these secrets in Vercel, not in this admin page:</p><p className="mt-2 font-mono text-xs leading-6">{workspace.integrations.whatsapp.missing.join(' · ')}</p><p className="mt-2 text-xs leading-5">Also set WHATSAPP_TEMPLATE_LANGUAGE if the approved template is not English.</p></div>}
+          {workspace.integrations.whatsapp.configured && <p className="mt-4 text-sm font-semibold text-emerald-800">Approved template: {workspace.integrations.whatsapp.templateName}</p>}
         </section>
 
         <section className="mt-6 border border-[#DDD2BD] bg-white p-5 md:p-6">
