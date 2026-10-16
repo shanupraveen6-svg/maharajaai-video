@@ -37,7 +37,7 @@ export type MaharajaWorkspace = {
 
 export type MaharajaActivity = {
   id: string;
-  type: 'campaign' | 'video-pass' | 'price-scan' | 'try-on' | 'video' | 'go-live' | 'retry' | 'download' | 'share' | 'qr-download';
+  type: 'campaign' | 'video-pass' | 'price-scan' | 'duplicate-tag-scan' | 'try-on' | 'video' | 'go-live' | 'retry' | 'download' | 'share' | 'qr-download';
   label: string;
   createdAt: string;
   metadata?: Record<string, string | number | boolean | null>;
@@ -113,13 +113,121 @@ export async function getTryOnDeviceStatus(deviceId: string) {
   return (getMockStore().tryOnGrants.get(`${MAHARAJA_CLIENT_ID}:${hash}`) as MaharajaTryOnGrant | undefined) || null;
 }
 
+export type TagDuplicateAnalysis = {
+  isDuplicate: boolean;
+  duplicateType: 'none' | 'same_device' | 'different_device_used' | 'different_device_active';
+  scannedCount: number;
+  firstScannedAt?: string;
+  previousAmount?: number;
+};
+
+export async function analyzeTagDuplicate(deviceId: string, barcodeOrText: string, amount: number): Promise<TagDuplicateAnalysis> {
+  const cleanId = (barcodeOrText || '').trim().toLowerCase().slice(0, 128);
+  const tagHash = crypto.createHash('sha256').update(`${MAHARAJA_CLIENT_ID}:tag:${cleanId}`).digest('hex');
+  const dHash = deviceHash(deviceId);
+  const now = new Date().toISOString();
+  const db = getDb();
+
+  let tagRecord: any = null;
+  if (db) {
+    const doc = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('scannedTags').doc(tagHash).get();
+    if (doc.exists) tagRecord = doc.data();
+  } else {
+    tagRecord = getMockStore().scannedTags?.get(tagHash) || null;
+  }
+
+  if (!tagRecord) {
+    const newRecord = {
+      tagHash,
+      barcode: cleanId,
+      amount,
+      firstDeviceIdHash: dHash,
+      lastDeviceIdHash: dHash,
+      firstScannedAt: now,
+      lastScannedAt: now,
+      scanCount: 1,
+      usedForTryOn: false,
+    };
+    if (db) {
+      await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('scannedTags').doc(tagHash).set(newRecord);
+    } else {
+      if (!getMockStore().scannedTags) getMockStore().scannedTags = new Map();
+      getMockStore().scannedTags.set(tagHash, newRecord);
+    }
+    return { isDuplicate: false, duplicateType: 'none', scannedCount: 1 };
+  }
+
+  const isSameDevice = tagRecord.firstDeviceIdHash === dHash || tagRecord.lastDeviceIdHash === dHash;
+  const isUsed = tagRecord.usedForTryOn === true;
+  const updatedScanCount = (tagRecord.scanCount || 1) + 1;
+
+  const update = {
+    lastDeviceIdHash: dHash,
+    lastScannedAt: now,
+    scanCount: updatedScanCount,
+    amount: amount || tagRecord.amount,
+  };
+
+  if (db) {
+    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('scannedTags').doc(tagHash).set(update, { merge: true });
+  } else {
+    getMockStore().scannedTags.set(tagHash, { ...tagRecord, ...update });
+  }
+
+  if (isSameDevice) {
+    return {
+      isDuplicate: true,
+      duplicateType: 'same_device',
+      scannedCount: updatedScanCount,
+      firstScannedAt: tagRecord.firstScannedAt,
+      previousAmount: tagRecord.amount,
+    };
+  }
+
+  if (isUsed) {
+    return {
+      isDuplicate: true,
+      duplicateType: 'different_device_used',
+      scannedCount: updatedScanCount,
+      firstScannedAt: tagRecord.firstScannedAt,
+      previousAmount: tagRecord.amount,
+    };
+  }
+
+  return {
+    isDuplicate: true,
+    duplicateType: 'different_device_active',
+    scannedCount: updatedScanCount,
+    firstScannedAt: tagRecord.firstScannedAt,
+    previousAmount: tagRecord.amount,
+  };
+}
+
+export async function markTagUsedForTryOn(barcodeOrText: string, sessionId?: string) {
+  const cleanId = (barcodeOrText || '').trim().toLowerCase().slice(0, 128);
+  const tagHash = crypto.createHash('sha256').update(`${MAHARAJA_CLIENT_ID}:tag:${cleanId}`).digest('hex');
+  const now = new Date().toISOString();
+  const db = getDb();
+  if (db) {
+    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('scannedTags').doc(tagHash).set({
+      usedForTryOn: true,
+      usedAt: now,
+      sessionId: sessionId || null,
+    }, { merge: true });
+  } else {
+    const record = getMockStore().scannedTags?.get(tagHash) as any;
+    if (record) {
+      getMockStore().scannedTags.set(tagHash, { ...record, usedForTryOn: true, usedAt: now, sessionId });
+    }
+  }
+}
+
 export async function issueTryOnGrant(deviceId: string, amount: number) {
   const existing = await getTryOnDeviceStatus(deviceId);
   if (existing?.status === 'used') {
     return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
   }
   if (existing?.status === 'processing') return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
-  if (existing?.status === 'active' && existing.expiresAtMs >= Date.now()) return { allowed: false as const, error: 'Price already verified on this device. Continue with the photo uploads.' };
   
   const token = crypto.randomBytes(24).toString('base64url');
   const now = Date.now();

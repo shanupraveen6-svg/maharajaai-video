@@ -84,6 +84,7 @@ type MockStore = {
   clientWorkspaces: Map<string, unknown>;
   activityLogs: Map<string, unknown>;
   tryOnGrants: Map<string, unknown>;
+  scannedTags: Map<string, unknown>;
 };
 
 const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
@@ -103,7 +104,8 @@ const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
   customerPasses: new Map(),
   clientWorkspaces: new Map(),
   activityLogs: new Map(),
-  tryOnGrants: new Map()
+  tryOnGrants: new Map(),
+  scannedTags: new Map()
 };
 
 (global as any).__MAHARAJA_MOCK_STORE__ = globalMockStore;
@@ -139,6 +141,7 @@ export function getMockStore() {
   if (!globalMockStore.clientWorkspaces) globalMockStore.clientWorkspaces = new Map();
   if (!globalMockStore.customerPasses) globalMockStore.customerPasses = new Map();
   if (!globalMockStore.tryOnGrants) globalMockStore.tryOnGrants = new Map();
+  if (!globalMockStore.scannedTags) globalMockStore.scannedTags = new Map();
   return globalMockStore;
 }
 
