@@ -95,7 +95,8 @@ export async function POST(req: NextRequest) {
 
     await saveVideoPass(pass);
     await incrementMaharajaUsage('videoPasses');
-    const billAmount = Number(body.billAmount || body.amount) || AI_VIDEO_MIN_PURCHASE;
+    const requestedTier = Number(body.billAmount || body.amount);
+    const billAmount = [5000, 7000, 10000].includes(requestedTier) ? requestedTier : AI_VIDEO_MIN_PURCHASE;
     await logMaharajaActivity('video-pass', `${pass.eventId} AI Video QR created`, {
       phone: pass.phoneMasked,
       billLast4: pass.billLast4,

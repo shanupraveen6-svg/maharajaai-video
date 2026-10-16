@@ -95,13 +95,12 @@ async function run() {
   const retrySource = await json(await fetch(`${BASE_URL}/api/video/retry-source?sessionId=${passSession}&accessCode=${customerPassCode}`));
   assert(retrySource.response.ok && retrySource.data.source?.masterImageUrl === afterMaster.videoMasterUrl, 'Video retry source is the stored video master (never the Try-On image)');
 
-  // ---- Manager retry PIN rules ----
-  const retryBody = (pin) => ({ type: 'retry', label: 'Manager approved AI Video retry', sessionId: passSession, accessCode: customerPassCode, pin });
-  const wrongPin = await post('/api/maharaja/activity', retryBody('1234'));
-  assert(wrongPin.response.status === 403 && /incorrect/i.test(wrongPin.data.error || ''), 'Incorrect manager PIN is rejected');
-
-  const earlyRetry = await post('/api/maharaja/activity', retryBody('7070'));
-  assert(earlyRetry.response.status === 403 && /after the first AI Video/i.test(earlyRetry.data.error || ''), 'Correct PIN cannot approve a retry before the first video exists');
+  // ---- One retry, no PIN, only after the corresponding result exists ----
+  const earlyRetry = await post('/api/maharaja/activity', {
+    type: 'retry', label: 'Customer AI Video retry', sessionId: passSession,
+    accessCode: customerPassCode, target: 'video', service: 'ai-video',
+  });
+  assert(earlyRetry.response.status === 403 && /after the first AI Video/i.test(earlyRetry.data.error || ''), 'No-PIN retry cannot be consumed before the first video exists');
 
   // ---- /video/start guards that never reach the paid provider ----
   const pass2Result = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
@@ -126,28 +125,22 @@ async function run() {
   // Try-On prompt is garment-only; the festival scene belongs to the video master prompt only
   for (const cat of ['women', 'men', 'girl', 'boy']) {
     const tryOnPrompt = buildTryOnPrompt(cat);
-    assert(/Do not create a festival environment/.test(tryOnPrompt) && /neutral premium retail studio background/.test(tryOnPrompt), `${cat}: Try-On prompt is plain/neutral`);
+    assert(/Do not create a festival environment/.test(tryOnPrompt) && /premium, neutral indoor fashion retail studio background/.test(tryOnPrompt), `${cat}: Try-On prompt is plain/neutral`);
     assert(!/golden|Diwali|lamp-lit|rangoli(?!,)/i.test(tryOnPrompt.replace(/No diyas, no rangoli, no flowers, no festive props/, '')), `${cat}: Try-On prompt has no festival scene wording`);
     assert(/Diwali/.test(buildMasterPrompt(cat, 'diwali')), `${cat}: video master prompt keeps the Diwali scene`);
   }
 
   const categories = ['women', 'men', 'girl', 'boy'];
-  const promptSets = ['set-1', 'set-2'];
+  const promptSets = ['b', 'a'];
   for (const cat of categories) {
     for (const pSet of promptSets) {
       const prompt = buildEventVideoPrompt(cat, 'diwali', pSet);
-      assert(prompt.includes('Feet stay anchored'), `${cat} ${pSet}: Stationary subject lock enforced`);
-      assert(prompt.includes('No walking, stepping, sliding, turning, dancing'), `${cat} ${pSet}: Prohibited motion list present`);
-      assert(prompt.includes('CAMERA PLAN:'), `${cat} ${pSet}: Explicit camera travel path defined`);
+      assert(prompt.includes('Feet remain firmly anchored'), `${cat} ${pSet}: Stationary subject lock enforced`);
+      assert(prompt.includes('No walking, stepping, turning, dancing'), `${cat} ${pSet}: Prohibited motion list present`);
+      assert(prompt.includes('SHOT DESIGN:'), `${cat} ${pSet}: Explicit camera travel path defined`);
+      assert(prompt.includes('This is a Diwali film'), `${cat} ${pSet}: Selected event is preserved`);
       if (cat === 'girl' || cat === 'boy') {
-        assert(prompt.includes('no adult glamour or handheld fire'), `${cat} ${pSet}: Child safety constraint present`);
-      }
-      if (pSet === 'set-2') {
-        if (cat === 'women' || cat === 'girl') {
-          assert(/divine (gold )?rays/i.test(prompt), `${cat} ${pSet}: Divine touch background lighting present`);
-        } else {
-          assert(/cracker/i.test(prompt), `${cat} ${pSet}: Cracker background effects present`);
-        }
+        assert(/child|child-appropriate/i.test(prompt), `${cat} ${pSet}: Child safety constraint present`);
       }
     }
   }

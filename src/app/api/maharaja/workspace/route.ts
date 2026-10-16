@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import {
-  clearMaharajaTelemetry,
   getMaharajaWorkspace,
   getWorkspaceLinks,
   listRecentVideoPasses,
@@ -41,7 +40,6 @@ export async function GET(req: NextRequest) {
       const date = item.createdAt.slice(0, 10);
       const row = daily.get(date) || { date, scans: 0, tryOns: 0, gmv: 0, downloads: 0 };
       if (item.type === 'price-scan') { row.scans += 1; row.gmv += Number(item.metadata?.amount || 0); }
-      if (item.type === 'video-pass') { row.gmv += Number(item.metadata?.amount || 0); }
       if (item.type === 'try-on') row.tryOns += 1;
       if (item.type === 'download') row.downloads += 1;
       daily.set(date, row);
@@ -60,12 +58,13 @@ export async function GET(req: NextRequest) {
     const passAmounts = allActivity
       .filter((item) => item.type === 'video-pass' && item.metadata?.amount)
       .map((item) => Number(item.metadata?.amount || 0));
-    const allMerchandiseAmounts = [...scannedPrices, ...passAmounts];
-    const totalGmv = allMerchandiseAmounts.reduce((sum, amount) => sum + amount, 0);
+    // GMV is exact only for OCR-scanned garment prices. Billing-counter values are
+    // eligibility tiers, so they are reported as customer counts rather than rupees.
+    const totalGmv = scannedPrices.reduce((sum, amount) => sum + amount, 0);
 
-    const tier5kPlus = allMerchandiseAmounts.filter((amt) => amt >= 5000).length;
-    const tier7kPlus = allMerchandiseAmounts.filter((amt) => amt >= 7000).length;
-    const tier10kPlus = allMerchandiseAmounts.filter((amt) => amt >= 10000).length;
+    const tier5kPlus = passAmounts.filter((amt) => amt >= 5000).length;
+    const tier7kPlus = passAmounts.filter((amt) => amt >= 7000).length;
+    const tier10kPlus = passAmounts.filter((amt) => amt >= 10000).length;
 
     const passAbove5k = passAmounts.filter((amount) => amount >= 5000);
     const totalAbove5kCount = Math.max(
@@ -115,7 +114,7 @@ export async function GET(req: NextRequest) {
       conversion: w.scans ? Math.min(100, Math.round((w.tryOns / w.scans) * 100)) : 0,
     }));
 
-    const luxuryCount = allMerchandiseAmounts.filter((amount) => amount >= luxuryThreshold).length;
+    const luxuryCount = scannedPrices.filter((amount) => amount >= luxuryThreshold).length;
     const brandedReach = allActivity.filter((item) => item.type === 'download' || item.type === 'share').length;
 
     // Retrieve live queue items to ensure comprehensive Go-Live records
@@ -255,24 +254,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
-  if (!verifyOperatorRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized Maharaja session.' }, { status: 401 });
-  }
-
-  try {
-    const body = await req.json().catch(() => ({}));
-    if (body.action === 'reset-telemetry') {
-      await clearMaharajaTelemetry();
-      await logMaharajaActivity('campaign', 'Maharaja showroom telemetry reset to zero for live launch');
-      return NextResponse.json({ success: true, message: 'All test telemetry, GMV, and test activities reset to zero.' });
-    }
-    return NextResponse.json({ success: false, error: 'Unknown workspace action.' }, { status: 400 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to perform workspace action.';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
-  }
-}
 
 export async function PATCH(req: NextRequest) {
   if (!verifyOperatorRequest(req)) {

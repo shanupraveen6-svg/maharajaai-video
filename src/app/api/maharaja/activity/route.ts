@@ -47,6 +47,18 @@ export async function POST(req: NextRequest) {
         if (access.pass?.videoGenerating) {
           return NextResponse.json({ success: false, error: 'A video is currently being generated. Wait for generation to complete or fail before requesting a retry.' }, { status: 409 });
         }
+        if (target === 'video' && access.pass && !access.pass.videoDone) {
+          return NextResponse.json({ success: false, error: 'A video retry is available only after the first AI Video is completed.' }, { status: 403 });
+        }
+        if (target === 'image' && access.pass) {
+          const imageExists = service === 'try-on' ? access.pass.tryOnImageDone : access.pass.videoMasterDone;
+          if (!imageExists) {
+            return NextResponse.json({ success: false, error: 'An image retry is available only after the first AI image is completed.' }, { status: 403 });
+          }
+        }
+        if (target === 'image' && !access.pass && service === 'try-on' && deviceStatus?.status !== 'used') {
+          return NextResponse.json({ success: false, error: 'An image retry is available only after the first AI Try-On is completed.' }, { status: 403 });
+        }
 
         if (access.pass) {
           await markPassRetryApproved(access.pass.code, target, service);

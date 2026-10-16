@@ -232,25 +232,6 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
     }
   }
 
-  async function resetTelemetry() {
-    if (!window.confirm('Reset ALL showroom telemetry, test price scans (clears ₹42,000 back to ₹0), and test image/video counts? This starts fresh live store telemetry.')) return;
-    setSaving(true);
-    setMessage('');
-    try {
-      const data = await readJson(await fetch('/api/maharaja/workspace', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reset-telemetry' }),
-      }));
-      setMessage(data.message || 'Telemetry successfully reset to ₹0 for live showroom operations.');
-      await loadWorkspace();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to reset telemetry.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function logout() {
     setSaving(true);
     try {
@@ -331,13 +312,13 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           </div>
           
           {/* TOP 3 EXECUTIVE ACTION BUTTONS */}
-          <div className="flex items-center gap-2.5">
+          <div className="grid w-full grid-cols-3 gap-2 md:w-auto">
             {/* 1. Campaign Live / Paused Status Toggle */}
             <button
               type="button"
               onClick={toggleCampaign}
               disabled={saving}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-xs font-bold uppercase tracking-wider transition shadow-sm active:scale-[0.98] ${
+              className={`inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 text-[10px] font-bold uppercase transition shadow-sm active:scale-[0.98] sm:px-3 sm:text-xs ${
                 workspace.campaignEnabled
                   ? 'border-emerald-600/70 bg-[#0E3523] text-emerald-200 hover:bg-[#13442D]'
                   : 'border-rose-700/70 bg-[#380E15] text-rose-200 hover:bg-[#48121B]'
@@ -356,7 +337,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
               href="/tv"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/60 bg-[#280C12] px-4 text-xs font-bold uppercase tracking-wider text-[#F3E5AB] hover:bg-[#381019] hover:border-[#D4AF37] transition shadow-sm active:scale-[0.98]"
+              className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#D4AF37]/60 bg-[#280C12] px-2 text-[10px] font-bold uppercase text-[#F3E5AB] shadow-sm transition hover:border-[#D4AF37] hover:bg-[#381019] active:scale-[0.98] sm:px-3 sm:text-xs"
               title="Open Maharaja TV Screen display in new tab"
             >
               <Tv className="h-3.5 w-3.5 text-[#D4AF37]" />
@@ -368,7 +349,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
               type="button"
               onClick={() => void logout()}
               disabled={saving}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 text-xs font-bold uppercase tracking-wider text-[#E8DFD8] hover:bg-white/10 hover:text-white transition shadow-sm active:scale-[0.98]"
+              className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/20 bg-white/5 px-2 text-[10px] font-bold uppercase text-[#E8DFD8] shadow-sm transition hover:bg-white/10 hover:text-white active:scale-[0.98] sm:px-3 sm:text-xs"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span>Sign Out</span>

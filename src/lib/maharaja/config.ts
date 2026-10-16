@@ -7,10 +7,9 @@ export const LUXURY_TIER_MIN = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || 3
 
 /**
  * Repeat usage & duplicate limit enforcement.
- * During testing: FALSE (no block for repeated attempts, so developer & client can test from the same phone/device many times).
- * When going live: set to TRUE (or set ENFORCE_REPEAT_LIMITS=true in env).
+ * Live-safe by default. Set ENFORCE_REPEAT_LIMITS=false only in an isolated test environment.
  */
-export const ENFORCE_REPEAT_LIMITS = process.env.ENFORCE_REPEAT_LIMITS === 'true';
+export const ENFORCE_REPEAT_LIMITS = process.env.ENFORCE_REPEAT_LIMITS !== 'false';
 
 export const EVENT_IDS = ['diwali', 'new-year', 'pongal', 'christmas', 'ramadan', 'birthday'] as const;
 export type EventId = (typeof EVENT_IDS)[number];
@@ -170,11 +169,11 @@ export function buildMasterPrompt(
   eventId: EventId = 'diwali',
   sessionId?: string
 ): string {
-  void eventId;
+  const event = getEventOption(eventId);
   const sceneIdx = getSceneIndex(sessionId);
   const variants = GEMINI_IMAGE_SCENE_ADDONS[category] || GEMINI_IMAGE_SCENE_ADDONS.women;
   const addOn = variants[sceneIdx] || variants[0];
-  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\n${addOn}`;
+  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nEVENT PRIORITY:\nCreate a ${event.label} presentation using ${event.scene}. The selected event overrides any conflicting festival prop examples below.\n\n${addOn}`;
 }
 
 /** Section 6: Universal Video Prompt & 8 Matching Video Scene Variants */
@@ -231,12 +230,12 @@ export function buildEventVideoPrompt(
   sessionId?: string,
   promptSet: VideoPromptSet = 'set-1'
 ): string {
-  void eventId;
+  const event = getEventOption(eventId);
   void promptSet;
   const sceneIdx = getSceneIndex(sessionId);
   const variants = VIDEO_SCENE_ADDONS[category] || VIDEO_SCENE_ADDONS.women;
   const addOn = variants[sceneIdx] || variants[0];
-  return `${UNIVERSAL_VIDEO_PROMPT}\n\n${addOn}`;
+  return `${UNIVERSAL_VIDEO_PROMPT}\n\nEVENT PRIORITY:\nThis is a ${event.label} film using ${event.scene}. Animate only safe background elements appropriate to this selected event; this instruction overrides conflicting festival prop examples below.\n\n${addOn}`;
 }
 
 /** Section 7: Ultra-Safe Backup Video Prompt */
