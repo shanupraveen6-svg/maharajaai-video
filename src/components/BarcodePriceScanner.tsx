@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Image as ImageIcon, LoaderCircle, X, XCircle } from 'lucide-react';
+import { Camera, LoaderCircle, X, XCircle } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
 import { TRY_ON_MIN_PURCHASE } from '@/lib/maharaja/config';
 import { prepareTagImage, readPriceOnDevice, warmUpDeviceOcr } from '@/lib/maharaja/device-ocr';
@@ -30,7 +30,6 @@ export default function BarcodePriceScanner({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
   const mountedRef = useRef(true);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastBarcodeRef = useRef<{ text: string; format: string; at: number } | null>(null);
   const [status, setStatus] = useState<'starting' | 'ready' | 'reading' | 'rejected' | 'error'>('starting');
   const [message, setMessage] = useState('');
@@ -101,8 +100,8 @@ export default function BarcodePriceScanner({
       return;
     }
 
-    // 2. Server confirms the amount from the text (and issues the grant).
-    //    A small image is sent only if the phone could not read a price.
+    // 2. Server confirms the amount and issues the grant. The image is a
+    // compact fallback for difficult printed tags, never an auto-approval.
     let result: TagScanResult;
     try {
       result = await onDetected({
@@ -127,18 +126,6 @@ export default function BarcodePriceScanner({
     const frame = captureFrame(video);
     if (!frame) return;
     await processImage(frame);
-  }
-
-  function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        void processImage(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
   }
 
   return (
@@ -190,23 +177,6 @@ export default function BarcodePriceScanner({
             )}
           </button>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleFileSelected}
-          />
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={status === 'reading'}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-white/40 bg-black/50 text-xs font-bold uppercase text-white hover:bg-black/70 disabled:opacity-60"
-          >
-            <ImageIcon className="h-4 w-4" /> Or Upload / Snap Photo
-          </button>
         </div>
       </div>
     </div>

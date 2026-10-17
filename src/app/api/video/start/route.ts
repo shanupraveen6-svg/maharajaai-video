@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { buildVideoPrompt } from '@/lib/ai/gemini';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { fal } from '@fal-ai/client';
-import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { buildEventVideoPrompt, buildFailSafeVideoPrompt, isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory } from '@/lib/maharaja/config';
 import { acquirePassVideoLock, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoSubmitted, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
@@ -49,7 +48,7 @@ const DEFAULT_MOTION_SAFETY: MotionSafetyDecision = {
 };
 
 // fal currently publishes no prompt-length maximum; this local cap keeps H3 instructions focused.
-const MAX_VIDEO_PROMPT_CHARS = 2800;
+const MAX_VIDEO_PROMPT_CHARS = 6000;
 
 function buildMotionSafetyRule(decision: MotionSafetyDecision) {
   const visibility = decision.lowerBodyVisibility === 'clear'
@@ -86,7 +85,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { sessionId, garmentAnalysis, conceptPrompt, accessCode } = body;
+    const { sessionId, accessCode } = body;
     console.log('VIDEO_START_RECEIVED', { sessionId: sessionId || null });
     const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
     if (!access.allowed) {
@@ -141,7 +140,19 @@ export async function POST(req: NextRequest) {
 
 
     const motionSafety = DEFAULT_MOTION_SAFETY;
-    const prompt = buildFinalPrompt(buildVideoPrompt(garmentAnalysis, conceptPrompt), motionSafety);
+    const sessionData = db
+      ? (await db.collection('sessions').doc(sessionId).get()).data()
+      : getMockStore().sessions.get(sessionId);
+    const categoryValue = sessionData?.templateId || body.templateId;
+    const storedCategory = typeof categoryValue === 'string' && ['women', 'men', 'girl', 'boy'].includes(categoryValue)
+      ? categoryValue as CustomerCategory
+      : 'women';
+    // Camera/event instructions are created on the server. A browser must never
+    // be able to inject an arbitrary provider prompt.
+    const approvedPrompt = body.retryMode === 'safe'
+      ? buildFailSafeVideoPrompt(storedCategory, eventId)
+      : buildEventVideoPrompt(storedCategory, eventId, sessionId);
+    const prompt = buildFinalPrompt(approvedPrompt, motionSafety);
     console.log('VIDEO_MASTER_LOADED', { sessionId, jobId, hasImage: true });
 
     const falKey = AI_CONFIG.FAL_KEY;

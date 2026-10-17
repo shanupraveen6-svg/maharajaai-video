@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
+import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 
-const FALLBACK_NAME = 'காவ்யா';
-const FALLBACK_LOCALITY = 'தஞ்சாவூர்';
+const FALLBACK_NAME = 'Maharaja Guest';
+const FALLBACK_LOCALITY = 'Maharaja';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -30,11 +30,6 @@ function buildReplayId(videoId: string, sessionId: string) {
   return `replay_${videoId || sessionId}`;
 }
 
-function sessionIdFromStoragePath(storagePath: string): string {
-  const match = storagePath.match(/^(?:clients\/maharaja\/)?sessions\/([^/]+)\/video\/final\.[a-z0-9]+$/i);
-  return match?.[1] || storagePath.replace(/[^a-z0-9]+/gi, '_').slice(0, 64);
-}
-
 export async function GET(req: NextRequest) {
   try {
     if (!verifyOperatorRequest(req)) {
@@ -46,8 +41,8 @@ export async function GET(req: NextRequest) {
 
     if (db) {
       const [videosSnapshot, queueSnapshot] = await Promise.all([
-        db.collection('videos').get(),
-        db.collection('liveQueue').where('screenId', '==', 'maharaja-main').get()
+        db.collection('videos').orderBy('createdAt', 'desc').limit(limit).get(),
+        db.collection('liveQueue').where('screenId', '==', 'maharaja-main').limit(limit * 3).get()
       ]);
 
       const completedQueueByVideoId = new Map<string, any>();
@@ -69,36 +64,7 @@ export async function GET(req: NextRequest) {
           videosByStoragePath.set(video.storagePath, video);
         });
 
-      const bucket = getStorageBucket();
-      let existingVideoStoragePaths: Set<string> | null = null;
-
-      if (bucket) {
-        const [[clientFiles], [sessionFiles]] = await Promise.all([
-          bucket.getFiles({ prefix: 'clients/maharaja/sessions/' }).catch(() => [[]]),
-          bucket.getFiles({ prefix: 'sessions/' }).catch(() => [[]]),
-        ]);
-        const storageVideoPaths = [...clientFiles, ...sessionFiles]
-          .map((file: any) => file.name as string)
-          .filter((storagePath: string) => /^(?:clients\/maharaja\/)?sessions\/[^/]+\/video\/final\.(mp4|webm|mov)$/i.test(storagePath));
-
-        existingVideoStoragePaths = new Set(storageVideoPaths);
-
-        storageVideoPaths.forEach((storagePath: string) => {
-          if (!videosByStoragePath.has(storagePath)) {
-            const sessionId = sessionIdFromStoragePath(storagePath);
-            videosByStoragePath.set(storagePath, {
-              id: `video_${sessionId}`,
-              sessionId,
-              storagePath,
-              status: 'ready',
-              createdAt: ''
-            });
-          }
-        });
-      }
-
       const readyVideos = Array.from(videosByStoragePath.values())
-        .filter((video: any) => !existingVideoStoragePaths || existingVideoStoragePaths.has(video.storagePath))
         .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
 
       const items = await Promise.all(

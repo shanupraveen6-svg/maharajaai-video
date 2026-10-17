@@ -249,7 +249,10 @@ export function buildEventVideoPrompt(
   const sceneIdx = getSceneIndex(sessionId);
   const variants = VIDEO_SCENE_ADDONS[category] || VIDEO_SCENE_ADDONS.women;
   const addOn = variants[sceneIdx] || variants[0];
-  return `${UNIVERSAL_VIDEO_PROMPT}\n\nEVENT PRIORITY:\nThis is a ${event.label} film using ${event.scene}. Animate only safe background elements appropriate to this selected event; this instruction overrides conflicting festival prop examples below.\n\n${addOn}`;
+  const childSafety = category === 'boy' || category === 'girl'
+    ? '\n\nCHILD SAFETY: Keep the child fully age-appropriate, naturally cheerful, modestly styled, and free of adult glamour, mature posing, or suggestive presentation.'
+    : '';
+  return `${UNIVERSAL_VIDEO_PROMPT}\n\nEVENT PRIORITY:\nThis is a ${event.label} film using ${event.scene}. Animate only safe background elements appropriate to this selected event; this instruction overrides conflicting festival prop examples below.${childSafety}\n\n${addOn}`;
 }
 
 /** Section 7: Ultra-Safe Backup Video Prompt */

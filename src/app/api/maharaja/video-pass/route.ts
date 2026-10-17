@@ -35,8 +35,9 @@ export async function POST(req: NextRequest) {
     if (body.billingCode !== workspace.billingCode) {
       return NextResponse.json({ success: false, error: 'Invalid Maharaja billing-counter link.' }, { status: 403 });
     }
-    if (body.eligible !== true) {
-      return NextResponse.json({ success: false, error: `Confirm that the bill is at least Rs ${AI_VIDEO_MIN_PURCHASE}.` }, { status: 400 });
+    const requestedTier = Number(body.billAmount || body.amount);
+    if (![5000, 7000, 10000].includes(requestedTier)) {
+      return NextResponse.json({ success: false, error: 'Select the customer bill tier: ₹5,000+, ₹7,000+, or ₹10,000+.' }, { status: 400 });
     }
 
     const phone = cleanPhone(body.phone);
@@ -95,8 +96,7 @@ export async function POST(req: NextRequest) {
 
     await saveVideoPass(pass);
     await incrementMaharajaUsage('videoPasses');
-    const requestedTier = Number(body.billAmount || body.amount);
-    const billAmount = [5000, 7000, 10000].includes(requestedTier) ? requestedTier : AI_VIDEO_MIN_PURCHASE;
+    const billAmount = requestedTier;
     await logMaharajaActivity('video-pass', `${pass.eventId} AI Video QR created`, {
       phone: pass.phoneMasked,
       billLast4: pass.billLast4,

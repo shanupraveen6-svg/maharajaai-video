@@ -83,11 +83,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const maxGarmentPhotos = 3;
+    const maxGarmentPhotos = service === 'try-on' ? 1 : 3;
     if (garmentPhotos.length > maxGarmentPhotos) {
       return NextResponse.json({
         success: false,
-        error: 'Upload up to 3 garment photos max.',
+        error: service === 'try-on' ? 'Upload exactly one garment photo for AI Try-On.' : 'Upload up to 3 garment photos max.',
       }, { status: 400 });
     }
 
@@ -138,9 +138,10 @@ export async function POST(req: NextRequest) {
 
         const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
 
-        const roleInstructions = (Array.isArray(garmentRoles) && garmentRoles.length)
-          ? garmentRoles.map((role: string, idx: number) => `- Garment Image ${idx + 1} = ${role.toUpperCase()}`).join('\n')
-          : `- Garment Image 1 = TOP / SHIRT / UPPER ATTIRE\n- Garment Image 2 = BOTTOM / PANT / LOWER ATTIRE\n- Garment Image 3 = EXTRA / ACCESSORY / DUPATTA`;
+        const suppliedRoles = Array.isArray(garmentRoles) ? garmentRoles.slice(0, garmentPhotos.length) : [];
+        const roleInstructions = suppliedRoles.length
+          ? suppliedRoles.map((role: string, idx: number) => `- Garment Image ${idx + 1} = ${role.toUpperCase()}`).join('\n')
+          : '- Garment Image 1 is the exact uploaded garment reference.';
 
         const garmentFidelityRules = `EXACT GARMENT ROLE & COLOR INSTRUCTIONS:
 ${roleInstructions}
@@ -175,8 +176,7 @@ ${roleInstructions}
 - The garment photograph(s) are the authoritative garment-design references.
 ${tryOnRef ? '- The virtual try-on reference is supplied only to understand approximate garment placement and drape. If the virtual try-on differs from the original customer\'s face, body proportions, skin tone, hairstyle, age, or the original garment\'s color/design, IGNORE those differences and follow the original references.' : ''}`;
 
-          // AI Video uses the Diwali festive presentation
-          const fullConcept = buildMasterPrompt(customerCategory, 'diwali', sessionId);
+          const fullConcept = buildMasterPrompt(customerCategory, eventId, sessionId);
 
           prompt = `${fullConcept}\n\n${garmentFidelityRules}\n\n${referenceHierarchy}`;
         }

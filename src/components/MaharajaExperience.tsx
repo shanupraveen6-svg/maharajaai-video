@@ -21,8 +21,6 @@ import {
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
 import {
-  buildEventVideoPrompt,
-  buildFailSafeVideoPrompt,
   buildMasterPrompt,
   EVENT_OPTIONS,
   getEventOption,
@@ -97,7 +95,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [error, setError] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
-  const maxGarmentPhotos = 3;
+  const maxGarmentPhotos = activeService === 'try-on' ? 1 : 3;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   // A billing pass owns its two stored images; they are never cleared or regenerated client-side.
@@ -304,7 +302,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     if (!canGenerateImage || !personPhoto) return;
     setStage('image');
     setError('');
-    setMessage(activeService === 'try-on' ? 'Generating your Maharaja AI Try-On image...' : 'Generating your Diwali AI festival portrait...');
+      setMessage(activeService === 'try-on' ? 'Generating your Maharaja AI Try-On image...' : `Generating your ${event.label} festival portrait...`);
     try {
       const data = await readJson(await fetch('/api/ai/master-image', {
         method: 'POST',
@@ -322,7 +320,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           garmentAnalysis,
           deviceId,
           tryOnGrant,
-          conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, 'diwali', sessionId) : undefined,
+          conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId) : undefined,
         }),
       }));
       if (activeService === 'try-on') setTryOnImageUrl(data.masterImageUrl);
@@ -349,11 +347,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           sessionId,
           accessCode,
           eventId,
-          garmentAnalysis,
           masterImageUrl: videoMasterUrl,
-          conceptPrompt: retrySessionId
-            ? buildFailSafeVideoPrompt(category, eventId)
-            : buildEventVideoPrompt(category, eventId, sessionId),
+          templateId: category,
+          retryMode: retrySessionId ? 'safe' : undefined,
         }),
       }));
 
@@ -609,7 +605,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         <div className="aspect-[3/4] overflow-hidden bg-white p-2 flex flex-col items-center justify-center gap-2 text-slate-400">
                           <Shirt className="h-10 w-10 text-slate-300" />
                           <span className="text-xs font-bold uppercase text-center">
-                            1 to 3 garment photos
+                            {activeService === 'try-on' ? '1 garment photo' : '1 to 3 garment photos'}
                           </span>
                           <span className="text-[11px] text-center text-slate-400">
                             Front view, bottom/pant, or border/detail
@@ -673,12 +669,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] ${garmentPhotos.length >= maxGarmentPhotos ? 'opacity-40 pointer-events-none' : ''}`}>
-                        <Camera className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < maxGarmentPhotos ? '+ Snap' : 'Camera'}
+                        <Camera className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < maxGarmentPhotos ? '+ Add photo' : 'Add photo'}
                         <input
                           id="garment-camera-input"
                           type="file"
                           accept="image/*"
-                          capture="environment"
                           className="hidden"
                           disabled={busy || imagesLocked || garmentPhotos.length >= maxGarmentPhotos}
                           onChange={(event) => {

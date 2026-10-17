@@ -909,7 +909,9 @@ export async function verifyMaharajaAccess(
   if (!workspace.campaignEnabled) return { allowed: false as const, error: 'Maharaja campaign is currently paused.' };
 
   if (service === 'try-on') {
-    if (!code || code === workspace.tryOnCode) {
+    // The permanent Try-On QR is a capability. An empty or unknown code must
+    // never be treated as a valid customer session.
+    if (code === workspace.tryOnCode) {
       return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace };
     }
     const videoPass = await getVideoPass(code);
@@ -924,7 +926,9 @@ export async function verifyMaharajaAccess(
         return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: videoPass, workspace };
       }
     }
-    return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace };
+    return verifyOperatorRequest(req)
+      ? { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace }
+      : { allowed: false as const, error: 'This Maharaja Try-On QR is invalid or expired. Please scan the Maharaja QR again.' };
   }
 
   const pass = code ? await getVideoPass(code) : null;

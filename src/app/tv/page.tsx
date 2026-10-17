@@ -318,7 +318,7 @@ export default function TvPlayerPage() {
       video.playbackRate = TV_PLAYBACK_RATE;
       video.currentTime = 0;
       if (audioRef.current) {
-        audioRef.current.src = getLiveAudioTrack(playback.queueId);
+        audioRef.current.src = playback.liveAudioUrl || getLiveAudioTrack(playback.queueId);
         audioRef.current.currentTime = 0;
         audioRef.current.volume = 0.88;
       }
@@ -370,8 +370,9 @@ export default function TvPlayerPage() {
     liveAudioStartedRef.current = true;
     window.requestAnimationFrame(() => {
       if (!audioRef.current || video.paused) return;
-      audioRef.current.src = getLiveAudioTrack(playback.queueId);
+      audioRef.current.src = playback.liveAudioUrl || getLiveAudioTrack(playback.queueId);
       audioRef.current.currentTime = Math.min(video.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
+      audioRef.current.playbackRate = 1;
       audioRef.current.volume = 0.88;
       audioRef.current.play().catch((audioErr) => {
         console.warn('Live TV audio playback blocked or failed:', audioErr);
@@ -480,6 +481,11 @@ export default function TvPlayerPage() {
     if (slot !== activeSlotRef.current || !currentPlaybackRef.current) return;
 
     startLiveAudioWithVisibleVideo(slot, video);
+    const audio = audioRef.current;
+    if (audio && !audio.paused) {
+      const targetAudioTime = Math.min(video.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
+      if (Math.abs(audio.currentTime - targetAudioTime) > 0.18) audio.currentTime = targetAudioTime;
+    }
     if (video.currentTime > 0.18) {
       clearPlaybackWatchdog();
     }

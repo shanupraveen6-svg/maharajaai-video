@@ -263,18 +263,24 @@ export async function GET(req: NextRequest) {
               : `sessions/${targetSessionId}/video/final.mp4`;
             const bucket = getStorageBucket();
 
-            if (bucket && fileBuffer) {
-              try {
-                const file = bucket.file(storagePath);
-                await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
-                const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-                videoUrl = signedUrl;
-              } catch (stSaveErr) {
-                console.warn('Storage save fallback to outputVideoUrl warning:', stSaveErr);
-                videoUrl = outputVideoUrl;
-              }
-            } else {
-              videoUrl = outputVideoUrl;
+            if (!bucket || !fileBuffer) {
+              const errMessage = 'The completed video could not be saved to Maharaja media storage. The video slot has been restored.';
+              await markVideoFailed(db, targetSessionId, errMessage, accessCode, jobId);
+              return NextResponse.json({ success: false, jobId, sessionId: targetSessionId, status: 'failed', error: errMessage }, { status: 503 });
+            }
+
+            try {
+              const file = bucket.file(storagePath);
+              await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
+              const [exists] = await file.exists();
+              if (!exists) throw new Error('Storage did not confirm the completed MP4.');
+              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+              videoUrl = signedUrl;
+            } catch (stSaveErr) {
+              const errMessage = 'The completed video could not be saved to Maharaja media storage. The video slot has been restored.';
+              console.error('Storage save failed for completed video:', stSaveErr);
+              await markVideoFailed(db, targetSessionId, errMessage, accessCode, jobId);
+              return NextResponse.json({ success: false, jobId, sessionId: targetSessionId, status: 'failed', error: errMessage }, { status: 503 });
             }
 
             status = 'ready';

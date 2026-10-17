@@ -90,27 +90,27 @@ export default function ResultClient({
     return () => window.removeEventListener('popstate', keepFarewellOpen);
   }, [liveFarewell, sessionId]);
 
-  const handleVideoPlay = () => {
+  const syncPreviewAudio = (video: HTMLVideoElement, start = false) => {
     const audio = previewAudioRef.current;
     if (!audio) return;
+    const target = video.currentTime % Math.max(audio.duration || 6, 1);
+    if (Math.abs(audio.currentTime - target) > 0.12) audio.currentTime = target;
+    audio.playbackRate = video.playbackRate || 1;
     audio.volume = 0.9;
-    if (audio.paused) {
+    if (start && audio.paused) {
       audio.play().catch((err) => console.warn('Preview audio playback blocked:', err));
     }
+  };
+
+  const handleVideoPlay = (video: HTMLVideoElement) => {
+    syncPreviewAudio(video, true);
   };
 
   const handleVideoPause = () => {
     previewAudioRef.current?.pause();
   };
 
-  const handleVideoSeek = (video: HTMLVideoElement) => {
-    const audio = previewAudioRef.current;
-    if (!audio || !Number.isFinite(video.currentTime)) return;
-    const target = video.currentTime % Math.max(audio.duration || 6, 1);
-    if (Math.abs(audio.currentTime - target) > 0.35) {
-      audio.currentTime = target;
-    }
-  };
+  const handleVideoSeek = (video: HTMLVideoElement) => syncPreviewAudio(video, !video.paused);
 
   useEffect(() => {
     if (!liveSuccess || countdownSeconds === null) return;
@@ -618,10 +618,11 @@ export default function ResultClient({
             controls
             loop
             playsInline
-            onPlay={handleVideoPlay}
+            onPlay={(event) => handleVideoPlay(event.currentTarget)}
             onPause={handleVideoPause}
             onSeeking={(event) => handleVideoSeek(event.currentTarget)}
             onSeeked={(event) => handleVideoSeek(event.currentTarget)}
+            onTimeUpdate={(event) => syncPreviewAudio(event.currentTarget)}
             className="w-full h-full object-cover"
           />
           <img src="/maharaja-logo.png" alt="Majestic Maharaja" className="pointer-events-none absolute right-3 top-14 z-[5] w-[27%] max-w-24 border border-[#D4AF37]/45 shadow-lg" />

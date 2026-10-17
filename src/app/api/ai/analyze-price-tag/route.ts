@@ -90,12 +90,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (parsed.amount === null) {
-      if (typeof body.image === 'string' && body.image.length > 50) {
-        parsed.amount = TRY_ON_MIN_PURCHASE;
-        parsed.source = 'gemini-vision';
-      } else {
-        return reject('Price not read. Take a clear photo of the printed MRP tag and try again.');
-      }
+      return reject('Price not read. Hold the full printed MRP steady in good light and capture it again.');
     }
     const amount = parsed.amount;
 

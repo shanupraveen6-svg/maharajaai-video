@@ -39,10 +39,22 @@ async function run() {
   assert(typeof workspaceResult.data.workspace?.analytics?.luxuryThreshold === 'number', 'Analytics includes configurable luxury threshold');
   const { tryOnCode, billingCode } = workspaceResult.data.workspace;
 
+  const missingTryOnQr = await json(await fetch(`${BASE_URL}/api/ai/analyze-price-tag`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accessCode: '', deviceId: `missingqr${Date.now()}`, printedText: 'MRP Rs. 799' }),
+  }));
+  assert(missingTryOnQr.response.status === 401, 'Try-On cannot be unlocked without the permanent Maharaja QR');
+
+  const invalidTier = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ billingCode, phone: '9999999999', billLast4: '5678', eventId: 'diwali', billAmount: 1000 }),
+  }));
+  assert(invalidTier.response.status === 400, 'Biller must select a valid ₹5,000+, ₹7,000+, or ₹10,000+ tier');
+
   // Biller Role Test: Creates customer pass
   const passResult = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ billingCode, phone: '9999999999', billLast4: '5678', eventId: 'diwali', eligible: true }),
+    body: JSON.stringify({ billingCode, phone: '9999999999', billLast4: '5678', eventId: 'diwali', billAmount: 5000 }),
   }));
   assert(passResult.response.ok && passResult.data.pass?.code, 'Biller creates customer AI Video QR');
   const customerPassCode = passResult.data.pass.code;
@@ -73,7 +85,7 @@ async function run() {
   // ---- /video/start guards that never reach the paid provider ----
   const pass2Result = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ billingCode, phone: '9888888888', billLast4: '1234', eventId: 'diwali', eligible: true }),
+    body: JSON.stringify({ billingCode, phone: '9888888888', billLast4: '1234', eventId: 'diwali', billAmount: 7000 }),
   }));
   const pass2Code = pass2Result.data.pass?.code;
   assert(pass2Result.response.ok && pass2Code, 'Biller creates a second AI Video QR');
@@ -99,9 +111,9 @@ async function run() {
   for (const cat of categories) {
     for (const pSet of promptSets) {
       const prompt = buildEventVideoPrompt(cat, 'diwali', pSet);
-      assert(prompt.includes('Feet remain firmly anchored'), `${cat} ${pSet}: Stationary subject lock enforced`);
-      assert(prompt.includes('No walking, stepping, turning, dancing'), `${cat} ${pSet}: Prohibited motion list present`);
-      assert(prompt.includes('SHOT DESIGN:'), `${cat} ${pSet}: Explicit camera travel path defined`);
+      assert(/facial identity|facial geometry/i.test(prompt) && /garment.*exact|exact.*garment/i.test(prompt), `${cat} ${pSet}: Identity and garment lock enforced`);
+      assert(/controlled luxury camera choreography/i.test(prompt) && /camera/i.test(prompt), `${cat} ${pSet}: Explicit camera direction is present`);
+      assert(prompt.length < 6000, `${cat} ${pSet}: Provider prompt fits the server prompt limit`);
       assert(prompt.includes('This is a Diwali film'), `${cat} ${pSet}: Selected event is preserved`);
       if (cat === 'girl' || cat === 'boy') {
         assert(/child|child-appropriate/i.test(prompt), `${cat} ${pSet}: Child safety constraint present`);

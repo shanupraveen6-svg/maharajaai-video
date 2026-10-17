@@ -67,7 +67,6 @@ export default function MaharajaBillingPage() {
           billLast4,
           billAmount: Number(billAmount) || AI_VIDEO_MIN_PURCHASE,
           eventId,
-          eligible: true,
           whatsappOptIn,
         }),
       }));
