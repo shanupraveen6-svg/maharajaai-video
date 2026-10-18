@@ -558,8 +558,14 @@ export default function ResultClient({
 
         {/* 9:16 Video Preview Frame */}
         <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border-2 border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
-          {/* Top-Right Three-Dot Options Menu */}
-          <div className="absolute right-3 top-3 z-20">
+          {/* Top-Right Client Logo */}
+          <div className="pointer-events-none absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-[#D4AF37]/50 bg-black/60 px-2 py-1 backdrop-blur-sm shadow-md">
+            <img src="/maharaja-logo.png" alt="Maharaja Silks" className="h-4 w-4 rounded-full object-contain" />
+            <span className="text-[10px] font-bold tracking-wider uppercase text-[#F3E5AB]">Maharaja</span>
+          </div>
+
+          {/* Top-Left Three-Dot Options Menu */}
+          <div className="absolute left-3 top-3 z-20">
             <button
               type="button"
               onClick={() => setShowMenu((prev) => !prev)}
@@ -576,7 +582,7 @@ export default function ResultClient({
                   className="fixed inset-0 z-30 cursor-default"
                   onClick={() => setShowMenu(false)}
                 />
-                <div className="absolute right-0 top-10 z-40 w-64 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-2 shadow-2xl backdrop-blur-md text-left space-y-2 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 top-10 z-40 w-64 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-2 shadow-2xl backdrop-blur-md text-left space-y-2 animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-2 py-1 border-b border-[#D4AF37]/20 text-[10px] font-bold uppercase tracking-wider text-[#D4AF37] space-y-1">
                     <div className="flex items-center justify-between">
                       <span>Celebration Image</span>

@@ -513,13 +513,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setTryOnImageUrl(data.masterImageUrl);
       } else {
         setVideoMasterUrl(data.masterImageUrl);
-        setMasterApproved(Boolean(data.approved));
+        setMasterApproved(true);
       }
       setMessage(activeService === 'try-on'
         ? 'Your Maharaja AI Try-On is ready.'
-        : (data.approved
-            ? 'Approved festival portrait ready. Continue to create your AI video.'
-            : 'Festival portrait ready for review. Please inspect and approve below.'));
+        : 'Festival portrait ready. Continue to create your AI video.');
     } catch (caught) {
       setError(customerError(caught, 'The AI image could not be generated. Please ask Maharaja staff for assistance.'));
     } finally {
@@ -1004,36 +1002,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3">
-                    {!masterApproved ? (
-                      <div className="border border-[#D4AF37]/70 bg-black/40 p-3.5 text-center rounded">
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#D4AF37]">Review Your Festival Portrait</p>
-                        <p className="mt-1 text-[11px] text-[#F3E5AB]/80">Inspect your face, saree/garment colors, and jewelry before creating your AI video.</p>
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            id="approve-master-btn"
-                            onClick={() => void handleApproveMaster()}
-                            disabled={busy}
-                            className="flex min-h-11 items-center justify-center gap-1.5 bg-[#D4AF37] px-2 text-xs font-bold uppercase text-black hover:brightness-105"
-                          >
-                            <CheckCircle2 className="h-4 w-4 shrink-0 text-black" /> Approve
-                          </button>
-                          <button
-                            type="button"
-                            id="reject-master-btn"
-                            onClick={() => void handleRejectMaster()}
-                            disabled={busy}
-                            className="flex min-h-11 items-center justify-center gap-1.5 border border-red-500/80 bg-red-950/40 px-2 text-xs font-bold uppercase text-red-200 hover:bg-red-900/50"
-                          >
-                            <X className="h-4 w-4 shrink-0 text-red-300" /> Reject
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="border border-emerald-600/70 bg-emerald-950/40 p-2.5 text-center rounded text-xs font-bold text-emerald-300 flex items-center justify-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Portrait Approved · Ready for Video
-                      </div>
-                    )}
                     <button
                       type="button"
                       id="generate-video-btn"

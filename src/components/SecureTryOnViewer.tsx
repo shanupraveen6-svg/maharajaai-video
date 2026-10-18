@@ -172,24 +172,24 @@ export default function SecureTryOnViewer({
         </div>
       )}
 
-      {/* Discreet Security Badge Overlay */}
+      {/* Top-Right Client Logo */}
       {imageUrl && !isBlackout && (
-        <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-[#F3E5AB] backdrop-blur-sm border border-[#D4AF37]/30">
-          <ShieldAlert className="h-3 w-3 text-[#D4AF37]" />
-          Protected Preview
+        <div className="pointer-events-none absolute top-3 right-3 z-20 flex items-center gap-1.5 rounded-full border border-[#D4AF37]/50 bg-black/60 px-2 py-1 backdrop-blur-sm shadow-md">
+          <img src="/maharaja-logo.png" alt="Maharaja Silks" className="h-4 w-4 rounded-full object-contain" />
+          <span className="text-[10px] font-bold tracking-wider uppercase text-[#F3E5AB]">Maharaja</span>
         </div>
       )}
 
-      {/* Top-Right Three-Dot Options Menu */}
+      {/* Top-Left Three-Dot Options Menu */}
       {imageUrl && !isBlackout && onRetryRequested && (
-        <div className="absolute top-3 right-3 z-30">
+        <div className="absolute top-3 left-3 z-30">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               setShowMenu((prev) => !prev);
             }}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-[#D4AF37] border border-[#D4AF37]/50 backdrop-blur-sm hover:bg-black/85 transition"
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-[#D4AF37] border border-[#D4AF37]/50 backdrop-blur-sm hover:bg-black/85 transition shadow-md"
             title="Options"
             aria-label="Options"
           >
@@ -205,7 +205,7 @@ export default function SecureTryOnViewer({
                   setShowMenu(false);
                 }}
               />
-              <div className="absolute right-0 top-9 z-50 w-60 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-2 shadow-2xl backdrop-blur-md text-left space-y-2">
+              <div className="absolute left-0 top-9 z-50 w-60 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-2 shadow-2xl backdrop-blur-md text-left space-y-2 animate-in fade-in zoom-in-95 duration-150">
                 <div className="px-2 py-1 border-b border-[#D4AF37]/20 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">
                   <span>{serviceLabel}</span>
                   <span className="font-mono text-[10px] text-[#F3E5AB]">

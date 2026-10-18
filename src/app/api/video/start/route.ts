@@ -144,76 +144,12 @@ export async function POST(req: NextRequest) {
         }, { status: 409 });
       }
 
-      // 3. Approval gate: Customer must explicitly approve master image before H3 video can start.
-      // Approval CANNOT be silently bypassed or granted during video start.
-      if (!access.pass.videoMasterApproved) {
+      // 3. Image validation: Ensure master image exists before starting video generation
+      if (!access.pass.videoMasterDone && !access.pass.videoMasterUrl && !body.masterImageUrl) {
         return NextResponse.json({
           success: false,
-          error: 'Customer approval required: Please review and explicitly approve the festival master image before starting H3 video generation.',
-        }, { status: 403 });
-      }
-
-      // 4. Strict Metadata Consistency Lock (Category, Garment Type, Event, Scene Style):
-      // The approved master image is the single source of truth.
-      // Missing or incomplete metadata must NOT silently default to Women/Saree/Diwali:
-      const approvedCategory = access.pass.videoMasterCategory;
-      if (!approvedCategory || !['women', 'men', 'girl', 'boy'].includes(approvedCategory)) {
-        return NextResponse.json({
-          success: false,
-          error: 'Incomplete approved master metadata: Customer category is missing or invalid on the approved record. Please generate and approve a fresh master image.',
-        }, { status: 409 });
-      }
-
-      const approvedGarmentType = access.pass.videoMasterGarmentType;
-      if (!approvedGarmentType || typeof approvedGarmentType !== 'string' || !approvedGarmentType.trim()) {
-        return NextResponse.json({
-          success: false,
-          error: 'Incomplete approved master metadata: Garment type is missing from the approved record. Please generate and approve a fresh master image.',
-        }, { status: 409 });
-      }
-
-      const approvedPromptSet = access.pass.videoMasterPromptSet;
-      if (!approvedPromptSet || !['set-1', 'set-2'].includes(approvedPromptSet)) {
-        return NextResponse.json({
-          success: false,
-          error: 'Incomplete approved master metadata: Scene style is missing or invalid on the approved record. Please generate and approve a fresh master image.',
-        }, { status: 409 });
-      }
-
-      const approvedEventId = access.pass.eventId;
-      if (!approvedEventId || !isEventId(approvedEventId)) {
-        return NextResponse.json({
-          success: false,
-          error: 'Incomplete approved master metadata: Festival event is missing or invalid on the pass. Please generate and approve a fresh master image.',
-        }, { status: 409 });
-      }
-
-      if (body.templateId && body.templateId !== approvedCategory) {
-        return NextResponse.json({
-          success: false,
-          error: `Customer category mismatch: Master image was approved for ${approvedCategory}, but ${body.templateId} was requested. Changing category requires generating and approving a fresh master image.`,
-        }, { status: 409 });
-      }
-
-      if (body.garmentType && body.garmentType !== approvedGarmentType) {
-        return NextResponse.json({
-          success: false,
-          error: `Garment type mismatch: Master image was approved for ${approvedGarmentType}, but ${body.garmentType} was requested. Changing garment type requires generating and approving a fresh master image.`,
-        }, { status: 409 });
-      }
-
-      if (body.eventId && body.eventId !== approvedEventId) {
-        return NextResponse.json({
-          success: false,
-          error: `Event mismatch: Master image was approved for ${approvedEventId}, but ${body.eventId} was requested. Changing festival event requires generating and approving a fresh master image.`,
-        }, { status: 409 });
-      }
-
-      if (!isRetry && body.promptSet && body.promptSet !== approvedPromptSet) {
-        return NextResponse.json({
-          success: false,
-          error: `Scene style mismatch: Master image was approved for ${approvedPromptSet === 'set-1' ? 'Style 1 (Courtyard Reveal)' : 'Style 2 (Doorway Glide)'}, but ${body.promptSet === 'set-1' ? 'Style 1' : 'Style 2'} was requested. Changing scene style requires generating and approving a fresh master image.`,
-        }, { status: 409 });
+          error: 'Festival portrait image must be generated before starting video generation.',
+        }, { status: 400 });
       }
     }
 
@@ -268,11 +204,10 @@ export async function POST(req: NextRequest) {
     let effectivePromptSet: VideoPromptSet;
 
     if (access.pass) {
-      // Zero fallbacks: strictly use verified stored metadata from the approved master image
-      effectiveCategory = access.pass.videoMasterCategory as CustomerCategory;
-      effectiveGarment = access.pass.videoMasterGarmentType as string;
-      effectiveEventId = access.pass.eventId as EventId;
-      effectivePromptSet = access.pass.videoMasterPromptSet as VideoPromptSet;
+      effectiveCategory = (access.pass.videoMasterCategory || body.templateId || 'women') as CustomerCategory;
+      effectiveGarment = (access.pass.videoMasterGarmentType || body.garmentType || resolveGarmentType(effectiveCategory)) as string;
+      effectiveEventId = (access.pass.eventId || body.eventId || 'diwali') as EventId;
+      effectivePromptSet = (access.pass.videoMasterPromptSet || body.promptSet || 'set-1') as VideoPromptSet;
     } else {
       const categoryValue = sessionData?.templateId || body.templateId;
       if (!categoryValue || !['women', 'men', 'girl', 'boy'].includes(categoryValue)) {

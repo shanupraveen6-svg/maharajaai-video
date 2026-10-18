@@ -1271,8 +1271,8 @@ export async function markPassVideoMasterDone(
       const updateData: Record<string, any> = {
         videoMasterDone: true,
         videoMasterUrl,
-        videoMasterApproved: false, // Image completed is NOT approved yet
-        videoMasterApprovedUrl: '',
+        videoMasterApproved: true,
+        videoMasterApprovedUrl: videoMasterUrl,
         imageGenerating: false,
         activeMasterGenerationId: FieldValue.delete(),
       };
