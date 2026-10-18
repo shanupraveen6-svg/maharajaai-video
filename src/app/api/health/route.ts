@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getBackendMode, getDb, getStorageBucket, isRealFirebaseAvailable } from '@/lib/firebase/admin';
+import { isSupportedVideoPath } from '@/lib/maharaja/video-playback';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const checkedAt = new Date().toISOString();
   const db = getDb();
   const bucket = getStorageBucket();
@@ -20,16 +21,26 @@ export async function GET() {
   }
 
   try {
-    await Promise.all([
+    const includeMedia = req.nextUrl.searchParams.get('media') === '1';
+    const [, , storedFiles] = await Promise.all([
       db.collection('appControl').doc('health').get(),
       bucket.getMetadata(),
+      includeMedia ? bucket.getFiles({ prefix: '' }) : Promise.resolve([[]]),
     ]);
+    const storedVideoCount = includeMedia
+      ? storedFiles.filter((file: any) => {
+          const path = String(file.name || '');
+          const contentType = String(file.metadata?.contentType || '');
+          return isSupportedVideoPath(path) || contentType.startsWith('video/');
+        }).length
+      : undefined;
     return NextResponse.json({
       success: true,
       status: 'healthy',
       backend: getBackendMode(),
       firebase: true,
       storage: true,
+      ...(includeMedia ? { storedVideoCount, tvPlayableVideoCount: storedVideoCount } : {}),
       checkedAt,
     });
   } catch (error) {
