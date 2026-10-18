@@ -89,14 +89,22 @@ export async function POST(req: NextRequest) {
       if (!videoDoc.exists || videoData?.sessionId !== sessionId || videoData?.status !== 'ready' || !videoData?.storagePath) {
         return NextResponse.json({ success: false, error: 'The final AI Video is not ready for Go Live.' }, { status: 409 });
       }
-      resolvedVideoUrl = sessionData?.videoUrl || await getSignedPlaybackUrl(videoData.storagePath);
+      if (videoData?.liveStoragePath) {
+        resolvedVideoUrl = sessionData?.liveVideoUrl || await getSignedPlaybackUrl(videoData.liveStoragePath);
+      } else {
+        resolvedVideoUrl = sessionData?.liveVideoUrl || sessionData?.videoUrl || await getSignedPlaybackUrl(videoData.storagePath);
+      }
     } else {
       const mockStore = getMockStore();
       const videoData = mockStore.videos.get(videoId);
       if (!videoData || videoData.sessionId !== sessionId || videoData.status !== 'ready' || !videoData.storagePath) {
         return NextResponse.json({ success: false, error: 'The final AI Video is not ready for Go Live.' }, { status: 409 });
       }
-      resolvedVideoUrl = videoData.videoUrl || await getSignedPlaybackUrl(videoData.storagePath);
+      if (videoData?.liveStoragePath) {
+        resolvedVideoUrl = videoData?.liveVideoUrl || await getSignedPlaybackUrl(videoData.liveStoragePath);
+      } else {
+        resolvedVideoUrl = videoData?.liveVideoUrl || videoData?.videoUrl || await getSignedPlaybackUrl(videoData.storagePath);
+      }
     }
 
     const displayMetadata = {

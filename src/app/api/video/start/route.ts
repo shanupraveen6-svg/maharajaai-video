@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { fal } from '@fal-ai/client';
-import { buildEventVideoPrompt, buildFailSafeVideoPrompt, isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory } from '@/lib/maharaja/config';
-import { acquirePassVideoLock, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoSubmitted, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { buildEventVideoPrompt, buildFailSafeVideoPrompt, isEventId, resolveGarmentType, getSceneIndex, MAHARAJA_CLIENT_ID, type CustomerCategory, type BackupPromptMode, type VideoPromptSet, type EventId } from '@/lib/maharaja/config';
+import { acquirePassVideoLock, approvePassVideoMaster, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoSubmitted, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
 const FAL_VIDEO_MODEL = 'minimax/h3-max-turbo/image-to-video';
@@ -48,13 +48,18 @@ const DEFAULT_MOTION_SAFETY: MotionSafetyDecision = {
 };
 
 // fal currently publishes no prompt-length maximum; this local cap keeps H3 instructions focused.
-const MAX_VIDEO_PROMPT_CHARS = 6000;
+const MAX_VIDEO_PROMPT_CHARS = 2800;
 
-function buildMotionSafetyRule(decision: MotionSafetyDecision) {
+function buildMotionSafetyRule(decision: MotionSafetyDecision, isFailSafe = false) {
   const visibility = decision.lowerBodyVisibility === 'clear'
     ? 'lower body visible and anchored'
     : 'lower body anchored';
-  return `Motion safety: ${visibility}. Maintain stable subject geometry, facial proportions, natural festive smile, and jewelry across every frame. Natural breathing, lively festive presence, and realistic fabric micro-drape in ambient air. Background festive lights, diya flames, and golden ambient reflections animate fluidly with camera arc parallax and smooth push-in.`;
+
+  if (isFailSafe) {
+    return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain 100% firmly anchored to floor coordinates with zero stepping or walking. Camera is 100% stationary on locked-off tripod. Only natural eye blinking and subtle breathing permitted. Zero text, words, titles, or logos.`;
+  }
+
+  return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain firmly anchored to floor coordinates with zero stepping or walking. Maintain stable subject geometry, facial proportions, natural festive eye-vitality, and jewelry across all frames. Start camera motion and festive atmosphere immediately at frame 1. Zero blank screen, zero delayed intro, zero text, words, titles, or logos.`;
 }
 
 function truncateAtWordBoundary(text: string, maxLength: number): string {
@@ -67,14 +72,14 @@ function truncateAtWordBoundary(text: string, maxLength: number): string {
   return sliced;
 }
 
-function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision) {
-  const isFailSafe = basePrompt.startsWith('FAIL-SAFE REGENERATION MODE.') || basePrompt.startsWith('RETRY STABILIZED FASHION COMMERCIAL MODE.');
-  const executionRule = isFailSafe
-    ? 'STABILIZED COMMERCIAL REGENERATION: Subject geometry, facial features, skin tone, and 100% garment weave, pattern, and embroidery are strictly locked from frame 1. Subject remains stationary and poised with feet firmly anchored to the floor coordinates with zero walking, turning, or leg movement. Only gentle natural breathing is permitted. The camera executes a smooth, steady, stabilized optical slow push-in starting immediately at frame 1. Festive background diya flames and ambient golden lighting shimmer naturally behind the subject. Zero limb duplication, zero texture swimming, zero distortion.'
-    : 'Execute the cinematic camera motion and background festive atmosphere starting at frame 1.';
-  const canonicalPrompt = `${basePrompt} ${executionRule} No blank screen or delayed intro. Do not add text, words, titles or logos.`;
+function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision, isFailSafe = false) {
+  let executionRule = '';
+  if (isFailSafe || basePrompt.includes('FAIL-SAFE REGENERATION MODE')) {
+    executionRule = 'STABILIZED LOCKED REGENERATION: Subject geometry, facial features, skin tone, and garment weave are locked from frame 1. Subject remains stationary and poised with feet anchored to floor coordinates with zero walking or turning. Only gentle natural breathing and soft blink permitted. Camera is stationary on locked-off tripod with gentle optical push/zoom. Zero texture swimming, zero distortion.';
+  }
 
-  const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision)}`;
+  const canonicalPrompt = executionRule ? `${basePrompt} ${executionRule}` : basePrompt;
+  const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision, isFailSafe)}`;
   return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_VIDEO_PROMPT_CHARS);
 }
 
@@ -91,21 +96,147 @@ export async function POST(req: NextRequest) {
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
-    // Billing passes always use the stored festival video master. The browser-supplied image
-    // (and any isRetry flag) is ignored, so the plain Try-On image can never become the video source.
-    const masterImageUrl: string | undefined = access.pass ? access.pass.videoMasterUrl : body.masterImageUrl;
-    if (access.pass && access.pass.videoDone) {
-      return NextResponse.json({
-        success: false,
-        error: 'This billing pass has already completed its AI Video. Ask the manager if a retry is required.',
-      }, { status: 409 });
-    }
-    const eventId = isEventId(body.eventId) ? body.eventId : access.pass?.eventId || 'diwali';
 
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'sessionId is required' }, { status: 400 });
     }
 
+    if (access.allowances.video.used >= 2) {
+      return NextResponse.json({
+        success: false,
+        error: 'H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.',
+      }, { status: 403 });
+    }
+
+    if (access.pass && access.pass.videoDone && !access.pass.retryApproved && !access.allowances.video.managerAuthorized) {
+      return NextResponse.json({
+        success: false,
+        error: 'This billing pass has already completed its AI Video. Ask the manager if a retry is required.',
+      }, { status: 409 });
+    }
+
+    if (access.allowances.video.used === 1 && !access.allowances.video.managerAuthorized && !access.pass?.retryApproved) {
+      return NextResponse.json({
+        success: false,
+        error: 'H3 Cinematic Video retry requires manager authorization.',
+      }, { status: 403 });
+    }
+
+    // Determine retry mode
+    const isRetry = Boolean(
+      body.retry === true ||
+      body.isRetry === true ||
+      body.retryMode === 'backup-1' ||
+      body.retryMode === 'backup-locked' ||
+      body.retryMode === 'safe' ||
+      (typeof body.conceptPrompt === 'string' && body.conceptPrompt.includes('FAIL-SAFE'))
+    );
+
+    // Billing passes always use the stored festival video master.
+    const masterImageUrl: string | undefined = access.pass ? access.pass.videoMasterUrl : body.masterImageUrl;
+
+    // Server-side master-image quality & approval verification
+    if (access.pass) {
+      if (!access.pass.videoMasterDone || !access.pass.videoMasterUrl) {
+        return NextResponse.json({
+          success: false,
+          error: 'Create the AI Video image first, then generate the video.',
+        }, { status: 409 });
+      }
+
+      // 1. Rejected master image blocking: Ensure rejected images can NEVER be used
+      if (access.pass.rejectedMasterUrls && (
+        access.pass.rejectedMasterUrls.includes(access.pass.videoMasterUrl) ||
+        (body.masterImageUrl && access.pass.rejectedMasterUrls.includes(body.masterImageUrl))
+      )) {
+        return NextResponse.json({
+          success: false,
+          error: 'Rejected master image: This image was rejected. Please generate a fresh festival image before creating the video.',
+        }, { status: 409 });
+      }
+
+      // 2. Stale master image blocking: Image submitted by client must match server pass image
+      if (body.masterImageUrl && access.pass.videoMasterUrl && body.masterImageUrl !== access.pass.videoMasterUrl) {
+        return NextResponse.json({
+          success: false,
+          error: 'Stale master image: The submitted image does not match the latest master image. Please review the updated image.',
+        }, { status: 409 });
+      }
+
+      // 3. Approval gate: Customer must explicitly approve master image before H3 video can start.
+      // Approval CANNOT be silently bypassed or granted during video start.
+      if (!access.pass.videoMasterApproved) {
+        return NextResponse.json({
+          success: false,
+          error: 'Customer approval required: Please review and explicitly approve the festival master image before starting H3 video generation.',
+        }, { status: 403 });
+      }
+
+      // 4. Strict Metadata Consistency Lock (Category, Garment Type, Event, Scene Style):
+      // The approved master image is the single source of truth.
+      // Missing or incomplete metadata must NOT silently default to Women/Saree/Diwali:
+      const approvedCategory = access.pass.videoMasterCategory;
+      if (!approvedCategory || !['women', 'men', 'girl', 'boy'].includes(approvedCategory)) {
+        return NextResponse.json({
+          success: false,
+          error: 'Incomplete approved master metadata: Customer category is missing or invalid on the approved record. Please generate and approve a fresh master image.',
+        }, { status: 409 });
+      }
+
+      const approvedGarmentType = access.pass.videoMasterGarmentType;
+      if (!approvedGarmentType || typeof approvedGarmentType !== 'string' || !approvedGarmentType.trim()) {
+        return NextResponse.json({
+          success: false,
+          error: 'Incomplete approved master metadata: Garment type is missing from the approved record. Please generate and approve a fresh master image.',
+        }, { status: 409 });
+      }
+
+      const approvedPromptSet = access.pass.videoMasterPromptSet;
+      if (!approvedPromptSet || !['set-1', 'set-2'].includes(approvedPromptSet)) {
+        return NextResponse.json({
+          success: false,
+          error: 'Incomplete approved master metadata: Scene style is missing or invalid on the approved record. Please generate and approve a fresh master image.',
+        }, { status: 409 });
+      }
+
+      const approvedEventId = access.pass.eventId;
+      if (!approvedEventId || !isEventId(approvedEventId)) {
+        return NextResponse.json({
+          success: false,
+          error: 'Incomplete approved master metadata: Festival event is missing or invalid on the pass. Please generate and approve a fresh master image.',
+        }, { status: 409 });
+      }
+
+      if (body.templateId && body.templateId !== approvedCategory) {
+        return NextResponse.json({
+          success: false,
+          error: `Customer category mismatch: Master image was approved for ${approvedCategory}, but ${body.templateId} was requested. Changing category requires generating and approving a fresh master image.`,
+        }, { status: 409 });
+      }
+
+      if (body.garmentType && body.garmentType !== approvedGarmentType) {
+        return NextResponse.json({
+          success: false,
+          error: `Garment type mismatch: Master image was approved for ${approvedGarmentType}, but ${body.garmentType} was requested. Changing garment type requires generating and approving a fresh master image.`,
+        }, { status: 409 });
+      }
+
+      if (body.eventId && body.eventId !== approvedEventId) {
+        return NextResponse.json({
+          success: false,
+          error: `Event mismatch: Master image was approved for ${approvedEventId}, but ${body.eventId} was requested. Changing festival event requires generating and approving a fresh master image.`,
+        }, { status: 409 });
+      }
+
+      if (!isRetry && body.promptSet && body.promptSet !== approvedPromptSet) {
+        return NextResponse.json({
+          success: false,
+          error: `Scene style mismatch: Master image was approved for ${approvedPromptSet === 'set-1' ? 'Style 1 (Courtyard Reveal)' : 'Style 2 (Doorway Glide)'}, but ${body.promptSet === 'set-1' ? 'Style 1' : 'Style 2'} was requested. Changing scene style requires generating and approving a fresh master image.`,
+        }, { status: 409 });
+      }
+    }
+
+    const eventId = isEventId(body.eventId) ? body.eventId : access.pass?.eventId || 'diwali';
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const nowIso = new Date().toISOString();
 
@@ -138,22 +269,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
-
     const motionSafety = DEFAULT_MOTION_SAFETY;
     const sessionData = db
       ? (await db.collection('sessions').doc(sessionId).get()).data()
       : getMockStore().sessions.get(sessionId);
-    const categoryValue = sessionData?.templateId || body.templateId;
-    const storedCategory = typeof categoryValue === 'string' && ['women', 'men', 'girl', 'boy'].includes(categoryValue)
-      ? categoryValue as CustomerCategory
-      : 'women';
-    // Camera/event instructions are created on the server. A browser must never
-    // be able to inject an arbitrary provider prompt.
-    const approvedPrompt = body.retryMode === 'safe'
-      ? buildFailSafeVideoPrompt(storedCategory, eventId)
-      : buildEventVideoPrompt(storedCategory, eventId, sessionId);
-    const prompt = buildFinalPrompt(approvedPrompt, motionSafety);
-    console.log('VIDEO_MASTER_LOADED', { sessionId, jobId, hasImage: true });
+
+    let effectiveCategory: CustomerCategory;
+    let effectiveGarment: string;
+    let effectiveEventId: EventId;
+    let effectivePromptSet: VideoPromptSet;
+
+    if (access.pass) {
+      // Zero fallbacks: strictly use verified stored metadata from the approved master image
+      effectiveCategory = access.pass.videoMasterCategory as CustomerCategory;
+      effectiveGarment = access.pass.videoMasterGarmentType as string;
+      effectiveEventId = access.pass.eventId as EventId;
+      effectivePromptSet = access.pass.videoMasterPromptSet as VideoPromptSet;
+    } else {
+      const categoryValue = sessionData?.templateId || body.templateId;
+      if (!categoryValue || !['women', 'men', 'girl', 'boy'].includes(categoryValue)) {
+        return NextResponse.json({
+          success: false,
+          error: 'Customer category is required for video generation. Please select a valid category (women, men, girl, boy).',
+        }, { status: 400 });
+      }
+      effectiveCategory = categoryValue as CustomerCategory;
+      const explicitGarment = body.garmentType || sessionData?.garmentType;
+      effectiveGarment = resolveGarmentType(effectiveCategory, explicitGarment, sessionData?.garmentAnalysis);
+      effectiveEventId = (isEventId(body.eventId) ? body.eventId : 'diwali') as EventId;
+      effectivePromptSet = (body.promptSet === 'set-2' || body.promptSet === 'set-1') ? body.promptSet : (sessionData?.promptSet || 'set-1');
+    }
+
+    let approvedPrompt = '';
+    if (isRetry) {
+      approvedPrompt = buildFailSafeVideoPrompt(effectiveCategory, effectiveEventId, effectiveGarment);
+    } else {
+      approvedPrompt = buildEventVideoPrompt(effectiveCategory, effectiveEventId, sessionId, effectivePromptSet, effectiveGarment);
+    }
+    const prompt = buildFinalPrompt(approvedPrompt, motionSafety, isRetry);
+    console.log('VIDEO_MASTER_LOADED', { sessionId, jobId, hasImage: true, isRetry, effectiveCategory, effectiveGarment, effectiveEventId, effectivePromptSet });
 
     const falKey = AI_CONFIG.FAL_KEY;
     if (!falKey || !falKey.trim()) {
@@ -167,7 +321,14 @@ export async function POST(req: NextRequest) {
 
         console.log('FAL_IMAGE_READY', { sessionId, jobId, reusedHostedUrl: true });
 
-        console.log('FAL_SUBMIT_START', { sessionId, jobId, model: FAL_VIDEO_MODEL });
+        const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
+        const proto = req.headers.get('x-forwarded-proto') || 'https';
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host && !host.includes('localhost') ? `${proto}://${host}` : '');
+        const webhookUrl = baseUrl
+          ? `${baseUrl}/api/video/webhook?jobId=${encodeURIComponent(jobId)}&sessionId=${encodeURIComponent(sessionId)}&accessCode=${encodeURIComponent(typeof accessCode === 'string' ? accessCode : '')}`
+          : undefined;
+
+        console.log('FAL_SUBMIT_START', { sessionId, jobId, model: FAL_VIDEO_MODEL, hasWebhook: Boolean(webhookUrl) });
         const falSubmitResult = await fal.queue.submit(FAL_VIDEO_MODEL, {
           input: {
             prompt,
@@ -176,7 +337,8 @@ export async function POST(req: NextRequest) {
             resolution: '768P',
             prompt_expansion_mode: 'disabled',
             enable_safety_checker: true,
-          }
+          },
+          ...(webhookUrl ? { webhookUrl } : {}),
         });
 
         if (!falSubmitResult?.request_id) {

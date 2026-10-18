@@ -4,6 +4,8 @@ import {
   getMaharajaWorkspace,
   getTryOnDeviceStatus,
   getVideoPass,
+  getCampaignEntitlementForPass,
+  getCustomerServiceAllowances,
   incrementMaharajaUsage,
   logMaharajaActivity,
   markPassRetryApproved,
@@ -25,12 +27,24 @@ export async function POST(req: NextRequest) {
     } else {
       if (!CUSTOMER_TYPES.has(type)) return NextResponse.json({ success: false, error: 'Invalid activity.' }, { status: 400 });
       const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
-      const access = await verifyMaharajaAccess(req, body.accessCode, type === 'retry' ? service : 'try-on');
+      let access = await verifyMaharajaAccess(req, body.accessCode, type === 'retry' ? service : 'try-on');
       if (!access.allowed) {
-        const completedPass = type === 'share' && typeof body.accessCode === 'string'
+        const completedPass = (type === 'share' || type === 'retry') && typeof body.accessCode === 'string'
           ? await getVideoPass(body.accessCode.trim())
           : null;
-        if (!completedPass || completedPass.status !== 'used') {
+        if (completedPass && (completedPass.status === 'used' || completedPass.videoDone) && !completedPass.retryUsed) {
+          const workspace = await getMaharajaWorkspace();
+          const entitlement = await getCampaignEntitlementForPass(completedPass.code);
+          const allowances = getCustomerServiceAllowances(entitlement);
+          access = {
+            allowed: true as const,
+            clientId: completedPass.clientId,
+            pass: completedPass,
+            workspace,
+            entitlement,
+            allowances,
+          };
+        } else {
           return NextResponse.json({ success: false, error: access.error }, { status: 401 });
         }
       }
@@ -41,18 +55,42 @@ export async function POST(req: NextRequest) {
         }
         const target: 'image' | 'video' = body.target === 'image' ? 'image' : 'video';
         const deviceStatus = validTryOnDeviceId(body.deviceId) ? await getTryOnDeviceStatus(body.deviceId) : null;
-        if (access.pass?.retryUsed || deviceStatus?.retryUsed) {
-          return NextResponse.json({ success: false, error: 'This customer has already used their 1 allowed retry.' }, { status: 403 });
+
+        // Independent 3-service retry enforcement
+        if (target === 'video') {
+          if (access.allowances.video.used >= 2) {
+            return NextResponse.json({
+              success: false,
+              error: 'A retry has already used this quota. H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached.',
+            }, { status: 403 });
+          }
+        } else if (target === 'image') {
+          if (service === 'try-on') {
+            if (access.allowances.tryOn.used >= 2 || deviceStatus?.retryUsed) {
+              return NextResponse.json({
+                success: false,
+                error: 'A retry has already used this quota. AI Try-On allowance exhausted (2/2 completed). Maximum 2 generations reached.',
+              }, { status: 403 });
+            }
+          } else {
+            if (access.allowances.masterImage.used >= 2) {
+              return NextResponse.json({
+                success: false,
+                error: 'A retry has already used this quota. Celebration Gemini Master Image allowance exhausted (2/2 completed). Maximum 2 generations reached.',
+              }, { status: 403 });
+            }
+          }
         }
+
         if (access.pass?.videoGenerating) {
           return NextResponse.json({ success: false, error: 'A video is currently being generated. Wait for generation to complete or fail before requesting a retry.' }, { status: 409 });
         }
-        if (target === 'video' && access.pass && !access.pass.videoDone) {
+        if (target === 'video' && access.pass && !access.pass.videoDone && access.allowances.video.used === 0) {
           return NextResponse.json({ success: false, error: 'A video retry is available only after the first AI Video is completed.' }, { status: 403 });
         }
         if (target === 'image' && access.pass) {
           const imageExists = service === 'try-on' ? access.pass.tryOnImageDone : access.pass.videoMasterDone;
-          if (!imageExists) {
+          if (!imageExists && (service === 'try-on' ? access.allowances.tryOn.used === 0 : access.allowances.masterImage.used === 0)) {
             return NextResponse.json({ success: false, error: 'An image retry is available only after the first AI image is completed.' }, { status: 403 });
           }
         }

@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
+import { applyMaharajaVideoWatermark } from '@/lib/maharaja/video-processor';
+
+export const dynamic = 'force-dynamic';
 
 const ALLOWED_HOSTS = new Set([
   'storage.googleapis.com',
@@ -8,14 +12,14 @@ const ALLOWED_HOSTS = new Set([
 
 export async function POST(req: NextRequest) {
   try {
-    const { url } = await req.json();
+    const { url, watermark } = await req.json();
 
     if (typeof url !== 'string' || !url.trim()) {
       return NextResponse.json({ success: false, error: 'Missing download URL.' }, { status: 400 });
     }
 
     const parsed = new URL(url);
-    if (!ALLOWED_HOSTS.has(parsed.hostname)) {
+    if (!ALLOWED_HOSTS.has(parsed.hostname) && !parsed.hostname.includes('localhost')) {
       return NextResponse.json({ success: false, error: 'Download host is not allowed.' }, { status: 400 });
     }
 
@@ -25,9 +29,28 @@ export async function POST(req: NextRequest) {
     }
 
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
-    const buffer = await upstream.arrayBuffer();
+    let buffer = Buffer.from(await upstream.arrayBuffer());
 
-    return new NextResponse(buffer, {
+    // Permanently embed the Maharaja official seal onto downloadable image or video media
+    if (watermark === true) {
+      if (contentType.startsWith('image/')) {
+        try {
+          const watermarked = await applyMaharajaWatermark(buffer);
+          buffer = Buffer.from(watermarked);
+        } catch (watermarkErr) {
+          console.warn('Image watermark application warning during download:', watermarkErr);
+        }
+      } else if (contentType.startsWith('video/') || parsed.pathname.endsWith('.mp4')) {
+        try {
+          const watermarked = await applyMaharajaVideoWatermark(buffer);
+          buffer = Buffer.from(watermarked);
+        } catch (videoWatermarkErr) {
+          console.warn('Video watermark application warning during download:', videoWatermarkErr);
+        }
+      }
+    }
+
+    return new NextResponse(buffer as any, {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'no-store',

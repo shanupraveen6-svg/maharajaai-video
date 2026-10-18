@@ -3,7 +3,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MoreVertical, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
+import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MoreVertical, Lock, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
 import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
 import { getEventOption, isEventId, type EventId } from '@/lib/maharaja/config';
 
@@ -13,12 +13,14 @@ export default function ResultClient({
   onBack,
   initialRetryUsed = false,
   onRetryUsed,
+  initialAllowances,
 }: {
   sessionId: string;
   accessCode?: string;
   onBack?: () => void;
   initialRetryUsed?: boolean;
   onRetryUsed?: () => void;
+  initialAllowances?: any;
 }) {
   const router = useRouter();
   const [showLiveConsent, setShowLiveConsent] = useState(false);
@@ -43,16 +45,27 @@ export default function ResultClient({
   const [eventId, setEventId] = useState<EventId>('diwali');
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [liveVideoUrl, setLiveVideoUrl] = useState<string | null>(null);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
   const [videoId, setVideoId] = useState<string>(sessionId ? `video_${sessionId}` : '');
   const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>('processing');
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
   const [retryUsed, setRetryUsed] = useState(initialRetryUsed);
+  const [allowances, setAllowances] = useState<any>(initialAllowances || null);
   const [videoDone, setVideoDone] = useState(false);
+
+  const imageAllowanceUsed = allowances?.masterImage?.used ?? (retryUsed ? 2 : 1);
+  const videoAllowanceUsed = allowances?.video?.used ?? (videoDone || videoUrl ? 1 : 0);
+  const imageExhausted = imageAllowanceUsed >= 2;
+  const videoExhausted = videoAllowanceUsed >= 2;
+  const videoManagerAuthorized = Boolean(allowances?.video?.managerAuthorized);
+  const canRetryVideo = !videoExhausted && (videoAllowanceUsed === 0 || videoManagerAuthorized);
+  const canRetryImage = !imageExhausted;
+
   const whatsappSendRequested = useRef(false);
-  const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId), [sessionId]);
-  const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId), [sessionId]);
+  const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId, eventId), [sessionId, eventId]);
+  const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId, eventId), [sessionId, eventId]);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
   const eventLabel = getEventOption(eventId).label;
@@ -93,9 +106,23 @@ export default function ResultClient({
   const syncPreviewAudio = (video: HTMLVideoElement, start = false) => {
     const audio = previewAudioRef.current;
     if (!audio) return;
-    const target = video.currentTime % Math.max(audio.duration || 6, 1);
-    if (Math.abs(audio.currentTime - target) > 0.12) audio.currentTime = target;
-    audio.playbackRate = video.playbackRate || 1;
+    const audioDur = Math.max(audio.duration || 6, 1);
+    const target = video.currentTime % audioDur;
+    const baseRate = video.playbackRate || 1;
+    const drift = target - audio.currentTime;
+
+    // Hard seek only on start or major desync (>0.45s) to eliminate buffer flush stutter/clicks
+    if (start || Math.abs(drift) > 0.45) {
+      audio.currentTime = target;
+      audio.playbackRate = baseRate;
+    } else if (Math.abs(drift) > 0.03) {
+      // Smooth drift steering: subtle playback rate steering re-aligns audio without popping
+      const adjustment = Math.max(-0.05, Math.min(0.05, drift * 0.4));
+      audio.playbackRate = Math.max(0.85, Math.min(1.15, baseRate + adjustment));
+    } else {
+      audio.playbackRate = baseRate;
+    }
+
     audio.volume = 0.9;
     if (start && audio.paused) {
       audio.play().catch((err) => console.warn('Preview audio playback blocked:', err));
@@ -190,6 +217,12 @@ export default function ResultClient({
           if (data.masterImageUrl) {
             setMasterImageUrl(data.masterImageUrl);
           }
+          if (data.liveVideoUrl) {
+            setLiveVideoUrl(data.liveVideoUrl);
+          }
+          if (data.allowances) {
+            setAllowances(data.allowances);
+          }
           if (typeof data.retryUsed === 'boolean') setRetryUsed(data.retryUsed);
           if (typeof data.videoDone === 'boolean') setVideoDone(data.videoDone);
           if (data.status === 'ready' || data.status === 'succeeded') {
@@ -239,10 +272,12 @@ export default function ResultClient({
     );
   }
 
-  const fetchDownloadBlob = async (url: string) => {
+  const fetchDownloadBlob = async (url: string, watermark = false) => {
     try {
-      const directRes = await fetch(url);
-      if (directRes.ok) return await directRes.blob();
+      if (!watermark) {
+        const directRes = await fetch(url);
+        if (directRes.ok) return await directRes.blob();
+      }
     } catch {
       // Cross-origin Firebase signed URLs often block browser-side blob reads.
     }
@@ -250,7 +285,7 @@ export default function ResultClient({
     const proxyRes = await fetch('/api/download/asset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, watermark }),
     });
 
     if (!proxyRes.ok) {
@@ -261,8 +296,8 @@ export default function ResultClient({
     return await proxyRes.blob();
   };
 
-  const downloadAsset = async (url: string, filename: string) => {
-    const blob = await fetchDownloadBlob(url);
+  const downloadAsset = async (url: string, filename: string, watermark = false) => {
+    const blob = await fetchDownloadBlob(url, watermark);
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objectUrl;
@@ -283,11 +318,11 @@ export default function ResultClient({
     }).catch(() => undefined);
 
     if (masterImageUrl) {
-      await downloadAsset(masterImageUrl, `Maharaja-${eventLabel}-Master-${sessionId}.jpg`);
+      await downloadAsset(masterImageUrl, `Maharaja-${eventLabel}-Master-${sessionId}.jpg`, true);
     }
     if (videoUrl) {
       const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
-      await downloadAsset(videoUrl, `Maharaja-${eventLabel}-Video-${sessionId}.${extension}`);
+      await downloadAsset(videoUrl, `Maharaja-${eventLabel}-Video-${sessionId}.${extension}`, true);
     }
     // Downloading the video must NOT complete or void the billing pass. The pass remains valid for its full window.
   };
@@ -334,7 +369,8 @@ export default function ResultClient({
         body: JSON.stringify({
           sessionId,
           videoId: videoId || `video_${sessionId}`,
-          videoUrl: videoUrl || undefined,
+          videoUrl: liveVideoUrl || videoUrl || undefined,
+          liveVideoUrl: liveVideoUrl || undefined,
           customerName: customerName.trim(),
           customerLocality: customerLocality.trim(),
           liveAudioUrl,
@@ -375,6 +411,14 @@ export default function ResultClient({
   };
 
   const handleRetryVideo = async () => {
+    if (videoExhausted) {
+      setVideoError('Cinematic Video limit reached (2/2 used). Retries are exhausted for this mobile number.');
+      return;
+    }
+    if (videoAllowanceUsed >= 1 && !videoManagerAuthorized) {
+      setVideoError('Store manager authorization is required before retrying the Cinematic Video.');
+      return;
+    }
     setShowMenu(false);
     setIsLoadingVideo(true);
     setVideoStatus('processing');
@@ -392,8 +436,6 @@ export default function ResultClient({
           service: 'ai-video',
         }),
       });
-      setRetryUsed(true);
-      onRetryUsed?.();
 
       const startRes = await fetch('/api/video/start', {
         method: 'POST',
@@ -403,12 +445,17 @@ export default function ResultClient({
           accessCode,
           eventId,
           masterImageUrl,
+          retry: true,
+          retryMode: 'backup-locked',
           conceptPrompt: 'FAIL-SAFE REGENERATION MODE. RETRY STABILIZED FASHION COMMERCIAL MODE.',
         }),
       });
       const startData = await startRes.json();
       if (!startRes.ok) {
         throw new Error(startData.error || 'Failed to start retry video.');
+      }
+      if (startData.allowances) {
+        setAllowances(startData.allowances);
       }
     } catch (err: any) {
       console.error('Video retry error:', err);
@@ -419,6 +466,10 @@ export default function ResultClient({
   };
 
   const handleRetryImage = async () => {
+    if (imageExhausted) {
+      setLiveError('Celebration Image limit reached (2/2 used). Retries are exhausted for this mobile number.');
+      return;
+    }
     setShowMenu(false);
     try {
       await fetch('/api/maharaja/activity', {
@@ -433,7 +484,6 @@ export default function ResultClient({
           service: 'ai-video',
         }),
       });
-      setRetryUsed(true);
       onRetryUsed?.();
     } catch (err) {
       console.warn('Image retry log warning:', err);
@@ -479,7 +529,7 @@ export default function ResultClient({
             </a>
           </div>
 
-          <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thanks for experiencing Maharaja AI.</p>
+          <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thank you for experiencing the Maharaja AI visual celebration.</p>
         </section>
       </main>
     );
@@ -572,14 +622,21 @@ export default function ResultClient({
                   className="fixed inset-0 z-30 cursor-default"
                   onClick={() => setShowMenu(false)}
                 />
-                <div className="absolute right-0 top-10 z-40 w-56 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-1.5 shadow-2xl backdrop-blur-md text-left space-y-1 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-2.5 py-1 border-b border-[#D4AF37]/20 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">
-                    <span>Options</span>
-                    <span className="text-[9px] text-[#F3E5AB]/60">{retryUsed ? '0 retries left' : '1 retry available'}</span>
+                <div className="absolute right-0 top-10 z-40 w-64 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-2 shadow-2xl backdrop-blur-md text-left space-y-2 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-2 py-1 border-b border-[#D4AF37]/20 text-[10px] font-bold uppercase tracking-wider text-[#D4AF37] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span>Celebration Image</span>
+                      <span className="font-mono text-[10px] text-[#F3E5AB]">{imageAllowanceUsed}/2</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Cinematic Video</span>
+                      <span className="font-mono text-[10px] text-[#F3E5AB]">{videoAllowanceUsed}/2</span>
+                    </div>
                   </div>
 
-                  {!retryUsed ? (
-                    <>
+                  {/* Video Retry */}
+                  {!videoExhausted ? (
+                    canRetryVideo ? (
                       <button
                         type="button"
                         onClick={handleRetryVideo}
@@ -588,25 +645,39 @@ export default function ResultClient({
                         <RotateCcw className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
                         <div>
                           <div className="font-bold">Retry Video</div>
-                          <div className="text-[10px] text-gray-300 font-normal">Regenerate with backup prompt</div>
+                          <div className="text-[10px] text-gray-300 font-normal">Regenerate with backup prompt ({2 - videoAllowanceUsed} left)</div>
                         </div>
                       </button>
-
-                      <button
-                        type="button"
-                        onClick={handleRetryImage}
-                        className="w-full flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs font-semibold text-[#F3E5AB] hover:bg-[#6e0d1f]/60 hover:text-white transition"
-                      >
-                        <ImageIcon className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
-                        <div>
-                          <div className="font-bold">Retry Image</div>
-                          <div className="text-[10px] text-gray-300 font-normal">Re-upload photos & start fresh</div>
-                        </div>
-                      </button>
-                    </>
+                    ) : (
+                      <div className="rounded border border-amber-500/40 bg-black/40 p-2 text-[10px] text-amber-200">
+                        <div className="font-bold flex items-center gap-1"><Lock className="h-3 w-3" /> Manager Authorization Required</div>
+                        <p className="mt-0.5 text-zinc-300">Video retry (1/2 used) requires store manager approval before generating.</p>
+                      </div>
+                    )
                   ) : (
-                    <div className="px-2.5 py-2 text-[11px] text-[#F3E5AB]/65">
-                      1 of 1 retry has already been used.
+                    <div className="rounded border border-red-500/30 bg-black/40 p-2 text-[10px] text-red-300">
+                      <div className="font-bold">Cinematic Video Limit Reached</div>
+                      <p className="mt-0.5 text-zinc-400">2/2 video generations used. Retries are exhausted for this mobile pass.</p>
+                    </div>
+                  )}
+
+                  {/* Image Retry */}
+                  {!imageExhausted ? (
+                    <button
+                      type="button"
+                      onClick={handleRetryImage}
+                      className="w-full flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs font-semibold text-[#F3E5AB] hover:bg-[#6e0d1f]/60 hover:text-white transition"
+                    >
+                      <ImageIcon className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-bold">Retry Image</div>
+                        <div className="text-[10px] text-gray-300 font-normal">Re-upload photos & start fresh ({2 - imageAllowanceUsed} left)</div>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="rounded border border-red-500/30 bg-black/40 p-2 text-[10px] text-red-300">
+                      <div className="font-bold">Celebration Image Limit Reached</div>
+                      <p className="mt-0.5 text-zinc-400">2/2 image generations used. Retries are exhausted for this mobile pass.</p>
                     </div>
                   )}
                 </div>
@@ -671,7 +742,7 @@ export default function ResultClient({
                 Thank you for your purchase
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
-                Your image and video download has started. Thanks for experiencing Maharaja AI.
+                Your image and video download has started. Thank you for experiencing the Maharaja AI visual celebration.
               </p>
             </div>
 

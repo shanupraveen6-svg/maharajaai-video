@@ -26,6 +26,7 @@ import {
   getEventOption,
   type CustomerCategory,
   type EventId,
+  type VideoPromptSet,
 } from '@/lib/maharaja/config';
 
 const BarcodePriceScanner = dynamic(() => import('@/components/BarcodePriceScanner'), { ssr: false });
@@ -75,6 +76,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [activeService, setActiveService] = useState<'try-on' | 'ai-video'>(service);
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [category, setCategory] = useState<CustomerCategory>('women');
+  const [promptSet, setPromptSet] = useState<VideoPromptSet>('set-1');
   const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
@@ -82,6 +84,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [tryOnGrant, setTryOnGrant] = useState('');
   const [tryOnUsed, setTryOnUsed] = useState(false);
   const [retryUsed, setRetryUsed] = useState(false);
+  const [allowances, setAllowances] = useState<{
+    tryOn: { used: number; max: 2; remaining: number };
+    masterImage: { used: number; max: 2; remaining: number };
+    video: { used: number; max: 2; remaining: number; managerAuthorized?: boolean };
+  }>({
+    tryOn: { used: 0, max: 2, remaining: 2 },
+    masterImage: { used: 0, max: 2, remaining: 2 },
+    video: { used: 0, max: 2, remaining: 2 },
+  });
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
   const [garmentPhotos, setGarmentPhotos] = useState<string[]>([]);
   const [garmentRoles, setGarmentRoles] = useState<string[]>(['Top / Shirt', 'Bottom / Pant', 'Extra / Layer']);
@@ -93,6 +104,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [stage, setStage] = useState<'loading' | 'ready' | 'analyzing' | 'image' | 'video' | 'result'>('loading');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [masterApproved, setMasterApproved] = useState(false);
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
   const maxGarmentPhotos = activeService === 'try-on' ? 1 : 3;
@@ -107,11 +119,99 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     if (passOwnsImages) return;
     setTryOnImageUrl(null);
     setVideoMasterUrl(null);
+    setMasterApproved(false);
+  }
+
+  async function handleApproveMaster() {
+    if (!videoMasterUrl) return;
+    try {
+      const res = await fetch('/api/ai/master-image/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          accessCode,
+          masterImageUrl: videoMasterUrl,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Approval failed.');
+      setMasterApproved(true);
+      setMessage('Festival portrait approved! You can now generate your 6-second cinematic video.');
+      setError('');
+    } catch (err) {
+      setError(customerError(err, 'Failed to approve portrait.'));
+    }
+  }
+
+  async function handleRejectMaster() {
+    if (!videoMasterUrl) return;
+    try {
+      await fetch('/api/ai/master-image/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          accessCode,
+          service: 'ai-video',
+          reason: 'customer_rejected',
+        }),
+      });
+      setVideoMasterUrl(null);
+      setMasterApproved(false);
+      setMessage('Portrait rejected. Please adjust your photos or style and generate a fresh portrait.');
+      setError('');
+    } catch (err) {
+      setError(customerError(err, 'Failed to reject portrait.'));
+    }
+  }
+
+  async function handleStyleChange(newSet: VideoPromptSet) {
+    if (newSet === promptSet) return;
+    setPromptSet(newSet);
+    if (videoMasterUrl) {
+      try {
+        await fetch('/api/ai/master-image/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accessCode,
+            sessionId,
+            service: 'ai-video',
+            reason: `style_changed_to_${newSet}`,
+          }),
+        });
+      } catch (err) {
+        console.warn('Style change rejection error:', err);
+      }
+      setVideoMasterUrl(null);
+      setMasterApproved(false);
+      setMessage(`Switched to ${newSet === 'set-1' ? 'Style 1 (Courtyard Reveal)' : 'Style 2 (Doorway Glide)'}. Please generate a matching festival portrait.`);
+    }
   }
 
   async function handleRetryImage() {
-    if (retryUsed) return;
+    if (activeService === 'try-on' && allowances.tryOn.used >= 2) {
+      setError('AI Try-On allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
+      return;
+    }
+    if (activeService === 'ai-video' && allowances.masterImage.used >= 2) {
+      setError('Celebration Gemini Master Image allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
+      return;
+    }
     try {
+      // Safely invalidate master image on server immediately
+      await fetch('/api/ai/master-image/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessCode,
+          sessionId,
+          service: activeService,
+          reason: 'customer_retry_requested',
+        }),
+      }).catch((e) => console.warn('Master image reject call failed:', e));
+
       const res = await fetch('/api/maharaja/activity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,6 +240,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         }
       } else {
         setVideoMasterUrl(null);
+        setMasterApproved(false);
       }
       setPersonPhoto(null);
       setPersonAnalysis(null);
@@ -168,6 +269,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         const data = await readJson(await fetch(`/api/maharaja/access/${encodeURIComponent(accessCode)}?service=${service}&deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' }));
         if (!active) return;
         setAccess(data);
+        if (data.allowances || data.access?.allowances) {
+          setAllowances(data.allowances || data.access?.allowances);
+        }
         setEventId(data.access.eventId);
         setPurchaseConfirmed(data.access.service === 'ai-video');
         const used = data.access.service === 'try-on' && data.access.tryOnUsed === true;
@@ -183,9 +287,17 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           setMessage('Manager retry approved. Generate a new video from the same approved image.');
         } else if (data.access.service === 'ai-video' && (data.access.tryOnImageUrl || data.access.videoMasterUrl)) {
           if (data.access.tryOnImageUrl) setTryOnImageUrl(data.access.tryOnImageUrl);
-          if (data.access.videoMasterUrl) setVideoMasterUrl(data.access.videoMasterUrl);
+          if (data.access.videoMasterUrl) {
+            setVideoMasterUrl(data.access.videoMasterUrl);
+            setMasterApproved(Boolean(data.access.videoMasterApproved));
+          }
+          if (data.access.videoMasterPromptSet) {
+            setPromptSet(data.access.videoMasterPromptSet);
+          }
           setMessage(data.access.videoMasterUrl
-            ? 'Your festival image is ready. Create your 6-second AI video below.'
+            ? (data.access.videoMasterApproved
+                ? 'Your festival portrait is approved and ready. Create your 6-second AI video below.'
+                : 'Your festival portrait is ready for review. Please inspect and approve it below.')
             : 'Your Try-On image is ready. Switch to AI Video to create your festival image and video.');
         }
         if (!used) window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
@@ -208,7 +320,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     return () => window.clearInterval(timer);
   }, [stage]);
 
-  const canGenerateImage = purchaseConfirmed
+  const isImageExhausted = activeService === 'try-on'
+    ? allowances.tryOn.used >= 2
+    : allowances.masterImage.used >= 2;
+
+  const canGenerateImage = !isImageExhausted
+    && purchaseConfirmed
     && (activeService === 'ai-video' || !!access?.access.phoneMasked || !!tryOnGrant)
     && !!personPhoto
     && garmentPhotos.length > 0
@@ -298,34 +415,99 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     }
   }
 
-  async function generateImage() {
-    if (!canGenerateImage || !personPhoto) return;
-    setStage('image');
-    setError('');
-      setMessage(activeService === 'try-on' ? 'Generating your Maharaja AI Try-On image...' : `Generating your ${event.label} festival portrait...`);
+  async function uploadPhotoToStorage(dataUrl: string, folder: 'person' | 'garment'): Promise<string> {
     try {
-      const data = await readJson(await fetch('/api/ai/master-image', {
+      const res = await fetch('/api/storage/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
           accessCode,
-          service: activeService,
-          eventId,
-          templateId: category,
-          personPhoto,
-          garmentPhotos: visibleGarmentPhotos,
-          garmentRoles,
-          personAnalysis,
-          garmentAnalysis,
           deviceId,
-          tryOnGrant,
-          conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId) : undefined,
+          folder,
+          contentType: 'image/jpeg',
         }),
+      });
+      const data = await res.json();
+      if (!data.success || !data.uploadUrl) return '';
+
+      const base64Data = dataUrl.split(',')[1] || dataUrl;
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+      const putRes = await fetch(data.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'image/jpeg' },
+        body: blob,
+      });
+      if (!putRes.ok) return '';
+      return data.storagePath;
+    } catch {
+      return '';
+    }
+  }
+
+  async function generateImage() {
+    if (!canGenerateImage || !personPhoto) return;
+    setStage('image');
+    setError('');
+    setMessage(activeService === 'try-on' ? 'Uploading photos and preparing Try-On...' : `Uploading photos and preparing ${event.label} portrait...`);
+    try {
+      const personStoragePath = await uploadPhotoToStorage(personPhoto, 'person');
+      const garmentStoragePaths = await Promise.all(
+        visibleGarmentPhotos.map((photo) => uploadPhotoToStorage(photo, 'garment'))
+      );
+      const allUploaded = Boolean(personStoragePath && garmentStoragePaths.length === visibleGarmentPhotos.length && garmentStoragePaths.every(Boolean));
+
+      setMessage(activeService === 'try-on' ? 'Generating your Maharaja AI Try-On image...' : `Generating your ${event.label} festival portrait...`);
+
+      const requestBody: Record<string, any> = {
+        sessionId,
+        accessCode,
+        service: activeService,
+        eventId,
+        templateId: category,
+        promptSet,
+        garmentRoles,
+        personAnalysis,
+        garmentAnalysis,
+        deviceId,
+        tryOnGrant,
+        conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId, undefined, promptSet) : undefined,
+      };
+
+      if (allUploaded) {
+        requestBody.personPhotoStoragePath = personStoragePath;
+        requestBody.garmentPhotoStoragePaths = garmentStoragePaths;
+      } else {
+        requestBody.personPhoto = personPhoto;
+        requestBody.garmentPhotos = visibleGarmentPhotos;
+      }
+
+      const data = await readJson(await fetch('/api/ai/master-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
       }));
-      if (activeService === 'try-on') setTryOnImageUrl(data.masterImageUrl);
-      else setVideoMasterUrl(data.masterImageUrl);
-      setMessage(activeService === 'try-on' ? 'Your Maharaja AI Try-On is ready.' : 'Festival image ready. Continue to create the video.');
+      if (data.allowances) {
+        setAllowances(data.allowances);
+      }
+      if (activeService === 'try-on') {
+        setTryOnImageUrl(data.masterImageUrl);
+      } else {
+        setVideoMasterUrl(data.masterImageUrl);
+        setMasterApproved(Boolean(data.approved));
+      }
+      setMessage(activeService === 'try-on'
+        ? 'Your Maharaja AI Try-On is ready.'
+        : (data.approved
+            ? 'Approved festival portrait ready. Continue to create your AI video.'
+            : 'Festival portrait ready for review. Please inspect and approve below.'));
     } catch (caught) {
       setError(customerError(caught, 'The AI image could not be generated. Please ask Maharaja staff for assistance.'));
     } finally {
@@ -334,7 +516,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   }
 
   async function generateVideo() {
-    if (!videoMasterUrl || stage === 'video') return;
+    if (!videoMasterUrl || stage === 'video' || !masterApproved) return;
+    if (allowances.video.used >= 2) {
+      setError('H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
+      return;
+    }
     setStage('video');
     setError('');
     setVideoProgressIndex(0);
@@ -349,6 +535,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           eventId,
           masterImageUrl: videoMasterUrl,
           templateId: category,
+          garmentType: garmentAnalysis?.garmentType,
+          promptSet,
           retryMode: retrySessionId ? 'safe' : undefined,
         }),
       }));
@@ -362,6 +550,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       for (let attempt = 0; attempt < 180; attempt += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 1000 : 2000));
         const status = await readJson(await fetch(`/api/video/status?sessionId=${encodeURIComponent(sessionId)}&jobId=${encodeURIComponent(start.jobId)}&accessCode=${encodeURIComponent(accessCode)}`));
+        if (status.allowances) setAllowances(status.allowances);
         if (status.status === 'ready' || status.status === 'succeeded') {
           setStage('result');
           return;
@@ -465,7 +654,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       )}
       <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-          <div><p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition">wefocus.in</a></p><h1 className="mt-1 font-serif text-2xl font-bold">Maharaja AI Experience</h1></div>
+          <div><p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition">B Focus</a></p><h1 className="mt-1 font-serif text-2xl font-bold">Maharaja AI Experience</h1></div>
           {activeService === 'try-on' ? <Shirt className="h-7 w-7 text-[#D4AF37]" /> : <Film className="h-7 w-7 text-[#D4AF37]" />}
         </div>
       </header>
@@ -475,6 +664,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           <ResultClient
             sessionId={sessionId}
             accessCode={accessCode}
+            initialAllowances={allowances}
             initialRetryUsed={retryUsed}
             onRetryUsed={() => setRetryUsed(true)}
             onBack={() => setStage('ready')}
@@ -482,7 +672,54 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         ) : (
           <>
         {service === 'ai-video' && access?.access.phoneMasked && (
-          <div className="mb-5 border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">Pass verified for {access.access.phoneMasked} · Bill ****{access.access.billLast4}</div>
+          <div className="mb-4 border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">Pass verified for {access.access.phoneMasked} · Bill ****{access.access.billLast4}</div>
+        )}
+
+        {/* Server-Enforced Campaign Generation Allowances Display */}
+        <div id="campaign-allowances-bar" className="mb-5 grid grid-cols-3 gap-2 md:gap-3 rounded-lg border border-[#D4AF37]/50 bg-[#21090E] p-3 text-white shadow-md">
+          {/* AI Try-On */}
+          <div className={`flex flex-col items-center justify-center rounded p-2 text-center border ${allowances.tryOn.used >= 2 ? 'border-red-500/50 bg-red-950/40 text-red-200' : 'border-[#D4AF37]/30 bg-black/40 text-[#F3E5AB]'}`}>
+            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-[#D4AF37]">AI Try-On</span>
+            <span className="text-base md:text-lg font-black tracking-tight mt-0.5">{allowances.tryOn.used}/2</span>
+            <span className={`text-[9px] md:text-[10px] mt-0.5 font-medium ${allowances.tryOn.used >= 2 ? 'text-red-300' : 'text-[#F3E5AB]/75'}`}>
+              {allowances.tryOn.used === 0 ? '2 available' : allowances.tryOn.used === 1 ? '1 retry left' : 'Exhausted'}
+            </span>
+          </div>
+
+          {/* Celebration Image */}
+          <div className={`flex flex-col items-center justify-center rounded p-2 text-center border ${allowances.masterImage.used >= 2 ? 'border-red-500/50 bg-red-950/40 text-red-200' : 'border-[#D4AF37]/30 bg-black/40 text-[#F3E5AB]'}`}>
+            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-[#D4AF37]">Celebration Image</span>
+            <span className="text-base md:text-lg font-black tracking-tight mt-0.5">{allowances.masterImage.used}/2</span>
+            <span className={`text-[9px] md:text-[10px] mt-0.5 font-medium ${allowances.masterImage.used >= 2 ? 'text-red-300' : 'text-[#F3E5AB]/75'}`}>
+              {allowances.masterImage.used === 0 ? '2 available' : allowances.masterImage.used === 1 ? '1 retry left' : 'Exhausted'}
+            </span>
+          </div>
+
+          {/* Cinematic Video */}
+          <div className={`flex flex-col items-center justify-center rounded p-2 text-center border ${allowances.video.used >= 2 ? 'border-red-500/50 bg-red-950/40 text-red-200' : 'border-[#D4AF37]/30 bg-black/40 text-[#F3E5AB]'}`}>
+            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-[#D4AF37]">Cinematic Video</span>
+            <span className="text-base md:text-lg font-black tracking-tight mt-0.5">{allowances.video.used}/2</span>
+            <span className={`text-[9px] md:text-[10px] mt-0.5 font-medium ${allowances.video.used >= 2 ? 'text-red-300' : 'text-[#F3E5AB]/75'}`}>
+              {allowances.video.used === 0 ? '2 available' : allowances.video.used === 1 ? (allowances.video.managerAuthorized ? 'Manager authorized' : '1 manager retry') : 'Exhausted'}
+            </span>
+          </div>
+        </div>
+
+        {/* Exhaustion Notices */}
+        {activeService === 'try-on' && allowances.tryOn.used >= 2 && (
+          <div className="mb-4 border border-red-300 bg-red-50 p-3 text-xs md:text-sm font-bold text-red-800 text-center rounded shadow-sm">
+            AI Try-On allowance exhausted (2/2 completed). Limit reached for this customer.
+          </div>
+        )}
+        {activeService === 'ai-video' && !masterApproved && allowances.masterImage.used >= 2 && (
+          <div className="mb-4 border border-red-300 bg-red-50 p-3 text-xs md:text-sm font-bold text-red-800 text-center rounded shadow-sm">
+            Celebration Image allowance exhausted (2/2 completed). Limit reached for this customer.
+          </div>
+        )}
+        {activeService === 'ai-video' && masterApproved && allowances.video.used >= 2 && (
+          <div className="mb-4 border border-red-300 bg-red-50 p-3 text-xs md:text-sm font-bold text-red-800 text-center rounded shadow-sm">
+            Cinematic Video allowance exhausted (2/2 completed). Limit reached for this customer.
+          </div>
         )}
 
         <div className="mb-5 grid grid-cols-2 border border-[#D8C49B] bg-white p-1">
@@ -533,7 +770,32 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-4 gap-2">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" disabled={busy || imagesLocked} onClick={() => { setCategory(option); clearActiveImage(); }} className={`min-h-11 border px-2 text-xs font-bold uppercase ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}>{option}</button>)}</div></fieldset>
-                  <label className="text-xs font-bold uppercase text-[#5C4B43]">Event
+                  {activeService === 'ai-video' && (
+                    <fieldset className="sm:col-span-2">
+                      <legend className="text-xs font-bold uppercase text-[#5C4B43]">Cinematic Scene Style</legend>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          id="scene-style-1-btn"
+                          disabled={busy || imagesLocked}
+                          onClick={() => void handleStyleChange('set-1')}
+                          className={`min-h-11 border px-3 text-xs font-bold uppercase ${promptSet === 'set-1' ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}
+                        >
+                          Style 1: Courtyard Reveal
+                        </button>
+                        <button
+                          type="button"
+                          id="scene-style-2-btn"
+                          disabled={busy || imagesLocked}
+                          onClick={() => void handleStyleChange('set-2')}
+                          className={`min-h-11 border px-3 text-xs font-bold uppercase ${promptSet === 'set-2' ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}
+                        >
+                          Style 2: Doorway Glide
+                        </button>
+                      </div>
+                    </fieldset>
+                  )}
+                  <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
                     <select
                       id="event-select"
                       value={eventId}
@@ -716,6 +978,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   onRetryRequested={handleRetryImage}
                   retryUsed={retryUsed}
                   serviceType={activeService}
+                  allowanceUsed={activeService === 'try-on' ? allowances?.tryOn?.used : allowances?.masterImage?.used}
+                  allowanceMax={2}
                 />
                 {masterImageUrl && activeService === 'try-on' && (
                   <div className="mt-4 space-y-2">
@@ -724,7 +988,46 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3">
-                    <button type="button" id="generate-video-btn" onClick={() => void generateVideo()} disabled={busy} className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black disabled:opacity-50">{stage === 'video' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />} Generate 6-Sec AI Video <ArrowRight className="h-4 w-4" /></button>
+                    {!masterApproved ? (
+                      <div className="border border-[#D4AF37]/70 bg-black/40 p-3.5 text-center rounded">
+                        <p className="text-xs font-bold uppercase tracking-wider text-[#D4AF37]">Review Your Festival Portrait</p>
+                        <p className="mt-1 text-[11px] text-[#F3E5AB]/80">Inspect your face, saree/garment colors, and jewelry before creating your AI video.</p>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            id="approve-master-btn"
+                            onClick={() => void handleApproveMaster()}
+                            disabled={busy}
+                            className="flex min-h-11 items-center justify-center gap-1.5 bg-[#D4AF37] px-2 text-xs font-bold uppercase text-black hover:brightness-105"
+                          >
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-black" /> Approve
+                          </button>
+                          <button
+                            type="button"
+                            id="reject-master-btn"
+                            onClick={() => void handleRejectMaster()}
+                            disabled={busy}
+                            className="flex min-h-11 items-center justify-center gap-1.5 border border-red-500/80 bg-red-950/40 px-2 text-xs font-bold uppercase text-red-200 hover:bg-red-900/50"
+                          >
+                            <X className="h-4 w-4 shrink-0 text-red-300" /> Reject
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border border-emerald-600/70 bg-emerald-950/40 p-2.5 text-center rounded text-xs font-bold text-emerald-300 flex items-center justify-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Portrait Approved · Ready for Video
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      id="generate-video-btn"
+                      onClick={() => void generateVideo()}
+                      disabled={busy || !masterApproved}
+                      title={!masterApproved ? 'Please review and approve your portrait first' : undefined}
+                      className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black disabled:opacity-40"
+                    >
+                      {stage === 'video' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />} Generate 6-Sec AI Video <ArrowRight className="h-4 w-4" />
+                    </button>
                     {stage === 'video' && <div className="space-y-2 border border-[#D4AF37]/35 bg-black/30 p-3 text-left">{['Preparing festive lighting', 'Applying camera motion', 'Rendering your video'].map((step, index) => <div key={step} className={`flex items-center gap-2 text-xs font-semibold ${index <= videoProgressIndex ? 'text-[#F3E5AB]' : 'text-[#F3E5AB]/40'}`}><span className={`h-2 w-2 rounded-full ${index < videoProgressIndex ? 'bg-emerald-400' : index === videoProgressIndex ? 'animate-pulse bg-[#D4AF37]' : 'bg-white/20'}`} />{step}</div>)}</div>}
                   </div>
                 )}

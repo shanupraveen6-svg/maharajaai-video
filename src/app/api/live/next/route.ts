@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getMockStore, generateReservationId, getSignedPlaybackUrl, MockQueueItem } from '@/lib/firebase/admin';
+import { getDb, getMockStore, generateReservationId, getSignedPlaybackUrl, type MockQueueItem } from '@/lib/firebase/admin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
           return { status: 'failed', reason: failureReason };
         }
 
-        const storagePath = videoData.storagePath;
+        const storagePath = videoData.liveStoragePath || videoData.storagePath;
         const reservationId = generateReservationId();
 
         transaction.update(queueDoc.ref, {
@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ status: 'idle', reason: failureReason });
       }
 
-      const storagePath = video.storagePath;
+      const storagePath = video.liveStoragePath || video.storagePath;
       const reservationId = generateReservationId();
 
       nextItem.status = 'reserved';

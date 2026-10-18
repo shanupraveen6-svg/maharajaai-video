@@ -1,13 +1,16 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { AI_VIDEO_MIN_PURCHASE, isEventId, MAHARAJA_CLIENT_ID, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
+import { verifyOperatorRequest } from '@/lib/auth/operator';
 import {
   getMaharajaWorkspace,
   incrementMaharajaUsage,
-  MaharajaVideoPass,
+  type MaharajaVideoPass,
   saveVideoPass,
   expireActivePassesForPhone,
   logMaharajaActivity,
+  getCampaignEntitlementByPhone,
+  getCustomerServiceAllowances,
 } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +29,13 @@ function maskPhone(phone: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!verifyOperatorRequest(req)) {
+      return NextResponse.json(
+        { success: false, error: 'Authenticated biller or operator access is required to generate customer passes.' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const workspace = await getMaharajaWorkspace();
 
@@ -73,6 +83,8 @@ export async function POST(req: NextRequest) {
       tryOnImageUrl: '',
       videoMasterDone: false,
       videoMasterUrl: '',
+      videoMasterApproved: false,
+      videoMasterApprovedUrl: '',
       videoGenerating: false,
       videoDone: false,
       retryUsed: false,
@@ -104,8 +116,12 @@ export async function POST(req: NextRequest) {
         whatsappOptIn: pass.whatsappOptIn === true,
     });
 
+    const entitlement = await getCampaignEntitlementByPhone(phone);
+    const allowances = getCustomerServiceAllowances(entitlement);
+
     return NextResponse.json({
       success: true,
+      allowances,
       pass: {
         code: pass.code,
         clientId: pass.clientId,
@@ -114,6 +130,7 @@ export async function POST(req: NextRequest) {
         eventId: pass.eventId,
         expiresAt: pass.expiresAt,
         link: `${req.nextUrl.origin}/maharaja/video/${pass.code}`,
+        allowances,
       },
     });
   } catch (error) {

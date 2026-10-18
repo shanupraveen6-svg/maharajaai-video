@@ -10,6 +10,8 @@ interface SecureTryOnViewerProps {
   onRetryRequested?: () => void;
   retryUsed?: boolean;
   serviceType?: 'try-on' | 'ai-video';
+  allowanceUsed?: number;
+  allowanceMax?: number;
 }
 
 export default function SecureTryOnViewer({
@@ -18,11 +20,18 @@ export default function SecureTryOnViewer({
   onRetryRequested,
   retryUsed = false,
   serviceType = 'try-on',
+  allowanceUsed,
+  allowanceMax = 2,
 }: SecureTryOnViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isBlackout, setIsBlackout] = useState(false);
   const [blackoutReason, setBlackoutReason] = useState<string>('');
   const [showMenu, setShowMenu] = useState(false);
+
+  const used = typeof allowanceUsed === 'number' ? allowanceUsed : (retryUsed ? 2 : 1);
+  const max = allowanceMax || 2;
+  const isExhausted = used >= max;
+  const serviceLabel = serviceType === 'try-on' ? 'AI Try-On' : 'Celebration Image';
 
   const triggerBlackout = useCallback((reason: string) => {
     setIsBlackout(true);
@@ -194,13 +203,13 @@ export default function SecureTryOnViewer({
                   setShowMenu(false);
                 }}
               />
-              <div className="absolute right-0 top-9 z-50 w-52 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-1.5 shadow-2xl backdrop-blur-md text-left space-y-1">
-                <div className="px-2.5 py-1 border-b border-[#D4AF37]/20 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">
-                  <span>Options</span>
-                  <span className="text-[9px] text-[#F3E5AB]/60">{retryUsed ? '0 retries left' : '1 retry available'}</span>
+              <div className="absolute right-0 top-9 z-50 w-60 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-2 shadow-2xl backdrop-blur-md text-left space-y-2">
+                <div className="px-2 py-1 border-b border-[#D4AF37]/20 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">
+                  <span>{serviceLabel}</span>
+                  <span className="font-mono text-[10px] text-[#F3E5AB]">{used}/{max}</span>
                 </div>
 
-                {!retryUsed ? (
+                {!isExhausted ? (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -213,12 +222,13 @@ export default function SecureTryOnViewer({
                     <ImageIcon className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
                     <div>
                       <div className="font-bold">Retry Image</div>
-                      <div className="text-[10px] text-gray-300 font-normal">Re-upload photos & generate again</div>
+                      <div className="text-[10px] text-gray-300 font-normal">Re-upload photos & generate again ({max - used} retry left)</div>
                     </div>
                   </button>
                 ) : (
-                  <div className="px-2.5 py-2 text-[11px] text-[#F3E5AB]/65">
-                    1 of 1 retry has already been used.
+                  <div className="px-2 py-2 text-[11px] text-[#F3E5AB]/75 rounded bg-black/40 border border-red-500/30">
+                    <div className="font-bold text-red-400">{serviceLabel} Limit Reached</div>
+                    <div className="text-[10px] text-zinc-300 mt-0.5">Maximum {max}/{max} generations used. Retries are exhausted for this mobile pass.</div>
                   </div>
                 )}
               </div>

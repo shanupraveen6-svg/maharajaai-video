@@ -290,6 +290,16 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#D4AF37]" />
               <p className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">STORE OPERATIONS MANAGEMENT</p>
+              <span className="text-[#D4AF37]/40">·</span>
+              <a
+                href="https://wefocus.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] hover:text-white transition"
+              >
+                <span>B Focus Agency</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </div>
             <h1 className="mt-0.5 font-serif text-2xl md:text-3xl font-bold text-[#F3E5AB] tracking-wide">
               MAHARAJA THANJAVUR
@@ -891,18 +901,18 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           </p>
         </section>
 
-        {/* WEFOCUS OPERATIONS & CLIENT SUPPORT */}
+        {/* B FOCUS OPERATIONS & BRANDING PARTNER */}
         <section className="rounded-2xl border border-[#D4AF37]/40 bg-[#1D090E] p-6 text-white shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
             <div className="space-y-1">
               <p className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">
-                Store Visual Operations & Client Partner
+                Brand Marketing, Digital Growth & Technology Partner
               </p>
               <h3 className="font-serif text-2xl font-bold text-[#F3E5AB]">
-                wefocus.in
+                B Focus Agency
               </h3>
               <p className="text-xs leading-relaxed text-[#F3E5AB]/80 max-w-xl">
-                Retail visual compute, showroom operations telemetry & high-conversion customer engagement engineered for Maharaja Thanjavur.
+                Strategic brand marketing, digital customer acquisition, custom UI/UX design, and AI retail software engineering crafted for Maharaja Thanjavur.
               </p>
             </div>
 
@@ -913,18 +923,28 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
                 rel="noopener noreferrer"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-5 text-xs font-bold uppercase tracking-wider text-black transition hover:bg-[#E5C158] shadow-sm"
               >
-                <span>Client Support & Operations</span>
+                <span>B Focus Agency</span>
                 <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <a
+                href="https://wa.me/919994837342?text=Hello%20B%20Focus%2C%20I%20am%20interested%20in%20Brand%20Marketing%2C%20Digital%20Marketing%20and%20Development."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-white/10 px-4 text-xs font-bold uppercase tracking-wider text-[#F3E5AB] hover:bg-white/20 transition"
+              >
+                <span>Contact Us</span>
               </a>
             </div>
           </div>
         </section>
 
-        <footer className="pt-2 flex items-center justify-between text-xs text-slate-500">
+        <footer className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
           <div className="flex items-center gap-1.5 font-semibold">
             <ShieldCheck className="h-4 w-4 text-emerald-700" /> All passes, usage and retail telemetry belong to Maharaja Thanjavur.
           </div>
-          <span className="font-mono text-[11px]">Maharaja Live v2.0</span>
+          <div className="text-right">
+            Partnered with <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="font-bold text-[#6E0D1F] underline hover:text-[#851025]">B Focus</a> — Brand Marketing, Digital Growth & Software.
+          </div>
         </footer>
       </div>
 

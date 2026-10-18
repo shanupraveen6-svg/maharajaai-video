@@ -23,18 +23,24 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
     const workspace = access.workspace;
     const deviceId = req.nextUrl.searchParams.get('deviceId');
     const deviceStatus = validTryOnDeviceId(deviceId) ? await getTryOnDeviceStatus(deviceId) : null;
-    after(async () => {
+    const runBackground = async () => {
       try {
         if (service === 'try-on') await incrementMaharajaUsage('tryOnScans');
         else if (access.pass) await incrementPassUsage(access.pass.code, 'scans');
       } catch (err) {
         console.warn('Maharaja access counter update failed:', err);
       }
-    });
+    };
+    try {
+      after(runBackground);
+    } catch {
+      runBackground().catch(() => undefined);
+    }
 
     return NextResponse.json({
       success: true,
       workspace: publicWorkspaceView(workspace),
+      allowances: access.allowances,
       access: {
         service,
         code,
@@ -43,13 +49,18 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         phoneMasked: access.pass?.phoneMasked || null,
         billLast4: access.pass?.billLast4 || null,
         expiresAt: access.pass?.expiresAt || null,
-        tryOnUsed: ENFORCE_REPEAT_LIMITS && deviceStatus?.status === 'used',
+        tryOnUsed: ENFORCE_REPEAT_LIMITS && (deviceStatus?.status === 'used' || access.allowances.tryOn.used >= 2),
         tryOnImageDone: access.pass?.tryOnImageDone || false,
         tryOnImageUrl: access.pass?.tryOnImageUrl || null,
         videoMasterDone: access.pass?.videoMasterDone || false,
         videoMasterUrl: access.pass?.videoMasterUrl || null,
+        videoMasterApproved: access.pass?.videoMasterApproved || false,
+        videoMasterPromptSet: access.pass?.videoMasterPromptSet || null,
+        videoMasterCategory: access.pass?.videoMasterCategory || null,
+        videoMasterGarmentType: access.pass?.videoMasterGarmentType || null,
         videoDone: access.pass?.videoDone || false,
         retryUsed: Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed),
+        allowances: access.allowances,
       },
     });
   } catch (error) {

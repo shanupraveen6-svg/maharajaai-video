@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 
-import { getVideoPass, markPassVideoFailed, markPassVideoReady, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { finalizeCompletedVideo, getCampaignEntitlementForPass, getCustomerServiceAllowances, getVideoPass, markPassVideoFailed, markPassVideoReady, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
 const FAL_VIDEO_MODEL = 'minimax/h3-max-turbo/image-to-video';
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
     const db = getDb();
     
     let videoUrl: string | null = null;
+    let liveVideoUrl: string | null = null;
     let masterImageUrl: string | null = null;
     let status: string = 'processing';
     let requestId: string | null = null;
@@ -101,6 +102,7 @@ export async function GET(req: NextRequest) {
           if (sData?.videoStatus === 'ready' || sData?.videoStatus === 'succeeded') {
             if (sData?.videoUrl && sData?.videoStoragePath) {
               videoUrl = sData.videoUrl;
+              liveVideoUrl = sData?.liveVideoUrl || liveVideoUrl;
               status = 'ready';
             }
           }
@@ -163,6 +165,7 @@ export async function GET(req: NextRequest) {
           if (session.videoStatus === 'ready' || session.videoStatus === 'succeeded') {
             if (session.videoUrl) {
               videoUrl = session.videoUrl;
+              liveVideoUrl = session.liveVideoUrl || liveVideoUrl;
               status = 'ready';
             }
           }
@@ -241,68 +244,28 @@ export async function GET(req: NextRequest) {
             }
             console.log('RESULT_READY', { sessionId: targetSessionId, jobId, requestId });
 
-            let fileBuffer: Buffer | null = null;
-            for (let attempt = 1; attempt <= 3; attempt++) {
-              try {
-                const fetchRes = await fetch(outputVideoUrl);
-                if (fetchRes.ok) {
-                  fileBuffer = Buffer.from(await fetchRes.arrayBuffer());
-                  break;
-                } else {
-                  console.warn(`Fal.ai video download attempt ${attempt} HTTP ${fetchRes.status}`);
-                  if (attempt < 3) await new Promise((r) => setTimeout(r, 1200));
-                }
-              } catch (netErr) {
-                console.warn(`Fal.ai video download attempt ${attempt} network warning:`, netErr);
-                if (attempt < 3) await new Promise((r) => setTimeout(r, 1200));
-              }
-            }
+            const finalizeResult = await finalizeCompletedVideo({
+              sessionId: targetSessionId,
+              jobId: jobId || `job_${targetSessionId}`,
+              outputVideoUrl,
+              accessCode,
+              clientId: clientId || undefined,
+              eventId,
+            });
 
-            const storagePath = clientId
-              ? `clients/${clientId}/sessions/${targetSessionId}/video/final.mp4`
-              : `sessions/${targetSessionId}/video/final.mp4`;
-            const bucket = getStorageBucket();
-
-            if (!bucket || !fileBuffer) {
-              const errMessage = 'The completed video could not be saved to Maharaja media storage. The video slot has been restored.';
-              await markVideoFailed(db, targetSessionId, errMessage, accessCode, jobId);
-              return NextResponse.json({ success: false, jobId, sessionId: targetSessionId, status: 'failed', error: errMessage }, { status: 503 });
-            }
-
-            try {
-              const file = bucket.file(storagePath);
-              await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
-              const [exists] = await file.exists();
-              if (!exists) throw new Error('Storage did not confirm the completed MP4.');
-              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-              videoUrl = signedUrl;
-            } catch (stSaveErr) {
-              const errMessage = 'The completed video could not be saved to Maharaja media storage. The video slot has been restored.';
-              console.error('Storage save failed for completed video:', stSaveErr);
-              await markVideoFailed(db, targetSessionId, errMessage, accessCode, jobId);
-              return NextResponse.json({ success: false, jobId, sessionId: targetSessionId, status: 'failed', error: errMessage }, { status: 503 });
-            }
-
-            status = 'ready';
-
-            if (db) {
-              await Promise.all([
-                db.collection('videos').doc(`video_${targetSessionId}`).set({
-                id: `video_${targetSessionId}`,
+            if (!finalizeResult.success) {
+              return NextResponse.json({
+                success: false,
+                jobId,
                 sessionId: targetSessionId,
-                storagePath,
-                status: 'ready',
-                provider: 'fal-h3-max-turbo',
-                createdAt: new Date().toISOString()
-                }, { merge: true }),
-                db.collection('sessions').doc(targetSessionId).set({
-                videoStatus: 'ready',
-                videoUrl,
-                videoStoragePath: storagePath,
-                updatedAt: new Date().toISOString()
-                }, { merge: true }),
-              ]);
+                status: 'failed',
+                error: finalizeResult.error,
+              }, { status: 503 });
             }
+
+            videoUrl = finalizeResult.videoUrl;
+            liveVideoUrl = finalizeResult.liveVideoUrl || finalizeResult.videoUrl;
+            status = 'ready';
 
             if (accessCode) {
               await markPassVideoReady(accessCode, jobId || undefined);
@@ -315,6 +278,7 @@ export async function GET(req: NextRequest) {
               sessionId: targetSessionId,
               status: 'ready',
               videoUrl,
+              liveVideoUrl,
               masterImageUrl,
               videoId: `video_${targetSessionId}`,
               eventId,
@@ -381,6 +345,7 @@ export async function GET(req: NextRequest) {
         sessionId: targetSessionId,
         status: 'processing',
         videoUrl: null,
+        liveVideoUrl: null,
         masterImageUrl,
         eventId,
       });
@@ -390,6 +355,8 @@ export async function GET(req: NextRequest) {
       await markPassVideoReady(accessCode, jobId || undefined);
     }
     const pass = accessCode ? await getVideoPass(accessCode) : null;
+    const entitlement = accessCode ? await getCampaignEntitlementForPass(accessCode) : null;
+    const allowances = getCustomerServiceAllowances(entitlement);
 
     return NextResponse.json({
       success: true,
@@ -397,10 +364,12 @@ export async function GET(req: NextRequest) {
       sessionId: targetSessionId,
       status: 'ready',
       videoUrl,
+      liveVideoUrl,
       masterImageUrl,
       videoId: `video_${targetSessionId}`,
       eventId,
-      retryUsed: !!pass?.retryUsed,
+      allowances,
+      retryUsed: !!pass?.retryUsed || allowances.video.used >= 2,
       videoDone: !!pass?.videoDone,
     });
 

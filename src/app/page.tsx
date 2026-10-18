@@ -50,7 +50,7 @@ const pricingIncludes = [
   'No duplication',
   'No competitor support',
   'Regional courtesy',
-  'Future branding workouts',
+  'Future brand growth & creative campaigns',
   'Full customer protection',
   '100% secured',
   'Privacy and brand value maintained',
@@ -80,6 +80,15 @@ export default function LandingPage() {
             </div>
           </div>
 
+          <div className="flex items-center gap-3">
+            <a
+              href="#b-focus-branding"
+              className="inline-flex items-center gap-1.5 border border-[#8A6A20]/40 bg-[#fffaf0] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f] transition hover:bg-[#6e0d1f] hover:text-[#F3E5AB] shadow-sm"
+            >
+              <span>B Focus Agency</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </a>
+          </div>
         </header>
       </section>
 
@@ -279,22 +288,49 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">More from WeFocus</p>
-              <h3 className="mt-3 font-serif text-3xl font-bold">Explore more AI experiences</h3>
-              <p className="mt-3 text-sm font-semibold leading-6 text-[#F3E5AB]/82">
-                Discover Celebrity AI Videos, event-based dress try-ons, and more retail AI solutions from WeFocus.
+            <div id="b-focus-branding" className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">Branding & Creative Agency</p>
+              <h3 className="mt-3 font-serif text-3xl font-bold">B Focus — Strategic Brand Marketing & Technology</h3>
+              <p className="mt-3 text-sm font-semibold leading-6 text-[#F3E5AB]/85">
+                Ready to elevate your store and brand reach? B Focus partners with retail brands, fashion houses, and growing businesses across:
               </p>
-              <a
-                href="https://wefocus.in"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-6 flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-4 text-xs font-black uppercase tracking-wider text-black"
-              >
-                Visit WeFocus.in <ArrowRight className="h-4 w-4" />
-              </a>
-              <p className="mt-5 border-t border-[#D4AF37]/25 pt-5 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]/86">
-                Enterprise sales: 9994837342
+              
+              <ul className="mt-4 space-y-2.5 text-xs font-semibold text-[#F3E5AB]/90">
+                <li className="flex items-start gap-2">
+                  <Sparkles className="h-4 w-4 text-[#D4AF37] shrink-0 mt-0.5" />
+                  <span><strong className="text-[#F3E5AB]">Brand Marketing:</strong> Brand identity, luxury showroom positioning, retail storytelling & visual guidelines.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <BarChart3 className="h-4 w-4 text-[#D4AF37] shrink-0 mt-0.5" />
+                  <span><strong className="text-[#F3E5AB]">Digital Marketing:</strong> High-ROI customer acquisition campaigns, festive promotions & social media growth.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <WandSparkles className="h-4 w-4 text-[#D4AF37] shrink-0 mt-0.5" />
+                  <span><strong className="text-[#F3E5AB]">Design & Development:</strong> Bespoke UI/UX, interactive AI retail platforms, mobile apps & custom web engineering.</span>
+                </li>
+              </ul>
+
+              <div className="mt-6 flex flex-col gap-2.5">
+                <a
+                  href="https://wefocus.in"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3.5 text-xs font-black uppercase tracking-wider text-black transition hover:brightness-110 shadow-sm"
+                >
+                  Visit B Focus Agency <ArrowRight className="h-4 w-4" />
+                </a>
+                <a
+                  href="https://wa.me/919994837342?text=Hello%20B%20Focus%2C%20I%20am%20interested%20in%20Brand%20Marketing%2C%20Digital%20Marketing%20and%20Development."
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex w-full items-center justify-center gap-2 border border-[#D4AF37]/50 bg-white/10 px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB] hover:bg-white/20 transition"
+                >
+                  Contact Us on WhatsApp
+                </a>
+              </div>
+
+              <p className="mt-5 border-t border-[#D4AF37]/25 pt-4 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]/86">
+                Direct Agency Consultation: <a href="tel:+919994837342" className="text-[#D4AF37] underline hover:text-white">9994837342</a>
               </p>
             </div>
           </div>
@@ -310,11 +346,18 @@ export default function LandingPage() {
               href="https://wefocus.in"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-3 text-xs font-black uppercase tracking-wider text-[#F3E5AB]"
+              className="inline-flex items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-3 text-xs font-black uppercase tracking-wider text-[#F3E5AB] hover:bg-[#851025] transition"
             >
-              Branding services <ArrowRight className="h-4 w-4" />
+              B Focus Branding Services <ArrowRight className="h-4 w-4" />
             </a>
           </div>
+
+          <footer className="mt-8 border-t border-[#e1d1ad] pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-[#5C4B43]">
+            <p>© {new Date().getFullYear()} TryFocus Retail Platform · Built for client-specific campaigns.</p>
+            <p>
+              Partnered with <a href="https://wefocus.in" target="_blank" rel="noreferrer" className="text-[#6e0d1f] font-bold underline hover:text-[#800A1D]">B Focus</a> — Brand Marketing, Digital Growth & Software Development.
+            </p>
+          </footer>
         </div>
       </section>
     </main>

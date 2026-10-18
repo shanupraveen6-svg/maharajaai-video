@@ -17,6 +17,7 @@ type PlaybackItem = {
   customerName?: string | null;
   customerLocality?: string | null;
   source?: 'live' | 'replay';
+  eventId?: string | null;
 };
 
 export default function TvPlayerPage() {
@@ -314,8 +315,10 @@ export default function TvPlayerPage() {
     liveAudioStartedRef.current = false;
     loopInProgressRef.current = false;
     try {
-      video.defaultPlaybackRate = TV_PLAYBACK_RATE;
-      video.playbackRate = TV_PLAYBACK_RATE;
+      const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+      const rate = isNative9s ? 1.0 : TV_PLAYBACK_RATE;
+      video.defaultPlaybackRate = rate;
+      video.playbackRate = rate;
       video.currentTime = 0;
       if (audioRef.current) {
         audioRef.current.src = playback.liveAudioUrl || getLiveAudioTrack(playback.queueId);
@@ -365,13 +368,31 @@ export default function TvPlayerPage() {
 
   const startLiveAudioWithVisibleVideo = (slot: Slot, video: HTMLVideoElement) => {
     const playback = currentPlaybackRef.current;
-    if (slot !== activeSlotRef.current || !playback || !audioRef.current || liveAudioStartedRef.current) return;
+    if (slot !== activeSlotRef.current || !playback) return;
     if (video.readyState < 2 || video.currentTime < 0.08 || video.paused) return;
+
+    const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+    if (isNative9s) {
+      // Native 9s showroom broadcast video already contains the multiplexed AAC Tamil audio.
+      // Play container audio directly from the video element to guarantee 100% zero-drift, click-free audio.
+      if (video.muted) {
+        video.muted = false;
+        video.volume = 0.88;
+      }
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+      }
+      return;
+    }
+
+    // Fallback for raw 6s videos without embedded audio:
+    if (!audioRef.current || liveAudioStartedRef.current) return;
     liveAudioStartedRef.current = true;
     window.requestAnimationFrame(() => {
       if (!audioRef.current || video.paused) return;
+      const initialAudioTime = Math.min(video.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
       audioRef.current.src = playback.liveAudioUrl || getLiveAudioTrack(playback.queueId);
-      audioRef.current.currentTime = Math.min(video.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
+      audioRef.current.currentTime = initialAudioTime;
       audioRef.current.playbackRate = 1;
       audioRef.current.volume = 0.88;
       audioRef.current.play().catch((audioErr) => {
@@ -433,7 +454,8 @@ export default function TvPlayerPage() {
       const video = getVideoRef(activeSlotRef.current);
       if (!video) return;
       video.currentTime = 0;
-      video.playbackRate = TV_PLAYBACK_RATE;
+      const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+      video.playbackRate = isNative9s ? 1.0 : TV_PLAYBACK_RATE;
       video.play().catch((err) => {
         console.error('Failed to loop current TV video:', err);
         setPlaybackError('Autoplay blocked. Press play to continue video.');
@@ -481,22 +503,41 @@ export default function TvPlayerPage() {
     if (slot !== activeSlotRef.current || !currentPlaybackRef.current) return;
 
     startLiveAudioWithVisibleVideo(slot, video);
-    const audio = audioRef.current;
-    if (audio && !audio.paused) {
-      const targetAudioTime = Math.min(video.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
-      if (Math.abs(audio.currentTime - targetAudioTime) > 0.18) audio.currentTime = targetAudioTime;
-    }
+    const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+    const duration = isNative9s
+      ? video.duration
+      : (Number.isFinite(video.duration) && video.duration > 0 ? Math.min(video.duration, SOURCE_SECONDS_FOR_LIVE) : SOURCE_SECONDS_FOR_LIVE);
+
     if (video.currentTime > 0.18) {
       clearPlaybackWatchdog();
     }
 
-    const duration = Number.isFinite(video.duration) && video.duration > 0
-      ? Math.min(video.duration, SOURCE_SECONDS_FOR_LIVE)
-      : SOURCE_SECONDS_FOR_LIVE;
-
     if (video.currentTime >= duration - 0.05 && !loopInProgressRef.current) {
       loopInProgressRef.current = true;
       void handleVideoEnded();
+      return;
+    }
+
+    if (isNative9s) {
+      // Native 9s video plays internal multiplexed audio directly; zero external steering needed
+      return;
+    }
+
+    const audio = audioRef.current;
+    if (audio && !audio.paused) {
+      const targetAudioTime = Math.min(video.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
+      const drift = targetAudioTime - audio.currentTime;
+
+      // Hard seek only on start or major desync (>0.45s) to eliminate buffer flush stutter/clicks
+      if (Math.abs(drift) > 0.45) {
+        audio.currentTime = targetAudioTime;
+      } else if (Math.abs(drift) > 0.04) {
+        // Smooth drift steering: micro-adjust playback rate instead of hard seeking
+        const adjustment = Math.max(-0.06, Math.min(0.06, drift * 0.4));
+        audio.playbackRate = Math.max(0.92, Math.min(1.08, 1.0 + adjustment));
+      } else {
+        audio.playbackRate = 1.0;
+      }
     }
   };
 
@@ -550,8 +591,11 @@ export default function TvPlayerPage() {
         playsInline
         preload="auto"
         onLoadedMetadata={(event) => {
-          event.currentTarget.defaultPlaybackRate = TV_PLAYBACK_RATE;
-          event.currentTarget.playbackRate = TV_PLAYBACK_RATE;
+          const video = event.currentTarget;
+          const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+          const rate = isNative9s ? 1.0 : TV_PLAYBACK_RATE;
+          video.defaultPlaybackRate = rate;
+          video.playbackRate = rate;
         }}
         onCanPlay={() => {
           if (isPending) activatePendingSlot(slot);
@@ -675,7 +719,17 @@ export default function TvPlayerPage() {
               >
                 இனிய
                 <br />
-                தீபாவளி
+                {currentPlayback?.eventId === 'pongal'
+                  ? 'பொங்கல்'
+                  : currentPlayback?.eventId === 'new-year'
+                  ? 'புத்தாண்டு'
+                  : currentPlayback?.eventId === 'christmas'
+                  ? 'கிறிஸ்துமஸ்'
+                  : currentPlayback?.eventId === 'ramadan'
+                  ? 'ரமலான்'
+                  : currentPlayback?.eventId === 'birthday'
+                  ? 'பிறந்தநாள்'
+                  : 'தீபாவளி'}
                 <br />
                 நல்வாழ்த்துகள்
               </h1>

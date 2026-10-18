@@ -85,6 +85,7 @@ type MockStore = {
   activityLogs: Map<string, unknown>;
   tryOnGrants: Map<string, unknown>;
   scannedTags: Map<string, unknown>;
+  campaignEntitlements: Map<string, unknown>;
 };
 
 const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
@@ -105,7 +106,8 @@ const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
   clientWorkspaces: new Map(),
   activityLogs: new Map(),
   tryOnGrants: new Map(),
-  scannedTags: new Map()
+  scannedTags: new Map(),
+  campaignEntitlements: new Map()
 };
 
 (global as any).__MAHARAJA_MOCK_STORE__ = globalMockStore;
@@ -129,9 +131,48 @@ export function getDb() {
   return null;
 }
 
+class MockStorageFile {
+  private path: string;
+  constructor(path: string) {
+    this.path = path;
+  }
+  async save(buffer: Buffer, options?: any): Promise<void> {
+    const store = getMockStore();
+    store.sessions.set(`mock_blob_${this.path}`, {
+      buffer,
+      contentType: options?.contentType || 'application/octet-stream',
+      savedAt: new Date().toISOString(),
+    });
+  }
+  async exists(): Promise<[boolean]> {
+    const store = getMockStore();
+    return [store.sessions.has(`mock_blob_${this.path}`)];
+  }
+  async getSignedUrl(_options?: any): Promise<[string]> {
+    return [`https://storage.googleapis.com/maharaja-mock/${this.path}`];
+  }
+  async download(): Promise<[Buffer]> {
+    const store = getMockStore();
+    const item = store.sessions.get(`mock_blob_${this.path}`);
+    if (item?.buffer) return [item.buffer];
+    return [Buffer.from('mock_file_content')];
+  }
+}
+
+class MockStorageBucket {
+  file(path: string) {
+    return new MockStorageFile(path);
+  }
+}
+
+const mockBucketInstance = new MockStorageBucket();
+
 export function getStorageBucket() {
   if (firebaseApp && process.env.FIREBASE_STORAGE_BUCKET) {
     return getStorage(firebaseApp).bucket();
+  }
+  if (backendMode === 'MOCK_STORE' || process.env.ALLOW_MOCK_BACKEND === 'true') {
+    return mockBucketInstance as any;
   }
   return null;
 }
@@ -142,6 +183,7 @@ export function getMockStore() {
   if (!globalMockStore.customerPasses) globalMockStore.customerPasses = new Map();
   if (!globalMockStore.tryOnGrants) globalMockStore.tryOnGrants = new Map();
   if (!globalMockStore.scannedTags) globalMockStore.scannedTags = new Map();
+  if (!globalMockStore.campaignEntitlements) globalMockStore.campaignEntitlements = new Map();
   return globalMockStore;
 }
 

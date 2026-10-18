@@ -76,8 +76,8 @@ export async function GET(req: NextRequest) {
             reservationId: replayId,
             videoId: video.id,
             sessionId: video.sessionId || null,
-            videoUrl: await getSignedPlaybackUrl(video.storagePath),
-            liveAudioUrl: getLiveAudioTrack(replayId),
+            videoUrl: await getSignedPlaybackUrl(video.liveStoragePath || video.storagePath),
+            liveAudioUrl: getLiveAudioTrack(replayId, queueMeta?.eventId || video.eventId),
             customerName: cleanDisplayText(queueMeta?.customerName || video.customerName, FALLBACK_NAME),
             customerLocality: cleanDisplayText(queueMeta?.customerLocality || video.customerLocality, FALLBACK_LOCALITY),
             source: 'replay'
@@ -106,8 +106,8 @@ export async function GET(req: NextRequest) {
           reservationId: replayId,
           videoId: video.id,
           sessionId: video.sessionId || null,
-          videoUrl: await getSignedPlaybackUrl(video.storagePath),
-          liveAudioUrl: getLiveAudioTrack(replayId),
+          videoUrl: await getSignedPlaybackUrl(video.liveStoragePath || video.storagePath),
+          liveAudioUrl: getLiveAudioTrack(replayId, video.eventId),
           customerName: cleanDisplayText(video.customerName, FALLBACK_NAME),
           customerLocality: cleanDisplayText(video.customerLocality, FALLBACK_LOCALITY),
           source: 'replay'

@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Film,
   LoaderCircle,
+  LockKeyhole,
   Phone,
   QrCode,
   RefreshCw,
@@ -42,13 +43,42 @@ export default function MaharajaBillingPage() {
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
 
   useEffect(() => {
     fetch(`/api/maharaja/billing/${encodeURIComponent(params.billingCode)}`, { cache: 'no-store' })
       .then(readJson)
-      .then((data) => { setActiveEvents(data.activeEvents); setEventId(data.defaultEvent); })
+      .then((data) => {
+        setActiveEvents(data.activeEvents);
+        setEventId(data.defaultEvent);
+        setAuthenticated(data.authenticated === true);
+      })
       .catch((caught) => setError(caught instanceof Error ? caught.message : 'Unable to load billing counter.'));
   }, [params.billingCode]);
+
+  async function handleBillerLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoggingIn(true);
+    setLoginError('');
+    try {
+      const res = await fetch('/api/operator/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || 'Invalid credentials');
+      setAuthenticated(true);
+    } catch (err: any) {
+      setLoginError(err.message || 'Login failed.');
+    } finally {
+      setLoggingIn(false);
+    }
+  }
 
   async function generateCustomerQr(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -101,11 +131,58 @@ export default function MaharajaBillingPage() {
         <header className="flex items-center justify-between border-b border-[#D8C49B] pb-5">
           <div className="flex items-center gap-3">
             <span className="flex h-12 w-12 items-center justify-center bg-[#6E0D1F] text-[#F3E5AB]"><Store className="h-5 w-5" /></span>
-            <div><p className="font-serif text-2xl font-bold text-[#6E0D1F]">Maharaja</p><p className="text-xs font-bold uppercase text-[#8A6A20]">AI Video billing counter · <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#6E0D1F] transition">wefocus.in</a></p></div>
+            <div><p className="font-serif text-2xl font-bold text-[#6E0D1F]">Maharaja</p><p className="text-xs font-bold uppercase text-[#8A6A20]">AI Video billing counter · <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#6E0D1F] transition">B Focus</a></p></div>
           </div>
           <Film className="h-7 w-7 text-[#6E0D1F]" />
         </header>
 
+        {authenticated === false ? (
+          <div className="mt-8 mx-auto max-w-md border border-[#D8C49B] bg-white p-6 md:p-8 shadow-sm">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#6E0D1F]/10 text-[#6E0D1F] mb-4">
+              <LockKeyhole className="h-6 w-6" />
+            </div>
+            <h2 className="font-serif text-2xl font-bold text-[#2A060C]">Biller login required</h2>
+            <p className="mt-2 text-xs leading-5 text-[#5C4B43]">
+              To prevent unauthorized generation of passes, sign in with your Maharaja staff credentials to unlock this terminal.
+            </p>
+            {loginError && (
+              <div className="mt-4 border border-rose-300 bg-rose-50 p-3 text-xs font-bold text-rose-700">
+                {loginError}
+              </div>
+            )}
+            <form onSubmit={handleBillerLogin} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-[#5C4B43]">Username</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Staff username"
+                  required
+                  className="mt-1 min-h-11 w-full border border-[#D8C49B] bg-[#FFFDF8] px-3 text-sm font-bold outline-none focus:border-[#6E0D1F]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-[#5C4B43]">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="mt-1 min-h-11 w-full border border-[#D8C49B] bg-[#FFFDF8] px-3 text-sm font-bold outline-none focus:border-[#6E0D1F]"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loggingIn}
+                className="mt-2 flex min-h-12 w-full items-center justify-center bg-[#6E0D1F] text-xs font-bold uppercase tracking-wider text-[#F3E5AB] hover:bg-[#851025] disabled:opacity-50"
+              >
+                {loggingIn ? <LoaderCircle className="h-5 w-5 animate-spin" /> : 'Sign in to billing counter'}
+              </button>
+            </form>
+          </div>
+        ) : (
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_420px]">
           <form onSubmit={generateCustomerQr} className="border border-[#D8C49B] bg-white p-5 md:p-7">
             <p className="text-xs font-bold uppercase text-[#8A6A20]">Customer eligibility</p>
@@ -225,6 +302,7 @@ export default function MaharajaBillingPage() {
             )}
           </aside>
         </div>
+        )}
       </div>
     </main>
   );

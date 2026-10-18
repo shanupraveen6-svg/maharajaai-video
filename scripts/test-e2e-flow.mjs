@@ -45,15 +45,21 @@ async function run() {
   }));
   assert(missingTryOnQr.response.status === 401, 'Try-On cannot be unlocked without the permanent Maharaja QR');
 
-  const invalidTier = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
+  const unauthenticatedBilling = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ billingCode, phone: '9999999999', billLast4: '5678', eventId: 'diwali', billAmount: 5000 }),
+  }));
+  assert(unauthenticatedBilling.response.status === 401, 'Public link cannot generate pass without authenticated biller/operator access');
+
+  const invalidTier = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', cookie },
     body: JSON.stringify({ billingCode, phone: '9999999999', billLast4: '5678', eventId: 'diwali', billAmount: 1000 }),
   }));
   assert(invalidTier.response.status === 400, 'Biller must select a valid ₹5,000+, ₹7,000+, or ₹10,000+ tier');
 
-  // Biller Role Test: Creates customer pass
+  // Biller Role Test: Creates customer pass with operator cookie
   const passResult = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json', cookie },
     body: JSON.stringify({ billingCode, phone: '9999999999', billLast4: '5678', eventId: 'diwali', billAmount: 5000 }),
   }));
   assert(passResult.response.ok && passResult.data.pass?.code, 'Biller creates customer AI Video QR');
@@ -84,7 +90,7 @@ async function run() {
 
   // ---- /video/start guards that never reach the paid provider ----
   const pass2Result = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json', cookie },
     body: JSON.stringify({ billingCode, phone: '9888888888', billLast4: '1234', eventId: 'diwali', billAmount: 7000 }),
   }));
   const pass2Code = pass2Result.data.pass?.code;
