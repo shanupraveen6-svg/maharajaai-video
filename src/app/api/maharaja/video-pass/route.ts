@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { AI_VIDEO_MIN_PURCHASE, isEventId, MAHARAJA_CLIENT_ID, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { enforceRateLimit } from '@/lib/security/rate-limit';
 import {
   getMaharajaWorkspace,
   incrementMaharajaUsage,
@@ -34,6 +35,13 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Authenticated biller or operator access is required to generate customer passes.' },
         { status: 401 }
       );
+    }
+    const rate = await enforceRateLimit(req, 'video-pass', 30, 60 * 1000);
+    if (!rate.allowed) {
+      return NextResponse.json({ success: false, error: 'Too many QR requests. Wait briefly and try again.' }, {
+        status: 429,
+        headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+      });
     }
 
     const body = await req.json();

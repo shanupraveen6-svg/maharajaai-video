@@ -7,10 +7,12 @@ export const LUXURY_TIER_MIN = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || 3
 
 /**
  * Repeat usage & duplicate limit enforcement.
- * During testing: FALSE (no block for repeated attempts, so developer & client can test from the same phone/device many times).
- * When going live: set to TRUE (or set ENFORCE_REPEAT_LIMITS=true in env).
+ * Production-safe by default. Set ENFORCE_REPEAT_LIMITS=false only in an
+ * isolated local or preview environment used for deliberate testing.
  */
-export const ENFORCE_REPEAT_LIMITS = process.env.ENFORCE_REPEAT_LIMITS === 'true';
+export const ENFORCE_REPEAT_LIMITS = process.env.VERCEL_ENV === 'production'
+  ? true
+  : process.env.ENFORCE_REPEAT_LIMITS !== 'false';
 
 export const EVENT_IDS = ['diwali', 'new-year', 'pongal', 'christmas', 'ramadan', 'birthday'] as const;
 export type EventId = (typeof EVENT_IDS)[number];
@@ -76,15 +78,14 @@ export function buildTryOnPrompt(category: CustomerCategory) {
 
 REFERENCE PRIORITY:
 - Image 1 is the authoritative real customer photograph (identity reference).
-- Images 2, 3, and 4 (up to 3 garment photos) are the authoritative garment reference photographs showing the exact outfit components (e.g. Top/Shirt, Bottom/Pant, Extra/Layer), colors, fabrics, and design details.
+- Image 2 is the single authoritative garment reference showing the exact outfit, colors, fabric, and design details.
 
 IDENTITY & FACE LOCK:
 - Preserve the exact real customer identity from Image 1: facial structure, face shape, eyes, nose, mouth, jawline, ears, skin tone, hairstyle, hairline, facial hair, glasses, age appearance, height impression, and natural body proportions.
 - Do NOT beautify into another person, change age, alter body weight, change skin complexion, make slimmer or heavier, or substitute the face.
 
 GARMENT SPECIFICATION LOCK:
-- Dress the customer in the exact uploaded garments from the garment reference photograph(s).
-- Combine the upper garment (Top/Shirt) and lower garment (Bottom/Pant/Skirt) into a realistic, cohesive complete outfit as designated by the garment roles.
+- Dress the customer in the exact uploaded garment from the single garment reference photograph.
 - Preserve: exact primary and secondary colors (do not shift colors; keep neutrals, grey, gold, and zari authentic), fabric material texture (silk, cotton, georgette, velvet, linen), embroidery patterns, zari borders, neckline shape, sleeve length, drape, and silhouette.
 - Natural fabric physics: render realistic cloth draping, gravity, and fold shadows conforming naturally to the customer's body contours without distortion.
 - Ignore any mannequin, hanger, rack, stand, or background elements in the garment photo. Transfer the textile garment only.
@@ -755,4 +756,3 @@ export function buildFinalPrompt(
   const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision, isFailSafe)}`;
   return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_VIDEO_PROMPT_CHARS);
 }
-

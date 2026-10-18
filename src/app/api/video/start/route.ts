@@ -20,6 +20,8 @@ import {
   type EventId
 } from '@/lib/maharaja/config';
 import { acquirePassVideoLock, approvePassVideoMaster, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoSubmitted, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { canSignFalWebhook, signFalWebhook } from '@/lib/security/fal-webhook';
 
 export const maxDuration = 60;
 const FAL_VIDEO_MODEL = 'minimax/h3-max-turbo/image-to-video';
@@ -80,7 +82,6 @@ export async function POST(req: NextRequest) {
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'sessionId is required' }, { status: 400 });
     }
-
     if (ENFORCE_REPEAT_LIMITS && access.allowances.video.used >= 2) {
       return NextResponse.json({
         success: false,
@@ -217,6 +218,13 @@ export async function POST(req: NextRequest) {
     }
 
     const eventId = isEventId(body.eventId) ? body.eventId : access.pass?.eventId || 'diwali';
+    const rate = await enforceRateLimit(req, 'video-start', 4, 15 * 60 * 1000, access.pass?.code || sessionId);
+    if (!rate.allowed) {
+      return NextResponse.json({ success: false, error: 'Video generation is temporarily limited for this customer. Please wait and try again.' }, {
+        status: 429,
+        headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+      });
+    }
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const nowIso = new Date().toISOString();
 
@@ -304,8 +312,9 @@ export async function POST(req: NextRequest) {
         const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
         const proto = req.headers.get('x-forwarded-proto') || 'https';
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host && !host.includes('localhost') ? `${proto}://${host}` : '');
-        const webhookUrl = baseUrl
-          ? `${baseUrl}/api/video/webhook?jobId=${encodeURIComponent(jobId)}&sessionId=${encodeURIComponent(sessionId)}&accessCode=${encodeURIComponent(typeof accessCode === 'string' ? accessCode : '')}`
+        const webhookToken = signFalWebhook(jobId, sessionId);
+        const webhookUrl = baseUrl && canSignFalWebhook()
+          ? `${baseUrl}/api/video/webhook?jobId=${encodeURIComponent(jobId)}&sessionId=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(webhookToken)}`
           : undefined;
 
         console.log('FAL_SUBMIT_START', { sessionId, jobId, model: FAL_VIDEO_MODEL, hasWebhook: Boolean(webhookUrl) });

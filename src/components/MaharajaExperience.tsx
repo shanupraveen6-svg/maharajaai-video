@@ -109,7 +109,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [masterApproved, setMasterApproved] = useState(false);
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
-  const maxGarmentPhotos = 3;
+  const maxGarmentPhotos = activeService === 'try-on' ? 1 : 3;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   // A billing pass owns its two stored images; they are never cleared or regenerated client-side.
@@ -386,7 +386,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     const maxAllowed = maxGarmentPhotos;
     const currentCount = append ? garmentPhotos.length : 0;
     if (currentCount + files.length > maxAllowed) {
-      setError(`Upload up to 3 garment photos max (${garmentPhotos.length} already uploaded).`);
+      setError(activeService === 'try-on'
+        ? 'AI Try-On accepts exactly one garment photo.'
+        : `Upload up to 3 garment photos max (${garmentPhotos.length} already uploaded).`);
       return;
     }
     setStage('analyzing');
@@ -398,7 +400,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
       setGarmentPhotos(combined);
       setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'Uploaded garment', primaryColor: 'Original color' });
-      setMessage(`${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
+      setMessage(activeService === 'try-on'
+        ? 'Garment photo ready.'
+        : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
     } catch (caught) {
       setGarmentAnalysis(null);
       setError(customerError(caught, 'The garment photo could not be prepared. Please take the photo again.'));
@@ -467,6 +471,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         visibleGarmentPhotos.map((photo) => uploadPhotoToStorage(photo, 'garment'))
       );
       const allUploaded = Boolean(personStoragePath && garmentStoragePaths.length === visibleGarmentPhotos.length && garmentStoragePaths.every(Boolean));
+      if (!allUploaded) {
+        throw new Error('Secure photo upload did not complete. Check the connection and try again. No AI credit was used.');
+      }
 
       setMessage(activeService === 'try-on' ? 'Generating your Maharaja AI Try-On image...' : `Generating your ${event.label} festival portrait...`);
 
@@ -485,13 +492,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId, undefined, promptSet) : undefined,
       };
 
-      if (allUploaded) {
-        requestBody.personPhotoStoragePath = personStoragePath;
-        requestBody.garmentPhotoStoragePaths = garmentStoragePaths;
-      } else {
-        requestBody.personPhoto = personPhoto;
-        requestBody.garmentPhotos = visibleGarmentPhotos;
-      }
+      requestBody.personPhotoStoragePath = personStoragePath;
+      requestBody.garmentPhotoStoragePaths = garmentStoragePaths;
 
       const data = await readJson(await fetch('/api/ai/master-image', {
         method: 'POST',

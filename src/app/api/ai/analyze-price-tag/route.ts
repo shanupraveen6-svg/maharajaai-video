@@ -13,6 +13,7 @@ import {
   validTryOnDeviceId,
   verifyMaharajaAccess,
 } from '@/lib/maharaja/server';
+import { enforceRateLimit } from '@/lib/security/rate-limit';
 
 export const maxDuration = 45;
 
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest) {
     if (!access.allowed) return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     if (!validTryOnDeviceId(body.deviceId)) {
       return NextResponse.json({ success: false, error: 'This device could not be verified. Reload the page and try again.' }, { status: 400 });
+    }
+    const rate = await enforceRateLimit(req, 'price-tag', 20, 60 * 1000, body.deviceId);
+    if (!rate.allowed) {
+      return NextResponse.json({ success: false, error: 'Too many tag scans. Wait briefly and try again.' }, {
+        status: 429,
+        headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+      });
     }
 
     if (ENFORCE_REPEAT_LIMITS) {

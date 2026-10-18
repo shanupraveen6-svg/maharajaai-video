@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MoreVertical, Lock, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
-import { getLiveAudioTrack, getPreviewAudioTrack } from '@/lib/maharaja/audio';
+import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import { getEventOption, isEventId, type EventId } from '@/lib/maharaja/config';
 
 export default function ResultClient({
@@ -65,9 +65,7 @@ export default function ResultClient({
   const canRetryImage = !enforceLimits || !imageExhausted;
 
   const whatsappSendRequested = useRef(false);
-  const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId, eventId), [sessionId, eventId]);
   const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId, eventId), [sessionId, eventId]);
-  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
   const eventLabel = getEventOption(eventId).label;
 
@@ -103,42 +101,6 @@ export default function ResultClient({
     window.addEventListener('popstate', keepFarewellOpen);
     return () => window.removeEventListener('popstate', keepFarewellOpen);
   }, [liveFarewell, sessionId]);
-
-  const syncPreviewAudio = (video: HTMLVideoElement, start = false) => {
-    const audio = previewAudioRef.current;
-    if (!audio) return;
-    const audioDur = Math.max(audio.duration || 6, 1);
-    const target = video.currentTime % audioDur;
-    const baseRate = video.playbackRate || 1;
-    const drift = target - audio.currentTime;
-
-    // Hard seek only on start or major desync (>0.45s) to eliminate buffer flush stutter/clicks
-    if (start || Math.abs(drift) > 0.45) {
-      audio.currentTime = target;
-      audio.playbackRate = baseRate;
-    } else if (Math.abs(drift) > 0.03) {
-      // Smooth drift steering: subtle playback rate steering re-aligns audio without popping
-      const adjustment = Math.max(-0.05, Math.min(0.05, drift * 0.4));
-      audio.playbackRate = Math.max(0.85, Math.min(1.15, baseRate + adjustment));
-    } else {
-      audio.playbackRate = baseRate;
-    }
-
-    audio.volume = 0.9;
-    if (start && audio.paused) {
-      audio.play().catch((err) => console.warn('Preview audio playback blocked:', err));
-    }
-  };
-
-  const handleVideoPlay = (video: HTMLVideoElement) => {
-    syncPreviewAudio(video, true);
-  };
-
-  const handleVideoPause = () => {
-    previewAudioRef.current?.pause();
-  };
-
-  const handleVideoSeek = (video: HTMLVideoElement) => syncPreviewAudio(video, !video.paused);
 
   useEffect(() => {
     if (!liveSuccess || countdownSeconds === null) return;
@@ -363,7 +325,6 @@ export default function ResultClient({
     setLiveError(null);
 
     try {
-      handleVideoPause();
       const res = await fetch('/api/live/enqueue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -694,15 +655,8 @@ export default function ResultClient({
             controls
             loop
             playsInline
-            onPlay={(event) => handleVideoPlay(event.currentTarget)}
-            onPause={handleVideoPause}
-            onSeeking={(event) => handleVideoSeek(event.currentTarget)}
-            onSeeked={(event) => handleVideoSeek(event.currentTarget)}
-            onTimeUpdate={(event) => syncPreviewAudio(event.currentTarget)}
             className="w-full h-full object-cover"
           />
-          <img src="/maharaja-logo.png" alt="Majestic Maharaja" className="pointer-events-none absolute right-3 top-14 z-[5] w-[27%] max-w-24 border border-[#D4AF37]/45 shadow-lg" />
-          <audio ref={previewAudioRef} src={previewAudioUrl} loop preload="auto" className="hidden" />
         </div>
 
         {/* Primary Action Buttons */}

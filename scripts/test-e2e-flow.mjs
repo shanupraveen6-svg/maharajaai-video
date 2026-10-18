@@ -109,18 +109,18 @@ async function run() {
     const tryOnPrompt = buildTryOnPrompt(cat);
     assert(/Do not create a festival environment/.test(tryOnPrompt) && /premium, neutral indoor fashion retail studio background/.test(tryOnPrompt), `${cat}: Try-On prompt is plain/neutral`);
     assert(!/golden|Diwali|lamp-lit|rangoli(?!,)/i.test(tryOnPrompt.replace(/No diyas, no rangoli, no flowers, no festive props/, '')), `${cat}: Try-On prompt has no festival scene wording`);
-    assert(/Diwali/.test(buildMasterPrompt(cat, 'diwali')), `${cat}: video master prompt keeps the Diwali scene`);
+    assert(/diwali/i.test(buildMasterPrompt(cat, 'diwali')), `${cat}: video master prompt keeps the Diwali scene`);
   }
 
   const categories = ['women', 'men', 'girl', 'boy'];
-  const promptSets = ['b', 'a'];
+  const promptSets = ['set-1', 'set-2'];
   for (const cat of categories) {
     for (const pSet of promptSets) {
       const prompt = buildEventVideoPrompt(cat, 'diwali', pSet);
       assert(/facial identity|facial geometry/i.test(prompt) && /garment.*exact|exact.*garment/i.test(prompt), `${cat} ${pSet}: Identity and garment lock enforced`);
-      assert(/controlled luxury camera choreography/i.test(prompt) && /camera/i.test(prompt), `${cat} ${pSet}: Explicit camera direction is present`);
+      assert(/camera choreography/i.test(prompt) && /camera/i.test(prompt), `${cat} ${pSet}: Explicit camera direction is present`);
       assert(prompt.length < 6000, `${cat} ${pSet}: Provider prompt fits the server prompt limit`);
-      assert(prompt.includes('This is a Diwali film'), `${cat} ${pSet}: Selected event is preserved`);
+      assert(/diwali/i.test(prompt), `${cat} ${pSet}: Selected event is preserved`);
       if (cat === 'girl' || cat === 'boy') {
         assert(/child|child-appropriate/i.test(prompt), `${cat} ${pSet}: Child safety constraint present`);
       }

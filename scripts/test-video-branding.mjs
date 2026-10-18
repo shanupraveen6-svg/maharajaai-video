@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { applyMaharajaVideoWatermark, generateLive9sVideo } from '../src/lib/maharaja/video-processor.ts';
+import { applyMaharajaVideoWatermark, generateCustomer6sVideo, generateLive9sVideo } from '../src/lib/maharaja/video-processor.ts';
 
 async function runCommand(bin, args) {
   return new Promise((resolve, reject) => {
@@ -58,7 +58,21 @@ async function main() {
   const probeWm = await runCommand(ffmpegPath, ['-i', tmpWm, '-f', 'null', '-']);
   console.log('✓ Watermarked video probe success (contains video stream H.264)');
 
-  // 3. Test generateLive9sVideo
+  // 3. Test downloadable 6-second branded video with embedded preview audio
+  console.log('Generating branded 6s customer video with embedded preview audio...');
+  const customer6sBuffer = await generateCustomer6sVideo(test6sBuffer, '/audio/maharaja/preview/final-6.mp3');
+  const tmpCustomer = path.join(os.tmpdir(), `test_customer_${Date.now()}.mp4`);
+  await fs.promises.writeFile(tmpCustomer, customer6sBuffer);
+  const probeCustomer = await runCommand(ffmpegPath, ['-i', tmpCustomer, '-f', 'null', '-']);
+  if (!/Stream #.*Audio: aac/.test(probeCustomer.err || '')) {
+    throw new Error('Customer 6s video container is missing multiplexed AAC audio stream');
+  }
+  if (!/Duration:\s*00:00:06/.test(probeCustomer.err || '')) {
+    throw new Error('Customer video is not six seconds long');
+  }
+  console.log('✓ Verified branded 6s customer MP4 with embedded AAC audio');
+
+  // 4. Test generateLive9sVideo
   console.log('Generating authentic 9s showroom video with multiplexed Tamil greeting...');
   const live9sBuffer = await generateLive9sVideo(test6sBuffer);
   if (!live9sBuffer || live9sBuffer.length === 0) {
@@ -97,6 +111,7 @@ async function main() {
   // Cleanup
   await fs.promises.unlink(tmp6s).catch(() => {});
   await fs.promises.unlink(tmpWm).catch(() => {});
+  await fs.promises.unlink(tmpCustomer).catch(() => {});
   await fs.promises.unlink(tmpLive).catch(() => {});
 
   console.log('--- ALL VIDEO BRANDING & 9S RETIMING TESTS PASSED ---');

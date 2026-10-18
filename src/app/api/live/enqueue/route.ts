@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markVideoPassUsed, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { enforceRateLimit } from '@/lib/security/rate-limit';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -68,6 +69,13 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'sessionId and videoId parameters are required for Go Live.' },
         { status: 400 }
       );
+    }
+    const rate = await enforceRateLimit(req, 'go-live', 10, 10 * 60 * 1000, access.pass?.code || sessionId);
+    if (!rate.allowed) {
+      return NextResponse.json({ success: false, error: 'Too many Go Live requests. Wait briefly and try again.' }, {
+        status: 429,
+        headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+      });
     }
 
 

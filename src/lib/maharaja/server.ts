@@ -3,7 +3,8 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
-import { getLiveAudioTrack } from './audio';
+import { getLiveAudioTrack, getPreviewAudioTrack } from './audio';
+import { generateCustomer6sVideo, generateLive9sVideo } from './video-processor';
 import {
   AI_VIDEO_MIN_PURCHASE,
   type EventId,
@@ -1686,6 +1687,22 @@ export async function finalizeCompletedVideo({
 }): Promise<{ success: true; videoUrl: string; liveVideoUrl?: string; storagePath: string; liveStoragePath?: string } | { success: false; error: string }> {
   const db = getDb();
 
+  let providerUrl: URL;
+  try {
+    providerUrl = new URL(outputVideoUrl);
+  } catch {
+    return { success: false, error: 'Video provider returned an invalid result URL.' };
+  }
+  const providerHostAllowed = providerUrl.protocol === 'https:' && (
+    providerUrl.hostname === 'fal.media' ||
+    providerUrl.hostname.endsWith('.fal.media') ||
+    providerUrl.hostname === 'fal.run' ||
+    providerUrl.hostname.endsWith('.fal.run')
+  );
+  if (!providerHostAllowed) {
+    return { success: false, error: 'Video provider returned an untrusted result URL.' };
+  }
+
   let fileBuffer: Buffer | null = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -1701,8 +1718,11 @@ export async function finalizeCompletedVideo({
   }
 
   const storagePath = clientId
-    ? `clients/${clientId}/sessions/${sessionId}/video/final.mp4`
-    : `sessions/${sessionId}/video/final.mp4`;
+    ? `clients/${clientId}/sessions/${sessionId}/video/final-6s.mp4`
+    : `sessions/${sessionId}/video/final-6s.mp4`;
+  const liveStoragePath = clientId
+    ? `clients/${clientId}/sessions/${sessionId}/video/live-9s.mp4`
+    : `sessions/${sessionId}/video/live-9s.mp4`;
   const bucket = getStorageBucket();
 
   if (!bucket || !fileBuffer) {
@@ -1712,12 +1732,22 @@ export async function finalizeCompletedVideo({
   }
 
   try {
-    // Save raw 6-second MP4 directly without watermarking or live 9s re-timing
+    const [customerVideo, liveVideo] = await Promise.all([
+      generateCustomer6sVideo(fileBuffer, getPreviewAudioTrack(sessionId, eventId)),
+      generateLive9sVideo(fileBuffer, getLiveAudioTrack(sessionId, eventId)),
+    ]);
     const file = bucket.file(storagePath);
-    await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
-    const [exists] = await file.exists();
-    if (!exists) throw new Error('Storage did not confirm the completed MP4.');
-    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+    const liveFile = bucket.file(liveStoragePath);
+    await Promise.all([
+      file.save(customerVideo, { contentType: 'video/mp4', public: false }),
+      liveFile.save(liveVideo, { contentType: 'video/mp4', public: false }),
+    ]);
+    const [[exists], [liveExists]] = await Promise.all([file.exists(), liveFile.exists()]);
+    if (!exists || !liveExists) throw new Error('Storage did not confirm both completed MP4 files.');
+    const [[signedUrl], [liveSignedUrl]] = await Promise.all([
+      file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }),
+      liveFile.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }),
+    ]);
 
     if (db) {
       await Promise.all([
@@ -1725,6 +1755,8 @@ export async function finalizeCompletedVideo({
           id: `video_${sessionId}`,
           sessionId,
           storagePath,
+          liveStoragePath,
+          eventId,
           status: 'ready',
           provider: 'fal-h3-max-turbo',
           createdAt: new Date().toISOString(),
@@ -1733,7 +1765,8 @@ export async function finalizeCompletedVideo({
           videoStatus: 'ready',
           videoUrl: signedUrl,
           videoStoragePath: storagePath,
-          liveVideoUrl: signedUrl,
+          liveVideoUrl: liveSignedUrl,
+          liveVideoStoragePath: liveStoragePath,
           updatedAt: new Date().toISOString(),
         }, { merge: true }),
       ]);
@@ -1743,6 +1776,8 @@ export async function finalizeCompletedVideo({
         id: `video_${sessionId}`,
         sessionId,
         storagePath,
+        liveStoragePath,
+        eventId,
         status: 'ready',
         provider: 'fal-h3-max-turbo',
         createdAt: new Date().toISOString(),
@@ -1753,7 +1788,8 @@ export async function finalizeCompletedVideo({
         videoStatus: 'ready',
         videoUrl: signedUrl,
         videoStoragePath: storagePath,
-        liveVideoUrl: signedUrl,
+        liveVideoUrl: liveSignedUrl,
+        liveVideoStoragePath: liveStoragePath,
         updatedAt: new Date().toISOString(),
       });
     }
@@ -1763,7 +1799,7 @@ export async function finalizeCompletedVideo({
     }
     await logMaharajaActivity('video-ready', `${eventId} AI Video ready`, { sessionId, jobId });
 
-    return { success: true, videoUrl: signedUrl, liveVideoUrl: signedUrl, storagePath };
+    return { success: true, videoUrl: signedUrl, liveVideoUrl: liveSignedUrl, storagePath, liveStoragePath };
   } catch (stSaveErr: any) {
     console.error('Finalize completed video storage save failed:', stSaveErr);
     const errMessage = 'The completed video could not be saved to Maharaja media storage. The video slot has been restored.';

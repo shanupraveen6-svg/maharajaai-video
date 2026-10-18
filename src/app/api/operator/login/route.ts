@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { enforceRateLimit } from '@/lib/security/rate-limit';
 
 const OPERATOR_COOKIE = 'maharaja_operator_auth';
 
@@ -29,6 +30,13 @@ function signToken(payload: string, secret: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    const rate = await enforceRateLimit(req, 'operator-login', 10, 15 * 60 * 1000);
+    if (!rate.allowed) {
+      return NextResponse.json({ success: false, error: 'Too many login attempts. Try again later.' }, {
+        status: 429,
+        headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+      });
+    }
     const secret = getAuthSecret();
     if (!secret) {
       return NextResponse.json({ success: false, error: 'Operator auth secret is not configured.' }, { status: 500 });

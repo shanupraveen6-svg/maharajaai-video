@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { finalizeCompletedVideo, markPassVideoFailed } from '@/lib/maharaja/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { verifyFalWebhook } from '@/lib/security/fal-webhook';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
     const jobId = searchParams.get('jobId') || '';
     const sessionId = searchParams.get('sessionId') || '';
-    const accessCode = searchParams.get('accessCode') || null;
+    const token = searchParams.get('token') || '';
 
     const body = await req.json().catch(() => ({}));
     console.log('FAL_WEBHOOK_RECEIVED', { jobId, sessionId, status: body.status, requestId: body.request_id });
@@ -17,9 +19,30 @@ export async function POST(req: NextRequest) {
     if (!jobId || !sessionId) {
       return NextResponse.json({ success: false, error: 'jobId and sessionId are required.' }, { status: 400 });
     }
+    if (!verifyFalWebhook(jobId, sessionId, token)) {
+      return NextResponse.json({ success: false, error: 'Invalid webhook signature.' }, { status: 401 });
+    }
+
+    const db = getDb();
+    const jobData = db
+      ? (await db.collection('generationJobs').doc(jobId).get()).data()
+      : getMockStore().sessions.get(`job_${jobId}`) || getMockStore().sessions.get(jobId);
+    if (!jobData || jobData.sessionId !== sessionId) {
+      return NextResponse.json({ success: false, error: 'Unknown video job.' }, { status: 404 });
+    }
+    if (body.request_id && jobData.requestId && body.request_id !== jobData.requestId) {
+      return NextResponse.json({ success: false, error: 'Webhook request does not match the video job.' }, { status: 403 });
+    }
+    const accessCode = typeof jobData.accessCode === 'string' ? jobData.accessCode : null;
+
+    const sessionData = db
+      ? (await db.collection('sessions').doc(sessionId).get()).data()
+      : getMockStore().sessions.get(sessionId);
+    if (sessionData?.videoStatus === 'ready' && sessionData?.videoUrl) {
+      return NextResponse.json({ success: true, handled: 'already-ready', videoUrl: sessionData.videoUrl });
+    }
 
     if (body.status === 'ERROR') {
-      const db = getDb();
       const errorMessage = body.error || 'Fal.ai reported a video generation error.';
       if (accessCode) await markPassVideoFailed(accessCode, jobId);
       if (db) {
@@ -44,16 +67,7 @@ export async function POST(req: NextRequest) {
     // Output can be nested under payload.video.url or output.video.url or video.url
     const outputVideoUrl = body.payload?.video?.url || body.output?.video?.url || body.video?.url;
     if (outputVideoUrl && typeof outputVideoUrl === 'string') {
-      const db = getDb();
-      let eventId = 'diwali';
-      if (db) {
-        const sDoc = await db.collection('sessions').doc(sessionId).get();
-        if (sDoc.exists && sDoc.data()?.eventId) eventId = sDoc.data()?.eventId;
-      } else {
-        const mockStore = getMockStore();
-        const s = mockStore.sessions.get(sessionId);
-        if (s?.eventId) eventId = s.eventId;
-      }
+      const eventId = sessionData?.eventId || 'diwali';
 
       const finalizeResult = await finalizeCompletedVideo({
         sessionId,

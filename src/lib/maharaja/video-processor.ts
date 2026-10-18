@@ -11,6 +11,73 @@ function getFfmpegPath(): string | null {
   return null;
 }
 
+function resolvePublicAsset(relativeOrFullPath: string | undefined, fallback: string) {
+  const requested = relativeOrFullPath || fallback;
+  const candidate = requested.startsWith('/')
+    ? path.join(process.cwd(), 'public', requested.replace(/^\//, ''))
+    : requested;
+  return fs.existsSync(candidate) ? candidate : '';
+}
+
+async function generateBrandedVideo(
+  inputBuffer: Buffer,
+  durationSeconds: 6 | 9,
+  audioRelativeOrFullPath: string,
+  stretchToNineSeconds: boolean
+): Promise<Buffer> {
+  const binary = getFfmpegPath();
+  const logoPath = path.join(process.cwd(), 'public', 'maharaja-logo.png');
+  const audioPath = resolvePublicAsset(audioRelativeOrFullPath, audioRelativeOrFullPath);
+  if (!binary || !fs.existsSync(logoPath) || !audioPath || inputBuffer.length === 0) {
+    throw new Error('Required FFmpeg, Maharaja logo, or event audio asset is unavailable.');
+  }
+
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const tmpIn = path.join(os.tmpdir(), `mhr_brand_in_${id}.mp4`);
+  const tmpOut = path.join(os.tmpdir(), `mhr_brand_${durationSeconds}_${id}.mp4`);
+  try {
+    await fs.promises.writeFile(tmpIn, inputBuffer);
+    const timingFilter = stretchToNineSeconds ? 'setpts=1.5*PTS' : 'setpts=PTS-STARTPTS';
+    const args = [
+      '-y',
+      '-i', tmpIn,
+      '-i', audioPath,
+      '-i', logoPath,
+      '-filter_complex', `[0:v]${timingFilter}[timed];[2:v]scale=96:96[logo];[timed][logo]overlay=W-w-24:24[v_out]`,
+      '-map', '[v_out]',
+      '-map', '1:a:0',
+      '-t', String(durationSeconds),
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-crf', '22',
+      '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-movflags', '+faststart',
+      tmpOut,
+    ];
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(binary, args);
+      let stderr = '';
+      proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      proc.on('close', (code) => code === 0
+        ? resolve()
+        : reject(new Error(`FFmpeg branded video exited with code ${code}: ${stderr.slice(-400)}`)));
+      proc.on('error', reject);
+    });
+    const output = await fs.promises.readFile(tmpOut);
+    if (!output.length) throw new Error('FFmpeg produced an empty branded video.');
+    return output;
+  } finally {
+    await Promise.allSettled([fs.promises.unlink(tmpIn), fs.promises.unlink(tmpOut)]);
+  }
+}
+
+/** Creates the downloadable six-second MP4 with embedded Maharaja logo and preview audio. */
+export function generateCustomer6sVideo(inputBuffer: Buffer, audioRelativeOrFullPath: string) {
+  return generateBrandedVideo(inputBuffer, 6, audioRelativeOrFullPath, false);
+}
+
 /**
  * Permanently embeds the Maharaja official circular logo into the top-right corner of an MP4 video.
  */
@@ -81,88 +148,6 @@ export async function generateLive9sVideo(
   input6sBuffer: Buffer,
   audioRelativeOrFullPath?: string
 ): Promise<Buffer> {
-  const binary = getFfmpegPath();
-  const logoPath = path.join(process.cwd(), 'public', 'maharaja-logo.png');
-
-  // Resolve audio path
-  let audioPath = '';
-  if (audioRelativeOrFullPath) {
-    const candidate = audioRelativeOrFullPath.startsWith('/')
-      ? path.join(process.cwd(), 'public', audioRelativeOrFullPath.replace(/^\//, ''))
-      : audioRelativeOrFullPath;
-    if (fs.existsSync(candidate)) audioPath = candidate;
-  }
-  if (!audioPath) {
-    const defaultLiveAudio = path.join(process.cwd(), 'public', 'audio', 'maharaja', 'live', 'go-live-final.mp3');
-    if (fs.existsSync(defaultLiveAudio)) audioPath = defaultLiveAudio;
-  }
-
-  if (!binary || input6sBuffer.length === 0) {
-    console.warn('Live 9s video generation skipped: ffmpeg not available.');
-    return input6sBuffer;
-  }
-
-  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const tmpIn = path.join(os.tmpdir(), `mhr_in9_${id}.mp4`);
-  const tmpOut = path.join(os.tmpdir(), `mhr_live9_${id}.mp4`);
-
-  try {
-    await fs.promises.writeFile(tmpIn, input6sBuffer);
-
-    const hasLogo = fs.existsSync(logoPath);
-    const hasAudio = Boolean(audioPath && fs.existsSync(audioPath));
-
-    const args: string[] = ['-y', '-i', tmpIn];
-    if (hasAudio) args.push('-i', audioPath);
-    if (hasLogo) args.push('-i', logoPath);
-
-    // Build filter complex
-    let filter = '[0:v]setpts=1.5*PTS[v_slow]';
-    if (hasLogo) {
-      const logoInputIdx = hasAudio ? 2 : 1;
-      filter += `;[${logoInputIdx}:v]scale=96:96[logo];[v_slow][logo]overlay=W-w-24:24[v_out]`;
-    } else {
-      filter += ';[v_slow]copy[v_out]';
-    }
-
-    args.push('-filter_complex', filter, '-map', '[v_out]');
-
-    if (hasAudio) {
-      args.push('-map', '1:a', '-c:a', 'aac', '-b:a', '192k', '-shortest');
-    }
-
-    args.push(
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '22',
-      '-movflags', '+faststart',
-      tmpOut
-    );
-
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn(binary, args);
-      let stderr = '';
-      proc.stderr.on('data', (chunk) => {
-        stderr += chunk.toString();
-      });
-      proc.on('close', (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(`FFmpeg live 9s exited with code ${code}: ${stderr.slice(-300)}`));
-      });
-      proc.on('error', reject);
-    });
-
-    const outputBuffer = await fs.promises.readFile(tmpOut);
-    return outputBuffer.length > 0 ? outputBuffer : input6sBuffer;
-  } catch (err) {
-    console.warn('Live 9s video generation warning, falling back to original:', err);
-    return input6sBuffer;
-  } finally {
-    try {
-      if (fs.existsSync(tmpIn)) await fs.promises.unlink(tmpIn);
-      if (fs.existsSync(tmpOut)) await fs.promises.unlink(tmpOut);
-    } catch {
-      // Ignore temp file cleanup errors
-    }
-  }
+  const audio = audioRelativeOrFullPath || '/audio/maharaja/live/go-live-final.mp3';
+  return generateBrandedVideo(input6sBuffer, 9, audio, true);
 }

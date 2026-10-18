@@ -5,8 +5,10 @@ import { GoogleGenAI } from '@google/genai';
 import { type CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, buildMasterPrompt, resolveGarmentType, type VideoPromptSet, getSceneIndex } from '@/lib/maharaja/config';
 import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
+import { enforceRateLimit } from '@/lib/security/rate-limit';
 
 export const maxDuration = 120;
+const MAX_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024;
 
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
@@ -46,7 +48,12 @@ async function resolveImageBase64(input: unknown, bucket: any): Promise<string> 
   if (bucket && (trimmed.startsWith('clients/') || trimmed.startsWith('sessions/'))) {
     try {
       const file = bucket.file(trimmed);
+      const [metadata] = await file.getMetadata();
+      if (Number(metadata.size || 0) > MAX_SOURCE_IMAGE_BYTES) {
+        throw new Error('Uploaded photo exceeds the 8 MB processing limit.');
+      }
       const [buffer] = await file.download();
+      if (buffer.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Uploaded photo exceeds the 8 MB processing limit.');
       return buffer.toString('base64');
     } catch (err) {
       console.warn('Storage file download warning:', err);
@@ -60,7 +67,11 @@ async function resolveImageBase64(input: unknown, bucket: any): Promise<string> 
   try {
     const res = await fetch(trimmed);
     if (res.ok) {
+      if (Number(res.headers.get('content-length') || 0) > MAX_SOURCE_IMAGE_BYTES) {
+        throw new Error('Source photo exceeds the 8 MB processing limit.');
+      }
       const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Source photo exceeds the 8 MB processing limit.');
       return buf.toString('base64');
     }
   } catch (err) {
@@ -82,6 +93,14 @@ export async function POST(req: NextRequest) {
     const access = await verifyMaharajaAccess(req, accessCode, service);
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
+    }
+    const rateIdentity = access.pass?.code || (typeof body.deviceId === 'string' ? body.deviceId : sessionId);
+    const rate = await enforceRateLimit(req, `master-image:${service}`, 4, 10 * 60 * 1000, rateIdentity);
+    if (!rate.allowed) {
+      return NextResponse.json({ success: false, error: 'Image generation is temporarily limited for this customer. Please wait and try again.' }, {
+        status: 429,
+        headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+      });
     }
 
     // A billing pass owns exactly one Try-On image and one video master image.
@@ -131,11 +150,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const maxGarmentPhotos = 3;
+    const maxGarmentPhotos = service === 'try-on' ? 1 : 3;
     if (garmentInputs.length > maxGarmentPhotos) {
       return NextResponse.json({
         success: false,
-        error: 'Upload up to 3 garment photos max.',
+        error: service === 'try-on' ? 'AI Try-On accepts exactly one garment photo.' : 'Upload up to 3 garment photos max.',
       }, { status: 400 });
     }
 

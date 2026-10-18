@@ -1,6 +1,6 @@
 # Maharaja AI Experience — Final Payload Prompt Compliance Report
 
-**Generated:** 2026-10-18T07:49:09.433Z  
+**Generated:** 2026-10-18T09:50:01.068Z
 **Production Commit Target:** `HEAD`  
 **Target Provider:** fal.ai (MiniMax Hailuo H3 Max Turbo, 6s / 768P)  
 **Provider Prompt Limit:** 2800 characters  

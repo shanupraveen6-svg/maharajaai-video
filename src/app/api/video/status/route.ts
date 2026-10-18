@@ -4,7 +4,7 @@ import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import { finalizeCompletedVideo, getCampaignEntitlementForPass, getCustomerServiceAllowances, getVideoPass, markPassVideoFailed, markPassVideoReady, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 const FAL_VIDEO_MODEL = 'minimax/h3-max-turbo/image-to-video';
 
 async function markVideoFailed(db: any, sessionId: string, message: string, accessCode?: string | null, jobId?: string | null) {

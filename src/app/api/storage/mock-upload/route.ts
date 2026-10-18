@@ -3,8 +3,13 @@ import { getMockStore } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
+function mockUploadsAllowed() {
+  return process.env.VERCEL_ENV !== 'production' && process.env.ALLOW_MOCK_BACKEND === 'true';
+}
+
 export async function PUT(req: NextRequest) {
   try {
+    if (!mockUploadsAllowed()) return NextResponse.json({ success: false, error: 'Not found.' }, { status: 404 });
     const searchParams = req.nextUrl.searchParams;
     const path = searchParams.get('path');
     if (!path) return NextResponse.json({ success: false, error: 'Path parameter required.' }, { status: 400 });
@@ -26,6 +31,7 @@ export async function PUT(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    if (!mockUploadsAllowed()) return NextResponse.json({ success: false, error: 'Not found.' }, { status: 404 });
     const searchParams = req.nextUrl.searchParams;
     const path = searchParams.get('path');
     if (!path) return NextResponse.json({ success: false, error: 'Path parameter required.' }, { status: 400 });

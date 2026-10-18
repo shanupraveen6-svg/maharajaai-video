@@ -165,7 +165,7 @@ fs.mkdirSync(reportDir, { recursive: true });
 
 const mdContent = `# Maharaja AI Experience — Final Payload Prompt Compliance Report
 
-**Generated:** ${new Date().toISOString()}  
+**Generated:** ${new Date().toISOString()}
 **Production Commit Target:** \`HEAD\`  
 **Target Provider:** fal.ai (MiniMax Hailuo H3 Max Turbo, 6s / 768P)  
 **Provider Prompt Limit:** ${MAX_VIDEO_PROMPT_CHARS} characters  
