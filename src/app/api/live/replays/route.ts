@@ -57,6 +57,12 @@ function selectedStoragePath(video: any): string {
   return String(video.liveStoragePath || video.storagePath || '');
 }
 
+function isPlayableVideo(video: any): boolean {
+  const storagePath = selectedStoragePath(video);
+  const contentType = String(video.contentType || '');
+  return isSupportedVideoPath(storagePath) || contentType.startsWith('video/');
+}
+
 function stableSessionId(storagePath: string): string {
   const match = storagePath.match(/sessions\/([^/]+)\//);
   return match?.[1] || `stored_${stableId(storagePath).slice(0, 12)}`;
@@ -106,13 +112,26 @@ export async function GET(req: NextRequest) {
         });
 
       const bucket = getStorageBucket();
+      const storageDiagnostics = {
+        bucket: bucket?.name || null,
+        totalObjects: 0,
+        videoObjects: 0,
+        imageObjects: 0,
+        otherObjects: 0,
+        scanError: null as string | null,
+      };
       if (bucket && isRealFirebaseAvailable()) {
         try {
           const [files] = await bucket.getFiles({ prefix: '' });
+          storageDiagnostics.totalObjects = files.length;
           for (const file of files) {
             const storagePath = String(file.name || '');
             const contentType = String(file.metadata?.contentType || '');
-            if ((!isSupportedVideoPath(storagePath) && !contentType.startsWith('video/')) || knownStoragePaths.has(storagePath)) continue;
+            const isVideo = isSupportedVideoPath(storagePath) || contentType.startsWith('video/');
+            if (isVideo) storageDiagnostics.videoObjects += 1;
+            else if (contentType.startsWith('image/')) storageDiagnostics.imageObjects += 1;
+            else storageDiagnostics.otherObjects += 1;
+            if (!isVideo || knownStoragePaths.has(storagePath)) continue;
             videosByStoragePath.set(storagePath, {
               id: `storage_${stableId(storagePath)}`,
               sessionId: stableSessionId(storagePath),
@@ -124,11 +143,12 @@ export async function GET(req: NextRequest) {
           }
         } catch (storageError) {
           console.warn('Storage video discovery warning:', storageError);
+          storageDiagnostics.scanError = storageError instanceof Error ? storageError.message : 'Storage scan failed.';
         }
       }
 
       const readyVideos = Array.from(videosByStoragePath.values())
-        .filter((video: any) => isSupportedVideoPath(selectedStoragePath(video)))
+        .filter(isPlayableVideo)
         .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
 
       const usedNames = new Set(
@@ -218,7 +238,15 @@ export async function GET(req: NextRequest) {
       if (failed) console.warn(`Replay library skipped ${failed} video(s) that could not be signed.`);
 
       const nextOffset = offset + pageVideos.length < readyVideos.length ? offset + pageVideos.length : null;
-      return NextResponse.json({ success: true, count: readyVideos.length, returned: items.length, failed, nextOffset, items });
+      return NextResponse.json({
+        success: true,
+        count: readyVideos.length,
+        returned: items.length,
+        failed,
+        nextOffset,
+        diagnostics: storageDiagnostics,
+        items,
+      });
     }
 
     const mockStore = getMockStore();
