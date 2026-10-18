@@ -107,6 +107,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [stage, setStage] = useState<'loading' | 'ready' | 'analyzing' | 'image' | 'video' | 'result'>('loading');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [processingConsent, setProcessingConsent] = useState(false);
   const [masterApproved, setMasterApproved] = useState(false);
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
@@ -330,6 +331,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     : allowances.masterImage.used >= 2);
 
   const canGenerateImage = !isImageExhausted
+    && processingConsent
     && purchaseConfirmed
     && (activeService === 'ai-video' || !!access?.access.phoneMasked || !!tryOnGrant)
     && !!personPhoto
@@ -490,6 +492,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         garmentAnalysis,
         deviceId,
         tryOnGrant,
+        processingConsent,
+        guardianProcessingConsent: (category === 'girl' || category === 'boy') ? processingConsent : false,
+        consentVersion: '2026-10-privacy-v1',
         conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId, undefined, promptSet) : undefined,
       };
 
@@ -790,7 +795,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-4 gap-2">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" disabled={busy || imagesLocked} onClick={() => { setCategory(option); clearActiveImage(); }} className={`min-h-11 border px-2 text-xs font-bold uppercase ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}>{option}</button>)}</div></fieldset>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-4 gap-2">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" disabled={busy || imagesLocked} onClick={() => { setCategory(option); setProcessingConsent(false); clearActiveImage(); }} className={`min-h-11 border px-2 text-xs font-bold uppercase ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}>{option}</button>)}</div></fieldset>
                   {activeService === 'ai-video' && (
                     <fieldset className="sm:col-span-2">
                       <legend className="text-xs font-bold uppercase text-[#5C4B43]">Cinematic Scene Style</legend>
@@ -988,6 +993,25 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
                 {message && <div className="mt-4 border border-[#E2D4B8] bg-[#FFF9EC] p-3 text-sm font-semibold text-[#6E0D1F]">{message}</div>}
                 {error && <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</div>}
+
+                {!masterImageUrl && (
+                  <label className="mt-5 flex cursor-pointer items-start gap-3 border border-[#D8C49B] bg-[#FFF9EC] p-3.5 text-left">
+                    <input
+                      type="checkbox"
+                      checked={processingConsent}
+                      onChange={(event) => setProcessingConsent(event.target.checked)}
+                      className="mt-0.5 h-5 w-5 shrink-0 accent-[#6E0D1F]"
+                    />
+                    <span className="text-xs leading-5 text-[#5C4B43]">
+                      {category === 'girl' || category === 'boy'
+                        ? 'I confirm that I am the parent or legal guardian and agree to the temporary processing of these photos to create this Maharaja AI experience.'
+                        : 'I agree to the temporary processing of the uploaded photos to create this Maharaja AI experience.'}{' '}
+                      <Link href="/privacy" className="font-bold text-[#6E0D1F] underline underline-offset-2">Privacy &amp; Data Use</Link>
+                      <span className="px-1">·</span>
+                      <Link href="/terms" className="font-bold text-[#6E0D1F] underline underline-offset-2">Terms</Link>
+                    </span>
+                  </label>
+                )}
 
                 {!masterImageUrl && <button type="button" id="generate-master-image-btn" onClick={() => void generateImage()} disabled={!canGenerateImage || busy} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 bg-[#6E0D1F] px-5 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-40">{stage === 'image' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />} {activeService === 'try-on' ? 'Generate AI Try-On' : 'Generate Festival Image for Video'}</button>}
               </div>}

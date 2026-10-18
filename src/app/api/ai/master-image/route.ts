@@ -90,6 +90,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, garmentRoles, conceptPrompt, templateId, accessCode } = body;
     const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
+    if (body.processingConsent !== true || body.consentVersion !== '2026-10-privacy-v1') {
+      return NextResponse.json({ success: false, error: 'Photo processing permission is required before generation.' }, { status: 400 });
+    }
+    if ((body.templateId === 'girl' || body.templateId === 'boy') && body.guardianProcessingConsent !== true) {
+      return NextResponse.json({ success: false, error: 'Parent or legal guardian permission is required for child photo processing.' }, { status: 400 });
+    }
     const access = await verifyMaharajaAccess(req, accessCode, service);
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
@@ -352,6 +358,10 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
         templateId: templateId || null,
         promptSet,
         garmentType,
+        processingConsent: true,
+        guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
+        consentVersion: '2026-10-privacy-v1',
+        consentedAt: nowIso,
         ...safeImageFields,
         status: 'master_ready',
         updatedAt: nowIso
@@ -370,6 +380,10 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
         templateId: templateId || null,
         promptSet,
         garmentType,
+        processingConsent: true,
+        guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
+        consentVersion: '2026-10-privacy-v1',
+        consentedAt: nowIso,
         ...imageFields,
         status: 'master_ready',
         updatedAt: nowIso
