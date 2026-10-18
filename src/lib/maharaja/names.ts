@@ -27,6 +27,18 @@ export const TAMIL_GENTS_NAMES = [
   'அருண்',
 ] as const;
 
+const TV_NAME_BY_SESSION_ID: Readonly<Record<string, string>> = {
+  seed_9915f017: 'கார்த்திக்',
+  seed_9038ee79: 'விக்னேஷ்',
+  seed_417e8421: 'தினேஷ்',
+  seed_216dd83b: 'அருண்',
+};
+
+export function getAssignedTvName(sessionId: unknown): string | null {
+  if (typeof sessionId !== 'string') return null;
+  return TV_NAME_BY_SESSION_ID[sessionId.trim()] || null;
+}
+
 export const TAMIL_LOCALITIES = [
   'தஞ்சாவூர்',    // Thanjavur
 ] as const;
