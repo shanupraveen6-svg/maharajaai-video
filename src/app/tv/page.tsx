@@ -19,6 +19,10 @@ type PlaybackItem = {
   customerLocality?: string | null;
   source?: 'live' | 'replay';
   eventId?: string | null;
+  playbackMode?: 'embedded' | 'external';
+  durationSeconds?: number;
+  playbackRate?: number;
+  hasEmbeddedAudio?: boolean;
 };
 
 export default function TvPlayerPage() {
@@ -78,6 +82,34 @@ export default function TvPlayerPage() {
   const getVideoRef = (slot: Slot) => (slot === 'a' ? videoARef.current : videoBRef.current);
   const getInactiveSlot = () => (activeSlotRef.current === 'a' ? 'b' : 'a');
 
+  function resetExternalAudio() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const hasSource = Boolean(audio.getAttribute('src'));
+    if (!hasSource && audio.paused && audio.currentTime === 0) {
+      liveAudioStartedRef.current = false;
+      return;
+    }
+    audio.pause();
+    audio.currentTime = 0;
+    audio.playbackRate = 1;
+    audio.removeAttribute('src');
+    audio.load();
+    liveAudioStartedRef.current = false;
+  }
+
+  function configureVideo(video: HTMLVideoElement, playback: PlaybackItem) {
+    const usesExternalAudio = playback.playbackMode === 'external';
+    const rate = Number.isFinite(playback.playbackRate) && Number(playback.playbackRate) > 0
+      ? Number(playback.playbackRate)
+      : usesExternalAudio ? TV_PLAYBACK_RATE : 1;
+    video.defaultPlaybackRate = rate;
+    video.playbackRate = rate;
+    video.muted = usesExternalAudio;
+    video.volume = 0.92;
+    if (!usesExternalAudio) resetExternalAudio();
+  }
+
   function setSlotPlayback(slot: Slot, playback: PlaybackItem | null) {
     slotItemsRef.current = { ...slotItemsRef.current, [slot]: playback };
     setSlotItems((prev) => ({ ...prev, [slot]: playback }));
@@ -105,8 +137,7 @@ export default function TvPlayerPage() {
 
   function resetActivePlaybackState() {
     clearPlaybackWatchdog();
-    audioRef.current?.pause();
-    liveAudioStartedRef.current = false;
+    resetExternalAudio();
     loopInProgressRef.current = false;
     setIsPlayingVideo(false);
     setCurrentPlayback(null);
@@ -246,12 +277,16 @@ export default function TvPlayerPage() {
 
   async function loadReplayLibrary() {
     try {
-      const res = await fetch('/api/live/replays?limit=24');
-      const data = await res.json();
-      if (!data.success || !Array.isArray(data.items)) return;
-      data.items.forEach((item: PlaybackItem) => {
-        appendPlaylistItem({ ...item, source: 'replay' });
-      });
+      let offset = 0;
+      do {
+        const res = await fetch(`/api/live/replays?limit=200&offset=${offset}`, { cache: 'no-store' });
+        const data = await res.json();
+        if (!data.success || !Array.isArray(data.items)) return;
+        data.items.forEach((item: PlaybackItem) => {
+          appendPlaylistItem({ ...item, source: 'replay' });
+        });
+        offset = typeof data.nextOffset === 'number' ? data.nextOffset : -1;
+      } while (offset >= 0);
     } catch (err) {
       console.warn('Replay library load failed:', err);
     }
@@ -285,6 +320,10 @@ export default function TvPlayerPage() {
             liveAudioUrl: data.liveAudioUrl || getLiveAudioTrack(data.queueId || data.reservationId || data.videoUrl),
             customerName: data.customerName || null,
             customerLocality: data.customerLocality || null,
+            playbackMode: data.playbackMode || 'embedded',
+            durationSeconds: data.durationSeconds || null,
+            playbackRate: data.playbackRate || 1,
+            hasEmbeddedAudio: data.hasEmbeddedAudio !== false,
             source: 'live',
           });
         }
@@ -316,20 +355,13 @@ export default function TvPlayerPage() {
     liveAudioStartedRef.current = false;
     loopInProgressRef.current = false;
     try {
-      const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
-      const rate = isNative9s ? 1.0 : TV_PLAYBACK_RATE;
-      video.defaultPlaybackRate = rate;
-      video.playbackRate = rate;
       video.currentTime = 0;
-      video.muted = false;
-      video.volume = 0.92;
+      configureVideo(video, playback);
 
-      if (!isNative9s && audioRef.current) {
+      if (playback.playbackMode === 'external' && audioRef.current) {
         audioRef.current.src = playback.liveAudioUrl || getLiveAudioTrack(playback.queueId);
         audioRef.current.currentTime = 0;
         audioRef.current.volume = 0.88;
-      } else if (audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
       }
       await video.play();
       clearPlaybackWatchdog();
@@ -352,7 +384,7 @@ export default function TvPlayerPage() {
       }).catch((err) => console.error('Failed to notify playing status:', err));
     } catch (err) {
       console.error('Video playback error / autoplay blocked:', err);
-      audioRef.current?.pause();
+      resetExternalAudio();
       setPlaybackError('Autoplay blocked. Press play to start video.');
     }
   };
@@ -377,24 +409,20 @@ export default function TvPlayerPage() {
     if (slot !== activeSlotRef.current || !playback) return;
     if (video.readyState < 2 || video.currentTime < 0.08 || video.paused) return;
 
-    const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
-    if (isNative9s) {
-      // Native showroom broadcast video already contains the multiplexed AAC Tamil audio.
-      // Play container audio directly from the video element to guarantee 100% zero-drift, click-free audio.
+    if (playback.playbackMode !== 'external') {
       video.muted = false;
       video.volume = 0.92;
-      if (audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-      }
+      if (liveAudioStartedRef.current || audioRef.current?.getAttribute('src')) resetExternalAudio();
       return;
     }
 
-    // Fallback for raw 6s videos without embedded audio:
+    video.muted = true;
     if (!audioRef.current || liveAudioStartedRef.current) return;
     liveAudioStartedRef.current = true;
     window.requestAnimationFrame(() => {
       if (!audioRef.current || video.paused) return;
-      const initialAudioTime = Math.min(video.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
+      const sourceDuration = playback.durationSeconds || SOURCE_SECONDS_FOR_LIVE;
+      const initialAudioTime = Math.min(video.currentTime / sourceDuration, 1) * TV_SECONDS_FOR_LIVE;
       audioRef.current.src = playback.liveAudioUrl || getLiveAudioTrack(playback.queueId);
       audioRef.current.currentTime = initialAudioTime;
       audioRef.current.playbackRate = 1;
@@ -415,8 +443,7 @@ export default function TvPlayerPage() {
     const index = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
     if (index >= 0) playlistIndexRef.current = index;
 
-    audioRef.current?.pause();
-    liveAudioStartedRef.current = false;
+    resetExternalAudio();
     loopInProgressRef.current = false;
     setCurrentPlayback(playback);
     setActiveSlot(slot);
@@ -456,16 +483,9 @@ export default function TvPlayerPage() {
 
     if (playlist.length === 1) {
       const video = getVideoRef(activeSlotRef.current);
-      if (!video) return;
-      video.currentTime = 0;
-      const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
-      video.playbackRate = isNative9s ? 1.0 : TV_PLAYBACK_RATE;
-      video.muted = false;
-      video.volume = 0.92;
-      video.play().catch((err) => {
-        console.error('Failed to loop current TV video:', err);
-        setPlaybackError('Autoplay blocked. Press play to continue video.');
-      }).finally(() => {
+      const playback = currentPlaybackRef.current;
+      if (!video || !playback) return;
+      void startVideoPlayback().finally(() => {
         loopInProgressRef.current = false;
       });
       return;
@@ -493,7 +513,7 @@ export default function TvPlayerPage() {
     const playback = currentPlaybackRef.current;
     if (!playback) return;
     clearPlaybackWatchdog();
-    audioRef.current?.pause();
+    resetExternalAudio();
 
     if (playback.source !== 'replay') {
       playback.source = 'replay';
@@ -509,29 +529,17 @@ export default function TvPlayerPage() {
     if (slot !== activeSlotRef.current || !currentPlaybackRef.current) return;
 
     startLiveAudioWithVisibleVideo(slot, video);
-    const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
-    const duration = isNative9s
-      ? video.duration
-      : (Number.isFinite(video.duration) && video.duration > 0 ? Math.min(video.duration, SOURCE_SECONDS_FOR_LIVE) : SOURCE_SECONDS_FOR_LIVE);
-
     if (video.currentTime > 0.18) {
       clearPlaybackWatchdog();
     }
 
-    if (video.currentTime >= duration - 0.08 && !loopInProgressRef.current) {
-      loopInProgressRef.current = true;
-      void handleVideoEnded();
-      return;
-    }
-
-    if (isNative9s) {
-      // Native 9s video plays internal multiplexed audio directly; zero external steering needed
-      return;
-    }
+    const playback = currentPlaybackRef.current;
+    if (!playback || playback.playbackMode !== 'external') return;
 
     const audio = audioRef.current;
     if (audio && !audio.paused) {
-      const targetAudioTime = Math.min(video.currentTime / SOURCE_SECONDS_FOR_LIVE, 1) * 9;
+      const sourceDuration = playback.durationSeconds || SOURCE_SECONDS_FOR_LIVE;
+      const targetAudioTime = Math.min(video.currentTime / sourceDuration, 1) * TV_SECONDS_FOR_LIVE;
       const drift = targetAudioTime - audio.currentTime;
 
       // Hard seek only on start or major desync (>0.45s) to eliminate buffer flush stutter/clicks
@@ -553,7 +561,7 @@ export default function TvPlayerPage() {
       : slotItemsRef.current[slot];
     if (!playback) return;
     clearPlaybackWatchdog();
-    audioRef.current?.pause();
+    resetExternalAudio();
 
     if (slot !== activeSlotRef.current) {
       skipPendingPlayback(slot, 'pending video browser playback error');
@@ -596,10 +604,7 @@ export default function TvPlayerPage() {
         preload="auto"
         onLoadedMetadata={(event) => {
           const video = event.currentTarget;
-          const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
-          const rate = isNative9s ? 1.0 : TV_PLAYBACK_RATE;
-          video.defaultPlaybackRate = rate;
-          video.playbackRate = rate;
+          if (playback) configureVideo(video, playback);
         }}
         onCanPlay={() => {
           if (isPending) activatePendingSlot(slot);

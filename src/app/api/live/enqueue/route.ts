@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
     const playAtIso = new Date(playAtMs).toISOString();
     const db = getDb();
     let resolvedVideoUrl = '';
+    let resolvedStoragePath = '';
     if (db) {
       const [videoDoc, sessionDoc] = await Promise.all([
         db.collection('videos').doc(videoId).get(),
@@ -112,8 +113,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'The final AI Video is not ready for Go Live.' }, { status: 409 });
       }
       if (videoData?.liveStoragePath) {
+        resolvedStoragePath = videoData.liveStoragePath;
         resolvedVideoUrl = sessionData?.liveVideoUrl || await getSignedPlaybackUrl(videoData.liveStoragePath);
       } else {
+        resolvedStoragePath = videoData.storagePath;
         resolvedVideoUrl = sessionData?.liveVideoUrl || sessionData?.videoUrl || await getSignedPlaybackUrl(videoData.storagePath);
       }
     } else {
@@ -123,8 +126,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'The final AI Video is not ready for Go Live.' }, { status: 409 });
       }
       if (videoData?.liveStoragePath) {
+        resolvedStoragePath = videoData.liveStoragePath;
         resolvedVideoUrl = videoData?.liveVideoUrl || await getSignedPlaybackUrl(videoData.liveStoragePath);
       } else {
+        resolvedStoragePath = videoData.storagePath;
         resolvedVideoUrl = videoData?.liveVideoUrl || videoData?.videoUrl || await getSignedPlaybackUrl(videoData.storagePath);
       }
     }
@@ -134,6 +139,10 @@ export async function POST(req: NextRequest) {
       customerLocality,
       liveAudioUrl,
       videoUrl: resolvedVideoUrl,
+      playbackStoragePath: resolvedStoragePath,
+      playbackMode: 'embedded',
+      durationSeconds: /(?:live[-_]?9s|final[-_]?9s)/i.test(resolvedStoragePath) ? 9 : 6,
+      hasEmbeddedAudio: true,
       category,
       showroomConsent: true,
       guardianConsent: isMinorCategory,
@@ -267,6 +276,7 @@ export async function POST(req: NextRequest) {
         phone,
         phoneMasked,
         videoUrl: resolvedVideoUrl,
+        storagePath: resolvedStoragePath,
         showroomConsent: true,
         guardianConsent: isMinorCategory,
         promotionConsent,

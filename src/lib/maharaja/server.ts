@@ -1741,8 +1741,30 @@ export async function finalizeCompletedVideo({
     const file = bucket.file(storagePath);
     const liveFile = bucket.file(liveStoragePath);
     await Promise.all([
-      file.save(customerVideo, { contentType: 'video/mp4', public: false }),
-      liveFile.save(liveVideo, { contentType: 'video/mp4', public: false }),
+      file.save(customerVideo, {
+        contentType: 'video/mp4',
+        public: false,
+        metadata: {
+          cacheControl: 'private, max-age=3600',
+          metadata: {
+            durationSeconds: '6',
+            playbackMode: 'embedded',
+            hasEmbeddedAudio: 'true',
+          },
+        },
+      }),
+      liveFile.save(liveVideo, {
+        contentType: 'video/mp4',
+        public: false,
+        metadata: {
+          cacheControl: 'private, max-age=3600',
+          metadata: {
+            durationSeconds: '9',
+            playbackMode: 'embedded',
+            hasEmbeddedAudio: 'true',
+          },
+        },
+      }),
     ]);
     const [[exists], [liveExists]] = await Promise.all([file.exists(), liveFile.exists()]);
     if (!exists || !liveExists) throw new Error('Storage did not confirm both completed MP4 files.');
@@ -1775,6 +1797,9 @@ export async function finalizeCompletedVideo({
           provider: 'fal-h3-max-turbo',
           customerName: customerName || null,
           customerLocality: customerLocality || null,
+          playbackMode: 'embedded',
+          durationSeconds: 9,
+          hasEmbeddedAudio: true,
           createdAt: new Date().toISOString(),
         }, { merge: true }),
         db.collection('sessions').doc(sessionId).set({
@@ -1799,6 +1824,9 @@ export async function finalizeCompletedVideo({
         provider: 'fal-h3-max-turbo',
         customerName: customerName || null,
         customerLocality: customerLocality || null,
+        playbackMode: 'embedded',
+        durationSeconds: 9,
+        hasEmbeddedAudio: true,
         createdAt: new Date().toISOString(),
       });
       const session = mockStore.sessions.get(sessionId) || {};

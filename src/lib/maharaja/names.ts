@@ -1,10 +1,10 @@
 export const TAMIL_SHOWROOM_NAMES = [
-  'காவ்யா',       // Kaviya
+  'காவியா',       // Kaviya
   'பிரியா',        // Priya
   'அனிதா',        // Anitha
   'தீபிகா',       // Deepika
   'சினேகா',       // Sneha
-  'லக்ஷ்மி',      // Lakshmi
+  'லட்சுமி',      // Lakshmi
   'ரம்யா',        // Ramya
   'நந்தினி',      // Nandhini
   'திவ்யா',       // Divya

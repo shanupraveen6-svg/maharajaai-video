@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, generateReservationId, getSignedPlaybackUrl, type MockQueueItem } from '@/lib/firebase/admin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { getVideoPlaybackProfile } from '@/lib/maharaja/video-playback';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -121,6 +122,7 @@ export async function GET(req: NextRequest) {
           queueNumber: queueData.queueNumber || null,
           reservationId,
           storagePath,
+          playbackProfile: getVideoPlaybackProfile(videoData, storagePath),
           customerName: cleanDisplayText(queueData.customerName) || cleanDisplayText(videoData.customerName),
           customerLocality: cleanDisplayText(queueData.customerLocality) || cleanDisplayText(videoData.customerLocality),
           liveAudioUrl: queueData.liveAudioUrl || null
@@ -135,6 +137,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ status: 'idle', reason: result.reason });
       }
 
+      if (!result.playbackProfile) {
+        return NextResponse.json({ success: false, error: 'Video playback metadata is unavailable.' }, { status: 500 });
+      }
+
       const signedUrl = await getSignedPlaybackUrl(result.storagePath);
 
       return NextResponse.json({
@@ -145,7 +151,8 @@ export async function GET(req: NextRequest) {
         videoUrl: signedUrl,
         customerName: result.customerName || null,
         customerLocality: result.customerLocality || null,
-        liveAudioUrl: result.liveAudioUrl || null
+        liveAudioUrl: result.playbackProfile.playbackMode === 'external' ? result.liveAudioUrl || null : null,
+        ...result.playbackProfile,
       });
 
     } else {
@@ -185,6 +192,7 @@ export async function GET(req: NextRequest) {
       }
 
       const storagePath = video.liveStoragePath || video.storagePath;
+      const playbackProfile = getVideoPlaybackProfile(video, storagePath);
       const reservationId = generateReservationId();
 
       nextItem.status = 'reserved';
@@ -202,7 +210,8 @@ export async function GET(req: NextRequest) {
         videoUrl: signedUrl,
         customerName: cleanDisplayText((nextItem as any).customerName) || cleanDisplayText((video as any).customerName),
         customerLocality: cleanDisplayText((nextItem as any).customerLocality) || cleanDisplayText((video as any).customerLocality),
-        liveAudioUrl: (nextItem as any).liveAudioUrl || null
+        liveAudioUrl: playbackProfile.playbackMode === 'external' ? (nextItem as any).liveAudioUrl || null : null,
+        ...playbackProfile,
       });
     }
   } catch (error: any) {

@@ -40,6 +40,17 @@ export type GoLiveAuditItem = {
   queueNumber: number;
 };
 
+type StoredVideoItem = {
+  videoId: string;
+  sessionId?: string | null;
+  storagePath: string;
+  customerName: string;
+  customerLocality: string;
+  createdAt?: string | null;
+  durationSeconds: number;
+  format: string;
+};
+
 export type Workspace = {
   clientName: string;
   workspaceCode: string;
@@ -104,6 +115,9 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [playingVideo, setPlayingVideo] = useState<{ url: string; customerName: string; phoneMasked: string; sessionId?: string } | null>(null);
+  const [storedVideos, setStoredVideos] = useState<StoredVideoItem[]>([]);
+  const [storedVideosLoading, setStoredVideosLoading] = useState(true);
+  const [openingStoragePath, setOpeningStoragePath] = useState('');
   const [logViewMode, setLogViewMode] = useState<'daily' | 'weekly'>('daily');
 
   async function loadWorkspace() {
@@ -115,6 +129,46 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
       setMessage(error instanceof Error ? error.message : 'Unable to load Maharaja workspace.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadStoredVideos() {
+    setStoredVideosLoading(true);
+    try {
+      const items: StoredVideoItem[] = [];
+      let offset = 0;
+      do {
+        const data = await readJson(await fetch(`/api/live/replays?limit=200&offset=${offset}`, { cache: 'no-store' }));
+        if (Array.isArray(data.items)) items.push(...data.items);
+        offset = typeof data.nextOffset === 'number' ? data.nextOffset : -1;
+      } while (offset >= 0);
+      setStoredVideos(items);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to load stored videos.');
+    } finally {
+      setStoredVideosLoading(false);
+    }
+  }
+
+  async function playStoredVideo(item: StoredVideoItem) {
+    setOpeningStoragePath(item.storagePath);
+    setMessage('');
+    try {
+      const data = await readJson(await fetch('/api/live/replays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storagePath: item.storagePath }),
+      }));
+      setPlayingVideo({
+        url: data.videoUrl,
+        customerName: item.customerName,
+        phoneMasked: `${item.durationSeconds}s ${item.format.toUpperCase()}`,
+        sessionId: item.sessionId || undefined,
+      });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to play stored video.');
+    } finally {
+      setOpeningStoragePath('');
     }
   }
 
@@ -132,8 +186,10 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
       .finally(() => {
         if (active) setLoading(false);
       });
+    const storedVideosTimer = window.setTimeout(() => void loadStoredVideos(), 0);
     return () => {
       active = false;
+      window.clearTimeout(storedVideosTimer);
     };
   }, []);
 
@@ -656,6 +712,57 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
         </section>
 
         {/* 5. AUDIT LOG ONLY FOR GO LIVE WITH CUSTOMER NAME, PH NUMBER - PLAY VIDEO */}
+        <section className="rounded-2xl border border-[#DDD2BD] bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-[#21090E] p-2 text-[#F3E5AB]"><Film className="h-5 w-5" /></div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8A6A20]">Firebase Storage</p>
+                <h3 className="font-serif text-xl font-bold text-[#2A060C]">Stored Video Library</h3>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadStoredVideos()}
+              disabled={storedVideosLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C49B] px-3 py-1.5 text-xs font-bold uppercase text-[#6E0D1F] transition hover:bg-[#FFF8E8] disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${storedVideosLoading ? 'animate-spin' : ''}`} /> Refresh Videos
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-[#5C4B43]">Every playable video found in Firebase Storage. Play always requests a fresh secure URL.</p>
+
+          {storedVideosLoading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-[#6E0D1F]">
+              <LoaderCircle className="h-5 w-5 animate-spin" /> Loading stored videos
+            </div>
+          ) : storedVideos.length ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {storedVideos.map((item) => (
+                <article key={`${item.videoId}-${item.storagePath}`} className="flex min-w-0 flex-col justify-between rounded-xl border border-[#E4DCCB] bg-[#FFFCF6] p-4">
+                  <div>
+                    <p className="truncate font-bold text-[#2A060C]">{item.customerName}</p>
+                    <p className="mt-1 truncate text-xs text-[#6B625C]">{item.customerLocality}</p>
+                    <p className="mt-2 text-[11px] font-semibold uppercase text-[#8A6A20]">{item.durationSeconds}s · {item.format}</p>
+                    <p className="mt-1 truncate text-[10px] text-[#8A817B]" title={item.storagePath}>{item.storagePath}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void playStoredVideo(item)}
+                    disabled={openingStoragePath === item.storagePath}
+                    className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#6E0D1F] px-4 text-xs font-bold uppercase text-[#F3E5AB] transition hover:bg-[#8A1127] disabled:opacity-50"
+                  >
+                    {openingStoragePath === item.storagePath ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+                    Play
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="py-10 text-center text-sm text-slate-500">No playable videos were found in Firebase Storage.</p>
+          )}
+        </section>
+
         <section className="rounded-2xl border border-[#DDD2BD] bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
