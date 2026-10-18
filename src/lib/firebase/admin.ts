@@ -148,6 +148,11 @@ class MockStorageFile {
     const store = getMockStore();
     return [store.sessions.has(`mock_blob_${this.path}`)];
   }
+  async getMetadata(): Promise<[Record<string, unknown>]> {
+    const store = getMockStore();
+    const item = store.sessions.get(`mock_blob_${this.path}`);
+    return [{ contentType: item?.contentType || 'application/octet-stream' }];
+  }
   async getSignedUrl(_options?: any): Promise<[string]> {
     return [`https://storage.googleapis.com/maharaja-mock/${this.path}`];
   }

@@ -3,14 +3,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Sparkles, Volume2 } from 'lucide-react';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
-import { getTamilCustomerName, getTamilCustomerLocality } from '@/lib/maharaja/names';
+import { getTamilCustomerName } from '@/lib/maharaja/names';
 
 const SOURCE_SECONDS_FOR_LIVE = 6;
 const TV_SECONDS_FOR_LIVE = 9;
 const TV_PLAYBACK_RATE = SOURCE_SECONDS_FOR_LIVE / TV_SECONDS_FOR_LIVE;
 type Slot = 'a' | 'b';
 const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil']);
-const REMOVED_TV_LOCALITIES = new Set(['திருச்சி', 'trichy', 'tiruchirappalli']);
+const TV_LOCALITY = 'தஞ்சாவூர்';
 
 type PlaybackItem = {
   queueId: string;
@@ -93,11 +93,8 @@ export default function TvPlayerPage() {
   }
 
   function displayCustomerLocality(playback: PlaybackItem | null): string {
-    const value = playback?.customerLocality?.trim() || '';
-    if (!value || value === 'Maharaja' || REMOVED_TV_LOCALITIES.has(value.toLocaleLowerCase())) {
-      return getTamilCustomerLocality(playback?.queueId || 'tv');
-    }
-    return value;
+    void playback;
+    return TV_LOCALITY;
   }
 
   function resetExternalAudio() {
@@ -301,6 +298,7 @@ export default function TvPlayerPage() {
         const data = await res.json();
         if (!data.success || !Array.isArray(data.items)) return;
         data.items.forEach((item: PlaybackItem) => {
+          badQueueIdsRef.current.delete(item.queueId);
           appendPlaylistItem({ ...item, source: 'replay' });
         });
         offset = typeof data.nextOffset === 'number' ? data.nextOffset : -1;
@@ -318,7 +316,7 @@ export default function TvPlayerPage() {
     void loadReplayLibrary();
     const replayRefresh = window.setInterval(() => {
       void loadReplayLibrary();
-    }, 2 * 60 * 1000);
+    }, 30 * 1000);
 
     const pollNextVideo = async () => {
       if (pollInFlightRef.current) return;

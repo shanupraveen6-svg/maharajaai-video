@@ -22,12 +22,6 @@ export const TAMIL_SHOWROOM_NAMES = [
 
 export const TAMIL_LOCALITIES = [
   'தஞ்சாவூர்',    // Thanjavur
-  'கும்பகோணம்',   // Kumbakonam
-  'மன்னார்குடி',   // Mannargudi
-  'பட்டுக்கோட்டை', // Pattukkottai
-  'மயிலாடுதுறை',  // Mayiladuthurai
-  'திருவாரூர்',    // Tiruvarur
-  'நாகப்பட்டினம்', // Nagapattinam
 ] as const;
 
 function hashSeed(seed: string): number {

@@ -3,19 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket, isRealFirebaseAvailable } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import {
-  TAMIL_LOCALITIES,
   TAMIL_SHOWROOM_NAMES,
-  getTamilCustomerLocality,
   getTamilCustomerName,
 } from '@/lib/maharaja/names';
 import { getVideoFormat, getVideoPlaybackProfile, isSupportedVideoPath } from '@/lib/maharaja/video-playback';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 
 const FALLBACK_NAME = 'Maharaja Guest';
-const FALLBACK_LOCALITY = 'Maharaja';
 const MAX_PAGE_ITEMS = 200;
 const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil']);
-const REMOVED_TV_LOCALITIES = new Set(['திருச்சி', 'trichy', 'tiruchirappalli']);
+const TV_LOCALITY = 'தஞ்சாவூர்';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -46,11 +43,6 @@ function cleanDisplayText(value: unknown, fallback: string): string {
 function cleanTvName(value: unknown, fallback: string): string {
   const cleaned = cleanDisplayText(value, fallback);
   return REMOVED_TV_NAMES.has(cleaned.toLocaleLowerCase()) ? fallback : cleaned;
-}
-
-function cleanTvLocality(value: unknown, fallback: string): string {
-  const cleaned = cleanDisplayText(value, fallback);
-  return REMOVED_TV_LOCALITIES.has(cleaned.toLocaleLowerCase()) ? fallback : cleaned;
 }
 
 function stableId(value: string): string {
@@ -119,7 +111,8 @@ export async function GET(req: NextRequest) {
           const [files] = await bucket.getFiles({ prefix: '' });
           for (const file of files) {
             const storagePath = String(file.name || '');
-            if (!isSupportedVideoPath(storagePath) || knownStoragePaths.has(storagePath)) continue;
+            const contentType = String(file.metadata?.contentType || '');
+            if ((!isSupportedVideoPath(storagePath) && !contentType.startsWith('video/')) || knownStoragePaths.has(storagePath)) continue;
             videosByStoragePath.set(storagePath, {
               id: `storage_${stableId(storagePath)}`,
               sessionId: stableSessionId(storagePath),
@@ -152,8 +145,8 @@ export async function GET(req: NextRequest) {
           ? undefined
           : catalog?.displayName;
         let resolvedCatalog = catalog;
-        const catalogLocalityRemoved = REMOVED_TV_LOCALITIES.has(String(catalog?.displayLocality || '').toLocaleLowerCase());
-        if (!displayName || catalogLocalityRemoved) {
+        const catalogLocalityNeedsUpdate = catalog?.displayLocality !== TV_LOCALITY;
+        if (!displayName || catalogLocalityNeedsUpdate) {
           if (!displayName) {
             displayName = TAMIL_SHOWROOM_NAMES.find((name) => !usedNames.has(name)) || getTamilCustomerName(storagePath, index);
             usedNames.add(displayName);
@@ -161,7 +154,7 @@ export async function GET(req: NextRequest) {
           resolvedCatalog = {
             storagePath,
             displayName,
-            displayLocality: TAMIL_LOCALITIES[index % TAMIL_LOCALITIES.length],
+            displayLocality: TV_LOCALITY,
             createdAt: video.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
@@ -211,9 +204,7 @@ export async function GET(req: NextRequest) {
             customerName: rawName && rawName !== FALLBACK_NAME
               ? cleanTvName(rawName, getTamilCustomerName(storagePath, index))
               : getTamilCustomerName(storagePath, index),
-            customerLocality: rawLocality && rawLocality !== FALLBACK_LOCALITY
-              ? cleanTvLocality(rawLocality, getTamilCustomerLocality(storagePath, index))
-              : getTamilCustomerLocality(storagePath, index),
+            customerLocality: TV_LOCALITY,
             createdAt: video.createdAt || null,
             format: getVideoFormat(storagePath),
             ...profile,
@@ -249,7 +240,7 @@ export async function GET(req: NextRequest) {
         videoUrl: await getSignedPlaybackUrl(storagePath),
         liveAudioUrl: profile.playbackMode === 'external' ? getLiveAudioTrack(replayId, video.eventId) : null,
         customerName: cleanTvName(video.customerName, getTamilCustomerName(storagePath, index)),
-        customerLocality: cleanTvLocality(video.customerLocality, getTamilCustomerLocality(storagePath, index)),
+        customerLocality: TV_LOCALITY,
         createdAt: video.createdAt || null,
         format: getVideoFormat(storagePath),
         ...profile,
@@ -271,13 +262,18 @@ export async function POST(req: NextRequest) {
     }
     const body = await req.json();
     const storagePath = typeof body.storagePath === 'string' ? body.storagePath.trim() : '';
-    if (!storagePath || !isSupportedVideoPath(storagePath)) {
-      return NextResponse.json({ success: false, error: 'A valid stored video path is required.' }, { status: 400 });
-    }
+    if (!storagePath) return NextResponse.json({ success: false, error: 'A stored video path is required.' }, { status: 400 });
     const bucket = getStorageBucket();
     if (!bucket) return NextResponse.json({ success: false, error: 'Firebase Storage is unavailable.' }, { status: 503 });
-    const [exists] = await bucket.file(storagePath).exists();
+    const file = bucket.file(storagePath);
+    const [exists] = await file.exists();
     if (!exists) return NextResponse.json({ success: false, error: 'Stored video was not found.' }, { status: 404 });
+    if (!isSupportedVideoPath(storagePath)) {
+      const [metadata] = await file.getMetadata();
+      if (!String(metadata?.contentType || '').startsWith('video/')) {
+        return NextResponse.json({ success: false, error: 'Stored object is not a playable video.' }, { status: 400 });
+      }
+    }
     return NextResponse.json({ success: true, videoUrl: await getSignedPlaybackUrl(storagePath) });
   } catch (error: any) {
     console.error('Stored Video Playback URL Error:', error);
