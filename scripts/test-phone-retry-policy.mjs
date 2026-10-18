@@ -18,6 +18,7 @@ register('./ts-alias-loader.mjs', import.meta.url);
 for (const key of ['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY']) delete process.env[key];
 process.env.ALLOW_MOCK_BACKEND = 'true';
 process.env.OPERATOR_AUTH_SECRET = 'test_operator_secret';
+process.env.ENFORCE_REPEAT_LIMITS = 'true';
 
 const server = await import('../src/lib/maharaja/server.ts');
 const {

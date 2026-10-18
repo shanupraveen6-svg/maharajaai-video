@@ -322,7 +322,7 @@ export default function ResultClient({
     }
     if (videoUrl) {
       const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
-      await downloadAsset(videoUrl, `Maharaja-${eventLabel}-Video-${sessionId}.${extension}`, true);
+      await downloadAsset(videoUrl, `Maharaja-${eventLabel}-Video-${sessionId}.${extension}`, false);
     }
     // Downloading the video must NOT complete or void the billing pass. The pass remains valid for its full window.
   };

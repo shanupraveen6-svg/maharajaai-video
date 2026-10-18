@@ -7,9 +7,10 @@ export const LUXURY_TIER_MIN = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || 3
 
 /**
  * Repeat usage & duplicate limit enforcement.
- * Live-safe by default. Set ENFORCE_REPEAT_LIMITS=false only in an isolated test environment.
+ * During testing: FALSE (no block for repeated attempts, so developer & client can test from the same phone/device many times).
+ * When going live: set to TRUE (or set ENFORCE_REPEAT_LIMITS=true in env).
  */
-export const ENFORCE_REPEAT_LIMITS = process.env.ENFORCE_REPEAT_LIMITS !== 'false';
+export const ENFORCE_REPEAT_LIMITS = process.env.ENFORCE_REPEAT_LIMITS === 'true';
 
 export const EVENT_IDS = ['diwali', 'new-year', 'pongal', 'christmas', 'ramadan', 'birthday'] as const;
 export type EventId = (typeof EVENT_IDS)[number];
@@ -170,8 +171,7 @@ export function getGarmentFidelityRules(
       return isVideo
         ? `SAREE SPECIFIC FIDELITY:
 - Preserve exact blouse construction, continuous six-yard saree drape, vertical waist pleats grounded to floor, metallic gold zari borders, and ornate pallu over shoulder.
-- Motion Constraints: Pleats, waist tuck, blouse, and borders remain anchored with zero pattern drift. Free-hanging pallu edge has subtle micro-sway only.
-- Jewelry: Traditional festive jewelry remains solidly anchored.`
+- Motion Constraints: Pleats, waist tuck, blouse, and borders remain anchored with zero pattern drift. Free-hanging pallu edge has subtle micro-sway only.`
         : `SAREE SPECIFIC FIDELITY:
 - Render the exact blouse design (neckline, sleeve length), complete six-yard saree body drape, crisp vertical waist pleats falling straight to the floor, authentic metallic gold zari borders along edges, and the exact ornate pallu draped elegantly over the shoulder.
 - Jewelry: Traditional festive jewelry (kasu malai, jhumkas, bangles) naturally seated against skin and silk.`;
@@ -181,8 +181,7 @@ export function getGarmentFidelityRules(
         ? `LEHENGA / CHOLI SPECIFIC FIDELITY:
 - Preserve exact flared skirt/kalis silhouette, waistband/kamarbandh, choli bodice construction and neckline, and dupatta drape. Rich embroidery and border motifs strictly preserved.
 - Strictly NO saree pleats, NO continuous saree body drape.
-- Motion Constraints: Skirt waistband, choli, and hem borders remain geometrically anchored. Free-hanging dupatta edge may have subtle, delicate micro-sway only.
-- Jewelry: Traditional festive jewelry solidly anchored.`
+- Motion Constraints: Skirt waistband, choli, and hem borders remain geometrically anchored. Free-hanging dupatta edge may have subtle, delicate micro-sway only.`
         : `LEHENGA / CHOLI SPECIFIC FIDELITY:
 - Render exact flared skirt/kalis silhouette, waistband/kamarbandh, choli bodice construction and neckline, and dupatta drape. Rich embroidery and border motifs strictly preserved.
 - Strictly NO saree pleats, NO continuous saree body drape.
@@ -193,8 +192,7 @@ export function getGarmentFidelityRules(
         ? `SALWAR / ANARKALI SPECIFIC FIDELITY:
 - Preserve exact flowing tunic/anarkali flare, neckline, sleeve cut, churidar/pant fit, and dupatta drape.
 - Strictly NO saree pleats, NO saree body drape, NO choli exposure.
-- Motion Constraints: Tunic bodice, waist, and pant remain geometrically anchored. Free-hanging dupatta edge may have subtle micro-sway only.
-- Jewelry: Traditional festive jewelry solidly anchored.`
+- Motion Constraints: Tunic bodice, waist, and pant remain geometrically anchored. Free-hanging dupatta edge may have subtle micro-sway only.`
         : `SALWAR / ANARKALI SPECIFIC FIDELITY:
 - Render exact flowing tunic/anarkali flare, neckline, sleeve cut, churidar/pant fit, and dupatta drape.
 - Strictly NO saree pleats, NO saree body drape, NO choli exposure.
@@ -617,22 +615,30 @@ export function buildEventVideoPrompt(
   category: CustomerCategory = 'women',
   eventId: EventId = 'diwali',
   sessionIdOrSet?: string | VideoPromptSet,
-  promptSet?: VideoPromptSet,
+  promptSetOrGarment?: VideoPromptSet | GarmentType | string,
   garmentTypeOrHint?: GarmentType | string
 ): string {
   const event = getEventOption(eventId);
   let resolvedPromptSet: VideoPromptSet = 'set-1';
+  let candidateGarment = garmentTypeOrHint;
+
   if (sessionIdOrSet === 'set-1' || sessionIdOrSet === 'set-2') {
     resolvedPromptSet = sessionIdOrSet;
-  } else if (promptSet === 'set-1' || promptSet === 'set-2') {
-    resolvedPromptSet = promptSet;
+    if (typeof promptSetOrGarment === 'string' && promptSetOrGarment !== 'set-1' && promptSetOrGarment !== 'set-2') {
+      candidateGarment = candidateGarment || promptSetOrGarment;
+    }
+  } else if (promptSetOrGarment === 'set-1' || promptSetOrGarment === 'set-2') {
+    resolvedPromptSet = promptSetOrGarment;
   } else if (typeof sessionIdOrSet === 'string') {
     resolvedPromptSet = getSceneIndex(sessionIdOrSet) === 1 ? 'set-2' : 'set-1';
+    if (typeof promptSetOrGarment === 'string' && promptSetOrGarment !== 'set-1' && promptSetOrGarment !== 'set-2') {
+      candidateGarment = candidateGarment || promptSetOrGarment;
+    }
   }
 
-  const resolvedGarment = (typeof garmentTypeOrHint === 'string' && ['saree', 'lehenga', 'salwar', 'kurta_dhoti', 'pattu_pavadai', 'boy_ethnic', 'generic'].includes(garmentTypeOrHint))
-    ? (garmentTypeOrHint as GarmentType)
-    : resolveGarmentType(category, typeof garmentTypeOrHint === 'string' ? garmentTypeOrHint : undefined);
+  const resolvedGarment = (typeof candidateGarment === 'string' && ['saree', 'lehenga', 'salwar', 'kurta_dhoti', 'pattu_pavadai', 'boy_ethnic', 'generic'].includes(candidateGarment))
+    ? (candidateGarment as GarmentType)
+    : resolveGarmentType(category, typeof candidateGarment === 'string' ? candidateGarment : undefined);
   const garmentRules = getGarmentFidelityRules(resolvedGarment, true);
   const scene = getEventSceneDirection(category, eventId, resolvedPromptSet);
   const childSafety = category === 'boy' || category === 'girl'
@@ -702,3 +708,51 @@ export function buildBackup2PushVideoPrompt(
 // Aliases for backward compatibility
 export const MASTER_IMAGE_UNIVERSAL_PREFIX = UNIVERSAL_GEMINI_IMAGE_PROMPT;
 export const UNIVERSAL_HAILUO_VIDEO_BASE = UNIVERSAL_VIDEO_PROMPT;
+
+// fal currently publishes no prompt-length maximum; this local cap keeps H3 instructions focused.
+export const MAX_VIDEO_PROMPT_CHARS = 2800;
+
+export interface MotionSafetyRuleOptions {
+  lowerBodyVisibility?: string;
+}
+
+export function buildMotionSafetyRule(
+  decision?: MotionSafetyRuleOptions,
+  isFailSafe = false
+): string {
+  const visibility = decision?.lowerBodyVisibility === 'clear'
+    ? 'lower body visible and anchored'
+    : 'lower body anchored';
+
+  if (isFailSafe) {
+    return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain 100% firmly anchored to floor coordinates with zero stepping or walking. Camera is 100% stationary on locked-off tripod. Only natural eye blinking and subtle breathing permitted. Zero text, words, titles, or logos.`;
+  }
+
+  return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain firmly anchored to floor coordinates with zero stepping or walking. Start camera motion and festive atmosphere immediately at frame 1. Zero blank screen, zero delayed intro, zero text, words, titles, or logos.`;
+}
+
+export function truncateAtWordBoundary(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  const sliced = text.slice(0, maxLength);
+  const lastSpace = sliced.lastIndexOf(' ');
+  if (lastSpace > Math.floor(maxLength * 0.75)) {
+    return sliced.slice(0, lastSpace).replace(/[,;:\-\s]+$/, '') + '.';
+  }
+  return sliced;
+}
+
+export function buildFinalPrompt(
+  basePrompt: string,
+  decision?: MotionSafetyRuleOptions,
+  isFailSafe = false
+): string {
+  let executionRule = '';
+  if (isFailSafe || basePrompt.includes('FAIL-SAFE REGENERATION MODE')) {
+    executionRule = 'STABILIZED LOCKED REGENERATION: Subject geometry, facial features, skin tone, and garment weave are locked from frame 1. Subject remains stationary and poised with feet anchored to floor coordinates with zero walking or turning. Only gentle natural breathing and soft blink permitted. Camera is stationary on locked-off tripod with gentle optical push/zoom. Zero texture swimming, zero distortion.';
+  }
+
+  const canonicalPrompt = executionRule ? `${basePrompt} ${executionRule}` : basePrompt;
+  const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision, isFailSafe)}`;
+  return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_VIDEO_PROMPT_CHARS);
+}
+

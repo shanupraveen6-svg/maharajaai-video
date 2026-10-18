@@ -2,7 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { fal } from '@fal-ai/client';
-import { buildEventVideoPrompt, buildFailSafeVideoPrompt, isEventId, resolveGarmentType, getSceneIndex, MAHARAJA_CLIENT_ID, type CustomerCategory, type BackupPromptMode, type VideoPromptSet, type EventId } from '@/lib/maharaja/config';
+import {
+  buildEventVideoPrompt,
+  buildFailSafeVideoPrompt,
+  isEventId,
+  resolveGarmentType,
+  getSceneIndex,
+  MAHARAJA_CLIENT_ID,
+  MAX_VIDEO_PROMPT_CHARS,
+  buildMotionSafetyRule,
+  truncateAtWordBoundary,
+  buildFinalPrompt,
+  ENFORCE_REPEAT_LIMITS,
+  type CustomerCategory,
+  type BackupPromptMode,
+  type VideoPromptSet,
+  type EventId
+} from '@/lib/maharaja/config';
 import { acquirePassVideoLock, approvePassVideoMaster, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoSubmitted, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
@@ -47,42 +63,6 @@ const DEFAULT_MOTION_SAFETY: MotionSafetyDecision = {
   reason: 'Maharaja videos always use the approved stationary cinematic motion mode.'
 };
 
-// fal currently publishes no prompt-length maximum; this local cap keeps H3 instructions focused.
-const MAX_VIDEO_PROMPT_CHARS = 2800;
-
-function buildMotionSafetyRule(decision: MotionSafetyDecision, isFailSafe = false) {
-  const visibility = decision.lowerBodyVisibility === 'clear'
-    ? 'lower body visible and anchored'
-    : 'lower body anchored';
-
-  if (isFailSafe) {
-    return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain 100% firmly anchored to floor coordinates with zero stepping or walking. Camera is 100% stationary on locked-off tripod. Only natural eye blinking and subtle breathing permitted. Zero text, words, titles, or logos.`;
-  }
-
-  return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain firmly anchored to floor coordinates with zero stepping or walking. Maintain stable subject geometry, facial proportions, natural festive eye-vitality, and jewelry across all frames. Start camera motion and festive atmosphere immediately at frame 1. Zero blank screen, zero delayed intro, zero text, words, titles, or logos.`;
-}
-
-function truncateAtWordBoundary(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  const sliced = text.slice(0, maxLength);
-  const lastSpace = sliced.lastIndexOf(' ');
-  if (lastSpace > Math.floor(maxLength * 0.75)) {
-    return sliced.slice(0, lastSpace).replace(/[,;:\-\s]+$/, '') + '.';
-  }
-  return sliced;
-}
-
-function buildFinalPrompt(basePrompt: string, decision: MotionSafetyDecision, isFailSafe = false) {
-  let executionRule = '';
-  if (isFailSafe || basePrompt.includes('FAIL-SAFE REGENERATION MODE')) {
-    executionRule = 'STABILIZED LOCKED REGENERATION: Subject geometry, facial features, skin tone, and garment weave are locked from frame 1. Subject remains stationary and poised with feet anchored to floor coordinates with zero walking or turning. Only gentle natural breathing and soft blink permitted. Camera is stationary on locked-off tripod with gentle optical push/zoom. Zero texture swimming, zero distortion.';
-  }
-
-  const canonicalPrompt = executionRule ? `${basePrompt} ${executionRule}` : basePrompt;
-  const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision, isFailSafe)}`;
-  return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_VIDEO_PROMPT_CHARS);
-}
-
 export async function POST(req: NextRequest) {
   const db = getDb();
   let lockedPassCode = '';
@@ -101,21 +81,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'sessionId is required' }, { status: 400 });
     }
 
-    if (access.allowances.video.used >= 2) {
+    if (ENFORCE_REPEAT_LIMITS && access.allowances.video.used >= 2) {
       return NextResponse.json({
         success: false,
         error: 'H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.',
       }, { status: 403 });
     }
 
-    if (access.pass && access.pass.videoDone && !access.pass.retryApproved && !access.allowances.video.managerAuthorized) {
+    if (ENFORCE_REPEAT_LIMITS && access.pass && access.pass.videoDone && !access.pass.retryApproved && !access.allowances.video.managerAuthorized) {
       return NextResponse.json({
         success: false,
         error: 'This billing pass has already completed its AI Video. Ask the manager if a retry is required.',
       }, { status: 409 });
     }
 
-    if (access.allowances.video.used === 1 && !access.allowances.video.managerAuthorized && !access.pass?.retryApproved) {
+    if (ENFORCE_REPEAT_LIMITS && access.allowances.video.used === 1 && !access.allowances.video.managerAuthorized && !access.pass?.retryApproved) {
       return NextResponse.json({
         success: false,
         error: 'H3 Cinematic Video retry requires manager authorization.',

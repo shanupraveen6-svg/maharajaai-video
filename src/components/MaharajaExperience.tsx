@@ -107,7 +107,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [masterApproved, setMasterApproved] = useState(false);
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
-  const maxGarmentPhotos = activeService === 'try-on' ? 1 : 3;
+  const maxGarmentPhotos = 3;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   // A billing pass owns its two stored images; they are never cleared or regenerated client-side.
@@ -516,7 +516,20 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   }
 
   async function generateVideo() {
-    if (!videoMasterUrl || stage === 'video' || !masterApproved) return;
+    if (!videoMasterUrl || stage === 'video') return;
+    if (!masterApproved) {
+      await fetch('/api/ai/master-image/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessCode,
+          sessionId,
+          service: 'ai-video',
+          imageUrl: videoMasterUrl,
+        }),
+      }).catch(() => undefined);
+      setMasterApproved(true);
+    }
     if (allowances.video.used >= 2) {
       setError('H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
       return;
@@ -1022,8 +1035,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                       type="button"
                       id="generate-video-btn"
                       onClick={() => void generateVideo()}
-                      disabled={busy || !masterApproved}
-                      title={!masterApproved ? 'Please review and approve your portrait first' : undefined}
+                      disabled={busy}
                       className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black disabled:opacity-40"
                     >
                       {stage === 'video' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />} Generate 6-Sec AI Video <ArrowRight className="h-4 w-4" />

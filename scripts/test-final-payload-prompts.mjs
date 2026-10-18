@@ -4,6 +4,7 @@ register('./ts-alias-loader.mjs', import.meta.url);
 import fs from 'fs';
 import path from 'path';
 
+// Exact imports from production config — zero duplicate builders in test suite
 const {
   EVENT_IDS,
   getEventOption,
@@ -11,43 +12,24 @@ const {
   buildEventVideoPrompt,
   buildFailSafeVideoPrompt,
   getNormalSceneVariant,
+  buildFinalPrompt,
+  buildMotionSafetyRule,
+  MAX_VIDEO_PROMPT_CHARS,
 } = await import('../src/lib/maharaja/config.ts');
 
 const CATEGORIES = ['women', 'men', 'girl', 'boy'];
 const PROMPT_SETS = ['set-1', 'set-2'];
-const MAX_VIDEO_PROMPT_CHARS = 2800;
+
+const CATEGORY_GARMENTS = {
+  women: ['saree', 'lehenga', 'salwar', 'generic'],
+  men: ['kurta_dhoti', 'generic'],
+  girl: ['pattu_pavadai', 'salwar', 'lehenga', 'generic'],
+  boy: ['boy_ethnic', 'generic'],
+};
 
 function assert(condition, message) {
   if (!condition) throw new Error(`Assertion failed: ${message}`);
   console.log(`  ✓ PASS: ${message}`);
-}
-
-function buildMotionSafetyRule(isFailSafe = false) {
-  const visibility = 'lower body visible and anchored';
-  if (isFailSafe) {
-    return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain 100% firmly anchored to floor coordinates with zero stepping or walking. Camera is 100% stationary on locked-off tripod. Only natural eye blinking and subtle breathing permitted. Zero text, words, titles, or logos.`;
-  }
-  return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain firmly anchored to floor coordinates with zero stepping or walking. Maintain stable subject geometry, facial proportions, natural festive eye-vitality, and jewelry across all frames. Start camera motion and festive atmosphere immediately at frame 1. Zero blank screen, zero delayed intro, zero text, words, titles, or logos.`;
-}
-
-function truncateAtWordBoundary(text, maxLength) {
-  if (text.length <= maxLength) return text;
-  const sliced = text.slice(0, maxLength);
-  const lastSpace = sliced.lastIndexOf(' ');
-  if (lastSpace > Math.floor(maxLength * 0.75)) {
-    return sliced.slice(0, lastSpace).replace(/[,;:\-\s]+$/, '') + '.';
-  }
-  return sliced;
-}
-
-function buildFinalPrompt(basePrompt, isFailSafe = false) {
-  let executionRule = '';
-  if (isFailSafe || basePrompt.includes('FAIL-SAFE REGENERATION MODE')) {
-    executionRule = 'STABILIZED LOCKED REGENERATION: Subject geometry, facial features, skin tone, and garment weave are locked from frame 1. Subject remains stationary and poised with feet anchored to floor coordinates with zero walking or turning. Only gentle natural breathing and soft blink permitted. Camera is stationary on locked-off tripod with gentle optical push/zoom. Zero texture swimming, zero distortion.';
-  }
-  const canonicalPrompt = executionRule ? `${basePrompt} ${executionRule}` : basePrompt;
-  const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(isFailSafe)}`;
-  return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_VIDEO_PROMPT_CHARS);
 }
 
 // Scene choreography markers expected in final payload
@@ -62,93 +44,119 @@ const SCENE_CUES = {
   boy_style_2: 'lateral slider move',
 };
 
+// Expected garment fidelity cues in Layer 2
+const GARMENT_CUES = {
+  saree: 'SAREE SPECIFIC FIDELITY',
+  lehenga: 'LEHENGA',
+  salwar: 'SALWAR',
+  kurta_dhoti: 'MEN\'S TRADITIONAL SPECIFIC FIDELITY',
+  boy_ethnic: 'BOY\'S TRADITIONAL ETHNIC FIDELITY',
+  pattu_pavadai: 'GIRL\'S TRADITIONAL ETHNIC FIDELITY',
+  generic: 'GARMENT REFERENCE FIDELITY',
+};
+
 console.log('\n===============================================================');
 console.log('   MAHARAJA FINAL PROVIDER PAYLOAD & PROMPT COMPLIANCE AUDIT');
+console.log('   (Using Production buildFinalPrompt from config.ts)');
 console.log('===============================================================\n');
 
-console.log('Auditing 48 Normal Production Video Payloads (4 categories × 2 scenes × 6 events)...');
+console.log('Auditing 144 Normal Production Video Payloads (All Production Garments × Scenes × Events)...');
 
 const auditResults = [];
 let maxLength = 0;
 let minLength = 99999;
 
 for (const cat of CATEGORIES) {
-  for (const pSet of PROMPT_SETS) {
-    const variant = getNormalSceneVariant(cat, pSet);
-    const expectedCue = SCENE_CUES[variant];
+  const garments = CATEGORY_GARMENTS[cat];
+  for (const garment of garments) {
+    for (const pSet of PROMPT_SETS) {
+      const variant = getNormalSceneVariant(cat, pSet);
+      const expectedCue = SCENE_CUES[variant];
+      const expectedGarmentCue = GARMENT_CUES[garment];
 
-    for (const eventId of EVENT_IDS) {
-      const eventOption = getEventOption(eventId);
-      const basePrompt = buildEventVideoPrompt(cat, eventId, pSet);
-      const rawPrompt = `${basePrompt}\n\n${buildMotionSafetyRule(false)}`.replace(/\s+/g, ' ').trim();
-      const finalPrompt = buildFinalPrompt(basePrompt, false);
+      for (const eventId of EVENT_IDS) {
+        const eventOption = getEventOption(eventId);
+        const basePrompt = buildEventVideoPrompt(cat, eventId, pSet, garment);
+        const rawPrompt = `${basePrompt}\n\n${buildMotionSafetyRule(undefined, false)}`.replace(/\s+/g, ' ').trim();
+        // Uses production buildFinalPrompt imported directly from config.ts
+        const finalPrompt = buildFinalPrompt(basePrompt, undefined, false);
 
-      const len = finalPrompt.length;
-      if (len > maxLength) maxLength = len;
-      if (len < minLength) minLength = len;
+        const len = finalPrompt.length;
+        if (len > maxLength) maxLength = len;
+        if (len < minLength) minLength = len;
 
-      // 1. Cap assertion
-      assert(len <= MAX_VIDEO_PROMPT_CHARS, `[${variant} / ${eventId}] Length <= ${MAX_VIDEO_PROMPT_CHARS} chars (actual: ${len} chars)`);
-      assert(rawPrompt.length <= MAX_VIDEO_PROMPT_CHARS, `[${variant} / ${eventId}] Zero character truncation before cap (raw: ${rawPrompt.length} chars)`);
+        const tag = `[${variant} / ${garment} / ${eventId}]`;
 
-      // 2. Event presence assertion
-      const hasEvent = finalPrompt.toUpperCase().includes(eventOption.label.toUpperCase());
-      assert(hasEvent, `[${variant} / ${eventId}] Contains selected event label (${eventOption.label})`);
+        // 1. Cap assertion: Final prompt must remain strictly < 2800 characters
+        assert(len < MAX_VIDEO_PROMPT_CHARS, `${tag} Length < ${MAX_VIDEO_PROMPT_CHARS} chars (actual: ${len} chars)`);
+        assert(rawPrompt.length < MAX_VIDEO_PROMPT_CHARS, `${tag} Zero character truncation before cap (raw: ${rawPrompt.length} chars)`);
 
-      // 3. Scene marker assertion
-      const hasSceneCue = finalPrompt.toLowerCase().includes(expectedCue);
-      assert(hasSceneCue, `[${variant} / ${eventId}] Contains selected scene choreography cue ("${expectedCue}")`);
+        // 2. Event presence assertion
+        const hasEvent = finalPrompt.toUpperCase().includes(eventOption.label.toUpperCase());
+        assert(hasEvent, `${tag} Contains selected event label (${eventOption.label})`);
 
-      // 4. Identity & Garment fidelity assertion
-      assert(finalPrompt.includes('P0 — ABSOLUTE FIDELITY'), `[${variant} / ${eventId}] Contains P0 fidelity rules`);
-      assert(finalPrompt.includes('Identity: Preserve exact facial geometry'), `[${variant} / ${eventId}] Contains facial identity lock`);
-      assert(finalPrompt.includes('Garment: Preserve exact silhouette'), `[${variant} / ${eventId}] Contains garment silhouette lock`);
-      assert(finalPrompt.includes('Neutral grey stays pure grey'), `[${variant} / ${eventId}] Contains grey color fidelity lock`);
+        // 3. Scene marker assertion
+        const hasSceneCue = finalPrompt.toLowerCase().includes(expectedCue);
+        assert(hasSceneCue, `${tag} Contains selected scene choreography cue ("${expectedCue}")`);
 
-      // 5. Execution / Safety instruction assertion
-      assert(finalPrompt.includes('EXECUTION & ANCHOR CONSTRAINTS:'), `[${variant} / ${eventId}] Contains execution & anchor constraints`);
-      assert(finalPrompt.includes('feet stay firmly anchored to floor coordinates'), `[${variant} / ${eventId}] Feet anchored to floor coordinates`);
+        // 4. Garment specific fidelity assertion
+        const hasGarmentCue = finalPrompt.includes(expectedGarmentCue);
+        assert(hasGarmentCue, `${tag} Contains garment fidelity rule ("${expectedGarmentCue}")`);
 
-      // 6. Child safety assertion for boy/girl
-      if (cat === 'boy' || cat === 'girl') {
-        assert(finalPrompt.includes('CHILD SAFETY:'), `[${variant} / ${eventId}] Contains explicit child safety lock`);
-        assert(finalPrompt.toLowerCase().includes('adult glamour'), `[${variant} / ${eventId}] Explicit anti-glamour instruction present`);
+        // 5. Identity & Garment fidelity assertion
+        assert(finalPrompt.includes('P0 — ABSOLUTE FIDELITY'), `${tag} Contains P0 fidelity rules`);
+        assert(finalPrompt.includes('Identity: Preserve exact facial geometry'), `${tag} Contains facial identity lock`);
+        assert(finalPrompt.includes('Garment: Preserve exact silhouette'), `${tag} Contains garment silhouette lock`);
+        assert(finalPrompt.includes('Neutral grey stays pure grey'), `${tag} Contains grey color fidelity lock`);
+
+        // 6. Execution / Safety instruction assertion
+        assert(finalPrompt.includes('EXECUTION & ANCHOR CONSTRAINTS:'), `${tag} Contains execution & anchor constraints`);
+        assert(finalPrompt.includes('feet stay firmly anchored to floor coordinates'), `${tag} Feet anchored to floor coordinates`);
+
+        // 7. Child safety assertion for boy/girl
+        if (cat === 'boy' || cat === 'girl') {
+          assert(finalPrompt.includes('CHILD SAFETY:'), `${tag} Contains explicit child safety lock`);
+          assert(finalPrompt.toLowerCase().includes('adult glamour'), `${tag} Explicit anti-glamour instruction present`);
+        }
+
+        auditResults.push({
+          variant,
+          category: cat,
+          garment,
+          sceneStyle: pSet === 'set-1' ? 'Style 1' : 'Style 2',
+          eventId,
+          eventLabel: eventOption.label,
+          charLength: len,
+          cue: expectedCue,
+          status: 'PASSED',
+        });
       }
-
-      auditResults.push({
-        variant,
-        category: cat,
-        sceneStyle: pSet === 'set-1' ? 'Style 1' : 'Style 2',
-        eventId,
-        eventLabel: eventOption.label,
-        charLength: len,
-        cue: expectedCue,
-        status: 'PASSED',
-      });
     }
   }
 }
 
 console.log(`\nAuditing Single Universal Ultra-Safe Backup Video Payload...`);
 const backupBase = buildFailSafeVideoPrompt('women', 'diwali');
-const finalBackup = buildFinalPrompt(backupBase, true);
+const finalBackup = buildFinalPrompt(backupBase, undefined, true);
 
-assert(finalBackup.length <= MAX_VIDEO_PROMPT_CHARS, `[Backup] Length <= ${MAX_VIDEO_PROMPT_CHARS} chars (actual: ${finalBackup.length} chars)`);
+assert(finalBackup.length < MAX_VIDEO_PROMPT_CHARS, `[Backup] Length < ${MAX_VIDEO_PROMPT_CHARS} chars (actual: ${finalBackup.length} chars)`);
 assert(finalBackup.includes('FAIL-SAFE REGENERATION MODE'), '[Backup] Contains fail-safe regeneration header');
 assert(finalBackup.includes('STABILIZED LOCKED REGENERATION'), '[Backup] Contains stabilized locked regeneration rule');
 assert(finalBackup.includes('locked-off tripod'), '[Backup] Contains locked-off tripod camera constraint');
 assert(finalBackup.includes('feet stay locked to floor coordinates'), '[Backup] Feet locked to floor coordinates');
 assert(finalBackup.includes('EXECUTION & ANCHOR CONSTRAINTS:'), '[Backup] Contains execution & anchor constraints');
 
+const totalPayloads = auditResults.length + 1;
+
 console.log('\n===============================================================');
 console.log('   AUDIT SUMMARY & RESULTS');
 console.log('===============================================================');
-console.log(`Total Payloads Evaluated: 49 (48 Normal + 1 Backup)`);
-console.log(`Maximum Final Normal Prompt Length: ${maxLength} / 2800 chars`);
-console.log(`Minimum Final Normal Prompt Length: ${minLength} / 2800 chars`);
-console.log(`Backup Final Prompt Length:        ${finalBackup.length} / 2800 chars`);
-console.log(`Truncated Payloads:                0 / 49 (100% Unclipped)`);
-console.log(`All 4 Layers Retained:             100% PASS`);
+console.log(`Total Payloads Evaluated:          ${totalPayloads} (144 Normal + 1 Backup)`);
+console.log(`Maximum Final Normal Prompt:       ${maxLength} / 2800 chars (Safety margin: ${MAX_VIDEO_PROMPT_CHARS - maxLength} chars)`);
+console.log(`Minimum Final Normal Prompt:       ${minLength} / 2800 chars`);
+console.log(`Backup Final Prompt:               ${finalBackup.length} / 2800 chars (Safety margin: ${MAX_VIDEO_PROMPT_CHARS - finalBackup.length} chars)`);
+console.log(`Truncated Payloads:                0 / ${totalPayloads} (100% Intact Delivery)`);
+console.log(`Every Final Prompt < 2800:         100% PROVEN`);
 console.log('===============================================================\n');
 
 // Write Markdown Compliance Report
@@ -161,13 +169,15 @@ const mdContent = `# Maharaja AI Experience — Final Payload Prompt Compliance 
 **Production Commit Target:** \`HEAD\`  
 **Target Provider:** fal.ai (MiniMax Hailuo H3 Max Turbo, 6s / 768P)  
 **Provider Prompt Limit:** ${MAX_VIDEO_PROMPT_CHARS} characters  
-**Total Video Payloads Evaluated:** 49 (48 Normal Scene Combinations + 1 Universal Backup)  
+**Total Video Payloads Evaluated:** ${totalPayloads} (144 Normal Scene × Garment Combinations + 1 Universal Backup)  
 **Maximum Prompt Length Reaching Fal:** **${maxLength} / 2800 chars** (Safety buffer: ${MAX_VIDEO_PROMPT_CHARS - maxLength} chars)  
-**Truncation Status:** **0 / 49 truncated (100% Intact Delivery)**
+**Minimum Prompt Length Reaching Fal:** **${minLength} / 2800 chars**  
+**Backup Prompt Length Reaching Fal:** **${finalBackup.length} / 2800 chars**  
+**Truncation Status:** **0 / ${totalPayloads} truncated (100% Intact Delivery < 2800 chars)**
 
 > [!NOTE]
 > **Metric Scope:** Static Prompt / Final Payload Delivery Compliance.  
-> This test verifies the exact string payload delivered to the provider after \`buildFinalPrompt()\` and truncation constraints. It guarantees all required prompt layers survive without being clipped. This is a deterministic prompt-delivery test, not a neural model output generation benchmark (e.g. face embedding similarity or fabric $\\Delta E$).
+> This test verifies the exact string payload delivered to the provider after importing the production \`buildFinalPrompt()\` from \`src/lib/maharaja/config.ts\`. It proves that across ALL production garment types (saree, lehenga, salwar, kurta_dhoti, pattu_pavadai, boy_ethnic, generic), scene variants, and festival calendars, every single prompt fits under the 2,800 character limit without truncation.
 
 ---
 
@@ -183,8 +193,15 @@ Every final prompt sent to fal.ai contains all four required architectural layer
    - P3: Refined ambient festive lighting skims across fabric drape and polished floor reflections.
    - Conflict Resolution: *"Fidelity strictly overrides motion."*
 
-2. **Layer 2: Garment & Textile Stability (~250–350 chars)**
-   - Saree / Lehenga / Salwar / Kurta-Dhoti / Boy Ethnic / Pattu Pavadai specific architectural constraints.
+2. **Layer 2: Garment & Textile Stability (~250–410 chars)**
+   - Dedicated garment-specific architectural constraints across all 7 production types:
+     - \`saree\`: Blouse design, continuous 6-yard drape, vertical waist pleats, metallic gold zari borders, pallu over shoulder.
+     - \`lehenga\`: Flared kalis silhouette, waistband, choli bodice, dupatta drape, zero saree pleats.
+     - \`salwar\`: Flowing tunic flare, neckline, sleeve cut, churidar fit, zero saree pleats.
+     - \`kurta_dhoti\`: Mandarin collar, placket buttons, dhoti/veshti pleats, zero feminine elements.
+     - \`boy_ethnic\`: Cheerful boyish traditional ethnic wear, zero adult glamour.
+     - \`pattu_pavadai\`: Girl's silk skirt & blouse/anarkali, zero mature styling.
+     - \`generic\`: Body-contoured geometric anchor and reference fidelity.
 
 3. **Layer 3: Selected Event Atmosphere & Category Scene Direction (~250–350 chars)**
    - Strict cultural isolation across 6 festival calendars (Diwali, Pongal, Christmas, Ramadan, New Year, Birthday).
@@ -196,11 +213,11 @@ Every final prompt sent to fal.ai contains all four required architectural layer
 
 ---
 
-## 2. All 48 Normal Production Video Payloads Audit
+## 2. All 144 Normal Production Video Payloads Audit
 
-| Category | Scene Style | Festival Event | Scene Trajectory Cue | Final Length | Cap Status | Truncation |
+| Category | Garment Type | Scene Style | Festival Event | Final Length | Cap Margin (< 2800) | Status |
 |---|---|---|---|---|---|---|
-${auditResults.map(r => `| **${r.category.toUpperCase()}** | ${r.sceneStyle} | ${r.eventLabel} | "${r.cue}" | ${r.charLength} chars | <= 2800 ✓ | None (Intact) |`).join('\n')}
+${auditResults.map(r => `| **${r.category.toUpperCase()}** | \`${r.garment}\` | ${r.sceneStyle} | ${r.eventLabel} | ${r.charLength} chars | +${MAX_VIDEO_PROMPT_CHARS - r.charLength} chars | Intact ✓ |`).join('\n')}
 
 ---
 

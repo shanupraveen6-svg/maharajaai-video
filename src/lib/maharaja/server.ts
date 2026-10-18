@@ -3,7 +3,6 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
-import { applyMaharajaVideoWatermark, generateLive9sVideo } from './video-processor';
 import { getLiveAudioTrack } from './audio';
 import {
   AI_VIDEO_MIN_PURCHASE,
@@ -744,14 +743,14 @@ export async function acquireServiceGenerationLock(
       }
 
       const counter = entitlement[serviceKey] || { used: 0, max: 2, generating: false };
-      if (Number(counter.used || 0) >= 2) {
+      if (ENFORCE_REPEAT_LIMITS && Number(counter.used || 0) >= 2) {
         return {
           ok: false,
           error: `${serviceLabel} allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.`,
         };
       }
 
-      if (service === 'video' && Number(counter.used || 0) === 1 && !counter.managerAuthorized) {
+      if (ENFORCE_REPEAT_LIMITS && service === 'video' && Number(counter.used || 0) === 1 && !counter.managerAuthorized) {
         return {
           ok: false,
           error: 'H3 Cinematic Video retry requires manager authorization.',
@@ -817,14 +816,14 @@ export async function acquireServiceGenerationLock(
   }
 
   const counter = entitlement[serviceKey] || { used: 0, max: 2, generating: false };
-  if (Number(counter.used || 0) >= 2) {
+  if (ENFORCE_REPEAT_LIMITS && Number(counter.used || 0) >= 2) {
     return {
       ok: false,
       error: `${serviceLabel} allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.`,
     };
   }
 
-  if (service === 'video' && Number(counter.used || 0) === 1 && !counter.managerAuthorized) {
+  if (ENFORCE_REPEAT_LIMITS && service === 'video' && Number(counter.used || 0) === 1 && !counter.managerAuthorized) {
     return {
       ok: false,
       error: 'H3 Cinematic Video retry requires manager authorization.',
@@ -1578,17 +1577,17 @@ export async function markPassRetryApproved(
   const allowances = getCustomerServiceAllowances(entitlement);
 
   if (target === 'video') {
-    if (allowances.video.used >= 2) {
+    if (ENFORCE_REPEAT_LIMITS && allowances.video.used >= 2) {
       throw new Error('H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
     }
     await authorizeVideoRetry(code);
   } else if (target === 'image') {
     if (service === 'try-on') {
-      if (allowances.tryOn.used >= 2) {
+      if (ENFORCE_REPEAT_LIMITS && allowances.tryOn.used >= 2) {
         throw new Error('AI Try-On allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
       }
     } else {
-      if (allowances.masterImage.used >= 2) {
+      if (ENFORCE_REPEAT_LIMITS && allowances.masterImage.used >= 2) {
         throw new Error('Celebration Gemini Master Image allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
       }
     }
@@ -1675,9 +1674,6 @@ export async function finalizeCompletedVideo({
   const storagePath = clientId
     ? `clients/${clientId}/sessions/${sessionId}/video/final.mp4`
     : `sessions/${sessionId}/video/final.mp4`;
-  const liveStoragePath = clientId
-    ? `clients/${clientId}/sessions/${sessionId}/video/live_9s.mp4`
-    : `sessions/${sessionId}/video/live_9s.mp4`;
   const bucket = getStorageBucket();
 
   if (!bucket || !fileBuffer) {
@@ -1687,31 +1683,12 @@ export async function finalizeCompletedVideo({
   }
 
   try {
-    // 1. Permanently watermark the 6-second video with the Maharaja official circular logo
-    const watermarkedBuffer = await applyMaharajaVideoWatermark(fileBuffer);
-
-    // 2. Generate the authentic 9-second showroom video with embedded live soundtrack and logo
-    const liveAudioTrack = getLiveAudioTrack(sessionId, eventId);
-    const live9sBuffer = await generateLive9sVideo(fileBuffer, liveAudioTrack);
-
+    // Save raw 6-second MP4 directly without watermarking or live 9s re-timing
     const file = bucket.file(storagePath);
-    await file.save(watermarkedBuffer, { contentType: 'video/mp4', public: false });
+    await file.save(fileBuffer, { contentType: 'video/mp4', public: false });
     const [exists] = await file.exists();
     if (!exists) throw new Error('Storage did not confirm the completed MP4.');
     const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-
-    let liveSignedUrl = signedUrl;
-    try {
-      const liveFile = bucket.file(liveStoragePath);
-      await liveFile.save(live9sBuffer, { contentType: 'video/mp4', public: false });
-      const [liveExists] = await liveFile.exists();
-      if (liveExists) {
-        const [lUrl] = await liveFile.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-        liveSignedUrl = lUrl;
-      }
-    } catch (liveErr) {
-      console.warn('Live 9s video save warning, using 6s fallback:', liveErr);
-    }
 
     if (db) {
       await Promise.all([
@@ -1719,7 +1696,6 @@ export async function finalizeCompletedVideo({
           id: `video_${sessionId}`,
           sessionId,
           storagePath,
-          liveStoragePath,
           status: 'ready',
           provider: 'fal-h3-max-turbo',
           createdAt: new Date().toISOString(),
@@ -1728,8 +1704,7 @@ export async function finalizeCompletedVideo({
           videoStatus: 'ready',
           videoUrl: signedUrl,
           videoStoragePath: storagePath,
-          liveVideoUrl: liveSignedUrl,
-          liveStoragePath,
+          liveVideoUrl: signedUrl,
           updatedAt: new Date().toISOString(),
         }, { merge: true }),
       ]);
@@ -1739,7 +1714,6 @@ export async function finalizeCompletedVideo({
         id: `video_${sessionId}`,
         sessionId,
         storagePath,
-        liveStoragePath,
         status: 'ready',
         provider: 'fal-h3-max-turbo',
         createdAt: new Date().toISOString(),
@@ -1750,8 +1724,7 @@ export async function finalizeCompletedVideo({
         videoStatus: 'ready',
         videoUrl: signedUrl,
         videoStoragePath: storagePath,
-        liveVideoUrl: liveSignedUrl,
-        liveStoragePath,
+        liveVideoUrl: signedUrl,
         updatedAt: new Date().toISOString(),
       });
     }
@@ -1761,7 +1734,7 @@ export async function finalizeCompletedVideo({
     }
     await logMaharajaActivity('video-ready', `${eventId} AI Video ready`, { sessionId, jobId });
 
-    return { success: true, videoUrl: signedUrl, liveVideoUrl: liveSignedUrl, storagePath, liveStoragePath };
+    return { success: true, videoUrl: signedUrl, liveVideoUrl: signedUrl, storagePath };
   } catch (stSaveErr: any) {
     console.error('Finalize completed video storage save failed:', stSaveErr);
     const errMessage = 'The completed video could not be saved to Maharaja media storage. The video slot has been restored.';
@@ -1916,10 +1889,10 @@ function evaluateVideoLock(pass: MaharajaVideoPass | undefined | null, now: numb
   if (!pass.videoMasterApproved) {
     return { ok: false, error: 'Customer approval required: Please review and approve the master image before starting H3 video generation.' };
   }
-  if (pass.videoDone && !pass.retryApproved) {
+  if (ENFORCE_REPEAT_LIMITS && pass.videoDone && !pass.retryApproved) {
     return { ok: false, error: 'This pass has already completed video generation. Store manager authorization is required to start a retry.' };
   }
-  if (pass.videoDone && pass.retryUsed) {
+  if (ENFORCE_REPEAT_LIMITS && pass.videoDone && pass.retryUsed) {
     return { ok: false, error: 'This pass has already completed video generation and used its retry allowance.' };
   }
   if (pass.videoGenerating) {
