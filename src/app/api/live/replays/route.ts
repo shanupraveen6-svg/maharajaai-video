@@ -114,18 +114,23 @@ export async function GET(req: NextRequest) {
       const bucket = getStorageBucket();
       const storageDiagnostics = {
         bucket: bucket?.name || null,
+        firestoreVideoRecords: videosSnapshot.size,
         totalObjects: 0,
         videoObjects: 0,
         imageObjects: 0,
         otherObjects: 0,
         scanError: null as string | null,
       };
+      const existingStoragePaths = new Set<string>();
+      let storageScanSucceeded = false;
       if (bucket && isRealFirebaseAvailable()) {
         try {
           const [files] = await bucket.getFiles({ prefix: '' });
+          storageScanSucceeded = true;
           storageDiagnostics.totalObjects = files.length;
           for (const file of files) {
             const storagePath = String(file.name || '');
+            existingStoragePaths.add(storagePath);
             const contentType = String(file.metadata?.contentType || '');
             const isVideo = isSupportedVideoPath(storagePath) || contentType.startsWith('video/');
             if (isVideo) storageDiagnostics.videoObjects += 1;
@@ -148,6 +153,13 @@ export async function GET(req: NextRequest) {
       }
 
       const readyVideos = Array.from(videosByStoragePath.values())
+        .flatMap((video: any) => {
+          if (!storageScanSucceeded) return [video];
+          const existingPath = [video.liveStoragePath, video.storagePath]
+            .map((value) => String(value || ''))
+            .find((value) => existingStoragePaths.has(value));
+          return existingPath ? [{ ...video, liveStoragePath: existingPath, storagePath: existingPath }] : [];
+        })
         .filter(isPlayableVideo)
         .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
 
