@@ -403,6 +403,7 @@ export async function POST(req: NextRequest) {
       success: true,
       jobId,
       sessionId,
+      allowances: access.allowances,
       provider: jobData.provider,
       motionSafety,
       status: jobData.status,

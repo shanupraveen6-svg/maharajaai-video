@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import {
   getMaharajaWorkspace,
   getTryOnDeviceStatus,
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
         const completedPass = (type === 'share' || type === 'retry') && typeof body.accessCode === 'string'
           ? await getVideoPass(body.accessCode.trim())
           : null;
-        if (completedPass && (completedPass.status === 'used' || completedPass.videoDone) && !completedPass.retryUsed) {
+        if (completedPass && (completedPass.status === 'used' || completedPass.videoDone) && (!ENFORCE_REPEAT_LIMITS || !completedPass.retryUsed)) {
           const workspace = await getMaharajaWorkspace();
           const entitlement = await getCampaignEntitlementForPass(completedPass.code);
           const allowances = getCustomerServiceAllowances(entitlement);
@@ -50,34 +51,36 @@ export async function POST(req: NextRequest) {
       }
       if (type === 'retry') {
         const workspace = await getMaharajaWorkspace();
-        if (workspace.usage.retries >= MAX_RETRY_ALLOWANCE) {
+        if (ENFORCE_REPEAT_LIMITS && workspace.usage.retries >= MAX_RETRY_ALLOWANCE) {
           return NextResponse.json({ success: false, error: `Store retry reserve has been reached (${MAX_RETRY_ALLOWANCE} retries). Contact administration.` }, { status: 403 });
         }
         const target: 'image' | 'video' = body.target === 'image' ? 'image' : 'video';
         const deviceStatus = validTryOnDeviceId(body.deviceId) ? await getTryOnDeviceStatus(body.deviceId) : null;
 
         // Independent 3-service retry enforcement
-        if (target === 'video') {
-          if (access.allowances.video.used >= 2) {
-            return NextResponse.json({
-              success: false,
-              error: 'A retry has already used this quota. H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached.',
-            }, { status: 403 });
-          }
-        } else if (target === 'image') {
-          if (service === 'try-on') {
-            if (access.allowances.tryOn.used >= 2 || deviceStatus?.retryUsed) {
+        if (ENFORCE_REPEAT_LIMITS) {
+          if (target === 'video') {
+            if (access.allowances.video.used >= 2) {
               return NextResponse.json({
                 success: false,
-                error: 'A retry has already used this quota. AI Try-On allowance exhausted (2/2 completed). Maximum 2 generations reached.',
+                error: 'A retry has already used this quota. H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached.',
               }, { status: 403 });
             }
-          } else {
-            if (access.allowances.masterImage.used >= 2) {
-              return NextResponse.json({
-                success: false,
-                error: 'A retry has already used this quota. Celebration Gemini Master Image allowance exhausted (2/2 completed). Maximum 2 generations reached.',
-              }, { status: 403 });
+          } else if (target === 'image') {
+            if (service === 'try-on') {
+              if (access.allowances.tryOn.used >= 2 || deviceStatus?.retryUsed) {
+                return NextResponse.json({
+                  success: false,
+                  error: 'A retry has already used this quota. AI Try-On allowance exhausted (2/2 completed). Maximum 2 generations reached.',
+                }, { status: 403 });
+              }
+            } else {
+              if (access.allowances.masterImage.used >= 2) {
+                return NextResponse.json({
+                  success: false,
+                  error: 'A retry has already used this quota. Celebration Gemini Master Image allowance exhausted (2/2 completed). Maximum 2 generations reached.',
+                }, { status: 403 });
+              }
             }
           }
         }

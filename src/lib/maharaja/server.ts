@@ -127,8 +127,8 @@ export type MaharajaTryOnGrant = {
 };
 
 export type ServiceAllowanceCounter = {
-  used: number; // 0, 1, or 2 (maximum 2 successful outputs)
-  max: 2;
+  used: number; // 0, 1, or 2 (maximum 2 successful outputs when limits enforced)
+  max: number;
   generating: boolean;
   generatingAtMs?: number;
   lastJobId?: string;
@@ -152,9 +152,10 @@ export type CustomerCampaignEntitlement = {
 };
 
 export type CustomerServiceAllowances = {
-  tryOn: { used: number; max: 2; remaining: number };
-  masterImage: { used: number; max: 2; remaining: number };
-  video: { used: number; max: 2; remaining: number; managerAuthorized?: boolean };
+  enforceRepeatLimits?: boolean;
+  tryOn: { used: number; max: number; remaining: number };
+  masterImage: { used: number; max: number; remaining: number };
+  video: { used: number; max: number; remaining: number; managerAuthorized?: boolean };
 };
 
 export function normalizePhoneNumber(raw: unknown): string {
@@ -167,22 +168,46 @@ export function normalizePhoneNumber(raw: unknown): string {
 }
 
 export function getCustomerServiceAllowances(entitlement: CustomerCampaignEntitlement | null | undefined): CustomerServiceAllowances {
-  const tryOnUsed = Math.min(2, Math.max(0, Number(entitlement?.tryOn?.used || 0)));
-  const masterImageUsed = Math.min(2, Math.max(0, Number(entitlement?.masterImage?.used || 0)));
-  const videoUsed = Math.min(2, Math.max(0, Number(entitlement?.video?.used || 0)));
+  const tryOnUsed = Math.max(0, Number(entitlement?.tryOn?.used || 0));
+  const masterImageUsed = Math.max(0, Number(entitlement?.masterImage?.used || 0));
+  const videoUsed = Math.max(0, Number(entitlement?.video?.used || 0));
+
+  if (!ENFORCE_REPEAT_LIMITS) {
+    return {
+      enforceRepeatLimits: false,
+      tryOn: {
+        used: tryOnUsed,
+        max: 999,
+        remaining: 999,
+      },
+      masterImage: {
+        used: masterImageUsed,
+        max: 999,
+        remaining: 999,
+      },
+      video: {
+        used: videoUsed,
+        max: 999,
+        remaining: 999,
+        managerAuthorized: true,
+      },
+    };
+  }
+
   return {
+    enforceRepeatLimits: true,
     tryOn: {
-      used: tryOnUsed,
+      used: Math.min(2, tryOnUsed),
       max: 2,
       remaining: Math.max(0, 2 - tryOnUsed),
     },
     masterImage: {
-      used: masterImageUsed,
+      used: Math.min(2, masterImageUsed),
       max: 2,
       remaining: Math.max(0, 2 - masterImageUsed),
     },
     video: {
-      used: videoUsed,
+      used: Math.min(2, videoUsed),
       max: 2,
       remaining: Math.max(0, 2 - videoUsed),
       managerAuthorized: Boolean(entitlement?.video?.managerAuthorized),
@@ -919,9 +944,9 @@ export async function recordServiceGenerationSuccess(
   phoneOrCode: string,
   service: 'try-on' | 'master-image' | 'video',
   _payload?: { url?: string; jobId?: string }
-): Promise<{ used: number; max: 2; exhausted: boolean }> {
+): Promise<{ used: number; max: number; exhausted: boolean }> {
   const phone = await resolvePhoneFromTarget(phoneOrCode);
-  if (!phone) return { used: 1, max: 2, exhausted: false };
+  if (!phone) return { used: 1, max: ENFORCE_REPEAT_LIMITS ? 2 : 999, exhausted: false };
 
   const serviceKey = service === 'try-on' ? 'tryOn' : (service === 'master-image' ? 'masterImage' : 'video');
   const db = getDb();
@@ -951,11 +976,13 @@ export async function recordServiceGenerationSuccess(
         entitlement = snap.data() as CustomerCampaignEntitlement;
       }
       const counter = entitlement[serviceKey] || { used: 0, max: 2, generating: false };
-      const nextUsed = Math.min(2, (Number(counter.used) || 0) + 1);
+      const nextUsed = ENFORCE_REPEAT_LIMITS
+        ? Math.min(2, (Number(counter.used) || 0) + 1)
+        : (Number(counter.used) || 0) + 1;
       const updatedCounter: ServiceAllowanceCounter = {
         ...counter,
         used: nextUsed,
-        max: 2,
+        max: ENFORCE_REPEAT_LIMITS ? 2 : 999,
         generating: false,
         ...(service === 'video' ? { managerAuthorized: false } : {}),
       };
@@ -966,7 +993,7 @@ export async function recordServiceGenerationSuccess(
         updatedAt: nowIso,
       }, { merge: true });
 
-      return { used: nextUsed, max: 2, exhausted: nextUsed >= 2 };
+      return { used: nextUsed, max: ENFORCE_REPEAT_LIMITS ? 2 : 999, exhausted: ENFORCE_REPEAT_LIMITS ? nextUsed >= 2 : false };
     });
   }
 
@@ -989,11 +1016,13 @@ export async function recordServiceGenerationSuccess(
     };
   }
   const counter = entitlement[serviceKey] || { used: 0, max: 2, generating: false };
-  const nextUsed = Math.min(2, (Number(counter.used) || 0) + 1);
+  const nextUsed = ENFORCE_REPEAT_LIMITS
+    ? Math.min(2, (Number(counter.used) || 0) + 1)
+    : (Number(counter.used) || 0) + 1;
   const updatedCounter: ServiceAllowanceCounter = {
     ...counter,
     used: nextUsed,
-    max: 2,
+    max: ENFORCE_REPEAT_LIMITS ? 2 : 999,
     generating: false,
     ...(service === 'video' ? { managerAuthorized: false } : {}),
   };
@@ -1004,7 +1033,7 @@ export async function recordServiceGenerationSuccess(
     updatedAt: nowIso,
   });
 
-  return { used: nextUsed, max: 2, exhausted: nextUsed >= 2 };
+  return { used: nextUsed, max: ENFORCE_REPEAT_LIMITS ? 2 : 999, exhausted: ENFORCE_REPEAT_LIMITS ? nextUsed >= 2 : false };
 }
 
 export async function authorizeVideoRetry(phoneOrCode: string): Promise<{ success: boolean; ok: boolean; error?: string }> {
@@ -1021,7 +1050,7 @@ export async function authorizeVideoRetry(phoneOrCode: string): Promise<{ succes
       const snap = await tx.get(ref);
       if (!snap.exists) return { success: false, ok: false, error: 'Customer entitlement not found.' };
       const entitlement = snap.data() as CustomerCampaignEntitlement;
-      if (Number(entitlement.video?.used || 0) >= 2) {
+      if (ENFORCE_REPEAT_LIMITS && Number(entitlement.video?.used || 0) >= 2) {
         return {
           success: false,
           ok: false,
@@ -1044,7 +1073,7 @@ export async function authorizeVideoRetry(phoneOrCode: string): Promise<{ succes
   const key = `${MAHARAJA_CLIENT_ID}:${phone}`;
   const entitlement = store.campaignEntitlements.get(key) as CustomerCampaignEntitlement | undefined;
   if (!entitlement) return { success: false, ok: false, error: 'Customer entitlement not found.' };
-  if (Number(entitlement.video?.used || 0) >= 2) {
+  if (ENFORCE_REPEAT_LIMITS && Number(entitlement.video?.used || 0) >= 2) {
     return {
       success: false,
       ok: false,
@@ -1595,7 +1624,7 @@ export async function markPassRetryApproved(
 
   const db = getDb();
   const updates: Record<string, any> = {
-    retryUsed: true,
+    retryUsed: ENFORCE_REPEAT_LIMITS ? true : false,
     retryApproved: true,
     status: 'active' as const,
   };

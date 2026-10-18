@@ -59,7 +59,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         videoMasterCategory: access.pass?.videoMasterCategory || null,
         videoMasterGarmentType: access.pass?.videoMasterGarmentType || null,
         videoDone: access.pass?.videoDone || false,
-        retryUsed: Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed),
+        retryUsed: ENFORCE_REPEAT_LIMITS ? Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed) : false,
         allowances: access.allowances,
       },
     });

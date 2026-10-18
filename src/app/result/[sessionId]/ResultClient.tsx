@@ -55,13 +55,14 @@ export default function ResultClient({
   const [allowances, setAllowances] = useState<any>(initialAllowances || null);
   const [videoDone, setVideoDone] = useState(false);
 
+  const enforceLimits = allowances?.enforceRepeatLimits ?? false;
   const imageAllowanceUsed = allowances?.masterImage?.used ?? (retryUsed ? 2 : 1);
   const videoAllowanceUsed = allowances?.video?.used ?? (videoDone || videoUrl ? 1 : 0);
-  const imageExhausted = imageAllowanceUsed >= 2;
-  const videoExhausted = videoAllowanceUsed >= 2;
-  const videoManagerAuthorized = Boolean(allowances?.video?.managerAuthorized);
-  const canRetryVideo = !videoExhausted && (videoAllowanceUsed === 0 || videoManagerAuthorized);
-  const canRetryImage = !imageExhausted;
+  const imageExhausted = enforceLimits && imageAllowanceUsed >= 2;
+  const videoExhausted = enforceLimits && videoAllowanceUsed >= 2;
+  const videoManagerAuthorized = !enforceLimits || Boolean(allowances?.video?.managerAuthorized);
+  const canRetryVideo = !enforceLimits || (!videoExhausted && (videoAllowanceUsed === 0 || videoManagerAuthorized));
+  const canRetryImage = !enforceLimits || !imageExhausted;
 
   const whatsappSendRequested = useRef(false);
   const previewAudioUrl = useMemo(() => getPreviewAudioTrack(sessionId, eventId), [sessionId, eventId]);
@@ -411,11 +412,11 @@ export default function ResultClient({
   };
 
   const handleRetryVideo = async () => {
-    if (videoExhausted) {
+    if (enforceLimits && videoExhausted) {
       setVideoError('Cinematic Video limit reached (2/2 used). Retries are exhausted for this mobile number.');
       return;
     }
-    if (videoAllowanceUsed >= 1 && !videoManagerAuthorized) {
+    if (enforceLimits && videoAllowanceUsed >= 1 && !videoManagerAuthorized) {
       setVideoError('Store manager authorization is required before retrying the Cinematic Video.');
       return;
     }
@@ -466,7 +467,7 @@ export default function ResultClient({
   };
 
   const handleRetryImage = async () => {
-    if (imageExhausted) {
+    if (enforceLimits && imageExhausted) {
       setLiveError('Celebration Image limit reached (2/2 used). Retries are exhausted for this mobile number.');
       return;
     }
@@ -645,7 +646,9 @@ export default function ResultClient({
                         <RotateCcw className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
                         <div>
                           <div className="font-bold">Retry Video</div>
-                          <div className="text-[10px] text-gray-300 font-normal">Regenerate with backup prompt ({2 - videoAllowanceUsed} left)</div>
+                          <div className="text-[10px] text-gray-300 font-normal">
+                            Regenerate with backup prompt {enforceLimits ? `(${2 - videoAllowanceUsed} left)` : '(Unlimited Test Mode)'}
+                          </div>
                         </div>
                       </button>
                     ) : (
@@ -671,7 +674,9 @@ export default function ResultClient({
                       <ImageIcon className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
                       <div>
                         <div className="font-bold">Retry Image</div>
-                        <div className="text-[10px] text-gray-300 font-normal">Re-upload photos & start fresh ({2 - imageAllowanceUsed} left)</div>
+                        <div className="text-[10px] text-gray-300 font-normal">
+                          Re-upload photos & start fresh {enforceLimits ? `(${2 - imageAllowanceUsed} left)` : '(Unlimited Test Mode)'}
+                        </div>
                       </div>
                     </button>
                   ) : (

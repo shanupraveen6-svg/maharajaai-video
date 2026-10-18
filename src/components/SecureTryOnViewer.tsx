@@ -12,6 +12,7 @@ interface SecureTryOnViewerProps {
   serviceType?: 'try-on' | 'ai-video';
   allowanceUsed?: number;
   allowanceMax?: number;
+  enforceRepeatLimits?: boolean;
 }
 
 export default function SecureTryOnViewer({
@@ -22,6 +23,7 @@ export default function SecureTryOnViewer({
   serviceType = 'try-on',
   allowanceUsed,
   allowanceMax = 2,
+  enforceRepeatLimits = true,
 }: SecureTryOnViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isBlackout, setIsBlackout] = useState(false);
@@ -30,7 +32,7 @@ export default function SecureTryOnViewer({
 
   const used = typeof allowanceUsed === 'number' ? allowanceUsed : (retryUsed ? 2 : 1);
   const max = allowanceMax || 2;
-  const isExhausted = used >= max;
+  const isExhausted = enforceRepeatLimits ? used >= max : false;
   const serviceLabel = serviceType === 'try-on' ? 'AI Try-On' : 'Celebration Image';
 
   const triggerBlackout = useCallback((reason: string) => {
@@ -206,7 +208,9 @@ export default function SecureTryOnViewer({
               <div className="absolute right-0 top-9 z-50 w-60 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-2 shadow-2xl backdrop-blur-md text-left space-y-2">
                 <div className="px-2 py-1 border-b border-[#D4AF37]/20 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">
                   <span>{serviceLabel}</span>
-                  <span className="font-mono text-[10px] text-[#F3E5AB]">{used}/{max}</span>
+                  <span className="font-mono text-[10px] text-[#F3E5AB]">
+                    {enforceRepeatLimits ? `${used}/${max}` : `${used} (Unlimited)`}
+                  </span>
                 </div>
 
                 {!isExhausted ? (
@@ -222,7 +226,9 @@ export default function SecureTryOnViewer({
                     <ImageIcon className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
                     <div>
                       <div className="font-bold">Retry Image</div>
-                      <div className="text-[10px] text-gray-300 font-normal">Re-upload photos & generate again ({max - used} retry left)</div>
+                      <div className="text-[10px] text-gray-300 font-normal">
+                        {enforceRepeatLimits ? `Re-upload photos & generate again (${max - used} retry left)` : 'Re-upload photos & generate again (Unlimited)'}
+                      </div>
                     </div>
                   </button>
                 ) : (

@@ -85,10 +85,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [tryOnUsed, setTryOnUsed] = useState(false);
   const [retryUsed, setRetryUsed] = useState(false);
   const [allowances, setAllowances] = useState<{
-    tryOn: { used: number; max: 2; remaining: number };
-    masterImage: { used: number; max: 2; remaining: number };
-    video: { used: number; max: 2; remaining: number; managerAuthorized?: boolean };
+    enforceRepeatLimits?: boolean;
+    tryOn: { used: number; max: number; remaining: number };
+    masterImage: { used: number; max: number; remaining: number };
+    video: { used: number; max: number; remaining: number; managerAuthorized?: boolean };
   }>({
+    enforceRepeatLimits: false,
     tryOn: { used: 0, max: 2, remaining: 2 },
     masterImage: { used: 0, max: 2, remaining: 2 },
     video: { used: 0, max: 2, remaining: 2 },
@@ -191,11 +193,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   }
 
   async function handleRetryImage() {
-    if (activeService === 'try-on' && allowances.tryOn.used >= 2) {
+    const enforceLimits = allowances?.enforceRepeatLimits ?? false;
+    if (enforceLimits && activeService === 'try-on' && allowances.tryOn.used >= 2) {
       setError('AI Try-On allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
       return;
     }
-    if (activeService === 'ai-video' && allowances.masterImage.used >= 2) {
+    if (enforceLimits && activeService === 'ai-video' && allowances.masterImage.used >= 2) {
       setError('Celebration Gemini Master Image allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
       return;
     }
@@ -320,9 +323,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     return () => window.clearInterval(timer);
   }, [stage]);
 
-  const isImageExhausted = activeService === 'try-on'
+  const enforceLimits = allowances?.enforceRepeatLimits ?? false;
+  const isImageExhausted = enforceLimits && (activeService === 'try-on'
     ? allowances.tryOn.used >= 2
-    : allowances.masterImage.used >= 2;
+    : allowances.masterImage.used >= 2);
 
   const canGenerateImage = !isImageExhausted
     && purchaseConfirmed
@@ -530,7 +534,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       }).catch(() => undefined);
       setMasterApproved(true);
     }
-    if (allowances.video.used >= 2) {
+    const enforceLimits = allowances?.enforceRepeatLimits ?? false;
+    if (enforceLimits && allowances.video.used >= 2) {
       setError('H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
       return;
     }
@@ -679,7 +684,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             accessCode={accessCode}
             initialAllowances={allowances}
             initialRetryUsed={retryUsed}
-            onRetryUsed={() => setRetryUsed(true)}
+            onRetryUsed={() => { if (enforceLimits) setRetryUsed(true); }}
             onBack={() => setStage('ready')}
           />
         ) : (
@@ -691,45 +696,45 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         {/* Server-Enforced Campaign Generation Allowances Display */}
         <div id="campaign-allowances-bar" className="mb-5 grid grid-cols-3 gap-2 md:gap-3 rounded-lg border border-[#D4AF37]/50 bg-[#21090E] p-3 text-white shadow-md">
           {/* AI Try-On */}
-          <div className={`flex flex-col items-center justify-center rounded p-2 text-center border ${allowances.tryOn.used >= 2 ? 'border-red-500/50 bg-red-950/40 text-red-200' : 'border-[#D4AF37]/30 bg-black/40 text-[#F3E5AB]'}`}>
+          <div className={`flex flex-col items-center justify-center rounded p-2 text-center border ${(enforceLimits && allowances.tryOn.used >= 2) ? 'border-red-500/50 bg-red-950/40 text-red-200' : 'border-[#D4AF37]/30 bg-black/40 text-[#F3E5AB]'}`}>
             <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-[#D4AF37]">AI Try-On</span>
-            <span className="text-base md:text-lg font-black tracking-tight mt-0.5">{allowances.tryOn.used}/2</span>
-            <span className={`text-[9px] md:text-[10px] mt-0.5 font-medium ${allowances.tryOn.used >= 2 ? 'text-red-300' : 'text-[#F3E5AB]/75'}`}>
-              {allowances.tryOn.used === 0 ? '2 available' : allowances.tryOn.used === 1 ? '1 retry left' : 'Exhausted'}
+            <span className="text-base md:text-lg font-black tracking-tight mt-0.5">{enforceLimits ? `${allowances.tryOn.used}/2` : `${allowances.tryOn.used} (Unlimited)`}</span>
+            <span className={`text-[9px] md:text-[10px] mt-0.5 font-medium ${(enforceLimits && allowances.tryOn.used >= 2) ? 'text-red-300' : 'text-[#F3E5AB]/75'}`}>
+              {!enforceLimits ? 'Test Mode Active' : allowances.tryOn.used === 0 ? '2 available' : allowances.tryOn.used === 1 ? '1 retry left' : 'Exhausted'}
             </span>
           </div>
 
           {/* Celebration Image */}
-          <div className={`flex flex-col items-center justify-center rounded p-2 text-center border ${allowances.masterImage.used >= 2 ? 'border-red-500/50 bg-red-950/40 text-red-200' : 'border-[#D4AF37]/30 bg-black/40 text-[#F3E5AB]'}`}>
+          <div className={`flex flex-col items-center justify-center rounded p-2 text-center border ${(enforceLimits && allowances.masterImage.used >= 2) ? 'border-red-500/50 bg-red-950/40 text-red-200' : 'border-[#D4AF37]/30 bg-black/40 text-[#F3E5AB]'}`}>
             <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-[#D4AF37]">Celebration Image</span>
-            <span className="text-base md:text-lg font-black tracking-tight mt-0.5">{allowances.masterImage.used}/2</span>
-            <span className={`text-[9px] md:text-[10px] mt-0.5 font-medium ${allowances.masterImage.used >= 2 ? 'text-red-300' : 'text-[#F3E5AB]/75'}`}>
-              {allowances.masterImage.used === 0 ? '2 available' : allowances.masterImage.used === 1 ? '1 retry left' : 'Exhausted'}
+            <span className="text-base md:text-lg font-black tracking-tight mt-0.5">{enforceLimits ? `${allowances.masterImage.used}/2` : `${allowances.masterImage.used} (Unlimited)`}</span>
+            <span className={`text-[9px] md:text-[10px] mt-0.5 font-medium ${(enforceLimits && allowances.masterImage.used >= 2) ? 'text-red-300' : 'text-[#F3E5AB]/75'}`}>
+              {!enforceLimits ? 'Test Mode Active' : allowances.masterImage.used === 0 ? '2 available' : allowances.masterImage.used === 1 ? '1 retry left' : 'Exhausted'}
             </span>
           </div>
 
           {/* Cinematic Video */}
-          <div className={`flex flex-col items-center justify-center rounded p-2 text-center border ${allowances.video.used >= 2 ? 'border-red-500/50 bg-red-950/40 text-red-200' : 'border-[#D4AF37]/30 bg-black/40 text-[#F3E5AB]'}`}>
+          <div className={`flex flex-col items-center justify-center rounded p-2 text-center border ${(enforceLimits && allowances.video.used >= 2) ? 'border-red-500/50 bg-red-950/40 text-red-200' : 'border-[#D4AF37]/30 bg-black/40 text-[#F3E5AB]'}`}>
             <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-[#D4AF37]">Cinematic Video</span>
-            <span className="text-base md:text-lg font-black tracking-tight mt-0.5">{allowances.video.used}/2</span>
-            <span className={`text-[9px] md:text-[10px] mt-0.5 font-medium ${allowances.video.used >= 2 ? 'text-red-300' : 'text-[#F3E5AB]/75'}`}>
-              {allowances.video.used === 0 ? '2 available' : allowances.video.used === 1 ? (allowances.video.managerAuthorized ? 'Manager authorized' : '1 manager retry') : 'Exhausted'}
+            <span className="text-base md:text-lg font-black tracking-tight mt-0.5">{enforceLimits ? `${allowances.video.used}/2` : `${allowances.video.used} (Unlimited)`}</span>
+            <span className={`text-[9px] md:text-[10px] mt-0.5 font-medium ${(enforceLimits && allowances.video.used >= 2) ? 'text-red-300' : 'text-[#F3E5AB]/75'}`}>
+              {!enforceLimits ? 'Test Mode Active' : allowances.video.used === 0 ? '2 available' : allowances.video.used === 1 ? (allowances.video.managerAuthorized ? 'Manager authorized' : '1 manager retry') : 'Exhausted'}
             </span>
           </div>
         </div>
 
         {/* Exhaustion Notices */}
-        {activeService === 'try-on' && allowances.tryOn.used >= 2 && (
+        {enforceLimits && activeService === 'try-on' && allowances.tryOn.used >= 2 && (
           <div className="mb-4 border border-red-300 bg-red-50 p-3 text-xs md:text-sm font-bold text-red-800 text-center rounded shadow-sm">
             AI Try-On allowance exhausted (2/2 completed). Limit reached for this customer.
           </div>
         )}
-        {activeService === 'ai-video' && !masterApproved && allowances.masterImage.used >= 2 && (
+        {enforceLimits && activeService === 'ai-video' && !masterApproved && allowances.masterImage.used >= 2 && (
           <div className="mb-4 border border-red-300 bg-red-50 p-3 text-xs md:text-sm font-bold text-red-800 text-center rounded shadow-sm">
             Celebration Image allowance exhausted (2/2 completed). Limit reached for this customer.
           </div>
         )}
-        {activeService === 'ai-video' && masterApproved && allowances.video.used >= 2 && (
+        {enforceLimits && activeService === 'ai-video' && masterApproved && allowances.video.used >= 2 && (
           <div className="mb-4 border border-red-300 bg-red-50 p-3 text-xs md:text-sm font-bold text-red-800 text-center rounded shadow-sm">
             Cinematic Video allowance exhausted (2/2 completed). Limit reached for this customer.
           </div>
@@ -740,7 +745,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           <button type="button" disabled={service !== 'ai-video'} onClick={() => { setActiveService('ai-video'); setPurchaseConfirmed(true); }} className={`min-h-12 px-3 text-xs font-bold uppercase disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${activeService === 'ai-video' ? 'bg-[#21090E] text-[#F3E5AB]' : 'text-[#6E0D1F]'}`}><Film className="mr-2 inline h-4 w-4" />AI Video<span className="block text-[10px] normal-case">{service === 'ai-video' ? 'Unlocked' : 'Above Rs 5000 purchase'}</span></button>
         </div>
 
-        {activeService === 'try-on' && tryOnUsed && (
+        {enforceLimits && activeService === 'try-on' && tryOnUsed && (
           <section id="tryon-completed-banner" className="mx-auto max-w-xl border border-[#D8C49B] bg-white p-6 text-center">
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-700" />
             <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Try-On completed</h2>
@@ -748,7 +753,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           </section>
         )}
 
-        {activeService === 'try-on' && !tryOnUsed && !purchaseConfirmed && (
+        {activeService === 'try-on' && (!enforceLimits || !tryOnUsed) && !purchaseConfirmed && (
           <section className="mx-auto max-w-xl border border-[#D8C49B] bg-white p-6 text-center shadow-md">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#6E0D1F]/10 border border-[#D4AF37]/50 text-[#6E0D1F] mb-3">
               <ScanLine className="h-7 w-7 text-[#6E0D1F]" />

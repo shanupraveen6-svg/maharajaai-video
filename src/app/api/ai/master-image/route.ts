@@ -131,11 +131,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const maxGarmentPhotos = service === 'try-on' ? 1 : 3;
+    const maxGarmentPhotos = 3;
     if (garmentInputs.length > maxGarmentPhotos) {
       return NextResponse.json({
         success: false,
-        error: service === 'try-on' ? 'Upload exactly one garment photo for AI Try-On.' : 'Upload up to 3 garment photos max.',
+        error: 'Upload up to 3 garment photos max.',
       }, { status: 400 });
     }
 

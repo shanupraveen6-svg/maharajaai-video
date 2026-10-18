@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
-
+import { ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import { finalizeCompletedVideo, getCampaignEntitlementForPass, getCustomerServiceAllowances, getVideoPass, markPassVideoFailed, markPassVideoReady, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
@@ -271,6 +271,8 @@ export async function GET(req: NextRequest) {
               await markPassVideoReady(accessCode, jobId || undefined);
             }
             const pass = accessCode ? await getVideoPass(accessCode) : null;
+            const entitlement = accessCode ? await getCampaignEntitlementForPass(accessCode) : null;
+            const allowances = getCustomerServiceAllowances(entitlement);
 
             return NextResponse.json({
               success: true,
@@ -282,7 +284,8 @@ export async function GET(req: NextRequest) {
               masterImageUrl,
               videoId: `video_${targetSessionId}`,
               eventId,
-              retryUsed: !!pass?.retryUsed,
+              allowances,
+              retryUsed: ENFORCE_REPEAT_LIMITS ? (!!pass?.retryUsed || allowances.video.used >= 2) : false,
               videoDone: !!pass?.videoDone,
             });
           }
@@ -369,7 +372,7 @@ export async function GET(req: NextRequest) {
       videoId: `video_${targetSessionId}`,
       eventId,
       allowances,
-      retryUsed: !!pass?.retryUsed || allowances.video.used >= 2,
+      retryUsed: ENFORCE_REPEAT_LIMITS ? (!!pass?.retryUsed || allowances.video.used >= 2) : false,
       videoDone: !!pass?.videoDone,
     });
 
