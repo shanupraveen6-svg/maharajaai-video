@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Sparkles,
   Store,
+  Phone,
   Users,
   WandSparkles,
 } from 'lucide-react';
@@ -288,11 +289,11 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div id="b-focus-branding" className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
+            <div id="wefocus-branding" className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">Branding & Creative Agency</p>
-              <h3 className="mt-3 font-serif text-3xl font-bold">B Focus — Strategic Brand Marketing & Technology</h3>
+              <h3 className="mt-3 font-serif text-3xl font-bold">wefocus — Strategic Brand Marketing & Technology</h3>
               <p className="mt-3 text-sm font-semibold leading-6 text-[#F3E5AB]/85">
-                Ready to elevate your store and brand reach? B Focus partners with retail brands, fashion houses, and growing businesses across:
+                Ready to elevate your store and brand reach? wefocus partners with retail brands, fashion houses, and growing businesses across:
               </p>
               
               <ul className="mt-4 space-y-2.5 text-xs font-semibold text-[#F3E5AB]/90">
@@ -317,20 +318,19 @@ export default function LandingPage() {
                   rel="noreferrer"
                   className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3.5 text-xs font-black uppercase tracking-wider text-black transition hover:brightness-110 shadow-sm"
                 >
-                  Visit B Focus Agency <ArrowRight className="h-4 w-4" />
+                  Visit wefocus.in <ArrowRight className="h-4 w-4" />
                 </a>
                 <a
-                  href="https://wa.me/919994837342?text=Hello%20B%20Focus%2C%20I%20am%20interested%20in%20Brand%20Marketing%2C%20Digital%20Marketing%20and%20Development."
-                  target="_blank"
-                  rel="noreferrer"
+                  href="tel:9994837342"
                   className="flex w-full items-center justify-center gap-2 border border-[#D4AF37]/50 bg-white/10 px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB] hover:bg-white/20 transition"
                 >
-                  Contact Us on WhatsApp
+                  <Phone className="h-4 w-4 text-[#D4AF37]" />
+                  Call 9994837342
                 </a>
               </div>
 
               <p className="mt-5 border-t border-[#D4AF37]/25 pt-4 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]/86">
-                Direct Agency Consultation: <a href="tel:+919994837342" className="text-[#D4AF37] underline hover:text-white">9994837342</a>
+                Direct Agency Consultation: <a href="tel:9994837342" className="text-[#D4AF37] underline hover:text-white">9994837342</a>
               </p>
             </div>
           </div>
@@ -348,14 +348,14 @@ export default function LandingPage() {
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-3 text-xs font-black uppercase tracking-wider text-[#F3E5AB] hover:bg-[#851025] transition"
             >
-              B Focus Branding Services <ArrowRight className="h-4 w-4" />
+              wefocus Branding Services <ArrowRight className="h-4 w-4" />
             </a>
           </div>
 
           <footer className="mt-8 border-t border-[#e1d1ad] pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-[#5C4B43]">
             <p>© {new Date().getFullYear()} TryFocus Retail Platform · Built for client-specific campaigns.</p>
             <p>
-              Partnered with <a href="https://wefocus.in" target="_blank" rel="noreferrer" className="text-[#6e0d1f] font-bold underline hover:text-[#800A1D]">B Focus</a> — Brand Marketing, Digital Growth & Software Development.
+              Partnered with <a href="https://wefocus.in" target="_blank" rel="noreferrer" className="text-[#6e0d1f] font-bold underline hover:text-[#800A1D]">wefocus.in</a> — Brand Marketing, Digital Growth & Software Development.
             </p>
           </footer>
         </div>
