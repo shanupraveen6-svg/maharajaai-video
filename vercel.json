@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/privacy/cleanup",
+      "schedule": "17 2 * * *"
+    }
+  ]
+}

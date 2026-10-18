@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
     let provider: string | null = null;
     let eventId = 'diwali';
     let clientId: string | null = null;
+    let category: string | null = null;
 
     if (db) {
       // 1. Fetch Session Doc first
@@ -79,6 +80,7 @@ export async function GET(req: NextRequest) {
           eventId = sData?.eventId || eventId;
           clientId = sData?.clientId || clientId;
           masterImageUrl = sData?.masterImageUrl || masterImageUrl;
+          category = sData?.templateId || category;
 
           // Cross-validate that requested jobId belongs to this session
           if (jobId && sData?.jobId && sData.jobId !== jobId) {
@@ -144,6 +146,7 @@ export async function GET(req: NextRequest) {
           eventId = session.eventId || eventId;
           clientId = session.clientId || clientId;
           masterImageUrl = session.masterImageUrl || masterImageUrl;
+          category = session.templateId || category;
 
           if (jobId && session.jobId && session.jobId !== jobId) {
             return NextResponse.json({ success: false, error: 'The specified jobId does not belong to this sessionId.' }, { status: 400 });
@@ -371,6 +374,7 @@ export async function GET(req: NextRequest) {
       masterImageUrl,
       videoId: `video_${targetSessionId}`,
       eventId,
+      category,
       allowances,
       retryUsed: ENFORCE_REPEAT_LIMITS ? (!!pass?.retryUsed || allowances.video.used >= 2) : false,
       videoDone: !!pass?.videoDone,

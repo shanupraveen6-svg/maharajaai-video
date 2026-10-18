@@ -1767,6 +1767,7 @@ export async function finalizeCompletedVideo({
           videoStoragePath: storagePath,
           liveVideoUrl: liveSignedUrl,
           liveVideoStoragePath: liveStoragePath,
+          expiresAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
           updatedAt: new Date().toISOString(),
         }, { merge: true }),
       ]);
@@ -1790,6 +1791,7 @@ export async function finalizeCompletedVideo({
         videoStoragePath: storagePath,
         liveVideoUrl: liveSignedUrl,
         liveVideoStoragePath: liveStoragePath,
+        expiresAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
         updatedAt: new Date().toISOString(),
       });
     }

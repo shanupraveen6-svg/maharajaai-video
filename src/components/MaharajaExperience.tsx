@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import {
   AlertCircle,
   ArrowRight,
@@ -1056,6 +1057,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         )}
           </>
         )}
+      </div>
+      <div className="mx-auto mt-6 max-w-5xl border-t border-[#D8C49B] px-4 py-5 text-center text-[11px] leading-5 text-[#5C4B43]">
+        {activeService === 'try-on'
+          ? 'Your photos are temporarily processed to create this Try-On and are removed from Maharaja storage after generation. The downloaded result remains on your device.'
+          : 'AI Video media is temporarily retained for delivery and removed within 4 days unless an adult separately permits promotional use. Anonymous usage totals may be retained.'}{' '}
+        <Link href="/privacy" className="font-bold text-[#6E0D1F] underline underline-offset-2">Privacy &amp; Data Use</Link>
+        <span className="px-1.5">·</span>
+        <Link href="/terms" className="font-bold text-[#6E0D1F] underline underline-offset-2">Terms</Link>
       </div>
     </main>
   );

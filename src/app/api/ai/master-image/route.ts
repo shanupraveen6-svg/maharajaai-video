@@ -288,13 +288,16 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
           masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
 
           try {
-            const storagePath = service === 'try-on'
-              ? `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/try-on.jpg`
-              : `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
-            const file = bucket.file(storagePath);
-            await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
-            const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
-            masterImageUrl = signedUrl;
+            if (service === 'try-on') {
+              // Try-On is returned directly to the browser and is not retained as a cloud result.
+              masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
+            } else {
+              const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
+              const file = bucket.file(storagePath);
+              await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
+              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+              masterImageUrl = signedUrl;
+            }
           } catch (storageErr) {
             console.error('Firebase Storage upload failed for master image:', storageErr);
             throw new Error(`Cloud Storage error: Failed to persist ${service} image (${storageErr instanceof Error ? storageErr.message : String(storageErr)}). Verify Firebase Storage bucket permissions.`);
@@ -320,8 +323,9 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
     // Try-On and video-master images live in separate fields/paths so one can never overwrite the other.
     const imageFields = service === 'try-on'
       ? {
-        tryOnImageUrl: masterImageUrl,
-        tryOnStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/try-on.jpg`,
+        tryOnImageUrl: null,
+        tryOnStoragePath: null,
+        tryOnImageDone: true,
       }
       : {
         masterImageUrl,
@@ -329,14 +333,10 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       };
 
     // Protect Firestore against 1MB document size limit if Storage was bypassed
-    const safeImageFields = { ...imageFields };
-    if (db && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000) {
+    const safeImageFields: Record<string, unknown> = { ...imageFields };
+    if (db && service === 'ai-video' && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000) {
       console.warn('Image data URI exceeds 700KB; truncating Firestore document cache to avoid 1MB document size limit.');
-      if (service === 'try-on') {
-        safeImageFields.tryOnImageUrl = masterImageUrl.slice(0, 500) + '...[truncated-data-url-use-storage]';
-      } else {
-        safeImageFields.masterImageUrl = masterImageUrl.slice(0, 500) + '...[truncated-data-url-use-storage]';
-      }
+      safeImageFields.masterImageUrl = masterImageUrl.slice(0, 500) + '...[truncated-data-url-use-storage]';
     }
 
     const persistenceTasks: Promise<unknown>[] = [];
@@ -384,7 +384,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       persistenceTasks.push((async () => {
         await incrementPassUsage(access.pass!.code, 'imagesGenerated');
         if (service === 'try-on') {
-          await markPassTryOnImageDone(access.pass!.code, passImageUrl);
+          await markPassTryOnImageDone(access.pass!.code, '');
         } else {
           await markPassVideoMasterDone(access.pass!.code, passImageUrl, {
             promptSet,
@@ -398,6 +398,13 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
     persistenceTasks.push(logMaharajaActivity(activityType, `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId, service }));
     if (reservedDeviceId) persistenceTasks.push(finishTryOnGrant(reservedDeviceId, reservedSessionId, true));
     await Promise.all(persistenceTasks);
+
+    if (service === 'try-on' && bucket) {
+      const sourcePaths = [body.personPhotoStoragePath, ...(Array.isArray(body.garmentPhotoStoragePaths) ? body.garmentPhotoStoragePaths : [])]
+        .filter((value): value is string => typeof value === 'string' && value.startsWith(`clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/`));
+      await Promise.all(sourcePaths.map((path) => bucket.file(path).delete({ ignoreNotFound: true })))
+        .catch((cleanupError) => console.error('Try-On source cleanup failed:', cleanupError));
+    }
 
     imageCompleted = true;
 

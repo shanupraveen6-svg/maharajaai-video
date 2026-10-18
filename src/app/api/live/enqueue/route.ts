@@ -63,6 +63,20 @@ export async function POST(req: NextRequest) {
     const customerLocality = cleanDisplayText(body.customerLocality, 'Thanjavur');
     const liveAudioUrl = cleanLiveAudioUrl(body.liveAudioUrl);
 
+    if (body.showroomConsent !== true) {
+      return NextResponse.json({ success: false, error: 'Showroom display permission is required for Go Live.' }, { status: 400 });
+    }
+    const storedCategory = access.pass?.videoMasterCategory;
+    if (!storedCategory || !['women', 'men', 'girl', 'boy'].includes(storedCategory)) {
+      return NextResponse.json({ success: false, error: 'The approved customer category is missing. Generate and approve the video portrait again.' }, { status: 409 });
+    }
+    const category = storedCategory;
+    const isMinorCategory = category === 'girl' || category === 'boy';
+    if (isMinorCategory && body.guardianConsent !== true) {
+      return NextResponse.json({ success: false, error: 'Parent or legal guardian permission is required for a child to Go Live.' }, { status: 400 });
+    }
+    const promotionConsent = !isMinorCategory && body.promotionConsent === true;
+
 
     if (!sessionId || !videoId) {
       return NextResponse.json(
@@ -120,6 +134,13 @@ export async function POST(req: NextRequest) {
       customerLocality,
       liveAudioUrl,
       videoUrl: resolvedVideoUrl,
+      category,
+      showroomConsent: true,
+      guardianConsent: isMinorCategory,
+      promotionConsent,
+      consentVersion: '2026-10-privacy-v1',
+      consentedAt: nowIso,
+      expiresAt: new Date(nowMs + 4 * 24 * 60 * 60 * 1000).toISOString(),
       displayUpdatedAt: nowIso
     };
     let queueNumber = 1;
@@ -183,7 +204,7 @@ export async function POST(req: NextRequest) {
         transaction.set(queueRef, {
           ...baseQueueItem,
           queueNumber
-        });
+      });
         transaction.set(db.collection('videos').doc(videoId), displayMetadata, { merge: true });
         transaction.set(db.collection('sessions').doc(sessionId), displayMetadata, { merge: true });
       });
@@ -246,7 +267,10 @@ export async function POST(req: NextRequest) {
         phone,
         phoneMasked,
         videoUrl: resolvedVideoUrl,
-      });
+        showroomConsent: true,
+        guardianConsent: isMinorCategory,
+        promotionConsent,
+        });
     }
 
     return NextResponse.json({

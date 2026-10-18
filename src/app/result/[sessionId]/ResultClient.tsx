@@ -24,12 +24,13 @@ export default function ResultClient({
 }) {
   const router = useRouter();
   const [showLiveConsent, setShowLiveConsent] = useState(false);
-  const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [thankYouMode, setThankYouMode] = useState<'download' | 'live' | null>(null);
   const [liveFarewell, setLiveFarewell] = useState(false);
-  const [privacyAction, setPrivacyAction] = useState<'download' | 'live' | null>(null);
-  const [publicConsent, setPublicConsent] = useState(true);
+  const [showroomConsent, setShowroomConsent] = useState(false);
+  const [promotionConsent, setPromotionConsent] = useState(false);
+  const [guardianConsent, setGuardianConsent] = useState(false);
+  const [category, setCategory] = useState<'women' | 'men' | 'girl' | 'boy'>('women');
   const [showMenu, setShowMenu] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerLocality, setCustomerLocality] = useState('');
@@ -177,6 +178,7 @@ export default function ResultClient({
 
         if (data.success) {
           if (isEventId(data.eventId)) setEventId(data.eventId);
+          if (['women', 'men', 'girl', 'boy'].includes(data.category)) setCategory(data.category);
           if (data.masterImageUrl) {
             setMasterImageUrl(data.masterImageUrl);
           }
@@ -290,33 +292,19 @@ export default function ResultClient({
     // Downloading the video must NOT complete or void the billing pass. The pass remains valid for its full window.
   };
 
-  const requestPrivacyConfirmation = (action: 'download' | 'live') => {
-    setPrivacyAction(action);
-    setShowPrivacyNotice(true);
-  };
-
-  const handlePrivacyContinue = async () => {
-    const action = privacyAction;
-    setShowPrivacyNotice(false);
-    setPrivacyAction(null);
-
-    if (action === 'download') {
-      try {
-        await executeDownload();
-        setThankYouMode('download');
-        setShowThankYou(true);
-      } catch (err) {
-        setLiveError(err instanceof Error ? err.message : 'Download failed.');
-      }
-    }
-
-    if (action === 'live') {
-      setShowLiveConsent(true);
+  const handleDownload = async () => {
+    try {
+      await executeDownload();
+      setThankYouMode('download');
+      setShowThankYou(true);
+    } catch (err) {
+      setLiveError(err instanceof Error ? err.message : 'Download failed.');
     }
   };
 
   const handleConfirmGoLive = async () => {
-    if (!publicConsent) return;
+    const isMinor = category === 'girl' || category === 'boy';
+    if (!showroomConsent || (isMinor && !guardianConsent)) return;
     if (!customerName.trim() || !customerLocality.trim()) {
       setLiveError('Enter customer name and locality for the Maharaja TV greeting.');
       return;
@@ -337,6 +325,10 @@ export default function ResultClient({
           customerLocality: customerLocality.trim(),
           liveAudioUrl,
           accessCode,
+          category,
+          showroomConsent,
+          guardianConsent: isMinor ? guardianConsent : false,
+          promotionConsent: isMinor ? false : promotionConsent,
         })
       });
 
@@ -662,14 +654,19 @@ export default function ResultClient({
         {/* Primary Action Buttons */}
         <div className="space-y-3 pt-2">
           <button
-            onClick={() => requestPrivacyConfirmation('download')}
+            onClick={() => void handleDownload()}
             className="w-full rounded-lg bg-[#D4AF37] px-6 py-4 text-sm font-bold uppercase tracking-wider text-black shadow-xl transition hover:brightness-105 flex items-center justify-center gap-3"
           >
             <Download className="w-5 h-5 fill-black" /> DOWNLOAD IMAGE + VIDEO
           </button>
 
           <button
-            onClick={() => requestPrivacyConfirmation('live')}
+            onClick={() => {
+              setShowroomConsent(false);
+              setPromotionConsent(false);
+              setGuardianConsent(false);
+              setShowLiveConsent(true);
+            }}
             className="w-full rounded-lg border border-[#D4AF37]/50 bg-[#800A1D] px-6 py-4 text-sm font-bold uppercase tracking-wider text-[#F3E5AB] shadow-xl transition hover:brightness-110 flex items-center justify-center gap-3"
           >
             <Tv className="w-5 h-5 text-[#D4AF37]" /> GO LIVE ON MAHARAJA SCREEN
@@ -678,6 +675,11 @@ export default function ResultClient({
           <div className="rounded-lg border border-[#D4AF37]/25 bg-black/45 p-3 text-[11px] leading-5 text-[#F3E5AB]/80">
             Download saves the approved image and video. Go Live also downloads both files, then sends the video to the showroom TV with festival music and Tamil greeting.
           </div>
+
+          <p className="px-2 text-[11px] leading-5 text-[#F3E5AB]/65">
+            AI Video media is retained temporarily for delivery and removed within 4 days unless an adult separately permits promotional use. Anonymous usage totals may be retained.{' '}
+            <Link href="/privacy" className="font-semibold text-[#D4AF37] underline underline-offset-2">Privacy &amp; Data Use</Link>
+          </p>
 
         </div>
 
@@ -726,43 +728,6 @@ export default function ResultClient({
 
 
 
-      {/* Privacy Notice Modal */}
-      {showPrivacyNotice && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full maharaja-card p-6 rounded-lg border border-[#D4AF37]/50 space-y-4">
-            <div className="flex items-center gap-2 text-[#D4AF37] font-serif font-bold text-lg uppercase tracking-wider">
-              <ShieldCheck className="w-6 h-6" /> Privacy Notice
-            </div>
-
-            <p className="text-xs text-gray-300 leading-relaxed">
-              This AI image and video are created only for this Maharaja {eventLabel} experience. Download keeps a copy for the customer. Go Live plays it on the showroom TV only after permission.
-            </p>
-
-            <div className="rounded-lg border border-[#D4AF37]/30 bg-black/60 p-3 text-xs leading-relaxed text-[#F3E5AB]">
-              We do not reuse your photos or generated media for any other purpose. Generated files are retained only as needed to deliver this experience and operate the approved showroom queue.
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => {
-                  setShowPrivacyNotice(false);
-                  setPrivacyAction(null);
-                }}
-                className="w-1/2 rounded-lg bg-gray-800 py-3 text-xs font-bold uppercase tracking-wider text-gray-300 hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePrivacyContinue}
-                className="w-1/2 rounded-lg bg-[#D4AF37] py-3 text-xs font-bold uppercase tracking-wider text-black hover:brightness-110"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Public Display Consent Modal */}
       {showLiveConsent && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -799,14 +764,26 @@ export default function ResultClient({
             <label className="flex items-start gap-3 p-3 rounded-md bg-black/60 border border-[#D4AF37]/30 cursor-pointer">
               <input
                 type="checkbox"
-                checked={publicConsent}
-                onChange={(e) => setPublicConsent(e.target.checked)}
+                checked={showroomConsent}
+                onChange={(e) => setShowroomConsent(e.target.checked)}
                 className="w-5 h-5 mt-0.5 accent-[#D4AF37]"
               />
               <span className="text-xs text-gray-200">
-                I agree that this completed AI-generated video may be displayed on Maharaja&apos;s public promotional screen for this {eventLabel} experience.
+                Allow Maharaja to display this video on the showroom TV during the temporary 4-day period.
               </span>
             </label>
+
+            {(category === 'girl' || category === 'boy') ? (
+              <label className="flex items-start gap-3 p-3 rounded-md bg-black/60 border border-[#D4AF37]/30 cursor-pointer">
+                <input type="checkbox" checked={guardianConsent} onChange={(e) => setGuardianConsent(e.target.checked)} className="w-5 h-5 mt-0.5 accent-[#D4AF37]" />
+                <span className="text-xs text-gray-200">I confirm that I am the parent or legal guardian and permit this child&apos;s video to appear on the showroom TV. Social-media promotion is disabled for children.</span>
+              </label>
+            ) : (
+              <label className="flex items-start gap-3 p-3 rounded-md bg-black/60 border border-[#D4AF37]/30 cursor-pointer">
+                <input type="checkbox" checked={promotionConsent} onChange={(e) => setPromotionConsent(e.target.checked)} className="w-5 h-5 mt-0.5 accent-[#D4AF37]" />
+                <span className="text-xs text-gray-200">Optional: allow Maharaja to retain and use this creation on its official Instagram and promotional channels.</span>
+              </label>
+            )}
 
             {liveError && (
               <div className="rounded-md border border-red-400/50 bg-red-950/50 p-3 text-xs font-bold text-red-200">
@@ -823,7 +800,7 @@ export default function ResultClient({
               </button>
               <button
                 onClick={handleConfirmGoLive}
-                disabled={!publicConsent || isGoingLive}
+                disabled={!showroomConsent || ((category === 'girl' || category === 'boy') && !guardianConsent) || isGoingLive}
                 className="w-1/2 rounded-lg bg-[#D4AF37] py-3 text-xs font-bold uppercase tracking-wider text-black hover:brightness-110 disabled:opacity-50"
               >
                 {isGoingLive ? 'ENQUEUING...' : 'CONFIRM & GO LIVE'}
