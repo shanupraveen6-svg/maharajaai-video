@@ -1,4 +1,15 @@
-export const TAMIL_SHOWROOM_NAMES = [
+export const TAMIL_GENTS_NAMES = [
+  'கார்த்திக்',    // Karthik (Karthi)
+  'விக்னேஷ்',     // Vignesh
+  'தினேஷ்',       // Dinesh
+  'பிரவீன்',      // Praveen
+  'அருண்',        // Arun
+  'சரவணன்',      // Saravanan
+  'சூர்யா',       // Surya
+  'விஜய்',        // Vijay
+] as const;
+
+export const TAMIL_LADIES_NAMES = [
   'காவியா',       // Kaviya
   'பிரியா',        // Priya
   'அனிதா',        // Anitha
@@ -10,21 +21,12 @@ export const TAMIL_SHOWROOM_NAMES = [
   'திவ்யா',       // Divya
   'ரேவதி',        // Revathi
   'சௌமியா',      // Sowmya
-  'கீர்த்தனா',    // Keerthana
   'பவித்ரா',      // Pavithra
-  'கார்த்திக்',    // Karthik
-  'விக்னேஷ்',     // Vignesh
-  'தினேஷ்',       // Dinesh
-  'பிரவீன்',      // Praveen
-  'அருண்',        // Arun
-  'சரவணன்',      // Saravanan
 ] as const;
 
-export const TAMIL_GENTS_NAMES = [
-  'கார்த்திக்',
-  'விக்னேஷ்',
-  'தினேஷ்',
-  'அருண்',
+export const TAMIL_SHOWROOM_NAMES = [
+  ...TAMIL_GENTS_NAMES,
+  ...TAMIL_LADIES_NAMES,
 ] as const;
 
 const TV_NAME_BY_SESSION_ID: Readonly<Record<string, string>> = {
@@ -53,11 +55,16 @@ function hashSeed(seed: string): number {
 
 /**
  * Returns a distinct, deterministic Tamil customer name for any video seed.
- * Ensures stored videos on Firebase Storage cycle through unique Tamil names
- * instead of repeating the same name for every video.
+ * Strictly respects customer category (Gents vs Ladies) so men's videos get male names.
  */
-export function getTamilCustomerName(seed: string, index = 0): string {
+export function getTamilCustomerName(seed: string, index = 0, category?: string): string {
   const hash = hashSeed(seed || 'maharaja-guest');
+  if (category === 'men' || category === 'boy') {
+    return TAMIL_GENTS_NAMES[(hash + index) % TAMIL_GENTS_NAMES.length];
+  }
+  if (category === 'women' || category === 'girl') {
+    return TAMIL_LADIES_NAMES[(hash + index) % TAMIL_LADIES_NAMES.length];
+  }
   return TAMIL_SHOWROOM_NAMES[(hash + index) % TAMIL_SHOWROOM_NAMES.length];
 }
 

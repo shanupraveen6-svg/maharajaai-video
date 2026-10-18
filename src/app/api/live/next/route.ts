@@ -33,6 +33,8 @@ function cleanDisplayText(value: unknown): string | null {
   return cleaned || null;
 }
 
+const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil', 'கீர்த்தனா', 'keerthana']);
+
 // Helper for expired reservation cleanup
 async function cleanupExpiredReservations(db: any) {
   try {
@@ -116,6 +118,12 @@ export async function GET(req: NextRequest) {
           reservationId
         });
 
+        let customerName = cleanDisplayText(queueData.customerName) || cleanDisplayText(videoData.customerName);
+        const isMen = queueData.category === 'men' || videoData.category === 'men' || (storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
+        if (isMen || (customerName && REMOVED_TV_NAMES.has(customerName.toLowerCase()))) {
+          customerName = 'கார்த்திக்';
+        }
+
         return {
           status: 'play',
           queueId: queueDoc.id,
@@ -123,8 +131,8 @@ export async function GET(req: NextRequest) {
           reservationId,
           storagePath,
           playbackProfile: getVideoPlaybackProfile(videoData, storagePath),
-          customerName: cleanDisplayText(queueData.customerName) || cleanDisplayText(videoData.customerName),
-          customerLocality: cleanDisplayText(queueData.customerLocality) || cleanDisplayText(videoData.customerLocality),
+          customerName,
+          customerLocality: cleanDisplayText(queueData.customerLocality) || cleanDisplayText(videoData.customerLocality) || 'தஞ்சாவூர்',
           liveAudioUrl: queueData.liveAudioUrl || null
         };
       });
@@ -202,14 +210,20 @@ export async function GET(req: NextRequest) {
 
       const signedUrl = await getSignedPlaybackUrl(storagePath);
 
+      let mockCustomerName = cleanDisplayText((nextItem as any).customerName) || cleanDisplayText((video as any).customerName);
+      const isMockMen = (nextItem as any).category === 'men' || (video as any).category === 'men' || (storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
+      if (isMockMen || (mockCustomerName && REMOVED_TV_NAMES.has(mockCustomerName.toLowerCase()))) {
+        mockCustomerName = 'கார்த்திக்';
+      }
+
       return NextResponse.json({
         status: 'play',
         queueId: nextItem.id,
         queueNumber: nextItem.queueNumber || null,
         reservationId,
         videoUrl: signedUrl,
-        customerName: cleanDisplayText((nextItem as any).customerName) || cleanDisplayText((video as any).customerName),
-        customerLocality: cleanDisplayText((nextItem as any).customerLocality) || cleanDisplayText((video as any).customerLocality),
+        customerName: mockCustomerName,
+        customerLocality: cleanDisplayText((nextItem as any).customerLocality) || cleanDisplayText((video as any).customerLocality) || 'தஞ்சாவூர்',
         liveAudioUrl: playbackProfile.playbackMode === 'external' ? (nextItem as any).liveAudioUrl || null : null,
         ...playbackProfile,
       });

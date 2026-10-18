@@ -4,6 +4,8 @@ import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket, isRealFire
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import {
   TAMIL_SHOWROOM_NAMES,
+  TAMIL_GENTS_NAMES,
+  TAMIL_LADIES_NAMES,
   getAssignedTvName,
   getTamilCustomerName,
 } from '@/lib/maharaja/names';
@@ -12,7 +14,7 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 
 const FALLBACK_NAME = 'Maharaja Guest';
 const MAX_PAGE_ITEMS = 200;
-const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil']);
+const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil', 'கீர்த்தனா', 'keerthana']);
 const TV_LOCALITY = 'தஞ்சாவூர்';
 
 function getMillis(value: any): number {
@@ -174,16 +176,30 @@ export async function GET(req: NextRequest) {
       const preparedVideos = readyVideos.map((video: any, index: number) => {
         const storagePath = selectedStoragePath(video);
         const catalog = catalogByPath.get(storagePath);
+        const isMen = video.category === 'men' ||
+          video.templateId === 'men' ||
+          storagePath.toLowerCase().includes('men') ||
+          storagePath.toLowerCase().includes('karthi') ||
+          storagePath.toLowerCase().includes('kurta');
         const requiredGentsName = getAssignedTvName(video.sessionId || stableSessionId(storagePath));
-        let displayName = requiredGentsName || (REMOVED_TV_NAMES.has(String(catalog?.displayName || '').toLocaleLowerCase())
-          ? undefined
-          : catalog?.displayName);
+        let displayName = requiredGentsName || (
+          (catalog?.displayName && REMOVED_TV_NAMES.has(String(catalog.displayName).trim().toLowerCase()))
+            ? undefined
+            : catalog?.displayName
+        );
+
+        if (isMen && (!displayName || !TAMIL_GENTS_NAMES.includes(displayName as any))) {
+          displayName = 'கார்த்திக்';
+        }
+
         let resolvedCatalog = catalog;
         const catalogLocalityNeedsUpdate = catalog?.displayLocality !== TV_LOCALITY;
-        const catalogNameNeedsUpdate = Boolean(requiredGentsName && catalog?.displayName !== requiredGentsName);
+        const catalogNameNeedsUpdate = Boolean(displayName && catalog?.displayName !== displayName);
         if (!displayName || catalogLocalityNeedsUpdate || catalogNameNeedsUpdate) {
           if (!displayName) {
-            displayName = TAMIL_SHOWROOM_NAMES.find((name) => !usedNames.has(name)) || getTamilCustomerName(storagePath, index);
+            displayName = isMen
+              ? 'கார்த்திக்'
+              : (TAMIL_LADIES_NAMES.find((name) => !usedNames.has(name)) || getTamilCustomerName(storagePath, index, 'women'));
             usedNames.add(displayName);
           }
           resolvedCatalog = {
@@ -198,7 +214,7 @@ export async function GET(req: NextRequest) {
             data: resolvedCatalog,
           });
         }
-        return { ...video, catalog: resolvedCatalog };
+        return { ...video, catalog: resolvedCatalog, isMen };
       });
 
       if (pendingCatalogWrites.length) {
@@ -224,7 +240,19 @@ export async function GET(req: NextRequest) {
           const replayId = buildReplayId(video.id, video.sessionId);
           const profile = getVideoPlaybackProfile(video, storagePath);
           const rawName = queueMeta?.customerName || video.customerName || video.catalog?.displayName;
-          const rawLocality = queueMeta?.customerLocality || video.customerLocality || video.catalog?.displayLocality;
+          const isMen = Boolean(video.isMen ||
+            video.category === 'men' ||
+            video.templateId === 'men' ||
+            storagePath.toLowerCase().includes('men') ||
+            storagePath.toLowerCase().includes('karthi') ||
+            storagePath.toLowerCase().includes('kurta'));
+
+          let customerName = isMen ? 'கார்த்திக்' : null;
+          if (!customerName) {
+            customerName = getAssignedTvName(video.sessionId || stableSessionId(storagePath)) || (rawName && rawName !== FALLBACK_NAME && !REMOVED_TV_NAMES.has(String(rawName).trim().toLowerCase())
+              ? cleanTvName(rawName, getTamilCustomerName(storagePath, index, 'women'))
+              : getTamilCustomerName(storagePath, index, 'women'));
+          }
 
           return {
             queueId: replayId,
@@ -236,9 +264,7 @@ export async function GET(req: NextRequest) {
             liveAudioUrl: profile.playbackMode === 'external'
               ? getLiveAudioTrack(replayId, queueMeta?.eventId || video.eventId)
               : null,
-            customerName: getAssignedTvName(video.sessionId || stableSessionId(storagePath)) || (rawName && rawName !== FALLBACK_NAME
-              ? cleanTvName(rawName, getTamilCustomerName(storagePath, index))
-              : getTamilCustomerName(storagePath, index)),
+            customerName,
             customerLocality: TV_LOCALITY,
             createdAt: video.createdAt || null,
             format: getVideoFormat(storagePath),
