@@ -14,6 +14,8 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 const FALLBACK_NAME = 'Maharaja Guest';
 const FALLBACK_LOCALITY = 'Maharaja';
 const MAX_PAGE_ITEMS = 200;
+const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil']);
+const REMOVED_TV_LOCALITIES = new Set(['திருச்சி', 'trichy', 'tiruchirappalli']);
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -39,6 +41,16 @@ function cleanDisplayText(value: unknown, fallback: string): string {
   if (typeof value !== 'string') return fallback;
   const cleaned = value.trim().replace(/\s+/g, ' ').slice(0, 48);
   return cleaned || fallback;
+}
+
+function cleanTvName(value: unknown, fallback: string): string {
+  const cleaned = cleanDisplayText(value, fallback);
+  return REMOVED_TV_NAMES.has(cleaned.toLocaleLowerCase()) ? fallback : cleaned;
+}
+
+function cleanTvLocality(value: unknown, fallback: string): string {
+  const cleaned = cleanDisplayText(value, fallback);
+  return REMOVED_TV_LOCALITIES.has(cleaned.toLocaleLowerCase()) ? fallback : cleaned;
 }
 
 function stableId(value: string): string {
@@ -126,17 +138,26 @@ export async function GET(req: NextRequest) {
         .filter((video: any) => isSupportedVideoPath(selectedStoragePath(video)))
         .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
 
-      const usedNames = new Set(Array.from(catalogByPath.values()).map((item) => item.displayName).filter(Boolean));
+      const usedNames = new Set(
+        Array.from(catalogByPath.values())
+          .map((item) => item.displayName)
+          .filter((name) => name && !REMOVED_TV_NAMES.has(String(name).toLocaleLowerCase()))
+      );
       const pendingCatalogWrites: Array<{ id: string; data: Record<string, unknown> }> = [];
 
       const preparedVideos = readyVideos.map((video: any, index: number) => {
         const storagePath = selectedStoragePath(video);
         const catalog = catalogByPath.get(storagePath);
-        let displayName = catalog?.displayName;
+        let displayName = REMOVED_TV_NAMES.has(String(catalog?.displayName || '').toLocaleLowerCase())
+          ? undefined
+          : catalog?.displayName;
         let resolvedCatalog = catalog;
-        if (!displayName) {
-          displayName = TAMIL_SHOWROOM_NAMES.find((name) => !usedNames.has(name)) || getTamilCustomerName(storagePath, index);
-          usedNames.add(displayName);
+        const catalogLocalityRemoved = REMOVED_TV_LOCALITIES.has(String(catalog?.displayLocality || '').toLocaleLowerCase());
+        if (!displayName || catalogLocalityRemoved) {
+          if (!displayName) {
+            displayName = TAMIL_SHOWROOM_NAMES.find((name) => !usedNames.has(name)) || getTamilCustomerName(storagePath, index);
+            usedNames.add(displayName);
+          }
           resolvedCatalog = {
             storagePath,
             displayName,
@@ -188,10 +209,10 @@ export async function GET(req: NextRequest) {
               ? getLiveAudioTrack(replayId, queueMeta?.eventId || video.eventId)
               : null,
             customerName: rawName && rawName !== FALLBACK_NAME
-              ? cleanDisplayText(rawName, getTamilCustomerName(storagePath, index))
+              ? cleanTvName(rawName, getTamilCustomerName(storagePath, index))
               : getTamilCustomerName(storagePath, index),
             customerLocality: rawLocality && rawLocality !== FALLBACK_LOCALITY
-              ? cleanDisplayText(rawLocality, getTamilCustomerLocality(storagePath, index))
+              ? cleanTvLocality(rawLocality, getTamilCustomerLocality(storagePath, index))
               : getTamilCustomerLocality(storagePath, index),
             createdAt: video.createdAt || null,
             format: getVideoFormat(storagePath),
@@ -227,8 +248,8 @@ export async function GET(req: NextRequest) {
         storagePath,
         videoUrl: await getSignedPlaybackUrl(storagePath),
         liveAudioUrl: profile.playbackMode === 'external' ? getLiveAudioTrack(replayId, video.eventId) : null,
-        customerName: cleanDisplayText(video.customerName, getTamilCustomerName(storagePath, index)),
-        customerLocality: cleanDisplayText(video.customerLocality, getTamilCustomerLocality(storagePath, index)),
+        customerName: cleanTvName(video.customerName, getTamilCustomerName(storagePath, index)),
+        customerLocality: cleanTvLocality(video.customerLocality, getTamilCustomerLocality(storagePath, index)),
         createdAt: video.createdAt || null,
         format: getVideoFormat(storagePath),
         ...profile,

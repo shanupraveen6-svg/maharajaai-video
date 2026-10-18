@@ -9,6 +9,8 @@ const SOURCE_SECONDS_FOR_LIVE = 6;
 const TV_SECONDS_FOR_LIVE = 9;
 const TV_PLAYBACK_RATE = SOURCE_SECONDS_FOR_LIVE / TV_SECONDS_FOR_LIVE;
 type Slot = 'a' | 'b';
+const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil']);
+const REMOVED_TV_LOCALITIES = new Set(['திருச்சி', 'trichy', 'tiruchirappalli']);
 
 type PlaybackItem = {
   queueId: string;
@@ -81,6 +83,22 @@ export default function TvPlayerPage() {
 
   const getVideoRef = (slot: Slot) => (slot === 'a' ? videoARef.current : videoBRef.current);
   const getInactiveSlot = () => (activeSlotRef.current === 'a' ? 'b' : 'a');
+
+  function displayCustomerName(playback: PlaybackItem | null): string {
+    const value = playback?.customerName?.trim() || '';
+    if (!value || value === 'Maharaja Guest' || value === 'Maharaja Customer' || REMOVED_TV_NAMES.has(value.toLocaleLowerCase())) {
+      return getTamilCustomerName(playback?.queueId || 'tv');
+    }
+    return value;
+  }
+
+  function displayCustomerLocality(playback: PlaybackItem | null): string {
+    const value = playback?.customerLocality?.trim() || '';
+    if (!value || value === 'Maharaja' || REMOVED_TV_LOCALITIES.has(value.toLocaleLowerCase())) {
+      return getTamilCustomerLocality(playback?.queueId || 'tv');
+    }
+    return value;
+  }
 
   function resetExternalAudio() {
     const audio = audioRef.current;
@@ -740,7 +758,7 @@ export default function TvPlayerPage() {
                   ? 'பிறந்தநாள்'
                   : 'தீபாவளி'}
                 <br />
-                நல்வாழ்த்துகள்
+                நல்வாழ்த்துக்கள்
               </h1>
 
               <div className="mt-7 h-px w-4/5 bg-gradient-to-r from-[#F6D36A] to-transparent" />
@@ -749,17 +767,13 @@ export default function TvPlayerPage() {
                 className="mt-7 text-[clamp(1.55rem,2.35vw,2.7rem)] font-black leading-tight text-white"
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
-                {currentPlayback?.customerName && currentPlayback.customerName !== 'Maharaja Guest' && currentPlayback.customerName !== 'Maharaja Customer'
-                  ? currentPlayback.customerName
-                  : getTamilCustomerName(currentPlayback?.queueId || 'tv')}
+                {displayCustomerName(currentPlayback)}
               </p>
               <p
                 className="mt-3 text-[clamp(1.15rem,1.75vw,2rem)] font-bold text-[#F6D36A]"
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
-                {currentPlayback?.customerLocality && currentPlayback.customerLocality !== 'Maharaja'
-                  ? currentPlayback.customerLocality
-                  : getTamilCustomerLocality(currentPlayback?.queueId || 'tv')}
+                {displayCustomerLocality(currentPlayback)}
               </p>
             </div>
           </section>

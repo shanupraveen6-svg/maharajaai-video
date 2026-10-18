@@ -13,7 +13,6 @@ export const TAMIL_SHOWROOM_NAMES = [
   'கீர்த்தனா',    // Keerthana
   'பவித்ரா',      // Pavithra
   'கார்த்திக்',    // Karthik
-  'செந்தில்',      // Senthil
   'விக்னேஷ்',     // Vignesh
   'தினேஷ்',       // Dinesh
   'பிரவீன்',      // Praveen
@@ -24,7 +23,6 @@ export const TAMIL_SHOWROOM_NAMES = [
 export const TAMIL_LOCALITIES = [
   'தஞ்சாவூர்',    // Thanjavur
   'கும்பகோணம்',   // Kumbakonam
-  'திருச்சி',     // Trichy
   'மன்னார்குடி',   // Mannargudi
   'பட்டுக்கோட்டை', // Pattukkottai
   'மயிலாடுதுறை',  // Mayiladuthurai
