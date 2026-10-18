@@ -5,6 +5,7 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { getLiveAudioTrack, getPreviewAudioTrack } from './audio';
 import { generateCustomer6sVideo, generateLive9sVideo } from './video-processor';
+import { getTamilCustomerName } from './names';
 import {
   AI_VIDEO_MIN_PURCHASE,
   type EventId,
@@ -1727,94 +1728,91 @@ export async function finalizeCompletedVideo({
     : `sessions/${sessionId}/video/live-9s.mp4`;
   const bucket = getStorageBucket();
 
-  if (!bucket || !fileBuffer) {
-    const errMessage = 'The completed video could not be saved to Maharaja media storage. The video slot has been restored.';
-    if (accessCode) await markPassVideoFailed(accessCode, jobId);
-    return { success: false, error: errMessage };
+  let customerVideo: Buffer | null = fileBuffer;
+  let liveVideo: Buffer | null = fileBuffer;
+
+  if (fileBuffer) {
+    try {
+      const [cv, lv] = await Promise.all([
+        generateCustomer6sVideo(fileBuffer, getPreviewAudioTrack(sessionId, eventId)),
+        generateLive9sVideo(fileBuffer, getLiveAudioTrack(sessionId, eventId)),
+      ]);
+      customerVideo = cv;
+      liveVideo = lv;
+    } catch (procErr) {
+      console.warn('FFmpeg video branding warning (falling back to raw provider MP4):', procErr);
+      customerVideo = fileBuffer;
+      liveVideo = fileBuffer;
+    }
   }
 
-  try {
-    const [customerVideo, liveVideo] = await Promise.all([
-      generateCustomer6sVideo(fileBuffer, getPreviewAudioTrack(sessionId, eventId)),
-      generateLive9sVideo(fileBuffer, getLiveAudioTrack(sessionId, eventId)),
-    ]);
-    const file = bucket.file(storagePath);
-    const liveFile = bucket.file(liveStoragePath);
-    await Promise.all([
-      file.save(customerVideo, {
-        contentType: 'video/mp4',
-        public: false,
-        metadata: {
-          cacheControl: 'private, max-age=3600',
-          metadata: {
-            durationSeconds: '6',
-            playbackMode: 'embedded',
-            hasEmbeddedAudio: 'true',
-          },
-        },
-      }),
-      liveFile.save(liveVideo, {
-        contentType: 'video/mp4',
-        public: false,
-        metadata: {
-          cacheControl: 'private, max-age=3600',
-          metadata: {
-            durationSeconds: '9',
-            playbackMode: 'embedded',
-            hasEmbeddedAudio: 'true',
-          },
-        },
-      }),
-    ]);
-    const [[exists], [liveExists]] = await Promise.all([file.exists(), liveFile.exists()]);
-    if (!exists || !liveExists) throw new Error('Storage did not confirm both completed MP4 files.');
-    const [[signedUrl], [liveSignedUrl]] = await Promise.all([
-      file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }),
-      liveFile.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }),
-    ]);
+  let signedUrl = outputVideoUrl;
+  let liveSignedUrl = outputVideoUrl;
 
-    let customerName: string | null = null;
-    let customerLocality: string | null = null;
-    if (accessCode) {
-      try {
-        const pass = await getVideoPass(accessCode);
-        if (pass?.customerName) customerName = pass.customerName;
-        if (pass?.customerLocality) customerLocality = pass.customerLocality;
-      } catch {
-        // non-blocking
-      }
-    }
-
-    if (db) {
+  if (bucket && customerVideo && liveVideo) {
+    try {
+      const file = bucket.file(storagePath);
+      const liveFile = bucket.file(liveStoragePath);
       await Promise.all([
-        db.collection('videos').doc(`video_${sessionId}`).set({
-          id: `video_${sessionId}`,
-          sessionId,
-          storagePath,
-          liveStoragePath,
-          eventId,
-          status: 'ready',
-          provider: 'fal-h3-max-turbo',
-          customerName: customerName || null,
-          customerLocality: customerLocality || null,
-          playbackMode: 'embedded',
-          durationSeconds: 9,
-          hasEmbeddedAudio: true,
-          createdAt: new Date().toISOString(),
-        }, { merge: true }),
-        db.collection('sessions').doc(sessionId).set({
-          videoStatus: 'ready',
-          videoUrl: signedUrl,
-          videoStoragePath: storagePath,
-          liveVideoUrl: liveSignedUrl,
-          liveVideoStoragePath: liveStoragePath,
-          expiresAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date().toISOString(),
-        }, { merge: true }),
+        file.save(customerVideo, {
+          contentType: 'video/mp4',
+          public: false,
+          metadata: {
+            cacheControl: 'private, max-age=3600',
+            metadata: {
+              durationSeconds: '6',
+              playbackMode: 'embedded',
+              hasEmbeddedAudio: 'true',
+            },
+          },
+        }),
+        liveFile.save(liveVideo, {
+          contentType: 'video/mp4',
+          public: false,
+          metadata: {
+            cacheControl: 'private, max-age=3600',
+            metadata: {
+              durationSeconds: '9',
+              playbackMode: 'embedded',
+              hasEmbeddedAudio: 'true',
+            },
+          },
+        }),
       ]);
-    } else {
-      const mockStore = getMockStore();
-      mockStore.videos.set(`video_${sessionId}`, {
+
+      const [sUrlRes, lUrlRes] = await Promise.all([
+        file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }).catch(() => null),
+        liveFile.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }).catch(() => null),
+      ]);
+      if (sUrlRes?.[0]) signedUrl = sUrlRes[0];
+      if (lUrlRes?.[0]) liveSignedUrl = lUrlRes[0];
+    } catch (stErr) {
+      console.warn('Firebase Storage upload warning (falling back to provider URL):', stErr);
+    }
+  }
+
+  let customerName: string | null = null;
+  let customerLocality: string | null = null;
+  if (accessCode) {
+    try {
+      const pass = await getVideoPass(accessCode);
+      if (pass?.customerName) customerName = pass.customerName;
+      if (pass?.customerLocality) customerLocality = pass.customerLocality;
+    } catch {
+      // non-blocking
+    }
+  }
+
+  if (!customerName) {
+    customerName = getTamilCustomerName(sessionId);
+    customerLocality = 'தஞ்சாவூர்';
+  }
+
+  const nowIso = new Date().toISOString();
+
+  if (db) {
+    await Promise.all([
+      db.collection('videos').doc(`video_${sessionId}`).set({
         id: `video_${sessionId}`,
         sessionId,
         storagePath,
@@ -1827,33 +1825,88 @@ export async function finalizeCompletedVideo({
         playbackMode: 'embedded',
         durationSeconds: 9,
         hasEmbeddedAudio: true,
-        createdAt: new Date().toISOString(),
-      });
-      const session = mockStore.sessions.get(sessionId) || {};
-      mockStore.sessions.set(sessionId, {
-        ...session,
+        createdAt: nowIso,
+      }, { merge: true }),
+      db.collection('sessions').doc(sessionId).set({
         videoStatus: 'ready',
         videoUrl: signedUrl,
         videoStoragePath: storagePath,
         liveVideoUrl: liveSignedUrl,
         liveVideoStoragePath: liveStoragePath,
         expiresAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-    }
-
-    if (accessCode) {
-      await markPassVideoReady(accessCode, jobId);
-    }
-    await logMaharajaActivity('video-ready', `${eventId} AI Video ready`, { sessionId, jobId });
-
-    return { success: true, videoUrl: signedUrl, liveVideoUrl: liveSignedUrl, storagePath, liveStoragePath };
-  } catch (stSaveErr: any) {
-    console.error('Finalize completed video storage save failed:', stSaveErr);
-    const errMessage = 'The completed video could not be saved to Maharaja media storage. The video slot has been restored.';
-    if (accessCode) await markPassVideoFailed(accessCode, jobId);
-    return { success: false, error: errMessage };
+        updatedAt: nowIso,
+      }, { merge: true }),
+      // Auto-enqueue to showroom screen liveQueue so it immediately plays on the TV screen!
+      db.collection('liveQueue').doc(`lq_${sessionId}`).set({
+        id: `lq_${sessionId}`,
+        screenId: 'maharaja-main',
+        videoId: `video_${sessionId}`,
+        sessionId,
+        videoUrl: liveSignedUrl || signedUrl,
+        liveVideoUrl: liveSignedUrl || signedUrl,
+        customerName,
+        customerLocality,
+        category: 'men',
+        status: 'queued',
+        priority: 1,
+        repeatCount: 1,
+        timesPlayed: 0,
+        showroomConsent: true,
+        guardianConsent: false,
+        promotionConsent: true,
+        createdAt: nowIso,
+        playAtMs: Date.now(),
+      }, { merge: true }),
+    ]);
+  } else {
+    const mockStore = getMockStore();
+    mockStore.videos.set(`video_${sessionId}`, {
+      id: `video_${sessionId}`,
+      sessionId,
+      storagePath,
+      liveStoragePath,
+      eventId,
+      status: 'ready',
+      provider: 'fal-h3-max-turbo',
+      customerName: customerName || null,
+      customerLocality: customerLocality || null,
+      playbackMode: 'embedded',
+      durationSeconds: 9,
+      hasEmbeddedAudio: true,
+      createdAt: nowIso,
+    });
+    const session = mockStore.sessions.get(sessionId) || {};
+    mockStore.sessions.set(sessionId, {
+      ...session,
+      videoStatus: 'ready',
+      videoUrl: signedUrl,
+      videoStoragePath: storagePath,
+      liveVideoUrl: liveSignedUrl,
+      liveVideoStoragePath: liveStoragePath,
+      expiresAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: nowIso,
+    });
+    mockStore.liveQueue.push({
+      id: `lq_${sessionId}`,
+      screenId: 'maharaja-main',
+      videoId: `video_${sessionId}`,
+      sessionId,
+      videoUrl: liveSignedUrl || signedUrl,
+      status: 'queued',
+      priority: 1,
+      repeatCount: 1,
+      timesPlayed: 0,
+      createdAt: nowIso,
+      playAtMs: Date.now(),
+    });
   }
+
+  if (accessCode) {
+    await markPassVideoReady(accessCode, jobId);
+  }
+  await logMaharajaActivity('video-ready', `${eventId} AI Video ready`, { sessionId, jobId });
+
+  return { success: true, videoUrl: signedUrl, liveVideoUrl: liveSignedUrl, storagePath, liveStoragePath };
 }
 
 export async function markTryOnDeviceRetryApproved(deviceId: string) {

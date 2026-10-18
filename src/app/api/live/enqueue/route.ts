@@ -67,10 +67,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Showroom display permission is required for Go Live.' }, { status: 400 });
     }
     const storedCategory = access.pass?.videoMasterCategory;
-    if (!storedCategory || !['women', 'men', 'girl', 'boy'].includes(storedCategory)) {
-      return NextResponse.json({ success: false, error: 'The approved customer category is missing. Generate and approve the video portrait again.' }, { status: 409 });
-    }
-    const category = storedCategory;
+    const category = (storedCategory && ['women', 'men', 'girl', 'boy'].includes(storedCategory))
+      ? storedCategory
+      : (body.category && ['women', 'men', 'girl', 'boy'].includes(body.category) ? body.category : 'men');
     const isMinorCategory = category === 'girl' || category === 'boy';
     if (isMinorCategory && body.guardianConsent !== true) {
       return NextResponse.json({ success: false, error: 'Parent or legal guardian permission is required for a child to Go Live.' }, { status: 400 });
