@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Sparkles, Volume2 } from 'lucide-react';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
+import { getTamilCustomerName, getTamilCustomerLocality } from '@/lib/maharaja/names';
 
 const SOURCE_SECONDS_FOR_LIVE = 6;
 const TV_SECONDS_FOR_LIVE = 9;
@@ -315,15 +316,20 @@ export default function TvPlayerPage() {
     liveAudioStartedRef.current = false;
     loopInProgressRef.current = false;
     try {
-      const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+      const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
       const rate = isNative9s ? 1.0 : TV_PLAYBACK_RATE;
       video.defaultPlaybackRate = rate;
       video.playbackRate = rate;
       video.currentTime = 0;
-      if (audioRef.current) {
+      video.muted = false;
+      video.volume = 0.92;
+
+      if (!isNative9s && audioRef.current) {
         audioRef.current.src = playback.liveAudioUrl || getLiveAudioTrack(playback.queueId);
         audioRef.current.currentTime = 0;
         audioRef.current.volume = 0.88;
+      } else if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
       }
       await video.play();
       clearPlaybackWatchdog();
@@ -371,14 +377,12 @@ export default function TvPlayerPage() {
     if (slot !== activeSlotRef.current || !playback) return;
     if (video.readyState < 2 || video.currentTime < 0.08 || video.paused) return;
 
-    const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+    const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
     if (isNative9s) {
-      // Native 9s showroom broadcast video already contains the multiplexed AAC Tamil audio.
+      // Native showroom broadcast video already contains the multiplexed AAC Tamil audio.
       // Play container audio directly from the video element to guarantee 100% zero-drift, click-free audio.
-      if (video.muted) {
-        video.muted = false;
-        video.volume = 0.88;
-      }
+      video.muted = false;
+      video.volume = 0.92;
       if (audioRef.current && !audioRef.current.paused) {
         audioRef.current.pause();
       }
@@ -454,8 +458,10 @@ export default function TvPlayerPage() {
       const video = getVideoRef(activeSlotRef.current);
       if (!video) return;
       video.currentTime = 0;
-      const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+      const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
       video.playbackRate = isNative9s ? 1.0 : TV_PLAYBACK_RATE;
+      video.muted = false;
+      video.volume = 0.92;
       video.play().catch((err) => {
         console.error('Failed to loop current TV video:', err);
         setPlaybackError('Autoplay blocked. Press play to continue video.');
@@ -503,7 +509,7 @@ export default function TvPlayerPage() {
     if (slot !== activeSlotRef.current || !currentPlaybackRef.current) return;
 
     startLiveAudioWithVisibleVideo(slot, video);
-    const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+    const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
     const duration = isNative9s
       ? video.duration
       : (Number.isFinite(video.duration) && video.duration > 0 ? Math.min(video.duration, SOURCE_SECONDS_FOR_LIVE) : SOURCE_SECONDS_FOR_LIVE);
@@ -512,7 +518,7 @@ export default function TvPlayerPage() {
       clearPlaybackWatchdog();
     }
 
-    if (video.currentTime >= duration - 0.05 && !loopInProgressRef.current) {
+    if (video.currentTime >= duration - 0.08 && !loopInProgressRef.current) {
       loopInProgressRef.current = true;
       void handleVideoEnded();
       return;
@@ -586,13 +592,11 @@ export default function TvPlayerPage() {
         key={`${slot}-${playback?.queueId || 'empty'}`}
         ref={slot === 'a' ? videoARef : videoBRef}
         src={playback?.videoUrl || undefined}
-        loop
-        muted
         playsInline
         preload="auto"
         onLoadedMetadata={(event) => {
           const video = event.currentTarget;
-          const isNative9s = Number.isFinite(video.duration) && video.duration >= 8.0;
+          const isNative9s = Number.isFinite(video.duration) && video.duration >= 7.5;
           const rate = isNative9s ? 1.0 : TV_PLAYBACK_RATE;
           video.defaultPlaybackRate = rate;
           video.playbackRate = rate;
@@ -740,13 +744,17 @@ export default function TvPlayerPage() {
                 className="mt-7 text-[clamp(1.55rem,2.35vw,2.7rem)] font-black leading-tight text-white"
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
-                {currentPlayback?.customerName || 'காவ்யா'}
+                {currentPlayback?.customerName && currentPlayback.customerName !== 'Maharaja Guest' && currentPlayback.customerName !== 'Maharaja Customer'
+                  ? currentPlayback.customerName
+                  : getTamilCustomerName(currentPlayback?.queueId || 'tv')}
               </p>
               <p
                 className="mt-3 text-[clamp(1.15rem,1.75vw,2rem)] font-bold text-[#F6D36A]"
                 style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
               >
-                {currentPlayback?.customerLocality || 'தஞ்சாவூர்'}
+                {currentPlayback?.customerLocality && currentPlayback.customerLocality !== 'Maharaja'
+                  ? currentPlayback.customerLocality
+                  : getTamilCustomerLocality(currentPlayback?.queueId || 'tv')}
               </p>
             </div>
           </section>

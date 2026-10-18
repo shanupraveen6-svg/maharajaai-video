@@ -71,6 +71,8 @@ export type MaharajaVideoPass = {
   clientId: typeof MAHARAJA_CLIENT_ID;
   phone: string;
   phoneMasked: string;
+  customerName?: string;
+  customerLocality?: string;
   billLast4: string;
   eventId: EventId;
   status: 'active' | 'used' | 'revoked' | 'expired';
@@ -1749,6 +1751,18 @@ export async function finalizeCompletedVideo({
       liveFile.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }),
     ]);
 
+    let customerName: string | null = null;
+    let customerLocality: string | null = null;
+    if (accessCode) {
+      try {
+        const pass = await getVideoPass(accessCode);
+        if (pass?.customerName) customerName = pass.customerName;
+        if (pass?.customerLocality) customerLocality = pass.customerLocality;
+      } catch {
+        // non-blocking
+      }
+    }
+
     if (db) {
       await Promise.all([
         db.collection('videos').doc(`video_${sessionId}`).set({
@@ -1759,6 +1773,8 @@ export async function finalizeCompletedVideo({
           eventId,
           status: 'ready',
           provider: 'fal-h3-max-turbo',
+          customerName: customerName || null,
+          customerLocality: customerLocality || null,
           createdAt: new Date().toISOString(),
         }, { merge: true }),
         db.collection('sessions').doc(sessionId).set({
@@ -1781,6 +1797,8 @@ export async function finalizeCompletedVideo({
         eventId,
         status: 'ready',
         provider: 'fal-h3-max-turbo',
+        customerName: customerName || null,
+        customerLocality: customerLocality || null,
         createdAt: new Date().toISOString(),
       });
       const session = mockStore.sessions.get(sessionId) || {};

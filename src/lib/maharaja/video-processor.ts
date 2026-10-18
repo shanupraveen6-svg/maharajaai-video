@@ -38,14 +38,17 @@ async function generateBrandedVideo(
   try {
     await fs.promises.writeFile(tmpIn, inputBuffer);
     const timingFilter = stretchToNineSeconds ? 'setpts=1.5*PTS' : 'setpts=PTS-STARTPTS';
+    const fadeOutStart = (durationSeconds - 0.25).toFixed(2);
+    const audioFilter = `[1:a]apad,aformat=sample_rates=44100:channel_layouts=stereo,afade=t=in:st=0:d=0.05,afade=t=out:st=${fadeOutStart}:d=0.25[a_out]`;
+    const filterComplex = `[0:v]${timingFilter}[timed];[2:v]scale=96:96[logo];[timed][logo]overlay=W-w-24:24[v_out];${audioFilter}`;
     const args = [
       '-y',
       '-i', tmpIn,
       '-i', audioPath,
       '-i', logoPath,
-      '-filter_complex', `[0:v]${timingFilter}[timed];[2:v]scale=96:96[logo];[timed][logo]overlay=W-w-24:24[v_out]`,
+      '-filter_complex', filterComplex,
       '-map', '[v_out]',
-      '-map', '1:a:0',
+      '-map', '[a_out]',
       '-t', String(durationSeconds),
       '-c:v', 'libx264',
       '-preset', 'veryfast',
@@ -53,6 +56,8 @@ async function generateBrandedVideo(
       '-pix_fmt', 'yuv420p',
       '-c:a', 'aac',
       '-b:a', '192k',
+      '-ar', '44100',
+      '-ac', '2',
       '-movflags', '+faststart',
       tmpOut,
     ];
