@@ -6,7 +6,8 @@ import { approvePassVideoMaster, logMaharajaActivity, verifyMaharajaAccess } fro
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { accessCode, sessionId, masterImageUrl } = body;
+    const { accessCode, sessionId, masterImageUrl, imageUrl } = body;
+    const targetUrl = masterImageUrl || imageUrl;
 
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'sessionId is required.' }, { status: 400 });
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
 
-    let approvedUrl = masterImageUrl;
+    let approvedUrl = targetUrl;
     if (access.pass) {
       if (!access.pass.videoMasterDone || !access.pass.videoMasterUrl) {
         return NextResponse.json(
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      if (masterImageUrl && access.pass.videoMasterUrl !== masterImageUrl) {
+      if (targetUrl && access.pass.videoMasterUrl !== targetUrl) {
         return NextResponse.json(
           { success: false, error: 'Master image version mismatch: This image was superseded by another generation.' },
           { status: 409 }

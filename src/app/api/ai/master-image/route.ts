@@ -336,6 +336,9 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       : {
         masterImageUrl,
         masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
+        masterImageApproved: true,
+        masterImageApprovedAt: nowIso,
+        masterImageApprovedUrl: masterImageUrl,
       };
 
     // Protect Firestore against 1MB document size limit if Storage was bypassed
@@ -429,6 +432,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       success: true,
       sessionId,
       masterImageUrl,
+      approved: true,
       allowances: updatedAllowances,
       operatorMessage: 'Master fashion reference generated successfully.'
     });

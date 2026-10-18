@@ -126,50 +126,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setMasterApproved(false);
   }
 
-  async function handleApproveMaster() {
-    if (!videoMasterUrl) return;
-    try {
-      const res = await fetch('/api/ai/master-image/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          accessCode,
-          masterImageUrl: videoMasterUrl,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Approval failed.');
-      setMasterApproved(true);
-      setMessage('Festival portrait approved! You can now generate your 6-second cinematic video.');
-      setError('');
-    } catch (err) {
-      setError(customerError(err, 'Failed to approve portrait.'));
-    }
-  }
-
-  async function handleRejectMaster() {
-    if (!videoMasterUrl) return;
-    try {
-      await fetch('/api/ai/master-image/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          accessCode,
-          service: 'ai-video',
-          reason: 'customer_rejected',
-        }),
-      });
-      setVideoMasterUrl(null);
-      setMasterApproved(false);
-      setMessage('Portrait rejected. Please adjust your photos or style and generate a fresh portrait.');
-      setError('');
-    } catch (err) {
-      setError(customerError(err, 'Failed to reject portrait.'));
-    }
-  }
-
   async function handleStyleChange(newSet: VideoPromptSet) {
     if (newSet === promptSet) return;
     setPromptSet(newSet);
@@ -294,15 +250,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           if (data.access.tryOnImageUrl) setTryOnImageUrl(data.access.tryOnImageUrl);
           if (data.access.videoMasterUrl) {
             setVideoMasterUrl(data.access.videoMasterUrl);
-            setMasterApproved(Boolean(data.access.videoMasterApproved));
+            setMasterApproved(true);
           }
           if (data.access.videoMasterPromptSet) {
             setPromptSet(data.access.videoMasterPromptSet);
           }
           setMessage(data.access.videoMasterUrl
-            ? (data.access.videoMasterApproved
-                ? 'Your festival portrait is approved and ready. Create your 6-second AI video below.'
-                : 'Your festival portrait is ready for review. Please inspect and approve it below.')
+            ? 'Your festival portrait is ready. Create your 6-second AI video below.'
             : 'Your Try-On image is ready. Switch to AI Video to create your festival image and video.');
         }
         if (!used) window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
@@ -706,7 +660,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             AI Try-On allowance exhausted (2/2 completed). Limit reached for this customer.
           </div>
         )}
-        {enforceLimits && activeService === 'ai-video' && !masterApproved && allowances.masterImage.used >= 2 && (
+        {enforceLimits && activeService === 'ai-video' && !videoMasterUrl && allowances.masterImage.used >= 2 && (
           <div className="mb-4 border border-red-300 bg-red-50 p-3 text-xs md:text-sm font-bold text-red-800 text-center rounded shadow-sm">
             Celebration Image allowance exhausted (2/2 completed). Limit reached for this customer.
           </div>
