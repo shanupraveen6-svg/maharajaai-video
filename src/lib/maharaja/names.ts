@@ -20,6 +20,13 @@ export const TAMIL_SHOWROOM_NAMES = [
   'சரவணன்',      // Saravanan
 ] as const;
 
+export const TAMIL_GENTS_NAMES = [
+  'கார்த்திக்',
+  'விக்னேஷ்',
+  'தினேஷ்',
+  'அருண்',
+] as const;
+
 export const TAMIL_LOCALITIES = [
   'தஞ்சாவூர்',    // Thanjavur
 ] as const;

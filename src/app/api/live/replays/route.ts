@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket, isRealFirebaseAvailable } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import {
+  TAMIL_GENTS_NAMES,
   TAMIL_SHOWROOM_NAMES,
   getTamilCustomerName,
 } from '@/lib/maharaja/names';
@@ -66,6 +67,10 @@ function isPlayableVideo(video: any): boolean {
 function stableSessionId(storagePath: string): string {
   const match = storagePath.match(/sessions\/([^/]+)\//);
   return match?.[1] || `stored_${stableId(storagePath).slice(0, 12)}`;
+}
+
+function getGentsNameForPosition(index: number): string | null {
+  return index >= 4 && index <= 7 ? TAMIL_GENTS_NAMES[index - 4] : null;
 }
 
 export async function GET(req: NextRequest) {
@@ -173,12 +178,14 @@ export async function GET(req: NextRequest) {
       const preparedVideos = readyVideos.map((video: any, index: number) => {
         const storagePath = selectedStoragePath(video);
         const catalog = catalogByPath.get(storagePath);
-        let displayName = REMOVED_TV_NAMES.has(String(catalog?.displayName || '').toLocaleLowerCase())
+        const requiredGentsName = getGentsNameForPosition(index);
+        let displayName = requiredGentsName || (REMOVED_TV_NAMES.has(String(catalog?.displayName || '').toLocaleLowerCase())
           ? undefined
-          : catalog?.displayName;
+          : catalog?.displayName);
         let resolvedCatalog = catalog;
         const catalogLocalityNeedsUpdate = catalog?.displayLocality !== TV_LOCALITY;
-        if (!displayName || catalogLocalityNeedsUpdate) {
+        const catalogNameNeedsUpdate = Boolean(requiredGentsName && catalog?.displayName !== requiredGentsName);
+        if (!displayName || catalogLocalityNeedsUpdate || catalogNameNeedsUpdate) {
           if (!displayName) {
             displayName = TAMIL_SHOWROOM_NAMES.find((name) => !usedNames.has(name)) || getTamilCustomerName(storagePath, index);
             usedNames.add(displayName);
@@ -233,9 +240,9 @@ export async function GET(req: NextRequest) {
             liveAudioUrl: profile.playbackMode === 'external'
               ? getLiveAudioTrack(replayId, queueMeta?.eventId || video.eventId)
               : null,
-            customerName: rawName && rawName !== FALLBACK_NAME
+            customerName: getGentsNameForPosition(index) || (rawName && rawName !== FALLBACK_NAME
               ? cleanTvName(rawName, getTamilCustomerName(storagePath, index))
-              : getTamilCustomerName(storagePath, index),
+              : getTamilCustomerName(storagePath, index)),
             customerLocality: TV_LOCALITY,
             createdAt: video.createdAt || null,
             format: getVideoFormat(storagePath),
