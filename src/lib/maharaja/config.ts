@@ -163,83 +163,57 @@ export function getGarmentFidelityRules(
   categoryOrGarment: CustomerCategory | GarmentType,
   isVideo = false
 ): string {
+  if (isVideo) {
+    return `CLOTHING LOCK & FABRIC STABILITY (ZERO MORPHING):
+- Absolute Garment Consistency: The subject must wear the exact same clothing, fabric weave, pattern, colors, collar, sleeves, and fit shown in the initial reference image.
+- Strictly FORBIDDEN: Absolutely NO clothing change, NO dress morphing, NO outfit swapping, NO color shifting, NO added embroidery, and NO texture alteration.
+- The outfit present in the input image must remain 100% unchanged across all video frames from start to finish.
+- Fabric drape remains anchored to body contours with zero pattern drift and zero texture swimming.`;
+  }
+
   const type: GarmentType = ['saree', 'lehenga', 'salwar', 'kurta_dhoti', 'pattu_pavadai', 'boy_ethnic', 'generic'].includes(categoryOrGarment)
     ? (categoryOrGarment as GarmentType)
     : resolveGarmentType(categoryOrGarment as CustomerCategory);
 
   switch (type) {
     case 'saree':
-      return isVideo
-        ? `SAREE SPECIFIC FIDELITY:
-- Preserve exact blouse construction, continuous six-yard saree drape, vertical waist pleats grounded to floor, metallic gold zari borders, and ornate pallu over shoulder.
-- Motion Constraints: Pleats, waist tuck, blouse, and borders remain anchored with zero pattern drift. Free-hanging pallu edge has subtle micro-sway only.`
-        : `SAREE SPECIFIC FIDELITY:
+      return `SAREE SPECIFIC FIDELITY:
 - Render the exact blouse design (neckline, sleeve length), complete six-yard saree body drape, crisp vertical waist pleats falling straight to the floor, authentic metallic gold zari borders along edges, and the exact ornate pallu draped elegantly over the shoulder.
 - Jewelry: Traditional festive jewelry (kasu malai, jhumkas, bangles) naturally seated against skin and silk.`;
 
     case 'lehenga':
-      return isVideo
-        ? `LEHENGA / CHOLI SPECIFIC FIDELITY:
-- Preserve exact flared skirt/kalis silhouette, waistband/kamarbandh, choli bodice construction and neckline, and dupatta drape. Rich embroidery and border motifs strictly preserved.
-- Strictly NO saree pleats, NO continuous saree body drape.
-- Motion Constraints: Skirt waistband, choli, and hem borders remain geometrically anchored. Free-hanging dupatta edge may have subtle, delicate micro-sway only.`
-        : `LEHENGA / CHOLI SPECIFIC FIDELITY:
+      return `LEHENGA / CHOLI SPECIFIC FIDELITY:
 - Render exact flared skirt/kalis silhouette, waistband/kamarbandh, choli bodice construction and neckline, and dupatta drape. Rich embroidery and border motifs strictly preserved.
 - Strictly NO saree pleats, NO continuous saree body drape.
 - Jewelry: Traditional festive jewelry naturally seated against skin and fabric.`;
 
     case 'salwar':
-      return isVideo
-        ? `SALWAR / ANARKALI SPECIFIC FIDELITY:
-- Preserve exact flowing tunic/anarkali flare, neckline, sleeve cut, churidar/pant fit, and dupatta drape.
-- Strictly NO saree pleats, NO saree body drape, NO choli exposure.
-- Motion Constraints: Tunic bodice, waist, and pant remain geometrically anchored. Free-hanging dupatta edge may have subtle micro-sway only.`
-        : `SALWAR / ANARKALI SPECIFIC FIDELITY:
+      return `SALWAR / ANARKALI SPECIFIC FIDELITY:
 - Render exact flowing tunic/anarkali flare, neckline, sleeve cut, churidar/pant fit, and dupatta drape.
 - Strictly NO saree pleats, NO saree body drape, NO choli exposure.
 - Jewelry: Traditional festive jewelry naturally seated against skin and fabric.`;
 
     case 'kurta_dhoti':
-      return isVideo
-        ? `MEN'S TRADITIONAL SPECIFIC FIDELITY:
-- Preserve exact kurta silhouette, mandarin/stand collar construction, placket buttons, fabric weave, and dhoti/veshti pleats or churidar/pyjama fit. Angavastram/shawl if present.
-- Strictly NO feminine garment elements, NO saree drapes, NO blouse styling.
-- Motion Constraints: Kurta hem and dhoti/pyjama remain geometrically anchored with zero pattern drift or limb duplication.
-- Posture: Confident, regal, masculine traditional posture with grounded feet.`
-        : `MEN'S TRADITIONAL SPECIFIC FIDELITY:
+      return `MEN'S TRADITIONAL SPECIFIC FIDELITY:
 - Render exact kurta silhouette, collar construction, placket buttons, fabric weave, and dhoti/veshti pleats or churidar/pyjama fit. Angavastram/shawl if present.
 - Strictly NO feminine garment elements, NO saree drapes, NO blouse styling.
 - Posture: Confident, regal, masculine traditional posture with grounded feet.`;
 
     case 'boy_ethnic':
-      return isVideo
-        ? `BOY'S TRADITIONAL ETHNIC FIDELITY:
-- Preserve age-appropriate boy's traditional Indian wear (festive kurta-pyjama or dhoti-shirt) matching the uploaded reference.
-- Strictly NO adult glamour, NO mature posing, NO saree/pallu elements.
-- Natural cheerful boyish poise with anchored feet.`
-        : `BOY'S TRADITIONAL ETHNIC FIDELITY:
+      return `BOY'S TRADITIONAL ETHNIC FIDELITY:
 - Render age-appropriate boy's traditional Indian wear (festive kurta-pyjama or dhoti-shirt) matching the uploaded reference.
 - Strictly NO adult glamour, NO mature posing, NO saree/pallu elements.
 - Cheerful, natural boyish charm and modest styling.`;
 
     case 'pattu_pavadai':
-      return isVideo
-        ? `GIRL'S TRADITIONAL ETHNIC FIDELITY:
-- Preserve age-appropriate girl's traditional Indian wear (pattu pavadai silk skirt and blouse/choli or festive anarkali).
-- Strictly NO adult glamour, NO adult saree drape, NO mature styling.
-- Gentle micro-sway on pavadai skirt hem only; natural cheerful girl princess poise with anchored feet.`
-        : `GIRL'S TRADITIONAL ETHNIC FIDELITY:
+      return `GIRL'S TRADITIONAL ETHNIC FIDELITY:
 - Render age-appropriate girl's traditional Indian wear (pattu pavadai silk skirt and blouse/choli or festive anarkali).
 - Strictly NO adult glamour, NO adult saree drape, NO mature styling.
 - Charming, natural girl princess elegance and modest styling.`;
 
     case 'generic':
     default:
-      return isVideo
-        ? `GARMENT REFERENCE FIDELITY:
-- Preserve exact uploaded garment silhouette, neckline, sleeve length, waist construction, fabric weave, and dye colors.
-- Motion Constraints: Garment remains geometrically anchored to the body contours with zero pattern drift or cloth melting.`
-        : `GARMENT REFERENCE FIDELITY:
+      return `GARMENT REFERENCE FIDELITY:
 - Render exact uploaded garment silhouette, neckline, sleeve length, waist construction, fabric weave, and dye colors faithfully matching references.`;
   }
 }
@@ -588,11 +562,11 @@ export function buildMasterPrompt(
 }
 
 /** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */
-export const UNIVERSAL_VIDEO_PROMPT = `Create a premium luxury Indian festive fashion commercial from the master image with realistic human vitality, exact garment fidelity, and cinematic parallax.
+export const UNIVERSAL_VIDEO_PROMPT = `Create a premium luxury Indian festive fashion commercial from the master image with realistic human vitality, absolute garment preservation, and cinematic camera motion.
 
-P0 — ABSOLUTE FIDELITY (NON-NEGOTIABLE):
+P0 — ABSOLUTE FIDELITY & ZERO CLOTHING CHANGE (NON-NEGOTIABLE):
 - Identity: Preserve exact facial geometry, eyes, nose, jawline, skin tone, hair, and body proportions. Zero face reshaping, beautification, or identity alteration.
-- Garment: Preserve exact silhouette, fabric weave, embroidery, border geometry, and dye hues. Neutral grey stays pure grey. Zero color shifting or pattern swimming.
+- Garment & Attire: Preserve 100% of the exact clothing, fabric weave, collar, neckline, sleeves, and colors seen in the master reference image. Strictly ZERO clothing changes, ZERO dress morphing, ZERO outfit swapping, ZERO added embroidery, and ZERO color shifting. The subject's clothes must remain completely unchanged from the initial frame to the final frame.
 - Jewelry: Visible ornaments remain solidly anchored with zero floating.
 
 P1 — NATURAL HUMAN PRESENCE:
@@ -600,14 +574,14 @@ P1 — NATURAL HUMAN PRESENCE:
 - Grounded: feet stay firmly anchored to floor coordinates with zero walking or stepping. Avoid stiff mannequin stare.
 
 P2 — LUXURY CAMERA CHOREOGRAPHY & PARALLAX:
-- Smooth optical dolly-in with restrained 10°–15° lateral perspective shift from reference viewpoint.
+- Smooth optical dolly-in with restrained 8°–12° lateral perspective shift from reference viewpoint.
 - Multi-plane parallax between foreground celebratory decor, midground subject, and background setting. Never invent unseen reverse surfaces.
 
 P3 — LIVING FESTIVE ENVIRONMENT:
-- Ambient festive lighting reveals textile luster without altering dye colors.
+- Ambient festive lighting illuminates the scene naturally without altering the subject's true clothing colors or skin tone.
 
 P4 — NATURAL FABRIC PHYSICS:
-- Free-hanging fabric edges have subtle micro-sway in air.
+- Free-hanging fabric edges have subtle natural micro-sway in air. Zero pattern swimming, zero texture distortion.
 
 CONFLICT RESOLUTION RULE:
 - Fidelity strictly overrides motion. Dampen motion to protect identity and fabric stability.`;
@@ -656,13 +630,15 @@ Create a premium 6-second vertical festive fashion commercial from the master im
 ANCHORED STABILIZED POSTURE:
 - Subject remains poised and firmly anchored in the exact pose: feet stay locked to floor coordinates with zero walking, turning, stepping, or hand gestures.
 - Natural human vitality: allow subtle gentle breathing (<1cm), 1 natural soft blink, and a warm, composed festive closed-mouth expression. Strictly avoid dead wax mannequin stares.
-- Strict Garment Stability: zero fabric fluttering, zero pattern crawling, zero border drift. Fabric drape and pleats remain locked to body contours.
+- Strict Garment Stability: zero fabric fluttering, zero pattern crawling, zero border drift. Fabric drape remains locked to body contours.
 - Camera: Camera remains stationary on a locked-off tripod with a very gentle, subtle optical push/zoom starting at frame 1. Strictly ZERO lateral rotation, ZERO panning, ZERO tilt, ZERO orbit, and ZERO reframing.
 
-Preserve the exact face, identity, hairstyle, body proportions, garment design, garment embroidery, and garment colours.
+Preserve the exact face, identity, hairstyle, body proportions, and exact outfit from the master reference image.
+Do not change or morph clothing.
+Do not change garment colours, fabrics, or patterns.
+Do not add or remove embroidery.
 Do not beautify the face.
 Do not change facial geometry.
-Do not change garment colours.
 Do not change the pose.
 
 Allow only:
@@ -710,8 +686,8 @@ export function buildBackup2PushVideoPrompt(
 export const MASTER_IMAGE_UNIVERSAL_PREFIX = UNIVERSAL_GEMINI_IMAGE_PROMPT;
 export const UNIVERSAL_HAILUO_VIDEO_BASE = UNIVERSAL_VIDEO_PROMPT;
 
-// fal currently publishes no prompt-length maximum; this local cap keeps H3 instructions focused.
-export const MAX_VIDEO_PROMPT_CHARS = 2800;
+// fal currently publishes no prompt-length maximum; this cap prevents unintentional runaway prompts.
+export const MAX_VIDEO_PROMPT_CHARS = 3500;
 
 export interface MotionSafetyRuleOptions {
   lowerBodyVisibility?: string;
@@ -749,7 +725,7 @@ export function buildFinalPrompt(
 ): string {
   let executionRule = '';
   if (isFailSafe || basePrompt.includes('FAIL-SAFE REGENERATION MODE')) {
-    executionRule = 'STABILIZED LOCKED REGENERATION: Subject geometry, facial features, skin tone, and garment weave are locked from frame 1. Subject remains stationary and poised with feet anchored to floor coordinates with zero walking or turning. Only gentle natural breathing and soft blink permitted. Camera is stationary on locked-off tripod with gentle optical push/zoom. Zero texture swimming, zero distortion.';
+    executionRule = 'STABILIZED LOCKED REGENERATION: Subject geometry, facial features, skin tone, and clothing are locked from frame 1. Zero clothing change, zero dress morphing. Subject remains stationary and poised with feet anchored to floor coordinates with zero walking or turning. Only gentle natural breathing and soft blink permitted. Camera is stationary on locked-off tripod with gentle optical push/zoom. Zero texture swimming, zero distortion.';
   }
 
   const canonicalPrompt = executionRule ? `${basePrompt} ${executionRule}` : basePrompt;
