@@ -365,14 +365,6 @@ export default function ResultClient({
   };
 
   const handleRetryVideo = async () => {
-    if (enforceLimits && videoExhausted) {
-      setVideoError('Cinematic Video limit reached (2/2 used). Retries are exhausted for this mobile number.');
-      return;
-    }
-    if (enforceLimits && videoAllowanceUsed >= 1 && !videoManagerAuthorized) {
-      setVideoError('Store manager authorization is required before retrying the Cinematic Video.');
-      return;
-    }
     setShowMenu(false);
     setIsLoadingVideo(true);
     setVideoStatus('processing');
@@ -582,68 +574,26 @@ export default function ResultClient({
                   className="fixed inset-0 z-30 cursor-default"
                   onClick={() => setShowMenu(false)}
                 />
-                <div className="absolute left-0 top-10 z-40 w-64 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-2 shadow-2xl backdrop-blur-md text-left space-y-2 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-2 py-1 border-b border-[#D4AF37]/20 text-[10px] font-bold uppercase tracking-wider text-[#D4AF37] space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span>Celebration Image</span>
-                      <span className="font-mono text-[10px] text-[#F3E5AB]">{imageAllowanceUsed}/2</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Cinematic Video</span>
-                      <span className="font-mono text-[10px] text-[#F3E5AB]">{videoAllowanceUsed}/2</span>
-                    </div>
-                  </div>
+                <div className="absolute left-0 top-10 z-40 w-48 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-1.5 shadow-2xl backdrop-blur-md text-left space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                  {/* Video Retry with Backup Prompt */}
+                  <button
+                    type="button"
+                    onClick={handleRetryVideo}
+                    className="w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold text-[#F3E5AB] hover:bg-[#6e0d1f] hover:text-white transition"
+                  >
+                    <RotateCcw className="h-4 w-4 text-[#D4AF37] shrink-0" />
+                    <span>Retry Video</span>
+                  </button>
 
-                  {/* Video Retry */}
-                  {!videoExhausted ? (
-                    canRetryVideo ? (
-                      <button
-                        type="button"
-                        onClick={handleRetryVideo}
-                        className="w-full flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs font-semibold text-[#F3E5AB] hover:bg-[#6e0d1f]/60 hover:text-white transition"
-                      >
-                        <RotateCcw className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
-                        <div>
-                          <div className="font-bold">Retry Video</div>
-                          <div className="text-[10px] text-gray-300 font-normal">
-                            Regenerate with backup prompt {enforceLimits ? `(${2 - videoAllowanceUsed} left)` : '(Unlimited Test Mode)'}
-                          </div>
-                        </div>
-                      </button>
-                    ) : (
-                      <div className="rounded border border-amber-500/40 bg-black/40 p-2 text-[10px] text-amber-200">
-                        <div className="font-bold flex items-center gap-1"><Lock className="h-3 w-3" /> Manager Authorization Required</div>
-                        <p className="mt-0.5 text-zinc-300">Video retry (1/2 used) requires store manager approval before generating.</p>
-                      </div>
-                    )
-                  ) : (
-                    <div className="rounded border border-red-500/30 bg-black/40 p-2 text-[10px] text-red-300">
-                      <div className="font-bold">Cinematic Video Limit Reached</div>
-                      <p className="mt-0.5 text-zinc-400">2/2 video generations used. Retries are exhausted for this mobile pass.</p>
-                    </div>
-                  )}
-
-                  {/* Image Retry */}
-                  {!imageExhausted ? (
-                    <button
-                      type="button"
-                      onClick={handleRetryImage}
-                      className="w-full flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs font-semibold text-[#F3E5AB] hover:bg-[#6e0d1f]/60 hover:text-white transition"
-                    >
-                      <ImageIcon className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
-                      <div>
-                        <div className="font-bold">Retry Image</div>
-                        <div className="text-[10px] text-gray-300 font-normal">
-                          Re-upload photos & start fresh {enforceLimits ? `(${2 - imageAllowanceUsed} left)` : '(Unlimited Test Mode)'}
-                        </div>
-                      </div>
-                    </button>
-                  ) : (
-                    <div className="rounded border border-red-500/30 bg-black/40 p-2 text-[10px] text-red-300">
-                      <div className="font-bold">Celebration Image Limit Reached</div>
-                      <p className="mt-0.5 text-zinc-400">2/2 image generations used. Retries are exhausted for this mobile pass.</p>
-                    </div>
-                  )}
+                  {/* Image Retry (Back to Upload) */}
+                  <button
+                    type="button"
+                    onClick={handleRetryImage}
+                    className="w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold text-[#F3E5AB] hover:bg-[#6e0d1f] hover:text-white transition"
+                  >
+                    <ImageIcon className="h-4 w-4 text-[#D4AF37] shrink-0" />
+                    <span>Retry Image</span>
+                  </button>
                 </div>
               </>
             )}

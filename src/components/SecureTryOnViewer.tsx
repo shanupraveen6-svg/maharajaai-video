@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ShieldAlert, Sparkles, Lock, MoreVertical, Image as ImageIcon } from 'lucide-react';
+import { ShieldAlert, Sparkles, Lock, MoreVertical, RotateCcw, Image as ImageIcon } from 'lucide-react';
 
 interface SecureTryOnViewerProps {
   imageUrl: string | null;
@@ -205,38 +205,19 @@ export default function SecureTryOnViewer({
                   setShowMenu(false);
                 }}
               />
-              <div className="absolute left-0 top-9 z-50 w-60 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-2 shadow-2xl backdrop-blur-md text-left space-y-2 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-2 py-1 border-b border-[#D4AF37]/20 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">
-                  <span>{serviceLabel}</span>
-                  <span className="font-mono text-[10px] text-[#F3E5AB]">
-                    {enforceRepeatLimits ? `${used}/${max}` : `${used} (Unlimited)`}
-                  </span>
-                </div>
-
-                {!isExhausted ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowMenu(false);
-                      onRetryRequested();
-                    }}
-                    className="w-full flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs font-semibold text-[#F3E5AB] hover:bg-[#6e0d1f]/60 hover:text-white transition"
-                  >
-                    <ImageIcon className="h-4 w-4 text-[#D4AF37] mt-0.5 shrink-0" />
-                    <div>
-                      <div className="font-bold">Retry Image</div>
-                      <div className="text-[10px] text-gray-300 font-normal">
-                        {enforceRepeatLimits ? `Re-upload photos & generate again (${max - used} retry left)` : 'Re-upload photos & generate again (Unlimited)'}
-                      </div>
-                    </div>
-                  </button>
-                ) : (
-                  <div className="px-2 py-2 text-[11px] text-[#F3E5AB]/75 rounded bg-black/40 border border-red-500/30">
-                    <div className="font-bold text-red-400">{serviceLabel} Limit Reached</div>
-                    <div className="text-[10px] text-zinc-300 mt-0.5">Maximum {max}/{max} generations used. Retries are exhausted for this mobile pass.</div>
-                  </div>
-                )}
+              <div className="absolute left-0 top-9 z-50 w-44 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-1.5 shadow-2xl backdrop-blur-md text-left animate-in fade-in zoom-in-95 duration-150">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    onRetryRequested();
+                  }}
+                  className="w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold text-[#F3E5AB] hover:bg-[#6e0d1f] hover:text-white transition"
+                >
+                  <RotateCcw className="h-4 w-4 text-[#D4AF37] shrink-0" />
+                  <span>Retry</span>
+                </button>
               </div>
             </>
           )}

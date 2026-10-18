@@ -779,12 +779,6 @@ export async function acquireServiceGenerationLock(
         };
       }
 
-      if (ENFORCE_REPEAT_LIMITS && service === 'video' && Number(counter.used || 0) === 1 && !counter.managerAuthorized) {
-        return {
-          ok: false,
-          error: 'H3 Cinematic Video retry requires manager authorization.',
-        };
-      }
 
       const lockStaleMs = service === 'video' ? 3 * 60 * 1000 : 90 * 1000;
       if (counter.generating) {
@@ -852,12 +846,6 @@ export async function acquireServiceGenerationLock(
     };
   }
 
-  if (ENFORCE_REPEAT_LIMITS && service === 'video' && Number(counter.used || 0) === 1 && !counter.managerAuthorized) {
-    return {
-      ok: false,
-      error: 'H3 Cinematic Video retry requires manager authorization.',
-    };
-  }
 
   const lockStaleMs = service === 'video' ? 3 * 60 * 1000 : 90 * 1000;
   if (counter.generating) {

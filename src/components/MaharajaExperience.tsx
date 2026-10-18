@@ -192,21 +192,18 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       if (!res.ok) {
         throw new Error(data.error || 'Retry request could not be processed.');
       }
-      setRetryUsed(true);
-      if (activeService === 'try-on') {
-        setTryOnImageUrl(null);
-        setTryOnUsed(false);
-        if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
-        }
-      } else {
-        setVideoMasterUrl(null);
-        setMasterApproved(false);
-      }
+      setStage('ready');
+      setTryOnImageUrl(null);
+      setTryOnUsed(false);
+      setVideoMasterUrl(null);
+      setMasterApproved(false);
       setPersonPhoto(null);
       setPersonAnalysis(null);
       setGarmentPhotos([]);
       setGarmentAnalysis(null);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
+      }
       setMessage('Retry granted. Please upload or capture fresh customer and garment photo(s).');
       setError('');
     } catch (err) {

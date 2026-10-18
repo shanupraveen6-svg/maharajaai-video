@@ -82,27 +82,6 @@ export async function POST(req: NextRequest) {
     if (!sessionId) {
       return NextResponse.json({ success: false, error: 'sessionId is required' }, { status: 400 });
     }
-    if (ENFORCE_REPEAT_LIMITS && access.allowances.video.used >= 2) {
-      return NextResponse.json({
-        success: false,
-        error: 'H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.',
-      }, { status: 403 });
-    }
-
-    if (ENFORCE_REPEAT_LIMITS && access.pass && access.pass.videoDone && !access.pass.retryApproved && !access.allowances.video.managerAuthorized) {
-      return NextResponse.json({
-        success: false,
-        error: 'This billing pass has already completed its AI Video. Ask the manager if a retry is required.',
-      }, { status: 409 });
-    }
-
-    if (ENFORCE_REPEAT_LIMITS && access.allowances.video.used === 1 && !access.allowances.video.managerAuthorized && !access.pass?.retryApproved) {
-      return NextResponse.json({
-        success: false,
-        error: 'H3 Cinematic Video retry requires manager authorization.',
-      }, { status: 403 });
-    }
-
     // Determine retry mode
     const isRetry = Boolean(
       body.retry === true ||
@@ -112,6 +91,13 @@ export async function POST(req: NextRequest) {
       body.retryMode === 'safe' ||
       (typeof body.conceptPrompt === 'string' && body.conceptPrompt.includes('FAIL-SAFE'))
     );
+
+    if (ENFORCE_REPEAT_LIMITS && access.allowances.video.used >= 2 && !isRetry) {
+      return NextResponse.json({
+        success: false,
+        error: 'H3 Cinematic Video allowance exhausted. Maximum generations reached for this customer mobile number.',
+      }, { status: 403 });
+    }
 
     // Billing passes always use the stored festival video master.
     const masterImageUrl: string | undefined = access.pass ? access.pass.videoMasterUrl : body.masterImageUrl;
