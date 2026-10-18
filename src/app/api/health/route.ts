@@ -22,11 +22,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const includeMedia = req.nextUrl.searchParams.get('media') === '1';
-    const [, , storedFiles] = await Promise.all([
+    const [, , storedFilesResult] = await Promise.all([
       db.collection('appControl').doc('health').get(),
       bucket.getMetadata(),
       includeMedia ? bucket.getFiles({ prefix: '' }) : Promise.resolve([[]]),
     ]);
+    const storedFiles = storedFilesResult[0] || [];
     const storedVideoCount = includeMedia
       ? storedFiles.filter((file: any) => {
           const path = String(file.name || '');
