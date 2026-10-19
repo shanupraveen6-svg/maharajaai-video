@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AI_CONFIG } from '@/lib/ai/config';
-import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
+import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
 import { fal } from '@fal-ai/client';
 import {
   buildEventVideoPrompt,
@@ -19,7 +19,18 @@ import {
   type VideoPromptSet,
   type EventId
 } from '@/lib/maharaja/config';
-import { acquirePassVideoLock, approvePassVideoMaster, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassVideoSubmitted, releasePassVideoLock, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import {
+  acquirePassVideoLock,
+  approvePassVideoMaster,
+  finalizeCompletedVideo,
+  incrementMaharajaUsage,
+  incrementPassUsage,
+  logMaharajaActivity,
+  markPassVideoSubmitted,
+  releasePassVideoLock,
+  verifyMaharajaAccess
+} from '@/lib/maharaja/server';
+import { generateDeterministicPushVideo } from '@/lib/maharaja/video-processor';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { canSignFalWebhook, signFalWebhook } from '@/lib/security/fal-webhook';
 
@@ -64,6 +75,71 @@ const DEFAULT_MOTION_SAFETY: MotionSafetyDecision = {
   recommendedMotion: 'still_cinematic',
   reason: 'Maharaja videos always use the approved stationary cinematic motion mode.'
 };
+
+async function resolveMasterImageBuffer(
+  hostedImageUrl: string | null,
+  sessionId: string,
+  masterImageUrl?: string
+): Promise<Buffer | null> {
+  const dataCandidate = (masterImageUrl && masterImageUrl.startsWith('data:'))
+    ? masterImageUrl
+    : (hostedImageUrl && hostedImageUrl.startsWith('data:'))
+      ? hostedImageUrl
+      : null;
+  if (dataCandidate) {
+    const base64 = dataCandidate.split(',')[1];
+    if (base64) return Buffer.from(base64, 'base64');
+  }
+
+  const bucket = getStorageBucket();
+  if (bucket) {
+    try {
+      const candidates = [
+        `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
+        `sessions/${sessionId}/master/master.jpg`,
+      ];
+      for (const p of candidates) {
+        const file = bucket.file(p);
+        const [exists] = await file.exists();
+        if (exists) {
+          const [buf] = await file.download();
+          if (buf && buf.length > 0) return buf;
+        }
+      }
+    } catch (storageErr) {
+      console.warn('Storage bucket direct read for master image warning:', storageErr);
+    }
+  }
+
+  const mockStore = getMockStore();
+  const mockBlob = mockStore.sessions?.get(`mock_blob_clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`)
+    || mockStore.sessions?.get(`mock_blob_sessions/${sessionId}/master/master.jpg`)
+    || (masterImageUrl ? mockStore.sessions?.get(`mock_blob_${masterImageUrl}`) : null)
+    || (hostedImageUrl ? mockStore.sessions?.get(`mock_blob_${hostedImageUrl}`) : null);
+  if (mockBlob?.buffer) {
+    return mockBlob.buffer;
+  }
+
+  const urlCandidate = (hostedImageUrl && /^https?:\/\//i.test(hostedImageUrl))
+    ? hostedImageUrl
+    : (masterImageUrl && /^https?:\/\//i.test(masterImageUrl))
+      ? masterImageUrl
+      : null;
+
+  if (urlCandidate) {
+    try {
+      const res = await fetch(urlCandidate);
+      if (res.ok) {
+        const ab = await res.arrayBuffer();
+        if (ab.byteLength > 0) return Buffer.from(ab);
+      }
+    } catch (fetchErr) {
+      console.warn('Fetch master image URL warning:', fetchErr);
+    }
+  }
+
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   const db = getDb();
@@ -172,6 +248,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (!hostedImageUrl && masterImageUrl && masterImageUrl.startsWith('data:')) {
+      hostedImageUrl = masterImageUrl;
+    }
+
     if (!hostedImageUrl) {
       return NextResponse.json(
         { success: false, error: 'The approved Maharaja video image is unavailable. Generate the festival image again.' },
@@ -221,6 +301,62 @@ export async function POST(req: NextRequest) {
     const prompt = buildFinalPrompt(approvedPrompt, motionSafety, isRetry);
     console.log('VIDEO_MASTER_LOADED', { sessionId, jobId, hasImage: true, isRetry, effectiveCategory, effectiveGarment, effectiveEventId, effectivePromptSet });
 
+    // Mode A — Safe / Production (Default): Deterministic FFmpeg Video with 100% garment fidelity
+    if (AI_CONFIG.VIDEO_PROVIDER === 'deterministic') {
+      console.log('DETERMINISTIC_VIDEO_START', { sessionId, jobId });
+      const imageBuffer = await resolveMasterImageBuffer(hostedImageUrl, sessionId, masterImageUrl);
+      if (!imageBuffer || imageBuffer.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Could not load the master image for deterministic video generation.' },
+          { status: 409 }
+        );
+      }
+
+      // 1. Generate 6s raw video with slow whole-frame 4.5% optical push-in
+      const raw6sBuffer = await generateDeterministicPushVideo(imageBuffer, 6);
+
+      // 2. Finalize into branded 6s customer preview + 9s showroom broadcast MP4s
+      const finalizeResult = await finalizeCompletedVideo({
+        sessionId,
+        jobId,
+        videoBuffer: raw6sBuffer,
+        provider: 'deterministic-ffmpeg',
+        accessCode: typeof accessCode === 'string' ? accessCode : null,
+        clientId: MAHARAJA_CLIENT_ID,
+        eventId,
+      });
+
+      if (!finalizeResult.success) {
+        return NextResponse.json(
+          { success: false, error: finalizeResult.error },
+          { status: 500 }
+        );
+      }
+
+      videoSubmitted = true;
+
+      // 3. Increment pass usage and log activity
+      const postSubmitTasks: Promise<unknown>[] = [];
+      if (access.pass) {
+        postSubmitTasks.push(incrementPassUsage(access.pass.code, 'videosGenerated'));
+      }
+      postSubmitTasks.push(logMaharajaActivity('video-start', `${eventId} Deterministic AI Video generated with 100% garment fidelity`, { sessionId, jobId }));
+      await Promise.all(postSubmitTasks);
+
+      return NextResponse.json({
+        success: true,
+        jobId,
+        sessionId,
+        status: 'ready',
+        videoUrl: finalizeResult.videoUrl,
+        liveVideoUrl: finalizeResult.liveVideoUrl,
+        provider: 'deterministic-ffmpeg',
+        allowances: access.allowances,
+        message: 'Maharaja Cinematic Video generated deterministically with 100% garment fidelity.'
+      });
+    }
+
+    // Mode B — Experimental AI Motion: MiniMax Hailuo H3 Max Turbo
     const falKey = AI_CONFIG.FAL_KEY;
     if (!falKey || !falKey.trim()) {
       return NextResponse.json({ success: false, error: 'Fal.ai video service is not configured.' }, { status: 503 });

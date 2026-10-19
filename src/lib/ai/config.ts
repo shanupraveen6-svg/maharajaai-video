@@ -16,4 +16,9 @@ export const AI_CONFIG = {
   get FAL_KEY() {
     return process.env.FAL_KEY || process.env.FAL_AI_API_KEY || '';
   },
+  get VIDEO_PROVIDER(): 'deterministic' | 'fal' {
+    return (process.env.VIDEO_PROVIDER === 'fal' || process.env.NEXT_PUBLIC_VIDEO_PROVIDER === 'fal')
+      ? 'fal'
+      : 'deterministic';
+  },
 };

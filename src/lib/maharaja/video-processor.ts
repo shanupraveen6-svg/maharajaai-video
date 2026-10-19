@@ -78,6 +78,64 @@ async function generateBrandedVideo(
   }
 }
 
+/**
+ * Creates a deterministic 6-second vertical video (768x1366 @ 30fps) directly from
+ * the approved master image with a subtle 3–5% whole-frame cinematic optical push-in.
+ * Preserves 100% of source pixels with zero generative morphing or dress hallucinations.
+ */
+export async function generateDeterministicPushVideo(
+  imageBuffer: Buffer,
+  durationSeconds = 6
+): Promise<Buffer> {
+  const binary = getFfmpegPath();
+  if (!binary || imageBuffer.length === 0) {
+    throw new Error('FFmpeg binary or valid master image buffer is required for deterministic video.');
+  }
+
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const tmpIn = path.join(os.tmpdir(), `mhr_master_in_${id}.jpg`);
+  const tmpOut = path.join(os.tmpdir(), `mhr_push_${id}.mp4`);
+
+  try {
+    await fs.promises.writeFile(tmpIn, imageBuffer);
+    const frameCount = durationSeconds * 30;
+    // Slow 4.5% whole-frame push-in (within the approved 3-5% range)
+    const zoomFilter = `scale=1536:2732:force_original_aspect_ratio=increase,crop=1536:2732,zoompan=z='min(zoom+0.00025,1.045)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frameCount}:s=768x1366:fps=30`;
+
+    const args = [
+      '-y',
+      '-i', tmpIn,
+      '-vf', zoomFilter,
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-crf', '20',
+      '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart',
+      '-t', String(durationSeconds),
+      tmpOut,
+    ];
+
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(binary, args);
+      let stderr = '';
+      proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      proc.on('close', (code) => code === 0
+        ? resolve()
+        : reject(new Error(`FFmpeg deterministic push-in exited with code ${code}: ${stderr.slice(-400)}`)));
+      proc.on('error', reject);
+    });
+
+    const output = await fs.promises.readFile(tmpOut);
+    if (!output.length) throw new Error('FFmpeg produced an empty video.');
+    return output;
+  } finally {
+    await Promise.allSettled([
+      fs.promises.unlink(tmpIn).catch(() => undefined),
+      fs.promises.unlink(tmpOut).catch(() => undefined),
+    ]);
+  }
+}
+
 /** Creates the downloadable six-second MP4 with embedded Maharaja logo and preview audio. */
 export function generateCustomer6sVideo(inputBuffer: Buffer, audioRelativeOrFullPath: string) {
   return generateBrandedVideo(inputBuffer, 6, audioRelativeOrFullPath, false);

@@ -1600,47 +1600,58 @@ export async function finalizeCompletedVideo({
   sessionId,
   jobId,
   outputVideoUrl,
+  videoBuffer,
+  provider = 'fal-h3-max-turbo',
   accessCode,
   clientId = MAHARAJA_CLIENT_ID,
   eventId = 'diwali',
 }: {
   sessionId: string;
   jobId: string;
-  outputVideoUrl: string;
+  outputVideoUrl?: string;
+  videoBuffer?: Buffer;
+  provider?: string;
   accessCode?: string | null;
   clientId?: string;
   eventId?: string;
 }): Promise<{ success: true; videoUrl: string; liveVideoUrl?: string; storagePath: string; liveStoragePath?: string } | { success: false; error: string }> {
   const db = getDb();
 
-  let providerUrl: URL;
-  try {
-    providerUrl = new URL(outputVideoUrl);
-  } catch {
-    return { success: false, error: 'Video provider returned an invalid result URL.' };
-  }
-  const providerHostAllowed = providerUrl.protocol === 'https:' && (
-    providerUrl.hostname === 'fal.media' ||
-    providerUrl.hostname.endsWith('.fal.media') ||
-    providerUrl.hostname === 'fal.run' ||
-    providerUrl.hostname.endsWith('.fal.run')
-  );
-  if (!providerHostAllowed) {
-    return { success: false, error: 'Video provider returned an untrusted result URL.' };
+  let fileBuffer: Buffer | null = videoBuffer || null;
+
+  if (!fileBuffer && outputVideoUrl) {
+    let providerUrl: URL;
+    try {
+      providerUrl = new URL(outputVideoUrl);
+    } catch {
+      return { success: false, error: 'Video provider returned an invalid result URL.' };
+    }
+    const providerHostAllowed = providerUrl.protocol === 'https:' && (
+      providerUrl.hostname === 'fal.media' ||
+      providerUrl.hostname.endsWith('.fal.media') ||
+      providerUrl.hostname === 'fal.run' ||
+      providerUrl.hostname.endsWith('.fal.run')
+    );
+    if (!providerHostAllowed) {
+      return { success: false, error: 'Video provider returned an untrusted result URL.' };
+    }
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const fetchRes = await fetch(outputVideoUrl);
+        if (fetchRes.ok) {
+          fileBuffer = Buffer.from(await fetchRes.arrayBuffer());
+          break;
+        }
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 1200));
+      } catch {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 1200));
+      }
+    }
   }
 
-  let fileBuffer: Buffer | null = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const fetchRes = await fetch(outputVideoUrl);
-      if (fetchRes.ok) {
-        fileBuffer = Buffer.from(await fetchRes.arrayBuffer());
-        break;
-      }
-      if (attempt < 3) await new Promise((r) => setTimeout(r, 1200));
-    } catch {
-      if (attempt < 3) await new Promise((r) => setTimeout(r, 1200));
-    }
+  if (!fileBuffer || fileBuffer.length === 0) {
+    return { success: false, error: 'Video content buffer is unavailable for finalization.' };
   }
 
   const storagePath = clientId
@@ -1669,8 +1680,8 @@ export async function finalizeCompletedVideo({
     }
   }
 
-  let signedUrl = outputVideoUrl;
-  let liveSignedUrl = outputVideoUrl;
+  let signedUrl = outputVideoUrl || '';
+  let liveSignedUrl = outputVideoUrl || '';
 
   if (bucket && customerVideo && liveVideo) {
     try {
@@ -1712,6 +1723,12 @@ export async function finalizeCompletedVideo({
     } catch (stErr) {
       console.warn('Firebase Storage upload warning (falling back to provider URL):', stErr);
     }
+  } else if (customerVideo && liveVideo) {
+    const mockStore = getMockStore();
+    mockStore.sessions?.set(`mock_blob_${storagePath}`, { buffer: customerVideo });
+    mockStore.sessions?.set(`mock_blob_${liveStoragePath}`, { buffer: liveVideo });
+    if (!signedUrl) signedUrl = `/mock-media/${storagePath}`;
+    if (!liveSignedUrl) liveSignedUrl = `/mock-media/${liveStoragePath}`;
   }
 
   let customerName: string | null = null;
@@ -1737,7 +1754,7 @@ export async function finalizeCompletedVideo({
         liveStoragePath,
         eventId,
         status: 'ready',
-        provider: 'fal-h3-max-turbo',
+        provider: provider || 'fal-h3-max-turbo',
         customerName: customerName || null,
         customerLocality: customerLocality || null,
         playbackMode: 'embedded',
@@ -1764,7 +1781,7 @@ export async function finalizeCompletedVideo({
       liveStoragePath,
       eventId,
       status: 'ready',
-      provider: 'fal-h3-max-turbo',
+      provider: provider || 'fal-h3-max-turbo',
       customerName: customerName || null,
       customerLocality: customerLocality || null,
       playbackMode: 'embedded',

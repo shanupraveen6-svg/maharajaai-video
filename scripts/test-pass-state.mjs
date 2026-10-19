@@ -370,6 +370,7 @@ const noImageRes = await videoStartPost(noImageReq);
 assert(noImageRes.status === 409 && /Create the AI Video image first/i.test((await noImageRes.json()).error), 'Pass with missing master image is strictly rejected with 409 Conflict');
 
 // SAFEGUARD 4: Approved metadata passes validation and reaches provider dispatch
+process.env.VIDEO_PROVIDER = 'fal';
 getMockStore().sessions.set('sess_match', { id: 'sess_match', accessCode: approvedRoutePass });
 const matchingReq = new NextRequest('http://localhost:3000/api/video/start', {
   method: 'POST',
@@ -407,6 +408,37 @@ const menReq = new NextRequest('http://localhost:3000/api/video/start', {
 });
 const menRes = await videoStartPost(menReq);
 assert(menRes.status === 503 && /Fal\.ai video service is not configured/i.test((await menRes.json()).error), 'Men approved pass strictly validated as men/kurta_dhoti and dispatched to provider');
+delete process.env.VIDEO_PROVIDER;
+
+// 9. Deterministic Production Path: Verifies 100% garment fidelity video generation via FFmpeg
+import fs from 'fs';
+const sampleImgBuffer = fs.readFileSync('/Users/shanupraveen/.gemini/antigravity-ide/brain/332afeab-7cb5-4a84-9625-84022a95c4d3/.user_uploaded/media_1792344498147.jpg');
+const sampleDataUri = 'data:image/jpeg;base64,' + sampleImgBuffer.toString('base64');
+const detPass = await freshPass({
+  videoMasterDone: true,
+  videoMasterUrl: sampleDataUri,
+  videoMasterApproved: true,
+  videoMasterApprovedUrl: sampleDataUri,
+  videoMasterCategory: 'boy',
+  videoMasterGarmentType: 'western_shirt',
+  videoMasterPromptSet: 'set-1',
+  eventId: 'diwali',
+});
+getMockStore().sessions.set('sess_det', { id: 'sess_det', accessCode: detPass, templateId: 'boy' });
+const detReq = new NextRequest('http://localhost:3000/api/video/start', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ accessCode: detPass, sessionId: 'sess_det', masterImageUrl: sampleDataUri }),
+});
+const detRes = await videoStartPost(detReq);
+const detJson = await detRes.json();
+assert(detRes.status === 200, 'Deterministic video start returns 200 OK');
+assert(detJson.success === true, 'Deterministic video generation succeeded');
+assert(detJson.status === 'ready', 'Deterministic video status is immediately ready');
+assert(detJson.provider === 'deterministic-ffmpeg', 'Deterministic video provider is deterministic-ffmpeg');
+assert(typeof detJson.videoUrl === 'string' && detJson.videoUrl.length > 0, 'Deterministic video returns preview video URL');
+assert(typeof detJson.liveVideoUrl === 'string' && detJson.liveVideoUrl.length > 0, 'Deterministic video returns live video URL');
+
 
 console.log('\n======================================================');
 console.log(`ALL ${assertionCount} PASS STATE-MACHINE ASSERTIONS PASSED!`);

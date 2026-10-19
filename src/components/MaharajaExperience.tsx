@@ -515,6 +515,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         }),
       }));
 
+      if (start.status === 'ready' || start.status === 'succeeded') {
+        if (start.allowances) setAllowances(start.allowances);
+        setStage('result');
+        return;
+      }
+
       if (typeof start.queuePosition === 'number' && start.queuePosition > 0) {
         setMessage(`Your video is queued. Position ${start.queuePosition}. Keep this page open.`);
       } else {
