@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
@@ -88,6 +88,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [sessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
   const [promptSet, setPromptSet] = useState<VideoPromptSet>(() => (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1'));
   const [videoModelId, setVideoModelId] = useState<DiwaliReferenceVideoModelId>(DEFAULT_DIWALI_REFERENCE_VIDEO_MODEL_ID);
+  const videoStartInFlightRef = useRef(false);
   const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
@@ -477,7 +478,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   }
 
   async function generateVideo() {
-    if (!videoMasterUrl || stage === 'video') return;
+    if (!videoMasterUrl || stage === 'video' || videoStartInFlightRef.current) return;
+    videoStartInFlightRef.current = true;
     if (!masterApproved) {
       try {
         await readJson(await fetch('/api/ai/master-image/approve', {
@@ -493,12 +495,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setMasterApproved(true);
       } catch (caught) {
         setError(customerError(caught, 'The approved image could not be confirmed. Please retry before generating the video.'));
+        videoStartInFlightRef.current = false;
         return;
       }
     }
     const enforceLimits = allowances?.enforceRepeatLimits ?? false;
     if (enforceLimits && allowances.video.used >= 2 && !retrySessionId) {
       setError('H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
+      videoStartInFlightRef.current = false;
       return;
     }
     setStage('video');
@@ -560,6 +564,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         ? caught.message
         : 'The AI video could not be generated. Please ask Maharaja staff for assistance.');
       setStage('ready');
+    } finally {
+      videoStartInFlightRef.current = false;
     }
   }
 
