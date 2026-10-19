@@ -161,15 +161,13 @@ Every final prompt sent to fal.ai contains all four required architectural layer
    - P3: Refined ambient festive lighting skims across fabric drape and polished floor reflections.
    - Conflict Resolution: *"Fidelity strictly overrides motion."*
 
-2. **Layer 2: Garment & Textile Stability (~250–410 chars)**
-   - Dedicated garment-specific architectural constraints across all 7 production types:
-     - \`saree\`: Blouse design, continuous 6-yard drape, vertical waist pleats, metallic gold zari borders, pallu over shoulder.
-     - \`lehenga\`: Flared kalis silhouette, waistband, choli bodice, dupatta drape, zero saree pleats.
-     - \`salwar\`: Flowing tunic flare, neckline, sleeve cut, churidar fit, zero saree pleats.
-     - \`kurta_dhoti\`: Mandarin collar, placket buttons, dhoti/veshti pleats, zero feminine elements.
-     - \`boy_ethnic\`: Cheerful boyish traditional ethnic wear, zero adult glamour.
-     - \`pattu_pavadai\`: Girl's silk skirt & blouse/anarkali, zero mature styling.
-     - \`generic\`: Body-contoured geometric anchor and reference fidelity.
+2. **Layer 2: Universal Clothing & Textile Stability Lock (~380 chars)**
+   - Unified garment-agnostic preservation rule applied across all customer categories:
+     - Treats the approved master image as the sole visual authority.
+     - Preserves the exact clothing silhouette, fabric weave, pattern, colors, collar, sleeves, and fit from the input image.
+     - Strictly forbids clothing changes, dress morphing, outfit swapping, recoloring, added embroidery, or texture alteration.
+     - Anchors fabric drape to body contours with zero pattern drift or texture swimming.
+   - *Note on Evaluation Matrix:* The 144 normal evaluations represent full matrix coverage across 4 Customer Categories × 2 Scene Styles × 6 Festival Calendars × Garment Resolution paths, validating that regardless of input metadata, every production payload stays within provider budget with the complete safety suffix intact.
 
 3. **Layer 3: Selected Event Atmosphere & Category Scene Direction (~250–350 chars)**
    - Strict cultural isolation across 6 festival calendars (Diwali, Pongal, Christmas, Ramadan, New Year, Birthday).
