@@ -600,6 +600,7 @@ export default function ResultClient({
             controls
             loop
             playsInline
+            preload="auto"
             className="w-full h-full object-cover"
           />
         </div>

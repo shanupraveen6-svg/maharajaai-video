@@ -54,6 +54,9 @@ export default function TvPlayerPage() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playbackWatchdogRef = useRef<number | null>(null);
   const pendingWatchdogRef = useRef<number | null>(null);
+  const stallRecoveryTimerRef = useRef<number | null>(null);
+  const lastProgressAtRef = useRef<number>(Date.now());
+  const lastProgressPosRef = useRef<number>(0);
   const badQueueIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -77,6 +80,7 @@ export default function TvPlayerPage() {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (playbackWatchdogRef.current) clearTimeout(playbackWatchdogRef.current);
       if (pendingWatchdogRef.current) clearTimeout(pendingWatchdogRef.current);
+      if (stallRecoveryTimerRef.current) clearTimeout(stallRecoveryTimerRef.current);
       const audioEl = audioRef.current;
       audioEl?.pause();
     };
@@ -135,10 +139,18 @@ export default function TvPlayerPage() {
     setSlotItems((prev) => ({ ...prev, [slot]: playback }));
   }
 
+  function clearStallRecoveryTimer() {
+    if (!stallRecoveryTimerRef.current) return;
+    clearTimeout(stallRecoveryTimerRef.current);
+    stallRecoveryTimerRef.current = null;
+  }
+
   function clearPlaybackWatchdog() {
-    if (!playbackWatchdogRef.current) return;
-    clearTimeout(playbackWatchdogRef.current);
-    playbackWatchdogRef.current = null;
+    if (playbackWatchdogRef.current) {
+      clearTimeout(playbackWatchdogRef.current);
+      playbackWatchdogRef.current = null;
+    }
+    clearStallRecoveryTimer();
   }
 
   function clearPendingWatchdog() {
@@ -157,6 +169,7 @@ export default function TvPlayerPage() {
 
   function resetActivePlaybackState() {
     clearPlaybackWatchdog();
+    clearStallRecoveryTimer();
     resetExternalAudio();
     loopInProgressRef.current = false;
     setIsPlayingVideo(false);
@@ -375,6 +388,9 @@ export default function TvPlayerPage() {
     setPlaybackError(null);
     liveAudioStartedRef.current = false;
     loopInProgressRef.current = false;
+    lastProgressAtRef.current = Date.now();
+    lastProgressPosRef.current = 0;
+    clearStallRecoveryTimer();
     try {
       video.currentTime = 0;
       configureVideo(video, playback);
@@ -424,6 +440,21 @@ export default function TvPlayerPage() {
     const timeout = window.setTimeout(preloadNextPlaylistItem, 500);
     return () => window.clearTimeout(timeout);
   }, [currentPlayback, activeSlot]);
+
+  // Continuous freeze watchdog: if video is active but currentTime does not advance for >5s, auto-advance
+  useEffect(() => {
+    if (!isPlayingVideo || !currentPlayback) return;
+    const interval = window.setInterval(() => {
+      const activeVideo = getVideoRef(activeSlotRef.current);
+      if (!activeVideo || activeVideo.paused || activeVideo.ended || loopInProgressRef.current) return;
+      if (Date.now() - lastProgressAtRef.current > 5000) {
+        console.warn('Continuous stall watchdog triggered: video position frozen for >5s, auto-advancing.');
+        loopInProgressRef.current = true;
+        handleVideoEnded();
+      }
+    }, 1500);
+    return () => window.clearInterval(interval);
+  }, [isPlayingVideo, currentPlayback, activeSlot]);
 
   const startLiveAudioWithVisibleVideo = (slot: Slot, video: HTMLVideoElement) => {
     const playback = currentPlaybackRef.current;
@@ -534,6 +565,7 @@ export default function TvPlayerPage() {
     const playback = currentPlaybackRef.current;
     if (!playback) return;
     clearPlaybackWatchdog();
+    clearStallRecoveryTimer();
     resetExternalAudio();
 
     if (playback.source !== 'replay') {
@@ -546,6 +578,19 @@ export default function TvPlayerPage() {
     queueNextPlaylistItem();
   };
 
+  const handleVideoStalled = (slot: Slot) => {
+    if (slot !== activeSlotRef.current || !currentPlaybackRef.current) return;
+    if (stallRecoveryTimerRef.current) return;
+    stallRecoveryTimerRef.current = window.setTimeout(() => {
+      stallRecoveryTimerRef.current = null;
+      const activeVideo = getVideoRef(activeSlotRef.current);
+      if (!activeVideo || activeVideo.ended || loopInProgressRef.current) return;
+      console.warn('Playback stalled for >3.5s, advancing to next item.');
+      loopInProgressRef.current = true;
+      handleVideoEnded();
+    }, 3500);
+  };
+
   const handleVideoProgress = (slot: Slot, video: HTMLVideoElement) => {
     if (slot !== activeSlotRef.current || !currentPlaybackRef.current) return;
 
@@ -554,12 +599,31 @@ export default function TvPlayerPage() {
       clearPlaybackWatchdog();
     }
 
+    // Heartbeat tracking for frozen screen detection
+    if (Math.abs(video.currentTime - lastProgressPosRef.current) > 0.05) {
+      lastProgressPosRef.current = video.currentTime;
+      lastProgressAtRef.current = Date.now();
+      clearStallRecoveryTimer();
+    }
+
+    // Dynamic duration end guard: if within 0.22s of the video end, proactively advance smoothly
+    const dur = video.duration;
+    if (Number.isFinite(dur) && dur > 1 && video.currentTime >= (dur - 0.22)) {
+      if (!loopInProgressRef.current) {
+        loopInProgressRef.current = true;
+        handleVideoEnded();
+        return;
+      }
+    }
+
     const playback = currentPlaybackRef.current;
     if (!playback || playback.playbackMode !== 'external') return;
 
     const audio = audioRef.current;
     if (audio && !audio.paused) {
-      const sourceDuration = playback.durationSeconds || SOURCE_SECONDS_FOR_LIVE;
+      const sourceDuration = (Number.isFinite(video.duration) && video.duration > 1)
+        ? video.duration
+        : (playback.durationSeconds || SOURCE_SECONDS_FOR_LIVE);
       const targetAudioTime = Math.min(video.currentTime / sourceDuration, 1) * TV_SECONDS_FOR_LIVE;
       const drift = targetAudioTime - audio.currentTime;
 
@@ -582,6 +646,7 @@ export default function TvPlayerPage() {
       : slotItemsRef.current[slot];
     if (!playback) return;
     clearPlaybackWatchdog();
+    clearStallRecoveryTimer();
     resetExternalAudio();
 
     if (slot !== activeSlotRef.current) {
@@ -638,6 +703,12 @@ export default function TvPlayerPage() {
         }}
         onPlaying={(event) => startLiveAudioWithVisibleVideo(slot, event.currentTarget)}
         onTimeUpdate={(event) => handleVideoProgress(slot, event.currentTarget)}
+        onWaiting={() => {
+          if (isActive) handleVideoStalled(slot);
+        }}
+        onStalled={() => {
+          if (isActive) handleVideoStalled(slot);
+        }}
         onEnded={() => {
           if (isActive && !loopInProgressRef.current) {
             loopInProgressRef.current = true;
