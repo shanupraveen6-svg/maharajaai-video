@@ -450,13 +450,12 @@ export async function POST(req: NextRequest) {
           throw new Error('No accessible visual references were available for Reference-to-Video.');
         }
 
-        if (hostedImageUrl && (hostedImageUrl.startsWith('data:') || hostedImageUrl.includes('maharaja-mock'))) {
-          const imageBuf = await resolveMasterImageBuffer(hostedImageUrl, sessionId, masterImageUrl);
-          if (imageBuf) {
-            const blob = new Blob([new Uint8Array(imageBuf)], { type: 'image/jpeg' });
-            hostedImageUrl = await fal.storage.upload(blob);
-          }
+        const imageBuf = await resolveMasterImageBuffer(hostedImageUrl, sessionId, masterImageUrl);
+        if (!imageBuf?.length) {
+          throw new Error('The approved master image could not be prepared for Fal.ai.');
         }
+        const masterBlob = new Blob([new Uint8Array(imageBuf)], { type: 'image/jpeg' });
+        hostedImageUrl = await fal.storage.upload(masterBlob);
 
         console.log('FAL_IMAGE_READY', {
           sessionId,
