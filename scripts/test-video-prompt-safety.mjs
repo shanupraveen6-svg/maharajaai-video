@@ -6,8 +6,6 @@ const events = ['diwali', 'pongal', 'new-year', 'christmas', 'ramadan', 'birthda
 const styles = ['set-1', 'set-2'];
 const forbidden = [
   'micro-saccades',
-  'soft blink',
-  'gentle breathing',
   'warm festive smile',
   'fabric edges have subtle natural micro-sway',
   'lateral perspective shift',
@@ -28,7 +26,9 @@ for (const category of categories) {
       }
       assert.match(prompt, /approved master image/i);
       assert.match(prompt, /slow, elegant optical dolly-in|slow whole-frame optical push/i);
-      assert.match(prompt, /Do not animate or reinterpret the face, body, clothing/i);
+      assert.match(prompt, /only one natural soft blink/i);
+      assert.match(prompt, /extremely subtle chest breathing/i);
+      assert.match(prompt, /Particles must never cross or obscure the face, body, garment/i);
     }
   }
 }
@@ -38,5 +38,6 @@ for (const phrase of forbidden) {
   assert.equal(retryPrompt.toLowerCase().includes(phrase), false, `retry contains risky phrase: ${phrase}`);
 }
 assert.match(retryPrompt, /sole visual authority/i);
+assert.doesNotMatch(retryPrompt, /soft blink|chest breathing|foreground particles/i);
 
 console.log('Video prompt safety audit passed for 48 normal combinations and the retry prompt.');

@@ -571,14 +571,17 @@ P0 — ABSOLUTE FIDELITY & ZERO CLOTHING CHANGE (NON-NEGOTIABLE):
 
 P1 — SUBJECT LOCK:
 - Treat the person as a protected reference layer. Preserve the exact face, expression, pose, hands, feet, body proportions, hair, clothing, jewelry, and accessories from the approved master image in every frame.
-- Do not animate or reinterpret the face, body, clothing, hair, jewelry, or accessories.
+- Permit only one natural soft blink and extremely subtle chest breathing. Keep the head, mouth, smile, gaze direction, shoulders, arms, hands, hips, legs, feet, hair, clothing, jewelry, and accessories fixed.
+- Do not reinterpret facial geometry, identity, age, body shape, pose, clothing construction, colors, patterns, textures, jewelry, or accessories.
 
 P2 — LUXURY CINEMATIC CAMERA:
 - Use a slow, elegant optical dolly-in applied uniformly to the complete frame, with premium cinema-lens depth and polished editorial pacing.
 - Keep the original viewpoint and framing fixed; use no viewing-angle or perspective change and reveal no unseen surfaces.
 
 P3 — LIVING FESTIVE ENVIRONMENT:
-- Animate only subtle light, bokeh, reflections, and existing background atmosphere without altering the person, clothing colors, or skin tone.
+- Animate elegant existing-background light, bokeh, reflections, and atmospheric depth without altering the person, clothing colors, or skin tone.
+- Add restrained cinematic foreground particles only in empty space around the subject. Particles must never cross or obscure the face, body, garment, hands, or feet.
+- Use a gentle background-only focus transition and refined light bloom to create premium commercial depth while the subject remains visually stable.
 
 P4 — GARMENT FREEZE:
 - Clothing and accessories remain visually identical and motionless. Zero pattern swimming, border drift, texture distortion, color change, or fabric movement.
@@ -616,12 +619,12 @@ export function buildEventVideoPrompt(
     : resolveGarmentType(category, typeof candidateGarment === 'string' ? candidateGarment : undefined);
   const garmentRules = getGarmentFidelityRules(resolvedGarment, true);
   const eventAtmosphere: Record<EventId, string> = {
-    diwali: 'Animate only the existing warm lamp glow, background bokeh, and floor reflections already visible in the master image.',
-    pongal: 'Animate only the existing warm morning light, background highlights, and floor reflections already visible in the master image.',
-    'new-year': 'Animate only the existing background sparkle, light bokeh, and reflective highlights already visible in the master image.',
-    christmas: 'Animate only the existing background fairy-light bokeh and warm reflective highlights already visible in the master image.',
-    ramadan: 'Animate only the existing background lantern glow, light bokeh, and floor reflections already visible in the master image.',
-    birthday: 'Animate only the existing background celebration lights, bokeh, and reflective highlights already visible in the master image.',
+    diwali: 'Animate the existing warm lamp glow, background bokeh, and floor reflections with restrained golden particles in empty background space.',
+    pongal: 'Animate the existing warm morning light, background highlights, and floor reflections with restrained sunlit particles in empty background space.',
+    'new-year': 'Animate the existing background sparkle, light bokeh, and reflective highlights with restrained celebratory particles in empty background space.',
+    christmas: 'Animate the existing background fairy-light bokeh and warm reflective highlights with restrained light particles in empty background space.',
+    ramadan: 'Animate the existing background lantern glow, light bokeh, and floor reflections with restrained luminous particles in empty background space.',
+    birthday: 'Animate the existing background celebration lights, bokeh, and reflective highlights with restrained festive particles in empty background space.',
   };
   const childSafety = category === 'boy' || category === 'girl'
     ? '\n\nCHILD SAFETY: Keep the child fully age-appropriate, naturally cheerful, modestly styled, and free of adult glamour, mature posing, or suggestive presentation.'
@@ -713,7 +716,7 @@ export function buildMotionSafetyRule(
     return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Preserve the exact person, expression, pose, clothing, and accessories without movement or reinterpretation. Only existing background light and a uniform whole-frame optical push may move. Zero text, words, titles, or logos.`;
   }
 
-  return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Preserve the exact person, expression, pose, clothing, and accessories without movement or reinterpretation. Start the slow whole-frame optical push and existing-background light animation at frame 1. Zero blank screen, zero delayed intro, zero text, words, titles, or logos.`;
+  return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Preserve exact identity, facial geometry, smile, gaze, pose, clothing, and accessories. Permit only one soft blink and extremely subtle chest breathing; keep all other subject elements fixed. Start the slow whole-frame optical push, background focus transition, light bloom, and restrained empty-space particles at frame 1. Zero blank screen, zero delayed intro, zero text, words, titles, or logos.`;
 }
 
 export function truncateAtWordBoundary(text: string, maxLength: number): string {
