@@ -33,8 +33,6 @@ import {
 } from '@/lib/maharaja/config';
 import {
   DEFAULT_DIWALI_REFERENCE_VIDEO_MODEL_ID,
-  DIWALI_REFERENCE_VIDEO_MODELS,
-  type DiwaliReferenceVideoModelId,
 } from '@/lib/maharaja/reference-video';
 
 const BarcodePriceScanner = dynamic(() => import('@/components/BarcodePriceScanner'), { ssr: false });
@@ -87,7 +85,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [category, setCategory] = useState<CustomerCategory>('women');
   const [sessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
   const [promptSet, setPromptSet] = useState<VideoPromptSet>(() => (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1'));
-  const [videoModelId, setVideoModelId] = useState<DiwaliReferenceVideoModelId>(DEFAULT_DIWALI_REFERENCE_VIDEO_MODEL_ID);
   const videoStartInFlightRef = useRef(false);
   const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
@@ -480,6 +477,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   async function generateVideo() {
     if (!videoMasterUrl || stage === 'video' || videoStartInFlightRef.current) return;
     videoStartInFlightRef.current = true;
+    setStage('video');
+    setError('');
+    setVideoProgressIndex(0);
+    setMessage('Starting H3 Max Reference-to-Video. Keep this page open.');
     if (!masterApproved) {
       try {
         await readJson(await fetch('/api/ai/master-image/approve', {
@@ -495,6 +496,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setMasterApproved(true);
       } catch (caught) {
         setError(customerError(caught, 'The approved image could not be confirmed. Please retry before generating the video.'));
+        setStage('ready');
         videoStartInFlightRef.current = false;
         return;
       }
@@ -502,14 +504,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     const enforceLimits = allowances?.enforceRepeatLimits ?? false;
     if (enforceLimits && allowances.video.used >= 2 && !retrySessionId) {
       setError('H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
+      setStage('ready');
       videoStartInFlightRef.current = false;
       return;
     }
-    setStage('video');
-    setError('');
-    setVideoProgressIndex(0);
-    const selectedVideoModel = DIWALI_REFERENCE_VIDEO_MODELS.find((model) => model.id === videoModelId);
-    setMessage(`Testing ${selectedVideoModel?.label || 'selected API'}. Keep this page open.`);
     try {
       const start = await readJson(await fetch('/api/video/start', {
         method: 'POST',
@@ -523,7 +521,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           garmentType: garmentAnalysis?.garmentType,
           promptSet,
           retryMode: retrySessionId ? 'safe' : undefined,
-          videoModelId,
+          videoModelId: DEFAULT_DIWALI_REFERENCE_VIDEO_MODEL_ID,
         }),
       }));
 
@@ -953,19 +951,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3">
-                    <label className="block text-left text-[11px] font-bold uppercase tracking-wide text-[#F3E5AB]">
-                      Test API
-                      <select
-                        value={videoModelId}
-                        onChange={(event) => setVideoModelId(event.target.value as DiwaliReferenceVideoModelId)}
-                        disabled={busy}
-                        className="mt-2 min-h-12 w-full border border-[#D4AF37]/60 bg-[#21090E] px-3 text-sm font-semibold normal-case tracking-normal text-[#F3E5AB] outline-none focus:border-[#D4AF37] disabled:opacity-50"
-                      >
-                        {DIWALI_REFERENCE_VIDEO_MODELS.map((model) => (
-                          <option key={model.id} value={model.id}>{model.label}</option>
-                        ))}
-                      </select>
-                    </label>
                     <button
                       type="button"
                       id="generate-video-btn"

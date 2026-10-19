@@ -2,9 +2,6 @@ import type { CustomerCategory, VideoPromptSet } from './config';
 
 export const DIWALI_REFERENCE_VIDEO_MODELS = [
   { id: 'h3-max', label: '1. H3 Max', model: 'minimax/h3-max/reference-to-video' },
-  { id: 'h3', label: '2. MiniMax H3', model: 'minimax/h3/reference-to-video' },
-  { id: 'gemini-omni', label: '3. Gemini Omni Flash', model: 'google/gemini-omni-flash/v1.1/reference-to-video' },
-  { id: 'pixverse-c1', label: '4. PixVerse C1', model: 'fal-ai/pixverse/c1/reference-to-video' },
 ] as const;
 
 export type DiwaliReferenceVideoModelId = typeof DIWALI_REFERENCE_VIDEO_MODELS[number]['id'];

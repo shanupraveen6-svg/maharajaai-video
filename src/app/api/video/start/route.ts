@@ -71,7 +71,7 @@ function formatFalError(error: any) {
   }
 
   if (lower.includes('unprocessable') || lower.includes('422')) {
-    return 'Fal.ai rejected the video request before rendering. Check the festival image and try again.';
+    return `Fal.ai rejected the H3 request: ${raw.length > 220 ? `${raw.slice(0, 220)}...` : raw}`;
   }
 
   return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
@@ -437,7 +437,7 @@ export async function POST(req: NextRequest) {
           ? `${baseUrl}/api/video/webhook?jobId=${encodeURIComponent(jobId)}&sessionId=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(webhookToken)}`
           : undefined;
 
-        const selectedVideoModel = getDiwaliReferenceVideoModel(body.videoModelId);
+        const selectedVideoModel = getDiwaliReferenceVideoModel('h3-max');
         const providerStartedAt = Date.now();
         console.log('FAL_SUBMIT_START', {
           sessionId,
@@ -447,50 +447,17 @@ export async function POST(req: NextRequest) {
           referenceCount: uniqueReferenceImageUrls.length,
           hasWebhook: Boolean(webhookUrl),
         });
-        const allReferenceUrls = [hostedImageUrl, ...uniqueReferenceImageUrls].filter(Boolean);
         const namedPrompt = `Image 1 is the original customer identity reference. Images 2 onward are the original garment references. The approved first frame is the composition authority. ${prompt}`;
-        const providerInput = selectedVideoModel.id === 'h3-max'
-            ? {
-                prompt: namedPrompt,
-                image_url: hostedImageUrl,
-                reference_image_urls: uniqueReferenceImageUrls,
-                duration: 6,
-                resolution: '768P',
-                aspect_ratio: 'adaptive',
-                prompt_expansion_mode: 'disabled',
-                enable_safety_checker: true,
-              }
-            : selectedVideoModel.id === 'h3'
-              ? {
-                  prompt: namedPrompt,
-                  reference_image_urls: allReferenceUrls,
-                  duration: 6,
-                  resolution: '768P',
-                  aspect_ratio: '9:16',
-                  prompt_expansion_mode: 'disabled',
-                  enable_safety_checker: true,
-                }
-              : selectedVideoModel.id === 'gemini-omni'
-                ? {
-                    prompt: namedPrompt,
-                    image_urls: allReferenceUrls,
-                    duration: 6,
-                    resolution: '720p',
-                    aspect_ratio: '9:16',
-                  }
-                : {
-                    prompt: `@master is the approved composition. Keep @customer identity exact${allReferenceUrls.slice(2).map((_, index) => ` and preserve @garment${index + 1}`).join('')}. No face, age, body, pose, clothing, colour, gradient, pattern, layer or accessory changes. The person remains still. Use only a slow premium forward camera push and subtle existing background light movement. No orbit, new objects, garment motion or effects crossing the person. Finish with a stable luxury Diwali hero hold.`,
-                    image_references: allReferenceUrls.map((imageUrl, index) => ({
-                      image_url: imageUrl,
-                      type: index === 0 ? 'background' : 'subject',
-                      ref_name: index === 0 ? 'master' : index === 1 ? 'customer' : `garment${index - 1}`,
-                    })),
-                    duration: 6,
-                    resolution: '720p',
-                    aspect_ratio: '9:16',
-                    generate_audio_switch: false,
-                    enable_safety_checker: true,
-                  };
+        const providerInput = {
+          prompt: namedPrompt,
+          image_url: hostedImageUrl,
+          reference_image_urls: uniqueReferenceImageUrls,
+          duration: 6,
+          resolution: '768P',
+          aspect_ratio: 'adaptive',
+          prompt_expansion_mode: 'disabled',
+          enable_safety_checker: true,
+        };
         const falSubmitResult = await fal.queue.submit(selectedVideoModel.model, {
           input: providerInput,
           ...(webhookUrl ? { webhookUrl } : {}),
@@ -513,10 +480,10 @@ export async function POST(req: NextRequest) {
             model: selectedVideoModel.model,
             videoModelId: selectedVideoModel.id,
             videoModelLabel: selectedVideoModel.label,
-            referenceCount: allReferenceUrls.length,
+            referenceCount: uniqueReferenceImageUrls.length,
             duration: 6,
-            resolution: selectedVideoModel.id === 'h3-max' || selectedVideoModel.id === 'h3' ? '768P' : '720p',
-            aspectRatio: selectedVideoModel.id === 'h3-max' ? 'adaptive' : '9:16',
+            resolution: '768P',
+            aspectRatio: 'adaptive',
             providerSubmitMs: Date.now() - providerStartedAt,
             seed: null,
             motionSafety,
