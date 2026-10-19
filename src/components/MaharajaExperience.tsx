@@ -30,7 +30,7 @@ import {
   type EventId,
   type VideoPromptSet,
 } from '@/lib/maharaja/config';
-import { VIDEO_TEST_MODELS, type VideoTestModelId } from '@/lib/maharaja/video-test';
+import { VIDEO_TEST_MODELS } from '@/lib/maharaja/video-test';
 
 const BarcodePriceScanner = dynamic(() => import('@/components/BarcodePriceScanner'), { ssr: false });
 const SecureTryOnViewer = dynamic(() => import('@/components/SecureTryOnViewer'), { ssr: false });
@@ -112,7 +112,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [error, setError] = useState('');
   const [processingConsent, setProcessingConsent] = useState(false);
   const [masterApproved, setMasterApproved] = useState(false);
-  const [testModelId, setTestModelId] = useState<VideoTestModelId>('h3-max');
   const [videoTestJobId, setVideoTestJobId] = useState('');
   const [videoTestUrl, setVideoTestUrl] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
@@ -549,10 +548,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const data = await readJson(await fetch('/api/video/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessCode, sessionId, modelId: testModelId }),
+        body: JSON.stringify({ accessCode, sessionId }),
       }));
       setVideoTestJobId(data.jobId);
-      setMessage(`Submitted to ${VIDEO_TEST_MODELS.find((item) => item.id === testModelId)?.label}. Keep this page open.`);
+      setMessage(`Submitted to ${VIDEO_TEST_MODELS[0].label}. Keep this page open.`);
       await pollVideoTest(data.jobId);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The controlled video test failed.');
@@ -901,21 +900,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
-                    <div>
-                      <label htmlFor="video-test-model" className="block font-bold uppercase tracking-wide">Controlled test model</label>
-                      <select
-                        id="video-test-model"
-                        value={testModelId}
-                        disabled={stage === 'video'}
-                        onChange={(event) => setTestModelId(event.target.value as VideoTestModelId)}
-                        className="mt-2 min-h-12 w-full border border-[#D4AF37] bg-[#170407] px-3 text-sm font-bold text-[#F3E5AB] disabled:opacity-50"
-                      >
-                        {VIDEO_TEST_MODELS.map((model) => (
-                          <option key={model.id} value={model.id}>{model.label} · about ${model.estimatedUsd.toFixed(2)}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <p className="text-[#F3E5AB]/80">One click submits one paid test. No automatic fallback, retry, TV queue or Go Live.</p>
+                    <div className="font-bold uppercase tracking-wide">H3 Max cinematic test · about ${VIDEO_TEST_MODELS[0].estimatedUsd.toFixed(2)}</div>
+                    <p className="text-[#F3E5AB]/80">One click submits one paid five-second H3 test. No model selection, automatic fallback, retry, TV queue or Go Live.</p>
                     <button
                       type="button"
                       onClick={() => void startVideoTest()}

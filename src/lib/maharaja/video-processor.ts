@@ -136,6 +136,37 @@ export async function generateDeterministicPushVideo(
   }
 }
 
+/** Removes provider-generated audio without re-encoding the video stream. */
+export async function stripVideoAudio(inputBuffer: Buffer): Promise<Buffer> {
+  const binary = getFfmpegPath();
+  if (!binary || inputBuffer.length === 0) {
+    throw new Error('FFmpeg binary or valid video buffer is required to remove provider audio.');
+  }
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const tmpIn = path.join(os.tmpdir(), `mhr_audio_in_${id}.mp4`);
+  const tmpOut = path.join(os.tmpdir(), `mhr_silent_${id}.mp4`);
+  try {
+    await fs.promises.writeFile(tmpIn, inputBuffer);
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(binary, ['-y', '-i', tmpIn, '-map', '0:v:0', '-c:v', 'copy', '-an', '-movflags', '+faststart', tmpOut]);
+      let stderr = '';
+      proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      proc.on('close', (code) => code === 0
+        ? resolve()
+        : reject(new Error(`FFmpeg audio removal exited with code ${code}: ${stderr.slice(-400)}`)));
+      proc.on('error', reject);
+    });
+    const output = await fs.promises.readFile(tmpOut);
+    if (!output.length) throw new Error('FFmpeg produced an empty silent video.');
+    return output;
+  } finally {
+    await Promise.allSettled([
+      fs.promises.unlink(tmpIn).catch(() => undefined),
+      fs.promises.unlink(tmpOut).catch(() => undefined),
+    ]);
+  }
+}
+
 /** Creates the downloadable six-second MP4 with embedded Maharaja logo and preview audio. */
 export function generateCustomer6sVideo(inputBuffer: Buffer, audioRelativeOrFullPath: string) {
   return generateBrandedVideo(inputBuffer, 6, audioRelativeOrFullPath, false);

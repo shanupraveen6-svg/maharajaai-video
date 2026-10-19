@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { MAHARAJA_CLIENT_ID, type CustomerCategory } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
 
@@ -46,9 +46,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
   const accessCode = typeof body?.accessCode === 'string' ? body.accessCode.trim() : '';
-  const model = getVideoTestModel(body?.modelId);
+  const model = getVideoTestModel('h3-max');
   if (!sessionId || !accessCode || !model) {
-    return NextResponse.json({ success: false, error: 'sessionId, accessCode and a supported test model are required.' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'sessionId and accessCode are required.' }, { status: 400 });
   }
 
   const falKey = process.env.FAL_KEY?.trim();
@@ -126,7 +126,9 @@ export async function POST(req: NextRequest) {
     for (let index = 0; index < garmentPaths.length; index += 1) {
       garments.push(await normalizeStorageImage(garmentPaths[index], `${basePath}/input-garment-${index + 1}.jpg`));
     }
-    const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url));
+    const category = access.pass.videoMasterCategory || session.templateId;
+    if (!['women', 'men', 'girl', 'boy'].includes(category)) throw new Error('The approved master image has no valid customer category.');
+    const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), category as CustomerCategory);
     const response = await fetch(`https://queue.fal.run/${model.model}`, {
       method: 'POST',
       headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },

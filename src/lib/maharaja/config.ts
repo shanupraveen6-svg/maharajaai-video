@@ -265,46 +265,26 @@ export function getEventSceneDirection(
 
   switch (eventId) {
     case 'diwali': {
-      switch (variant) {
-        case 'women_style_1':
+      switch (category) {
+        case 'women':
           return {
-            imageScene: `Place the customer in an elegant Diwali setting with a traditional brass kuthu-vilakku oil lamp in the near foreground. Warm golden diya glow, marigold flower garlands, and a refined boutique/palace corridor with glowing clay diyas and delicate floral rangoli.`,
-            videoScene: `Eye-level smooth foreground reveal gliding past warm glowing brass kuthu-vilakku oil lamps. Diya flames flicker naturally with warm amber reflections across polished heritage floor. 10°–12° lateral arc reveal showcasing rich textile luster and drape. Golden festive bokeh shimmers gently in the background.`
+            imageScene: `Create an extraordinary royal Diwali evening on the open terrace of a vast Indian palace overlooking illuminated domes and a distant heritage skyline. Frame the customer full-body at eye level as the central luxury-campaign hero. Place an out-of-focus engraved brass lamp and crystal lantern at opposite near-foreground edges for deep parallax, never covering the customer. Behind her, use a broad reflecting pool, monumental sandstone arches, layered palace balconies, hundreds of distant diyas, suspended lanterns already visible high in the background, restrained warm haze, and rich blue-hour sky. Use couture-editorial key light, soft golden rim light, realistic firelight, deep dimensional shadows and premium cinema colour separation. Avoid an indoor corridor, ordinary hallway, flat wall, repetitive doorway, crowd, text or fireworks.`,
+            videoScene: `Preserve the exact royal terrace composition. Begin with the complete palace scale, then perform a slow stabilized forward crane-and-dolly push with gentle foreground-lamp parallax while keeping the original frontal viewpoint. Existing suspended background lanterns may rise very slowly; distant diya flames, skyline bokeh and reflecting-pool highlights may move naturally. Keep every effect behind the customer. Finish with a commanding full-body hero hold.`
           };
-        case 'women_style_2':
+        case 'men':
           return {
-            imageScene: `Place the customer near an ornate festive palace doorway lined with glowing clay diyas, marigold accents, warm golden celebration lighting, soft backlighting, and refined luxury depth.`,
-            videoScene: `Camera glides forward at a slightly low majestic angle past an ornate festive doorway lined with glowing diyas and marigold garlands, with 12°–15° lateral perspective shift revealing rich textile luster and drape under warm celebratory golden illumination.`
+            imageScene: `Create a monumental Diwali night in the grand arrival court of an ultra-luxury Indian palace. Frame the customer full-body from a subtly low but natural hero angle, centred before an enormous illuminated facade with carved columns, broad ceremonial steps, a distant fountain axis and layered golden archways. Place a soft-focus vintage palace lantern and sculpted brass diya stand at the extreme foreground edges to create cinematic depth without blocking the body. Include realistic fountain reflections, distant lanterns already present in the sky, warm architectural uplighting, subtle atmospheric haze and a deep indigo night. The image must feel like a ₹1-crore heritage-hotel campaign, not a corridor or retail hallway. No vehicles, crowd, text, fireworks or new clothing accessories.`,
+            videoScene: `Preserve the exact palace arrival-court composition. Use a controlled low hero camera with a smooth forward dolly and extremely small vertical crane rise, never orbiting or revealing a new side of the customer. Existing fountain water, distant suspended lanterns, diya flames and facade reflections may move naturally in the background. Maintain monumental architectural scale and finish on a dignified powerful hero hold.`
           };
-        case 'men_style_1':
+        case 'girl':
           return {
-            imageScene: `Place the customer standing tall and confident with grounded masculine posture in a heritage palace corridor. An ornate brass lamp bracket on a carved wooden pillar stands in the near foreground with glowing diyas and warm golden light.`,
-            videoScene: `Slightly low hero angle. Ultra-smooth optical forward reveal gliding past an ornate brass lamp bracket. Restrained 10°–12° lateral arc reveals dignified confident posture, warm composed smile, natural eye contact, and crisp fabric weave.`
+            imageScene: `Create a magical but photorealistic child-safe Diwali evening in a magnificent palace garden pavilion. Frame the child full-body at child eye level with both hands relaxed and empty. Use a low floral urli and softly blurred glass lantern at separate foreground corners, never touching or obscuring the child. Behind her, show a grand open pavilion, landscaped garden, shallow reflecting channel, illuminated palace wings, distant suspended lanterns already visible above the garden, marigold installations and warm fairy-light depth. Use soft flattering key light, gentle golden rim light, realistic reflections and joyful premium campaign colour. No corridor, ordinary hallway, adult glamour, crowd, text, fireworks or objects in the child's hands.`,
+            videoScene: `Preserve the exact palace-garden composition and child-safe pose. Use a gentle child-eye-level forward dolly with soft foreground floral parallax and no lateral orbit. Existing distant lanterns may drift upward slowly; garden lights, diya flames, water reflections and leaves may move subtly and realistically behind the child. Keep the child, hands, hair and clothing stable. Finish with a bright charming hero hold.`
           };
-        case 'men_style_2':
+        case 'boy':
           return {
-            imageScene: `Place the customer in an expansive heritage palace courtyard with traditional stone pillars, warm floor-level diya lanterns, and polished granite flooring with grounded dignified stance.`,
-            videoScene: `Eye-level stabilized lateral tracking slider move executing a steady 10°–12° perspective shift across traditional carved pillars and warm glowing floor diyas. Subject maintains a grounded, dignified presence with feet firmly locked.`
-          };
-        case 'girl_style_1':
-          return {
-            imageScene: `Place the child at child eye-level in an innocent, cheerful Diwali setting. Hands resting naturally at sides (strictly no fire or lamps in hands). In the near foreground sits a low decorative brass urli filled with floating marigold petals and subtle glowing diyas.`,
-            videoScene: `Child eye-level. Ultra-smooth gentle forward push gliding past a low decorative floral urli. Soft festive diya glow illuminates the child's sweet cheerful smile, natural soft blink, and modest traditional attire. Child safety locked.`
-          };
-        case 'girl_style_2':
-          return {
-            imageScene: `Place the child at child eye-level near a decorated palace archway lined with soft golden fairy lights, marigold garlands, and polished floor reflections. Modest, child-safe, elegant styling.`,
-            videoScene: `Child eye-level. Restrained, gentle 8°–10° lateral arc reveal gliding past a decorated palace archway. Soft ambient festival glow illuminates the girl's sweet polite posture, natural breathing, and tender smile. Child safety locked.`
-          };
-        case 'boy_style_1':
-          return {
-            imageScene: `Place the child at child eye-level standing upright and cheerful in traditional ethnic wear. Hands resting naturally at sides (strictly no fire or sparklers). Near foreground features a low carved brass pedestal with delicate floral rangoli art.`,
-            videoScene: `Child eye-level. Ultra-smooth stabilized forward push gliding past a low decorative rangoli pedestal. Bright cheerful smile, natural soft blink, and steady grounded posture. Child safety locked.`
-          };
-        case 'boy_style_2':
-          return {
-            imageScene: `Place the child at child eye-level in a traditional palace corridor with warm floor diyas and polished stone floor reflections. Modest, calm, and respectful presentation.`,
-            videoScene: `Child eye-level. Smooth 8°–10° lateral slider move across heritage pillars with soft background diya glow. Polite happy smile, natural breathing, and steady feet. Child safety locked.`
+            imageScene: `Create a spectacular child-safe Diwali evening in an expansive royal palace courtyard opening toward a grand illuminated gateway. Frame the child full-body at child eye level, standing naturally with both hands relaxed and empty. Use a carved brass urli and a softly blurred decorative lantern at the far foreground edges for layered depth. Behind him, show a vast stone courtyard, monumental gateway, palace balconies, symmetrical floor diyas, a shallow reflection strip, distant lanterns already visible above the architecture and deep blue evening sky. Use cheerful premium fashion lighting, realistic warm reflections and cinematic depth. No corridor, ordinary hallway, adult styling, crowd, text, fireworks or objects in the child's hands.`,
+            videoScene: `Preserve the exact grand-courtyard composition and child-safe pose. Use a smooth child-eye-level forward dolly with a slight crane settle and foreground-object parallax, never rotating around the child. Existing distant lanterns, gateway lights, diya flames and floor reflections may move gently behind him. Keep face, hands, body and clothing stable. Finish with a crisp joyful hero hold.`
           };
       }
     }

@@ -3,6 +3,7 @@ import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/l
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { extractVideoUrl, publicFalQueueUrl } from '@/lib/maharaja/video-test';
+import { stripVideoAudio } from '@/lib/maharaja/video-processor';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -63,8 +64,9 @@ export async function GET(req: NextRequest) {
     if (!videoResponse.ok) throw new Error(`Generated video download failed (${videoResponse.status}).`);
     const contentType = videoResponse.headers.get('content-type') || 'video/mp4';
     if (!contentType.startsWith('video/')) throw new Error(`Provider output is not a video (${contentType}).`);
-    const bytes = Buffer.from(await videoResponse.arrayBuffer());
-    if (bytes.length < 10_000) throw new Error('Generated video file is unexpectedly small.');
+    const providerBytes = Buffer.from(await videoResponse.arrayBuffer());
+    if (providerBytes.length < 10_000) throw new Error('Generated video file is unexpectedly small.');
+    const bytes = await stripVideoAudio(providerBytes);
     const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${job.sessionId}/video-tests/${jobId}/output.mp4`;
     const bucket = getStorageBucket();
     if (!bucket) throw new Error('Firebase Storage is unavailable for the completed test video.');
