@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
         let customerName = cleanDisplayText(queueData.customerName) || cleanDisplayText(videoData.customerName);
         const isLegacyNamedMedia = !queueData.customerName
           && Boolean(storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
-        if (isLegacyNamedMedia || (customerName && REMOVED_TV_NAMES.has(customerName.toLowerCase()))) {
+        if (isLegacyNamedMedia || (customerName && (REMOVED_TV_NAMES.has(customerName.toLowerCase()) || customerName === 'திவ்யா' || customerName.toLowerCase() === 'divya'))) {
           customerName = 'கார்த்திக்';
         }
 
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
       let mockCustomerName = cleanDisplayText((nextItem as any).customerName) || cleanDisplayText((video as any).customerName);
       const isLegacyMockMedia = !(nextItem as any).customerName
         && Boolean(storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
-      if (isLegacyMockMedia || (mockCustomerName && REMOVED_TV_NAMES.has(mockCustomerName.toLowerCase()))) {
+      if (isLegacyMockMedia || (mockCustomerName && (REMOVED_TV_NAMES.has(mockCustomerName.toLowerCase()) || mockCustomerName === 'திவ்யா' || mockCustomerName.toLowerCase() === 'divya'))) {
         mockCustomerName = 'கார்த்திக்';
       }
 

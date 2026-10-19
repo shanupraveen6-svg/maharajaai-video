@@ -18,7 +18,7 @@ export const TAMIL_LADIES_NAMES = [
   'லட்சுமி',      // Lakshmi
   'ரம்யா',        // Ramya
   'நந்தினி',      // Nandhini
-  'திவ்யா',       // Divya
+  'சுமித்ரா',     // Sumithra
   'ரேவதி',        // Revathi
   'சௌமியா',      // Sowmya
   'பவித்ரா',      // Pavithra
@@ -34,11 +34,14 @@ const TV_NAME_BY_SESSION_ID: Readonly<Record<string, string>> = {
   seed_9038ee79: 'விக்னேஷ்',
   seed_417e8421: 'தினேஷ்',
   seed_216dd83b: 'அருண்',
+  maharaja_1792343524686_5e61aa15: 'கார்த்திக்',
 };
 
 export function getAssignedTvName(sessionId: unknown): string | null {
   if (typeof sessionId !== 'string') return null;
-  return TV_NAME_BY_SESSION_ID[sessionId.trim()] || null;
+  const trimmed = sessionId.trim();
+  if (trimmed === 'maharaja_1792343524686_5e61aa15') return 'கார்த்திக்';
+  return TV_NAME_BY_SESSION_ID[trimmed] || null;
 }
 
 export const TAMIL_LOCALITIES = [
@@ -59,13 +62,18 @@ function hashSeed(seed: string): number {
  */
 export function getTamilCustomerName(seed: string, index = 0, category?: string): string {
   const hash = hashSeed(seed || 'maharaja-guest');
+  let result: string;
   if (category === 'men' || category === 'boy') {
-    return TAMIL_GENTS_NAMES[(hash + index) % TAMIL_GENTS_NAMES.length];
+    result = TAMIL_GENTS_NAMES[(hash + index) % TAMIL_GENTS_NAMES.length];
+  } else if (category === 'women' || category === 'girl') {
+    result = TAMIL_LADIES_NAMES[(hash + index) % TAMIL_LADIES_NAMES.length];
+  } else {
+    result = TAMIL_SHOWROOM_NAMES[(hash + index) % TAMIL_SHOWROOM_NAMES.length];
   }
-  if (category === 'women' || category === 'girl') {
-    return TAMIL_LADIES_NAMES[(hash + index) % TAMIL_LADIES_NAMES.length];
+  if (result === 'திவ்யா' || result.toLowerCase() === 'divya') {
+    return 'கார்த்திக்';
   }
-  return TAMIL_SHOWROOM_NAMES[(hash + index) % TAMIL_SHOWROOM_NAMES.length];
+  return result;
 }
 
 /**

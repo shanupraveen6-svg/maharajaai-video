@@ -87,8 +87,12 @@ export default function TvPlayerPage() {
 
   function displayCustomerName(playback: PlaybackItem | null): string {
     const value = playback?.customerName?.trim() || '';
+    if (value === 'திவ்யா' || value.toLocaleLowerCase() === 'divya') {
+      return 'கார்த்திக்';
+    }
     if (!value || value === 'Maharaja Guest' || value === 'Maharaja Customer' || REMOVED_TV_NAMES.has(value.toLocaleLowerCase())) {
-      return getTamilCustomerName(playback?.queueId || 'tv');
+      const name = getTamilCustomerName(playback?.queueId || 'tv');
+      return (name === 'திவ்யா' || name.toLocaleLowerCase() === 'divya') ? 'கார்த்திக்' : name;
     }
     return value;
   }

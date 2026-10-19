@@ -196,10 +196,14 @@ export async function GET(req: NextRequest) {
           storagePath.toLowerCase().includes('kurta');
         const requiredGentsName = getAssignedTvName(video.sessionId || stableSessionId(storagePath));
         let displayName = requiredGentsName || (
-          (catalog?.displayName && REMOVED_TV_NAMES.has(String(catalog.displayName).trim().toLowerCase()))
+          (catalog?.displayName && (REMOVED_TV_NAMES.has(String(catalog.displayName).trim().toLowerCase()) || catalog.displayName === 'திவ்யா' || String(catalog.displayName).trim().toLowerCase() === 'divya'))
             ? undefined
             : catalog?.displayName
         );
+
+        if (displayName === 'திவ்யா' || String(displayName).trim().toLowerCase() === 'divya') {
+          displayName = 'கார்த்திக்';
+        }
 
         if (isMen && (!displayName || !TAMIL_GENTS_NAMES.includes(displayName as any))) {
           displayName = 'கார்த்திக்';
@@ -266,6 +270,9 @@ export async function GET(req: NextRequest) {
               ? cleanTvName(rawName, getTamilCustomerName(storagePath, index, 'women'))
               : getTamilCustomerName(storagePath, index, 'women'));
           }
+          if (customerName === 'திவ்யா' || String(customerName).trim().toLowerCase() === 'divya') {
+            customerName = 'கார்த்திக்';
+          }
 
           return {
             queueId: replayId,
@@ -321,8 +328,11 @@ export async function GET(req: NextRequest) {
         storagePath,
         videoUrl: await getSignedPlaybackUrl(storagePath),
         liveAudioUrl: profile.playbackMode === 'external' ? getLiveAudioTrack(replayId, video.eventId) : null,
-        customerName: getAssignedTvName(video.sessionId || stableSessionId(storagePath))
-          || cleanTvName(video.customerName, getTamilCustomerName(storagePath, index)),
+        customerName: (() => {
+          const name = getAssignedTvName(video.sessionId || stableSessionId(storagePath))
+            || cleanTvName(video.customerName, getTamilCustomerName(storagePath, index));
+          return (name === 'திவ்யா' || String(name).trim().toLowerCase() === 'divya') ? 'கார்த்திக்' : name;
+        })(),
         customerLocality: TV_LOCALITY,
         createdAt: video.createdAt || null,
         format: getVideoFormat(storagePath),
