@@ -33,8 +33,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const workspace = await getMaharajaWorkspace();
-    const [recentPasses, allActivity] = await Promise.all([listRecentVideoPasses(), listMaharajaActivity(500)]);
+    const [workspace, recentPasses, allActivity] = await Promise.all([
+      getMaharajaWorkspace(),
+      listRecentVideoPasses(),
+      listMaharajaActivity(300),
+    ]);
     const daily = new Map<string, { date: string; scans: number; tryOns: number; gmv: number; downloads: number }>();
     for (const item of allActivity) {
       const date = item.createdAt.slice(0, 10);

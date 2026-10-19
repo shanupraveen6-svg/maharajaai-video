@@ -114,17 +114,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await saveVideoPass(pass);
-    await incrementMaharajaUsage('videoPasses');
-    const billAmount = requestedTier;
-    await logMaharajaActivity('video-pass', `${pass.eventId} AI Video QR created`, {
-      phone: pass.phoneMasked,
-      billLast4: pass.billLast4,
-        amount: billAmount,
+    const [entitlement] = await Promise.all([
+      getCampaignEntitlementByPhone(phone),
+      saveVideoPass(pass),
+      incrementMaharajaUsage('videoPasses'),
+      logMaharajaActivity('video-pass', `${pass.eventId} AI Video QR created`, {
+        phone: pass.phoneMasked,
+        billLast4: pass.billLast4,
+        amount: requestedTier,
         whatsappOptIn: pass.whatsappOptIn === true,
-    });
-
-    const entitlement = await getCampaignEntitlementByPhone(phone);
+      }),
+    ]);
     const allowances = getCustomerServiceAllowances(entitlement);
 
     return NextResponse.json({

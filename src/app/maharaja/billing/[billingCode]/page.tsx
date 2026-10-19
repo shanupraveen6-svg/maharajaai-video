@@ -101,9 +101,9 @@ export default function MaharajaBillingPage() {
         }),
       }));
       const qr = await QRCode.toDataURL(data.pass.link, {
-        width: 720,
+        width: 480,
         margin: 2,
-        errorCorrectionLevel: 'H',
+        errorCorrectionLevel: 'M',
         color: { dark: '#2A060C', light: '#FFFFFF' },
       });
       setPass(data.pass);

@@ -3,7 +3,7 @@
 import React, { Suspense, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, LockKeyhole, Store, WandSparkles } from 'lucide-react';
+import { ArrowRight, LoaderCircle, LockKeyhole, Store, WandSparkles } from 'lucide-react';
 
 function MaharajaLoginForm() {
   const router = useRouter();
@@ -11,11 +11,16 @@ function MaharajaLoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const nextPath = useMemo(() => {
     const next = searchParams.get('next') || '/maharaja/workspace';
     return next.startsWith('/') && !next.startsWith('//') ? next : '/maharaja/workspace';
   }, [searchParams]);
+
+  React.useEffect(() => {
+    router.prefetch(nextPath);
+  }, [router, nextPath]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -26,19 +31,26 @@ function MaharajaLoginForm() {
       return;
     }
 
-    const res = await fetch('/api/operator/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/operator/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(data?.error || 'Invalid Maharaja login. Please check username and password.');
-      return;
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Invalid Maharaja login. Please check username and password.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      router.replace(nextPath);
+    } catch {
+      setError('Connection error. Please try again.');
+      setIsSubmitting(false);
     }
-
-    router.replace(nextPath);
   }
 
   return (
@@ -113,9 +125,20 @@ function MaharajaLoginForm() {
             <button
               type="submit"
               id="login-submit-btn"
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#6e0d1f] px-5 py-4 text-sm font-bold uppercase tracking-wider text-[#F3E5AB] shadow-lg transition hover:bg-[#800A1D]"
+              disabled={isSubmitting}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#6e0d1f] px-5 py-4 text-sm font-bold uppercase tracking-wider text-[#F3E5AB] shadow-lg transition hover:bg-[#800A1D] disabled:opacity-75 disabled:cursor-not-allowed"
             >
-              Enter Maharaja Admin <ArrowRight className="h-4 w-4" />
+              {isSubmitting ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin text-[#F3E5AB]" />
+                  <span>Logging in...</span>
+                </>
+              ) : (
+                <>
+                  <span>Enter Maharaja Admin</span>
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </form>
         </div>

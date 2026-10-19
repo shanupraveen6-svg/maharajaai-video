@@ -60,8 +60,19 @@ function selectedStoragePath(video: any): string {
   return String(video.liveStoragePath || video.storagePath || '');
 }
 
+const EXCLUDED_REPLAY_SESSIONS = new Set([
+  'maharaja_1792393529122_6ad0255f',
+  'maharaja_1792346771305_af3118e5',
+]);
+
 function isPlayableVideo(video: any): boolean {
   const storagePath = selectedStoragePath(video);
+  const sessionId = video.sessionId || stableSessionId(storagePath);
+  if (EXCLUDED_REPLAY_SESSIONS.has(sessionId)) return false;
+  if (EXCLUDED_REPLAY_SESSIONS.has(video.id)) return false;
+  for (const excluded of EXCLUDED_REPLAY_SESSIONS) {
+    if (storagePath.includes(excluded)) return false;
+  }
   const contentType = String(video.contentType || '');
   return isSupportedVideoPath(storagePath) || contentType.startsWith('video/');
 }
@@ -352,3 +363,58 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: error.message || 'Unable to open stored video.' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const targetSessionIds: string[] = Array.isArray(body.sessionIds) && body.sessionIds.length > 0
+      ? body.sessionIds
+      : Array.from(EXCLUDED_REPLAY_SESSIONS);
+
+    const db = getDb();
+    const bucket = getStorageBucket();
+    const results: Array<{ sessionId: string; deletedFilesCount: number }> = [];
+
+    for (const sessionId of targetSessionIds) {
+      let deletedFilesCount = 0;
+      if (bucket) {
+        try {
+          const prefix = `clients/maharaja/sessions/${sessionId}/`;
+          const [files] = await bucket.getFiles({ prefix });
+          for (const file of files) {
+            await file.delete({ ignoreNotFound: true });
+            deletedFilesCount += 1;
+          }
+        } catch (storageErr) {
+          console.warn(`Storage delete warning for session ${sessionId}:`, storageErr);
+        }
+      }
+
+      if (db) {
+        try {
+          const batch = db.batch();
+          batch.delete(db.collection('sessions').doc(sessionId));
+          batch.delete(db.collection('videos').doc(`video_${sessionId}`));
+
+          const [videoSnap, queueSnap] = await Promise.all([
+            db.collection('videos').where('sessionId', '==', sessionId).get(),
+            db.collection('liveQueue').where('sessionId', '==', sessionId).get(),
+          ]);
+          videoSnap.docs.forEach((doc) => batch.delete(doc.ref));
+          queueSnap.docs.forEach((doc) => batch.delete(doc.ref));
+          await batch.commit();
+        } catch (dbErr) {
+          console.warn(`Firestore delete warning for session ${sessionId}:`, dbErr);
+        }
+      }
+
+      results.push({ sessionId, deletedFilesCount });
+    }
+
+    return NextResponse.json({ success: true, results });
+  } catch (error: any) {
+    console.error('Replay Delete Error:', error);
+    return NextResponse.json({ success: false, error: error.message || 'Deletion failed.' }, { status: 500 });
+  }
+}
+

@@ -83,10 +83,12 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-3">
             <a
-              href="#b-focus-branding"
+              href="https://wefocus.in"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 border border-[#8A6A20]/40 bg-[#fffaf0] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f] transition hover:bg-[#6e0d1f] hover:text-[#F3E5AB] shadow-sm"
             >
-              <span>B Focus Agency</span>
+              <span>wefocus.in</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </a>
           </div>
