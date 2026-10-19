@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, generateReservationId, getSignedPlaybackUrl, type MockQueueItem } from '@/lib/firebase/admin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getVideoPlaybackProfile } from '@/lib/maharaja/video-playback';
 
 function getMillis(value: any): number {
