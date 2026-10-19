@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
 import { fal } from '@fal-ai/client';
+import sharp from 'sharp';
 import {
   buildEventVideoPrompt,
   buildFailSafeVideoPrompt,
@@ -44,6 +45,24 @@ function isFalReferenceVideoEnabled(): boolean {
   return AI_CONFIG.VIDEO_PROVIDER === 'fal';
 }
 
+async function normalizeFalReferenceImage(buffer: Buffer): Promise<Buffer> {
+  const metadata = await sharp(buffer).rotate().metadata();
+  if (!metadata.width || !metadata.height) {
+    throw new Error('A visual reference has invalid image dimensions.');
+  }
+
+  return sharp(buffer)
+    .rotate()
+    .resize(720, 1280, {
+      fit: 'contain',
+      position: 'centre',
+      background: { r: 24, g: 8, b: 12, alpha: 1 },
+      withoutEnlargement: false,
+    })
+    .jpeg({ quality: 92, chromaSubsampling: '4:4:4' })
+    .toBuffer();
+}
+
 async function resolveReferenceUrl(value: string, sessionId: string): Promise<string> {
   const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/`;
   if (!value.startsWith(expectedPrefix)) {
@@ -58,7 +77,8 @@ async function resolveReferenceUrl(value: string, sessionId: string): Promise<st
       if (exists) {
         const [buf] = await file.download();
         if (buf && buf.length > 0) {
-          const blob = new Blob([new Uint8Array(buf)], { type: 'image/jpeg' });
+          const normalized = await normalizeFalReferenceImage(buf);
+          const blob = new Blob([new Uint8Array(normalized)], { type: 'image/jpeg' });
           return await fal.storage.upload(blob);
         }
       }
@@ -70,7 +90,8 @@ async function resolveReferenceUrl(value: string, sessionId: string): Promise<st
   const mockStore = getMockStore();
   const mockBlob = mockStore.sessions?.get(`mock_blob_${value}`);
   if (mockBlob?.buffer) {
-    const blob = new Blob([new Uint8Array(mockBlob.buffer)], { type: mockBlob.contentType || 'image/jpeg' });
+    const normalized = await normalizeFalReferenceImage(mockBlob.buffer);
+    const blob = new Blob([new Uint8Array(normalized)], { type: 'image/jpeg' });
     return await fal.storage.upload(blob);
   }
 
@@ -78,7 +99,13 @@ async function resolveReferenceUrl(value: string, sessionId: string): Promise<st
   if (signed.includes('maharaja-mock')) {
     throw new Error(`Visual reference ${value} could not be resolved to a downloadable image for Fal.ai.`);
   }
-  return signed;
+  const response = await fetch(signed, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Visual reference could not be downloaded (${response.status}).`);
+  }
+  const normalized = await normalizeFalReferenceImage(Buffer.from(await response.arrayBuffer()));
+  const blob = new Blob([new Uint8Array(normalized)], { type: 'image/jpeg' });
+  return await fal.storage.upload(blob);
 }
 
 function formatFalError(error: any) {
@@ -454,7 +481,18 @@ export async function POST(req: NextRequest) {
         if (!imageBuf?.length) {
           throw new Error('The approved master image could not be prepared for Fal.ai.');
         }
-        const masterBlob = new Blob([new Uint8Array(imageBuf)], { type: 'image/jpeg' });
+        const normalizedMaster = await normalizeFalReferenceImage(imageBuf);
+        const normalizedMetadata = await sharp(normalizedMaster).metadata();
+        console.log('FAL_MASTER_NORMALIZED', {
+          sessionId,
+          jobId,
+          width: normalizedMetadata.width,
+          height: normalizedMetadata.height,
+          aspectRatio: normalizedMetadata.width && normalizedMetadata.height
+            ? normalizedMetadata.width / normalizedMetadata.height
+            : null,
+        });
+        const masterBlob = new Blob([new Uint8Array(normalizedMaster)], { type: 'image/jpeg' });
         hostedImageUrl = await fal.storage.upload(masterBlob);
 
         console.log('FAL_IMAGE_READY', {
@@ -512,6 +550,8 @@ export async function POST(req: NextRequest) {
             prompt,
             promptId,
             requestId: falSubmitResult.request_id,
+            statusUrl: falSubmitResult.status_url,
+            responseUrl: falSubmitResult.response_url,
             provider: `fal-${selectedVideoModel.id}-reference-to-video`,
             model: selectedVideoModel.model,
             videoModelId: selectedVideoModel.id,

@@ -538,6 +538,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       }
 
       for (let attempt = 0; attempt < 180; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 1200 : 2000));
         const statusParams = new URLSearchParams({
           sessionId,
           jobId: start.jobId,
@@ -564,6 +565,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       }
       throw new Error('Video generation is taking longer than expected. Do not start another job; check this session again.');
     } catch (caught) {
+      setMessage('');
       setError(caught instanceof Error
         ? caught.message
         : 'The AI video could not be generated. Please ask Maharaja staff for assistance.');

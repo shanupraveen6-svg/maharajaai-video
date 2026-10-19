@@ -7,6 +7,42 @@ import { finalizeCompletedVideo, getCampaignEntitlementForPass, getCustomerServi
 export const maxDuration = 300;
 const FAL_VIDEO_MODEL = 'minimax/h3-max/reference-to-video';
 
+function isFalQueueUrl(value: string | null): value is string {
+  if (!value) return false;
+  try {
+    const hostname = new URL(value).hostname.toLowerCase();
+    return hostname === 'fal.run' || hostname.endsWith('.fal.run');
+  } catch {
+    return false;
+  }
+}
+
+async function fetchFalQueueJson(url: string, falKey: string) {
+  if (!isFalQueueUrl(url)) throw new Error('Stored Fal.ai queue URL is invalid.');
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Key ${falKey.trim()}`,
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  });
+  const raw = await response.text();
+  let data: any = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = raw;
+  }
+  if (!response.ok) {
+    const detail = typeof data === 'string'
+      ? data
+      : data?.detail || data?.error || data?.message || JSON.stringify(data || {});
+    throw new Error(`Fal.ai queue request failed (${response.status}): ${detail}`);
+  }
+  return data;
+}
+
 async function markVideoFailed(db: any, sessionId: string, message: string, accessCode?: string | null, jobId?: string | null) {
   if (!sessionId) return;
   const nowIso = new Date().toISOString();
@@ -68,6 +104,8 @@ export async function GET(req: NextRequest) {
     let masterImageUrl: string | null = null;
     let status: string = 'processing';
     let requestId: string | null = queryRequestId;
+    let providerStatusUrl: string | null = null;
+    let providerResponseUrl: string | null = null;
     let provider: string | null = null;
     let providerModel: string = queryModel || FAL_VIDEO_MODEL;
     let eventId = 'diwali';
@@ -129,6 +167,8 @@ export async function GET(req: NextRequest) {
         if (jobDoc.exists) {
           const jobData = jobDoc.data();
           requestId = jobData?.requestId || null;
+          providerStatusUrl = jobData?.statusUrl || null;
+          providerResponseUrl = jobData?.responseUrl || null;
           provider = jobData?.provider || provider;
           if (typeof jobData?.model === 'string') providerModel = jobData.model;
 
@@ -196,6 +236,8 @@ export async function GET(req: NextRequest) {
           }
 
           requestId = jobData.requestId || null;
+          providerStatusUrl = jobData.statusUrl || null;
+          providerResponseUrl = jobData.responseUrl || null;
           provider = jobData.provider || provider;
           if (typeof jobData.model === 'string') providerModel = jobData.model;
           if (!targetSessionId && jobData.sessionId) {
@@ -227,19 +269,23 @@ export async function GET(req: NextRequest) {
           fal.config({ credentials: falKey.trim() });
           console.log('STATUS_POLL', { sessionId: targetSessionId, jobId, requestId });
 
-          const queueStatus = await fal.queue.status(providerModel, {
-            requestId,
-            logs: false
-          });
+          const queueStatus: any = providerStatusUrl
+            ? await fetchFalQueueJson(providerStatusUrl, falKey)
+            : await fal.queue.status(providerModel, {
+                requestId,
+                logs: false
+              });
           const queueState = String((queueStatus as { status?: string }).status || '');
           const queuePosition = queueState === 'IN_QUEUE'
             ? Number((queueStatus as { queue_position?: number }).queue_position ?? 0)
             : null;
 
           if (queueState === 'COMPLETED') {
-            const falResult: any = await fal.queue.result(providerModel, {
-              requestId
-            });
+            const falResult: any = providerResponseUrl
+              ? await fetchFalQueueJson(providerResponseUrl, falKey)
+              : await fal.queue.result(providerModel, {
+                  requestId
+                });
 
             const outputVideoUrl = falResult.data?.video?.url || falResult.video?.url || falResult.data?.video_url || falResult.video_url;
             const outputSeed = falResult.data?.seed ?? falResult.seed ?? null;
@@ -367,7 +413,18 @@ export async function GET(req: NextRequest) {
             message: `H3 Max queue status: ${queueState || 'processing'}`
           });
         } catch (falPollErr: any) {
-          console.warn('Fal.ai Queue Polling Transient Network Warning:', falPollErr?.message || falPollErr);
+          const pollMessage = falPollErr?.message || String(falPollErr);
+          console.warn('Fal.ai Queue Polling Warning:', pollMessage);
+          if (/\(4\d\d\)|status code: 4\d\d|rejected|unprocessable/i.test(pollMessage)) {
+            await markVideoFailed(db, targetSessionId, pollMessage, accessCode, jobId);
+            return NextResponse.json({
+              success: false,
+              jobId,
+              sessionId: targetSessionId,
+              status: 'failed',
+              error: pollMessage,
+            }, { status: 422 });
+          }
           return NextResponse.json({
             success: true,
             jobId,
