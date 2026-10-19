@@ -913,7 +913,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                     </button>
                     {videoTestJobId && <p className="break-all text-[10px] text-[#F3E5AB]/60">Job: {videoTestJobId}</p>}
                     {videoTestUrl && (
-                      <video src={videoTestUrl} controls playsInline preload="metadata" className="aspect-[9/16] w-full bg-black object-contain" />
+                      <video src={videoTestUrl} controls muted playsInline preload="metadata" className="aspect-[9/16] w-full bg-black object-contain" />
                     )}
                   </div>
                 )}

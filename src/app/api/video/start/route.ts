@@ -76,6 +76,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'The approved master image session could not be verified.' }, { status: 403 });
   }
 
+  if (db) {
+    const priorJobs = await db.collection('videoTestJobs').where('sessionId', '==', sessionId).limit(10).get();
+    const recoverable = priorJobs.docs
+      .map((doc) => doc.data())
+      .filter((job) => job.accessCode === accessCode && job.status === 'failed' && typeof job.error === 'string' && job.error.includes('FFmpeg binary') && job.responseUrl)
+      .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))[0];
+    if (recoverable?.jobId) {
+      await db.collection('videoTestJobs').doc(recoverable.jobId).set({ status: 'processing', error: null, updatedAt: new Date().toISOString() }, { merge: true });
+      await db.collection('sessions').doc(sessionId).set({ activeVideoTestJobId: recoverable.jobId }, { merge: true });
+      return NextResponse.json({ success: true, jobId: recoverable.jobId, status: 'processing', modelId: 'h3-max', estimatedUsd: 0, recovered: true });
+    }
+  }
+
   const jobId = `vtest_${crypto.randomUUID()}`;
   const createdAt = new Date().toISOString();
   const basePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/video-tests/${jobId}`;

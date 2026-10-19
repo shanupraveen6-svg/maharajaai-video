@@ -3,7 +3,6 @@ import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/l
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { extractVideoUrl, publicFalQueueUrl } from '@/lib/maharaja/video-test';
-import { stripVideoAudio } from '@/lib/maharaja/video-processor';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -39,7 +38,11 @@ export async function GET(req: NextRequest) {
     const videoUrl = job.videoStoragePath ? await getSignedPlaybackUrl(job.videoStoragePath) : job.videoUrl;
     return NextResponse.json({ success: true, status: 'ready', jobId, modelId: job.modelId, videoUrl, inputMetadata: job.inputMetadata });
   }
-  if (job.status === 'failed') {
+  const recoverablePostProcessFailure = job.status === 'failed'
+    && typeof job.error === 'string'
+    && job.error.includes('FFmpeg binary')
+    && job.responseUrl;
+  if (job.status === 'failed' && !recoverablePostProcessFailure) {
     return NextResponse.json({ success: false, status: 'failed', jobId, error: job.error || 'Video test failed.' }, { status: 422 });
   }
 
@@ -66,7 +69,7 @@ export async function GET(req: NextRequest) {
     if (!contentType.startsWith('video/')) throw new Error(`Provider output is not a video (${contentType}).`);
     const providerBytes = Buffer.from(await videoResponse.arrayBuffer());
     if (providerBytes.length < 10_000) throw new Error('Generated video file is unexpectedly small.');
-    const bytes = await stripVideoAudio(providerBytes);
+    const bytes = providerBytes;
     const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${job.sessionId}/video-tests/${jobId}/output.mp4`;
     const bucket = getStorageBucket();
     if (!bucket) throw new Error('Firebase Storage is unavailable for the completed test video.');
