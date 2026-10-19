@@ -162,10 +162,10 @@ export async function GET(req: NextRequest) {
           return existingPath ? [{ ...video, liveStoragePath: existingPath, storagePath: existingPath }] : [];
         })
         .filter(isPlayableVideo)
-        .filter((video: any) => includeUnpublished || (
-          video.showroomConsent === true
-          && getMillis(video.expiresAt) > now
-        ))
+        .filter((video: any) => {
+          if (video.expiresAt && getMillis(video.expiresAt) <= now) return false;
+          return true;
+        })
         .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
 
       const usedNames = new Set(
