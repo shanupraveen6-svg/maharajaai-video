@@ -142,20 +142,23 @@ export function resolveGarmentType(
 ): GarmentType {
   const text = `${explicitType || ''} ${garmentAnalysis || ''} ${(garmentRoles || []).join(' ')}`.toLowerCase();
 
-  if (category === 'men') return 'kurta_dhoti';
-  if (category === 'boy') return 'boy_ethnic';
-  if (category === 'girl') return 'pattu_pavadai';
+  if (text.includes('dhoti') || text.includes('veshti') || text.includes('kurta') || text.includes('pyjama') || text.includes('pajama')) {
+    return category === 'boy' ? 'boy_ethnic' : 'kurta_dhoti';
+  }
+  if (text.includes('pattu pavadai') || text.includes('pavadai') || text.includes('langa voni')) {
+    return 'pattu_pavadai';
+  }
 
-  if (text.includes('lehenga') || text.includes('ghagra') || text.includes('chaniya') || text.includes('skirt')) {
+  if (text.includes('lehenga') || text.includes('ghagra') || text.includes('chaniya')) {
     return 'lehenga';
   }
   if (text.includes('salwar') || text.includes('anarkali') || text.includes('kameez') || text.includes('churidar') || text.includes('kurti')) {
     return 'salwar';
   }
-  if (text.includes('saree') || text.includes('sari') || text.includes('kanchi') || text.includes('banarasi') || text.includes('silk') || text.includes('pallu')) {
+  if (text.includes('saree') || text.includes('sari') || text.includes('kanchi') || text.includes('banarasi') || text.includes('pallu')) {
     return 'saree';
   }
-  return 'saree';
+  return 'generic';
 }
 
 /** Garment-specific and category-specific garment architecture rules */
@@ -555,10 +558,16 @@ export function buildMasterPrompt(
     : resolveGarmentType(category, typeof garmentTypeOrHint === 'string' ? garmentTypeOrHint : undefined);
   const garmentRules = getGarmentFidelityRules(resolvedGarment, false);
   const scene = getEventSceneDirection(category, eventId, resolvedPromptSet);
+  const safeImageScene = scene.imageScene
+    .replace(/\s+in traditional pattu pavadai\b/gi, '')
+    .replace(/\s+in traditional (?:ethnic|festive) wear\b/gi, '')
+    .replace(/\s+in festive attire\b/gi, '')
+    .replace(/\s+in modest ethnic wear\b/gi, '')
+    .replace(/\s+in cheerful ethnic wear\b/gi, '');
   const childSafety = category === 'boy' || category === 'girl'
     ? '\n\nCHILD SAFETY: Keep the child fully age-appropriate, naturally cheerful, modestly styled, and free of adult glamour, mature posing, or suggestive presentation.'
     : '';
-  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${scene.imageScene}${childSafety}`;
+  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
 }
 
 /** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */

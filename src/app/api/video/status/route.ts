@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AI_CONFIG } from '@/lib/ai/config';
-import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
+import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
 import { ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import { finalizeCompletedVideo, getCampaignEntitlementForPass, getCustomerServiceAllowances, getVideoPass, markPassVideoFailed, markPassVideoReady, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
@@ -103,8 +103,10 @@ export async function GET(req: NextRequest) {
           }
           if (sData?.videoStatus === 'ready' || sData?.videoStatus === 'succeeded') {
             if (sData?.videoUrl && sData?.videoStoragePath) {
-              videoUrl = sData.videoUrl;
-              liveVideoUrl = sData?.liveVideoUrl || liveVideoUrl;
+              videoUrl = await getSignedPlaybackUrl(sData.videoStoragePath).catch(() => sData.videoUrl);
+              liveVideoUrl = sData?.liveVideoStoragePath
+                ? await getSignedPlaybackUrl(sData.liveVideoStoragePath).catch(() => sData?.liveVideoUrl || videoUrl)
+                : sData?.liveVideoUrl || liveVideoUrl;
               status = 'ready';
             }
           }

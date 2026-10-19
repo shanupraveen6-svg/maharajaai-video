@@ -479,7 +479,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setTryOnImageUrl(data.masterImageUrl);
       } else {
         setVideoMasterUrl(data.masterImageUrl);
-        setMasterApproved(true);
+        setMasterApproved(Boolean(data.approved));
       }
       setMessage(activeService === 'try-on'
         ? 'Your Maharaja AI Try-On is ready.'
@@ -494,17 +494,22 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   async function generateVideo() {
     if (!videoMasterUrl || stage === 'video') return;
     if (!masterApproved) {
-      await fetch('/api/ai/master-image/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accessCode,
-          sessionId,
-          service: 'ai-video',
-          imageUrl: videoMasterUrl,
-        }),
-      }).catch(() => undefined);
-      setMasterApproved(true);
+      try {
+        await readJson(await fetch('/api/ai/master-image/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accessCode,
+            sessionId,
+            service: 'ai-video',
+            imageUrl: videoMasterUrl,
+          }),
+        }));
+        setMasterApproved(true);
+      } catch (caught) {
+        setError(customerError(caught, 'The approved image could not be confirmed. Please retry before generating the video.'));
+        return;
+      }
     }
     const enforceLimits = allowances?.enforceRepeatLimits ?? false;
     if (enforceLimits && allowances.video.used >= 2 && !retrySessionId) {

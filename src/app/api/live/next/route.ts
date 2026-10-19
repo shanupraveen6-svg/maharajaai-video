@@ -119,8 +119,9 @@ export async function GET(req: NextRequest) {
         });
 
         let customerName = cleanDisplayText(queueData.customerName) || cleanDisplayText(videoData.customerName);
-        const isMen = queueData.category === 'men' || videoData.category === 'men' || (storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
-        if (isMen || (customerName && REMOVED_TV_NAMES.has(customerName.toLowerCase()))) {
+        const isLegacyNamedMedia = !queueData.customerName
+          && Boolean(storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
+        if (isLegacyNamedMedia || (customerName && REMOVED_TV_NAMES.has(customerName.toLowerCase()))) {
           customerName = 'கார்த்திக்';
         }
 
@@ -211,8 +212,9 @@ export async function GET(req: NextRequest) {
       const signedUrl = await getSignedPlaybackUrl(storagePath);
 
       let mockCustomerName = cleanDisplayText((nextItem as any).customerName) || cleanDisplayText((video as any).customerName);
-      const isMockMen = (nextItem as any).category === 'men' || (video as any).category === 'men' || (storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
-      if (isMockMen || (mockCustomerName && REMOVED_TV_NAMES.has(mockCustomerName.toLowerCase()))) {
+      const isLegacyMockMedia = !(nextItem as any).customerName
+        && Boolean(storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
+      if (isLegacyMockMedia || (mockCustomerName && REMOVED_TV_NAMES.has(mockCustomerName.toLowerCase()))) {
         mockCustomerName = 'கார்த்திக்';
       }
 

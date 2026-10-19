@@ -136,6 +136,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'sessionId is required.' }, { status: 400 });
     }
 
+    const ownershipDb = getDb();
+    const existingSession = ownershipDb
+      ? (await ownershipDb.collection('sessions').doc(sessionId).get()).data()
+      : getMockStore().sessions.get(sessionId);
+    if (existingSession?.accessCode && existingSession.accessCode !== accessCode) {
+      return NextResponse.json({ success: false, error: 'This media session belongs to another customer pass.' }, { status: 403 });
+    }
+
     const personInput = body.personPhotoStoragePath || body.personPhotoUrl || personPhoto;
     const garmentInputs: string[] = (Array.isArray(body.garmentPhotoStoragePaths) && body.garmentPhotoStoragePaths.length > 0)
       ? body.garmentPhotoStoragePaths
@@ -227,9 +235,11 @@ export async function POST(req: NextRequest) {
               ? '- For salwar/anarkali: preserve exact tunic flare, neckline, churidar fit, and dupatta drape. Strictly no saree pleats or pallu.'
               : garmentType === 'kurta_dhoti'
                 ? '- For men\'s ethnic wear: preserve exact kurta silhouette, collar construction, placket buttons, fabric weave, and dhoti/veshti/pyjama drape. Strictly no saree pleats, pallu, or blouse styling.'
-                : garmentType === 'boy_ethnic'
+              : garmentType === 'boy_ethnic'
                   ? '- For boys\' ethnic wear: preserve exact kurta-pyjama or dhoti-shirt silhouette and fabric weave. Strictly no saree, pallu, or adult garment elements.'
-                  : '- For girls\' traditional wear: preserve exact pattu pavadai (silk skirt and blouse/choli) or anarkali silhouette and border details. Strictly no adult saree drape.';
+                : garmentType === 'pattu_pavadai'
+                  ? '- For girls\' traditional wear: preserve exact pattu pavadai (silk skirt and blouse/choli) or anarkali silhouette and border details. Strictly no adult saree drape.'
+                  : '- Garment type is intentionally unspecified. Copy only the uploaded garment references; do not infer a traditional, ethnic, western, formal, or casual replacement.';
 
         const garmentFidelityRules = `EXACT GARMENT ROLE & COLOR INSTRUCTIONS:
 ${roleInstructions}
@@ -336,9 +346,9 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       : {
         masterImageUrl,
         masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
-        masterImageApproved: true,
-        masterImageApprovedAt: nowIso,
-        masterImageApprovedUrl: masterImageUrl,
+        masterImageApproved: false,
+        masterImageApprovedAt: null,
+        masterImageApprovedUrl: null,
       };
 
     // Protect Firestore against 1MB document size limit if Storage was bypassed
@@ -432,9 +442,11 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       success: true,
       sessionId,
       masterImageUrl,
-      approved: true,
+      approved: service === 'try-on',
       allowances: updatedAllowances,
-      operatorMessage: 'Master fashion reference generated successfully.'
+      operatorMessage: service === 'try-on'
+        ? 'Try-On image generated successfully.'
+        : 'Festival portrait generated. Customer review is required before video generation.'
     });
   } catch (error: any) {
     console.error('Master Image Route Error:', error);

@@ -108,6 +108,9 @@ export async function POST(req: NextRequest) {
       ]);
       const videoData = videoDoc.data();
       const sessionData = sessionDoc.data();
+      if (!sessionDoc.exists || (access.pass && sessionData?.accessCode !== body.accessCode)) {
+        return NextResponse.json({ success: false, error: 'This video session does not belong to this customer pass.' }, { status: 403 });
+      }
       if (!videoDoc.exists || videoData?.sessionId !== sessionId || videoData?.status !== 'ready' || !videoData?.storagePath) {
         return NextResponse.json({ success: false, error: 'The final AI Video is not ready for Go Live.' }, { status: 409 });
       }
@@ -121,6 +124,10 @@ export async function POST(req: NextRequest) {
     } else {
       const mockStore = getMockStore();
       const videoData = mockStore.videos.get(videoId);
+      const sessionData = mockStore.sessions.get(sessionId);
+      if (!sessionData || (access.pass && sessionData.accessCode !== body.accessCode)) {
+        return NextResponse.json({ success: false, error: 'This video session does not belong to this customer pass.' }, { status: 403 });
+      }
       if (!videoData || videoData.sessionId !== sessionId || videoData.status !== 'ready' || !videoData.storagePath) {
         return NextResponse.json({ success: false, error: 'The final AI Video is not ready for Go Live.' }, { status: 409 });
       }

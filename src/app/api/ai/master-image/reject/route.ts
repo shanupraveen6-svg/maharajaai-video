@@ -18,14 +18,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
 
+    const db = getDb();
+    const existingSession = db
+      ? (await db.collection('sessions').doc(sessionId).get()).data()
+      : getMockStore().sessions.get(sessionId);
+    if (!existingSession || (access.pass && existingSession.accessCode !== accessCode)) {
+      return NextResponse.json({ success: false, error: 'This image session does not belong to this customer pass.' }, { status: 403 });
+    }
+
     if (access.pass) {
       await rejectPassMasterImage(access.pass.code, service, reason);
     }
 
     const nowIso = new Date().toISOString();
-    const db = getDb();
     if (db) {
-      await db.collection('sessions').doc(sessionId).set({
+      const sessionRef = db.collection('sessions').doc(sessionId);
+      await sessionRef.set({
         ...(service === 'ai-video' ? {
           masterImageUrl: null,
           masterImageApproved: false,
@@ -42,7 +50,7 @@ export async function POST(req: NextRequest) {
       }, { merge: true });
     } else {
       const mockStore = getMockStore();
-      const existing = mockStore.sessions.get(sessionId) || {};
+      const existing = existingSession;
       mockStore.sessions.set(sessionId, {
         ...existing,
         ...(service === 'ai-video' ? {

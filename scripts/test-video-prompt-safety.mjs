@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildEventVideoPrompt, buildFailSafeVideoPrompt, buildFinalPrompt } from '../src/lib/maharaja/config.ts';
+import { buildEventVideoPrompt, buildFailSafeVideoPrompt, buildFinalPrompt, buildMasterPrompt, resolveGarmentType } from '../src/lib/maharaja/config.ts';
 
 const categories = ['women', 'men', 'girl', 'boy'];
 const events = ['diwali', 'pongal', 'new-year', 'christmas', 'ramadan', 'birthday'];
@@ -40,4 +40,19 @@ for (const phrase of forbidden) {
 assert.match(retryPrompt, /sole visual authority/i);
 assert.doesNotMatch(retryPrompt, /soft blink|chest breathing|foreground particles/i);
 
-console.log('Video prompt safety audit passed for 48 normal combinations and the retry prompt.');
+assert.equal(resolveGarmentType('boy', 'Uploaded garment'), 'generic');
+assert.equal(resolveGarmentType('men', 'blue and white shirt'), 'generic');
+assert.equal(resolveGarmentType('girl', 'party dress'), 'generic');
+assert.equal(resolveGarmentType('women', 'silk shirt'), 'generic');
+assert.equal(resolveGarmentType('boy', 'kurta pyjama'), 'boy_ethnic');
+assert.equal(resolveGarmentType('women', 'Kanchipuram saree with pallu'), 'saree');
+
+for (const category of categories) {
+  for (const event of events) {
+    const masterPrompt = buildMasterPrompt(category, event, 'master-safety', 'generic', 'set-1');
+    assert.doesNotMatch(masterPrompt, /traditional pattu pavadai|traditional ethnic wear|traditional festive wear|festive attire|modest ethnic wear|cheerful ethnic wear/i);
+    assert.match(masterPrompt, /event environment changes only the background/i);
+  }
+}
+
+console.log('Image and video prompt safety audit passed for generic-garment preservation, 48 normal combinations, and the retry prompt.');

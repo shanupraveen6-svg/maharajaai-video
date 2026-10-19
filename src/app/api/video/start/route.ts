@@ -183,6 +183,9 @@ export async function POST(req: NextRequest) {
     const sessionData = db
       ? (await db.collection('sessions').doc(sessionId).get()).data()
       : getMockStore().sessions.get(sessionId);
+    if (!sessionData || (access.pass && sessionData.accessCode !== accessCode)) {
+      return NextResponse.json({ success: false, error: 'This video session does not belong to this customer pass.' }, { status: 403 });
+    }
 
     let effectiveCategory: CustomerCategory;
     let effectiveGarment: string;

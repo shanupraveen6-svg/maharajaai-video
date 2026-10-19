@@ -1259,8 +1259,8 @@ export async function markPassVideoMasterDone(
       const updateData: Record<string, any> = {
         videoMasterDone: true,
         videoMasterUrl,
-        videoMasterApproved: true,
-        videoMasterApprovedUrl: videoMasterUrl,
+        videoMasterApproved: false,
+        videoMasterApprovedUrl: '',
         imageGenerating: false,
         activeMasterGenerationId: FieldValue.delete(),
       };
@@ -1540,6 +1540,7 @@ export async function releasePassVideoLock(code: string) {
  */
 export async function markPassVideoFailed(code: string, jobId?: string) {
   const db = getDb();
+  let releasedActiveJob = false;
   if (db) {
     const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
     await db.runTransaction(async (tx) => {
@@ -1560,6 +1561,7 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
         lastVideoFailedAtMs: Date.now(),
         activeVideoJobId: FieldValue.delete(),
       });
+      releasedActiveJob = true;
     });
   } else {
     const key = `${MAHARAJA_CLIENT_ID}:${code}`;
@@ -1581,11 +1583,14 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
       };
       delete (copy as any).activeVideoJobId;
       getMockStore().customerPasses.set(key, copy);
+      releasedActiveJob = true;
     }
   }
 
-  // Exactly-once accounting: failed provider call does NOT consume allowance
-  await releaseServiceGenerationLock(code, 'video', { jobId });
+  // A stale failure callback must never release the phone-level lock of a newer active retry.
+  if (releasedActiveJob) {
+    await releaseServiceGenerationLock(code, 'video', { jobId });
+  }
 }
 
 /**

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { getStorageBucket } from '@/lib/firebase/admin';
+import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
@@ -46,6 +46,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Only JPEG and PNG photos are accepted.' }, { status: 415 });
     }
 
+    const db = getDb();
+    const normalizedAccessCode = typeof accessCode === 'string' ? accessCode.trim() : '';
+    if (db) {
+      const sessionRef = db.collection('sessions').doc(sessionId);
+      await db.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(sessionRef);
+        const existing = snapshot.data();
+        if (snapshot.exists && existing?.accessCode && existing.accessCode !== normalizedAccessCode) {
+          throw new Error('SESSION_OWNERSHIP_MISMATCH');
+        }
+        transaction.set(sessionRef, {
+          sessionId,
+          clientId: MAHARAJA_CLIENT_ID,
+          accessCode: normalizedAccessCode || null,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      });
+    } else {
+      const mockStore = getMockStore();
+      const existing = mockStore.sessions.get(sessionId);
+      if (existing?.accessCode && existing.accessCode !== normalizedAccessCode) {
+        return NextResponse.json({ success: false, error: 'This media session belongs to another customer pass.' }, { status: 403 });
+      }
+      mockStore.sessions.set(sessionId, {
+        ...(existing || {}),
+        sessionId,
+        clientId: MAHARAJA_CLIENT_ID,
+        accessCode: normalizedAccessCode || null,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
     const ext = contentType.includes('png') ? 'png' : 'jpg';
     const filename = `${crypto.randomUUID()}.${ext}`;
     const safeFolder = ['person', 'garment', 'uploads'].includes(folder) ? folder : 'uploads';
@@ -85,6 +117,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Storage Upload URL Error:', error);
+    if (error?.message === 'SESSION_OWNERSHIP_MISMATCH') {
+      return NextResponse.json({ success: false, error: 'This media session belongs to another customer pass.' }, { status: 403 });
+    }
     return NextResponse.json({ success: false, error: 'Failed to create upload URL.' }, { status: 500 });
   }
 }
