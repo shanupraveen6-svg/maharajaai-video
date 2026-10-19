@@ -329,7 +329,7 @@ export async function POST(req: NextRequest) {
       effectivePromptSet,
     });
 
-    if (!isFalReferenceVideoEnabled()) {
+    if (!isFalReferenceVideoEnabled() && !body.videoModelId) {
       return NextResponse.json({
         success: false,
         error: 'Diwali Reference-to-Video is not enabled. Set VIDEO_PROVIDER=fal; no automatic fallback was used.',
@@ -337,7 +337,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Mode A — Safe / Production (Default): Deterministic FFmpeg Video with 100% garment fidelity
-    if (AI_CONFIG.VIDEO_PROVIDER === 'deterministic') {
+    if (AI_CONFIG.VIDEO_PROVIDER === 'deterministic' && !body.videoModelId) {
       console.log('DETERMINISTIC_VIDEO_START', { sessionId, jobId });
       const imageBuffer = await resolveMasterImageBuffer(hostedImageUrl, sessionId, masterImageUrl);
       if (!imageBuffer || imageBuffer.length === 0) {
