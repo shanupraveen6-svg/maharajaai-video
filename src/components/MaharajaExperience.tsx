@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   BadgeIndianRupee,
   Camera,
@@ -43,6 +44,7 @@ type AccessResponse = {
     phoneMasked: string | null;
     billLast4: string | null;
     tryOnUsed: boolean;
+    videoMasterCategory?: CustomerCategory | null;
   };
 };
 
@@ -242,12 +244,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           setEventId(retryData.source.eventId);
           setCategory(retryData.source.category);
           setGarmentAnalysis(retryData.source.garmentAnalysis);
-          setMessage('Manager retry approved. Generate a new video from the same approved image.');
+          setMessage('Video retry ready. The safe backup prompt will use the same approved image.');
         } else if (data.access.service === 'ai-video' && (data.access.tryOnImageUrl || data.access.videoMasterUrl)) {
           if (data.access.tryOnImageUrl) setTryOnImageUrl(data.access.tryOnImageUrl);
           if (data.access.videoMasterUrl) {
             setVideoMasterUrl(data.access.videoMasterUrl);
             setMasterApproved(true);
+          }
+          if (data.access.videoMasterCategory) {
+            setCategory(data.access.videoMasterCategory);
           }
           if (data.access.videoMasterPromptSet) {
             setPromptSet(data.access.videoMasterPromptSet);
@@ -274,6 +279,16 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     if (stage !== 'video') return;
     const timer = window.setInterval(() => setVideoProgressIndex((current) => Math.min(current + 1, 2)), 7000);
     return () => window.clearInterval(timer);
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage !== 'image' && stage !== 'video') return;
+    const warnBeforeExit = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeExit);
+    return () => window.removeEventListener('beforeunload', warnBeforeExit);
   }, [stage]);
 
   const enforceLimits = allowances?.enforceRepeatLimits ?? false;
@@ -492,7 +507,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       setMasterApproved(true);
     }
     const enforceLimits = allowances?.enforceRepeatLimits ?? false;
-    if (enforceLimits && allowances.video.used >= 2) {
+    if (enforceLimits && allowances.video.used >= 2 && !retrySessionId) {
       setError('H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
       return;
     }
@@ -622,9 +637,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   return (
     <main className="min-h-screen bg-[#F5F2EA] pb-12 text-[#211A17]">
       {(stage === 'image' || stage === 'video') && (
-        <div className="fixed inset-x-0 top-0 z-50 flex min-h-14 items-center justify-center gap-3 bg-[#21090E] px-4 py-3 text-center text-sm font-bold text-[#F3E5AB] shadow-lg" role="status" aria-live="polite">
-          <LoaderCircle className="h-5 w-5 shrink-0 animate-spin text-[#D4AF37]" />
-          <span>{stage === 'image' ? 'Generating your AI image.' : 'Generating your 6-second AI video.'} Please wait and do not reload or close this page.</span>
+        <div className="fixed inset-x-0 top-0 z-50 flex min-h-16 items-center justify-center gap-3 bg-red-700 px-4 py-3 text-center text-sm font-black text-white shadow-lg" role="alert" aria-live="assertive">
+          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15">
+            <span className="absolute inset-0 animate-ping rounded-full border border-white/60" />
+            <AlertTriangle className="relative h-5 w-5" />
+          </span>
+          <span><span className="block uppercase tracking-wide">Do not reload or close this page</span><span className="block text-xs font-semibold text-white/90">{stage === 'image' ? 'Creating and securely saving your AI image.' : 'Rendering, adding audio and securely saving your video.'}</span></span>
         </div>
       )}
       <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]">
@@ -715,7 +733,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-4 gap-2">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" disabled={busy || imagesLocked} onClick={() => { setCategory(option); setProcessingConsent(false); clearActiveImage(); }} className={`min-h-11 border px-2 text-xs font-bold uppercase ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}>{option}</button>)}</div></fieldset>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
                   {activeService === 'ai-video' && (
                     <fieldset className="sm:col-span-2">
                       <legend className="text-xs font-bold uppercase text-[#5C4B43]">Cinematic Scene Style</legend>
@@ -975,7 +993,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       <div className="mx-auto mt-6 max-w-5xl border-t border-[#D8C49B] px-4 py-5 text-center text-[11px] leading-5 text-[#5C4B43]">
         {activeService === 'try-on'
           ? 'Your photos are temporarily processed to create this Try-On and are removed from Maharaja storage after generation. The downloaded result remains on your device.'
-          : 'AI Video media is temporarily retained for delivery and removed within 4 days unless an adult separately permits promotional use. Anonymous usage totals may be retained.'}{' '}
+          : 'AI Video media is temporarily retained for delivery and removed within 3 days unless an adult separately permits promotional use. Anonymous usage totals may be retained.'}{' '}
         <Link href="/privacy" className="font-bold text-[#6E0D1F] underline underline-offset-2">Privacy &amp; Data Use</Link>
         <span className="px-1.5">·</span>
         <Link href="/terms" className="font-bold text-[#6E0D1F] underline underline-offset-2">Terms</Link>

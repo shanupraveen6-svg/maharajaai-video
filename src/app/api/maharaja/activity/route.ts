@@ -17,7 +17,6 @@ import {
 } from '@/lib/maharaja/server';
 
 const CUSTOMER_TYPES = new Set(['retry', 'download', 'share']);
-const MAX_RETRY_ALLOWANCE = Number(process.env.MAHARAJA_MAX_RETRY_ALLOWANCE) || 100;
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,10 +49,6 @@ export async function POST(req: NextRequest) {
         }
       }
       if (type === 'retry') {
-        const workspace = await getMaharajaWorkspace();
-        if (ENFORCE_REPEAT_LIMITS && workspace.usage.retries >= MAX_RETRY_ALLOWANCE) {
-          return NextResponse.json({ success: false, error: `Store retry reserve has been reached (${MAX_RETRY_ALLOWANCE} retries). Contact administration.` }, { status: 403 });
-        }
         const target: 'image' | 'video' = body.target === 'image' ? 'image' : 'video';
         const deviceStatus = validTryOnDeviceId(body.deviceId) ? await getTryOnDeviceStatus(body.deviceId) : null;
 

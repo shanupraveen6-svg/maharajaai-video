@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
 
     const limit = cleanLimit(req.nextUrl.searchParams.get('limit'));
     const offset = cleanOffset(req.nextUrl.searchParams.get('offset'));
+    const includeUnpublished = req.nextUrl.searchParams.get('includeUnpublished') === '1';
     const db = getDb();
 
     if (db) {
@@ -155,6 +156,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      const now = Date.now();
       const readyVideos = Array.from(videosByStoragePath.values())
         .flatMap((video: any) => {
           if (!storageScanSucceeded) return [video];
@@ -164,6 +166,10 @@ export async function GET(req: NextRequest) {
           return existingPath ? [{ ...video, liveStoragePath: existingPath, storagePath: existingPath }] : [];
         })
         .filter(isPlayableVideo)
+        .filter((video: any) => includeUnpublished || (
+          video.showroomConsent === true
+          && getMillis(video.expiresAt) > now
+        ))
         .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
 
       const usedNames = new Set(

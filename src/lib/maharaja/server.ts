@@ -5,7 +5,6 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { getLiveAudioTrack, getPreviewAudioTrack } from './audio';
 import { generateCustomer6sVideo, generateLive9sVideo } from './video-processor';
-import { getTamilCustomerName } from './names';
 import {
   AI_VIDEO_MIN_PURCHASE,
   type EventId,
@@ -1555,6 +1554,8 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
         videoDone: false,
         videoGenerating: false,
         providerAccepted: false,
+        retryUsed: false,
+        retryApproved: true,
         lastVideoFailed: true,
         lastVideoFailedAtMs: Date.now(),
         activeVideoJobId: FieldValue.delete(),
@@ -1573,6 +1574,8 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
         videoDone: false,
         videoGenerating: false,
         providerAccepted: false,
+        retryUsed: false,
+        retryApproved: true,
         lastVideoFailed: true,
         lastVideoFailedAtMs: Date.now(),
       };
@@ -1601,7 +1604,6 @@ export async function markPassRetryApproved(
     if (ENFORCE_REPEAT_LIMITS && allowances.video.used >= 2) {
       throw new Error('H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
     }
-    await authorizeVideoRetry(code);
   } else if (target === 'image') {
     if (service === 'try-on') {
       if (ENFORCE_REPEAT_LIMITS && allowances.tryOn.used >= 2) {
@@ -1616,7 +1618,7 @@ export async function markPassRetryApproved(
 
   const db = getDb();
   const updates: Record<string, any> = {
-    retryUsed: ENFORCE_REPEAT_LIMITS ? true : false,
+    retryUsed: false,
     retryApproved: true,
     status: 'active' as const,
   };
@@ -1791,11 +1793,6 @@ export async function finalizeCompletedVideo({
     }
   }
 
-  if (!customerName) {
-    customerName = getTamilCustomerName(sessionId);
-    customerLocality = 'தஞ்சாவூர்';
-  }
-
   const nowIso = new Date().toISOString();
 
   if (db) {
@@ -1821,29 +1818,8 @@ export async function finalizeCompletedVideo({
         videoStoragePath: storagePath,
         liveVideoUrl: liveSignedUrl,
         liveVideoStoragePath: liveStoragePath,
-        expiresAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+        expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
         updatedAt: nowIso,
-      }, { merge: true }),
-      // Auto-enqueue to showroom screen liveQueue so it immediately plays on the TV screen!
-      db.collection('liveQueue').doc(`lq_${sessionId}`).set({
-        id: `lq_${sessionId}`,
-        screenId: 'maharaja-main',
-        videoId: `video_${sessionId}`,
-        sessionId,
-        videoUrl: liveSignedUrl || signedUrl,
-        liveVideoUrl: liveSignedUrl || signedUrl,
-        customerName,
-        customerLocality,
-        category: 'men',
-        status: 'queued',
-        priority: 1,
-        repeatCount: 1,
-        timesPlayed: 0,
-        showroomConsent: true,
-        guardianConsent: false,
-        promotionConsent: true,
-        createdAt: nowIso,
-        playAtMs: Date.now(),
       }, { merge: true }),
     ]);
   } else {
@@ -1871,21 +1847,8 @@ export async function finalizeCompletedVideo({
       videoStoragePath: storagePath,
       liveVideoUrl: liveSignedUrl,
       liveVideoStoragePath: liveStoragePath,
-      expiresAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: nowIso,
-    });
-    mockStore.liveQueue.push({
-      id: `lq_${sessionId}`,
-      screenId: 'maharaja-main',
-      videoId: `video_${sessionId}`,
-      sessionId,
-      videoUrl: liveSignedUrl || signedUrl,
-      status: 'queued',
-      priority: 1,
-      repeatCount: 1,
-      timesPlayed: 0,
-      createdAt: nowIso,
-      playAtMs: Date.now(),
     });
   }
 
@@ -2042,12 +2005,6 @@ function evaluateVideoLock(pass: MaharajaVideoPass | undefined | null, now: numb
   }
   if (!pass.videoMasterApproved) {
     return { ok: false, error: 'Customer approval required: Please review and approve the master image before starting H3 video generation.' };
-  }
-  if (ENFORCE_REPEAT_LIMITS && pass.videoDone && !pass.retryApproved) {
-    return { ok: false, error: 'This pass has already completed video generation. Store manager authorization is required to start a retry.' };
-  }
-  if (ENFORCE_REPEAT_LIMITS && pass.videoDone && pass.retryUsed) {
-    return { ok: false, error: 'This pass has already completed video generation and used its retry allowance.' };
   }
   if (pass.videoGenerating) {
     // If provider has accepted the job and activeVideoJobId exists, it is actively rendering with the provider.

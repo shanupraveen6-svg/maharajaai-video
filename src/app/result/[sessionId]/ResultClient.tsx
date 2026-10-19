@@ -633,7 +633,7 @@ export default function ResultClient({
           </div>
 
           <p className="px-2 text-[11px] leading-5 text-[#F3E5AB]/65">
-            AI Video media is retained temporarily for delivery and removed within 4 days unless an adult separately permits promotional use. Anonymous usage totals may be retained.{' '}
+            AI Video media is retained temporarily for delivery and removed within 3 days unless an adult separately permits promotional use. Anonymous usage totals may be retained.{' '}
             <Link href="/privacy" className="font-semibold text-[#D4AF37] underline underline-offset-2">Privacy &amp; Data Use</Link>
           </p>
 

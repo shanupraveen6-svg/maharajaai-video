@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
       promotionConsent,
       consentVersion: '2026-10-privacy-v1',
       consentedAt: nowIso,
-      expiresAt: new Date(nowMs + 4 * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: new Date(nowMs + 3 * 24 * 60 * 60 * 1000).toISOString(),
       displayUpdatedAt: nowIso
     };
     let queueNumber = 1;
