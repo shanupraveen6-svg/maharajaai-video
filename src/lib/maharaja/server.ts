@@ -135,7 +135,6 @@ export type ServiceAllowanceCounter = {
   generating: boolean;
   generatingAtMs?: number;
   lastJobId?: string;
-  managerAuthorized?: boolean;
 };
 
 export type CustomerCampaignEntitlement = {
@@ -158,7 +157,7 @@ export type CustomerServiceAllowances = {
   enforceRepeatLimits?: boolean;
   tryOn: { used: number; max: number; remaining: number };
   masterImage: { used: number; max: number; remaining: number };
-  video: { used: number; max: number; remaining: number; managerAuthorized?: boolean };
+  video: { used: number; max: number; remaining: number };
 };
 
 export function normalizePhoneNumber(raw: unknown): string {
@@ -192,7 +191,6 @@ export function getCustomerServiceAllowances(entitlement: CustomerCampaignEntitl
         used: videoUsed,
         max: 999,
         remaining: 999,
-        managerAuthorized: true,
       },
     };
   }
@@ -213,7 +211,6 @@ export function getCustomerServiceAllowances(entitlement: CustomerCampaignEntitl
       used: Math.min(2, videoUsed),
       max: 2,
       remaining: Math.max(0, 2 - videoUsed),
-      managerAuthorized: Boolean(entitlement?.video?.managerAuthorized),
     },
   };
 }
@@ -975,7 +972,6 @@ export async function recordServiceGenerationSuccess(
         used: nextUsed,
         max: ENFORCE_REPEAT_LIMITS ? 2 : 999,
         generating: false,
-        ...(service === 'video' ? { managerAuthorized: false } : {}),
       };
 
       tx.set(ref, {
@@ -1015,7 +1011,6 @@ export async function recordServiceGenerationSuccess(
     used: nextUsed,
     max: ENFORCE_REPEAT_LIMITS ? 2 : 999,
     generating: false,
-    ...(service === 'video' ? { managerAuthorized: false } : {}),
   };
 
   store.campaignEntitlements.set(key, {
@@ -1025,73 +1020,6 @@ export async function recordServiceGenerationSuccess(
   });
 
   return { used: nextUsed, max: ENFORCE_REPEAT_LIMITS ? 2 : 999, exhausted: ENFORCE_REPEAT_LIMITS ? nextUsed >= 2 : false };
-}
-
-export async function authorizeVideoRetry(phoneOrCode: string): Promise<{ success: boolean; ok: boolean; error?: string }> {
-  const phone = await resolvePhoneFromTarget(phoneOrCode);
-  if (!phone) return { success: false, ok: false, error: 'Customer phone entitlement not found.' };
-
-  const db = getDb();
-  const nowIso = new Date().toISOString();
-
-  if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
-      .collection('campaignEntitlements').doc(phone);
-    return db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists) return { success: false, ok: false, error: 'Customer entitlement not found.' };
-      const entitlement = snap.data() as CustomerCampaignEntitlement;
-      if (ENFORCE_REPEAT_LIMITS && Number(entitlement.video?.used || 0) >= 2) {
-        return {
-          success: false,
-          ok: false,
-          error: 'H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.',
-        };
-      }
-      tx.set(ref, {
-        ...entitlement,
-        video: {
-          ...entitlement.video,
-          managerAuthorized: true,
-        },
-        updatedAt: nowIso,
-      }, { merge: true });
-      return { success: true, ok: true };
-    });
-  }
-
-  const store = getMockStore();
-  const key = `${MAHARAJA_CLIENT_ID}:${phone}`;
-  const entitlement = store.campaignEntitlements.get(key) as CustomerCampaignEntitlement | undefined;
-  if (!entitlement) return { success: false, ok: false, error: 'Customer entitlement not found.' };
-  if (ENFORCE_REPEAT_LIMITS && Number(entitlement.video?.used || 0) >= 2) {
-    return {
-      success: false,
-      ok: false,
-      error: 'H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.',
-    };
-  }
-  store.campaignEntitlements.set(key, {
-    ...entitlement,
-    video: {
-      ...entitlement.video,
-      managerAuthorized: true,
-    },
-    updatedAt: nowIso,
-  });
-
-  // Also update customer pass if phoneOrCode is a pass code or resolves to an active pass
-  const pass = await getVideoPass(phoneOrCode);
-  if (pass) {
-    await mergePassUpdate(pass.code, {
-      retryApproved: true,
-      videoDone: false,
-      videoGenerating: false,
-      status: 'active',
-    });
-  }
-
-  return { success: true, ok: true };
 }
 
 export async function expireActivePassesForPhone(phone: string, excludeCode?: string): Promise<number> {
@@ -2027,7 +1955,7 @@ function evaluateVideoLock(pass: MaharajaVideoPass | undefined | null, now: numb
 
 /**
  * Atomically claims the video slot of a customer pass before any provider call.
- * Enforces server-side phone entitlement limits (max 2: 1 original + 1 manager-authorized retry).
+ * Enforces server-side phone entitlement limits (max 2: 1 original + 1 customer retry).
  * Binds activeVideoJobId atomically within the lock transaction when provided, with providerAccepted=false initially.
  */
 export async function acquirePassVideoLock(code: string, jobId?: string): Promise<VideoLockResult> {

@@ -574,29 +574,20 @@ export function buildMasterPrompt(
 export const UNIVERSAL_VIDEO_PROMPT = `Create a premium luxury Indian festive fashion commercial from the approved master image with absolute identity and garment preservation.
 
 P0 — ABSOLUTE FIDELITY & ZERO CLOTHING CHANGE (NON-NEGOTIABLE):
-- Identity: Preserve exact facial geometry, eyes, nose, jawline, skin tone, hair, and body proportions. Zero face reshaping, beautification, or identity alteration.
-- Garment & Attire: Preserve 100% of the exact clothing, fabric weave, collar, neckline, sleeves, and colors seen in the master reference image. Strictly ZERO clothing changes, ZERO dress morphing, ZERO outfit swapping, ZERO added embroidery, and ZERO color shifting. The subject's clothes must remain completely unchanged from the initial frame to the final frame.
-- Jewelry: Visible ornaments remain solidly anchored with zero floating.
+- Identity: Preserve exact facial geometry, eyes, nose, jawline, skin tone, hair, age, expression, pose, hands, feet, and body proportions. Zero reshaping, beautification, or identity alteration.
+- Garment: Preserve the exact clothing silhouette, fabric weave, collar, neckline, sleeves, drape, colors, patterns, borders, embroidery, jewelry, and accessories from first frame to last. Zero clothing change, morphing, swapping, additions, removal, recoloring, or texture drift.
 
 P1 — SUBJECT LOCK:
-- Treat the person as a protected reference layer. Preserve the exact face, expression, pose, hands, feet, body proportions, hair, clothing, jewelry, and accessories from the approved master image in every frame.
-- Permit only one natural soft blink and extremely subtle chest breathing. Keep the head, mouth, smile, gaze direction, shoulders, arms, hands, hips, legs, feet, hair, clothing, jewelry, and accessories fixed.
-- Do not reinterpret facial geometry, identity, age, body shape, pose, clothing construction, colors, patterns, textures, jewelry, or accessories.
+- Treat the person and attire as a protected reference layer. Permit only one natural soft blink and extremely subtle chest breathing. Keep all other subject elements fixed.
 
 P2 — LUXURY CINEMATIC CAMERA:
-- Use a slow, elegant optical dolly-in applied uniformly to the complete frame, with premium cinema-lens depth and polished editorial pacing.
-- Keep the original viewpoint and framing fixed; use no viewing-angle or perspective change and reveal no unseen surfaces.
+- Apply one slow, elegant whole-frame optical dolly-in with premium cinema-lens depth and polished editorial pacing. Keep the original viewpoint and framing; no perspective change or unseen surfaces.
 
 P3 — LIVING FESTIVE ENVIRONMENT:
-- Animate elegant existing-background light, bokeh, reflections, and atmospheric depth without altering the person, clothing colors, or skin tone.
-- Add restrained cinematic foreground particles only in empty space around the subject. Particles must never cross or obscure the face, body, garment, hands, or feet.
-- Use a gentle background-only focus transition and refined light bloom to create premium commercial depth while the subject remains visually stable.
-
-P4 — GARMENT FREEZE:
-- Clothing and accessories remain visually identical and motionless. Zero pattern swimming, border drift, texture distortion, color change, or fabric movement.
+- Animate only existing background light, bokeh, reflections, focus, and restrained particles in empty space. Particles must never cross or obscure the face, body, garment, hands, or feet. Keep the subject, clothing color, and skin tone stable.
 
 CONFLICT RESOLUTION RULE:
-- Fidelity strictly overrides motion. Dampen motion to protect identity and fabric stability.`;
+- Fidelity overrides motion. Dampen motion whenever needed to protect identity and garment stability.`;
 
 export function buildEventVideoPrompt(
   category: CustomerCategory = 'women',
@@ -748,7 +739,19 @@ export function buildFinalPrompt(
     executionRule = 'STABILIZED LOCKED REGENERATION: The approved master image is the sole visual authority. Preserve the exact identity, face, expression, body, pose, clothing, colors, patterns, jewelry, and accessories in every frame. Animate only existing background light with one slow uniform whole-frame optical push. Zero reinterpretation, perspective change, texture swimming, or distortion.';
   }
 
-  const canonicalPrompt = executionRule ? `${basePrompt} ${executionRule}` : basePrompt;
-  const finalPrompt = `${canonicalPrompt}\n\n${buildMotionSafetyRule(decision, isFailSafe)}`;
-  return truncateAtWordBoundary(finalPrompt.replace(/\s+/g, ' ').trim(), MAX_VIDEO_PROMPT_CHARS);
+  const canonicalPrompt = (executionRule ? `${basePrompt} ${executionRule}` : basePrompt)
+    .replace(/\s+/g, ' ')
+    .trim();
+  const mandatorySafetyRule = buildMotionSafetyRule(decision, isFailSafe)
+    .replace(/\s+/g, ' ')
+    .trim();
+  const separator = ' ';
+  const baseBudget = MAX_VIDEO_PROMPT_CHARS - mandatorySafetyRule.length - separator.length;
+
+  if (baseBudget <= 0) {
+    throw new Error('Mandatory video safety rules exceed the provider prompt budget.');
+  }
+
+  const boundedBase = truncateAtWordBoundary(canonicalPrompt, baseBudget);
+  return `${boundedBase}${separator}${mandatorySafetyRule}`;
 }

@@ -91,7 +91,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     enforceRepeatLimits?: boolean;
     tryOn: { used: number; max: number; remaining: number };
     masterImage: { used: number; max: number; remaining: number };
-    video: { used: number; max: number; remaining: number; managerAuthorized?: boolean };
+    video: { used: number; max: number; remaining: number };
   }>({
     enforceRepeatLimits: false,
     tryOn: { used: 0, max: 2, remaining: 2 },

@@ -29,6 +29,9 @@ for (const category of categories) {
       assert.match(prompt, /only one natural soft blink/i);
       assert.match(prompt, /extremely subtle chest breathing/i);
       assert.match(prompt, /Particles must never cross or obscure the face, body, garment/i);
+      assert.match(prompt, /EXECUTION & ANCHOR CONSTRAINTS:/i);
+      assert.match(prompt, /Preserve exact identity, facial geometry, smile, gaze, pose, clothing, and accessories/i);
+      assert.ok(prompt.length <= 3500, `provider prompt exceeds cap: ${prompt.length}`);
     }
   }
 }
@@ -38,6 +41,8 @@ for (const phrase of forbidden) {
   assert.equal(retryPrompt.toLowerCase().includes(phrase), false, `retry contains risky phrase: ${phrase}`);
 }
 assert.match(retryPrompt, /sole visual authority/i);
+assert.match(retryPrompt, /EXECUTION & ANCHOR CONSTRAINTS:/i);
+assert.match(retryPrompt, /Preserve the exact person, expression, pose, clothing, and accessories/i);
 assert.doesNotMatch(retryPrompt, /soft blink|chest breathing|foreground particles/i);
 
 assert.equal(resolveGarmentType('boy', 'Uploaded garment'), 'generic');

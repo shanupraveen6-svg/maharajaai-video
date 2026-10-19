@@ -15,7 +15,6 @@ const {
   acquireServiceGenerationLock,
   releaseServiceGenerationLock,
   recordServiceGenerationSuccess,
-  authorizeVideoRetry,
   saveVideoPass,
   getVideoPass,
   verifyMaharajaAccess,
@@ -68,12 +67,11 @@ await saveVideoPass({
   usage: { scans: 0, imagesGenerated: 0, videosGenerated: 0, goLive: 0 },
 });
 
-// 1. Initial allowances report enforceRepeatLimits=false, remaining=999, managerAuthorized=true
+// 1. Initial allowances report enforceRepeatLimits=false and unlimited remaining count
 const access = await verifyMaharajaAccess({ headers: new Headers() }, code, 'ai-video');
 assert(access.allowed, 'Access allowed for pass');
 assert(access.allowances.enforceRepeatLimits === false, 'enforceRepeatLimits is false');
 assert(access.allowances.video.remaining === 999, 'video remaining is 999 (unlimited)');
-assert(access.allowances.video.managerAuthorized === true, 'video managerAuthorized is true by default');
 
 // 2. Perform Generation #1
 const lock1 = await acquireServiceGenerationLock(phone, 'video');
@@ -82,7 +80,7 @@ const rec1 = await recordServiceGenerationSuccess(phone, 'video');
 assert(rec1.used === 1, 'Generation #1 count is 1');
 assert(rec1.exhausted === false, 'Generation #1 does not exhaust quota');
 
-// 3. Perform Generation #2 WITHOUT manager authorization
+// 3. Perform Generation #2 without any manager authorization step
 const lock2 = await acquireServiceGenerationLock(phone, 'video');
 assert(lock2.ok, 'Generation #2 lock acquired WITHOUT manager authorization');
 const rec2 = await recordServiceGenerationSuccess(phone, 'video');
@@ -96,31 +94,25 @@ const rec3 = await recordServiceGenerationSuccess(phone, 'video');
 assert(rec3.used === 3, 'Generation #3 count increments to 3 (not clamped to 2)');
 assert(rec3.exhausted === false, 'Generation #3 does not exhaust quota');
 
-// 5. Try authorizeVideoRetry when used >= 2
-const auth = await authorizeVideoRetry(phone);
-assert(auth.ok && auth.success, 'authorizeVideoRetry succeeds even when used >= 2');
-
-// 6. Test markPassRetryApproved
+// 5. Test customer retry approval
 await markPassRetryApproved(code, 'video', 'ai-video');
 const passAfterRetry = await getVideoPass(code);
 assert(passAfterRetry.retryApproved === true, 'retryApproved is true on pass');
 assert(passAfterRetry.retryUsed === false, 'retryUsed remains false when ENFORCE_REPEAT_LIMITS=false');
 assert(passAfterRetry.videoDone === false, 'videoDone reset to false for retry generation');
 
-// 7. Verify frontend calculations with mock allowances
+// 6. Verify frontend calculations with mock allowances
 const mockAllowances = access.allowances;
 const enforceLimits = mockAllowances?.enforceRepeatLimits ?? false;
 const videoAllowanceUsed = 3;
 const imageAllowanceUsed = 3;
 const imageExhausted = enforceLimits && imageAllowanceUsed >= 2;
 const videoExhausted = enforceLimits && videoAllowanceUsed >= 2;
-const videoManagerAuthorized = !enforceLimits || Boolean(mockAllowances?.video?.managerAuthorized);
-const canRetryVideo = !enforceLimits || (!videoExhausted && (videoAllowanceUsed === 0 || videoManagerAuthorized));
+const canRetryVideo = !enforceLimits || !videoExhausted;
 const canRetryImage = !enforceLimits || !imageExhausted;
 
 assert(imageExhausted === false, 'Frontend: imageExhausted is false');
 assert(videoExhausted === false, 'Frontend: videoExhausted is false');
-assert(videoManagerAuthorized === true, 'Frontend: videoManagerAuthorized is true');
 assert(canRetryVideo === true, 'Frontend: canRetryVideo is true');
 assert(canRetryImage === true, 'Frontend: canRetryImage is true');
 

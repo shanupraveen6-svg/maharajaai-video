@@ -5,7 +5,7 @@
 // 2. Phone lookup vs QR lookup entitlement equivalence.
 // 3. Repeated billing passes & QR reuse for same phone sharing the 2-generation ceiling.
 // 4. Three independent counters: Try-On (2), Master Image (2), Video (2). Retrying image does NOT consume video.
-// 5. Manager authorization gate for 2nd video generation (1 original + 1 manager-authorized retry).
+// 5. Customer retry path for the 2nd video generation (1 original + 1 retry, no manager gate).
 // 6. Concurrency locks preventing simultaneous generation across tabs/devices.
 // 7. Exactly-once accounting: failed provider calls restore slot, never burning quota without successful output.
 // 8. Rejected master image handling.
@@ -30,7 +30,6 @@ const {
   acquireServiceGenerationLock,
   releaseServiceGenerationLock,
   recordServiceGenerationSuccess,
-  authorizeVideoRetry,
   saveVideoPass,
   getVideoPass,
   verifyMaharajaAccess,
@@ -240,9 +239,9 @@ assert(!imgLock3.ok, '3rd Celebration Image generation is strictly BLOCKED');
 assert(imgLock3.error && imgLock3.error.includes('Maximum 2'), 'Error message states maximum 2 generations allowed');
 
 // -----------------------------------------------------------------------------
-// TEST 5: Cinematic Video — 1 Original + 1 Manager-Authorized Retry
+// TEST 5: Cinematic Video — 1 Original + 1 Customer Retry
 // -----------------------------------------------------------------------------
-console.log('\n--- TEST 5: Cinematic Video — 1 Original + 1 Manager-Authorized Retry ---');
+console.log('\n--- TEST 5: Cinematic Video — 1 Original + 1 Customer Retry ---');
 // Approve the master image so video generation can proceed
 await approvePassVideoMaster(passCodeB, 'https://cdn.example.com/master-2.jpg');
 
@@ -255,32 +254,17 @@ await markPassVideoReady(passCodeB, jobId1);
 entB = await getCampaignEntitlementByPhone(testPhoneB);
 allowancesB = getCustomerServiceAllowances(entB);
 assert(allowancesB.video.used === 1, 'Cinematic Video used is 1/2');
-assert(!allowancesB.video.managerAuthorized, 'Video retry is not yet manager-authorized');
-
-// 2. Attempting 2nd video WITHOUT manager authorization must be blocked
-const vidLock2Unauth = await acquirePassVideoLock(passCodeB, 'job_video_2_unauth');
-assert(!vidLock2Unauth.ok, '2nd video generation WITHOUT manager authorization is BLOCKED');
-assert(vidLock2Unauth.error && vidLock2Unauth.error.toLowerCase().includes('manager authorization'), 'Error specifies manager authorization requirement');
-
-// 3. Manager authorizes retry
-const authResult = await authorizeVideoRetry(passCodeB, 'Store Manager approved backup retry');
-assert(authResult.ok, 'Store Manager successfully authorized video retry');
-
-entB = await getCampaignEntitlementByPhone(testPhoneB);
-allowancesB = getCustomerServiceAllowances(entB);
-assert(allowancesB.video.managerAuthorized === true, 'Entitlement reflects managerAuthorized = true');
-
-// 4. Retry Video Generation with manager authorization succeeds
-const jobId2 = 'job_video_2_auth';
+// 2. Customer retry succeeds without manager approval
+const jobId2 = 'job_video_2_customer_retry';
 const vidLock2Auth = await acquirePassVideoLock(passCodeB, jobId2);
-assert(vidLock2Auth.ok, 'Acquired video generation lock #2 with manager authorization');
+assert(vidLock2Auth.ok, 'Acquired video generation lock #2 without manager approval');
 await markPassVideoReady(passCodeB, jobId2);
 
 entB = await getCampaignEntitlementByPhone(testPhoneB);
 allowancesB = getCustomerServiceAllowances(entB);
 assert(allowancesB.video.used === 2, 'Cinematic Video used is now 2/2 (exhausted)');
 
-// 5. Attempting 3rd video generation must be strictly BLOCKED
+// 3. Attempting 3rd video generation must be strictly BLOCKED
 const vidLock3 = await acquirePassVideoLock(passCodeB, 'job_video_3');
 assert(!vidLock3.ok, '3rd video generation is strictly BLOCKED');
 assert(vidLock3.error && vidLock3.error.includes('Maximum 2'), 'Error states maximum 2 video generations allowed');

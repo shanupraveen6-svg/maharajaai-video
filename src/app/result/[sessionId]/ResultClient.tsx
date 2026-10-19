@@ -61,9 +61,6 @@ export default function ResultClient({
   const videoAllowanceUsed = allowances?.video?.used ?? (videoDone || videoUrl ? 1 : 0);
   const imageExhausted = enforceLimits && imageAllowanceUsed >= 2;
   const videoExhausted = enforceLimits && videoAllowanceUsed >= 2;
-  const videoManagerAuthorized = !enforceLimits || Boolean(allowances?.video?.managerAuthorized);
-  const canRetryVideo = !enforceLimits || (!videoExhausted && (videoAllowanceUsed === 0 || videoManagerAuthorized));
-  const canRetryImage = !enforceLimits || !imageExhausted;
 
   const whatsappSendRequested = useRef(false);
   const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId, eventId), [sessionId, eventId]);

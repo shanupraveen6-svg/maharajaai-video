@@ -235,7 +235,7 @@ assert(!afterDone.ok && /already completed/i.test(afterDone.error), 'No second v
 console.log('\n--- TEST 6: Manager Retry Lifecycle ---');
 await markPassRetryApproved(code5);
 pass5 = await getVideoPass(code5);
-assert(pass5.retryUsed === true && pass5.videoDone === false && pass5.videoGenerating === false, 'Manager approval sets retryUsed=true and videoDone=false');
+assert(pass5.retryUsed === true && pass5.videoDone === false && pass5.videoGenerating === false, 'Customer retry approval sets retryUsed=true and videoDone=false');
 assert(pass5.videoMasterUrl === 'master-url-5', 'Retry keeps the same video master');
 
 assert((await acquirePassVideoLock(code5, 'job_retry_1')).ok, 'Retry video can start through the normal lock path');
