@@ -26,6 +26,7 @@ import {
   buildMasterPrompt,
   EVENT_OPTIONS,
   getEventOption,
+  getSceneIndex,
   type CustomerCategory,
   type EventId,
   type VideoPromptSet,
@@ -79,7 +80,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [activeService, setActiveService] = useState<'try-on' | 'ai-video'>(service);
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [category, setCategory] = useState<CustomerCategory>('women');
-  const [promptSet, setPromptSet] = useState<VideoPromptSet>('set-1');
+  const [sessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
+  const [promptSet, setPromptSet] = useState<VideoPromptSet>(() => (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1'));
   const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
@@ -105,7 +107,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [garmentAnalysis, setGarmentAnalysis] = useState<Analysis | null>(null);
   const [tryOnImageUrl, setTryOnImageUrl] = useState<string | null>(null);
   const [videoMasterUrl, setVideoMasterUrl] = useState<string | null>(null);
-  const [sessionId] = useState(() => `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
   const [stage, setStage] = useState<'loading' | 'ready' | 'analyzing' | 'image' | 'video' | 'result'>('loading');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -128,29 +129,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setMasterApproved(false);
   }
 
-  async function handleStyleChange(newSet: VideoPromptSet) {
-    if (newSet === promptSet) return;
-    setPromptSet(newSet);
-    if (videoMasterUrl) {
-      try {
-        await fetch('/api/ai/master-image/reject', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            accessCode,
-            sessionId,
-            service: 'ai-video',
-            reason: `style_changed_to_${newSet}`,
-          }),
-        });
-      } catch (err) {
-        console.warn('Style change rejection error:', err);
-      }
-      setVideoMasterUrl(null);
-      setMasterApproved(false);
-      setMessage(`Switched to ${newSet === 'set-1' ? 'Style 1 (Courtyard Reveal)' : 'Style 2 (Doorway Glide)'}. Please generate a matching festival portrait.`);
-    }
-  }
+
 
   async function handleRetryImage() {
     const enforceLimits = allowances?.enforceRepeatLimits ?? false;
@@ -739,31 +718,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
-                  {activeService === 'ai-video' && (
-                    <fieldset className="sm:col-span-2">
-                      <legend className="text-xs font-bold uppercase text-[#5C4B43]">Cinematic Scene Style</legend>
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          id="scene-style-1-btn"
-                          disabled={busy || imagesLocked}
-                          onClick={() => void handleStyleChange('set-1')}
-                          className={`min-h-11 border px-3 text-xs font-bold uppercase ${promptSet === 'set-1' ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}
-                        >
-                          Style 1: Courtyard Reveal
-                        </button>
-                        <button
-                          type="button"
-                          id="scene-style-2-btn"
-                          disabled={busy || imagesLocked}
-                          onClick={() => void handleStyleChange('set-2')}
-                          className={`min-h-11 border px-3 text-xs font-bold uppercase ${promptSet === 'set-2' ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB]' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43]'}`}
-                        >
-                          Style 2: Doorway Glide
-                        </button>
-                      </div>
-                    </fieldset>
-                  )}
+
                   <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
                     <select
                       id="event-select"
