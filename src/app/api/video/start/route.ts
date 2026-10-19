@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { MAHARAJA_CLIENT_ID, type CustomerCategory } from '@/lib/maharaja/config';
+import { MAHARAJA_CLIENT_ID, type CustomerCategory, type VideoPromptSet } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
 
@@ -141,7 +141,14 @@ export async function POST(req: NextRequest) {
     }
     const category = access.pass.videoMasterCategory || session.templateId;
     if (!['women', 'men', 'girl', 'boy'].includes(category)) throw new Error('The approved master image has no valid customer category.');
-    const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), category as CustomerCategory);
+    const promptSet = access.pass.videoMasterPromptSet === 'set-2' ? 'set-2' : 'set-1';
+    const input = buildVideoTestInput(
+      model.id,
+      master.url,
+      garments.map((item) => item.url),
+      category as CustomerCategory,
+      promptSet as VideoPromptSet,
+    );
     const response = await fetch(`https://queue.fal.run/${model.model}`, {
       method: 'POST',
       headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
