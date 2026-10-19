@@ -346,6 +346,10 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
       : {
         masterImageUrl,
         masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
+        personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : null,
+        garmentPhotoStoragePaths: Array.isArray(body.garmentPhotoStoragePaths)
+          ? body.garmentPhotoStoragePaths.filter((value: unknown): value is string => typeof value === 'string').slice(0, 3)
+          : [],
         masterImageApproved: false,
         masterImageApprovedAt: null,
         masterImageApprovedUrl: null,
@@ -417,6 +421,11 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
             promptSet,
             category: customerCategory,
             garmentType,
+            referenceSessionId: sessionId,
+            personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : undefined,
+            garmentPhotoStoragePaths: Array.isArray(body.garmentPhotoStoragePaths)
+              ? body.garmentPhotoStoragePaths.filter((value: unknown): value is string => typeof value === 'string').slice(0, 3)
+              : [],
           }, boundGenerationId);
         }
       })());

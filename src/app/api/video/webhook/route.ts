@@ -75,10 +75,29 @@ export async function POST(req: NextRequest) {
         outputVideoUrl,
         accessCode,
         eventId,
+        provider: typeof jobData.provider === 'string' ? jobData.provider : undefined,
       });
 
       if (!finalizeResult.success) {
         return NextResponse.json({ success: false, error: finalizeResult.error }, { status: 500 });
+      }
+
+      const providerResultMetadata = {
+        seed: body.payload?.seed ?? body.output?.seed ?? body.seed ?? null,
+        providerTimings: body.payload?.timings ?? body.output?.timings ?? body.timings ?? null,
+        providerCompletedAt: new Date().toISOString(),
+        sourceVideoUrl: outputVideoUrl,
+        finalVideoUrl: finalizeResult.videoUrl,
+      };
+      if (db) {
+        await Promise.all([
+          db.collection('generationJobs').doc(jobId).set(providerResultMetadata, { merge: true }),
+          db.collection('sessions').doc(sessionId).set(providerResultMetadata, { merge: true }),
+        ]);
+      } else {
+        const mockStore = getMockStore();
+        mockStore.sessions.set(`job_${jobId}`, { ...jobData, ...providerResultMetadata });
+        mockStore.sessions.set(sessionId, { ...(mockStore.sessions.get(sessionId) || {}), ...providerResultMetadata });
       }
 
       return NextResponse.json({ success: true, handled: 'ready', videoUrl: finalizeResult.videoUrl });

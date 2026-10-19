@@ -93,6 +93,9 @@ export type MaharajaVideoPass = {
   videoMasterPromptSet?: VideoPromptSet;
   videoMasterCategory?: CustomerCategory;
   videoMasterGarmentType?: string;
+  videoReferenceSessionId?: string;
+  videoPersonPhotoStoragePath?: string;
+  videoGarmentPhotoStoragePaths?: string[];
   rejectedMasterUrls?: string[];
   /** Active image generation ID bound to this pass to prevent in-flight race conditions. */
   activeMasterGenerationId?: string;
@@ -1164,7 +1167,14 @@ export async function markPassTryOnImageDone(code: string, tryOnImageUrl: string
 export async function markPassVideoMasterDone(
   code: string,
   videoMasterUrl: string,
-  meta?: { promptSet?: VideoPromptSet; category?: CustomerCategory; garmentType?: string },
+  meta?: {
+    promptSet?: VideoPromptSet;
+    category?: CustomerCategory;
+    garmentType?: string;
+    referenceSessionId?: string;
+    personPhotoStoragePath?: string;
+    garmentPhotoStoragePaths?: string[];
+  },
   generationId?: string
 ) {
   const db = getDb();
@@ -1195,6 +1205,9 @@ export async function markPassVideoMasterDone(
       if (meta?.promptSet) updateData.videoMasterPromptSet = meta.promptSet;
       if (cat) updateData.videoMasterCategory = cat;
       if (garment) updateData.videoMasterGarmentType = garment;
+      if (meta?.referenceSessionId) updateData.videoReferenceSessionId = meta.referenceSessionId;
+      if (meta?.personPhotoStoragePath) updateData.videoPersonPhotoStoragePath = meta.personPhotoStoragePath;
+      if (meta?.garmentPhotoStoragePaths) updateData.videoGarmentPhotoStoragePaths = meta.garmentPhotoStoragePaths.slice(0, 3);
       tx.update(ref, updateData);
     });
     await recordServiceGenerationSuccess(code, 'master-image', { url: videoMasterUrl });
@@ -1223,6 +1236,9 @@ export async function markPassVideoMasterDone(
     if (meta?.promptSet) passCopy.videoMasterPromptSet = meta.promptSet;
     if (cat) passCopy.videoMasterCategory = cat;
     if (garment) passCopy.videoMasterGarmentType = garment;
+    if (meta?.referenceSessionId) passCopy.videoReferenceSessionId = meta.referenceSessionId;
+    if (meta?.personPhotoStoragePath) passCopy.videoPersonPhotoStoragePath = meta.personPhotoStoragePath;
+    if (meta?.garmentPhotoStoragePaths) passCopy.videoGarmentPhotoStoragePaths = meta.garmentPhotoStoragePaths.slice(0, 3);
     getMockStore().customerPasses.set(key, passCopy);
     await recordServiceGenerationSuccess(code, 'master-image', { url: videoMasterUrl });
   }

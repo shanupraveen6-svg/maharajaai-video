@@ -20,6 +20,11 @@ import {
   type EventId
 } from '@/lib/maharaja/config';
 import {
+  buildDiwaliReferenceVideoPrompt,
+  DIWALI_REFERENCE_VIDEO_MODEL,
+  getDiwaliReferencePromptId,
+} from '@/lib/maharaja/reference-video';
+import {
   acquirePassVideoLock,
   approvePassVideoMaster,
   finalizeCompletedVideo,
@@ -35,7 +40,19 @@ import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { canSignFalWebhook, signFalWebhook } from '@/lib/security/fal-webhook';
 
 export const maxDuration = 60;
-const FAL_VIDEO_MODEL = 'minimax/h3-max-turbo/image-to-video';
+const FAL_VIDEO_MODEL = DIWALI_REFERENCE_VIDEO_MODEL;
+
+function isFalReferenceVideoEnabled(): boolean {
+  return AI_CONFIG.VIDEO_PROVIDER === 'fal';
+}
+
+async function resolveReferenceUrl(value: string, sessionId: string): Promise<string> {
+  const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/`;
+  if (!value.startsWith(expectedPrefix)) {
+    throw new Error('A visual reference does not belong to this customer session.');
+  }
+  return getSignedPlaybackUrl(value);
+}
 
 function formatFalError(error: any) {
   const detail = error?.body?.detail || error?.response?.data?.detail || error?.data?.detail;
@@ -263,7 +280,7 @@ export async function POST(req: NextRequest) {
     const sessionData = db
       ? (await db.collection('sessions').doc(sessionId).get()).data()
       : getMockStore().sessions.get(sessionId);
-    if (!sessionData || (access.pass && sessionData.accessCode !== accessCode)) {
+    if ((!sessionData && !isRetry) || (sessionData && access.pass && sessionData.accessCode !== accessCode)) {
       return NextResponse.json({ success: false, error: 'This video session does not belong to this customer pass.' }, { status: 403 });
     }
 
@@ -292,14 +309,34 @@ export async function POST(req: NextRequest) {
       effectivePromptSet = (body.promptSet === 'set-2' || body.promptSet === 'set-1') ? body.promptSet : (sessionData?.promptSet || 'set-1');
     }
 
-    let approvedPrompt = '';
-    if (isRetry) {
-      approvedPrompt = buildFailSafeVideoPrompt(effectiveCategory, effectiveEventId, effectiveGarment);
-    } else {
-      approvedPrompt = buildEventVideoPrompt(effectiveCategory, effectiveEventId, sessionId, effectivePromptSet, effectiveGarment);
+    if (effectiveEventId !== 'diwali') {
+      return NextResponse.json({
+        success: false,
+        error: 'Reference-to-Video validation is currently available only for Diwali.',
+      }, { status: 409 });
     }
-    const prompt = buildFinalPrompt(approvedPrompt, motionSafety, isRetry);
-    console.log('VIDEO_MASTER_LOADED', { sessionId, jobId, hasImage: true, isRetry, effectiveCategory, effectiveGarment, effectiveEventId, effectivePromptSet });
+
+    const backupNumber = isRetry && body.retryMode === 'backup-2' ? 2 : isRetry ? 1 : undefined;
+    const promptId = getDiwaliReferencePromptId(effectiveCategory, effectivePromptSet, backupNumber);
+    const prompt = buildDiwaliReferenceVideoPrompt(promptId);
+    console.log('VIDEO_MASTER_LOADED', {
+      sessionId,
+      jobId,
+      hasImage: true,
+      isRetry,
+      promptId,
+      effectiveCategory,
+      effectiveGarment,
+      effectiveEventId,
+      effectivePromptSet,
+    });
+
+    if (!isFalReferenceVideoEnabled()) {
+      return NextResponse.json({
+        success: false,
+        error: 'Diwali Reference-to-Video is not enabled. Set VIDEO_PROVIDER=fal; no automatic fallback was used.',
+      }, { status: 503 });
+    }
 
     // Mode A — Safe / Production (Default): Deterministic FFmpeg Video with 100% garment fidelity
     if (AI_CONFIG.VIDEO_PROVIDER === 'deterministic') {
@@ -364,10 +401,35 @@ export async function POST(req: NextRequest) {
 
     let jobData: any = null;
     try {
+        const sourceValues = [
+          access.pass?.videoPersonPhotoStoragePath || sessionData?.personPhotoStoragePath,
+          ...(Array.isArray(access.pass?.videoGarmentPhotoStoragePaths)
+            ? access.pass.videoGarmentPhotoStoragePaths.slice(0, 3)
+            : Array.isArray(sessionData?.garmentPhotoStoragePaths)
+              ? sessionData.garmentPhotoStoragePaths.slice(0, 3)
+              : []),
+        ].filter((value): value is string => typeof value === 'string' && value.length > 0);
+        if (!sourceValues.length) {
+          throw new Error('Original customer and clothing references are missing. Generate and approve a fresh Diwali master image before creating the video.');
+        }
+
         console.log('FAL_UPLOAD_START', { sessionId, jobId });
         fal.config({ credentials: falKey.trim() });
 
-        console.log('FAL_IMAGE_READY', { sessionId, jobId, reusedHostedUrl: true });
+        const referenceSessionId = access.pass?.videoReferenceSessionId || sessionId;
+        const referenceImageUrls = await Promise.all(sourceValues.map((value) => resolveReferenceUrl(value, referenceSessionId)));
+        const uniqueReferenceImageUrls = [...new Set(referenceImageUrls)].slice(0, 4);
+        if (!uniqueReferenceImageUrls.length) {
+          throw new Error('No accessible visual references were available for Reference-to-Video.');
+        }
+
+        console.log('FAL_IMAGE_READY', {
+          sessionId,
+          jobId,
+          promptId,
+          reusedHostedUrl: true,
+          referenceCount: uniqueReferenceImageUrls.length,
+        });
 
         const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
         const proto = req.headers.get('x-forwarded-proto') || 'https';
@@ -377,13 +439,23 @@ export async function POST(req: NextRequest) {
           ? `${baseUrl}/api/video/webhook?jobId=${encodeURIComponent(jobId)}&sessionId=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(webhookToken)}`
           : undefined;
 
-        console.log('FAL_SUBMIT_START', { sessionId, jobId, model: FAL_VIDEO_MODEL, hasWebhook: Boolean(webhookUrl) });
+        const providerStartedAt = Date.now();
+        console.log('FAL_SUBMIT_START', {
+          sessionId,
+          jobId,
+          model: FAL_VIDEO_MODEL,
+          promptId,
+          referenceCount: uniqueReferenceImageUrls.length,
+          hasWebhook: Boolean(webhookUrl),
+        });
         const falSubmitResult = await fal.queue.submit(FAL_VIDEO_MODEL, {
           input: {
             prompt,
             image_url: hostedImageUrl,
+            reference_image_urls: uniqueReferenceImageUrls,
             duration: 6,
             resolution: '768P',
+            aspect_ratio: 'adaptive',
             prompt_expansion_mode: 'disabled',
             enable_safety_checker: true,
           },
@@ -401,9 +473,16 @@ export async function POST(req: NextRequest) {
             accessCode: typeof accessCode === 'string' ? accessCode : null,
             eventId,
             prompt,
+            promptId,
             requestId: falSubmitResult.request_id,
-            provider: 'fal-h3-max-turbo',
+            provider: 'fal-h3-max-reference-to-video',
             model: FAL_VIDEO_MODEL,
+            referenceCount: uniqueReferenceImageUrls.length,
+            duration: 6,
+            resolution: '768P',
+            aspectRatio: 'adaptive',
+            providerSubmitMs: Date.now() - providerStartedAt,
+            seed: null,
             motionSafety,
             status: 'processing',
             queueState: falSubmitResult.status,
@@ -439,6 +518,9 @@ export async function POST(req: NextRequest) {
         jobId,
         videoStatus: jobData.status,
         provider: jobData.provider,
+        model: jobData.model,
+        promptId,
+        referenceCount: jobData.referenceCount,
         motionSafety,
         motionMode: motionSafety.recommendedMotion,
         updatedAt: nowIso
@@ -456,6 +538,9 @@ export async function POST(req: NextRequest) {
         jobId,
         videoStatus: jobData.status,
         provider: jobData.provider,
+        model: jobData.model,
+        promptId,
+        referenceCount: jobData.referenceCount,
         motionSafety,
         motionMode: motionSafety.recommendedMotion,
         updatedAt: nowIso
