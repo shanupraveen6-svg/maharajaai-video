@@ -77,7 +77,8 @@ export default function TvPlayerPage() {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (playbackWatchdogRef.current) clearTimeout(playbackWatchdogRef.current);
       if (pendingWatchdogRef.current) clearTimeout(pendingWatchdogRef.current);
-      audioRef.current?.pause();
+      const audioEl = audioRef.current;
+      audioEl?.pause();
     };
   }, []);
 
@@ -168,7 +169,7 @@ export default function TvPlayerPage() {
     resetActivePlaybackState();
 
     if (playlistRef.current.length > 0) {
-      window.setTimeout(queueNextPlaylistItem, 80);
+      window.setTimeout(() => queueNextPlaylistItem(), 80);
     }
   }
 

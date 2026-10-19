@@ -151,7 +151,7 @@ export default function ResultClient({
       isMounted = false;
       if (pollTimer) clearTimeout(pollTimer);
     };
-  }, [liveSuccess, queueId, countdownSeconds]);
+  }, [liveSuccess, queueId, countdownSeconds, accessCode]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -218,7 +218,7 @@ export default function ResultClient({
       isMounted = false;
       if (timer) clearTimeout(timer);
     };
-  }, [sessionId]);
+  }, [sessionId, accessCode]);
 
   // Explicit error state if sessionId is missing — NEVER substitute sample-session
   if (!sessionId) {

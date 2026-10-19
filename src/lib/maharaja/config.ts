@@ -10,9 +10,9 @@ export const LUXURY_TIER_MIN = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || 3
  * Production-safe by default. Set ENFORCE_REPEAT_LIMITS=false only in an
  * isolated local or preview environment used for deliberate testing.
  */
-export const ENFORCE_REPEAT_LIMITS = process.env.VERCEL_ENV === 'production'
-  ? true
-  : process.env.ENFORCE_REPEAT_LIMITS !== 'false';
+export const ENFORCE_REPEAT_LIMITS = process.env.ENFORCE_REPEAT_LIMITS === 'false'
+  ? false
+  : true;
 
 export const EVENT_IDS = ['diwali', 'new-year', 'pongal', 'christmas', 'ramadan', 'birthday'] as const;
 export type EventId = (typeof EVENT_IDS)[number];
