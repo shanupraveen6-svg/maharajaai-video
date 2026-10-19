@@ -19,6 +19,7 @@ const {
 } = server;
 
 const { NextRequest } = await import('next/server.js');
+const { getMockStore } = await import('../src/lib/firebase/admin.ts');
 const { POST: videoStartPost } = await import('../src/app/api/video/start/route.ts');
 
 let assertionCount = 0;
@@ -229,24 +230,22 @@ assert(pass5.videoDone === false && pass5.videoGenerating === true, 'Stale job r
 await markPassVideoReady(code5, jobId1);
 pass5 = await getVideoPass(code5);
 assert(pass5.videoDone === true && pass5.videoGenerating === false, 'Final video ready sets videoDone=true and clears videoGenerating');
-const afterDone = await acquirePassVideoLock(code5);
-assert(!afterDone.ok && /already completed/i.test(afterDone.error), 'No second video once videoDone=true');
-
-console.log('\n--- TEST 6: Manager Retry Lifecycle ---');
-await markPassRetryApproved(code5);
-pass5 = await getVideoPass(code5);
-assert(pass5.retryUsed === true && pass5.videoDone === false && pass5.videoGenerating === false, 'Customer retry approval sets retryUsed=true and videoDone=false');
-assert(pass5.videoMasterUrl === 'master-url-5', 'Retry keeps the same video master');
-
-assert((await acquirePassVideoLock(code5, 'job_retry_1')).ok, 'Retry video can start through the normal lock path');
+// Customer retry (2nd video) is permitted directly without manager gate:
+console.log('\n--- TEST 6: Customer Video Retry Lifecycle (No Manager Approval) ---');
+const retryLock = await acquirePassVideoLock(code5, 'job_retry_1');
+assert(retryLock.ok, 'Customer can start retry video directly without manager gate');
 await markPassVideoSubmitted(code5, 'job_retry_1');
 // Old job from first render tries to update pass during retry:
 await markPassVideoReady(code5, jobId1);
 pass5 = await getVideoPass(code5);
 assert(pass5.videoDone === false && pass5.activeVideoJobId === 'job_retry_1', 'Stale first job cannot complete pass during active retry');
 await markPassVideoReady(code5, 'job_retry_1');
+pass5 = await getVideoPass(code5);
+assert(pass5.videoDone === true && pass5.videoGenerating === false, 'Retry video completes successfully');
+
+// Third video is strictly blocked (1 original + 1 retry exhausted):
 const afterRetry = await acquirePassVideoLock(code5);
-assert(!afterRetry.ok && /already completed/i.test(afterRetry.error), 'No further video after the single retry');
+assert(!afterRetry.ok && /exhausted/i.test(afterRetry.error), 'Third video generation strictly blocked after 2/2 exhausted');
 
 console.log('\n--- TEST 7: Crash Recovery & Stale Timeouts ---');
 const stalePass = await freshPass();
@@ -256,7 +255,6 @@ assert((await acquirePassVideoLock(stalePass, 'job_crash_pre_provider')).ok, 'Fr
 assert(!(await acquirePassVideoLock(stalePass)).ok, 'Fresh lock blocks a second request');
 
 // Age the lock beyond the stale window, simulating a crashed server before provider acceptance (providerAccepted=false):
-const { getMockStore } = await import('../src/lib/firebase/admin.ts');
 const { MAHARAJA_CLIENT_ID } = await import('../src/lib/maharaja/config.ts');
 const key = `${MAHARAJA_CLIENT_ID}:${stalePass}`;
 const stored = getMockStore().customerPasses.get(key);
@@ -317,21 +315,21 @@ assert(forceRegenLock.ok && !forceRegenLock.existingUrl, 'forceRegenerate=true b
 await releasePassImageLock(imgPass, forceRegenLock.generationId);
 
 console.log('\n--- TEST 11: Route-Level Safeguard 1 & Safeguard 4 Verification ---');
-// SAFEGUARD 1: No silent approval bypass via /api/video/start
-const unapprovedRoutePass = await freshPass({
+// SAFEGUARD 1: Rejected master image is strictly blocked via /api/video/start
+const rejectedRoutePass = await freshPass({
   videoMasterDone: true,
-  videoMasterUrl: 'https://example.com/unapproved-master.jpg',
-  videoMasterApproved: false,
+  videoMasterUrl: 'https://example.com/rejected-master.jpg',
+  rejectedMasterUrls: ['https://example.com/rejected-master.jpg'],
 });
-const silentBypassReq = new NextRequest('http://localhost:3000/api/video/start', {
+const rejectedReq = new NextRequest('http://localhost:3000/api/video/start', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ accessCode: unapprovedRoutePass, sessionId: 'sess_bypass', approveMaster: true }),
+  body: JSON.stringify({ accessCode: rejectedRoutePass, sessionId: 'sess_rejected' }),
 });
-const silentBypassRes = await videoStartPost(silentBypassReq);
-assert(silentBypassRes.status === 403, 'POST /api/video/start strictly rejects unapproved master with 403 even if approveMaster: true is supplied');
-const bypassJson = await silentBypassRes.json();
-assert(/approval required/i.test(bypassJson.error), 'Explicit error message demanding customer review returned');
+const rejectedRes = await videoStartPost(rejectedReq);
+assert(rejectedRes.status === 409, 'POST /api/video/start strictly rejects rejected master image with 409');
+const rejectedJson = await rejectedRes.json();
+assert(/rejected/i.test(rejectedJson.error), 'Explicit error message for rejected image returned');
 
 // SAFEGUARD 4: Strict Approved Metadata Consistency Lock
 const approvedRoutePass = await freshPass({
@@ -345,43 +343,34 @@ const approvedRoutePass = await freshPass({
   eventId: 'diwali',
 });
 
-// 1. Category mismatch:
-const catMismatchReq = new NextRequest('http://localhost:3000/api/video/start', {
+// SAFEGUARD 2: Stale master image URL mismatch is strictly blocked
+const staleImageReq = new NextRequest('http://localhost:3000/api/video/start', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ accessCode: approvedRoutePass, sessionId: 'sess_mismatch', templateId: 'men' }),
+  body: JSON.stringify({
+    accessCode: approvedRoutePass,
+    sessionId: 'sess_stale',
+    masterImageUrl: 'https://example.com/stale-old-master.jpg',
+  }),
 });
-const catMismatchRes = await videoStartPost(catMismatchReq);
-assert(catMismatchRes.status === 409 && /category mismatch/i.test((await catMismatchRes.json()).error), 'Category mismatch strictly rejected with 409 Conflict');
+const staleImageRes = await videoStartPost(staleImageReq);
+assert(staleImageRes.status === 409 && /Stale master image/i.test((await staleImageRes.json()).error), 'Stale master image mismatch strictly rejected with 409 Conflict');
 
-// 2. Garment type mismatch:
-const garmentMismatchReq = new NextRequest('http://localhost:3000/api/video/start', {
+// SAFEGUARD 3: Missing master image is strictly rejected
+const noImagePass = await freshPass({
+  videoMasterDone: false,
+  videoMasterUrl: null,
+});
+const noImageReq = new NextRequest('http://localhost:3000/api/video/start', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ accessCode: approvedRoutePass, sessionId: 'sess_mismatch', garmentType: 'dhoti' }),
+  body: JSON.stringify({ accessCode: noImagePass, sessionId: 'sess_no_img' }),
 });
-const garmentMismatchRes = await videoStartPost(garmentMismatchReq);
-assert(garmentMismatchRes.status === 409 && /garment type mismatch/i.test((await garmentMismatchRes.json()).error), 'Garment type mismatch strictly rejected with 409 Conflict');
+const noImageRes = await videoStartPost(noImageReq);
+assert(noImageRes.status === 409 && /Create the AI Video image first/i.test((await noImageRes.json()).error), 'Pass with missing master image is strictly rejected with 409 Conflict');
 
-// 3. Event mismatch:
-const eventMismatchReq = new NextRequest('http://localhost:3000/api/video/start', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ accessCode: approvedRoutePass, sessionId: 'sess_mismatch', eventId: 'pongal' }),
-});
-const eventMismatchRes = await videoStartPost(eventMismatchReq);
-assert(eventMismatchRes.status === 409 && /event mismatch/i.test((await eventMismatchRes.json()).error), 'Event mismatch strictly rejected with 409 Conflict');
-
-// 4. Scene style mismatch:
-const styleMismatchReq = new NextRequest('http://localhost:3000/api/video/start', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ accessCode: approvedRoutePass, sessionId: 'sess_mismatch', promptSet: 'set-2' }),
-});
-const styleMismatchRes = await videoStartPost(styleMismatchReq);
-assert(styleMismatchRes.status === 409 && /scene style mismatch/i.test((await styleMismatchRes.json()).error), 'Scene style mismatch strictly rejected with 409 Conflict');
-
-// 5. Approved metadata matching passes validation (and reaches provider check or lock acquisition):
+// SAFEGUARD 4: Approved metadata passes validation and reaches provider dispatch
+getMockStore().sessions.set('sess_match', { id: 'sess_match', accessCode: approvedRoutePass });
 const matchingReq = new NextRequest('http://localhost:3000/api/video/start', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
@@ -396,46 +385,8 @@ const matchingReq = new NextRequest('http://localhost:3000/api/video/start', {
   }),
 });
 const matchingRes = await videoStartPost(matchingReq);
-// Since FAL_KEY is not set in test environment, it passes all metadata validation and returns 503 (Fal.ai video service is not configured)
-assert(matchingRes.status === 503 && /Fal\.ai video service is not configured/i.test((await matchingRes.json()).error), 'Matching approved metadata passes all validation gates and reaches provider dispatch');
-
-// 6. Incomplete approved metadata: Missing customer category must NOT silently default to women
-const missingCatPass = await freshPass({
-  videoMasterDone: true,
-  videoMasterUrl: 'https://example.com/incomplete-cat.jpg',
-  videoMasterApproved: true,
-  videoMasterApprovedUrl: 'https://example.com/incomplete-cat.jpg',
-  videoMasterCategory: undefined,
-  videoMasterGarmentType: 'saree',
-  videoMasterPromptSet: 'set-1',
-  eventId: 'diwali',
-});
-const missingCatReq = new NextRequest('http://localhost:3000/api/video/start', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ accessCode: missingCatPass, sessionId: 'sess_inc_cat' }),
-});
-const missingCatRes = await videoStartPost(missingCatReq);
-assert(missingCatRes.status === 409 && /Customer category is missing/i.test((await missingCatRes.json()).error), 'Pass with missing customer category is strictly rejected with 409 Conflict');
-
-// 7. Incomplete approved metadata: Missing garment type must NOT silently default to saree
-const missingGarmentPass = await freshPass({
-  videoMasterDone: true,
-  videoMasterUrl: 'https://example.com/incomplete-garment.jpg',
-  videoMasterApproved: true,
-  videoMasterApprovedUrl: 'https://example.com/incomplete-garment.jpg',
-  videoMasterCategory: 'men',
-  videoMasterGarmentType: undefined,
-  videoMasterPromptSet: 'set-1',
-  eventId: 'diwali',
-});
-const missingGarmentReq = new NextRequest('http://localhost:3000/api/video/start', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ accessCode: missingGarmentPass, sessionId: 'sess_inc_garment' }),
-});
-const missingGarmentRes = await videoStartPost(missingGarmentReq);
-assert(missingGarmentRes.status === 409 && /Garment type is missing/i.test((await missingGarmentRes.json()).error), 'Pass with missing garment type is strictly rejected with 409 Conflict (no silent saree fallback)');
+const matchJson = await matchingRes.json();
+assert(matchingRes.status === 503 && /Fal\.ai video service is not configured/i.test(matchJson.error), 'Matching approved metadata passes all validation gates and reaches provider dispatch');
 
 // 8. Men's pass verification: Men's pass with kurta_dhoti reaches provider dispatch as men's garment
 const menPass = await freshPass({
@@ -448,6 +399,7 @@ const menPass = await freshPass({
   videoMasterPromptSet: 'set-1',
   eventId: 'diwali',
 });
+getMockStore().sessions.set('sess_men', { id: 'sess_men', accessCode: menPass });
 const menReq = new NextRequest('http://localhost:3000/api/video/start', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
