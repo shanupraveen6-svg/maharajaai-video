@@ -197,14 +197,16 @@ export function getGarmentFidelityRules(
 - Jewelry: Traditional festive jewelry naturally seated against skin and fabric.`;
 
     case 'kurta_dhoti':
-      return `MEN'S TRADITIONAL SPECIFIC FIDELITY:
-- Render exact kurta silhouette, collar construction, placket buttons, fabric weave, and dhoti/veshti pleats or churidar/pyjama fit. Angavastram/shawl if present.
+      return `MEN'S ATTIRE SPECIFIC FIDELITY:
+- If the uploaded garment is traditional wear: render exact kurta silhouette, collar construction, placket buttons, fabric weave, and dhoti/veshti pleats or churidar/pyjama fit. Angavastram/shawl if present.
+- If the uploaded garment is modern shirts/trousers: render the exact shirt collar, sleeves, ombre/solid color pattern, and trousers faithfully from the reference. Never convert into a kurta or traditional wear.
 - Strictly NO feminine garment elements, NO saree drapes, NO blouse styling.
-- Posture: Confident, regal, masculine traditional posture with grounded feet.`;
+- Posture: Confident, regal, masculine posture with grounded feet.`;
 
     case 'boy_ethnic':
-      return `BOY'S TRADITIONAL ETHNIC FIDELITY:
-- Render age-appropriate boy's traditional Indian wear (festive kurta-pyjama or dhoti-shirt) matching the uploaded reference.
+      return `BOY'S ATTIRE SPECIFIC FIDELITY:
+- If the uploaded garment is traditional wear: render age-appropriate boy's traditional Indian wear (festive kurta-pyjama or dhoti-shirt) matching the reference.
+- If the uploaded garment is modern shirts/trousers: render the exact shirt collar, sleeves, ombre/solid color pattern, and trousers faithfully from the reference. Never convert into a kurta.
 - Strictly NO adult glamour, NO mature posing, NO saree/pallu elements.
 - Cheerful, natural boyish charm and modest styling.`;
 

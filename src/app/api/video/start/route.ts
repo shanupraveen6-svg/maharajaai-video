@@ -49,7 +49,36 @@ async function resolveReferenceUrl(value: string, sessionId: string): Promise<st
   if (!value.startsWith(expectedPrefix)) {
     throw new Error('A visual reference does not belong to this customer session.');
   }
-  return getSignedPlaybackUrl(value);
+
+  const bucket = getStorageBucket();
+  if (bucket) {
+    try {
+      const file = bucket.file(value);
+      const [exists] = await file.exists();
+      if (exists) {
+        const [buf] = await file.download();
+        if (buf && buf.length > 0) {
+          const blob = new Blob([new Uint8Array(buf)], { type: 'image/jpeg' });
+          return await fal.storage.upload(blob);
+        }
+      }
+    } catch (storageErr) {
+      console.warn('Storage bucket download for reference URL upload warning:', storageErr);
+    }
+  }
+
+  const mockStore = getMockStore();
+  const mockBlob = mockStore.sessions?.get(`mock_blob_${value}`);
+  if (mockBlob?.buffer) {
+    const blob = new Blob([new Uint8Array(mockBlob.buffer)], { type: mockBlob.contentType || 'image/jpeg' });
+    return await fal.storage.upload(blob);
+  }
+
+  const signed = await getSignedPlaybackUrl(value);
+  if (signed.includes('maharaja-mock')) {
+    throw new Error(`Visual reference ${value} could not be resolved to a downloadable image for Fal.ai.`);
+  }
+  return signed;
 }
 
 function formatFalError(error: any) {
@@ -421,6 +450,14 @@ export async function POST(req: NextRequest) {
           throw new Error('No accessible visual references were available for Reference-to-Video.');
         }
 
+        if (hostedImageUrl && (hostedImageUrl.startsWith('data:') || hostedImageUrl.includes('maharaja-mock'))) {
+          const imageBuf = await resolveMasterImageBuffer(hostedImageUrl, sessionId, masterImageUrl);
+          if (imageBuf) {
+            const blob = new Blob([new Uint8Array(imageBuf)], { type: 'image/jpeg' });
+            hostedImageUrl = await fal.storage.upload(blob);
+          }
+        }
+
         console.log('FAL_IMAGE_READY', {
           sessionId,
           jobId,
@@ -560,13 +597,15 @@ export async function POST(req: NextRequest) {
       success: true,
       jobId,
       sessionId,
+      requestId: jobData.requestId,
+      model: jobData.model,
       allowances: access.allowances,
       provider: jobData.provider,
       motionSafety,
       status: jobData.status,
       queueState: jobData.queueState,
       queuePosition: jobData.queuePosition,
-      message: 'MiniMax H3 Max Turbo video generation initialized.'
+      message: 'MiniMax H3 Max Reference-to-Video generation initialized.'
     });
   } catch (error: any) {
     console.error('Video Start Route Error:', error);

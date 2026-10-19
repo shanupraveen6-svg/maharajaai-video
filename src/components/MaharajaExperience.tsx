@@ -538,8 +538,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       }
 
       for (let attempt = 0; attempt < 180; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 1000 : 2000));
-        const status = await readJson(await fetch(`/api/video/status?sessionId=${encodeURIComponent(sessionId)}&jobId=${encodeURIComponent(start.jobId)}&accessCode=${encodeURIComponent(accessCode)}`));
+        const statusParams = new URLSearchParams({
+          sessionId,
+          jobId: start.jobId,
+          accessCode,
+          ...(start.model ? { model: start.model } : {}),
+          ...(start.requestId ? { requestId: start.requestId } : {}),
+        });
+        const status = await readJson(await fetch(`/api/video/status?${statusParams.toString()}`));
         if (status.allowances) setAllowances(status.allowances);
         if (status.status === 'ready' || status.status === 'succeeded') {
           setStage('result');

@@ -5,7 +5,7 @@ import { ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import { finalizeCompletedVideo, getCampaignEntitlementForPass, getCustomerServiceAllowances, getVideoPass, markPassVideoFailed, markPassVideoReady, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const maxDuration = 300;
-const FAL_VIDEO_MODEL = 'minimax/h3-max-turbo/image-to-video';
+const FAL_VIDEO_MODEL = 'minimax/h3-max/reference-to-video';
 
 async function markVideoFailed(db: any, sessionId: string, message: string, accessCode?: string | null, jobId?: string | null) {
   if (!sessionId) return;
@@ -43,6 +43,8 @@ export async function GET(req: NextRequest) {
     let jobId = searchParams.get('jobId')?.trim() || null;
     const sessionId = searchParams.get('sessionId')?.trim() || null;
     const accessCode = searchParams.get('accessCode')?.trim() || null;
+    const queryRequestId = searchParams.get('requestId')?.trim() || null;
+    const queryModel = searchParams.get('model')?.trim() || null;
 
     if (!accessCode) {
       return NextResponse.json(
@@ -65,9 +67,9 @@ export async function GET(req: NextRequest) {
     let liveVideoUrl: string | null = null;
     let masterImageUrl: string | null = null;
     let status: string = 'processing';
-    let requestId: string | null = null;
+    let requestId: string | null = queryRequestId;
     let provider: string | null = null;
-    let providerModel: string = FAL_VIDEO_MODEL;
+    let providerModel: string = queryModel || FAL_VIDEO_MODEL;
     let eventId = 'diwali';
     let clientId: string | null = null;
     let category: string | null = null;

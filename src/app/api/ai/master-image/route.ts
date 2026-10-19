@@ -234,17 +234,17 @@ export async function POST(req: NextRequest) {
             : garmentType === 'salwar'
               ? '- For salwar/anarkali: preserve exact tunic flare, neckline, churidar fit, and dupatta drape. Strictly no saree pleats or pallu.'
               : garmentType === 'kurta_dhoti'
-                ? '- For men\'s ethnic wear: preserve exact kurta silhouette, collar construction, placket buttons, fabric weave, and dhoti/veshti/pyjama drape. Strictly no saree pleats, pallu, or blouse styling.'
+                ? '- If the uploaded reference is traditional wear: preserve exact kurta silhouette, collar construction, placket buttons, fabric weave, and dhoti/veshti/pyjama drape. If the reference is a modern shirt/trousers: preserve exact shirt collar, placket, sleeves, and trousers without converting to ethnic wear.'
               : garmentType === 'boy_ethnic'
-                  ? '- For boys\' ethnic wear: preserve exact kurta-pyjama or dhoti-shirt silhouette and fabric weave. Strictly no saree, pallu, or adult garment elements.'
+                  ? '- If the uploaded reference is traditional ethnic wear: preserve exact kurta-pyjama or dhoti-shirt silhouette. If the reference is a modern shirt/t-shirt/trousers: preserve exact shirt, print/ombre pattern, collar, and pants without converting to a kurta.'
                 : garmentType === 'pattu_pavadai'
                   ? '- For girls\' traditional wear: preserve exact pattu pavadai (silk skirt and blouse/choli) or anarkali silhouette and border details. Strictly no adult saree drape.'
                   : '- Garment type is intentionally unspecified. Copy only the uploaded garment references; do not infer a traditional, ethnic, western, formal, or casual replacement.';
 
         const garmentFidelityRules = `EXACT GARMENT ROLE & COLOR INSTRUCTIONS:
 ${roleInstructions}
-- Preserve exact fabric colors, patterns, and dye hues from each garment reference.
-- If a Bottom / Pant reference is grey, it MUST remain pure neutral grey on the customer. Never shift or hallucinate it into beige, tan, cream, brown, or gold.
+- Preserve exact fabric colors, patterns, and dye hues from each garment reference without color shift (white stays pure white, blue ombre stays blue ombre, grey stays grey).
+- Never shift colors or alter clothing into unrequested garments or added embroidery.
 ${categoryGarmentLine}
 - Professional model lighting must enhance clarity, contrast, and depth without altering the true dye color of any garment.`;
 
