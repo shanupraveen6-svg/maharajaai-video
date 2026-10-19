@@ -6,7 +6,6 @@ import Link from 'next/link';
 import {
   AlertCircle,
   AlertTriangle,
-  ArrowRight,
   BadgeIndianRupee,
   Camera,
   CheckCircle2,
@@ -31,9 +30,6 @@ import {
   type EventId,
   type VideoPromptSet,
 } from '@/lib/maharaja/config';
-import {
-  DEFAULT_DIWALI_REFERENCE_VIDEO_MODEL_ID,
-} from '@/lib/maharaja/reference-video';
 
 const BarcodePriceScanner = dynamic(() => import('@/components/BarcodePriceScanner'), { ssr: false });
 const SecureTryOnViewer = dynamic(() => import('@/components/SecureTryOnViewer'), { ssr: false });
@@ -85,8 +81,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [category, setCategory] = useState<CustomerCategory>('women');
   const [sessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
   const [promptSet, setPromptSet] = useState<VideoPromptSet>(() => (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1'));
-  const videoStartInFlightRef = useRef(false);
-  const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
   const [deviceId, setDeviceId] = useState('');
@@ -257,12 +251,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       active = false;
     };
   }, [accessCode, deviceId, retrySessionId, service]);
-
-  useEffect(() => {
-    if (stage !== 'video') return;
-    const timer = window.setInterval(() => setVideoProgressIndex((current) => Math.min(current + 1, 2)), 7000);
-    return () => window.clearInterval(timer);
-  }, [stage]);
 
   useEffect(() => {
     if (stage !== 'image' && stage !== 'video') return;
@@ -471,107 +459,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       setError(customerError(caught, 'The AI image could not be generated. Please ask Maharaja staff for assistance.'));
     } finally {
       setStage('ready');
-    }
-  }
-
-  async function generateVideo() {
-    if (!videoMasterUrl || stage === 'video' || videoStartInFlightRef.current) return;
-    videoStartInFlightRef.current = true;
-    setStage('video');
-    setError('');
-    setVideoProgressIndex(0);
-    setMessage('Starting H3 Max Reference-to-Video. Keep this page open.');
-    if (!masterApproved) {
-      try {
-        await readJson(await fetch('/api/ai/master-image/approve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            accessCode,
-            sessionId,
-            service: 'ai-video',
-            imageUrl: videoMasterUrl,
-          }),
-        }));
-        setMasterApproved(true);
-      } catch (caught) {
-        setError(customerError(caught, 'The approved image could not be confirmed. Please retry before generating the video.'));
-        setStage('ready');
-        videoStartInFlightRef.current = false;
-        return;
-      }
-    }
-    const enforceLimits = allowances?.enforceRepeatLimits ?? false;
-    if (enforceLimits && allowances.video.used >= 2 && !retrySessionId) {
-      setError('H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached for this customer mobile number.');
-      setStage('ready');
-      videoStartInFlightRef.current = false;
-      return;
-    }
-    try {
-      const start = await readJson(await fetch('/api/video/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          accessCode,
-          eventId,
-          masterImageUrl: videoMasterUrl,
-          templateId: category,
-          garmentType: garmentAnalysis?.garmentType,
-          promptSet,
-          retryMode: retrySessionId ? 'safe' : undefined,
-          videoModelId: DEFAULT_DIWALI_REFERENCE_VIDEO_MODEL_ID,
-        }),
-      }));
-
-      if (start.status === 'ready' || start.status === 'succeeded') {
-        if (start.allowances) setAllowances(start.allowances);
-        setStage('result');
-        return;
-      }
-
-      if (typeof start.queuePosition === 'number' && start.queuePosition > 0) {
-        setMessage(`Your video is queued. Position ${start.queuePosition}. Keep this page open.`);
-      } else {
-        setMessage('Your video is rendering. Keep this page open.');
-      }
-
-      for (let attempt = 0; attempt < 180; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 1200 : 2000));
-        const statusParams = new URLSearchParams({
-          sessionId,
-          jobId: start.jobId,
-          accessCode,
-          ...(start.model ? { model: start.model } : {}),
-          ...(start.requestId ? { requestId: start.requestId } : {}),
-        });
-        const status = await readJson(await fetch(`/api/video/status?${statusParams.toString()}`));
-        if (status.allowances) setAllowances(status.allowances);
-        if (status.status === 'ready' || status.status === 'succeeded') {
-          setStage('result');
-          return;
-        }
-        if (status.status === 'failed') throw new Error(status.error || 'Video generation failed.');
-        if (status.queueState === 'IN_QUEUE') {
-          setMessage(typeof status.queuePosition === 'number' && status.queuePosition > 0
-            ? `Your video is queued. Position ${status.queuePosition}. Keep this page open.`
-            : 'Your video is queued. Keep this page open.');
-        } else if (status.queueState === 'SAVING') {
-          setMessage('Video rendered. Saving your Maharaja film...');
-        } else {
-          setMessage('Your video is rendering. Keep this page open.');
-        }
-      }
-      throw new Error('Video generation is taking longer than expected. Do not start another job; check this session again.');
-    } catch (caught) {
-      setMessage('');
-      setError(caught instanceof Error
-        ? caught.message
-        : 'The AI video could not be generated. Please ask Maharaja staff for assistance.');
-      setStage('ready');
-    } finally {
-      videoStartInFlightRef.current = false;
     }
   }
 
@@ -958,17 +845,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   </div>
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
-                  <div className="mt-4 space-y-3">
-                    <button
-                      type="button"
-                      id="generate-video-btn"
-                      onClick={() => void generateVideo()}
-                      disabled={busy}
-                      className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black disabled:opacity-40"
-                    >
-                      {stage === 'video' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />} Generate 6-Sec AI Video <ArrowRight className="h-4 w-4" />
-                    </button>
-                    {stage === 'video' && <div className="space-y-2 border border-[#D4AF37]/35 bg-black/30 p-3 text-left">{['Preparing festive lighting', 'Applying camera motion', 'Rendering your video'].map((step, index) => <div key={step} className={`flex items-center gap-2 text-xs font-semibold ${index <= videoProgressIndex ? 'text-[#F3E5AB]' : 'text-[#F3E5AB]/40'}`}><span className={`h-2 w-2 rounded-full ${index < videoProgressIndex ? 'bg-emerald-400' : index === videoProgressIndex ? 'animate-pulse bg-[#D4AF37]' : 'bg-white/20'}`} />{step}</div>)}</div>}
+                  <div className="mt-4 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
+                    AI video generation is temporarily unavailable while the video pipeline is rebuilt.
                   </div>
                 )}
               </aside>

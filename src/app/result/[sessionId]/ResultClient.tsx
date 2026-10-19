@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useMemo, useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MoreVertical, Lock, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
-import { getLiveAudioTrack } from '@/lib/maharaja/audio';
-import { getEventOption, isEventId, type EventId } from '@/lib/maharaja/config';
+import { getEventOption, type EventId } from '@/lib/maharaja/config';
 
 export default function ResultClient({
   sessionId,
@@ -23,18 +22,10 @@ export default function ResultClient({
   initialAllowances?: any;
 }) {
   const router = useRouter();
-  const [showLiveConsent, setShowLiveConsent] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [thankYouMode, setThankYouMode] = useState<'download' | 'live' | null>(null);
   const [liveFarewell, setLiveFarewell] = useState(false);
-  const [showroomConsent, setShowroomConsent] = useState(false);
-  const [promotionConsent, setPromotionConsent] = useState(false);
-  const [guardianConsent, setGuardianConsent] = useState(false);
-  const [category, setCategory] = useState<'women' | 'men' | 'girl' | 'boy'>('women');
   const [showMenu, setShowMenu] = useState(false);
-  const [customerName, setCustomerName] = useState('');
-  const [customerLocality, setCustomerLocality] = useState('');
-  const [isGoingLive, setIsGoingLive] = useState(false);
   const [liveSuccess, setLiveSuccess] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
@@ -46,9 +37,7 @@ export default function ResultClient({
   const [eventId, setEventId] = useState<EventId>('diwali');
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [liveVideoUrl, setLiveVideoUrl] = useState<string | null>(null);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
-  const [videoId, setVideoId] = useState<string>(sessionId ? `video_${sessionId}` : '');
   const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>('processing');
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
@@ -62,30 +51,12 @@ export default function ResultClient({
   const imageExhausted = enforceLimits && imageAllowanceUsed >= 2;
   const videoExhausted = enforceLimits && videoAllowanceUsed >= 2;
 
-  const whatsappSendRequested = useRef(false);
-  const liveAudioUrl = useMemo(() => getLiveAudioTrack(sessionId, eventId), [sessionId, eventId]);
   const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
   const eventLabel = getEventOption(eventId).label;
 
   useEffect(() => {
     const storageKey = `maharaja:live-farewell:${sessionId}`;
-    const stored = window.sessionStorage.getItem(storageKey);
-    if (!stored) return;
-    try {
-      const data = JSON.parse(stored);
-      setQueueId(typeof data.queueId === 'string' ? data.queueId : null);
-      setQueueNumber(typeof data.queueNumber === 'number' ? data.queueNumber : null);
-      setQueuePosition(typeof data.queuePosition === 'number' ? data.queuePosition : null);
-      setPeopleAhead(typeof data.peopleAhead === 'number' ? data.peopleAhead : null);
-      setLiveQueueStatus('queued');
-      setCountdownSeconds(0);
-      setLiveSuccess(true);
-      setThankYouMode('live');
-      setShowThankYou(true);
-      setLiveFarewell(true);
-    } catch {
-      window.sessionStorage.removeItem(storageKey);
-    }
+    window.sessionStorage.removeItem(storageKey);
   }, [sessionId]);
 
   useEffect(() => {
@@ -152,73 +123,6 @@ export default function ResultClient({
       if (pollTimer) clearTimeout(pollTimer);
     };
   }, [liveSuccess, queueId, countdownSeconds, accessCode]);
-
-  useEffect(() => {
-    if (!sessionId) return;
-    let isMounted = true;
-    let timer: NodeJS.Timeout;
-
-    async function checkVideoStatus() {
-      try {
-        const queryParams = new URLSearchParams({ sessionId });
-        if (accessCode) queryParams.set('accessCode', accessCode);
-        const res = await fetch(`/api/video/status?${queryParams.toString()}`);
-        const data = await res.json();
-        if (!isMounted) return;
-
-        if (!res.ok || data.status === 'failed') {
-          setVideoStatus('failed');
-          setVideoError(data.error || 'Video generation failed.');
-          setIsLoadingVideo(false);
-          return;
-        }
-
-        if (data.success) {
-          if (isEventId(data.eventId)) setEventId(data.eventId);
-          if (['women', 'men', 'girl', 'boy'].includes(data.category)) setCategory(data.category);
-          if (data.masterImageUrl) {
-            setMasterImageUrl(data.masterImageUrl);
-          }
-          if (data.liveVideoUrl) {
-            setLiveVideoUrl(data.liveVideoUrl);
-          }
-          if (data.allowances) {
-            setAllowances(data.allowances);
-          }
-          if (typeof data.retryUsed === 'boolean') setRetryUsed(data.retryUsed);
-          if (typeof data.videoDone === 'boolean') setVideoDone(data.videoDone);
-          if (data.status === 'ready' || data.status === 'succeeded') {
-            setVideoUrl(data.videoUrl);
-            setVideoId(data.videoId || `video_${sessionId}`);
-            setVideoStatus('ready');
-            setIsLoadingVideo(false);
-            if (accessCode && !whatsappSendRequested.current) {
-              whatsappSendRequested.current = true;
-              void fetch('/api/whatsapp/send-result', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId, accessCode }),
-              }).catch(() => undefined);
-            }
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('Polling error checking video status:', err);
-      }
-
-      if (isMounted) {
-        timer = setTimeout(checkVideoStatus, 2000);
-      }
-    }
-
-    checkVideoStatus();
-
-    return () => {
-      isMounted = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, [sessionId, accessCode]);
 
   // Explicit error state if sessionId is missing — NEVER substitute sample-session
   if (!sessionId) {
@@ -296,115 +200,6 @@ export default function ResultClient({
       setShowThankYou(true);
     } catch (err) {
       setLiveError(err instanceof Error ? err.message : 'Download failed.');
-    }
-  };
-
-  const handleConfirmGoLive = async () => {
-    const isMinor = category === 'girl' || category === 'boy';
-    if (!showroomConsent || (isMinor && !guardianConsent)) return;
-    if (!customerName.trim() || !customerLocality.trim()) {
-      setLiveError('Enter customer name and locality for the Maharaja TV greeting.');
-      return;
-    }
-    setIsGoingLive(true);
-    setLiveError(null);
-
-    try {
-      const res = await fetch('/api/live/enqueue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          videoId: videoId || `video_${sessionId}`,
-          videoUrl: liveVideoUrl || videoUrl || undefined,
-          liveVideoUrl: liveVideoUrl || undefined,
-          customerName: customerName.trim(),
-          customerLocality: customerLocality.trim(),
-          liveAudioUrl,
-          accessCode,
-          category,
-          showroomConsent,
-          guardianConsent: isMinor ? guardianConsent : false,
-          promotionConsent: isMinor ? false : promotionConsent,
-        })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        void executeDownload().catch((err) => {
-          setLiveError(`Sent to TV. ${err instanceof Error ? err.message : 'Auto-download failed.'} Use Download again if needed.`);
-        });
-        if (data.queueId) setQueueId(data.queueId);
-        setQueueNumber(typeof data.queueNumber === 'number' ? data.queueNumber : null);
-        setQueuePosition(typeof data.queuePosition === 'number' ? data.queuePosition : null);
-        setPeopleAhead(typeof data.peopleAhead === 'number' ? data.peopleAhead : null);
-        setLiveQueueStatus('queued');
-        setCountdownSeconds(Number(data.peopleAhead || 0) > 0 ? 0 : 5);
-        setLiveSuccess(true);
-        setThankYouMode('live');
-        setShowThankYou(true);
-        setShowLiveConsent(false);
-        window.sessionStorage.setItem(`maharaja:live-farewell:${sessionId}`, JSON.stringify({
-          queueId: data.queueId || null,
-          queueNumber: typeof data.queueNumber === 'number' ? data.queueNumber : null,
-          queuePosition: typeof data.queuePosition === 'number' ? data.queuePosition : null,
-          peopleAhead: typeof data.peopleAhead === 'number' ? data.peopleAhead : null,
-        }));
-        setLiveFarewell(true);
-      } else {
-        setLiveError(data.error || 'Failed to enqueue video');
-      }
-    } catch {
-      setLiveError('Network error triggering Go Live');
-    } finally {
-      setIsGoingLive(false);
-    }
-  };
-
-  const handleRetryVideo = async () => {
-    setShowMenu(false);
-    setIsLoadingVideo(true);
-    setVideoStatus('processing');
-    setVideoUrl(null);
-    try {
-      await fetch('/api/maharaja/activity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'retry',
-          label: 'Customer AI Video retry (backup prompt)',
-          sessionId,
-          accessCode,
-          target: 'video',
-          service: 'ai-video',
-        }),
-      });
-
-      const startRes = await fetch('/api/video/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          accessCode,
-          eventId,
-          masterImageUrl,
-          retry: true,
-          retryMode: 'backup-locked',
-          conceptPrompt: 'FAIL-SAFE REGENERATION MODE. RETRY STABILIZED FASHION COMMERCIAL MODE.',
-        }),
-      });
-      const startData = await startRes.json();
-      if (!startRes.ok) {
-        throw new Error(startData.error || 'Failed to start retry video.');
-      }
-      if (startData.allowances) {
-        setAllowances(startData.allowances);
-      }
-    } catch (err: any) {
-      console.error('Video retry error:', err);
-      setVideoStatus('failed');
-      setVideoError(err.message || 'Retry video generation could not be completed.');
-      setIsLoadingVideo(false);
     }
   };
 
@@ -572,16 +367,6 @@ export default function ResultClient({
                   onClick={() => setShowMenu(false)}
                 />
                 <div className="absolute left-0 top-10 z-40 w-48 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-1.5 shadow-2xl backdrop-blur-md text-left space-y-1 animate-in fade-in zoom-in-95 duration-150">
-                  {/* Video Retry with Backup Prompt */}
-                  <button
-                    type="button"
-                    onClick={handleRetryVideo}
-                    className="w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold text-[#F3E5AB] hover:bg-[#6e0d1f] hover:text-white transition"
-                  >
-                    <RotateCcw className="h-4 w-4 text-[#D4AF37] shrink-0" />
-                    <span>Retry Video</span>
-                  </button>
-
                   {/* Image Retry (Back to Upload) */}
                   <button
                     type="button"
@@ -614,20 +399,8 @@ export default function ResultClient({
             <Download className="w-5 h-5 fill-black" /> DOWNLOAD IMAGE + VIDEO
           </button>
 
-          <button
-            onClick={() => {
-              setShowroomConsent(false);
-              setPromotionConsent(false);
-              setGuardianConsent(false);
-              setShowLiveConsent(true);
-            }}
-            className="w-full rounded-lg border border-[#D4AF37]/50 bg-[#800A1D] px-6 py-4 text-sm font-bold uppercase tracking-wider text-[#F3E5AB] shadow-xl transition hover:brightness-110 flex items-center justify-center gap-3"
-          >
-            <Tv className="w-5 h-5 text-[#D4AF37]" /> GO LIVE ON MAHARAJA SCREEN
-          </button>
-
           <div className="rounded-lg border border-[#D4AF37]/25 bg-black/45 p-3 text-[11px] leading-5 text-[#F3E5AB]/80">
-            Download saves the approved image and video. Go Live also downloads both files, then sends the video to the showroom TV with festival music and Tamil greeting.
+            Video generation and Go Live are temporarily unavailable while the pipeline is rebuilt. Existing approved downloads remain available.
           </div>
 
           <p className="px-2 text-[11px] leading-5 text-[#F3E5AB]/65">
@@ -679,91 +452,6 @@ export default function ResultClient({
           </div>
         </div>
       )}
-
-
-
-      {/* Public Display Consent Modal */}
-      {showLiveConsent && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full maharaja-card p-6 rounded-lg border border-[#D4AF37]/50 space-y-4">
-            <div className="flex items-center gap-2 text-[#D4AF37] font-serif font-bold text-lg uppercase tracking-wider">
-              <ShieldCheck className="w-6 h-6" /> GO LIVE DETAILS
-            </div>
-
-            <p className="text-xs text-gray-300 leading-relaxed">
-              Add the customer display name and locality for the right side of the Maharaja TV screen.
-            </p>
-
-            <div className="grid grid-cols-1 gap-3">
-              <label className="space-y-1 text-left">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Customer Name</span>
-                <input
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Example: Kavitha"
-                  className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37]"
-                />
-              </label>
-              <label className="space-y-1 text-left">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Locality</span>
-                <input
-                  value={customerLocality}
-                  onChange={(e) => setCustomerLocality(e.target.value)}
-                  placeholder="Example: Thiruvaiyaru"
-                  className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/60 px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37]"
-                />
-              </label>
-            </div>
-
-            <label className="flex items-start gap-3 p-3 rounded-md bg-black/60 border border-[#D4AF37]/30 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showroomConsent}
-                onChange={(e) => setShowroomConsent(e.target.checked)}
-                className="w-5 h-5 mt-0.5 accent-[#D4AF37]"
-              />
-              <span className="text-xs text-gray-200">
-                Allow Maharaja to display this video on the showroom TV during the temporary 4-day period.
-              </span>
-            </label>
-
-            {(category === 'girl' || category === 'boy') ? (
-              <label className="flex items-start gap-3 p-3 rounded-md bg-black/60 border border-[#D4AF37]/30 cursor-pointer">
-                <input type="checkbox" checked={guardianConsent} onChange={(e) => setGuardianConsent(e.target.checked)} className="w-5 h-5 mt-0.5 accent-[#D4AF37]" />
-                <span className="text-xs text-gray-200">I confirm that I am the parent or legal guardian and permit this child&apos;s video to appear on the showroom TV. Social-media promotion is disabled for children.</span>
-              </label>
-            ) : (
-              <label className="flex items-start gap-3 p-3 rounded-md bg-black/60 border border-[#D4AF37]/30 cursor-pointer">
-                <input type="checkbox" checked={promotionConsent} onChange={(e) => setPromotionConsent(e.target.checked)} className="w-5 h-5 mt-0.5 accent-[#D4AF37]" />
-                <span className="text-xs text-gray-200">Optional: allow Maharaja to retain and use this creation on its official Instagram and promotional channels.</span>
-              </label>
-            )}
-
-            {liveError && (
-              <div className="rounded-md border border-red-400/50 bg-red-950/50 p-3 text-xs font-bold text-red-200">
-                {liveError}
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setShowLiveConsent(false)}
-                className="w-1/2 rounded-lg bg-gray-800 py-3 text-xs font-bold uppercase tracking-wider text-gray-300 hover:bg-gray-700"
-              >
-                CANCEL
-              </button>
-              <button
-                onClick={handleConfirmGoLive}
-                disabled={!showroomConsent || ((category === 'girl' || category === 'boy') && !guardianConsent) || isGoingLive}
-                className="w-1/2 rounded-lg bg-[#D4AF37] py-3 text-xs font-bold uppercase tracking-wider text-black hover:brightness-110 disabled:opacity-50"
-              >
-                {isGoingLive ? 'ENQUEUING...' : 'CONFIRM & GO LIVE'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </main>
   );
 }

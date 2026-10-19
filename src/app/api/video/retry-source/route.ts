@@ -1,30 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getMockStore } from '@/lib/firebase/admin';
-import { isEventId } from '@/lib/maharaja/config';
-import { verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest) {
-  const sessionId = req.nextUrl.searchParams.get('sessionId') || '';
-  const accessCode = req.nextUrl.searchParams.get('accessCode') || '';
-  const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
-  if (!access.allowed) return NextResponse.json({ success: false, error: access.error }, { status: 401 });
-  if (!sessionId) return NextResponse.json({ success: false, error: 'Original video session is required.' }, { status: 400 });
-
-  const db = getDb();
-  const session = db
-    ? (await db.collection('sessions').doc(sessionId).get()).data()
-    : getMockStore().sessions.get(sessionId);
-  const videoMasterUrl = access.pass?.videoMasterDone ? access.pass.videoMasterUrl : session?.masterImageUrl;
-  if (!session || session.accessCode !== accessCode || !videoMasterUrl) {
-    return NextResponse.json({ success: false, error: 'The approved image for this video retry is unavailable.' }, { status: 404 });
-  }
-  return NextResponse.json({
-    success: true,
-    source: {
-      masterImageUrl: videoMasterUrl,
-      eventId: isEventId(session.eventId) ? session.eventId : access.pass?.eventId || 'diwali',
-      category: ['women', 'men', 'girl', 'boy'].includes(session.templateId) ? session.templateId : 'women',
-      garmentAnalysis: session.garmentAnalysis || null,
-    },
-  });
+export async function GET() {
+  return NextResponse.json({ success: false, error: 'Legacy video retries are disabled.' }, { status: 410 });
 }
