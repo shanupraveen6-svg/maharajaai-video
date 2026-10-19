@@ -30,6 +30,7 @@ import {
   type EventId,
   type VideoPromptSet,
 } from '@/lib/maharaja/config';
+import { VIDEO_TEST_MODELS, type VideoTestModelId } from '@/lib/maharaja/video-test';
 
 const BarcodePriceScanner = dynamic(() => import('@/components/BarcodePriceScanner'), { ssr: false });
 const SecureTryOnViewer = dynamic(() => import('@/components/SecureTryOnViewer'), { ssr: false });
@@ -44,6 +45,7 @@ type AccessResponse = {
     phoneMasked: string | null;
     billLast4: string | null;
     tryOnUsed: boolean;
+    videoMasterApproved?: boolean;
     videoMasterCategory?: CustomerCategory | null;
   };
 };
@@ -110,6 +112,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [error, setError] = useState('');
   const [processingConsent, setProcessingConsent] = useState(false);
   const [masterApproved, setMasterApproved] = useState(false);
+  const [testModelId, setTestModelId] = useState<VideoTestModelId>('h3-max');
+  const [videoTestJobId, setVideoTestJobId] = useState('');
+  const [videoTestUrl, setVideoTestUrl] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
   const maxGarmentPhotos = activeService === 'try-on' ? 1 : 3;
@@ -226,7 +231,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           if (data.access.tryOnImageUrl) setTryOnImageUrl(data.access.tryOnImageUrl);
           if (data.access.videoMasterUrl) {
             setVideoMasterUrl(data.access.videoMasterUrl);
-            setMasterApproved(true);
+            setMasterApproved(Boolean(data.access.videoMasterApproved));
           }
           if (data.access.videoMasterCategory) {
             setCategory(data.access.videoMasterCategory);
@@ -503,6 +508,56 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       }).catch(() => undefined);
     } catch (caught) {
       setError(customerError(caught, 'The image could not be downloaded. Please try again.'));
+    }
+  }
+
+  async function pollVideoTest(jobId: string) {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 12 * 60 * 1000) {
+      await new Promise((resolve) => window.setTimeout(resolve, 3000));
+      const response = await fetch(`/api/video/status?jobId=${encodeURIComponent(jobId)}&accessCode=${encodeURIComponent(accessCode)}`, { cache: 'no-store' });
+      const data = await response.json().catch(() => ({}));
+      if (data.status === 'ready' && data.videoUrl) {
+        setVideoTestUrl(data.videoUrl);
+        setMessage('Test video is ready. Review identity, outfit and cinematic quality. Go Live remains disabled.');
+        setStage('ready');
+        return;
+      }
+      if (!response.ok || data.status === 'failed') {
+        throw new Error(data.error || `Video test failed (${response.status}).`);
+      }
+      setMessage('Fal is rendering the controlled test. Keep this page open.');
+    }
+    throw new Error('Video test timed out. The job remains recorded for staff review.');
+  }
+
+  async function startVideoTest() {
+    if (!videoMasterUrl || stage === 'video') return;
+    setStage('video');
+    setError('');
+    setVideoTestUrl('');
+    setMessage('Locking this request and validating the exact image sent to Fal...');
+    try {
+      if (!masterApproved) {
+        await readJson(await fetch('/api/ai/master-image/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessCode, sessionId, masterImageUrl: videoMasterUrl }),
+        }));
+        setMasterApproved(true);
+      }
+      const data = await readJson(await fetch('/api/video/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessCode, sessionId, modelId: testModelId }),
+      }));
+      setVideoTestJobId(data.jobId);
+      setMessage(`Submitted to ${VIDEO_TEST_MODELS.find((item) => item.id === testModelId)?.label}. Keep this page open.`);
+      await pollVideoTest(data.jobId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The controlled video test failed.');
+      setMessage('The test stopped. No fallback model or automatic retry was used.');
+      setStage('ready');
     }
   }
 
@@ -845,8 +900,35 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   </div>
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
-                  <div className="mt-4 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
-                    AI video generation is temporarily unavailable while the video pipeline is rebuilt.
+                  <div className="mt-4 space-y-3 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
+                    <div>
+                      <label htmlFor="video-test-model" className="block font-bold uppercase tracking-wide">Controlled test model</label>
+                      <select
+                        id="video-test-model"
+                        value={testModelId}
+                        disabled={stage === 'video'}
+                        onChange={(event) => setTestModelId(event.target.value as VideoTestModelId)}
+                        className="mt-2 min-h-12 w-full border border-[#D4AF37] bg-[#170407] px-3 text-sm font-bold text-[#F3E5AB] disabled:opacity-50"
+                      >
+                        {VIDEO_TEST_MODELS.map((model) => (
+                          <option key={model.id} value={model.id}>{model.label} · about ${model.estimatedUsd.toFixed(2)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="text-[#F3E5AB]/80">One click submits one paid test. No automatic fallback, retry, TV queue or Go Live.</p>
+                    <button
+                      type="button"
+                      onClick={() => void startVideoTest()}
+                      disabled={stage === 'video'}
+                      className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 font-bold uppercase text-[#21090E] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {stage === 'video' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
+                      {stage === 'video' ? 'Test in progress' : 'Generate test video'}
+                    </button>
+                    {videoTestJobId && <p className="break-all text-[10px] text-[#F3E5AB]/60">Job: {videoTestJobId}</p>}
+                    {videoTestUrl && (
+                      <video src={videoTestUrl} controls playsInline preload="metadata" className="aspect-[9/16] w-full bg-black object-contain" />
+                    )}
                   </div>
                 )}
               </aside>
