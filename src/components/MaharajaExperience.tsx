@@ -31,6 +31,11 @@ import {
   type EventId,
   type VideoPromptSet,
 } from '@/lib/maharaja/config';
+import {
+  DEFAULT_DIWALI_REFERENCE_VIDEO_MODEL_ID,
+  DIWALI_REFERENCE_VIDEO_MODELS,
+  type DiwaliReferenceVideoModelId,
+} from '@/lib/maharaja/reference-video';
 
 const BarcodePriceScanner = dynamic(() => import('@/components/BarcodePriceScanner'), { ssr: false });
 const SecureTryOnViewer = dynamic(() => import('@/components/SecureTryOnViewer'), { ssr: false });
@@ -82,6 +87,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [category, setCategory] = useState<CustomerCategory>('women');
   const [sessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
   const [promptSet, setPromptSet] = useState<VideoPromptSet>(() => (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1'));
+  const [videoModelId, setVideoModelId] = useState<DiwaliReferenceVideoModelId>(DEFAULT_DIWALI_REFERENCE_VIDEO_MODEL_ID);
   const [videoProgressIndex, setVideoProgressIndex] = useState(0);
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
@@ -498,7 +504,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setStage('video');
     setError('');
     setVideoProgressIndex(0);
-    setMessage(`Preparing your ${event.label} film. Keep this page open.`);
+    const selectedVideoModel = DIWALI_REFERENCE_VIDEO_MODELS.find((model) => model.id === videoModelId);
+    setMessage(`Testing ${selectedVideoModel?.label || 'selected API'}. Keep this page open.`);
     try {
       const start = await readJson(await fetch('/api/video/start', {
         method: 'POST',
@@ -512,6 +519,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           garmentType: garmentAnalysis?.garmentType,
           promptSet,
           retryMode: retrySessionId ? 'safe' : undefined,
+          videoModelId,
         }),
       }));
 
@@ -548,7 +556,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       }
       throw new Error('Video generation is taking longer than expected. Do not start another job; check this session again.');
     } catch (caught) {
-      setError(customerError(caught, 'The AI video could not be generated. Please ask Maharaja staff for assistance.'));
+      setError(caught instanceof Error
+        ? caught.message
+        : 'The AI video could not be generated. Please ask Maharaja staff for assistance.');
       setStage('ready');
     }
   }
@@ -937,6 +947,19 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3">
+                    <label className="block text-left text-[11px] font-bold uppercase tracking-wide text-[#F3E5AB]">
+                      Test API
+                      <select
+                        value={videoModelId}
+                        onChange={(event) => setVideoModelId(event.target.value as DiwaliReferenceVideoModelId)}
+                        disabled={busy}
+                        className="mt-2 min-h-12 w-full border border-[#D4AF37]/60 bg-[#21090E] px-3 text-sm font-semibold normal-case tracking-normal text-[#F3E5AB] outline-none focus:border-[#D4AF37] disabled:opacity-50"
+                      >
+                        {DIWALI_REFERENCE_VIDEO_MODELS.map((model) => (
+                          <option key={model.id} value={model.id}>{model.label}</option>
+                        ))}
+                      </select>
+                    </label>
                     <button
                       type="button"
                       id="generate-video-btn"

@@ -21,7 +21,7 @@ import {
 } from '@/lib/maharaja/config';
 import {
   buildDiwaliReferenceVideoPrompt,
-  DIWALI_REFERENCE_VIDEO_MODEL,
+  getDiwaliReferenceVideoModel,
   getDiwaliReferencePromptId,
 } from '@/lib/maharaja/reference-video';
 import {
@@ -40,8 +40,6 @@ import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { canSignFalWebhook, signFalWebhook } from '@/lib/security/fal-webhook';
 
 export const maxDuration = 60;
-const FAL_VIDEO_MODEL = DIWALI_REFERENCE_VIDEO_MODEL;
-
 function isFalReferenceVideoEnabled(): boolean {
   return AI_CONFIG.VIDEO_PROVIDER === 'fal';
 }
@@ -439,26 +437,72 @@ export async function POST(req: NextRequest) {
           ? `${baseUrl}/api/video/webhook?jobId=${encodeURIComponent(jobId)}&sessionId=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(webhookToken)}`
           : undefined;
 
+        const selectedVideoModel = getDiwaliReferenceVideoModel(body.videoModelId);
         const providerStartedAt = Date.now();
         console.log('FAL_SUBMIT_START', {
           sessionId,
           jobId,
-          model: FAL_VIDEO_MODEL,
+          model: selectedVideoModel.model,
           promptId,
           referenceCount: uniqueReferenceImageUrls.length,
           hasWebhook: Boolean(webhookUrl),
         });
-        const falSubmitResult = await fal.queue.submit(FAL_VIDEO_MODEL, {
-          input: {
-            prompt,
-            image_url: hostedImageUrl,
-            reference_image_urls: uniqueReferenceImageUrls,
-            duration: 6,
-            resolution: '768P',
-            aspect_ratio: 'adaptive',
-            prompt_expansion_mode: 'disabled',
-            enable_safety_checker: true,
-          },
+        const allReferenceUrls = [hostedImageUrl, ...uniqueReferenceImageUrls].filter(Boolean);
+        const namedPrompt = `Image 1 is the original customer identity reference. Images 2 onward are the original garment references. The approved first frame is the composition authority. ${prompt}`;
+        const providerInput = selectedVideoModel.id === 'vidu-q4'
+          ? {
+              prompt: `[@reference_image_1] is the approved master composition. [@reference_image_2] is the original customer. Preserve the customer and clothing using all supplied references. ${prompt}`,
+              reference_image_urls: allReferenceUrls,
+              duration: 6,
+              resolution: '720p',
+              aspect_ratio: '9:16',
+              audio: false,
+              enable_safety_checker: true,
+            }
+          : selectedVideoModel.id === 'h3-max'
+            ? {
+                prompt: namedPrompt,
+                image_url: hostedImageUrl,
+                reference_image_urls: uniqueReferenceImageUrls,
+                duration: 6,
+                resolution: '768P',
+                aspect_ratio: 'adaptive',
+                prompt_expansion_mode: 'disabled',
+                enable_safety_checker: true,
+              }
+            : selectedVideoModel.id === 'h3'
+              ? {
+                  prompt: namedPrompt,
+                  reference_image_urls: allReferenceUrls,
+                  duration: 6,
+                  resolution: '768P',
+                  aspect_ratio: '9:16',
+                  prompt_expansion_mode: 'disabled',
+                  enable_safety_checker: true,
+                }
+              : selectedVideoModel.id === 'gemini-omni'
+                ? {
+                    prompt: namedPrompt,
+                    image_urls: allReferenceUrls,
+                    duration: 6,
+                    resolution: '720p',
+                    aspect_ratio: '9:16',
+                  }
+                : {
+                    prompt: `@master is the approved composition. Keep @customer identity exact${allReferenceUrls.slice(2).map((_, index) => ` and preserve @garment${index + 1}`).join('')}. No face, age, body, pose, clothing, colour, gradient, pattern, layer or accessory changes. The person remains still. Use only a slow premium forward camera push and subtle existing background light movement. No orbit, new objects, garment motion or effects crossing the person. Finish with a stable luxury Diwali hero hold.`,
+                    image_references: allReferenceUrls.map((imageUrl, index) => ({
+                      image_url: imageUrl,
+                      type: index === 0 ? 'background' : 'subject',
+                      ref_name: index === 0 ? 'master' : index === 1 ? 'customer' : `garment${index - 1}`,
+                    })),
+                    duration: 6,
+                    resolution: '720p',
+                    aspect_ratio: '9:16',
+                    generate_audio_switch: false,
+                    enable_safety_checker: true,
+                  };
+        const falSubmitResult = await fal.queue.submit(selectedVideoModel.model, {
+          input: providerInput,
           ...(webhookUrl ? { webhookUrl } : {}),
         });
 
@@ -475,12 +519,14 @@ export async function POST(req: NextRequest) {
             prompt,
             promptId,
             requestId: falSubmitResult.request_id,
-            provider: 'fal-h3-max-reference-to-video',
-            model: FAL_VIDEO_MODEL,
-            referenceCount: uniqueReferenceImageUrls.length,
+            provider: `fal-${selectedVideoModel.id}-reference-to-video`,
+            model: selectedVideoModel.model,
+            videoModelId: selectedVideoModel.id,
+            videoModelLabel: selectedVideoModel.label,
+            referenceCount: allReferenceUrls.length,
             duration: 6,
-            resolution: '768P',
-            aspectRatio: 'adaptive',
+            resolution: selectedVideoModel.id === 'h3-max' || selectedVideoModel.id === 'h3' ? '768P' : '720p',
+            aspectRatio: selectedVideoModel.id === 'h3-max' ? 'adaptive' : '9:16',
             providerSubmitMs: Date.now() - providerStartedAt,
             seed: null,
             motionSafety,

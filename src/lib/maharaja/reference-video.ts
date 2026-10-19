@@ -1,6 +1,21 @@
 import type { CustomerCategory, VideoPromptSet } from './config';
 
-export const DIWALI_REFERENCE_VIDEO_MODEL = 'minimax/h3-max/reference-to-video';
+export const DIWALI_REFERENCE_VIDEO_MODELS = [
+  { id: 'vidu-q4', label: '1. Vidu Q4', model: 'fal-ai/vidu/q4/reference-to-video' },
+  { id: 'h3-max', label: '2. H3 Max', model: 'minimax/h3-max/reference-to-video' },
+  { id: 'h3', label: '3. MiniMax H3', model: 'minimax/h3/reference-to-video' },
+  { id: 'gemini-omni', label: '4. Gemini Omni Flash', model: 'google/gemini-omni-flash/v1.1/reference-to-video' },
+  { id: 'pixverse-c1', label: '5. PixVerse C1', model: 'fal-ai/pixverse/c1/reference-to-video' },
+] as const;
+
+export type DiwaliReferenceVideoModelId = typeof DIWALI_REFERENCE_VIDEO_MODELS[number]['id'];
+
+export const DEFAULT_DIWALI_REFERENCE_VIDEO_MODEL_ID: DiwaliReferenceVideoModelId = 'vidu-q4';
+
+export function getDiwaliReferenceVideoModel(id: unknown) {
+  return DIWALI_REFERENCE_VIDEO_MODELS.find((entry) => entry.id === id)
+    || DIWALI_REFERENCE_VIDEO_MODELS[0];
+}
 
 export type DiwaliReferencePromptId =
   | 'diwali-men-01'
