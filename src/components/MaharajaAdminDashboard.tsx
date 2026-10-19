@@ -711,57 +711,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           </div>
         </section>
 
-        {/* 5. AUDIT LOG ONLY FOR GO LIVE WITH CUSTOMER NAME, PH NUMBER - PLAY VIDEO */}
-        <section className="rounded-2xl border border-[#DDD2BD] bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-[#21090E] p-2 text-[#F3E5AB]"><Film className="h-5 w-5" /></div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8A6A20]">Firebase Storage</p>
-                <h3 className="font-serif text-xl font-bold text-[#2A060C]">Stored Video Library</h3>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => void loadStoredVideos()}
-              disabled={storedVideosLoading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C49B] px-3 py-1.5 text-xs font-bold uppercase text-[#6E0D1F] transition hover:bg-[#FFF8E8] disabled:opacity-50"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${storedVideosLoading ? 'animate-spin' : ''}`} /> Refresh Videos
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-[#5C4B43]">Every playable video found in Firebase Storage. Play always requests a fresh secure URL.</p>
-
-          {storedVideosLoading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-[#6E0D1F]">
-              <LoaderCircle className="h-5 w-5 animate-spin" /> Loading stored videos
-            </div>
-          ) : storedVideos.length ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {storedVideos.map((item) => (
-                <article key={`${item.videoId}-${item.storagePath}`} className="flex min-w-0 flex-col justify-between rounded-xl border border-[#E4DCCB] bg-[#FFFCF6] p-4">
-                  <div>
-                    <p className="truncate font-bold text-[#2A060C]">{item.customerName}</p>
-                    <p className="mt-1 truncate text-xs text-[#6B625C]">{item.customerLocality}</p>
-                    <p className="mt-2 text-[11px] font-semibold uppercase text-[#8A6A20]">{item.durationSeconds}s · {item.format}</p>
-                    <p className="mt-1 truncate text-[10px] text-[#8A817B]" title={item.storagePath}>{item.storagePath}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void playStoredVideo(item)}
-                    disabled={openingStoragePath === item.storagePath}
-                    className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#6E0D1F] px-4 text-xs font-bold uppercase text-[#F3E5AB] transition hover:bg-[#8A1127] disabled:opacity-50"
-                  >
-                    {openingStoragePath === item.storagePath ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-                    Play
-                  </button>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="py-10 text-center text-sm text-slate-500">No playable videos were found in Firebase Storage.</p>
-          )}
-        </section>
+        {/* 5. LIVE SCREEN AUDIT LOG */}
 
         <section className="rounded-2xl border border-[#DDD2BD] bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -974,6 +924,58 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
               </Link>
             </div>
           </div>
+        </section>
+
+        {/* 7. FIREBASE STORAGE — STORED VIDEO LIBRARY (BELOW BOTH GENERATORS) */}
+        <section className="rounded-2xl border border-[#DDD2BD] bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-[#21090E] p-2 text-[#F3E5AB]"><Film className="h-5 w-5" /></div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8A6A20]">Firebase Storage</p>
+                <h3 className="font-serif text-xl font-bold text-[#2A060C]">Stored Video Library</h3>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadStoredVideos()}
+              disabled={storedVideosLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C49B] px-3 py-1.5 text-xs font-bold uppercase text-[#6E0D1F] transition hover:bg-[#FFF8E8] disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${storedVideosLoading ? 'animate-spin' : ''}`} /> Refresh Videos
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-[#5C4B43]">Every playable video found in Firebase Storage. Play always requests a fresh secure URL.</p>
+
+          {storedVideosLoading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-[#6E0D1F]">
+              <LoaderCircle className="h-5 w-5 animate-spin" /> Loading stored videos
+            </div>
+          ) : storedVideos.length ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {storedVideos.map((item) => (
+                <article key={`${item.videoId}-${item.storagePath}`} className="flex min-w-0 flex-col justify-between rounded-xl border border-[#E4DCCB] bg-[#FFFCF6] p-4">
+                  <div>
+                    <p className="truncate font-bold text-[#2A060C]">{item.customerName}</p>
+                    <p className="mt-1 truncate text-xs text-[#6B625C]">{item.customerLocality}</p>
+                    <p className="mt-2 text-[11px] font-semibold uppercase text-[#8A6A20]">{item.durationSeconds}s · {item.format}</p>
+                    <p className="mt-1 truncate text-[10px] text-[#8A817B]" title={item.storagePath}>{item.storagePath}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void playStoredVideo(item)}
+                    disabled={openingStoragePath === item.storagePath}
+                    className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#6E0D1F] px-4 text-xs font-bold uppercase text-[#F3E5AB] transition hover:bg-[#8A1127] disabled:opacity-50"
+                  >
+                    {openingStoragePath === item.storagePath ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+                    Play
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="py-10 text-center text-sm text-slate-500">No playable videos were found in Firebase Storage.</p>
+          )}
         </section>
 
         {/* 7. WHATSAPP DELIVERY CHANNEL STATUS */}
