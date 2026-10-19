@@ -449,17 +449,7 @@ export async function POST(req: NextRequest) {
         });
         const allReferenceUrls = [hostedImageUrl, ...uniqueReferenceImageUrls].filter(Boolean);
         const namedPrompt = `Image 1 is the original customer identity reference. Images 2 onward are the original garment references. The approved first frame is the composition authority. ${prompt}`;
-        const providerInput = selectedVideoModel.id === 'vidu-q4'
-          ? {
-              prompt: `[@reference_image_1] is the approved master composition. [@reference_image_2] is the original customer. Preserve the customer and clothing using all supplied references. ${prompt}`,
-              reference_image_urls: allReferenceUrls,
-              duration: 6,
-              resolution: '720p',
-              aspect_ratio: '9:16',
-              audio: false,
-              enable_safety_checker: true,
-            }
-          : selectedVideoModel.id === 'h3-max'
+        const providerInput = selectedVideoModel.id === 'h3-max'
             ? {
                 prompt: namedPrompt,
                 image_url: hostedImageUrl,
