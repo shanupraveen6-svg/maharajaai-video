@@ -1,7 +1,7 @@
 import { getEventSceneDirection, type CustomerCategory } from './config';
 
 export const VIDEO_TEST_MODELS = [
-  { id: 'h3-max', label: 'H3 Max Reference', model: 'minimax/h3-max/reference-to-video', seconds: 5, estimatedUsd: 0.40 },
+  { id: 'h3-max', label: 'H3 Max Reference', model: 'minimax/h3-max/reference-to-video', seconds: 6, estimatedUsd: 0.48 },
 ] as const;
 
 export type VideoTestModelId = typeof VIDEO_TEST_MODELS[number]['id'];
@@ -14,7 +14,7 @@ const FIDELITY_LOCK = `Use the approved image as the exact visual authority and 
 
 function buildH3Prompt(category: CustomerCategory) {
   const sceneMotion = getEventSceneDirection(category, 'diwali', 'set-1').videoScene;
-  return `${FIDELITY_LOCK} CINEMATIC DIRECTION: ${sceneMotion} Use physically believable camera inertia, natural depth of field, realistic flame behaviour, restrained atmospheric movement and premium cinema colour. The five-second film has three continuous visual beats without hard cuts: establish the environment, move through layered depth, then settle into the final hero frame.`;
+  return `${FIDELITY_LOCK} CINEMATIC DIRECTION: ${sceneMotion} Use physically believable camera inertia, natural depth of field, realistic flame behaviour, restrained atmospheric movement and premium cinema colour. Structure the six-second film as one continuous shot with no hard cuts. Seconds 0–1.5 establish the full luxury environment and foreground depth. Seconds 1.5–4.5 execute the controlled camera move with visible but realistic background animation and parallax. Seconds 4.5–6 settle into a detailed full-body hero composition with the face and complete outfit clearly readable. Keep motion purposeful enough to remain elegant when the six-second source is later retimed to nine seconds at two-thirds speed.`;
 }
 
 export function buildVideoTestInput(
@@ -27,7 +27,7 @@ export function buildVideoTestInput(
     image_url: masterUrl,
     reference_image_urls: garmentUrls,
     prompt: buildH3Prompt(category),
-    duration: 5,
+    duration: 6,
     resolution: '768P',
     aspect_ratio: 'adaptive',
     prompt_expansion_mode: 'disabled',

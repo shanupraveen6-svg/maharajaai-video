@@ -901,7 +901,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
                     <div className="font-bold uppercase tracking-wide">H3 Max cinematic test · about ${VIDEO_TEST_MODELS[0].estimatedUsd.toFixed(2)}</div>
-                    <p className="text-[#F3E5AB]/80">One click submits one paid five-second H3 test. No model selection, automatic fallback, retry, TV queue or Go Live.</p>
+                    <p className="text-[#F3E5AB]/80">One click submits one paid six-second H3 test designed for a later nine-second showroom presentation. No model selection, automatic fallback, retry, TV queue or Go Live.</p>
                     <button
                       type="button"
                       onClick={() => void startVideoTest()}
