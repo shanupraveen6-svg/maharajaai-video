@@ -124,13 +124,17 @@ P2 — CINEMATIC MULTI-PLANE COMPOSITION (BUILT FOR PARALLAX):
   1. Foreground: Event-appropriate celebratory decor positioned slightly off-center in the near foreground without obscuring the customer.
   2. Midground: The customer standing in full-body festive elegance.
   3. Background: Refined celebration setting appropriate to the selected festival.
+- Use a genuinely wide environmental composition: the full-body customer occupies approximately 58%–68% of frame height so the architecture, foreground depth and animated background remain clearly visible.
+- Keep open visual space around the complete body silhouette. Foreground objects may touch only the extreme frame edges and must never overlap the face, hands, body or garment.
+- The setting must contain at least three already-visible animation anchors chosen from distant lanterns, diya flames, water, fountain spray, reflective flooring, foliage, hanging decorations or distant celebration lights.
 - Full body visible head-to-toe in strict 9:16 vertical orientation. No extra people, no mannequins, no duplicated limbs.
 
 P3 — FESTIVE LIGHTING & TEXTILE LUSTER:
 - Flattering luxury fashion lighting accentuating fabric weave texture, borders, and metallic luster without altering true dye hues.
 
 FINAL QUALITY:
-- An aspirational ₹1-crore luxury Indian festive fashion campaign portrait that is 100% faithful to the customer's identity and original garment.`;
+- An aspirational ₹1-crore luxury Indian festive fashion campaign portrait faithful to the customer's identity and original garment.
+- Reject ordinary corridors, tight doorways, flat retail walls, shallow hallway framing and repetitive indoor compositions.`;
 
 export type GarmentType = 'saree' | 'lehenga' | 'salwar' | 'kurta_dhoti' | 'pattu_pavadai' | 'boy_ethnic' | 'generic';
 
