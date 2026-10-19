@@ -562,26 +562,26 @@ export function buildMasterPrompt(
 }
 
 /** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */
-export const UNIVERSAL_VIDEO_PROMPT = `Create a premium luxury Indian festive fashion commercial from the master image with realistic human vitality, absolute garment preservation, and cinematic camera motion.
+export const UNIVERSAL_VIDEO_PROMPT = `Create a premium luxury Indian festive fashion commercial from the approved master image with absolute identity and garment preservation.
 
 P0 — ABSOLUTE FIDELITY & ZERO CLOTHING CHANGE (NON-NEGOTIABLE):
 - Identity: Preserve exact facial geometry, eyes, nose, jawline, skin tone, hair, and body proportions. Zero face reshaping, beautification, or identity alteration.
 - Garment & Attire: Preserve 100% of the exact clothing, fabric weave, collar, neckline, sleeves, and colors seen in the master reference image. Strictly ZERO clothing changes, ZERO dress morphing, ZERO outfit swapping, ZERO added embroidery, and ZERO color shifting. The subject's clothes must remain completely unchanged from the initial frame to the final frame.
 - Jewelry: Visible ornaments remain solidly anchored with zero floating.
 
-P1 — NATURAL HUMAN PRESENCE:
-- Vitality: warm festive smile, expressive eyes with natural micro-saccades, 1–2 soft blinks across 6s, and gentle breathing (<1.5cm).
-- Grounded: feet stay firmly anchored to floor coordinates with zero walking or stepping. Avoid stiff mannequin stare.
+P1 — SUBJECT LOCK:
+- Treat the person as a protected reference layer. Preserve the exact face, expression, pose, hands, feet, body proportions, hair, clothing, jewelry, and accessories from the approved master image in every frame.
+- Do not animate or reinterpret the face, body, clothing, hair, jewelry, or accessories.
 
-P2 — LUXURY CAMERA CHOREOGRAPHY & PARALLAX:
-- Smooth optical dolly-in with restrained 8°–12° lateral perspective shift from reference viewpoint.
-- Multi-plane parallax between foreground celebratory decor, midground subject, and background setting. Never invent unseen reverse surfaces.
+P2 — LUXURY CINEMATIC CAMERA:
+- Use a slow, elegant optical dolly-in applied uniformly to the complete frame, with premium cinema-lens depth and polished editorial pacing.
+- Keep the original viewpoint and framing fixed; use no viewing-angle or perspective change and reveal no unseen surfaces.
 
 P3 — LIVING FESTIVE ENVIRONMENT:
-- Ambient festive lighting illuminates the scene naturally without altering the subject's true clothing colors or skin tone.
+- Animate only subtle light, bokeh, reflections, and existing background atmosphere without altering the person, clothing colors, or skin tone.
 
-P4 — NATURAL FABRIC PHYSICS:
-- Free-hanging fabric edges have subtle natural micro-sway in air. Zero pattern swimming, zero texture distortion.
+P4 — GARMENT FREEZE:
+- Clothing and accessories remain visually identical and motionless. Zero pattern swimming, border drift, texture distortion, color change, or fabric movement.
 
 CONFLICT RESOLUTION RULE:
 - Fidelity strictly overrides motion. Dampen motion to protect identity and fabric stability.`;
@@ -615,11 +615,18 @@ export function buildEventVideoPrompt(
     ? (candidateGarment as GarmentType)
     : resolveGarmentType(category, typeof candidateGarment === 'string' ? candidateGarment : undefined);
   const garmentRules = getGarmentFidelityRules(resolvedGarment, true);
-  const scene = getEventSceneDirection(category, eventId, resolvedPromptSet);
+  const eventAtmosphere: Record<EventId, string> = {
+    diwali: 'Animate only the existing warm lamp glow, background bokeh, and floor reflections already visible in the master image.',
+    pongal: 'Animate only the existing warm morning light, background highlights, and floor reflections already visible in the master image.',
+    'new-year': 'Animate only the existing background sparkle, light bokeh, and reflective highlights already visible in the master image.',
+    christmas: 'Animate only the existing background fairy-light bokeh and warm reflective highlights already visible in the master image.',
+    ramadan: 'Animate only the existing background lantern glow, light bokeh, and floor reflections already visible in the master image.',
+    birthday: 'Animate only the existing background celebration lights, bokeh, and reflective highlights already visible in the master image.',
+  };
   const childSafety = category === 'boy' || category === 'girl'
     ? '\n\nCHILD SAFETY: Keep the child fully age-appropriate, naturally cheerful, modestly styled, and free of adult glamour, mature posing, or suggestive presentation.'
     : '';
-  return `${UNIVERSAL_VIDEO_PROMPT}\n\nGARMENT & TEXTILE STABILITY:\n${garmentRules}\n\nEVENT ATMOSPHERE & SHOT DIRECTION (${event.label.toUpperCase()}):\n${scene.videoScene}${childSafety}`;
+  return `${UNIVERSAL_VIDEO_PROMPT}\n\nGARMENT & TEXTILE STABILITY:\n${garmentRules}\n\nEVENT ATMOSPHERE (${event.label.toUpperCase()}):\n${eventAtmosphere[eventId]}\n- Preserve all existing background objects. Do not add, remove, replace, or redesign scene elements.${childSafety}`;
 }
 
 /** Section 7: Ultra-Safe Backup Video Prompt (Single Universal Fail-Safe) */
@@ -629,9 +636,9 @@ Create a premium 6-second vertical festive fashion commercial from the master im
 
 ANCHORED STABILIZED POSTURE:
 - Subject remains poised and firmly anchored in the exact pose: feet stay locked to floor coordinates with zero walking, turning, stepping, or hand gestures.
-- Natural human vitality: allow subtle gentle breathing (<1cm), 1 natural soft blink, and a warm, composed festive closed-mouth expression. Strictly avoid dead wax mannequin stares.
+- Preserve the exact face, expression, body, pose, hands, feet, hair, and proportions without animation or reinterpretation.
 - Strict Garment Stability: zero fabric fluttering, zero pattern crawling, zero border drift. Fabric drape remains locked to body contours.
-- Camera: Camera remains stationary on a locked-off tripod with a very gentle, subtle optical push/zoom starting at frame 1. Strictly ZERO lateral rotation, ZERO panning, ZERO tilt, ZERO orbit, and ZERO reframing.
+- Camera: Keep the original viewpoint and framing fixed, with a very gentle uniform optical push/zoom starting at frame 1. Use no viewing-angle or perspective change.
 
 Preserve the exact face, identity, hairstyle, body proportions, and exact outfit from the master reference image.
 Do not change or morph clothing.
@@ -646,6 +653,7 @@ Allow only:
 - subtle background bokeh shimmer
 - slight floor reflection shimmer
 - soft warm festive light depth
+- one slow uniform optical push applied to the complete frame
 
 Keep the customer centered and full-body visible.
 The result must feel elegant, luxurious, and stable. Motion must be very easy, smooth, and safe for the model to generate.`;
@@ -702,10 +710,10 @@ export function buildMotionSafetyRule(
     : 'lower body anchored';
 
   if (isFailSafe) {
-    return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain 100% firmly anchored to floor coordinates with zero stepping or walking. Camera is 100% stationary on locked-off tripod. Only natural eye blinking and subtle breathing permitted. Zero text, words, titles, or logos.`;
+    return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Preserve the exact person, expression, pose, clothing, and accessories without movement or reinterpretation. Only existing background light and a uniform whole-frame optical push may move. Zero text, words, titles, or logos.`;
   }
 
-  return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Subject feet remain firmly anchored to floor coordinates with zero stepping or walking. Start camera motion and festive atmosphere immediately at frame 1. Zero blank screen, zero delayed intro, zero text, words, titles, or logos.`;
+  return `EXECUTION & ANCHOR CONSTRAINTS: ${visibility}. Preserve the exact person, expression, pose, clothing, and accessories without movement or reinterpretation. Start the slow whole-frame optical push and existing-background light animation at frame 1. Zero blank screen, zero delayed intro, zero text, words, titles, or logos.`;
 }
 
 export function truncateAtWordBoundary(text: string, maxLength: number): string {
@@ -725,7 +733,7 @@ export function buildFinalPrompt(
 ): string {
   let executionRule = '';
   if (isFailSafe || basePrompt.includes('FAIL-SAFE REGENERATION MODE')) {
-    executionRule = 'STABILIZED LOCKED REGENERATION: Subject geometry, facial features, skin tone, and clothing are locked from frame 1. Zero clothing change, zero dress morphing. Subject remains stationary and poised with feet anchored to floor coordinates with zero walking or turning. Only gentle natural breathing and soft blink permitted. Camera is stationary on locked-off tripod with gentle optical push/zoom. Zero texture swimming, zero distortion.';
+    executionRule = 'STABILIZED LOCKED REGENERATION: The approved master image is the sole visual authority. Preserve the exact identity, face, expression, body, pose, clothing, colors, patterns, jewelry, and accessories in every frame. Animate only existing background light with one slow uniform whole-frame optical push. Zero reinterpretation, perspective change, texture swimming, or distortion.';
   }
 
   const canonicalPrompt = executionRule ? `${basePrompt} ${executionRule}` : basePrompt;
