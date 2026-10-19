@@ -154,11 +154,10 @@ const mdContent = `# Maharaja AI Experience — Final Payload Prompt Compliance 
 Every final prompt sent to fal.ai contains all four required architectural layers:
 
 1. **Layer 1: Universal Fidelity Rules (~1,460 chars)**
-   - P0: Non-negotiable identity lock, facial geometry, natural skin tone, hair, age, visible jewelry lock. Anti-beautification, zero skin-whitening.
-   - P0/P4: Garment fidelity lock (exact silhouette, fabric weave, embroidery, true colors; neutral grey remains neutral grey).
-   - P1: Controlled vitality (subtle breathing <1.5cm, 1–2 soft blinks over 6s, natural micro-saccades, grounded feet anchored to floor coordinates).
-   - P2: Luxury camera choreography (optical dolly-in, 10°–15° lateral perspective shift, 3D multi-plane parallax).
-   - P3: Refined ambient festive lighting skims across fabric drape and polished floor reflections.
+   - P0: Non-negotiable identity and garment lock. Preserves exact facial geometry, natural skin tone, hair, age, expression, pose, hands, feet, body proportions, clothing silhouette, fabric weave, collar, neckline, sleeves, drape, colors, patterns, embroidery, and jewelry. Zero reshaping, beautification, recoloring, or clothing morphing.
+   - P1: Subject lock. The person and attire are treated as a protected reference layer. Permits at most one natural soft blink and extremely subtle natural chest breathing. Keeps all other subject elements fixed (no head turn, no smile transition, no body repositioning).
+   - P2: Universal safety-first camera treatment. One slow, elegant whole-frame optical push/dolly-in that strictly preserves the original viewpoint and framing. Zero orbit, zero lateral perspective shift, and zero unseen surfaces to prevent clothing reconstruction drift.
+   - P3: Living festive environment. Animates only existing background light, bokeh, reflections, focus, and restrained particles in empty space. Particles never cross or obscure the subject.
    - Conflict Resolution: *"Fidelity strictly overrides motion."*
 
 2. **Layer 2: Universal Clothing & Textile Stability Lock (~380 chars)**
@@ -169,13 +168,13 @@ Every final prompt sent to fal.ai contains all four required architectural layer
      - Anchors fabric drape to body contours with zero pattern drift or texture swimming.
    - *Note on Evaluation Matrix:* The 144 normal evaluations represent full matrix coverage across 4 Customer Categories × 2 Scene Styles × 6 Festival Calendars × Garment Resolution paths, validating that regardless of input metadata, every production payload stays within provider budget with the complete safety suffix intact.
 
-3. **Layer 3: Selected Event Atmosphere & Category Scene Direction (~250–350 chars)**
-   - Strict cultural isolation across 6 festival calendars (Diwali, Pongal, Christmas, Ramadan, New Year, Birthday).
-   - Specific camera trajectory for the 8 category scene variants (\`women_style_1\`, \`women_style_2\`, \`men_style_1\`, \`men_style_2\`, \`girl_style_1\`, \`girl_style_2\`, \`boy_style_1\`, \`boy_style_2\`).
+3. **Layer 3: Selected Event Atmosphere & Scene Composition (~250–350 chars)**
+   - Cultural isolation across 6 festival calendars (Diwali, Pongal, Christmas, Ramadan, New Year, Birthday) with festival-specific ambient lighting, bokeh, and reflection animation.
+   - *Architecture Clarification:* The 8 scene variants (\`women_style_1/2\`, \`men_style_1/2\`, \`girl_style_1/2\`, \`boy_style_1/2\`) apply to **Gemini master-image composition** (governing foreground placement of brass lamps, pillars, arches, urlis, and pedestals), while **H3 video generation** animates that existing composition with one universal safety-first camera push.
    - Explicit child safety tail for Boy and Girl categories.
 
 4. **Layer 4: Execution & Motion Safety Rule (~250 chars)**
-   - Floor coordinate anchor lock, frame-1 motion trigger, zero text/logos.
+   - Lower body and feet anchored to floor coordinates, frame-1 motion trigger, zero text, words, titles, or logos.
 
 ---
 
