@@ -64,7 +64,6 @@ async function cleanupExpiredReservations(db: any) {
 
 export async function GET(req: NextRequest) {
   try {
-    if (!verifyOperatorRequest(req)) return NextResponse.json({ success: false, error: 'Unauthorized TV session.' }, { status: 401 });
     const db = getDb();
     const nowMs = Date.now();
     const nowIso = new Date(nowMs).toISOString();

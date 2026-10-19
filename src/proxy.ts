@@ -55,5 +55,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/maharaja/workspace/:path*', '/tv/:path*'],
+  matcher: ['/maharaja/workspace/:path*'],
 };

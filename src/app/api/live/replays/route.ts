@@ -73,10 +73,6 @@ function stableSessionId(storagePath: string): string {
 
 export async function GET(req: NextRequest) {
   try {
-    if (!verifyOperatorRequest(req)) {
-      return NextResponse.json({ success: false, error: 'Unauthorized TV session.' }, { status: 401 });
-    }
-
     const limit = cleanLimit(req.nextUrl.searchParams.get('limit'));
     const offset = cleanOffset(req.nextUrl.searchParams.get('offset'));
     const includeUnpublished = req.nextUrl.searchParams.get('includeUnpublished') === '1';
