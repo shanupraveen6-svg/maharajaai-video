@@ -349,12 +349,12 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
               <p className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">STORE OPERATIONS MANAGEMENT</p>
               <span className="text-[#D4AF37]/40">·</span>
               <a
-                href="https://www.tryfocus.in"
+                href="https://wefocus.in"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] hover:text-white transition"
               >
-                <span>tryfocus.in</span>
+                <span>wefocus.in</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>
@@ -1015,7 +1015,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
                 Brand Marketing, Digital Growth & Technology Partner
               </p>
               <h3 className="font-serif text-2xl font-bold text-[#F3E5AB]">
-                tryfocus
+                wefocus
               </h3>
               <p className="text-xs leading-relaxed text-[#F3E5AB]/80 max-w-xl">
                 Strategic brand marketing, digital customer acquisition, custom UI/UX design, and AI retail software engineering crafted for Maharaja Thanjavur.
@@ -1024,12 +1024,12 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
 
             <div className="flex flex-wrap items-center gap-3">
               <a
-                href="https://www.tryfocus.in"
+                href="https://wefocus.in"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-5 text-xs font-bold uppercase tracking-wider text-black transition hover:bg-[#E5C158] shadow-sm"
               >
-                <span>tryfocus.in</span>
+                <span>wefocus.in</span>
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
               <a
@@ -1048,7 +1048,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
             <ShieldCheck className="h-4 w-4 text-emerald-700" /> All passes, usage and retail telemetry belong to Maharaja Thanjavur.
           </div>
           <div className="text-right">
-            Partnered with <a href="https://www.tryfocus.in" target="_blank" rel="noopener noreferrer" className="font-bold text-[#6E0D1F] underline hover:text-[#851025]">tryfocus.in</a> — Brand Marketing, Digital Growth & Software.
+            Partnered with <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="font-bold text-[#6E0D1F] underline hover:text-[#851025]">wefocus.in</a> — Brand Marketing, Digital Growth & Software.
           </div>
         </footer>
       </div>
