@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     const sampleId = `showcase_${randomUUID()}`;
     const extension = uploaded.type === 'video/quicktime' ? 'mov' : 'mp4';
-    const storagePath = `clients/maharaja/showcase/${sampleId}.${extension}`;
+    const storagePath = `clients/maharaja/live-testing/${sampleId}.${extension}`;
     await bucket.file(storagePath).save(Buffer.from(await uploaded.arrayBuffer()), {
       resumable: false,
       contentType: uploaded.type,

@@ -59,6 +59,7 @@ export default function TvPlayerPage() {
   const lastProgressAtRef = useRef<number>(Date.now());
   const lastProgressPosRef = useRef<number>(0);
   const badQueueIdsRef = useRef<Set<string>>(new Set());
+  const activatingSlotRef = useRef<Slot | null>(null);
 
   useEffect(() => {
     currentPlaybackRef.current = currentPlayback;
@@ -433,6 +434,8 @@ export default function TvPlayerPage() {
 
   useEffect(() => {
     if (!isPlayingVideo || !currentPlayback) return;
+    const activeVideo = getVideoRef(activeSlotRef.current);
+    if (activeVideo && !activeVideo.paused && activeVideo.currentTime > 0) return;
     const timeout = window.setTimeout(() => {
       void startVideoPlayback();
     }, 0);
@@ -490,32 +493,50 @@ export default function TvPlayerPage() {
     });
   };
 
-  const activatePendingSlot = (slot: Slot) => {
+  const activatePendingSlot = async (slot: Slot) => {
     if (slot !== pendingSlotRef.current) return;
+    if (activatingSlotRef.current === slot) return;
     const playback = slotItemsRef.current[slot];
     const video = getVideoRef(slot);
     if (!playback || !video || video.readyState < 2) return;
 
-    clearPendingWatchdog();
-    const index = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
-    if (index >= 0) playlistIndexRef.current = index;
+    activatingSlotRef.current = slot;
+    try {
+      // Retain the finished clip until the replacement video has actually started.
+      video.currentTime = 0;
+      configureVideo(video, playback);
+      await video.play();
 
-    resetExternalAudio();
-    loopInProgressRef.current = false;
-    setCurrentPlayback(playback);
-    setActiveSlot(slot);
-    setPendingSlot(null);
-    pendingSlotRef.current = null;
-    preloadedSlotRef.current = null;
-    preloadedQueueIdRef.current = null;
-    setIsPlayingVideo(true);
+      clearPendingWatchdog();
+      const index = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
+      if (index >= 0) playlistIndexRef.current = index;
+      resetExternalAudio();
+      loopInProgressRef.current = false;
+      setCurrentPlayback(playback);
+      setActiveSlot(slot);
+      setPendingSlot(null);
+      pendingSlotRef.current = null;
+      preloadedSlotRef.current = null;
+      preloadedQueueIdRef.current = null;
+      setIsPlayingVideo(true);
+      void fetch('/api/tv/playing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queueId: playback.queueId, reservationId: playback.reservationId }),
+      });
+    } catch (error) {
+      console.warn('Pending TV video could not start:', error);
+      skipPendingPlayback(slot, 'video could not start');
+    } finally {
+      activatingSlotRef.current = null;
+    }
   };
 
   useEffect(() => {
     if (!pendingSlot) return;
 
     const tryActivate = () => {
-      activatePendingSlot(pendingSlot);
+      void activatePendingSlot(pendingSlot);
     };
 
     const frame = window.requestAnimationFrame(tryActivate);
@@ -559,7 +580,7 @@ export default function TvPlayerPage() {
     ) {
       pendingSlotRef.current = preloadedSlot;
       setPendingSlot(preloadedSlot);
-      activatePendingSlot(preloadedSlot);
+      void activatePendingSlot(preloadedSlot);
       return;
     }
 
@@ -699,13 +720,13 @@ export default function TvPlayerPage() {
           if (playback) configureVideo(video, playback);
         }}
         onCanPlay={() => {
-          if (isPending) activatePendingSlot(slot);
+          if (isPending) void activatePendingSlot(slot);
         }}
         onLoadedData={() => {
-          if (isPending) activatePendingSlot(slot);
+          if (isPending) void activatePendingSlot(slot);
         }}
         onCanPlayThrough={() => {
-          if (isPending) activatePendingSlot(slot);
+          if (isPending) void activatePendingSlot(slot);
         }}
         onPlaying={(event) => startLiveAudioWithVisibleVideo(slot, event.currentTarget)}
         onTimeUpdate={(event) => handleVideoProgress(slot, event.currentTarget)}
