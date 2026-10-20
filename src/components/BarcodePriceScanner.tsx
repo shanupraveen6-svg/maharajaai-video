@@ -58,6 +58,7 @@ export default function BarcodePriceScanner({
   const lastBarcodeRef = useRef<{ text: string; format: string; at: number } | null>(null);
   const [status, setStatus] = useState<'starting' | 'ready' | 'reading' | 'rejected' | 'error'>('starting');
   const [message, setMessage] = useState('');
+  const [capturedFrame, setCapturedFrame] = useState('');
 
   useEffect(() => {
     mountedRef.current = true;
@@ -162,12 +163,32 @@ export default function BarcodePriceScanner({
     }
     const scored = await Promise.all(frames.map(async (frame) => ({ frame, score: await frameSharpness(frame) })));
     const sharpest = scored.sort((left, right) => right.score - left.score)[0]?.frame;
-    if (sharpest) await processImage(sharpest);
+    if (sharpest) {
+      setCapturedFrame(sharpest);
+      video.pause();
+      await processImage(sharpest);
+    }
+  }
+
+  async function retake() {
+    setCapturedFrame('');
+    setMessage('');
+    setStatus('ready');
+    try {
+      await videoRef.current?.play();
+    } catch (error) {
+      console.warn('Camera preview could not resume:', error);
+      setStatus('error');
+      setMessage('Camera preview could not resume. Close and open the scanner again.');
+    }
   }
 
   return (
     <div id="mrp-scanner" role="dialog" aria-label="Scan price tag" className="fixed inset-0 z-50 flex flex-col bg-black text-white">
       <video ref={videoRef} autoPlay muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+      {capturedFrame && (
+        <img src={capturedFrame} alt="Captured garment price tag" className="absolute inset-0 h-full w-full object-cover" />
+      )}
 
       {/* Target frame */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -184,8 +205,18 @@ export default function BarcodePriceScanner({
       </button>
 
       <p className="relative z-10 mt-6 px-16 text-center text-sm font-bold drop-shadow">
-        Place the large MRP / ₹ / Rs. amount inside the box
+        {status === 'reading' ? 'Reading the captured MRP photo' : 'Place the large MRP / ₹ / Rs. amount inside the box'}
       </p>
+
+      {status === 'reading' && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="flex min-w-56 flex-col items-center gap-3 rounded-xl border border-[#F6D36A]/70 bg-black/80 px-6 py-5 shadow-2xl backdrop-blur-sm">
+            <LoaderCircle className="h-9 w-9 animate-spin text-[#F6D36A]" />
+            <p className="text-sm font-black uppercase tracking-wide">Analyzing MRP</p>
+            <p className="text-xs text-white/75">Checking ₹ / Rs. price…</p>
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 mt-auto flex flex-col items-center gap-3 p-6 pb-10">
         {status === 'rejected' && (
@@ -203,14 +234,14 @@ export default function BarcodePriceScanner({
           <button
             type="button"
             id="scan-mrp-btn"
-            onClick={() => void scan()}
+            onClick={() => void (capturedFrame ? retake() : scan())}
             disabled={status === 'reading'}
             className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[#F6D36A] text-sm font-black uppercase text-[#3A070D] shadow-lg active:scale-[0.98] disabled:opacity-60"
           >
             {status === 'starting' && <><LoaderCircle className="h-5 w-5 animate-spin" /> Camera Starting...</>}
             {status === 'reading' && <><LoaderCircle className="h-5 w-5 animate-spin" /> Analyzing MRP...</>}
             {(status === 'ready' || status === 'rejected' || status === 'error') && (
-              <><Camera className="h-5 w-5" /> {status === 'rejected' ? 'Capture MRP Again' : 'Capture Price Tag'}</>
+              <><Camera className="h-5 w-5" /> {capturedFrame ? 'Retake MRP' : 'Capture Price Tag'}</>
             )}
           </button>
 
