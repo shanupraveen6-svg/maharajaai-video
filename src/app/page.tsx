@@ -98,7 +98,7 @@ export default function LandingPage() {
       <section className="px-5 py-10 md:px-8 md:py-14">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 lg:grid-cols-[1.02fr_0.98fr]">
           <div className="pt-2">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-[#8A6A20]">FocusAI Retail Platform</p>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-[#8A6A20]">TryFocus Fashion Marketing Platform</p>
             <h1 className="mt-4 max-w-2xl font-serif text-4xl font-bold leading-tight text-[#2A060C] md:text-6xl">
               AI try-on and event video marketing for fashion stores.
             </h1>
@@ -293,9 +293,9 @@ export default function LandingPage() {
 
             <div id="wefocus-branding" className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">Branding & Creative Agency</p>
-              <h3 className="mt-3 font-serif text-3xl font-bold">wefocus — Strategic Brand Marketing & Technology</h3>
+              <h3 className="mt-3 font-serif text-3xl font-bold">weFOCUS — Strategic Brand Marketing & Technology</h3>
               <p className="mt-3 text-sm font-semibold leading-6 text-[#F3E5AB]/85">
-                Ready to elevate your store and brand reach? wefocus partners with retail brands, fashion houses, and growing businesses across:
+                Ready to elevate your store and brand reach? weFOCUS partners with retail brands, fashion houses, and growing businesses across:
               </p>
               
               <ul className="mt-4 space-y-2.5 text-xs font-semibold text-[#F3E5AB]/90">
@@ -350,12 +350,12 @@ export default function LandingPage() {
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-3 text-xs font-black uppercase tracking-wider text-[#F3E5AB] hover:bg-[#851025] transition"
             >
-              wefocus Branding Services <ArrowRight className="h-4 w-4" />
+              weFOCUS Branding Services <ArrowRight className="h-4 w-4" />
             </a>
           </div>
 
           <footer className="mt-8 border-t border-[#e1d1ad] pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-[#5C4B43]">
-            <p>© {new Date().getFullYear()} TryFocus Retail Platform · Built for client-specific campaigns.</p>
+            <p>© {new Date().getFullYear()} TryFocus Fashion Marketing Platform · Built for client-specific campaigns.</p>
             <p>
               Partnered with <a href="https://wefocus.in" target="_blank" rel="noreferrer" className="text-[#6e0d1f] font-bold underline hover:text-[#800A1D]">wefocus.in</a> — Brand Marketing, Digital Growth & Software Development.
             </p>

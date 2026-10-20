@@ -600,7 +600,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       )}
       <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-          <div><p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by <a href="https://www.tryfocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition">tryfocus.in</a></p><h1 className="mt-1 font-serif text-2xl font-bold">Maharaja AI Experience</h1></div>
+          <div><p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by <a href="https://www.tryfocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition">TryFocus</a></p><h1 className="mt-1 font-serif text-2xl font-bold">Maharaja AI Experience</h1></div>
           {activeService === 'try-on' ? <Shirt className="h-7 w-7 text-[#D4AF37]" /> : <Film className="h-7 w-7 text-[#D4AF37]" />}
         </div>
       </header>

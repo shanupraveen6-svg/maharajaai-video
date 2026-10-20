@@ -70,8 +70,8 @@ function MaharajaLoginForm() {
             <WandSparkles className="h-5 w-5" />
           </span>
           <span>
-            <span className="block font-serif text-2xl font-bold text-[#6e0d1f]">tryfocus</span>
-            <span className="block text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">Maharaja workspace</span>
+            <span className="block font-serif text-2xl font-bold text-[#6e0d1f]">TryFocus</span>
+            <span className="block text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">Maharaja client workspace</span>
           </span>
         </Link>
 
@@ -79,7 +79,7 @@ function MaharajaLoginForm() {
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#6e0d1f]/15 bg-white/75 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6e0d1f]">
               <Store className="h-4 w-4 text-[#8A6A20]" />
-              Maharaja selected
+              Maharaja client selected
             </div>
             <h1 className="font-serif text-5xl font-bold leading-tight text-[#2A060C] md:text-6xl">
               Login to manage Maharaja AI experiences.

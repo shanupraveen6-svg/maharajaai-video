@@ -346,7 +346,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
           <div>
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#D4AF37]" />
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">STORE OPERATIONS MANAGEMENT</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">TRYFOCUS CLIENT ADMIN</p>
               <span className="text-[#D4AF37]/40">·</span>
               <a
                 href="https://wefocus.in"
@@ -1015,7 +1015,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
                 Brand Marketing, Digital Growth & Technology Partner
               </p>
               <h3 className="font-serif text-2xl font-bold text-[#F3E5AB]">
-                wefocus
+                weFOCUS
               </h3>
               <p className="text-xs leading-relaxed text-[#F3E5AB]/80 max-w-xl">
                 Strategic brand marketing, digital customer acquisition, custom UI/UX design, and AI retail software engineering crafted for Maharaja Thanjavur.

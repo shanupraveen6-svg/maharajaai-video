@@ -6,7 +6,7 @@ export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-[#F7F4EC] px-5 py-10 text-[#2A060C]">
       <article className="mx-auto max-w-3xl border border-[#D8C49B] bg-white p-6 shadow-sm md:p-10">
-        <p className="text-xs font-bold uppercase text-[#8A1127]">TryFocus · Maharaja AI Experience</p>
+        <p className="text-xs font-bold uppercase text-[#8A1127]">TryFocus Fashion Marketing Platform · Maharaja Client Experience</p>
         <h1 className="mt-2 font-serif text-3xl font-bold">Privacy &amp; Data Use</h1>
         <p className="mt-2 text-sm text-[#6B5A51]">Effective 18 October 2026 · Policy version 2026-10-privacy-v1</p>
         <div className="mt-8 space-y-7 text-sm leading-7 text-[#40332D]">
