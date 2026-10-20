@@ -133,6 +133,43 @@ export async function GET(req: NextRequest) {
         otherObjects: 0,
         scanError: null as string | null,
       };
+      if (bucket) {
+        try {
+          // Only root-level files are operator-uploaded showcase clips. Customer media lives in folders.
+          const [files] = await bucket.getFiles({ delimiter: '/' });
+          storageDiagnostics.totalObjects = files.length;
+          for (const file of files) {
+            const storagePath = file.name;
+            const contentType = String(file.metadata?.contentType || '');
+            const isRootVideo = !storagePath.includes('/') && (
+              isSupportedVideoPath(storagePath) || contentType.startsWith('video/')
+            );
+            if (!isRootVideo) {
+              storageDiagnostics.otherObjects += 1;
+              continue;
+            }
+            storageDiagnostics.videoObjects += 1;
+            if (videosByStoragePath.has(storagePath)) continue;
+            videosByStoragePath.set(storagePath, {
+              id: `root_showcase_${stableId(storagePath)}`,
+              sessionId: stableSessionId(storagePath),
+              storagePath,
+              contentType: contentType || 'video/mp4',
+              status: 'ready',
+              published: true,
+              replayEnabled: true,
+              isShowcaseSample: true,
+              displayName: SHOWCASE_NAME,
+              playbackMode: 'embedded',
+              hasEmbeddedAudio: true,
+              createdAt: file.metadata?.timeCreated || file.metadata?.updated || new Date().toISOString(),
+            });
+          }
+        } catch (scanError: any) {
+          storageDiagnostics.scanError = scanError?.message || 'Unable to scan root showcase videos.';
+          console.warn('Root showcase scan warning:', scanError);
+        }
+      }
       const now = Date.now();
       const readyVideos = Array.from(videosByStoragePath.values())
         .filter(isPlayableVideo)
