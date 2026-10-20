@@ -16,6 +16,7 @@ const FALLBACK_NAME = 'Maharaja Guest';
 const MAX_PAGE_ITEMS = 200;
 const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil', 'கீர்த்தனா', 'keerthana']);
 const TV_LOCALITY = 'தஞ்சாவூர்';
+const SHOWCASE_NAME = 'Maharaja Festival Showcase';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -152,6 +153,9 @@ export async function GET(req: NextRequest) {
       const preparedVideos = readyVideos.map((video: any, index: number) => {
         const storagePath = selectedStoragePath(video);
         const catalog = catalogByPath.get(storagePath);
+        if (video.isShowcaseSample === true) {
+          return { ...video, catalog, isMen: false };
+        }
         const isMen = video.category === 'men' ||
           video.templateId === 'men' ||
           storagePath.toLowerCase().includes('men') ||
@@ -219,6 +223,7 @@ export async function GET(req: NextRequest) {
           const storagePath = selectedStoragePath(video);
           const replayId = buildReplayId(video.id, video.sessionId);
           const profile = getVideoPlaybackProfile(video, storagePath);
+          const isShowcaseSample = video.isShowcaseSample === true;
           const rawName = queueMeta?.customerName || video.customerName || video.catalog?.displayName;
           const isMen = Boolean(video.isMen ||
             video.category === 'men' ||
@@ -227,7 +232,9 @@ export async function GET(req: NextRequest) {
             storagePath.toLowerCase().includes('karthi') ||
             storagePath.toLowerCase().includes('kurta'));
 
-          let customerName = isMen ? 'கார்த்திக்' : null;
+          let customerName = isShowcaseSample
+            ? cleanDisplayText(video.displayName, SHOWCASE_NAME)
+            : isMen ? 'கார்த்திக்' : null;
           if (!customerName) {
             customerName = getAssignedTvName(video.sessionId || stableSessionId(storagePath)) || (rawName && rawName !== FALLBACK_NAME && !REMOVED_TV_NAMES.has(String(rawName).trim().toLowerCase())
               ? cleanTvName(rawName, getTamilCustomerName(storagePath, index, 'women'))
@@ -248,7 +255,7 @@ export async function GET(req: NextRequest) {
               ? queueMeta?.liveAudioUrl || video.liveAudioUrl || getLiveAudioTrack(replayId, queueMeta?.eventId || video.eventId)
               : null,
             customerName,
-            customerLocality: TV_LOCALITY,
+            customerLocality: isShowcaseSample ? 'Maharaja Showroom' : TV_LOCALITY,
             createdAt: video.createdAt || null,
             format: getVideoFormat(storagePath),
             ...profile,
@@ -301,12 +308,12 @@ export async function GET(req: NextRequest) {
         liveAudioUrl: profile.playbackMode === 'external'
           ? video.liveAudioUrl || getLiveAudioTrack(replayId, video.eventId)
           : null,
-        customerName: (() => {
+        customerName: video.isShowcaseSample === true ? cleanDisplayText(video.displayName, SHOWCASE_NAME) : (() => {
           const name = getAssignedTvName(video.sessionId || stableSessionId(storagePath))
             || cleanTvName(video.customerName, getTamilCustomerName(storagePath, index));
           return (name === 'திவ்யா' || String(name).trim().toLowerCase() === 'divya') ? 'கார்த்திக்' : name;
         })(),
-        customerLocality: TV_LOCALITY,
+        customerLocality: video.isShowcaseSample === true ? 'Maharaja Showroom' : TV_LOCALITY,
         createdAt: video.createdAt || null,
         format: getVideoFormat(storagePath),
         ...profile,

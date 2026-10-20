@@ -118,6 +118,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
   const [storedVideos, setStoredVideos] = useState<StoredVideoItem[]>([]);
   const [storedVideosLoading, setStoredVideosLoading] = useState(true);
   const [openingStoragePath, setOpeningStoragePath] = useState('');
+  const [showcaseUploading, setShowcaseUploading] = useState(false);
   const [logViewMode, setLogViewMode] = useState<'daily' | 'weekly'>('daily');
 
   async function loadWorkspace() {
@@ -169,6 +170,26 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
       setMessage(error instanceof Error ? error.message : 'Unable to play stored video.');
     } finally {
       setOpeningStoragePath('');
+    }
+  }
+
+  async function uploadShowcaseSamples(files: FileList | null) {
+    if (!files?.length) return;
+    setShowcaseUploading(true);
+    setMessage('Uploading showroom sample videos…');
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('displayName', 'Maharaja Festival Showcase');
+        await readJson(await fetch('/api/maharaja/showcase-samples', { method: 'POST', body: form }));
+      }
+      setMessage(`${files.length} showroom sample video${files.length === 1 ? '' : 's'} added with original audio.`);
+      await loadStoredVideos();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to upload showcase samples.');
+    } finally {
+      setShowcaseUploading(false);
     }
   }
 
@@ -946,6 +967,22 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
             </button>
           </div>
           <p className="mt-2 text-xs text-[#5C4B43]">Every playable video found in Firebase Storage. Play always requests a fresh secure URL.</p>
+          <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#B9913A] bg-[#FFF8E8] px-4 py-4 text-center text-sm font-bold text-[#6E0D1F] transition hover:bg-[#FDF0CC]">
+            {showcaseUploading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
+            Add showroom sample videos
+            <input
+              type="file"
+              accept="video/mp4,video/quicktime"
+              multiple
+              disabled={showcaseUploading}
+              onChange={(event) => {
+                void uploadShowcaseSamples(event.target.files);
+                event.currentTarget.value = '';
+              }}
+              className="sr-only"
+            />
+          </label>
+          <p className="mt-2 text-xs text-[#5C4B43]">MP4 or MOV, up to 4 MB each. Samples keep their original duration and embedded music; they do not enter the customer Go Live queue.</p>
 
           {storedVideosLoading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-[#6E0D1F]">
