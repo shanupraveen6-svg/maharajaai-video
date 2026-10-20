@@ -35,6 +35,7 @@ export default function TvPlayerPage() {
   const [activeSlot, setActiveSlot] = useState<Slot>('a');
   const [pendingSlot, setPendingSlot] = useState<Slot | null>(null);
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const [replayLibraryLoaded, setReplayLibraryLoaded] = useState(false);
 
   const videoARef = useRef<HTMLVideoElement | null>(null);
   const videoBRef = useRef<HTMLVideoElement | null>(null);
@@ -325,6 +326,8 @@ export default function TvPlayerPage() {
       } while (offset >= 0);
     } catch (err) {
       console.warn('Replay library load failed:', err);
+    } finally {
+      setReplayLibraryLoaded(true);
     }
   }
 
@@ -792,10 +795,18 @@ export default function TvPlayerPage() {
                 <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center bg-[#120203] p-7 text-center">
                   <Sparkles className="mb-5 h-14 w-14 text-[#F6D36A] animate-pulse" />
                   <p className="font-serif text-3xl font-black leading-tight text-[#FFF1A8]">
-                    {pendingSlot ? 'Preparing next AI ad' : 'Waiting for next AI ad'}
+                    {!replayLibraryLoaded
+                      ? 'Loading showroom videos'
+                      : pendingSlot
+                        ? 'Loading next showroom video'
+                        : 'No showroom video ready'}
                   </p>
                   <p className="mt-4 text-xs font-bold uppercase tracking-[0.22em] text-[#F6D36A]/70">
-                    {pendingSlot ? 'Loading portrait video' : 'Portrait screen ready'}
+                    {!replayLibraryLoaded
+                      ? 'Connecting to the video library'
+                      : pendingSlot
+                        ? 'Preparing playback'
+                        : 'Add samples in Maharaja admin'}
                   </p>
                 </div>
               )}
