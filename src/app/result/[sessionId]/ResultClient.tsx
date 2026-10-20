@@ -44,6 +44,8 @@ export default function ResultClient({
   const [liveQueueStatus, setLiveQueueStatus] = useState<'queued' | 'reserved' | 'playing' | 'completed' | 'playback_failed'>('queued');
   const [eventId, setEventId] = useState<EventId>(initialEventId);
   const [category, setCategory] = useState<string | null>(null);
+  const [customerName, setCustomerName] = useState<string | null>(null);
+  const [customerLocality, setCustomerLocality] = useState<string | null>(null);
   const [videoJobId, setVideoJobId] = useState(initialVideoJobId);
 
   const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl || null);
@@ -82,6 +84,8 @@ export default function ResultClient({
         setMasterImageUrl(data.masterImageUrl || null);
         setEventId(data.eventId || 'diwali');
         setCategory(data.category || null);
+        setCustomerName(data.customerName || null);
+        setCustomerLocality(data.customerLocality || null);
         setVideoStatus('ready');
         if (data.queue?.queueId) {
           setQueueId(data.queue.queueId);
@@ -263,6 +267,13 @@ export default function ResultClient({
       setLiveQueueStatus(data.status || 'queued');
       setLiveSuccess(true);
       setCountdownSeconds(0);
+      const downloadResults = await Promise.allSettled([
+        downloadAsset('image'),
+        downloadAsset('video'),
+      ]);
+      if (downloadResults.some((result) => result.status === 'rejected')) {
+        setLiveError('Your TV queue is confirmed. If either download did not begin, use the Image and Video buttons below.');
+      }
       setThankYouMode('live');
       setLiveFarewell(true);
     } catch (caught) {
@@ -331,6 +342,24 @@ export default function ResultClient({
           </div>
 
           <div className="mt-7 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => void handleDownload('image')}
+                disabled={Boolean(downloading) || !masterImageUrl}
+                className="flex min-h-11 items-center justify-center gap-2 border border-[#D4AF37]/60 bg-black/45 px-3 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-45"
+              >
+                <ImageIcon className="h-4 w-4" /> Image
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDownload('video')}
+                disabled={Boolean(downloading) || !videoUrl}
+                className="flex min-h-11 items-center justify-center gap-2 bg-[#D4AF37] px-3 text-xs font-bold uppercase text-black disabled:opacity-45"
+              >
+                <Download className="h-4 w-4" /> Video
+              </button>
+            </div>
             <a href={instagramUrl} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black">
               <ExternalLink className="h-5 w-5" /> Follow Maharaja
             </a>
@@ -489,6 +518,11 @@ export default function ResultClient({
             />
             <span>I agree that this video may play on the Maharaja showroom TV and remain in its approved loop for up to three days.</span>
           </label>
+
+          <div className="rounded-lg border border-[#D4AF37]/25 bg-black/35 px-4 py-3 text-left text-xs leading-5 text-[#F3E5AB]/80">
+            <p><span className="text-[#D4AF37]">Name:</span> {customerName || 'Maharaja Guest'}</p>
+            <p><span className="text-[#D4AF37]">City:</span> {customerLocality || 'Thanjavur'}</p>
+          </div>
 
           {(category === 'girl' || category === 'boy') && (
             <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-[11px] leading-5 text-[#F3E5AB]/80">

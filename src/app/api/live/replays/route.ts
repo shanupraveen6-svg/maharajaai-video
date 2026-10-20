@@ -245,7 +245,7 @@ export async function GET(req: NextRequest) {
             storagePath,
             videoUrl: await getSignedPlaybackUrl(storagePath),
             liveAudioUrl: profile.playbackMode === 'external'
-              ? getLiveAudioTrack(replayId, queueMeta?.eventId || video.eventId)
+              ? queueMeta?.liveAudioUrl || video.liveAudioUrl || getLiveAudioTrack(replayId, queueMeta?.eventId || video.eventId)
               : null,
             customerName,
             customerLocality: TV_LOCALITY,
@@ -298,7 +298,9 @@ export async function GET(req: NextRequest) {
         sessionId: video.sessionId || null,
         storagePath,
         videoUrl: await getSignedPlaybackUrl(storagePath),
-        liveAudioUrl: profile.playbackMode === 'external' ? getLiveAudioTrack(replayId, video.eventId) : null,
+        liveAudioUrl: profile.playbackMode === 'external'
+          ? video.liveAudioUrl || getLiveAudioTrack(replayId, video.eventId)
+          : null,
         customerName: (() => {
           const name = getAssignedTvName(video.sessionId || stableSessionId(storagePath))
             || cleanTvName(video.customerName, getTamilCustomerName(storagePath, index));

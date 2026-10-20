@@ -218,7 +218,9 @@ export default function TvPlayerPage() {
           }),
         });
         if (!response.ok) throw new Error(`Completion returned ${response.status}`);
-        completedQueueIdsRef.current.add(playback.queueId);
+        const data = await response.json().catch(() => ({}));
+        if (data.status === 'completed') completedQueueIdsRef.current.add(playback.queueId);
+        else completedQueueIdsRef.current.delete(playback.queueId);
         return;
       } catch (err) {
         console.error(`Failed to notify completion (attempt ${attempt}/3):`, err);

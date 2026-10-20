@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 
+const LIVE_PLAY_COUNT = 2;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -20,12 +22,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Invalid or expired reservationId' }, { status: 400 });
       }
 
-      await queueDocRef.update({
+      const queueData = doc.data() || {};
+      const timesPlayed = Number(queueData.timesPlayed || 0) + 1;
+      const shouldPublish = timesPlayed >= LIVE_PLAY_COUNT;
+      await queueDocRef.update(shouldPublish ? {
         status: 'completed',
         completedAt: nowIso,
-        timesPlayed: (doc.data()?.timesPlayed || 0) + 1
+        timesPlayed,
+      } : {
+        status: 'queued',
+        timesPlayed,
+        reservedAt: null,
+        reservedByScreenId: null,
+        reservationId: null,
+        updatedAt: nowIso,
       });
-      const queueData = doc.data() || {};
+      if (!shouldPublish) {
+        return NextResponse.json({ success: true, status: 'queued', timesPlayed, playsRemaining: LIVE_PLAY_COUNT - timesPlayed });
+      }
       const displayMetadata = {
         customerName: queueData.customerName || null,
         customerLocality: queueData.customerLocality || null,
@@ -49,9 +63,17 @@ export async function POST(req: NextRequest) {
       if (!item) {
         return NextResponse.json({ success: false, error: 'Invalid or expired reservationId' }, { status: 400 });
       }
+      item.timesPlayed = (item.timesPlayed || 0) + 1;
+      const shouldPublish = item.timesPlayed >= LIVE_PLAY_COUNT;
+      if (!shouldPublish) {
+        item.status = 'queued';
+        delete item.reservedAt;
+        delete item.reservationId;
+        delete (item as any).reservedByScreenId;
+        return NextResponse.json({ success: true, status: 'queued', timesPlayed: item.timesPlayed, playsRemaining: LIVE_PLAY_COUNT - item.timesPlayed });
+      }
       item.status = 'completed';
       item.completedAt = nowIso;
-      item.timesPlayed = (item.timesPlayed || 0) + 1;
       const displayMetadata = {
         customerName: (item as any).customerName || null,
         customerLocality: (item as any).customerLocality || null,

@@ -61,6 +61,8 @@ export async function GET(req: NextRequest) {
     masterImageUrl: session.masterStoragePath ? await getSignedPlaybackUrl(session.masterStoragePath) : access.pass.videoMasterUrl,
     eventId: isEventId(job.eventId) ? job.eventId : access.pass.eventId,
     category: job.category || access.pass.videoMasterCategory || null,
+    customerName: access.pass.customerName || null,
+    customerLocality: access.pass.customerLocality || null,
     queue: queue ? {
       queueId,
       queueNumber: queue.queueNumber || null,

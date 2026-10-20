@@ -5,6 +5,7 @@ import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { incrementPassUsage, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
+const LIVE_PLAY_COUNT = 2;
 
 function cleanDisplayText(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest) {
         liveAudioUrl,
         status: 'queued',
         priority: 100,
-        repeatCount: 0,
+        repeatCount: LIVE_PLAY_COUNT,
         timesPlayed: 0,
         queueNumber: nextQueueNumber,
         playAtMs: now.getTime(),
@@ -163,7 +164,7 @@ export async function POST(req: NextRequest) {
       });
       store.liveQueue.push({
         id: queueId, screenId: 'maharaja-main', videoId, sessionId, queueNumber,
-        status: 'queued', priority: 100, repeatCount: 0, timesPlayed: 0, createdAt: nowIso,
+        status: 'queued', priority: 100, repeatCount: LIVE_PLAY_COUNT, timesPlayed: 0, createdAt: nowIso,
         playAtMs: now.getTime(), accessCode, videoJobId: jobId, eventId, customerName,
         customerLocality, liveAudioUrl, liveConsent: true, loopConsent: true,
       } as any);
