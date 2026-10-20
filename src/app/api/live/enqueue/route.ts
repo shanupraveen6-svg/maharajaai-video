@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
     Number.isFinite(new Date(access.pass.expiresAt).getTime()) ? new Date(access.pass.expiresAt).getTime() : now.getTime() + 3 * 24 * 60 * 60 * 1000,
     now.getTime() + 3 * 24 * 60 * 60 * 1000,
   )).toISOString();
-  const customerName = cleanDisplayText(access.pass.customerName);
-  const customerLocality = cleanDisplayText(access.pass.customerLocality) || 'தஞ்சாவூர்';
+  const customerName = cleanDisplayText(body?.customerName) || cleanDisplayText(access.pass.customerName);
+  const customerLocality = cleanDisplayText(body?.customerLocality) || cleanDisplayText(access.pass.customerLocality) || 'தஞ்சாவூர்';
   const liveAudioUrl = getLiveAudioTrack(queueId, eventId);
   const db = getDb();
 

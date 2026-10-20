@@ -44,8 +44,8 @@ export default function ResultClient({
   const [liveQueueStatus, setLiveQueueStatus] = useState<'queued' | 'reserved' | 'playing' | 'completed' | 'playback_failed'>('queued');
   const [eventId, setEventId] = useState<EventId>(initialEventId);
   const [category, setCategory] = useState<string | null>(null);
-  const [customerName, setCustomerName] = useState<string | null>(null);
-  const [customerLocality, setCustomerLocality] = useState<string | null>(null);
+  const [customerName, setCustomerName] = useState('');
+  const [customerLocality, setCustomerLocality] = useState('');
   const [videoJobId, setVideoJobId] = useState(initialVideoJobId);
 
   const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl || null);
@@ -84,8 +84,8 @@ export default function ResultClient({
         setMasterImageUrl(data.masterImageUrl || null);
         setEventId(data.eventId || 'diwali');
         setCategory(data.category || null);
-        setCustomerName(data.customerName || null);
-        setCustomerLocality(data.customerLocality || null);
+        setCustomerName(data.customerName || '');
+        setCustomerLocality(data.customerLocality || '');
         setVideoStatus('ready');
         if (data.queue?.queueId) {
           setQueueId(data.queue.queueId);
@@ -258,6 +258,8 @@ export default function ResultClient({
           liveConsent,
           loopConsent: liveConsent,
           guardianConsent: guardianLiveConsent,
+          customerName,
+          customerLocality,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -519,9 +521,28 @@ export default function ResultClient({
             <span>I agree that this video may play on the Maharaja showroom TV and remain in its approved loop for up to three days.</span>
           </label>
 
-          <div className="rounded-lg border border-[#D4AF37]/25 bg-black/35 px-4 py-3 text-left text-xs leading-5 text-[#F3E5AB]/80">
-            <p><span className="text-[#D4AF37]">Name:</span> {customerName || 'Maharaja Guest'}</p>
-            <p><span className="text-[#D4AF37]">City:</span> {customerLocality || 'Thanjavur'}</p>
+          <div className="space-y-3 rounded-lg border border-[#D4AF37]/25 bg-black/35 p-4 text-left text-xs leading-5 text-[#F3E5AB]/80">
+            <p className="font-semibold text-[#D4AF37]">Showroom display details</p>
+            <label className="block space-y-1">
+              <span>Name</span>
+              <input
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value.slice(0, 48))}
+                placeholder="Your name"
+                autoComplete="name"
+                className="min-h-11 w-full rounded-md border border-[#D4AF37]/35 bg-black/40 px-3 text-sm text-white outline-none placeholder:text-[#F3E5AB]/45 focus:border-[#D4AF37]"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span>City</span>
+              <input
+                value={customerLocality}
+                onChange={(event) => setCustomerLocality(event.target.value.slice(0, 48))}
+                placeholder="Thanjavur"
+                autoComplete="address-level2"
+                className="min-h-11 w-full rounded-md border border-[#D4AF37]/35 bg-black/40 px-3 text-sm text-white outline-none placeholder:text-[#F3E5AB]/45 focus:border-[#D4AF37]"
+              />
+            </label>
           </div>
 
           {(category === 'girl' || category === 'boy') && (

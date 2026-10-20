@@ -207,8 +207,8 @@ export default function TvPlayerPage() {
     window.setTimeout(queueNextPlaylistItem, 80);
   }
 
-  async function notifyPlaybackComplete(playback: PlaybackItem) {
-    if (completedQueueIdsRef.current.has(playback.queueId)) return;
+  async function notifyPlaybackComplete(playback: PlaybackItem): Promise<'queued' | 'completed' | null> {
+    if (completedQueueIdsRef.current.has(playback.queueId)) return 'completed';
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
         const response = await fetch('/api/live/complete', {
@@ -221,14 +221,18 @@ export default function TvPlayerPage() {
         });
         if (!response.ok) throw new Error(`Completion returned ${response.status}`);
         const data = await response.json().catch(() => ({}));
-        if (data.status === 'completed') completedQueueIdsRef.current.add(playback.queueId);
-        else completedQueueIdsRef.current.delete(playback.queueId);
-        return;
+        if (data.status === 'completed') {
+          completedQueueIdsRef.current.add(playback.queueId);
+          return 'completed';
+        }
+        completedQueueIdsRef.current.delete(playback.queueId);
+        return data.status === 'queued' ? 'queued' : null;
       } catch (err) {
         console.error(`Failed to notify completion (attempt ${attempt}/3):`, err);
         if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, attempt * 500));
       }
     }
+    return null;
   }
 
   function preparePlayback(playback: PlaybackItem) {
@@ -458,7 +462,7 @@ export default function TvPlayerPage() {
       if (Date.now() - lastProgressAtRef.current > 5000) {
         console.warn('Continuous stall watchdog triggered: video position frozen for >5s, auto-advancing.');
         loopInProgressRef.current = true;
-        handleVideoEnded();
+        void handleVideoEnded();
       }
     }, 1500);
     return () => window.clearInterval(interval);
@@ -587,7 +591,7 @@ export default function TvPlayerPage() {
     preparePlayback(nextPlayback);
   }
 
-  const handleVideoEnded = () => {
+  const handleVideoEnded = async () => {
     const playback = currentPlaybackRef.current;
     if (!playback) return;
     clearPlaybackWatchdog();
@@ -595,9 +599,13 @@ export default function TvPlayerPage() {
     resetExternalAudio();
 
     if (playback.source !== 'replay') {
-      playback.source = 'replay';
       removePlaybackFromPlaylist(playback.queueId);
-      void notifyPlaybackComplete(playback).finally(() => loadReplayLibrary());
+      const completionStatus = await notifyPlaybackComplete(playback);
+      if (completionStatus === 'queued') {
+        insertLivePlaybackNext({ ...playback, source: 'live' });
+      } else {
+        void loadReplayLibrary();
+      }
     }
 
     liveAudioStartedRef.current = false;
@@ -614,7 +622,7 @@ export default function TvPlayerPage() {
       if (!activeVideo || activeVideo.ended || loopInProgressRef.current) return;
       console.warn('Playback stalled for >3.5s, advancing to next item.');
       loopInProgressRef.current = true;
-      handleVideoEnded();
+      void handleVideoEnded();
     }, 3500);
   };
 
@@ -638,7 +646,7 @@ export default function TvPlayerPage() {
     if (Number.isFinite(dur) && dur > 1 && video.currentTime >= (dur - 0.22)) {
       if (!loopInProgressRef.current) {
         loopInProgressRef.current = true;
-        handleVideoEnded();
+        void handleVideoEnded();
         return;
       }
     }
@@ -739,7 +747,7 @@ export default function TvPlayerPage() {
         onEnded={() => {
           if (isActive && !loopInProgressRef.current) {
             loopInProgressRef.current = true;
-            handleVideoEnded();
+            void handleVideoEnded();
           }
         }}
         onError={() => handleVideoError(slot)}

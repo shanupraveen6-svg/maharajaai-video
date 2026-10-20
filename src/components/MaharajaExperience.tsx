@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   AlertCircle,
-  AlertTriangle,
   BadgeIndianRupee,
   Camera,
   CheckCircle2,
@@ -611,12 +610,17 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   return (
     <main className="min-h-screen bg-[#F5F2EA] pb-12 text-[#211A17]">
       {(stage === 'image' || stage === 'video') && (
-        <div className="fixed inset-x-0 top-0 z-50 flex min-h-16 items-center justify-center gap-3 bg-red-700 px-4 py-3 text-center text-sm font-black text-white shadow-lg" role="alert" aria-live="assertive">
-          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15">
-            <span className="absolute inset-0 animate-ping rounded-full border border-white/60" />
-            <AlertTriangle className="relative h-5 w-5" />
-          </span>
-          <span><span className="block uppercase tracking-wide">Do not reload or close this page</span><span className="block text-xs font-semibold text-white/90">{stage === 'image' ? 'Creating and securely saving your AI image.' : 'Rendering and securely saving your video.'}</span></span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#21090E]/90 p-5 text-center text-white backdrop-blur-sm" role="alert" aria-live="assertive">
+          <div className="w-full max-w-sm border border-[#D4AF37]/55 bg-[#2A060C] p-6 shadow-2xl">
+            <div className="relative mx-auto mb-5 h-20 w-20">
+              <span className="absolute inset-0 animate-ping rounded-full border-2 border-[#D4AF37]/45" />
+              <span className="absolute inset-2 animate-spin rounded-full border-2 border-transparent border-t-[#D4AF37] border-r-[#D4AF37]" />
+              <span className="absolute inset-0 flex items-center justify-center text-3xl">🪔</span>
+            </div>
+            <p className="font-serif text-xl font-bold text-[#F3E5AB]">{stage === 'image' ? 'Creating your Diwali portrait' : 'Rendering your Diwali film'}</p>
+            <p className="mt-2 text-sm leading-6 text-[#F3E5AB]/85">{stage === 'image' ? 'Securing your photos and building the festive scene.' : 'Adding cinematic light, depth and motion to your approved portrait.'}</p>
+            <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#D4AF37]">Please keep this page open</p>
+          </div>
         </div>
       )}
       <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]">

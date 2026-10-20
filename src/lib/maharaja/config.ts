@@ -662,20 +662,20 @@ export function getSceneIndex(sessionId?: string): 0 | 1 {
 function getCampaignPose(category: CustomerCategory, promptSet: VideoPromptSet): string {
   const poses: Record<CustomerCategory, Record<VideoPromptSet, string>> = {
     women: {
-      'set-1': 'A poised open-shoulder stance with both arms relaxed at naturally different angles, hands visible and clear of the garment.',
-      'set-2': 'An elegant still stance with one forearm resting softly near the waist without gripping fabric and the other arm naturally relaxed, both hands visible.',
+      'set-1': 'A poised open-shoulder stance with both arms relaxed at naturally different angles, hands fully visible at the outer thigh line and clear of the torso and garment.',
+      'set-2': 'An elegant still stance with both arms relaxed naturally at the sides, hands visible below the waist and fully clear of the torso and garment.',
     },
     men: {
-      'set-1': 'A calm upright stance with one hand naturally aligned near the trouser seam and the other arm relaxed, with no hand touching the garment.',
-      'set-2': 'A balanced campaign stance with a subtle natural weight distribution, relaxed asymmetrical arms and both hands fully visible.',
+      'set-1': 'A calm upright stance with both hands naturally aligned near the trouser seams, arms relaxed, and no hand touching the torso or garment.',
+      'set-2': 'A balanced campaign stance with relaxed asymmetrical arms and both hands fully visible below the waist, clear of the torso and garment.',
     },
     girl: {
       'set-1': 'A child-safe balanced standing pose with both hands relaxed naturally at the sides and feet comfortably placed.',
       'set-2': 'A child-safe calm standing pose with hands softly and naturally together below the waist, with no gesture or prop.',
     },
     boy: {
-      'set-1': 'A child-safe upright pose with one arm gently bent at a natural resting angle and the other arm relaxed, with both hands visible.',
-      'set-2': 'A child-safe relaxed standing pose with hands loosely and naturally together below the waist, with no gesture or prop.',
+      'set-1': 'A child-safe upright pose with both arms relaxed at the sides, hands visible below the waist and clear of the torso.',
+      'set-2': 'A child-safe relaxed standing pose with both hands resting separately at the sides below the waist, with no gesture or prop.',
     },
   };
   return poses[category][promptSet];
@@ -716,7 +716,7 @@ P0 — ABSOLUTE FIDELITY & ZERO CLOTHING CHANGE (NON-NEGOTIABLE):
 - Garment: Preserve the exact clothing silhouette, fabric weave, collar, neckline, sleeves, drape, colors, patterns, borders, embroidery, jewelry, and accessories from first frame to last. Zero clothing change, morphing, swapping, additions, removal, recoloring, or texture drift.
 
 P1 — SUBJECT LOCK:
-- Treat the person and attire as a protected reference layer. Permit only one natural soft blink and extremely subtle chest breathing. Keep all other subject elements fixed.
+- Treat the person and attire as a protected reference layer. Preserve natural stillness with no hand, arm, chest, body, or garment movement. Keep all subject elements fixed.
 
 P2 — LUXURY CINEMATIC CAMERA:
 - Apply one slow, elegant whole-frame optical dolly-in with premium cinema-lens depth and polished editorial pacing. Keep the original viewpoint and framing; no perspective change or unseen surfaces.
