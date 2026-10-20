@@ -210,17 +210,14 @@ export async function POST(req: NextRequest) {
     try {
         const contents: any[] = [];
 
-        const personBase64 = await resolveImageBase64(personInput, bucket);
-        if (personBase64) {
-          contents.push({ inlineData: { mimeType: 'image/jpeg', data: personBase64 } });
-        }
-
-        for (const input of garmentInputs) {
-          const garmentBase64 = await resolveImageBase64(input, bucket);
-          if (garmentBase64) {
-            contents.push({ inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } });
-          }
-        }
+        const [personBase64, ...garmentBase64s] = await Promise.all([
+          resolveImageBase64(personInput, bucket),
+          ...garmentInputs.map((input) => resolveImageBase64(input, bucket)),
+        ]);
+        if (personBase64) contents.push({ inlineData: { mimeType: 'image/jpeg', data: personBase64 } });
+        garmentBase64s.forEach((garmentBase64) => {
+          if (garmentBase64) contents.push({ inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } });
+        });
 
         const suppliedRoles = Array.isArray(garmentRoles) ? garmentRoles.slice(0, garmentInputs.length) : [];
         const roleInstructions = suppliedRoles.length

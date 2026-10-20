@@ -451,10 +451,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setError('');
     setMessage(activeService === 'try-on' ? 'Uploading photos and preparing Try-On...' : `Uploading photos and preparing ${event.label} portrait...`);
     try {
-      const personStoragePath = await uploadPhotoToStorage(personPhoto, 'person');
-      const garmentStoragePaths = await Promise.all(
-        visibleGarmentPhotos.map((photo) => uploadPhotoToStorage(photo, 'garment'))
-      );
+      const [personStoragePath, ...garmentStoragePaths] = await Promise.all([
+        uploadPhotoToStorage(personPhoto, 'person'),
+        ...visibleGarmentPhotos.map((photo) => uploadPhotoToStorage(photo, 'garment')),
+      ]);
       const allUploaded = Boolean(personStoragePath && garmentStoragePaths.length === visibleGarmentPhotos.length && garmentStoragePaths.every(Boolean));
       if (!allUploaded) {
         throw new Error('Secure photo upload did not complete. Check the connection and try again. No AI credit was used.');
