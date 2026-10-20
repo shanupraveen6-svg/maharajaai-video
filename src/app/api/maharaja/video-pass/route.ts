@@ -12,6 +12,7 @@ import {
   logMaharajaActivity,
   getCampaignEntitlementByPhone,
   getCustomerServiceAllowances,
+  getPublicAppUrl,
 } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
         billLast4: pass.billLast4,
         eventId: pass.eventId,
         expiresAt: pass.expiresAt,
-        link: `${req.nextUrl.origin}/maharaja/video/${pass.code}`,
+        link: getPublicAppUrl(`/maharaja/video/${pass.code}`),
         allowances,
       },
     });

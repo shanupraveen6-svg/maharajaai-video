@@ -546,11 +546,17 @@ export async function listMaharajaActivity(limit = 30): Promise<MaharajaActivity
     .slice(0, limit);
 }
 
-export function getWorkspaceLinks(origin: string, workspace: MaharajaWorkspace) {
+const PUBLIC_APP_ORIGIN = 'https://www.tryfocus.in';
+
+export function getPublicAppUrl(pathname: string) {
+  return new URL(pathname, PUBLIC_APP_ORIGIN).toString();
+}
+
+export function getWorkspaceLinks(workspace: MaharajaWorkspace) {
   return {
-    adminUrl: `${origin}/maharaja/${workspace.workspaceCode}`,
-    tryOnUrl: `${origin}/maharaja/try-on?access=${workspace.tryOnCode}`,
-    billingUrl: `${origin}/maharaja/billing/${workspace.billingCode}`,
+    adminUrl: getPublicAppUrl(`/maharaja/${workspace.workspaceCode}`),
+    tryOnUrl: getPublicAppUrl(`/maharaja/try-on?access=${workspace.tryOnCode}`),
+    billingUrl: getPublicAppUrl(`/maharaja/billing/${workspace.billingCode}`),
   };
 }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { claimPassWhatsAppDelivery, getVideoPass, markPassWhatsAppDelivery, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { claimPassWhatsAppDelivery, getPublicAppUrl, getVideoPass, markPassWhatsAppDelivery, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { getWhatsAppStatus, sendWhatsAppResult } from '@/lib/whatsapp';
 
 export async function POST(req: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     if (!status.configured) return NextResponse.json({ success: true, sent: false, fallback: 'qr', missing: status.missing });
     const claimed = await claimPassWhatsAppDelivery(pass.code);
     if (!claimed) return NextResponse.json({ success: true, sent: pass.whatsappDeliveryStatus === 'sent', duplicate: true, fallback: 'qr' });
-    const resultUrl = `${req.nextUrl.origin}/result/${encodeURIComponent(sessionId)}?access=${encodeURIComponent(pass.code)}`;
+    const resultUrl = getPublicAppUrl(`/result/${encodeURIComponent(sessionId)}?access=${encodeURIComponent(pass.code)}`);
     try {
       await sendWhatsAppResult(pass.phone, resultUrl);
       await markPassWhatsAppDelivery(pass.code, 'sent');

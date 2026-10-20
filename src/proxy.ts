@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 const OPERATOR_COOKIE = 'maharaja_operator_auth';
+const LEGACY_HOSTS = new Set(['maharaja-aivideo.vercel.app', 'maharajaai-video.vercel.app']);
 
 function getAuthSecret() {
   return (process.env.OPERATOR_AUTH_SECRET || '').trim();
@@ -45,6 +46,17 @@ async function hasValidSessionCookie(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  if (LEGACY_HOSTS.has(request.nextUrl.hostname)) {
+    const canonicalUrl = request.nextUrl.clone();
+    canonicalUrl.protocol = 'https:';
+    canonicalUrl.host = 'www.tryfocus.in';
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
+
+  if (!request.nextUrl.pathname.startsWith('/maharaja/workspace')) {
+    return NextResponse.next();
+  }
+
   if (await hasValidSessionCookie(request)) {
     return NextResponse.next();
   }
@@ -55,5 +67,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/maharaja/workspace/:path*'],
+  matcher: ['/:path*'],
 };

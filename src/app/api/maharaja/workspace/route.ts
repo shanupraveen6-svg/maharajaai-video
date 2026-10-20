@@ -218,7 +218,7 @@ export async function GET(req: NextRequest) {
       success: true,
       workspace: {
         ...workspace,
-        ...getWorkspaceLinks(req.nextUrl.origin, workspace),
+        ...getWorkspaceLinks(workspace),
         recentPasses: recentPasses.map(publicPass),
         activity: allActivity.slice(0, 30),
         goLiveAudit: resolvedGoLiveAudit,
