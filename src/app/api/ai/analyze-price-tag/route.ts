@@ -64,7 +64,9 @@ export async function POST(req: NextRequest) {
       const ai = getGenAIClient();
       if (ai) {
         const imageBase64 = body.image.split(',')[1] || body.image;
-        const models = Array.from(new Set([AI_CONFIG.GEMINI_ANALYSIS_MODEL, 'gemini-2.5-flash', 'gemini-2.5-flash-lite'].filter(Boolean)));
+        // Keep price-tag OCR independent from older analysis-model settings in
+        // Vercel. Gemini 2.5 text models are retired for newer projects.
+        const models = Array.from(new Set([AI_CONFIG.GEMINI_OCR_MODEL, 'gemini-3.5-flash-lite', 'gemini-3.8-flash'].filter(Boolean)));
         for (const model of models) {
           try {
             const resp = await ai.models.generateContent({
