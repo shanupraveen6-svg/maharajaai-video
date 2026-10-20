@@ -3,6 +3,8 @@
     "origin": [
       "http://localhost:3000",
       "http://localhost:3001",
+      "https://tryfocus.in",
+      "https://www.tryfocus.in",
       "https://maharaja-aivideo.vercel.app",
       "https://*.vercel.app"
     ],
