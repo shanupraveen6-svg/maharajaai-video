@@ -659,6 +659,28 @@ export function getSceneIndex(sessionId?: string): 0 | 1 {
   return (hash % 2) as 0 | 1;
 }
 
+function getCampaignPose(category: CustomerCategory, promptSet: VideoPromptSet): string {
+  const poses: Record<CustomerCategory, Record<VideoPromptSet, string>> = {
+    women: {
+      'set-1': 'A poised open-shoulder stance with both arms relaxed at naturally different angles, hands visible and clear of the garment.',
+      'set-2': 'An elegant still stance with one forearm resting softly near the waist without gripping fabric and the other arm naturally relaxed, both hands visible.',
+    },
+    men: {
+      'set-1': 'A calm upright stance with one hand naturally aligned near the trouser seam and the other arm relaxed, with no hand touching the garment.',
+      'set-2': 'A balanced campaign stance with a subtle natural weight distribution, relaxed asymmetrical arms and both hands fully visible.',
+    },
+    girl: {
+      'set-1': 'A child-safe balanced standing pose with both hands relaxed naturally at the sides and feet comfortably placed.',
+      'set-2': 'A child-safe calm standing pose with hands softly and naturally together below the waist, with no gesture or prop.',
+    },
+    boy: {
+      'set-1': 'A child-safe upright pose with one arm gently bent at a natural resting angle and the other arm relaxed, with both hands visible.',
+      'set-2': 'A child-safe relaxed standing pose with hands loosely and naturally together below the waist, with no gesture or prop.',
+    },
+  };
+  return poses[category][promptSet];
+}
+
 export function buildMasterPrompt(
   category: CustomerCategory = 'women',
   eventId: EventId = 'diwali',
@@ -673,6 +695,7 @@ export function buildMasterPrompt(
     : resolveGarmentType(category, typeof garmentTypeOrHint === 'string' ? garmentTypeOrHint : undefined);
   const garmentRules = getGarmentFidelityRules(resolvedGarment, false);
   const scene = getEventSceneDirection(category, eventId, resolvedPromptSet);
+  const campaignPose = getCampaignPose(category, resolvedPromptSet);
   const safeImageScene = scene.imageScene
     .replace(/\s+in traditional pattu pavadai\b/gi, '')
     .replace(/\s+in traditional (?:ethnic|festive) wear\b/gi, '')
@@ -682,7 +705,7 @@ export function buildMasterPrompt(
   const childSafety = category === 'boy' || category === 'girl'
     ? '\n\nCHILD SAFETY: Keep the child fully age-appropriate, naturally cheerful, modestly styled, and free of adult glamour, mature posing, or suggestive presentation.'
     : '';
-  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
+  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nCAMPAIGN POSE — STATIC FIRST FRAME:\n${campaignPose}\n- This is a refined model-ad pose, not a hand gesture. No waving, pointing, prayer pose, crossed arms, touching the chest, holding props or rotating the body.\n- Preserve the uploaded customer's natural anatomy and keep the selected pose stable for the later H3 film.\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
 }
 
 /** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */
