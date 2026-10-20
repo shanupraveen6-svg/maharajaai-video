@@ -287,11 +287,29 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     async (payload: { barcode: string; format: string; printedText: string; image?: string; confirmed?: boolean }) => {
       setError('');
       try {
-        const data = await readJson(await fetch('/api/ai/analyze-price-tag', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...payload, accessCode, deviceId }),
-        }));
+        const requestBody = JSON.stringify({ ...payload, accessCode, deviceId });
+        let response: Response | null = null;
+        let lastError: unknown = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const controller = new AbortController();
+          const timeout = window.setTimeout(() => controller.abort(), 20_000);
+          try {
+            response = await fetch('/api/ai/analyze-price-tag', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: requestBody,
+              signal: controller.signal,
+            });
+            break;
+          } catch (caught) {
+            lastError = caught;
+            if (attempt === 0) await new Promise((resolve) => window.setTimeout(resolve, 500));
+          } finally {
+            window.clearTimeout(timeout);
+          }
+        }
+        if (!response) throw lastError instanceof Error ? lastError : new Error('Connection failed while verifying the MRP.');
+        const data = await readJson(response);
         if (data.analysis.eligible === true && data.grant?.token) {
           setTryOnGrant(data.grant.token);
           setMessage(data.analysis.message);
@@ -301,7 +319,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         }
         return { eligible: data.analysis.eligible === true, amount: data.analysis.amount as number | null, message: data.analysis.message as string };
       } catch (caught) {
-        return { eligible: false, message: customerError(caught, 'Could not verify the tag. Please try again.') };
+        const message = caught instanceof DOMException && caught.name === 'AbortError'
+          ? 'MRP verification timed out. Check the connection and retake the tag.'
+          : customerError(caught, 'Could not verify the tag. Please try again.');
+        return { eligible: false, message };
       }
     },
     [accessCode, deviceId]

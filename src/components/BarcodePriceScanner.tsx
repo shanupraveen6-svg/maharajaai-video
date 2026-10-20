@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, LoaderCircle, X, XCircle } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
 import { TRY_ON_MIN_PURCHASE } from '@/lib/maharaja/config';
-import { prepareTagImage, readPriceOnDevice, warmUpDeviceOcr } from '@/lib/maharaja/device-ocr';
+import { prepareMrpImage, prepareTagImage, readPriceOnDevice, warmUpDeviceOcr } from '@/lib/maharaja/device-ocr';
 
 export type TagScanResult = { eligible: boolean; amount?: number | null; message?: string } | void;
 
@@ -126,10 +126,14 @@ export default function BarcodePriceScanner({
       return;
     }
 
-    // Send the full enhanced label to the server fallback. It sees more than
-    // the on-device crop, so Android camera aspect-ratio differences cannot
-    // hide an otherwise clear MRP row.
-    const image = await prepareTagImage(dataUrl, 1400, 0.86);
+    // When local OCR has already read a labelled MRP, send only its tiny text
+    // result. This keeps the normal scanner path reliable on weak mobile
+    // connections. A compact MRP crop is uploaded only as the fallback.
+    let image = '';
+    if (localAmount === null) {
+      const mrpCrop = await prepareMrpImage(dataUrl, 0.78);
+      image = await prepareTagImage(mrpCrop, 960, 0.7);
+    }
     // 2. Server verifies the labelled MRP and immediately issues access only
     // when the amount passes the Maharaja eligibility rule.
     let result: TagScanResult;
