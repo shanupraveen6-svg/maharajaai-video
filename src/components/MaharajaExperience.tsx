@@ -392,12 +392,33 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const byteArray = new Uint8Array(byteNumbers);
       const blob = new Blob([byteArray], { type: 'image/jpeg' });
 
-      const putRes = await fetch(data.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'image/jpeg' },
-        body: blob,
-      });
-      if (!putRes.ok) return '';
+      let directUploadSucceeded = false;
+      try {
+        const putRes = await fetch(data.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'image/jpeg' },
+          body: blob,
+        });
+        directUploadSucceeded = putRes.ok;
+      } catch {
+        // A browser CORS/network failure is recovered through the same-origin route below.
+      }
+      if (!directUploadSucceeded) {
+        const fallbackRes = await fetch('/api/storage/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            accessCode,
+            deviceId,
+            folder,
+            storagePath: data.storagePath,
+            dataUrl,
+          }),
+        });
+        const fallback = await fallbackRes.json().catch(() => ({}));
+        if (!fallbackRes.ok || !fallback.success) return '';
+      }
       return data.storagePath;
     } catch {
       return '';
