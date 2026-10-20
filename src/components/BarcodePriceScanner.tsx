@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, LoaderCircle, X, XCircle } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
 import { TRY_ON_MIN_PURCHASE } from '@/lib/maharaja/config';
-import { prepareTagImage, readPriceOnDevice, warmUpDeviceOcr } from '@/lib/maharaja/device-ocr';
+import { prepareMrpImage, readPriceOnDevice, warmUpDeviceOcr } from '@/lib/maharaja/device-ocr';
 
-export type TagScanResult = { eligible: boolean; message?: string } | void;
+export type TagScanResult = { eligible: boolean; amount?: number | null; message?: string } | void;
 
 function captureFrame(video: HTMLVideoElement) {
   const { videoWidth: width, videoHeight: height } = video;
@@ -19,12 +19,37 @@ function captureFrame(video: HTMLVideoElement) {
   return canvas.toDataURL('image/jpeg', 0.88);
 }
 
+function frameSharpness(dataUrl: string): Promise<number> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 96;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return resolve(0);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let score = 0;
+      for (let y = 1; y < canvas.height - 1; y += 1) {
+        for (let x = 1; x < canvas.width - 1; x += 1) {
+          const index = (y * canvas.width + x) * 4;
+          score += Math.abs(pixels[index] - pixels[index - 4]) + Math.abs(pixels[index] - pixels[index - canvas.width * 4]);
+        }
+      }
+      resolve(score);
+    };
+    image.onerror = () => resolve(0);
+    image.src = dataUrl;
+  });
+}
+
 /** Full-screen camera: take photo or scan → check ₹500+ → enter or reject. */
 export default function BarcodePriceScanner({
   onDetected,
   onClose,
 }: {
-  onDetected: (payload: { barcode: string; format: string; printedText: string; image?: string }) => Promise<TagScanResult>;
+  onDetected: (payload: { barcode: string; format: string; printedText: string; image?: string; confirmed?: boolean }) => Promise<TagScanResult>;
   onClose: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -33,6 +58,7 @@ export default function BarcodePriceScanner({
   const lastBarcodeRef = useRef<{ text: string; format: string; at: number } | null>(null);
   const [status, setStatus] = useState<'starting' | 'ready' | 'reading' | 'rejected' | 'error'>('starting');
   const [message, setMessage] = useState('');
+  const [candidate, setCandidate] = useState<{ barcode: string; format: string; printedText: string; image: string; amount: number } | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -100,20 +126,27 @@ export default function BarcodePriceScanner({
       return;
     }
 
-    // 2. Server confirms the amount and issues the grant. The image is a
-    // compact fallback for difficult printed tags, never an auto-approval.
+    const image = await prepareMrpImage(dataUrl);
+    // 2. Server verifies the amount. It cannot issue a Try-On grant until the
+    // customer confirms the large displayed MRP in the next step.
     let result: TagScanResult;
     try {
       result = await onDetected({
         barcode: barcode?.text || '',
         format: barcode?.format || 'PRINTED_MRP',
         printedText,
-        image: await prepareTagImage(dataUrl, 800, 0.75),
+        image,
       });
     } catch {
       result = { eligible: false, message: 'Could not verify the tag. Please try again.' };
     }
-    if (!mountedRef.current || result?.eligible) return;
+    if (!mountedRef.current) return;
+    if (result?.eligible && result.amount) {
+      setCandidate({ barcode: barcode?.text || '', format: barcode?.format || 'PRINTED_MRP', printedText, image, amount: result.amount });
+      setStatus('ready');
+      setMessage(`MRP detected: ₹${Math.round(result.amount)}`);
+      return;
+    }
 
     navigator.vibrate?.([150, 80, 150]);
     setStatus('rejected');
@@ -123,9 +156,26 @@ export default function BarcodePriceScanner({
   async function scan() {
     const video = videoRef.current;
     if (!video || status === 'reading') return;
-    const frame = captureFrame(video);
-    if (!frame) return;
-    await processImage(frame);
+    const frames: string[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      const frame = captureFrame(video);
+      if (frame) frames.push(frame);
+      if (index < 2) await new Promise((resolve) => window.setTimeout(resolve, 120));
+    }
+    const scored = await Promise.all(frames.map(async (frame) => ({ frame, score: await frameSharpness(frame) })));
+    const sharpest = scored.sort((left, right) => right.score - left.score)[0]?.frame;
+    if (sharpest) await processImage(sharpest);
+  }
+
+  async function confirmPrice() {
+    if (!candidate || status === 'reading') return;
+    setStatus('reading');
+    setMessage('Confirming MRP...');
+    const result = await onDetected({ ...candidate, confirmed: true });
+    if (!mountedRef.current || result?.eligible) return;
+    setCandidate(null);
+    setStatus('rejected');
+    setMessage(result?.message || 'Price could not be confirmed. Please capture the MRP again.');
   }
 
   return (
@@ -134,7 +184,7 @@ export default function BarcodePriceScanner({
 
       {/* Target frame */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="aspect-[3/4] w-[80%] max-w-sm rounded-xl border-4 border-[#F6D36A] shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
+        <div className="aspect-[5/2] w-[86%] max-w-md rounded-xl border-4 border-[#F6D36A] shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
       </div>
 
       <button
@@ -147,7 +197,7 @@ export default function BarcodePriceScanner({
       </button>
 
       <p className="relative z-10 mt-6 px-16 text-center text-sm font-bold drop-shadow">
-        Keep the printed MRP tag inside the box
+        Place the large MRP / ₹ / Rs. amount inside the box
       </p>
 
       <div className="relative z-10 mt-auto flex flex-col items-center gap-3 p-6 pb-10">
@@ -161,13 +211,24 @@ export default function BarcodePriceScanner({
             {message}
           </div>
         )}
+        {candidate && status === 'ready' && (
+          <div className="w-full max-w-sm rounded-xl border-2 border-[#F6D36A] bg-[#21120A]/95 p-4 text-center shadow-lg">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#F6D36A]">MRP detected</p>
+            <p className="mt-1 text-4xl font-black text-white">₹{Math.round(candidate.amount)}</p>
+            <p className="mt-2 text-xs text-white/75">Check the printed amount before continuing.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => { setCandidate(null); setStatus('ready'); setMessage(''); }} className="min-h-12 rounded-lg border border-white/40 text-xs font-bold uppercase">Scan Again</button>
+              <button type="button" onClick={() => void confirmPrice()} className="min-h-12 rounded-lg bg-[#F6D36A] text-xs font-black uppercase text-[#3A070D]">Correct · Continue</button>
+            </div>
+          </div>
+        )}
 
         <div className="flex w-full max-w-sm flex-col gap-2">
           <button
             type="button"
             id="scan-mrp-btn"
             onClick={() => void scan()}
-            disabled={status === 'reading'}
+            disabled={status === 'reading' || Boolean(candidate)}
             className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[#F6D36A] text-sm font-black uppercase text-[#3A070D] shadow-lg active:scale-[0.98] disabled:opacity-60"
           >
             {status === 'starting' && <><LoaderCircle className="h-5 w-5 animate-spin" /> Camera Starting...</>}

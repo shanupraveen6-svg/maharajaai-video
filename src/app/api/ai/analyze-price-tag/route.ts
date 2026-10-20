@@ -106,6 +106,14 @@ export async function POST(req: NextRequest) {
       return reject(`₹${amount} — AI Try-On is for garments ₹${TRY_ON_MIN_PURCHASE} and above.`, amount);
     }
 
+    if (body.confirmed !== true) {
+      return NextResponse.json({
+        success: true,
+        analysis: { validTag: true, amount, eligible: true, message: `MRP detected: ₹${amount}. Confirm the printed amount to continue.` },
+        grant: null,
+      });
+    }
+
     // Duplicate check uses the product barcode only (OCR text varies frame to frame).
     if (barcode) {
       const duplicate = await analyzeTagDuplicate(body.deviceId, barcode, amount);

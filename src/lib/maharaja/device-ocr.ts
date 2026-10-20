@@ -44,9 +44,40 @@ export async function prepareTagImage(dataUrl: string, maxWidth = 1600, quality 
   return canvas.toDataURL('image/jpeg', quality);
 }
 
+/**
+ * Extracts the horizontal MRP area from a camera frame before OCR. Garment
+ * labels commonly place the large ₹ / Rs. price in the middle of the tag.
+ */
+export async function prepareMrpImage(dataUrl: string, quality = 0.9): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error('Image could not be read.'));
+    el.src = dataUrl;
+  });
+  const sourceWidth = img.naturalWidth;
+  const sourceHeight = img.naturalHeight;
+  if (!sourceWidth || !sourceHeight) return dataUrl;
+
+  const cropWidth = Math.round(sourceWidth * 0.86);
+  const cropHeight = Math.round(sourceHeight * 0.32);
+  const cropLeft = Math.round((sourceWidth - cropWidth) / 2);
+  const cropTop = Math.round((sourceHeight - cropHeight) / 2);
+  const targetWidth = Math.max(1200, cropWidth * 2);
+  const targetHeight = Math.round(targetWidth * (cropHeight / cropWidth));
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+  ctx.filter = 'grayscale(1) contrast(2.1) brightness(1.08)';
+  ctx.drawImage(img, cropLeft, cropTop, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
 export async function readPriceOnDevice(dataUrl: string, timeoutMs = 2500) {
   const worker = await warmUpDeviceOcr();
-  const prepared = await prepareTagImage(dataUrl);
+  const prepared = await prepareMrpImage(dataUrl);
   const result = await Promise.race([
     worker.recognize(prepared),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('OCR timed out')), timeoutMs)),

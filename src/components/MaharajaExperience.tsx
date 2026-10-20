@@ -284,7 +284,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
   // Scan → check ₹500+ → enter (open photo step) or reject (scanner stays open).
   const analyzeBarcode = useCallback(
-    async (payload: { barcode: string; format: string; printedText: string; image?: string }) => {
+    async (payload: { barcode: string; format: string; printedText: string; image?: string; confirmed?: boolean }) => {
       setError('');
       try {
         const data = await readJson(await fetch('/api/ai/analyze-price-tag', {
@@ -297,9 +297,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           setMessage(data.analysis.message);
           setPurchaseConfirmed(true);
           setIsFullCameraOpen(false);
-          return { eligible: true, message: data.analysis.message as string };
+          return { eligible: true, amount: data.analysis.amount as number, message: data.analysis.message as string };
         }
-        return { eligible: false, message: data.analysis.message as string };
+        return { eligible: data.analysis.eligible === true, amount: data.analysis.amount as number | null, message: data.analysis.message as string };
       } catch (caught) {
         return { eligible: false, message: customerError(caught, 'Could not verify the tag. Please try again.') };
       }
