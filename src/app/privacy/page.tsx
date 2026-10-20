@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-const privacyEmail = process.env.NEXT_PUBLIC_PRIVACY_EMAIL || 'privacy@wefocus.in';
+const privacyEmail = process.env.NEXT_PUBLIC_PRIVACY_EMAIL || 'privacy@tryfocus.in';
 
 export default function PrivacyPage() {
   return (
