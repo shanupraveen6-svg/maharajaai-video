@@ -44,6 +44,25 @@ export async function prepareTagImage(dataUrl: string, maxWidth = 1600, quality 
   return canvas.toDataURL('image/jpeg', quality);
 }
 
+/** Compact colour image for Gemini Vision; preserves small printed characters. */
+export async function prepareVisionTagImage(dataUrl: string, maxWidth = 1100, quality = 0.78): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error('Captured tag photo could not be read.'));
+    el.src = dataUrl;
+  });
+  const scale = Math.min(1, maxWidth / img.naturalWidth);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+  ctx.filter = 'contrast(1.12) brightness(1.04)';
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
 /**
  * Extracts the horizontal MRP area from a camera frame before OCR. Garment
  * labels commonly place the large ₹ / Rs. price in the middle of the tag.

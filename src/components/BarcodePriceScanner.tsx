@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, LoaderCircle, X, XCircle } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
-import { TRY_ON_MIN_PURCHASE } from '@/lib/maharaja/config';
-import { prepareMrpImage, prepareTagImage, readPriceOnDevice, warmUpDeviceOcr } from '@/lib/maharaja/device-ocr';
+import { prepareVisionTagImage } from '@/lib/maharaja/device-ocr';
 
 export type TagScanResult = { eligible: boolean; amount?: number | null; message?: string } | void;
 
@@ -63,9 +62,6 @@ export default function BarcodePriceScanner({
   useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
-    // Load the on-device OCR engine while the camera starts.
-    warmUpDeviceOcr().catch((error) => console.warn('On-device OCR unavailable:', error));
-
     (async () => {
       try {
         const { BrowserMultiFormatReader } = await import('@zxing/browser');
@@ -107,41 +103,18 @@ export default function BarcodePriceScanner({
     const seen = lastBarcodeRef.current;
     const barcode = seen && Date.now() - seen.at < 6000 ? seen : null;
 
-    // 1. Read the printed MRP on the phone itself.
-    let printedText = '';
-    let localAmount: number | null = null;
-    try {
-      const local = await readPriceOnDevice(dataUrl);
-      printedText = local.text;
-      localAmount = local.amount;
-    } catch (error) {
-      console.warn('On-device OCR failed, falling back to server:', error);
-    }
+    // Gemini Vision reads the captured still photo. Preserve the complete tag
+    // and its colour/detail instead of relying on inconsistent mobile OCR.
+    const image = await prepareVisionTagImage(dataUrl);
     if (!mountedRef.current) return;
 
-    if (localAmount !== null && localAmount < TRY_ON_MIN_PURCHASE) {
-      navigator.vibrate?.([150, 80, 150]);
-      setStatus('rejected');
-      setMessage(`₹${Math.round(localAmount)} — AI Try-On is for garments ₹${TRY_ON_MIN_PURCHASE} and above.`);
-      return;
-    }
-
-    // When local OCR has already read a labelled MRP, send only its tiny text
-    // result. This keeps the normal scanner path reliable on weak mobile
-    // connections. A compact MRP crop is uploaded only as the fallback.
-    let image = '';
-    if (localAmount === null) {
-      const mrpCrop = await prepareMrpImage(dataUrl, 0.78);
-      image = await prepareTagImage(mrpCrop, 960, 0.7);
-    }
-    // 2. Server verifies the labelled MRP and immediately issues access only
-    // when the amount passes the Maharaja eligibility rule.
+    // Server reads the labelled MRP and issues access only after verification.
     let result: TagScanResult;
     try {
       result = await onDetected({
         barcode: barcode?.text || '',
         format: barcode?.format || 'PRINTED_MRP',
-        printedText,
+        printedText: '',
         image,
         confirmed: true,
       });

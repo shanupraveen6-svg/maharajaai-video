@@ -64,14 +64,18 @@ export async function POST(req: NextRequest) {
       const ai = getGenAIClient();
       if (ai) {
         const imageBase64 = body.image.split(',')[1] || body.image;
-        const models = Array.from(new Set([AI_CONFIG.GEMINI_ANALYSIS_MODEL, 'gemini-2.5-flash', 'gemini-1.5-flash'].filter(Boolean)));
+        const models = Array.from(new Set([AI_CONFIG.GEMINI_ANALYSIS_MODEL, 'gemini-2.5-flash', 'gemini-2.5-flash-lite'].filter(Boolean)));
         for (const model of models) {
           try {
             const resp = await ai.models.generateContent({
               model,
               contents: [
                 { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-                'Analyze this garment price tag or label photo. Extract the printed Maximum Retail Price (MRP) in Indian Rupees (INR) and the barcode numbers if visible. Return JSON strictly in this format: {"amount": number | null, "barcode": string | null}'
+                `Read this captured garment retail price-tag photo.
+Find the amount explicitly connected to "Maximum Retail Price", "MRP", "M.R.P.", "Rs.", "INR", or the ₹ symbol.
+Do not use barcode digits, article codes, dates, sizes, quantities, phone numbers, or addresses as the price.
+The amount may include commas or decimals, for example "Rs. 599.00" means 599.
+Return JSON only: {"amount": number | null, "barcode": string | null}`
               ],
               config: { responseMimeType: 'application/json' }
             });
