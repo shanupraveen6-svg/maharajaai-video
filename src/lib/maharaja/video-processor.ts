@@ -242,6 +242,6 @@ export async function generateLive9sVideo(
   input6sBuffer: Buffer,
   audioRelativeOrFullPath?: string
 ): Promise<Buffer> {
-  const audio = audioRelativeOrFullPath || '/audio/maharaja/live/go-live-final.mp3';
+  const audio = audioRelativeOrFullPath || '/audio/maharaja/live/diwali-hindu-9s.mp3';
   return generateBrandedVideo(input6sBuffer, 9, audio, true);
 }

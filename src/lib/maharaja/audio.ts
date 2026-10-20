@@ -1,19 +1,16 @@
 import { type EventId, isEventId } from './config';
 
 export const DIWALI_LIVE_AUDIO_TRACKS = [
-  '/audio/maharaja/live/go-live-final.mp3',
-  '/audio/maharaja/live/go-live-enjoy.mp3',
+  '/audio/maharaja/live/diwali-hindu-9s.mp3',
 ] as const;
 
 export const DIWALI_PREVIEW_AUDIO_TRACKS = [
-  '/audio/maharaja/preview/final-6.mp3',
-  '/audio/maharaja/preview/fina-2-6sec.mp3',
-  '/audio/maharaja/preview/preview-06.mp3',
+  '/audio/maharaja/preview/diwali-hindu-6s.mp3',
 ] as const;
 
 /**
  * Event-specific Live Audio Mappings (9-second Showroom Broadcast Audio)
- * - Diwali: Official Maharaja Tamil festive greeting & deepavali celebration music
+ * - Diwali: one matched Hindu/Diwali music pair: 6s preview + 9s showroom cut
  * - Pongal: Traditional nadaswaram / harvest celebration rhythm (live-03.mp3)
  * - New Year: Modern gala upbeat celebration with celebration fanfare (live-04.mp3)
  * - Christmas: Festive holiday chimes and elegant joyful orchestral (live-05.mp3)
@@ -70,4 +67,3 @@ export function getLiveAudioTrack(seed: string, eventId?: string): string {
   const tracks = EVENT_LIVE_AUDIO_MAP[resolvedEventId] || LIVE_AUDIO_TRACKS;
   return pickAudioTrack(seed, tracks);
 }
-
