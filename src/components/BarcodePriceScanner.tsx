@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, LoaderCircle, X, XCircle } from 'lucide-react';
 import type { IScannerControls } from '@zxing/browser';
 import { TRY_ON_MIN_PURCHASE } from '@/lib/maharaja/config';
-import { prepareMrpImage, readPriceOnDevice, warmUpDeviceOcr } from '@/lib/maharaja/device-ocr';
+import { prepareTagImage, readPriceOnDevice, warmUpDeviceOcr } from '@/lib/maharaja/device-ocr';
 
 export type TagScanResult = { eligible: boolean; amount?: number | null; message?: string } | void;
 
@@ -58,7 +58,6 @@ export default function BarcodePriceScanner({
   const lastBarcodeRef = useRef<{ text: string; format: string; at: number } | null>(null);
   const [status, setStatus] = useState<'starting' | 'ready' | 'reading' | 'rejected' | 'error'>('starting');
   const [message, setMessage] = useState('');
-  const [candidate, setCandidate] = useState<{ barcode: string; format: string; printedText: string; image: string; amount: number } | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -126,9 +125,12 @@ export default function BarcodePriceScanner({
       return;
     }
 
-    const image = await prepareMrpImage(dataUrl);
-    // 2. Server verifies the amount. It cannot issue a Try-On grant until the
-    // customer confirms the large displayed MRP in the next step.
+    // Send the full enhanced label to the server fallback. It sees more than
+    // the on-device crop, so Android camera aspect-ratio differences cannot
+    // hide an otherwise clear MRP row.
+    const image = await prepareTagImage(dataUrl, 1400, 0.86);
+    // 2. Server verifies the labelled MRP and immediately issues access only
+    // when the amount passes the Maharaja eligibility rule.
     let result: TagScanResult;
     try {
       result = await onDetected({
@@ -136,21 +138,17 @@ export default function BarcodePriceScanner({
         format: barcode?.format || 'PRINTED_MRP',
         printedText,
         image,
+        confirmed: true,
       });
     } catch {
       result = { eligible: false, message: 'Could not verify the tag. Please try again.' };
     }
     if (!mountedRef.current) return;
-    if (result?.eligible && result.amount) {
-      setCandidate({ barcode: barcode?.text || '', format: barcode?.format || 'PRINTED_MRP', printedText, image, amount: result.amount });
-      setStatus('ready');
-      setMessage(`MRP detected: ₹${Math.round(result.amount)}`);
-      return;
-    }
+    if (result?.eligible) return;
 
     navigator.vibrate?.([150, 80, 150]);
     setStatus('rejected');
-    setMessage(result?.message || 'Price not verified. Make sure the printed MRP (₹500+) is clearly visible and try again.');
+    setMessage(result?.message || 'Price not read. Keep the MRP row inside the yellow frame, hold steady, and capture again.');
   }
 
   async function scan() {
@@ -165,17 +163,6 @@ export default function BarcodePriceScanner({
     const scored = await Promise.all(frames.map(async (frame) => ({ frame, score: await frameSharpness(frame) })));
     const sharpest = scored.sort((left, right) => right.score - left.score)[0]?.frame;
     if (sharpest) await processImage(sharpest);
-  }
-
-  async function confirmPrice() {
-    if (!candidate || status === 'reading') return;
-    setStatus('reading');
-    setMessage('Confirming MRP...');
-    const result = await onDetected({ ...candidate, confirmed: true });
-    if (!mountedRef.current || result?.eligible) return;
-    setCandidate(null);
-    setStatus('rejected');
-    setMessage(result?.message || 'Price could not be confirmed. Please capture the MRP again.');
   }
 
   return (
@@ -211,24 +198,13 @@ export default function BarcodePriceScanner({
             {message}
           </div>
         )}
-        {candidate && status === 'ready' && (
-          <div className="w-full max-w-sm rounded-xl border-2 border-[#F6D36A] bg-[#21120A]/95 p-4 text-center shadow-lg">
-            <p className="text-xs font-bold uppercase tracking-wide text-[#F6D36A]">MRP detected</p>
-            <p className="mt-1 text-4xl font-black text-white">₹{Math.round(candidate.amount)}</p>
-            <p className="mt-2 text-xs text-white/75">Check the printed amount before continuing.</p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => { setCandidate(null); setStatus('ready'); setMessage(''); }} className="min-h-12 rounded-lg border border-white/40 text-xs font-bold uppercase">Scan Again</button>
-              <button type="button" onClick={() => void confirmPrice()} className="min-h-12 rounded-lg bg-[#F6D36A] text-xs font-black uppercase text-[#3A070D]">Correct · Continue</button>
-            </div>
-          </div>
-        )}
 
         <div className="flex w-full max-w-sm flex-col gap-2">
           <button
             type="button"
             id="scan-mrp-btn"
             onClick={() => void scan()}
-            disabled={status === 'reading' || Boolean(candidate)}
+            disabled={status === 'reading'}
             className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[#F6D36A] text-sm font-black uppercase text-[#3A070D] shadow-lg active:scale-[0.98] disabled:opacity-60"
           >
             {status === 'starting' && <><LoaderCircle className="h-5 w-5 animate-spin" /> Camera Starting...</>}

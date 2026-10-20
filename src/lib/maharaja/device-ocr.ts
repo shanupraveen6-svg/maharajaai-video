@@ -59,11 +59,14 @@ export async function prepareMrpImage(dataUrl: string, quality = 0.9): Promise<s
   const sourceHeight = img.naturalHeight;
   if (!sourceWidth || !sourceHeight) return dataUrl;
 
-  const cropWidth = Math.round(sourceWidth * 0.86);
-  const cropHeight = Math.round(sourceHeight * 0.32);
+  // Use a deliberately generous centre crop. Browser `object-cover` camera
+  // previews can differ from the raw camera-frame aspect ratio, so a narrow
+  // crop may exclude a clearly visible price row on some Android devices.
+  const cropWidth = Math.round(sourceWidth * 0.92);
+  const cropHeight = Math.round(sourceHeight * 0.56);
   const cropLeft = Math.round((sourceWidth - cropWidth) / 2);
   const cropTop = Math.round((sourceHeight - cropHeight) / 2);
-  const targetWidth = Math.max(1200, cropWidth * 2);
+  const targetWidth = Math.max(1400, cropWidth * 2);
   const targetHeight = Math.round(targetWidth * (cropHeight / cropWidth));
   const canvas = document.createElement('canvas');
   canvas.width = targetWidth;
@@ -75,12 +78,14 @@ export async function prepareMrpImage(dataUrl: string, quality = 0.9): Promise<s
   return canvas.toDataURL('image/jpeg', quality);
 }
 
-export async function readPriceOnDevice(dataUrl: string, timeoutMs = 2500) {
+export async function readPriceOnDevice(dataUrl: string, timeoutMs = 3000) {
   const worker = await warmUpDeviceOcr();
   const prepared = await prepareMrpImage(dataUrl);
+  const { PSM } = await import('tesseract.js');
+  await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK });
   const result = await Promise.race([
     worker.recognize(prepared),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('OCR timed out')), timeoutMs)),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('OCR timed out')), Math.max(timeoutMs, 3000))),
   ]);
   const text = result.data.text || '';
   return { text, ...parseBarcodePrice(text) };
