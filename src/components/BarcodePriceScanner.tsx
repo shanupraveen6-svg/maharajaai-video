@@ -167,11 +167,6 @@ export default function BarcodePriceScanner({
         <img src={capturedFrame} alt="Captured garment price tag" className="absolute inset-0 h-full w-full object-cover" />
       )}
 
-      {/* Target frame */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="aspect-[5/2] w-[86%] max-w-md rounded-xl border-4 border-[#F6D36A] shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]" />
-      </div>
-
       <button
         type="button"
         onClick={onClose}
@@ -182,7 +177,7 @@ export default function BarcodePriceScanner({
       </button>
 
       <p className="relative z-10 mt-6 px-16 text-center text-sm font-bold drop-shadow">
-        {status === 'reading' ? 'Reading the captured MRP photo' : 'Place the large MRP / ₹ / Rs. amount inside the box'}
+        {status === 'reading' ? 'Reading the captured price tag' : 'Keep the complete price tag visible and capture clearly'}
       </p>
 
       {status === 'reading' && (
