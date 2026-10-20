@@ -171,13 +171,25 @@ export async function GET(req: NextRequest) {
         }
       }
       const now = Date.now();
-      const readyVideos = Array.from(videosByStoragePath.values())
+      const replayCandidates = Array.from(videosByStoragePath.values())
         .filter(isPlayableVideo)
         .filter((video: any) => {
           if (video.expiresAt && getMillis(video.expiresAt) <= now) return false;
           const completedBefore = completedQueueByVideoId.has(video.id) || completedQueueByVideoId.has(`video_${video.sessionId}`);
           return includeUnpublished || (video.published === true && video.replayEnabled === true) || completedBefore;
-        })
+        });
+      const availability = await Promise.all(replayCandidates.map(async (video: any) => {
+        const storagePath = selectedStoragePath(video);
+        try {
+          const [exists] = await bucket?.file(storagePath).exists();
+          return exists ? video : null;
+        } catch (error) {
+          console.warn(`Replay object availability check failed for ${storagePath}:`, error);
+          return null;
+        }
+      }));
+      const readyVideos = availability
+        .filter((video): video is any => Boolean(video))
         .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
 
       const usedNames = new Set(
