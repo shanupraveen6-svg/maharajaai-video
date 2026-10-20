@@ -138,7 +138,7 @@ export default function MaharajaBillingPage() {
         <header className="flex items-center justify-between border-b border-[#D8C49B] pb-5">
           <div className="flex items-center gap-3">
             <span className="flex h-12 w-12 items-center justify-center bg-[#6E0D1F] text-[#F3E5AB]"><Store className="h-5 w-5" /></span>
-            <div><p className="font-serif text-2xl font-bold text-[#6E0D1F]">Maharaja</p><p className="text-xs font-bold uppercase text-[#8A6A20]">AI Video billing counter · <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#6E0D1F] transition">wefocus.in</a></p></div>
+            <div><p className="font-serif text-2xl font-bold text-[#6E0D1F]">Maharaja</p><p className="text-xs font-bold uppercase text-[#8A6A20]">AI Video billing counter · <a href="https://www.tryfocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#6E0D1F] transition">tryfocus.in</a></p></div>
           </div>
           <Film className="h-7 w-7 text-[#6E0D1F]" />
         </header>

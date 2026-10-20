@@ -83,12 +83,12 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-3">
             <a
-              href="https://wefocus.in"
+              href="https://www.tryfocus.in"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 border border-[#8A6A20]/40 bg-[#fffaf0] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f] transition hover:bg-[#6e0d1f] hover:text-[#F3E5AB] shadow-sm"
             >
-              <span>wefocus.in</span>
+              <span>tryfocus.in</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </a>
           </div>
@@ -293,9 +293,9 @@ export default function LandingPage() {
 
             <div id="wefocus-branding" className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">Branding & Creative Agency</p>
-              <h3 className="mt-3 font-serif text-3xl font-bold">wefocus — Strategic Brand Marketing & Technology</h3>
+              <h3 className="mt-3 font-serif text-3xl font-bold">tryfocus — Strategic Brand Marketing & Technology</h3>
               <p className="mt-3 text-sm font-semibold leading-6 text-[#F3E5AB]/85">
-                Ready to elevate your store and brand reach? wefocus partners with retail brands, fashion houses, and growing businesses across:
+                Ready to elevate your store and brand reach? tryfocus partners with retail brands, fashion houses, and growing businesses across:
               </p>
               
               <ul className="mt-4 space-y-2.5 text-xs font-semibold text-[#F3E5AB]/90">
@@ -315,12 +315,12 @@ export default function LandingPage() {
 
               <div className="mt-6 flex flex-col gap-2.5">
                 <a
-                  href="https://wefocus.in"
+                  href="https://www.tryfocus.in"
                   target="_blank"
                   rel="noreferrer"
                   className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3.5 text-xs font-black uppercase tracking-wider text-black transition hover:brightness-110 shadow-sm"
                 >
-                  Visit wefocus.in <ArrowRight className="h-4 w-4" />
+                  Visit tryfocus.in <ArrowRight className="h-4 w-4" />
                 </a>
                 <a
                   href="tel:9994837342"
@@ -345,19 +345,19 @@ export default function LandingPage() {
               </p>
             </div>
             <a
-              href="https://wefocus.in"
+              href="https://www.tryfocus.in"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-3 text-xs font-black uppercase tracking-wider text-[#F3E5AB] hover:bg-[#851025] transition"
             >
-              wefocus Branding Services <ArrowRight className="h-4 w-4" />
+              tryfocus Branding Services <ArrowRight className="h-4 w-4" />
             </a>
           </div>
 
           <footer className="mt-8 border-t border-[#e1d1ad] pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-[#5C4B43]">
             <p>© {new Date().getFullYear()} TryFocus Retail Platform · Built for client-specific campaigns.</p>
             <p>
-              Partnered with <a href="https://wefocus.in" target="_blank" rel="noreferrer" className="text-[#6e0d1f] font-bold underline hover:text-[#800A1D]">wefocus.in</a> — Brand Marketing, Digital Growth & Software Development.
+              Partnered with <a href="https://www.tryfocus.in" target="_blank" rel="noreferrer" className="text-[#6e0d1f] font-bold underline hover:text-[#800A1D]">tryfocus.in</a> — Brand Marketing, Digital Growth & Software Development.
             </p>
           </footer>
         </div>
