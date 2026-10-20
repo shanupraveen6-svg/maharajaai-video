@@ -518,8 +518,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const data = await response.json().catch(() => ({}));
       if (data.status === 'ready' && data.videoUrl) {
         setVideoTestUrl(data.videoUrl);
-        setMessage('Test video is ready. Review identity, outfit and cinematic quality. Go Live remains disabled.');
-        setStage('ready');
+        setMessage('Your cinematic video is ready. Review, download or send it to Maharaja TV.');
+        setStage('result');
         return;
       }
       if (!response.ok || data.status === 'failed') {
@@ -595,7 +595,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <span className="absolute inset-0 animate-ping rounded-full border border-white/60" />
             <AlertTriangle className="relative h-5 w-5" />
           </span>
-          <span><span className="block uppercase tracking-wide">Do not reload or close this page</span><span className="block text-xs font-semibold text-white/90">{stage === 'image' ? 'Creating and securely saving your AI image.' : 'Rendering, adding audio and securely saving your video.'}</span></span>
+          <span><span className="block uppercase tracking-wide">Do not reload or close this page</span><span className="block text-xs font-semibold text-white/90">{stage === 'image' ? 'Creating and securely saving your AI image.' : 'Rendering and securely saving your video.'}</span></span>
         </div>
       )}
       <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]">
@@ -610,6 +610,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           <ResultClient
             sessionId={sessionId}
             accessCode={accessCode}
+            initialVideoJobId={videoTestJobId}
+            initialVideoUrl={videoTestUrl}
+            initialMasterImageUrl={videoMasterUrl || ''}
+            initialEventId={eventId}
             initialAllowances={allowances}
             initialRetryUsed={retryUsed}
             onRetryUsed={() => { if (enforceLimits) setRetryUsed(true); }}
@@ -900,8 +904,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
-                    <div className="font-bold uppercase tracking-wide">H3 Max cinematic test · about ${VIDEO_TEST_MODELS[0].estimatedUsd.toFixed(2)}</div>
-                    <p className="text-[#F3E5AB]/80">One click submits one paid six-second H3 test designed for a later nine-second showroom presentation. No model selection, automatic fallback, retry, TV queue or Go Live.</p>
+                    <div className="font-bold uppercase tracking-wide">H3 Max cinematic video · about ${VIDEO_TEST_MODELS[0].estimatedUsd.toFixed(2)}</div>
+                    <p className="text-[#F3E5AB]/80">One click submits one paid six-second H3 generation. The completed result is saved securely for download and optional nine-second showroom presentation.</p>
                     <button
                       type="button"
                       onClick={() => void startVideoTest()}
@@ -909,7 +913,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                       className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 font-bold uppercase text-[#21090E] disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {stage === 'video' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
-                      {stage === 'video' ? 'Test in progress' : 'Generate test video'}
+                      {stage === 'video' ? 'Video in progress' : 'Generate AI video'}
                     </button>
                     {videoTestJobId && <p className="break-all text-[10px] text-[#F3E5AB]/60">Job: {videoTestJobId}</p>}
                     {videoTestUrl && (

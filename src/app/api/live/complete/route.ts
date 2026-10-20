@@ -33,7 +33,12 @@ export async function POST(req: NextRequest) {
         displayUpdatedAt: nowIso
       };
       if (queueData.videoId) {
-        await db.collection('videos').doc(queueData.videoId).set(displayMetadata, { merge: true });
+        await db.collection('videos').doc(queueData.videoId).set({
+          ...displayMetadata,
+          published: true,
+          replayEnabled: true,
+          publishedAt: nowIso,
+        }, { merge: true });
       }
       if (queueData.sessionId) {
         await db.collection('sessions').doc(queueData.sessionId).set(displayMetadata, { merge: true });
@@ -54,7 +59,13 @@ export async function POST(req: NextRequest) {
         displayUpdatedAt: nowIso
       };
       const mockVideo = mockStore.videos.get(item.videoId);
-      if (mockVideo) mockStore.videos.set(item.videoId, { ...mockVideo, ...displayMetadata });
+      if (mockVideo) mockStore.videos.set(item.videoId, {
+        ...mockVideo,
+        ...displayMetadata,
+        published: true,
+        replayEnabled: true,
+        publishedAt: nowIso,
+      });
       const mockSession = mockStore.sessions.get(item.sessionId);
       if (mockSession) mockStore.sessions.set(item.sessionId, { ...mockSession, ...displayMetadata });
     }

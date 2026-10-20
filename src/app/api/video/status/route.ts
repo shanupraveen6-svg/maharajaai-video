@@ -80,7 +80,13 @@ export async function GET(req: NextRequest) {
     };
     if (db) {
       await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
-      await db.collection('sessions').doc(job.sessionId).set({ activeVideoTestJobId: null }, { merge: true });
+      await db.collection('sessions').doc(job.sessionId).set({
+        activeVideoTestJobId: null,
+        latestReadyVideoTestJobId: jobId,
+        videoStatus: 'ready',
+        videoStoragePath: storagePath,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
     } else {
       getMockStore().sessions.set(`video_test_${jobId}`, { ...job, ...update });
       const session = getMockStore().sessions.get(job.sessionId) || {};

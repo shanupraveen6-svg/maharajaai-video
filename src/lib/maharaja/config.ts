@@ -258,6 +258,111 @@ export function getNormalSceneVariant(category: CustomerCategory, promptSet: Vid
   }
 }
 
+type NonDiwaliEventId = Exclude<EventId, 'diwali'>;
+
+const LUXURY_EVENT_SCENES: Record<NonDiwaliEventId, Record<VideoPromptSet, {
+  location: string;
+  foreground: string;
+  background: string;
+  lighting: string;
+  motion: string;
+}>> = {
+  pongal: {
+    'set-1': {
+      location: 'an expansive Chettinad palace courtyard opening toward sunlit harvest fields',
+      foreground: 'a decorated brass Pongal pot, turmeric leaves and a detailed kolam placed only at the outer foreground edges',
+      background: 'carved timber pillars, tall sugarcane arrangements, layered courtyard arches and distant green fields',
+      lighting: 'premium golden-morning cinema light with realistic steam, polished-stone reflections and soft agricultural haze',
+      motion: 'Use a smooth forward crane-and-dolly move. Existing cooking steam, sugarcane leaves, distant foliage and floor highlights move naturally while the architecture remains stable',
+    },
+    'set-2': {
+      location: 'a monumental Thanjavur-inspired harvest pavilion beside a broad palace water garden',
+      foreground: 'a low floral kolam and engraved harvest urn at opposite extreme foreground corners',
+      background: 'open stone colonnades, sugarcane installations, a reflecting channel and distant sunlit temple-town silhouettes',
+      lighting: 'bright celebratory morning light, soft golden rim illumination and rich reflection depth',
+      motion: 'Begin wide and glide forward along the water garden with a restrained crane settle. Existing water ripples, leaves, steam and reflected sunlight animate behind the customer',
+    },
+  },
+  'new-year': {
+    'set-1': {
+      location: 'a vast luxury rooftop gala above an illuminated metropolitan skyline at midnight',
+      foreground: 'crystal light sculptures and gold architectural details confined to the far frame edges',
+      background: 'layered rooftop terraces, reflective pools, distant skyline lights and restrained fireworks already visible behind the architecture',
+      lighting: 'black-gold campaign lighting with clean facial illumination, midnight-blue separation and premium reflections',
+      motion: 'Use a controlled forward dolly with gentle edge-light parallax. Existing skyline lights, distant fireworks, water reflections and suspended light elements animate behind the customer',
+    },
+    'set-2': {
+      location: 'a monumental glass-roofed celebration atrium connected to an open skyline terrace',
+      foreground: 'two softly blurred crystal installations positioned at separate outer foreground edges',
+      background: 'towering glass arches, a long reflective aisle, suspended warm lights and a distant city celebration',
+      lighting: 'high-end champagne-gold editorial light with deep midnight contrast and realistic glass reflections',
+      motion: 'Start with the complete atrium scale, then perform a slow forward crane move. Existing suspended lights, distant celebration glow and glass-floor reflections create visible depth without crossing the customer',
+    },
+  },
+  christmas: {
+    'set-1': {
+      location: 'a grand heritage conservatory transformed into an ultra-luxury Christmas evening campaign',
+      foreground: 'evergreen branches, warm lantern glass and gold ribbon details restricted to the extreme frame edges',
+      background: 'towering arched windows, a monumental decorated tree, layered warm lights and a moonlit garden beyond',
+      lighting: 'rich warm-white and champagne-gold cinema lighting with emerald depth and realistic polished-floor reflections',
+      motion: 'Use a slow stabilized forward dolly. Existing fairy lights, fireplace glow, distant garden snowfall and floor reflections animate gently behind the customer',
+    },
+    'set-2': {
+      location: 'an open palace ballroom terrace overlooking a luminous winter garden',
+      foreground: 'a crystal lantern and evergreen arrangement placed only at opposite outer foreground corners',
+      background: 'grand columns, suspended chandeliers, a distant decorated tree, garden lights and restrained snow beyond the terrace',
+      lighting: 'luxury holiday campaign lighting with warm skin illumination, cool night separation and deep architectural highlights',
+      motion: 'Begin wide and glide forward through the terrace opening with subtle chandelier parallax. Existing lights, distant snowfall, garden foliage and reflections move naturally behind the customer',
+    },
+  },
+  ramadan: {
+    'set-1': {
+      location: 'a vast moonlit palace courtyard with a reflecting pool and refined Ramadan illumination',
+      foreground: 'engraved lanterns and geometric screens positioned only at the far outer foreground edges',
+      background: 'layered arches, suspended lanterns, a broad reflecting pool, distant domes and a deep evening sky',
+      lighting: 'dignified amber-and-indigo cinema lighting with soft lantern glow, clear facial light and premium water reflections',
+      motion: 'Use a serene forward crane-and-dolly move. Existing lantern flames, water reflections, distant foliage and suspended lights animate subtly behind the customer',
+    },
+    'set-2': {
+      location: 'an open royal garden colonnade beneath an elegant canopy of warm lanterns',
+      foreground: 'a low patterned lantern and carved stone detail at separate extreme foreground corners',
+      background: 'deep colonnades, moonlit gardens, reflective stone paths, distant arches and layered warm lights',
+      lighting: 'calm premium evening light with warm architectural accents, indigo depth and realistic reflective highlights',
+      motion: 'Begin with the complete garden-colonnade scale, then glide forward with restrained edge parallax. Existing lantern light, leaves, water and distant bokeh move gently behind the customer',
+    },
+  },
+  birthday: {
+    'set-1': {
+      location: 'a spectacular palace garden celebration staged like a premium fashion campaign',
+      foreground: 'a sculptural floral arrangement and elegant cake display confined to opposite outer foreground edges',
+      background: 'open garden pavilions, suspended warm lights, a reflecting fountain, restrained balloons and distant celebration bokeh',
+      lighting: 'joyful luxury cinema light with flattering facial illumination, rich colour separation and realistic fountain reflections',
+      motion: 'Use a smooth forward dolly with gentle edge-only floral parallax. Existing fountain water, suspended lights, ribbons and distant bokeh animate behind the customer',
+    },
+    'set-2': {
+      location: 'a vast rooftop celebration pavilion overlooking an illuminated palace and city garden',
+      foreground: 'softly blurred light sculptures and tasteful floral decor at separate extreme frame edges',
+      background: 'monumental arches, a lantern canopy, reflective flooring, distant balloons and skyline celebration lights',
+      lighting: 'premium evening campaign lighting with warm gold highlights, deep blue-hour atmosphere and polished reflections',
+      motion: 'Start wide and perform a controlled forward crane move. Existing canopy lights, distant balloons, skyline bokeh and floor reflections move naturally behind the customer',
+    },
+  },
+};
+
+function buildLuxuryEventScene(category: CustomerCategory, eventId: NonDiwaliEventId, promptSet: VideoPromptSet) {
+  const profile = LUXURY_EVENT_SCENES[eventId][promptSet];
+  const isChild = category === 'girl' || category === 'boy';
+  const framing = isChild
+    ? 'Frame the child full-body at child eye level with hands relaxed and empty, occupying approximately 58%–64% of the frame height. Keep the presentation age-appropriate, natural and free of adult glamour.'
+    : category === 'men'
+      ? 'Frame the customer full-body from a restrained natural hero angle, occupying approximately 60%–68% of the frame height with hands relaxed and the complete silhouette visible.'
+      : 'Frame the customer full-body at eye level as the central luxury-campaign hero, occupying approximately 60%–68% of the frame height with hands relaxed and the complete silhouette visible.';
+  return {
+    imageScene: `Create ${profile.location}. ${framing} Use ${profile.foreground}. Behind the customer, show ${profile.background}. Use ${profile.lighting}. Preserve generous open space around the complete body. Do not prescribe, infer or alter clothing. No crowd, text, logo, narrow corridor, flat retail stage, object in the customer's hands or decoration crossing the customer.`,
+    videoScene: `Preserve the exact approved composition and original frontal viewing direction. ${profile.motion}. Keep all environmental activity physically behind or at the outer edges of the customer. Keep face, expression, hands, body, hair, clothing and accessories stable. No blink instruction, gesture, walking, turning, orbit, lateral angle reconstruction, new object or effect crossing the silhouette. Finish with a clean medium-full luxury hero hold.`,
+  };
+}
+
 /** Event-specific scene direction (strict isolation of event props and lighting across all 8 variants) */
 export function getEventSceneDirection(
   category: CustomerCategory,
@@ -267,7 +372,11 @@ export function getEventSceneDirection(
   const promptSet: VideoPromptSet = sceneIdxOrSet === 1 || sceneIdxOrSet === 'set-2' ? 'set-2' : 'set-1';
   const variant = getNormalSceneVariant(category, promptSet);
 
-  switch (eventId) {
+  if (eventId !== 'diwali') {
+    return buildLuxuryEventScene(category, eventId, promptSet);
+  }
+
+  switch (eventId as EventId) {
     case 'diwali': {
       switch (variant) {
         case 'women_style_1':

@@ -13,6 +13,10 @@ export default function ResultClient({
   initialRetryUsed = false,
   onRetryUsed,
   initialAllowances,
+  initialVideoJobId = '',
+  initialVideoUrl = '',
+  initialMasterImageUrl = '',
+  initialEventId = 'diwali',
 }: {
   sessionId: string;
   accessCode?: string;
@@ -20,6 +24,10 @@ export default function ResultClient({
   initialRetryUsed?: boolean;
   onRetryUsed?: () => void;
   initialAllowances?: any;
+  initialVideoJobId?: string;
+  initialVideoUrl?: string;
+  initialMasterImageUrl?: string;
+  initialEventId?: EventId;
 }) {
   const router = useRouter();
   const [showThankYou, setShowThankYou] = useState(false);
@@ -34,13 +42,20 @@ export default function ResultClient({
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [peopleAhead, setPeopleAhead] = useState<number | null>(null);
   const [liveQueueStatus, setLiveQueueStatus] = useState<'queued' | 'reserved' | 'playing' | 'completed' | 'playback_failed'>('queued');
-  const [eventId, setEventId] = useState<EventId>('diwali');
+  const [eventId, setEventId] = useState<EventId>(initialEventId);
+  const [category, setCategory] = useState<string | null>(null);
+  const [videoJobId, setVideoJobId] = useState(initialVideoJobId);
 
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [masterImageUrl, setMasterImageUrl] = useState<string | null>(null);
-  const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>('processing');
+  const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl || null);
+  const [masterImageUrl, setMasterImageUrl] = useState<string | null>(initialMasterImageUrl || null);
+  const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>(initialVideoUrl ? 'ready' : 'processing');
   const [videoError, setVideoError] = useState<string | null>(null);
-  const [isLoadingVideo, setIsLoadingVideo] = useState(true);
+  const [isLoadingVideo, setIsLoadingVideo] = useState(!initialVideoUrl);
+  const [downloading, setDownloading] = useState<'image' | 'video' | null>(null);
+  const [lastDownloaded, setLastDownloaded] = useState<'image' | 'video' | null>(null);
+  const [goLiveSubmitting, setGoLiveSubmitting] = useState(false);
+  const [liveConsent, setLiveConsent] = useState(false);
+  const [guardianLiveConsent, setGuardianLiveConsent] = useState(false);
   const [retryUsed, setRetryUsed] = useState(initialRetryUsed);
   const [allowances, setAllowances] = useState<any>(initialAllowances || null);
   const [videoDone, setVideoDone] = useState(false);
@@ -53,6 +68,39 @@ export default function ResultClient({
 
   const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
   const eventLabel = getEventOption(eventId).label;
+
+  useEffect(() => {
+    let active = true;
+    async function loadResult() {
+      try {
+        const response = await fetch(`/api/video/result?sessionId=${encodeURIComponent(sessionId)}&accessCode=${encodeURIComponent(accessCode)}`, { cache: 'no-store' });
+        const data = await response.json().catch(() => ({}));
+        if (!active) return;
+        if (!response.ok || !data.success) throw new Error(data.error || 'The completed video could not be loaded.');
+        setVideoJobId(data.jobId);
+        setVideoUrl(data.videoUrl);
+        setMasterImageUrl(data.masterImageUrl || null);
+        setEventId(data.eventId || 'diwali');
+        setCategory(data.category || null);
+        setVideoStatus('ready');
+        if (data.queue?.queueId) {
+          setQueueId(data.queue.queueId);
+          setQueueNumber(data.queue.queueNumber || null);
+          setLiveQueueStatus(data.queue.status || 'queued');
+          setLiveSuccess(true);
+          setCountdownSeconds(0);
+        }
+      } catch (caught) {
+        if (!active) return;
+        setVideoStatus('failed');
+        setVideoError(caught instanceof Error ? caught.message : 'The completed video could not be loaded.');
+      } finally {
+        if (active) setIsLoadingVideo(false);
+      }
+    }
+    if (sessionId && accessCode) void loadResult();
+    return () => { active = false; };
+  }, [sessionId, accessCode]);
 
   useEffect(() => {
     const storageKey = `maharaja:live-farewell:${sessionId}`;
@@ -138,20 +186,11 @@ export default function ResultClient({
     );
   }
 
-  const fetchDownloadBlob = async (url: string, watermark = false) => {
-    try {
-      if (!watermark) {
-        const directRes = await fetch(url);
-        if (directRes.ok) return await directRes.blob();
-      }
-    } catch {
-      // Cross-origin Firebase signed URLs often block browser-side blob reads.
-    }
-
+  const fetchDownloadBlob = async (kind: 'image' | 'video') => {
     const proxyRes = await fetch('/api/download/asset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, watermark }),
+      body: JSON.stringify({ sessionId, accessCode, jobId: videoJobId, kind }),
     });
 
     if (!proxyRes.ok) {
@@ -162,12 +201,14 @@ export default function ResultClient({
     return await proxyRes.blob();
   };
 
-  const downloadAsset = async (url: string, filename: string, watermark = false) => {
-    const blob = await fetchDownloadBlob(url, watermark);
+  const downloadAsset = async (kind: 'image' | 'video') => {
+    const blob = await fetchDownloadBlob(kind);
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objectUrl;
-    a.download = filename;
+    a.download = kind === 'image'
+      ? `Maharaja-${eventLabel}-Master-${sessionId}.jpg`
+      : `Maharaja-${eventLabel}-Video-${sessionId}.mp4`;
     a.rel = 'noopener';
     a.style.display = 'none';
     document.body.appendChild(a);
@@ -176,30 +217,58 @@ export default function ResultClient({
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
   };
 
-  const executeDownload = async () => {
-    await fetch('/api/maharaja/activity', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'download', label: `${eventLabel} customer result downloaded`, sessionId, accessCode }),
-    }).catch(() => undefined);
-
-    if (masterImageUrl) {
-      await downloadAsset(masterImageUrl, `Maharaja-${eventLabel}-Master-${sessionId}.jpg`, true);
-    }
-    if (videoUrl) {
-      const extension = videoUrl.includes('.webm') ? 'webm' : 'mp4';
-      await downloadAsset(videoUrl, `Maharaja-${eventLabel}-Video-${sessionId}.${extension}`, false);
-    }
-    // Downloading the video must NOT complete or void the billing pass. The pass remains valid for its full window.
-  };
-
-  const handleDownload = async () => {
+  const handleDownload = async (kind: 'image' | 'video') => {
+    if (downloading) return;
+    setDownloading(kind);
+    setLiveError(null);
     try {
-      await executeDownload();
+      await downloadAsset(kind);
+      await fetch('/api/maharaja/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'download', label: `${eventLabel} ${kind} downloaded`, sessionId, accessCode }),
+      }).catch(() => undefined);
+      setLastDownloaded(kind);
       setThankYouMode('download');
       setShowThankYou(true);
     } catch (err) {
       setLiveError(err instanceof Error ? err.message : 'Download failed.');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const handleGoLive = async () => {
+    const childCategory = category === 'girl' || category === 'boy';
+    if (!liveConsent || (childCategory && !guardianLiveConsent) || goLiveSubmitting || !videoJobId) return;
+    setGoLiveSubmitting(true);
+    setLiveError(null);
+    try {
+      const response = await fetch('/api/live/enqueue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          accessCode,
+          jobId: videoJobId,
+          liveConsent,
+          loopConsent: liveConsent,
+          guardianConsent: guardianLiveConsent,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'The video could not be added to the showroom queue.');
+      setQueueId(data.queueId);
+      setQueueNumber(data.queueNumber || null);
+      setLiveQueueStatus(data.status || 'queued');
+      setLiveSuccess(true);
+      setCountdownSeconds(0);
+      setThankYouMode('live');
+      setLiveFarewell(true);
+    } catch (caught) {
+      setLiveError(caught instanceof Error ? caught.message : 'Go Live failed.');
+    } finally {
+      setGoLiveSubmitting(false);
     }
   };
 
@@ -241,7 +310,7 @@ export default function ResultClient({
           <Sparkles className="mx-auto mt-7 h-9 w-9 text-[#D4AF37]" />
           <h1 className="mt-4 font-serif text-3xl font-black text-[#F3E5AB]">Thank you for your purchase</h1>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#F3E5AB]/80">
-            Your {eventLabel} AI film has been sent to the Maharaja showroom screen. Your image and video downloads have also started.
+            Your {eventLabel} AI film has been sent to the Maharaja showroom screen.
           </p>
 
           <div className="mt-7 border-y border-[#D4AF37]/30 py-5">
@@ -392,16 +461,55 @@ export default function ResultClient({
 
         {/* Primary Action Buttons */}
         <div className="space-y-3 pt-2">
-          <button
-            onClick={() => void handleDownload()}
-            className="w-full rounded-lg bg-[#D4AF37] px-6 py-4 text-sm font-bold uppercase tracking-wider text-black shadow-xl transition hover:brightness-105 flex items-center justify-center gap-3"
-          >
-            <Download className="w-5 h-5 fill-black" /> DOWNLOAD IMAGE + VIDEO
-          </button>
-
-          <div className="rounded-lg border border-[#D4AF37]/25 bg-black/45 p-3 text-[11px] leading-5 text-[#F3E5AB]/80">
-            Video generation and Go Live are temporarily unavailable while the pipeline is rebuilt. Existing approved downloads remain available.
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => void handleDownload('image')}
+              disabled={Boolean(downloading) || !masterImageUrl}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/60 bg-black/50 px-3 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-45"
+            >
+              <ImageIcon className="h-4 w-4" /> {downloading === 'image' ? 'Downloading' : 'Image'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDownload('video')}
+              disabled={Boolean(downloading) || !videoUrl}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-3 text-xs font-bold uppercase text-black disabled:opacity-45"
+            >
+              <Download className="h-4 w-4" /> {downloading === 'video' ? 'Downloading' : 'Video'}
+            </button>
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-[11px] leading-5 text-[#F3E5AB]/80">
+            <input
+              type="checkbox"
+              checked={liveConsent}
+              onChange={(event) => setLiveConsent(event.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[#D4AF37]"
+            />
+            <span>I agree that this video may play on the Maharaja showroom TV and remain in its approved loop for up to three days.</span>
+          </label>
+
+          {(category === 'girl' || category === 'boy') && (
+            <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-[11px] leading-5 text-[#F3E5AB]/80">
+              <input
+                type="checkbox"
+                checked={guardianLiveConsent}
+                onChange={(event) => setGuardianLiveConsent(event.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-[#D4AF37]"
+              />
+              <span>I confirm that I am the parent or legal guardian and permit this child&apos;s video to appear on the showroom TV and approved loop.</span>
+            </label>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void handleGoLive()}
+            disabled={!liveConsent || ((category === 'girl' || category === 'boy') && !guardianLiveConsent) || goLiveSubmitting || liveSuccess}
+            className="flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[#6E0D1F] px-6 text-sm font-bold uppercase tracking-wider text-[#F3E5AB] disabled:opacity-45"
+          >
+            <Tv className="h-5 w-5" /> {goLiveSubmitting ? 'Adding to TV queue' : liveSuccess ? 'Added to TV queue' : 'Go Live on Maharaja TV'}
+          </button>
 
           <p className="px-2 text-[11px] leading-5 text-[#F3E5AB]/65">
             AI Video media is retained temporarily for delivery and removed within 3 days unless an adult separately permits promotional use. Anonymous usage totals may be retained.{' '}
@@ -430,7 +538,7 @@ export default function ResultClient({
                 Thank you for your purchase
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
-                Your image and video download has started. Thank you for experiencing the Maharaja AI visual celebration.
+                Your {lastDownloaded === 'image' ? 'image' : 'video'} download has started. Thank you for experiencing the Maharaja AI visual celebration.
               </p>
             </div>
 

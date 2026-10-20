@@ -570,7 +570,8 @@ export default function TvPlayerPage() {
 
     if (playback.source !== 'replay') {
       playback.source = 'replay';
-      void notifyPlaybackComplete(playback);
+      removePlaybackFromPlaylist(playback.queueId);
+      void notifyPlaybackComplete(playback).finally(() => loadReplayLibrary());
     }
 
     liveAudioStartedRef.current = false;

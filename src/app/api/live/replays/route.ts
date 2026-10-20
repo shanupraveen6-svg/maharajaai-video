@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket, isRealFirebaseAvailable } from '@/lib/firebase/admin';
+import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import {
   TAMIL_SHOWROOM_NAMES,
@@ -87,6 +87,9 @@ export async function GET(req: NextRequest) {
     const limit = cleanLimit(req.nextUrl.searchParams.get('limit'));
     const offset = cleanOffset(req.nextUrl.searchParams.get('offset'));
     const includeUnpublished = req.nextUrl.searchParams.get('includeUnpublished') === '1';
+    if (includeUnpublished && !verifyOperatorRequest(req)) {
+      return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
+    }
     const db = getDb();
 
     if (db) {
@@ -112,14 +115,11 @@ export async function GET(req: NextRequest) {
       });
 
       const videosByStoragePath = new Map<string, any>();
-      const knownStoragePaths = new Set<string>();
       videosSnapshot.docs
         .map((doc: any) => ({ id: doc.id, ...doc.data() }))
         .filter((video: any) => video.storagePath && (!video.status || video.status === 'ready' || video.status === 'succeeded'))
         .forEach((video: any) => {
           videosByStoragePath.set(video.storagePath, video);
-          knownStoragePaths.add(video.storagePath);
-          if (video.liveStoragePath) knownStoragePaths.add(video.liveStoragePath);
         });
 
       const bucket = getStorageBucket();
@@ -132,50 +132,13 @@ export async function GET(req: NextRequest) {
         otherObjects: 0,
         scanError: null as string | null,
       };
-      const existingStoragePaths = new Set<string>();
-      let storageScanSucceeded = false;
-      if (bucket && isRealFirebaseAvailable()) {
-        try {
-          const [files] = await bucket.getFiles({ prefix: '' });
-          storageScanSucceeded = true;
-          storageDiagnostics.totalObjects = files.length;
-          for (const file of files) {
-            const storagePath = String(file.name || '');
-            existingStoragePaths.add(storagePath);
-            const contentType = String(file.metadata?.contentType || '');
-            const isVideo = isSupportedVideoPath(storagePath) || contentType.startsWith('video/');
-            if (isVideo) storageDiagnostics.videoObjects += 1;
-            else if (contentType.startsWith('image/')) storageDiagnostics.imageObjects += 1;
-            else storageDiagnostics.otherObjects += 1;
-            if (!isVideo || knownStoragePaths.has(storagePath)) continue;
-            videosByStoragePath.set(storagePath, {
-              id: `storage_${stableId(storagePath)}`,
-              sessionId: stableSessionId(storagePath),
-              storagePath,
-              status: 'ready',
-              createdAt: file.metadata?.timeCreated || file.metadata?.updated || new Date(0).toISOString(),
-              contentType: file.metadata?.contentType || null,
-            });
-          }
-        } catch (storageError) {
-          console.warn('Storage video discovery warning:', storageError);
-          storageDiagnostics.scanError = storageError instanceof Error ? storageError.message : 'Storage scan failed.';
-        }
-      }
-
       const now = Date.now();
       const readyVideos = Array.from(videosByStoragePath.values())
-        .flatMap((video: any) => {
-          if (!storageScanSucceeded) return [video];
-          const existingPath = [video.liveStoragePath, video.storagePath]
-            .map((value) => String(value || ''))
-            .find((value) => existingStoragePaths.has(value));
-          return existingPath ? [{ ...video, liveStoragePath: existingPath, storagePath: existingPath }] : [];
-        })
         .filter(isPlayableVideo)
         .filter((video: any) => {
           if (video.expiresAt && getMillis(video.expiresAt) <= now) return false;
-          return true;
+          const completedBefore = completedQueueByVideoId.has(video.id) || completedQueueByVideoId.has(`video_${video.sessionId}`);
+          return includeUnpublished || (video.published === true && video.replayEnabled === true) || completedBefore;
         })
         .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
 
@@ -311,8 +274,16 @@ export async function GET(req: NextRequest) {
     }
 
     const mockStore = getMockStore();
+    const mockCompletedVideoIds = new Set(
+      mockStore.liveQueue
+        .filter((item: any) => item.status === 'completed' && item.videoId)
+        .map((item: any) => item.videoId)
+    );
+    const now = Date.now();
     const readyVideos = Array.from(mockStore.videos.values())
       .filter((video: any) => video.storagePath && isSupportedVideoPath(selectedStoragePath(video)))
+      .filter((video: any) => !video.expiresAt || getMillis(video.expiresAt) > now)
+      .filter((video: any) => includeUnpublished || (video.published === true && video.replayEnabled === true) || mockCompletedVideoIds.has(video.id))
       .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
     const pageVideos = readyVideos.slice(offset, offset + limit);
     const items = await Promise.all(pageVideos.map(async (video: any, pageIndex: number) => {
@@ -427,4 +398,3 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: false, error: error.message || 'Deletion failed.' }, { status: 500 });
   }
 }
-

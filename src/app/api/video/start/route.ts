@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { MAHARAJA_CLIENT_ID, type CustomerCategory, type VideoPromptSet } from '@/lib/maharaja/config';
+import { isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId, type VideoPromptSet } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
 
@@ -132,6 +132,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const master = await normalizeStorageImage(session.masterStoragePath, `${basePath}/input-master.jpg`);
+    const personPath = typeof access.pass.videoPersonPhotoStoragePath === 'string'
+      ? access.pass.videoPersonPhotoStoragePath
+      : typeof session.personPhotoStoragePath === 'string' ? session.personPhotoStoragePath : '';
+    if (!personPath) throw new Error('The original customer identity reference is missing for this approved master.');
+    const person = await normalizeStorageImage(personPath, `${basePath}/input-person.jpg`);
     const garmentPaths = Array.isArray(access.pass.videoGarmentPhotoStoragePaths)
       ? access.pass.videoGarmentPhotoStoragePaths.filter((value): value is string => typeof value === 'string').slice(0, 3)
       : [];
@@ -141,12 +146,16 @@ export async function POST(req: NextRequest) {
     }
     const category = access.pass.videoMasterCategory || session.templateId;
     if (!['women', 'men', 'girl', 'boy'].includes(category)) throw new Error('The approved master image has no valid customer category.');
+    const eventId: EventId = isEventId(access.pass.eventId)
+      ? access.pass.eventId
+      : isEventId(session.eventId) ? session.eventId : 'diwali';
     const promptSet = access.pass.videoMasterPromptSet === 'set-2' ? 'set-2' : 'set-1';
     const input = buildVideoTestInput(
       model.id,
       master.url,
-      garments.map((item) => item.url),
+      [person.url, ...garments.map((item) => item.url)],
       category as CustomerCategory,
+      eventId,
       promptSet as VideoPromptSet,
     );
     const response = await fetch(`https://queue.fal.run/${model.model}`, {
@@ -165,8 +174,11 @@ export async function POST(req: NextRequest) {
 
     const update = {
       status: 'submitted', requestId, statusUrl, responseUrl,
-      referenceCount: garments.length + 1,
-      inputMetadata: { master, garments, originalPersonExcluded: true },
+      referenceCount: garments.length + 2,
+      eventId,
+      category,
+      promptSet,
+      inputMetadata: { master, person, garments, originalPersonExcluded: false },
       updatedAt: new Date().toISOString(),
     };
     if (db) await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
