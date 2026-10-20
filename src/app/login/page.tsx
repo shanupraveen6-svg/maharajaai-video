@@ -32,11 +32,15 @@ function MaharajaLoginForm() {
     }
 
     setIsSubmitting(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
       const res = await fetch('/api/operator/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
+        credentials: 'same-origin',
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -46,10 +50,14 @@ function MaharajaLoginForm() {
         return;
       }
 
-      router.replace(nextPath);
-    } catch {
-      setError('Connection error. Please try again.');
+      window.location.assign(nextPath);
+    } catch (caught) {
+      setError(caught instanceof DOMException && caught.name === 'AbortError'
+        ? 'Login is taking too long. Please check your connection and try again.'
+        : 'Connection error. Please try again.');
       setIsSubmitting(false);
+    } finally {
+      window.clearTimeout(timeout);
     }
   }
 

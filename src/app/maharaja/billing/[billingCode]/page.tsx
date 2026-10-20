@@ -64,18 +64,25 @@ export default function MaharajaBillingPage() {
     event.preventDefault();
     setLoggingIn(true);
     setLoginError('');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
       const res = await fetch('/api/operator/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
+        credentials: 'same-origin',
+        signal: controller.signal,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error(data.error || 'Invalid credentials');
       setAuthenticated(true);
-    } catch (err: any) {
-      setLoginError(err.message || 'Login failed.');
+    } catch (caught) {
+      setLoginError(caught instanceof DOMException && caught.name === 'AbortError'
+        ? 'Login is taking too long. Please check your connection and try again.'
+        : caught instanceof Error ? caught.message : 'Login failed.');
     } finally {
+      window.clearTimeout(timeout);
       setLoggingIn(false);
     }
   }
