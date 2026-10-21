@@ -177,6 +177,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [masterApproved, setMasterApproved] = useState(false);
   const [videoTestJobId, setVideoTestJobId] = useState('');
   const [videoTestUrl, setVideoTestUrl] = useState('');
+  const [poseFrameUrl, setPoseFrameUrl] = useState('');
   const [generationProgress, setGenerationProgress] = useState(0);
   const [allowTestGallery, setAllowTestGallery] = useState(false);
   const [photoInputError, setPhotoInputError] = useState('');
@@ -730,6 +731,20 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         }));
         setMasterApproved(true);
       }
+      if (!poseFrameUrl) {
+        setMessage('Preparing the exact final pose for your review…');
+        const poseData = await readJson(await fetch('/api/ai/pose-frame', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessCode, sessionId }),
+        }));
+        setPoseFrameUrl(poseData.poseFrameUrl);
+        setGenerationProgress(100);
+        setMessage('Review the final pose below. Continue only if the person and garment are correct.');
+        await new Promise((resolve) => window.setTimeout(resolve, 450));
+        setStage('ready');
+        return;
+      }
       const data = await readJson(await fetch('/api/video/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1130,6 +1145,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   <div className="mt-4 space-y-3 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
                     <div className="font-bold uppercase tracking-wide">Create your cinematic AI film</div>
                     <p className="text-[#F3E5AB]/80">Your approved portrait becomes a premium six-second film, saved securely for download and optional showroom presentation.</p>
+                    {poseFrameUrl && (
+                      <div className="space-y-2 border border-[#D4AF37]/40 bg-black/35 p-3">
+                        <p className="font-bold uppercase tracking-wide text-[#D4AF37]">Review final pose</p>
+                        <img src={poseFrameUrl} alt="Final approved campaign pose" className="mx-auto aspect-[9/16] w-full max-w-[220px] object-contain" />
+                        <p className="text-[#F3E5AB]/75">Confirm the identity, garment and hand position before spending the video generation.</p>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => void startVideoTest()}
@@ -1137,7 +1159,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                       className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 font-bold uppercase text-[#21090E] disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {stage === 'video' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
-                      {stage === 'video' ? 'Video in progress' : 'Generate AI video'}
+                      {stage === 'video' ? 'Generation in progress' : poseFrameUrl ? 'Approve pose & generate video' : 'Prepare final pose'}
                     </button>
                     {videoTestUrl && (
                       <video src={videoTestUrl} controls muted playsInline preload="metadata" className="aspect-[9/16] w-full bg-black object-contain" />

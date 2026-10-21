@@ -166,6 +166,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const master = await normalizeStorageImage(session.masterStoragePath, `${basePath}/input-master.jpg`);
+    const expectedPosePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/end-pose.jpg`;
+    if (session.poseEndStoragePath !== expectedPosePath) {
+      throw new Error('Prepare and review the final pose frame before generating the video.');
+    }
+    const endPose = await normalizeStorageImage(expectedPosePath, `${basePath}/input-end-pose.jpg`);
     const garmentPaths = Array.isArray(access.pass.videoGarmentPhotoStoragePaths)
       ? access.pass.videoGarmentPhotoStoragePaths.filter((value): value is string => typeof value === 'string').slice(0, 3)
       : [];
@@ -188,6 +193,7 @@ export async function POST(req: NextRequest) {
     const input = buildVideoTestInput(
       model.id,
       master.url,
+      endPose.url,
       garments.map((item) => item.url),
       category as CustomerCategory,
       eventId,
@@ -215,7 +221,7 @@ export async function POST(req: NextRequest) {
       category,
       promptSet,
       poseId,
-      inputMetadata: { master, garments, originalPersonExcluded: true },
+      inputMetadata: { master, endPose, garments, originalPersonExcluded: true },
       updatedAt: new Date().toISOString(),
     };
     if (db) await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
