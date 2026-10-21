@@ -67,7 +67,7 @@ export const CAMPAIGN_POSE_IDS = [
   'front-open',
   'low-clasp',
   'low-wrist-hold',
-  'editorial-asymmetry',
+  'namaste',
   'soft-side-stance',
 ] as const;
 export type CampaignPoseId = (typeof CAMPAIGN_POSE_IDS)[number];
@@ -77,12 +77,14 @@ export function isCampaignPoseId(value: unknown): value is CampaignPoseId {
 }
 
 export function getAllowedCampaignPoseIds(category: CustomerCategory, garmentType?: GarmentType): CampaignPoseId[] {
-  const childSafePoses: CampaignPoseId[] = ['relaxed-sides', 'low-clasp', 'low-wrist-hold', 'soft-side-stance'];
-  if (category === 'boy' || category === 'girl') return childSafePoses;
-  if (category === 'women' && garmentType === 'saree') {
-    return ['front-open', 'one-hand-hip', 'low-wrist-hold', 'soft-side-stance'];
-  }
-  return [...CAMPAIGN_POSE_IDS];
+  void garmentType;
+  const categoryPoses: Record<CustomerCategory, CampaignPoseId[]> = {
+    women: ['one-hand-hip', 'low-wrist-hold'],
+    men: ['two-hands-hips', 'low-clasp'],
+    girl: ['soft-side-stance', 'namaste'],
+    boy: ['relaxed-sides', 'front-open'],
+  };
+  return categoryPoses[category];
 }
 
 export function getCampaignPoseId(sessionId: string | undefined, category: CustomerCategory, garmentType?: GarmentType): CampaignPoseId {
@@ -101,7 +103,7 @@ export function getCampaignPoseLabel(poseId: CampaignPoseId): string {
     'front-open': 'Open relaxed stance',
     'low-clasp': 'Low clasp',
     'low-wrist-hold': 'Low wrist hold',
-    'editorial-asymmetry': 'Editorial asymmetry',
+    namaste: 'Namaste',
     'soft-side-stance': 'Soft side stance',
   };
   return labels[poseId];
@@ -713,7 +715,7 @@ export function getCampaignPose(category: CustomerCategory, poseId: CampaignPose
     'front-open': 'A child-safe calm standing pose with both arms relaxed at the sides, hands visible below the waist and clear of the torso.',
     'low-clasp': 'A child-safe calm standing pose with hands softly and naturally together below the waist, with no gesture or prop.',
     'low-wrist-hold': 'A child-safe relaxed standing pose with one hand gently holding the other wrist below the waist, with no gesture or prop.',
-    'editorial-asymmetry': 'A child-safe balanced standing pose with one arm relaxed at the side and the other resting naturally below the waist, both hands clear of the torso.',
+    namaste: 'A child-safe upright standing pose with palms together at chest height, held completely still with no gesture motion.',
     'soft-side-stance': 'A child-safe upright pose with a gentle natural weight shift, both arms relaxed at the sides and hands visible below the waist.',
   };
   if (category === 'boy' || category === 'girl') return childPoses[poseId];
@@ -725,7 +727,7 @@ export function getCampaignPose(category: CustomerCategory, poseId: CampaignPose
     'front-open': 'A composed open fashion stance with both arms relaxed at the sides, hands fully visible below the waist and clear of the torso and garment.',
     'low-clasp': 'An elegant still stance with both hands softly clasped together below the waist, clear of the garment details.',
     'low-wrist-hold': 'A refined static stance with one hand gently holding the other wrist below the waist, clear of the torso and garment.',
-    'editorial-asymmetry': 'A balanced editorial stance with one arm naturally bent low and the other relaxed at the side, both hands fully visible below the waist and clear of the torso.',
+    namaste: 'A composed static namaste pose with palms already together at chest height. Keep both hands fixed, with no approach motion, bow, or gesture transition.',
     'soft-side-stance': 'A poised open-shoulder stance with a gentle natural weight shift, both arms relaxed at naturally different angles and hands at the outer thigh line.',
   };
   return adultPoses[poseId];
@@ -757,7 +759,7 @@ export function buildMasterPrompt(
   const childSafety = category === 'boy' || category === 'girl'
     ? '\n\nCHILD SAFETY: Keep the child fully age-appropriate, naturally cheerful, modestly styled, and free of adult glamour, mature posing, or suggestive presentation.'
     : '';
-  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nCAMPAIGN POSE — STATIC FIRST FRAME (${resolvedPoseId}):\n${campaignPose}\n- This is a completed refined model-ad pose, not a hand gesture or action sequence. No waving, pointing, prayer pose, crossed arms, holding props or rotating the body.\n- Preserve the uploaded customer's natural anatomy and keep the selected pose stable for the later H3 film.\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
+  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nCAMPAIGN POSE — STATIC FIRST FRAME (${resolvedPoseId}):\n${campaignPose}\n- This is a completed refined model-ad pose, not a hand gesture or action sequence. No waving, pointing, crossed arms, holding props, bowing, or rotating the body.\n- Preserve the uploaded customer's natural anatomy and keep the selected pose stable for the later H3 film.\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
 }
 
 /** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */

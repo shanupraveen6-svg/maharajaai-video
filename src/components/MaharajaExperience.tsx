@@ -23,6 +23,7 @@ import { compressImage } from '@/lib/utils/image';
 import {
   buildMasterPrompt,
   EVENT_OPTIONS,
+  getAllowedCampaignPoseIds,
   getCampaignPoseId,
   getCampaignPoseLabel,
   getEventOption,
@@ -774,7 +775,19 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 <div className="grid gap-4 sm:grid-cols-2">
                   <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { const nextGarmentType: GarmentType = option === 'women' ? 'generic' : option === 'men' ? 'generic' : option === 'girl' ? 'pattu_pavadai' : 'boy_ethnic'; setCategory(option); setGarmentType(nextGarmentType); setGarmentTypeConfirmed(option !== 'women'); setGarmentRoles(rolesForGarment(nextGarmentType)); setPoseId(getCampaignPoseId(sessionId, option, nextGarmentType)); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
 
-                  <p className="sm:col-span-2 text-xs font-semibold text-[#5C4B43]">Selected still pose: <span className="font-bold text-[#6E0D1F]">{getCampaignPoseLabel(poseId)}</span>. This pose is fixed in the master image before video generation.</p>
+                  <label className="sm:col-span-2 text-xs font-bold uppercase text-[#5C4B43]">Approved pose
+                    <select
+                      value={poseId}
+                      disabled={busy || imagesLocked}
+                      onChange={(event) => setPoseId(event.target.value as CampaignPoseId)}
+                      className="mt-2 min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] px-3 text-base font-bold text-[#2A060C]"
+                    >
+                      {getAllowedCampaignPoseIds(category, garmentType).map((allowedPoseId) => (
+                        <option key={allowedPoseId} value={allowedPoseId}>{getCampaignPoseLabel(allowedPoseId)}</option>
+                      ))}
+                    </select>
+                    <span className="mt-1 block normal-case font-semibold text-[#6E0D1F]">Only the two approved poses for this category are available. The selected pose is stored in the master image and repeated to H3 as fixed.</span>
+                  </label>
 
                   <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
                     <select
