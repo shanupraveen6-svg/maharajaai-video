@@ -1,4 +1,4 @@
-import { getCampaignPose, getEventOption, getEventSceneDirection, type CampaignPoseId, type CustomerCategory, type EventId, type VideoPromptSet } from './config';
+import { getCampaignPose, getCampaignPoseLabel, getCampaignPoseTransition, getEventOption, getEventSceneDirection, type CampaignPoseId, type CustomerCategory, type EventId, type VideoPromptSet } from './config';
 
 export const VIDEO_TEST_MODELS = [
   { id: 'h3-max', label: 'H3 Max Reference', model: 'minimax/h3-max/reference-to-video', seconds: 6, estimatedUsd: 0.48 },
@@ -10,16 +10,26 @@ export function getVideoTestModel(value: unknown) {
   return VIDEO_TEST_MODELS.find((entry) => entry.id === value) || null;
 }
 
-const FIDELITY_LOCK = `REFERENCE AUTHORITY: The approved first frame is the composition authority. Reference image 1 is the original customer identity authority; later reference images are garment-detail authorities. SUBJECT LOCK: Preserve the same identity, face, age, skin tone, hairstyle, body proportions, selected pose, outfit design, fit, layers, colours, gradients, patterns and accessories. Both hands stay in their approved placement: do not create a hand path, chest-touch gesture, greeting, wave, walking, turn or arm transition. The person must feel naturally present rather than like a statue: permit only one soft blink, gentle breathing and a tiny natural eye-focus or expression settle, with no hand displacement or garment motion. Never add, remove, recolour or redesign clothing. Nothing crosses or alters the customer's silhouette. Identity and outfit fidelity override every creative instruction.`;
+const FIDELITY_LOCK = `REFERENCE AUTHORITY: The approved first frame is the composition authority. Reference image 1 is the original customer identity authority; later reference images are garment-detail authorities. SUBJECT LOCK: Preserve the customer's exact identity, facial structure, skin tone, hair, age, and natural proportions. Garment design, fabric weave, colors, borders, and embroidery must remain 100% stable with zero outfit morphing or texture drift. MOTION CHOREOGRAPHY: The customer begins in their natural relaxed standing stance, performs only the single designated smooth signature pose transition into the final hold, and maintains living human presence (gentle chest breathing, soft eye-focus, and radiant celebratory smile). Never invent erratic waving, walking, body turns, or unscripted gestures. Nothing crosses or alters the customer's silhouette. Identity and outfit fidelity override every creative instruction.`;
 
 function buildH3Prompt(category: CustomerCategory, eventId: EventId, promptSet: VideoPromptSet, poseId: CampaignPoseId) {
   const event = getEventOption(eventId);
   const sceneMotion = getEventSceneDirection(category, eventId, promptSet).videoScene;
-  const pose = getCampaignPose(category, poseId);
+  const poseLabel = getCampaignPoseLabel(poseId);
+  const poseTransition = getCampaignPoseTransition(category, poseId);
   const diwaliEnergy = eventId === 'diwali'
-    ? `Animate only Diwali elements already visible in the approved master: diya flames flicker, distant fireworks bloom behind architecture, lanterns sway lightly, water and floor reflections ripple, and distant bokeh glows. Keep this energy at the edges and behind the customer.`
+    ? `DIWALI FESTIVE ANIMATION — VIBRANT & ACTIVE: Ensure dynamic festive atmosphere across the scene: brass diya oil flames visibly flicker and dance with warm golden firelight, casting shimmering golden reflections across the polished marble floor. Distant festive fireworks bloom gracefully in the deep indigo night sky behind the palace arches. Floating golden sparks, Diwali bokeh motes, and warm celebratory light particles drift gently through the ambient air behind the customer. Suspended palace lanterns sway subtly with a gentle festive evening breeze. Keep the festive life active and glowing across the environment while preserving the customer's clothing and identity.`
     : '';
-  return `CINEMATIC ACTION — HIGH PRIORITY: Create one continuous six-second luxury ${event.label} campaign shot with visibly active environment and no hard cuts. APPROVED POSE (${poseId}): ${pose} This pose is fully completed in frame one and stays compositionally consistent for the entire film. Do not invent a new gesture, raise or lower either hand, or transition between poses. Seconds 0–1.5 hold a wide establishing composition showing the complete location scale and foreground depth. Seconds 1.5–4.5 perform the scene-specific camera move with clearly visible foreground parallax and background motion already supported by the approved first frame. Seconds 4.5–6 ease smoothly into a medium-full hero composition while keeping the complete outfit and both feet readable. Motion must remain purposeful and fluid enough for a later nine-second showroom presentation. ${sceneMotion} ${diwaliEnergy} Use physically believable camera inertia, natural depth of field, realistic event lighting, reflections and restrained atmospheric movement. Foreground elements travel only along outer frame edges. No light ribbon, flare, particle, decoration or prop may pass across the customer. No sudden zoom, fake cut, reverse shot or reconstructed angle. ${FIDELITY_LOCK}`;
+
+  return `CINEMATIC ACTION — HIGH PRIORITY: Create one continuous six-second luxury ${event.label} campaign shot with visibly active environment and fluid, living human presence.
+
+CHOREOGRAPHY & MOTION TIMELINE:
+- Seconds 0.0–1.5: Hold a wide establishing composition showing the complete location scale and foreground depth. The customer stands with natural, living human presence (gentle chest breathing, eye catchlights, warm subtle smile, hands relaxed naturally at sides).
+- Seconds 1.5–3.5: Fluid Pose Transition (${poseLabel}). The camera executes its scene-specific move with foreground parallax, while the customer gracefully and intentionally executes the signature pose: ${poseTransition}
+- Seconds 3.5–6.0: Regal Hero Hold. The signature ${poseLabel} pose is fully settled and held with royal poise, radiant celebratory smile, and living eye focus through the end of the shot, perfect for a luxury commercial loop. Complete outfit and both feet remain readable.
+
+ENVIRONMENT & CAMERA:
+${sceneMotion} ${diwaliEnergy} Use physically believable camera inertia, natural depth of field, realistic event lighting, reflections and rich atmospheric movement. Foreground elements travel only along outer frame edges. No light ribbon, flare, particle, decoration or prop may pass across the customer. No sudden zoom, fake cut, reverse shot or reconstructed angle. ${FIDELITY_LOCK}`;
 }
 
 export function buildVideoTestInput(

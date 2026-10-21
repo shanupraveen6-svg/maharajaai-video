@@ -786,6 +786,37 @@ export function getCampaignPose(category: CustomerCategory, poseId: CampaignPose
   return adultPoses[poseId];
 }
 
+export function getCampaignStartingStance(category: CustomerCategory): string {
+  if (category === 'boy' || category === 'girl') {
+    return 'A natural, upright child-safe standing stance with both arms relaxed comfortably at the sides, hands fully visible below the waist, empty and clear of the torso and clothing. Facing the camera with a sweet, cheerful festive smile.';
+  }
+  if (category === 'men') {
+    return 'A dignified, regal upright standing stance with both arms relaxed naturally at the sides, hands fully visible below the waist, clear of the torso and garment. Grounded masculine posture, open chest, and a confident celebratory smile.';
+  }
+  return 'An elegant, poised upright standing stance with both arms relaxed naturally at the sides, hands fully visible below the waist, clear of the torso and garment. Poised luxury fashion posture and a warm, radiant festive smile.';
+}
+
+export function getCampaignPoseTransition(category: CustomerCategory, poseId: CampaignPoseId): string {
+  switch (poseId) {
+    case 'one-hand-hip':
+      return 'Between seconds 1.5 and 3.5, the customer gracefully and smoothly raises one hand to rest naturally on the hip in an elegant high-fashion pose while the other arm remains relaxed at the side, settling into the pose by second 3.5 and holding through second 6.0.';
+    case 'two-hands-hips':
+      return 'Between seconds 1.5 and 3.5, the customer smoothly and confidently places both hands on the hips in an authoritative, dignified Maharaja pose, settling into the pose by second 3.5 and holding through second 6.0.';
+    case 'low-wrist-hold':
+      return 'Between seconds 1.5 and 3.5, the customer gracefully brings hands together below the waist, gently holding the opposite wrist in a poised, royal posture, settling into the pose by second 3.5 and holding through second 6.0.';
+    case 'low-clasp':
+      return 'Between seconds 1.5 and 3.5, the customer smoothly brings both hands together into an elegant low clasp below the waist, settling into the pose by second 3.5 and holding through second 6.0.';
+    case 'namaste':
+      return 'Between seconds 1.5 and 3.5, the customer smoothly and respectfully brings both palms together in front of the chest in a graceful traditional festive Namaste greeting, settling into the pose by second 3.5 and holding through second 6.0.';
+    case 'soft-side-stance':
+      return 'Between seconds 1.5 and 3.5, the girl smoothly rests one hand lightly near the side of her dress with a charming natural tilt, settling into the pose by second 3.5 and holding through second 6.0.';
+    case 'relaxed-sides':
+      return 'Between seconds 1.5 and 3.5, the boy settles comfortably into a cheerful, confident posture with arms relaxed at the sides, settling into the pose by second 3.5 and holding through second 6.0.';
+    case 'front-open':
+      return 'Between seconds 1.5 and 3.5, the customer smoothly assumes a poised, confident open stance with hands relaxed at the sides, settling into the pose by second 3.5 and holding through second 6.0.';
+  }
+}
+
 export function buildMasterPrompt(
   category: CustomerCategory = 'women',
   eventId: EventId = 'diwali',
@@ -802,7 +833,7 @@ export function buildMasterPrompt(
   const garmentRules = getGarmentFidelityRules(resolvedGarment, false);
   const scene = getEventSceneDirection(category, eventId, resolvedPromptSet);
   const resolvedPoseId = poseId || getCampaignPoseId(sessionId, category);
-  const campaignPose = getCampaignPose(category, resolvedPoseId);
+  const startingStance = getCampaignStartingStance(category);
   const safeImageScene = scene.imageScene
     .replace(/\s+in traditional pattu pavadai\b/gi, '')
     .replace(/\s+in traditional (?:ethnic|festive) wear\b/gi, '')
@@ -812,7 +843,7 @@ export function buildMasterPrompt(
   const childSafety = category === 'boy' || category === 'girl'
     ? '\n\nCHILD SAFETY: Keep the child fully age-appropriate, naturally cheerful, modestly styled, and free of adult glamour, mature posing, or suggestive presentation.'
     : '';
-  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nCAMPAIGN POSE — STATIC FIRST FRAME (${resolvedPoseId}):\n${campaignPose}\n- This is a completed refined model-ad pose, not a hand gesture or action sequence. No waving, pointing, crossed arms, holding props, bowing, or rotating the body.\n- Preserve the uploaded customer's natural anatomy and keep the selected pose stable for the later H3 film.\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
+  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nCAMPAIGN POSE — NATURAL STARTING STANCE:\n${startingStance}\n- The customer begins standing naturally and upright with arms relaxed at the sides, hands fully visible below the waist and clear of the torso. This relaxed natural stance serves as the clean opening frame for the subsequent video commercial where they smoothly transition into the signature ${getCampaignPoseLabel(resolvedPoseId)} pose.\n- Preserve the uploaded customer's natural anatomy and keep the presentation refined and dignified.\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
 }
 
 /** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */
@@ -822,15 +853,15 @@ P0 — ABSOLUTE FIDELITY & ZERO CLOTHING CHANGE (NON-NEGOTIABLE):
 - Identity: Preserve exact facial geometry, eyes, nose, jawline, skin tone, hair, age, expression, pose, hands, feet, and body proportions. Zero reshaping, beautification, or identity alteration.
 - Garment: Preserve the exact clothing silhouette, fabric weave, collar, neckline, sleeves, drape, colors, patterns, borders, embroidery, jewelry, and accessories from first frame to last. Zero clothing change, morphing, swapping, additions, removal, recoloring, or texture drift.
 
-P1 — SUBJECT PRESENCE & POSE LOCK:
-- Treat the person and attire as a protected reference layer. Keep the selected hand and arm placement stable: no new hand path, chest-touch gesture, wave, turn, walking, or pose transition.
-- Preserve natural human presence without clothing risk: at most one soft blink, gentle breathing, and minute eye-focus or expression settling. Do not move hands, arms, garment, hair, or feet.
+P1 — LIVING HUMAN PRESENCE & FLUID POSE TRANSITION:
+- Treat the person and attire as a protected reference layer. The customer begins naturally in the approved master stance with living presence (gentle breathing, eye catchlights, warm smile), performs one smooth intentional transition into the designated signature pose, and holds with royal composure through the hero loop.
+- No erratic gesture, waving, pointing, chest-scratching, turning, or unscripted body displacement.
 
 P2 — LUXURY CINEMATIC CAMERA:
 - Apply one slow, elegant whole-frame optical dolly-in with premium cinema-lens depth and polished editorial pacing. Keep the original viewpoint and framing; no perspective change or unseen surfaces.
 
 P3 — LIVING FESTIVE ENVIRONMENT:
-- Animate only existing background light, bokeh, reflections, focus, and restrained particles in empty space. Particles must never cross or obscure the face, body, garment, hands, or feet. Keep the subject, clothing color, and skin tone stable.
+- Animate rich background light, diya flames, fireworks, bokeh, reflections, and atmospheric festive elements in empty space. Festive elements must never cross or obscure the face, body, garment, hands, or feet. Keep the subject, clothing color, and skin tone stable.
 
 CONFLICT RESOLUTION RULE:
 - Fidelity overrides motion. Dampen motion whenever needed to protect identity and garment stability.`;
