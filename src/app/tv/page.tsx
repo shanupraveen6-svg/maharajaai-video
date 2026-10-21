@@ -510,6 +510,7 @@ export default function TvPlayerPage() {
       video.currentTime = 0;
       configureVideo(video, playback);
       await video.play();
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
 
       clearPendingWatchdog();
       const index = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
@@ -751,7 +752,7 @@ export default function TvPlayerPage() {
           }
         }}
         onError={() => handleVideoError(slot)}
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+        className={`absolute inset-0 h-full w-full object-cover transition-none ${
           isActive ? 'opacity-100' : 'opacity-0'
         }`}
       />

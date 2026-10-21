@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MoreVertical, Lock, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
+import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MoreVertical, Lock, MessageCircle, Image as ImageIcon } from 'lucide-react';
 import { getEventOption, type EventId } from '@/lib/maharaja/config';
 import { getPreviewAudioTrack } from '@/lib/maharaja/audio';
 
@@ -54,8 +54,8 @@ export default function ResultClient({
   const [videoStatus, setVideoStatus] = useState<'processing' | 'ready' | 'failed'>(initialVideoUrl ? 'ready' : 'processing');
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(!initialVideoUrl);
-  const [downloading, setDownloading] = useState<'image' | 'video' | null>(null);
-  const [lastDownloaded, setLastDownloaded] = useState<'image' | 'video' | null>(null);
+  const [downloading, setDownloading] = useState<'bundle' | null>(null);
+  const [lastDownloaded, setLastDownloaded] = useState<'bundle' | null>(null);
   const [goLiveSubmitting, setGoLiveSubmitting] = useState(false);
   const [liveConsent, setLiveConsent] = useState(false);
   const [guardianLiveConsent, setGuardianLiveConsent] = useState(false);
@@ -224,25 +224,35 @@ export default function ResultClient({
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
   };
 
-  const handleDownload = async (kind: 'image' | 'video') => {
+  const handleDownloadBundle = async (showConfirmation = true) => {
     if (downloading) return;
-    setDownloading(kind);
+    setDownloading('bundle');
     setLiveError(null);
     try {
-      await downloadAsset(kind);
+      const results = await Promise.allSettled([downloadAsset('image'), downloadAsset('video')]);
+      const succeeded = results.filter((result) => result.status === 'fulfilled').length;
+      if (!succeeded) throw new Error('Downloads could not start. Please try again.');
       await fetch('/api/maharaja/activity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'download', label: `${eventLabel} ${kind} downloaded`, sessionId, accessCode }),
+        body: JSON.stringify({ type: 'download', label: `${eventLabel} image and video downloaded`, sessionId, accessCode }),
       }).catch(() => undefined);
-      setLastDownloaded(kind);
-      setThankYouMode('download');
-      setShowThankYou(true);
+      if (succeeded < 2) setLiveError('One download did not start. Tap Download again to retry both files.');
+      if (showConfirmation) {
+        setLastDownloaded('bundle');
+        setThankYouMode('download');
+        setShowThankYou(true);
+      }
     } catch (err) {
       setLiveError(err instanceof Error ? err.message : 'Download failed.');
     } finally {
       setDownloading(null);
     }
+  };
+
+  const handleWhatsAppShare = () => {
+    const message = `My ${eventLabel} Maharaja AI film is now in the showroom queue. Thank you, Maharaja!`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleGoLive = async () => {
@@ -273,12 +283,9 @@ export default function ResultClient({
       setLiveSuccess(true);
       setCountdownSeconds(0);
       setLiveFarewell(true);
-      const downloadResults = await Promise.allSettled([
-        downloadAsset('image'),
-        downloadAsset('video'),
-      ]);
+      const downloadResults = await Promise.allSettled([downloadAsset('image'), downloadAsset('video')]);
       if (downloadResults.some((result) => result.status === 'rejected')) {
-        setLiveError('Your TV queue is confirmed. If either download did not begin, use the Image and Video buttons below.');
+        setLiveError('Your TV queue is confirmed. If either download did not begin, tap Download below.');
       }
       setThankYouMode('live');
       setLiveFarewell(true);
@@ -348,24 +355,17 @@ export default function ResultClient({
           </div>
 
           <div className="mt-7 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => void handleDownload('image')}
-                disabled={Boolean(downloading) || !masterImageUrl}
-                className="flex min-h-11 items-center justify-center gap-2 border border-[#D4AF37]/60 bg-black/45 px-3 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-45"
-              >
-                <ImageIcon className="h-4 w-4" /> Image
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleDownload('video')}
-                disabled={Boolean(downloading) || !videoUrl}
-                className="flex min-h-11 items-center justify-center gap-2 bg-[#D4AF37] px-3 text-xs font-bold uppercase text-black disabled:opacity-45"
-              >
-                <Download className="h-4 w-4" /> Video
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => void handleDownloadBundle(false)}
+              disabled={Boolean(downloading) || !masterImageUrl || !videoUrl}
+              className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#D4AF37] px-3 text-xs font-bold uppercase text-black disabled:opacity-45"
+            >
+              <Download className="h-4 w-4" /> {downloading ? 'Preparing downloads' : 'Download image & video'}
+            </button>
+            <button type="button" onClick={handleWhatsAppShare} className="flex w-full items-center justify-center gap-2 border border-[#25D366] bg-transparent px-5 py-3 text-sm font-black text-[#7BE495]">
+              <MessageCircle className="h-5 w-5" /> Share on WhatsApp
+            </button>
             <a href={instagramUrl} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black">
               <ExternalLink className="h-5 w-5" /> Follow Maharaja
             </a>
@@ -517,24 +517,14 @@ export default function ResultClient({
 
         {/* Primary Action Buttons */}
         <div className="space-y-3 pt-2">
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => void handleDownload('image')}
-              disabled={Boolean(downloading) || !masterImageUrl}
-              className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/60 bg-black/50 px-3 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-45"
-            >
-              <ImageIcon className="h-4 w-4" /> {downloading === 'image' ? 'Downloading' : 'Image'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleDownload('video')}
-              disabled={Boolean(downloading) || !videoUrl}
-              className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-3 text-xs font-bold uppercase text-black disabled:opacity-45"
-            >
-              <Download className="h-4 w-4" /> {downloading === 'video' ? 'Downloading' : 'Video'}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => void handleDownloadBundle()}
+            disabled={Boolean(downloading) || !masterImageUrl || !videoUrl}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-3 text-xs font-bold uppercase text-black disabled:opacity-45"
+          >
+            <Download className="h-4 w-4" /> {downloading ? 'Preparing downloads' : 'Download image & video'}
+          </button>
 
           <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-[11px] leading-5 text-[#F3E5AB]/80">
             <input
@@ -618,7 +608,7 @@ export default function ResultClient({
                 Thank you for your purchase
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
-                Your {lastDownloaded === 'image' ? 'image' : 'video'} download has started. Thank you for experiencing the Maharaja AI visual celebration.
+                Your image and video downloads have started. Thank you for experiencing the Maharaja AI visual celebration.
               </p>
             </div>
 

@@ -822,8 +822,9 @@ P0 — ABSOLUTE FIDELITY & ZERO CLOTHING CHANGE (NON-NEGOTIABLE):
 - Identity: Preserve exact facial geometry, eyes, nose, jawline, skin tone, hair, age, expression, pose, hands, feet, and body proportions. Zero reshaping, beautification, or identity alteration.
 - Garment: Preserve the exact clothing silhouette, fabric weave, collar, neckline, sleeves, drape, colors, patterns, borders, embroidery, jewelry, and accessories from first frame to last. Zero clothing change, morphing, swapping, additions, removal, recoloring, or texture drift.
 
-P1 — SUBJECT LOCK:
-- Treat the person and attire as a protected reference layer. Preserve natural stillness with no hand, arm, chest, body, or garment movement. Keep all subject elements fixed.
+P1 — SUBJECT PRESENCE & POSE LOCK:
+- Treat the person and attire as a protected reference layer. Keep the selected hand and arm placement stable: no new hand path, chest-touch gesture, wave, turn, walking, or pose transition.
+- Preserve natural human presence without clothing risk: at most one soft blink, gentle breathing, and minute eye-focus or expression settling. Do not move hands, arms, garment, hair, or feet.
 
 P2 — LUXURY CINEMATIC CAMERA:
 - Apply one slow, elegant whole-frame optical dolly-in with premium cinema-lens depth and polished editorial pacing. Keep the original viewpoint and framing; no perspective change or unseen surfaces.
