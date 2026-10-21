@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { getCampaignPoseId, isCampaignPoseId, isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId, type VideoPromptSet } from '@/lib/maharaja/config';
+import { isCampaignPoseId, isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId, type VideoPromptSet } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
 
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
     const promptSet = access.pass.videoMasterPromptSet === 'set-2' ? 'set-2' : 'set-1';
     const poseId = isCampaignPoseId(access.pass.videoMasterPoseId)
       ? access.pass.videoMasterPoseId
-      : getCampaignPoseId(sessionId, category as CustomerCategory);
+      : 'relaxed-sides';
     const input = buildVideoTestInput(
       model.id,
       master.url,
