@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CampaignPoseId, type CustomerCategory, getCampaignPoseId, isCampaignPoseId, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, buildMasterPrompt, resolveGarmentType, type VideoPromptSet, getSceneIndex } from '@/lib/maharaja/config';
+import { type CampaignPoseId, type CustomerCategory, getAllowedCampaignPoseIds, getCampaignPoseId, isCampaignPoseId, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, buildMasterPrompt, resolveGarmentType, type VideoPromptSet, getSceneIndex } from '@/lib/maharaja/config';
 import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
@@ -206,13 +206,17 @@ export async function POST(req: NextRequest) {
 
     let masterImageUrl = '';
     const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
+    if (customerCategory === 'women' && body.garmentTypeConfirmed !== true) {
+      return NextResponse.json({ success: false, error: 'Choose the garment type before generating. This prevents sarees from being treated as salwar or churidar.' }, { status: 400 });
+    }
     const garmentType = resolveGarmentType(customerCategory, body.garmentType, garmentAnalysis, garmentRoles);
     const promptSet: VideoPromptSet = (body.promptSet === 'set-2' || body.promptSet === 'set-1')
       ? body.promptSet
       : (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1');
-    const poseId: CampaignPoseId = isCampaignPoseId(body.poseId)
+    const allowedPoseIds = getAllowedCampaignPoseIds(customerCategory, garmentType);
+    const poseId: CampaignPoseId = isCampaignPoseId(body.poseId) && allowedPoseIds.includes(body.poseId)
       ? body.poseId
-      : getCampaignPoseId(sessionId, customerCategory);
+      : getCampaignPoseId(sessionId, customerCategory, garmentType);
 
     try {
         const contents: any[] = [];

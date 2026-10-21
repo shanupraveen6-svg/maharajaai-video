@@ -76,13 +76,35 @@ export function isCampaignPoseId(value: unknown): value is CampaignPoseId {
   return typeof value === 'string' && (CAMPAIGN_POSE_IDS as readonly string[]).includes(value);
 }
 
-export function getCampaignPoseId(sessionId: string | undefined, category: CustomerCategory): CampaignPoseId {
+export function getAllowedCampaignPoseIds(category: CustomerCategory, garmentType?: GarmentType): CampaignPoseId[] {
   const childSafePoses: CampaignPoseId[] = ['relaxed-sides', 'low-clasp', 'low-wrist-hold', 'soft-side-stance'];
-  const pool = category === 'boy' || category === 'girl' ? childSafePoses : [...CAMPAIGN_POSE_IDS];
+  if (category === 'boy' || category === 'girl') return childSafePoses;
+  if (category === 'women' && garmentType === 'saree') {
+    return ['front-open', 'one-hand-hip', 'low-wrist-hold', 'soft-side-stance'];
+  }
+  return [...CAMPAIGN_POSE_IDS];
+}
+
+export function getCampaignPoseId(sessionId: string | undefined, category: CustomerCategory, garmentType?: GarmentType): CampaignPoseId {
+  const pool = getAllowedCampaignPoseIds(category, garmentType);
   let hash = 0;
   const key = `${sessionId || 'new'}:${category}:pose`;
   for (let index = 0; index < key.length; index += 1) hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
   return pool[hash % pool.length];
+}
+
+export function getCampaignPoseLabel(poseId: CampaignPoseId): string {
+  const labels: Record<CampaignPoseId, string> = {
+    'relaxed-sides': 'Relaxed sides',
+    'one-hand-hip': 'One hand at hip',
+    'two-hands-hips': 'Two hands at hips',
+    'front-open': 'Open relaxed stance',
+    'low-clasp': 'Low clasp',
+    'low-wrist-hold': 'Low wrist hold',
+    'editorial-asymmetry': 'Editorial asymmetry',
+    'soft-side-stance': 'Soft side stance',
+  };
+  return labels[poseId];
 }
 
 /** High-accuracy virtual try-on prompt: strict identity lock + authentic garment transfer + clean studio. */
