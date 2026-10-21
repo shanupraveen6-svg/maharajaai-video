@@ -10,6 +10,7 @@ import {
   type EventId,
   type CustomerCategory,
   type CampaignPoseId,
+  type CampaignExperienceId,
   type VideoPromptSet,
   MAHARAJA_CLIENT_ID,
   MAHARAJA_WORKSPACE_CODE,
@@ -95,6 +96,8 @@ export type MaharajaVideoPass = {
   videoMasterPoseId?: CampaignPoseId;
   videoMasterCategory?: CustomerCategory;
   videoMasterGarmentType?: string;
+  videoMasterExperienceId?: CampaignExperienceId;
+  videoMasterGarmentRoles?: string[];
   videoReferenceSessionId?: string;
   videoPersonPhotoStoragePath?: string;
   videoGarmentPhotoStoragePaths?: string[];
@@ -1180,6 +1183,8 @@ export async function markPassVideoMasterDone(
     poseId?: CampaignPoseId;
     category?: CustomerCategory;
     garmentType?: string;
+    experienceId?: CampaignExperienceId;
+    garmentRoles?: string[];
     referenceSessionId?: string;
     personPhotoStoragePath?: string;
     garmentPhotoStoragePaths?: string[];
@@ -1215,6 +1220,8 @@ export async function markPassVideoMasterDone(
       if (meta?.poseId) updateData.videoMasterPoseId = meta.poseId;
       if (cat) updateData.videoMasterCategory = cat;
       if (garment) updateData.videoMasterGarmentType = garment;
+      if (meta?.experienceId) updateData.videoMasterExperienceId = meta.experienceId;
+      if (meta?.garmentRoles) updateData.videoMasterGarmentRoles = meta.garmentRoles.slice(0, 3);
       if (meta?.referenceSessionId) updateData.videoReferenceSessionId = meta.referenceSessionId;
       if (meta?.personPhotoStoragePath) updateData.videoPersonPhotoStoragePath = meta.personPhotoStoragePath;
       if (meta?.garmentPhotoStoragePaths) updateData.videoGarmentPhotoStoragePaths = meta.garmentPhotoStoragePaths.slice(0, 3);
@@ -1247,6 +1254,8 @@ export async function markPassVideoMasterDone(
     if (meta?.poseId) passCopy.videoMasterPoseId = meta.poseId;
     if (cat) passCopy.videoMasterCategory = cat;
     if (garment) passCopy.videoMasterGarmentType = garment;
+    if (meta?.experienceId) passCopy.videoMasterExperienceId = meta.experienceId;
+    if (meta?.garmentRoles) passCopy.videoMasterGarmentRoles = meta.garmentRoles.slice(0, 3);
     if (meta?.referenceSessionId) passCopy.videoReferenceSessionId = meta.referenceSessionId;
     if (meta?.personPhotoStoragePath) passCopy.videoPersonPhotoStoragePath = meta.personPhotoStoragePath;
     if (meta?.garmentPhotoStoragePaths) passCopy.videoGarmentPhotoStoragePaths = meta.garmentPhotoStoragePaths.slice(0, 3);

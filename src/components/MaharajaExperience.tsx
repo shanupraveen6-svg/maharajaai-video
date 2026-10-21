@@ -22,7 +22,7 @@ import { compressImage } from '@/lib/utils/image';
 import {
   buildMasterPrompt,
   EVENT_OPTIONS,
-  getCampaignPoseId,
+  getCampaignPoseForExperience,
   getEventOption,
   getSceneIndex,
   type CampaignPoseId,
@@ -141,7 +141,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [category, setCategory] = useState<CustomerCategory>('women');
   const [sessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
   const [promptSet, setPromptSet] = useState<VideoPromptSet>(() => (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1'));
-  const [poseId, setPoseId] = useState<CampaignPoseId>(() => getCampaignPoseId(sessionId, 'women'));
+  const [poseId, setPoseId] = useState<CampaignPoseId>(() => getCampaignPoseForExperience('women', promptSet));
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
   const [deviceId, setDeviceId] = useState('');
@@ -314,7 +314,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           if (data.access.tryOnImageUrl) setTryOnImageUrl(data.access.tryOnImageUrl);
           setEventId(retryData.source.eventId);
           setCategory(retryData.source.category);
-          setPoseId(getCampaignPoseId(sessionId, retryData.source.category));
+          const retryPromptSet: VideoPromptSet = retryData.source.promptSet === 'set-2' ? 'set-2' : 'set-1';
+          setPromptSet(retryPromptSet);
+          setPoseId(getCampaignPoseForExperience(retryData.source.category, retryPromptSet));
           setGarmentAnalysis(retryData.source.garmentAnalysis);
           setMessage('Video retry ready. The safe backup prompt will use the same approved image.');
         } else if (data.access.service === 'ai-video' && (data.access.tryOnImageUrl || data.access.videoMasterUrl)) {
@@ -886,7 +888,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); setPoseId(getCampaignPoseId(sessionId, option, 'unset')); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); setPoseId(getCampaignPoseForExperience(option, promptSet)); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
 
                   <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
                     <select
@@ -963,7 +965,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                             setGarmentType(nextType);
                             setGarmentTypeConfirmed(nextType !== 'unset');
                             setGarmentRoles(rolesForGarment(nextType));
-                            setPoseId(getCampaignPoseId(sessionId, category, nextType));
+                            setPoseId(getCampaignPoseForExperience(category, promptSet));
                             setGarmentAnalysis((current) => current ? { ...current, garmentType: nextType } : current);
                           }}
                           className="mt-1 min-h-11 w-full border border-[#B99A55] bg-white px-3 text-sm font-semibold text-[#2A060C] outline-none focus:border-[#6E0D1F]"

@@ -2,19 +2,32 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { getCampaignPoseId, isCampaignPoseId, isEventId, MAHARAJA_CLIENT_ID, type CampaignPoseId, type CustomerCategory, type EventId, type VideoPromptSet } from '@/lib/maharaja/config';
+import { getCampaignExperience, isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId, type VideoPromptSet } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
+const MAX_VIDEO_REFERENCE_BYTES = 12 * 1024 * 1024;
 
-async function normalizeStorageImage(sourcePath: string, outputPath: string) {
+async function downloadValidatedReference(sourcePath: string, label: string) {
   const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/`;
-  if (!sourcePath.startsWith(expectedPrefix)) throw new Error('Video reference path is outside this Maharaja session.');
+  if (!sourcePath.startsWith(expectedPrefix)) throw new Error(`${label} path is outside this Maharaja session.`);
   const bucket = getStorageBucket();
   if (!bucket) throw new Error('Firebase Storage is unavailable.');
-  const [source] = await bucket.file(sourcePath).download();
+  const file = bucket.file(sourcePath);
+  const [objectMetadata] = await file.getMetadata();
+  const contentType = String(objectMetadata.contentType || '').toLowerCase();
+  const size = Number(objectMetadata.size || 0);
+  if (!contentType.startsWith('image/')) throw new Error(`${label} is not a supported image file.`);
+  if (size <= 0 || size > MAX_VIDEO_REFERENCE_BYTES) throw new Error(`${label} must be a valid image smaller than 12 MB.`);
+  const [source] = await file.download();
+  if (!source.length || source.length > MAX_VIDEO_REFERENCE_BYTES) throw new Error(`${label} could not be read safely from storage.`);
+  return { source, bucket };
+}
+
+async function normalizeStorageImage(sourcePath: string, outputPath: string) {
+  const { source, bucket } = await downloadValidatedReference(sourcePath, 'Approved master image');
   const metadata = await sharp(source).rotate().metadata();
   if (!metadata.width || !metadata.height) throw new Error('Video reference has invalid image dimensions.');
   const output = await sharp(source)
@@ -34,28 +47,21 @@ async function normalizeStorageImage(sourcePath: string, outputPath: string) {
 }
 
 async function normalizeGarmentReference(sourcePath: string, outputPath: string) {
-  const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/`;
-  if (!sourcePath.startsWith(expectedPrefix)) throw new Error('Video reference path is outside this Maharaja session.');
-  const bucket = getStorageBucket();
-  if (!bucket) throw new Error('Firebase Storage is unavailable.');
-  const [source] = await bucket.file(sourcePath).download();
+  const { source, bucket } = await downloadValidatedReference(sourcePath, 'Garment reference');
   const metadata = await sharp(source).rotate().metadata();
   if (!metadata.width || !metadata.height) throw new Error('Garment reference has invalid image dimensions.');
-  const shortestSide = Math.min(metadata.width, metadata.height);
-  const longestSide = Math.max(metadata.width, metadata.height);
-  let scale = Math.min(1, 1600 / longestSide);
-  if (shortestSide * scale < 256) scale = 256 / shortestSide;
-  if (longestSide * scale > 2048) {
-    throw new Error('A garment reference is too narrow for video generation. Retake it with the complete garment filling the camera frame.');
+  if (metadata.width < 256 || metadata.height < 256) {
+    throw new Error('A garment reference is below the 256 px minimum. Retake it closer with the complete garment clearly visible.');
   }
-  const outputWidth = Math.max(256, Math.round(metadata.width * scale));
-  const outputHeight = Math.max(256, Math.round(metadata.height * scale));
   const output = await sharp(source)
     .rotate()
-    .resize(outputWidth, outputHeight, { fit: 'fill', kernel: sharp.kernel.lanczos3 })
+    .resize(1024, 1024, { fit: 'contain', position: 'centre', background: { r: 20, g: 6, b: 10, alpha: 1 }, kernel: sharp.kernel.lanczos3 })
     .jpeg({ quality: 94, chromaSubsampling: '4:4:4' })
     .toBuffer();
   const outputMetadata = await sharp(output).metadata();
+  if (!outputMetadata.width || !outputMetadata.height || outputMetadata.width / outputMetadata.height < 0.4 || outputMetadata.width / outputMetadata.height > 2.5) {
+    throw new Error('Garment reference normalization failed the video provider aspect-ratio requirement.');
+  }
   await bucket.file(outputPath).save(output, { contentType: 'image/jpeg', resumable: false });
   return {
     url: await getSignedPlaybackUrl(outputPath),
@@ -180,11 +186,11 @@ export async function POST(req: NextRequest) {
       ? access.pass.eventId
       : isEventId(session.eventId) ? session.eventId : 'diwali';
     const promptSet = access.pass.videoMasterPromptSet === 'set-2' ? 'set-2' : 'set-1';
-    const poseId: CampaignPoseId = isCampaignPoseId(access.pass.videoMasterPoseId)
-      ? access.pass.videoMasterPoseId
-      : isCampaignPoseId(session?.poseId)
-        ? session.poseId
-        : getCampaignPoseId(sessionId, category as CustomerCategory);
+    const experience = getCampaignExperience(category as CustomerCategory, promptSet as VideoPromptSet);
+    const poseId = experience.poseId;
+    const garmentRoles = Array.isArray(access.pass.videoMasterGarmentRoles)
+      ? access.pass.videoMasterGarmentRoles.map((value) => String(value)).slice(0, garments.length)
+      : [];
     const input = buildVideoTestInput(
       model.id,
       master.url,
@@ -193,6 +199,7 @@ export async function POST(req: NextRequest) {
       eventId,
       promptSet as VideoPromptSet,
       poseId,
+      garmentRoles,
     );
     const response = await fetch(`https://queue.fal.run/${model.model}`, {
       method: 'POST',
@@ -215,6 +222,8 @@ export async function POST(req: NextRequest) {
       category,
       promptSet,
       poseId,
+      experienceId: experience.id,
+      garmentRoles,
       inputMetadata: { master, garments, originalPersonExcluded: true },
       updatedAt: new Date().toISOString(),
     };

@@ -72,27 +72,97 @@ export const CAMPAIGN_POSE_IDS = [
 ] as const;
 export type CampaignPoseId = (typeof CAMPAIGN_POSE_IDS)[number];
 
+export type CampaignExperienceId =
+  | 'women-set-1'
+  | 'women-set-2'
+  | 'men-set-1'
+  | 'men-set-2'
+  | 'girl-set-1'
+  | 'girl-set-2'
+  | 'boy-set-1'
+  | 'boy-set-2';
+
+export type CampaignExperienceDefinition = {
+  id: CampaignExperienceId;
+  category: CustomerCategory;
+  promptSet: VideoPromptSet;
+  poseId: CampaignPoseId;
+  cameraMotion: string;
+  environmentMotion: string;
+};
+
+export const CAMPAIGN_EXPERIENCES: Record<CustomerCategory, Record<VideoPromptSet, CampaignExperienceDefinition>> = {
+  women: {
+    'set-1': {
+      id: 'women-set-1', category: 'women', promptSet: 'set-1', poseId: 'one-hand-hip',
+      cameraMotion: 'Use one slow, straight whole-frame optical push toward the customer while preserving the exact approved frontal viewpoint.',
+      environmentMotion: 'Animate only existing distant lanterns, diya flames, skyline light and water reflections behind the customer.',
+    },
+    'set-2': {
+      id: 'women-set-2', category: 'women', promptSet: 'set-2', poseId: 'low-wrist-hold',
+      cameraMotion: 'Use one gentle, straight whole-frame optical push with a soft focus settle, preserving the exact approved viewpoint.',
+      environmentMotion: 'Animate only existing garden lights, diya flames, distant foliage and floor reflections behind the customer.',
+    },
+  },
+  men: {
+    'set-1': {
+      id: 'men-set-1', category: 'men', promptSet: 'set-1', poseId: 'two-hands-hips',
+      cameraMotion: 'Use one restrained, straight whole-frame hero push while preserving the exact approved frontal angle and full-body framing.',
+      environmentMotion: 'Animate only existing distant fireworks, diya flames and palace lights behind the customer.',
+    },
+    'set-2': {
+      id: 'men-set-2', category: 'men', promptSet: 'set-2', poseId: 'low-clasp',
+      cameraMotion: 'Use one slow, straight whole-frame optical push and finish with a stable full-body hold without changing viewing angle.',
+      environmentMotion: 'Animate only existing fountain water, suspended lanterns, diya flames and facade reflections behind the customer.',
+    },
+  },
+  girl: {
+    'set-1': {
+      id: 'girl-set-1', category: 'girl', promptSet: 'set-1', poseId: 'soft-side-stance',
+      cameraMotion: 'Use one gentle child-eye-level whole-frame optical push, preserving the exact approved frontal viewpoint.',
+      environmentMotion: 'Animate only existing distant lanterns, garden lights, diya flames, leaves and water reflections behind the child.',
+    },
+    'set-2': {
+      id: 'girl-set-2', category: 'girl', promptSet: 'set-2', poseId: 'namaste',
+      cameraMotion: 'Use one very gentle child-eye-level whole-frame optical push, preserving the exact approved frontal viewpoint.',
+      environmentMotion: 'Animate only existing floating lanterns, garden lights, diya flames and water reflections behind the child.',
+    },
+  },
+  boy: {
+    'set-1': {
+      id: 'boy-set-1', category: 'boy', promptSet: 'set-1', poseId: 'relaxed-sides',
+      cameraMotion: 'Use one smooth child-eye-level whole-frame optical push, preserving the exact approved frontal viewpoint.',
+      environmentMotion: 'Animate only existing distant lanterns, gateway lights, diya flames and floor reflections behind the child.',
+    },
+    'set-2': {
+      id: 'boy-set-2', category: 'boy', promptSet: 'set-2', poseId: 'front-open',
+      cameraMotion: 'Use one calm child-eye-level whole-frame optical push and finish with a stable full-body hold.',
+      environmentMotion: 'Animate only existing suspended lanterns, distant fireworks, diya flames and floor reflections behind the child.',
+    },
+  },
+};
+
+export function getCampaignExperience(category: CustomerCategory, promptSet: VideoPromptSet): CampaignExperienceDefinition {
+  return CAMPAIGN_EXPERIENCES[category][promptSet];
+}
+
+export function getCampaignPoseForExperience(category: CustomerCategory, promptSet: VideoPromptSet): CampaignPoseId {
+  return getCampaignExperience(category, promptSet).poseId;
+}
+
 export function isCampaignPoseId(value: unknown): value is CampaignPoseId {
   return typeof value === 'string' && (CAMPAIGN_POSE_IDS as readonly string[]).includes(value);
 }
 
 export function getAllowedCampaignPoseIds(category: CustomerCategory, garmentType?: GarmentType): CampaignPoseId[] {
   void garmentType;
-  const categoryPoses: Record<CustomerCategory, CampaignPoseId[]> = {
-    women: ['one-hand-hip', 'low-wrist-hold'],
-    men: ['two-hands-hips', 'low-clasp'],
-    girl: ['soft-side-stance', 'namaste'],
-    boy: ['relaxed-sides', 'front-open'],
-  };
-  return categoryPoses[category];
+  return [getCampaignPoseForExperience(category, 'set-1'), getCampaignPoseForExperience(category, 'set-2')];
 }
 
 export function getCampaignPoseId(sessionId: string | undefined, category: CustomerCategory, garmentType?: GarmentType): CampaignPoseId {
-  const pool = getAllowedCampaignPoseIds(category, garmentType);
-  let hash = 0;
-  const key = `${sessionId || 'new'}:${category}:pose`;
-  for (let index = 0; index < key.length; index += 1) hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
-  return pool[hash % pool.length];
+  void garmentType;
+  const promptSet: VideoPromptSet = getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1';
+  return getCampaignPoseForExperience(category, promptSet);
 }
 
 export function getCampaignPoseLabel(poseId: CampaignPoseId): string {
@@ -807,21 +877,21 @@ export function getCampaignStartingStance(category: CustomerCategory): string {
 export function getCampaignPoseTransition(category: CustomerCategory, poseId: CampaignPoseId): string {
   switch (poseId) {
     case 'one-hand-hip':
-      return 'The customer visibly and smoothly raises one hand from their side up to rest gracefully on their hip, with fingers softly curved on the hip, while the other arm remains relaxed at their side, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer makes one short, smooth movement: one hand travels only along the outside silhouette to rest lightly at the outer hip, never crossing the chest, waist front, pallu, dupatta, placket, embroidery or garment centre; the other arm remains unchanged.';
     case 'two-hands-hips':
-      return 'The customer visibly and confidently brings both hands from their sides up to rest symmetrically on their hips in an authoritative, dignified Maharaja pose, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer makes one symmetrical movement: both hands travel upward only along the outer silhouette to rest lightly at the outer hips, never sweeping across the garment front, chest, waist centre, placket, border or embroidery.';
     case 'low-wrist-hold':
-      return 'The customer visibly and gracefully brings hands together below the waist, gently holding the opposite wrist in a poised, royal posture, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer makes one small movement below the waist: the hands meet in open space slightly in front of the body and one hand gently holds the opposite wrist, without touching or dragging the garment.';
     case 'low-clasp':
-      return 'The customer visibly and smoothly brings both hands together into an elegant low clasp below the waist, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer makes one small movement below the waist: both hands meet in a relaxed low clasp in open space, without touching the shirt, trouser, border or garment surface.';
     case 'namaste':
-      return 'The customer visibly and respectfully brings both palms together in front of the chest in a graceful traditional festive Namaste greeting, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The child makes one gentle child-safe movement: both hands rise through open space beside the torso and meet in a small Namaste held in front of the upper body, without touching, covering or dragging the garment.';
     case 'soft-side-stance':
-      return 'The girl smoothly rests one hand lightly near the side of her dress with a charming natural tilt, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The child makes one subtle child-safe weight shift while keeping both hands below the waist and clear of the garment; one hand settles beside the outer thigh without touching or pulling the dress.';
     case 'relaxed-sides':
-      return 'The customer stands upright with arms relaxed comfortably at the sides, maintaining a cheerful, confident posture with hands loose below the waist through second 6.0.';
+      return 'The child preserves the exact approved opening pose with arms relaxed at the sides; no hand gesture or body transition occurs.';
     case 'front-open':
-      return 'The customer smoothly assumes a poised, confident open stance with hands relaxed at the sides, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The child preserves the exact approved opening pose with hands relaxed at the sides and only a minimal natural shoulder settle; no hand gesture occurs.';
   }
 }
 
@@ -833,6 +903,7 @@ export function buildMasterPrompt(
   promptSet?: VideoPromptSet,
   poseId?: CampaignPoseId,
 ): string {
+  void poseId;
   const event = getEventOption(eventId);
   const resolvedPromptSet: VideoPromptSet = promptSet || (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1');
   const resolvedGarment = (typeof garmentTypeOrHint === 'string' && GARMENT_TYPE_VALUES.includes(garmentTypeOrHint as GarmentType))
@@ -840,7 +911,7 @@ export function buildMasterPrompt(
     : resolveGarmentType(category, typeof garmentTypeOrHint === 'string' ? garmentTypeOrHint : undefined);
   const garmentRules = getGarmentFidelityRules(resolvedGarment, false);
   const scene = getEventSceneDirection(category, eventId, resolvedPromptSet);
-  const resolvedPoseId = poseId || getCampaignPoseId(sessionId, category);
+  const resolvedPoseId = getCampaignPoseForExperience(category, resolvedPromptSet);
   const startingStance = getCampaignStartingStance(category);
   const safeImageScene = scene.imageScene
     .replace(/\s+in traditional pattu pavadai\b/gi, '')
@@ -857,6 +928,7 @@ MANDATORY SUBJECT POSTURE (OPENING FRAME FOR VIDEO):
 ${startingStance}
 - EXACT ARM & HAND POSITION: The customer MUST be standing with both arms hanging naturally straight down at their sides. Both hands must rest loosely beside the outer thighs below the waist, completely clear of the hips, waist, and chest.
 - CRITICAL: Absolutely DO NOT place hands on hips, DO NOT place hands on waist, DO NOT cross arms, DO NOT touch chest. Both arms MUST hang straight down at the sides. This natural relaxed stance is essential because this image is Frame 0 for a video commercial where the customer starts with arms at sides and smoothly raises a hand onto the signature ${getCampaignPoseLabel(resolvedPoseId)} pose.
+- The approved output image itself becomes the absolute opening-pose authority for video. Video generation must begin from the pose actually visible in this image and must never reconstruct the customer to satisfy generic text.
 - Preserve the uploaded customer's natural anatomy and keep the presentation refined and dignified.
 
 GARMENT & STYLING ARCHITECTURE:

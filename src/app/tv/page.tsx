@@ -14,6 +14,7 @@ const TV_LOCALITY = 'தஞ்சாவூர்';
 
 type PlaybackItem = {
   queueId: string;
+  queueNumber?: number | null;
   reservationId: string;
   videoUrl: string;
   liveAudioUrl?: string | null;
@@ -316,6 +317,12 @@ export default function TvPlayerPage() {
     window.setTimeout(preloadNextPlaylistItem, 50);
   }
 
+  function hasOutstandingLivePlayback() {
+    return currentPlaybackRef.current?.source === 'live'
+      || Boolean(pendingSlotRef.current && slotItemsRef.current[pendingSlotRef.current]?.source === 'live')
+      || playlistRef.current.some((item) => item.source === 'live');
+  }
+
   async function loadReplayLibrary() {
     try {
       let offset = 0;
@@ -347,6 +354,10 @@ export default function TvPlayerPage() {
     }, 30 * 1000);
 
     const pollNextVideo = async () => {
+      if (hasOutstandingLivePlayback()) {
+        if (isMounted) timeoutRef.current = setTimeout(pollNextVideo, 2000);
+        return;
+      }
       if (pollInFlightRef.current) return;
       pollInFlightRef.current = true;
 
@@ -359,6 +370,7 @@ export default function TvPlayerPage() {
         if (data.status === 'play' && data.videoUrl) {
           insertLivePlaybackNext({
             queueId: data.queueId,
+            queueNumber: data.queueNumber || null,
             reservationId: data.reservationId,
             videoUrl: data.videoUrl,
             liveAudioUrl: data.liveAudioUrl || getLiveAudioTrack(data.queueId || data.reservationId || data.videoUrl),

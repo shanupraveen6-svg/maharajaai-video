@@ -43,6 +43,7 @@ export default function ResultClient({
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [peopleAhead, setPeopleAhead] = useState<number | null>(null);
   const [liveQueueStatus, setLiveQueueStatus] = useState<'queued' | 'reserved' | 'playing' | 'completed' | 'playback_failed'>('queued');
+  const [liveTimesPlayed, setLiveTimesPlayed] = useState(0);
   const [eventId, setEventId] = useState<EventId>(initialEventId);
   const [category, setCategory] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -158,6 +159,7 @@ export default function ResultClient({
           setQueueNumber(typeof data.queueNumber === 'number' ? data.queueNumber : null);
           setQueuePosition(typeof data.queuePosition === 'number' ? data.queuePosition : null);
           setPeopleAhead(typeof data.peopleAhead === 'number' ? data.peopleAhead : null);
+          setLiveTimesPlayed(Number(data.timesPlayed || 0));
           if (data.status === 'completed' || data.status === 'playback_failed') {
             return;
           }
@@ -341,7 +343,7 @@ export default function ResultClient({
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#D4AF37]">Maharaja TV Status</p>
             <p className="mt-2 text-base font-bold text-[#F3E5AB]">
               {liveQueueStatus === 'playing'
-                ? 'Playing on showroom TV'
+                ? liveTimesPlayed >= 1 ? 'Second playback on showroom TV' : 'Playing on showroom TV'
                 : liveQueueStatus === 'reserved'
                 ? 'Preparing on showroom TV'
                 : liveQueueStatus === 'completed'

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CampaignPoseId, type CustomerCategory, getAllowedCampaignPoseIds, getCampaignPoseId, isCampaignPoseId, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, buildMasterPrompt, resolveGarmentType, type VideoPromptSet, getSceneIndex } from '@/lib/maharaja/config';
+import { type CustomerCategory, getCampaignExperience, getCampaignPoseForExperience, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, buildMasterPrompt, resolveGarmentType, type VideoPromptSet, getSceneIndex } from '@/lib/maharaja/config';
 import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
@@ -213,10 +213,11 @@ export async function POST(req: NextRequest) {
     const promptSet: VideoPromptSet = (body.promptSet === 'set-2' || body.promptSet === 'set-1')
       ? body.promptSet
       : (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1');
-    const allowedPoseIds = getAllowedCampaignPoseIds(customerCategory, garmentType);
-    const poseId: CampaignPoseId = isCampaignPoseId(body.poseId) && allowedPoseIds.includes(body.poseId)
-      ? body.poseId
-      : getCampaignPoseId(sessionId, customerCategory, garmentType);
+    const experience = getCampaignExperience(customerCategory, promptSet);
+    const poseId = getCampaignPoseForExperience(customerCategory, promptSet);
+    const sanitizedGarmentRoles = Array.isArray(garmentRoles)
+      ? garmentRoles.slice(0, garmentInputs.length).map((role: unknown) => String(role))
+      : [];
 
     try {
         const contents: any[] = [];
@@ -231,13 +232,12 @@ export async function POST(req: NextRequest) {
         });
         referencesReadyAt = Date.now();
 
-        const suppliedRoles = Array.isArray(garmentRoles) ? garmentRoles.slice(0, garmentInputs.length) : [];
-        const roleInstructions = suppliedRoles.length
-          ? suppliedRoles.map((role: string, idx: number) => `- Garment Image ${idx + 1} = ${role.toUpperCase()}`).join('\n')
+        const roleInstructions = sanitizedGarmentRoles.length
+          ? sanitizedGarmentRoles.map((role: string, idx: number) => `- Garment Image ${idx + 1} = ${role.toUpperCase()}`).join('\n')
           : '- Garment Image 1 is the exact uploaded garment reference.';
 
         const categoryGarmentLine = garmentType === 'saree'
-          ? '- For traditional Indian sarees: preserve exact metallic zari borders, gold thread luster, pallu motif geometry, and blouse styling.'
+          ? '- For traditional Indian sarees: preserve the exact saree body, pallu, border finish, motif geometry, blouse construction and drape shown in the supplied references. Never convert it into salwar, churidar, lehenga or a one-piece garment.'
           : garmentType === 'lehenga'
             ? '- For lehengas: preserve exact flared skirt/kalis silhouette, choli neckline, embroidery motifs, and dupatta drape. Strictly no saree pleats or pallu.'
             : garmentType === 'salwar'
@@ -273,28 +273,10 @@ ${categoryGarmentLine}
         if (service === 'try-on') {
           prompt = `${buildTryOnPrompt(customerCategory)}\n\n${garmentFidelityRules}`;
         } else {
-          const tryOnRef = (service === 'ai-video' && (body.tryOnImageUrl || access.pass?.tryOnImageUrl)) || null;
-          if (tryOnRef && typeof tryOnRef === 'string') {
-            if (tryOnRef.startsWith('http')) {
-              try {
-                const res = await fetch(tryOnRef);
-                if (res.ok) {
-                  const arrayBuffer = await res.arrayBuffer();
-                  contents.push({ inlineData: { mimeType: 'image/jpeg', data: Buffer.from(arrayBuffer).toString('base64') } });
-                }
-              } catch (fetchErr) {
-                console.warn('Failed to fetch try-on image reference from URL for Gemini:', fetchErr);
-              }
-            } else {
-              const tryOnBase64 = tryOnRef.split(',')[1] || tryOnRef;
-              contents.push({ inlineData: { mimeType: 'image/jpeg', data: tryOnBase64 } });
-            }
-          }
-
           const referenceHierarchy = `REFERENCE PRIORITY:
 - The first image (original customer photograph) is the authoritative identity reference.
-- The garment photograph(s) are the authoritative garment-design references.
-${tryOnRef ? '- The virtual try-on reference is supplied only to understand approximate garment placement and drape. If the virtual try-on differs from the original customer\'s face, body proportions, skin tone, hairstyle, age, or the original garment\'s color/design, IGNORE those differences and follow the original references.' : ''}`;
+- The current garment photograph(s), identified by the explicit roles above, are the only authoritative garment-design references.
+- No previous Try-On result, previous master image or prior customer output is supplied or permitted as a reference.`;
 
           const fullConcept = buildMasterPrompt(customerCategory, eventId, sessionId, garmentType, promptSet, poseId);
 
@@ -399,6 +381,8 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
         promptSet,
         poseId,
         garmentType,
+        experienceId: experience.id,
+        garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
         consentVersion: '2026-10-privacy-v1',
@@ -422,6 +406,8 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
         promptSet,
         poseId,
         garmentType,
+        experienceId: experience.id,
+        garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
         consentVersion: '2026-10-privacy-v1',
@@ -447,6 +433,8 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
             poseId,
             category: customerCategory,
             garmentType,
+            experienceId: experience.id,
+            garmentRoles: sanitizedGarmentRoles.slice(0, 3),
             referenceSessionId: sessionId,
             personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : undefined,
             garmentPhotoStoragePaths: Array.isArray(body.garmentPhotoStoragePaths)
