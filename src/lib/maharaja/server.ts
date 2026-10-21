@@ -9,6 +9,7 @@ import {
   AI_VIDEO_MIN_PURCHASE,
   type EventId,
   type CustomerCategory,
+  type CampaignPoseId,
   type VideoPromptSet,
   MAHARAJA_CLIENT_ID,
   MAHARAJA_WORKSPACE_CODE,
@@ -91,6 +92,7 @@ export type MaharajaVideoPass = {
   videoMasterApprovedAtMs?: number;
   videoMasterApprovedUrl?: string;
   videoMasterPromptSet?: VideoPromptSet;
+  videoMasterPoseId?: CampaignPoseId;
   videoMasterCategory?: CustomerCategory;
   videoMasterGarmentType?: string;
   videoReferenceSessionId?: string;
@@ -1175,6 +1177,7 @@ export async function markPassVideoMasterDone(
   videoMasterUrl: string,
   meta?: {
     promptSet?: VideoPromptSet;
+    poseId?: CampaignPoseId;
     category?: CustomerCategory;
     garmentType?: string;
     referenceSessionId?: string;
@@ -1209,6 +1212,7 @@ export async function markPassVideoMasterDone(
         activeMasterGenerationId: FieldValue.delete(),
       };
       if (meta?.promptSet) updateData.videoMasterPromptSet = meta.promptSet;
+      if (meta?.poseId) updateData.videoMasterPoseId = meta.poseId;
       if (cat) updateData.videoMasterCategory = cat;
       if (garment) updateData.videoMasterGarmentType = garment;
       if (meta?.referenceSessionId) updateData.videoReferenceSessionId = meta.referenceSessionId;
@@ -1240,6 +1244,7 @@ export async function markPassVideoMasterDone(
     };
     delete passCopy.activeMasterGenerationId;
     if (meta?.promptSet) passCopy.videoMasterPromptSet = meta.promptSet;
+    if (meta?.poseId) passCopy.videoMasterPoseId = meta.poseId;
     if (cat) passCopy.videoMasterCategory = cat;
     if (garment) passCopy.videoMasterGarmentType = garment;
     if (meta?.referenceSessionId) passCopy.videoReferenceSessionId = meta.referenceSessionId;

@@ -23,8 +23,10 @@ import { compressImage } from '@/lib/utils/image';
 import {
   buildMasterPrompt,
   EVENT_OPTIONS,
+  getCampaignPoseId,
   getEventOption,
   getSceneIndex,
+  type CampaignPoseId,
   type CustomerCategory,
   type EventId,
   type VideoPromptSet,
@@ -46,6 +48,7 @@ type AccessResponse = {
     tryOnUsed: boolean;
     videoMasterApproved?: boolean;
     videoMasterCategory?: CustomerCategory | null;
+    videoMasterPoseId?: CampaignPoseId | null;
   };
 };
 
@@ -82,6 +85,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [category, setCategory] = useState<CustomerCategory>('women');
   const [sessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
   const [promptSet, setPromptSet] = useState<VideoPromptSet>(() => (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1'));
+  const [poseId, setPoseId] = useState<CampaignPoseId>(() => getCampaignPoseId(sessionId, 'women'));
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
   const [deviceId, setDeviceId] = useState('');
@@ -223,6 +227,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           if (data.access.tryOnImageUrl) setTryOnImageUrl(data.access.tryOnImageUrl);
           setEventId(retryData.source.eventId);
           setCategory(retryData.source.category);
+          setPoseId(getCampaignPoseId(sessionId, retryData.source.category));
           setGarmentAnalysis(retryData.source.garmentAnalysis);
           setMessage('Video retry ready. The safe backup prompt will use the same approved image.');
         } else if (data.access.service === 'ai-video' && (data.access.tryOnImageUrl || data.access.videoMasterUrl)) {
@@ -233,6 +238,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           }
           if (data.access.videoMasterCategory) {
             setCategory(data.access.videoMasterCategory);
+          }
+          if (data.access.videoMasterPoseId) {
+            setPoseId(data.access.videoMasterPoseId);
           }
           if (data.access.videoMasterPromptSet) {
             setPromptSet(data.access.videoMasterPromptSet);
@@ -450,6 +458,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setStage('image');
     setError('');
     setMessage(activeService === 'try-on' ? 'Uploading photos and preparing Try-On...' : `Uploading photos and preparing ${event.label} portrait...`);
+    const progressTimers = [
+      window.setTimeout(() => setMessage('Creating your image with Gemini. This normally takes a little longer than photo upload.'), 8000),
+      window.setTimeout(() => setMessage('Gemini is still creating the full-quality image. Your photos and selected pose are safely locked.'), 28000),
+    ];
     try {
       const [personStoragePath, ...garmentStoragePaths] = await Promise.all([
         uploadPhotoToStorage(personPhoto, 'person'),
@@ -469,6 +481,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         eventId,
         templateId: category,
         promptSet,
+        poseId,
         garmentRoles,
         personAnalysis,
         garmentAnalysis,
@@ -477,7 +490,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         processingConsent,
         guardianProcessingConsent: (category === 'girl' || category === 'boy') ? processingConsent : false,
         consentVersion: '2026-10-privacy-v1',
-        conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId, undefined, promptSet) : undefined,
+        conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId, undefined, promptSet, poseId) : undefined,
       };
 
       requestBody.personPhotoStoragePath = personStoragePath;
@@ -497,12 +510,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setVideoMasterUrl(data.masterImageUrl);
         setMasterApproved(Boolean(data.approved));
       }
+      const elapsedSeconds = typeof data.timing?.totalMs === 'number' ? Math.max(1, Math.round(data.timing.totalMs / 1000)) : null;
       setMessage(activeService === 'try-on'
-        ? 'Your Maharaja AI Try-On is ready.'
-        : 'Festival portrait ready. Continue to create your AI video.');
+        ? `Your Maharaja AI Try-On is ready${elapsedSeconds ? ` in ${elapsedSeconds}s` : ''}.`
+        : `Festival portrait ready${elapsedSeconds ? ` in ${elapsedSeconds}s` : ''}. Continue to create your AI video.`);
     } catch (caught) {
       setError(customerError(caught, 'The AI image could not be generated. Please ask Maharaja staff for assistance.'));
     } finally {
+      progressTimers.forEach((timer) => window.clearTimeout(timer));
       setStage('ready');
     }
   }
@@ -639,7 +654,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
               <span className="absolute inset-0 flex items-center justify-center text-3xl">🪔</span>
             </div>
             <p className="font-serif text-xl font-bold text-[#F3E5AB]">{stage === 'image' ? 'Creating your Diwali portrait' : 'Rendering your Diwali film'}</p>
-            <p className="mt-2 text-sm leading-6 text-[#F3E5AB]/85">{stage === 'image' ? 'Securing your photos and building the festive scene.' : 'Adding cinematic light, depth and motion to your approved portrait.'}</p>
+            <p className="mt-2 text-sm leading-6 text-[#F3E5AB]/85">{stage === 'image' ? (message || 'Securing your photos and building the festive scene.') : 'Adding cinematic light, depth and motion to your approved portrait.'}</p>
             <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#D4AF37]">Please keep this page open</p>
           </div>
         </div>
@@ -736,7 +751,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setPoseId(getCampaignPoseId(sessionId, option)); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
 
                   <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
                     <select

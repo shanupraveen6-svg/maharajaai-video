@@ -56,6 +56,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         videoMasterUrl: access.pass?.videoMasterUrl || null,
         videoMasterApproved: access.pass?.videoMasterApproved || false,
         videoMasterPromptSet: access.pass?.videoMasterPromptSet || null,
+        videoMasterPoseId: access.pass?.videoMasterPoseId || null,
         videoMasterCategory: access.pass?.videoMasterCategory || null,
         videoMasterGarmentType: access.pass?.videoMasterGarmentType || null,
         videoDone: access.pass?.videoDone || false,

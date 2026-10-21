@@ -60,6 +60,30 @@ export function getEventOption(eventId: EventId) {
 
 export type CustomerCategory = 'men' | 'women' | 'boy' | 'girl';
 export type VideoPromptSet = 'set-1' | 'set-2';
+export const CAMPAIGN_POSE_IDS = [
+  'relaxed-sides',
+  'one-hand-hip',
+  'two-hands-hips',
+  'chest-hold',
+  'low-clasp',
+  'low-wrist-hold',
+  'editorial-asymmetry',
+  'soft-side-stance',
+] as const;
+export type CampaignPoseId = (typeof CAMPAIGN_POSE_IDS)[number];
+
+export function isCampaignPoseId(value: unknown): value is CampaignPoseId {
+  return typeof value === 'string' && (CAMPAIGN_POSE_IDS as readonly string[]).includes(value);
+}
+
+export function getCampaignPoseId(sessionId: string | undefined, category: CustomerCategory): CampaignPoseId {
+  const childSafePoses: CampaignPoseId[] = ['relaxed-sides', 'low-clasp', 'low-wrist-hold', 'soft-side-stance'];
+  const pool = category === 'boy' || category === 'girl' ? childSafePoses : [...CAMPAIGN_POSE_IDS];
+  let hash = 0;
+  const key = `${sessionId || 'new'}:${category}:pose`;
+  for (let index = 0; index < key.length; index += 1) hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+  return pool[hash % pool.length];
+}
 
 /** High-accuracy virtual try-on prompt: strict identity lock + authentic garment transfer + clean studio. */
 export function buildTryOnPrompt(category: CustomerCategory) {
@@ -659,26 +683,30 @@ export function getSceneIndex(sessionId?: string): 0 | 1 {
   return (hash % 2) as 0 | 1;
 }
 
-function getCampaignPose(category: CustomerCategory, promptSet: VideoPromptSet): string {
-  const poses: Record<CustomerCategory, Record<VideoPromptSet, string>> = {
-    women: {
-      'set-1': 'A poised open-shoulder stance with both arms relaxed at naturally different angles, hands fully visible at the outer thigh line and clear of the torso and garment.',
-      'set-2': 'An elegant still stance with both arms relaxed naturally at the sides, hands visible below the waist and fully clear of the torso and garment.',
-    },
-    men: {
-      'set-1': 'A calm upright stance with both hands naturally aligned near the trouser seams, arms relaxed, and no hand touching the torso or garment.',
-      'set-2': 'A balanced campaign stance with relaxed asymmetrical arms and both hands fully visible below the waist, clear of the torso and garment.',
-    },
-    girl: {
-      'set-1': 'A child-safe balanced standing pose with both hands relaxed naturally at the sides and feet comfortably placed.',
-      'set-2': 'A child-safe calm standing pose with hands softly and naturally together below the waist, with no gesture or prop.',
-    },
-    boy: {
-      'set-1': 'A child-safe upright pose with both arms relaxed at the sides, hands visible below the waist and clear of the torso.',
-      'set-2': 'A child-safe relaxed standing pose with both hands resting separately at the sides below the waist, with no gesture or prop.',
-    },
+export function getCampaignPose(category: CustomerCategory, poseId: CampaignPoseId): string {
+  const childPoses: Record<CampaignPoseId, string> = {
+    'relaxed-sides': 'A child-safe upright standing pose with both arms relaxed at the sides, hands visible below the waist and clear of the torso.',
+    'one-hand-hip': 'A child-safe upright standing pose with both arms relaxed at the sides, hands visible below the waist and clear of the torso.',
+    'two-hands-hips': 'A child-safe balanced standing pose with both hands relaxed naturally at the sides and feet comfortably placed.',
+    'chest-hold': 'A child-safe calm standing pose with hands softly and naturally together below the waist, with no gesture or prop.',
+    'low-clasp': 'A child-safe calm standing pose with hands softly and naturally together below the waist, with no gesture or prop.',
+    'low-wrist-hold': 'A child-safe relaxed standing pose with one hand gently holding the other wrist below the waist, with no gesture or prop.',
+    'editorial-asymmetry': 'A child-safe balanced standing pose with one arm relaxed at the side and the other resting naturally below the waist, both hands clear of the torso.',
+    'soft-side-stance': 'A child-safe upright pose with a gentle natural weight shift, both arms relaxed at the sides and hands visible below the waist.',
   };
-  return poses[category][promptSet];
+  if (category === 'boy' || category === 'girl') return childPoses[poseId];
+
+  const adultPoses: Record<CampaignPoseId, string> = {
+    'relaxed-sides': 'A calm upright stance with both arms relaxed at the sides, hands fully visible below the waist and clear of the torso and garment.',
+    'one-hand-hip': 'A confident static fashion stance with one hand already resting on the hip and the other arm relaxed at the side. The hand must remain on the hip, not move toward the chest.',
+    'two-hands-hips': 'A confident static fashion stance with both hands already resting symmetrically on the hips. No hand movement, chest touch, gesture or pose transition.',
+    'chest-hold': 'A composed static fashion stance with one hand already resting lightly over the upper chest and the other arm relaxed at the side. This is a completed still pose: do not raise, lower or animate the hand.',
+    'low-clasp': 'An elegant still stance with both hands softly clasped together below the waist, clear of the garment details.',
+    'low-wrist-hold': 'A refined static stance with one hand gently holding the other wrist below the waist, clear of the torso and garment.',
+    'editorial-asymmetry': 'A balanced editorial stance with one arm naturally bent low and the other relaxed at the side, both hands fully visible below the waist and clear of the torso.',
+    'soft-side-stance': 'A poised open-shoulder stance with a gentle natural weight shift, both arms relaxed at naturally different angles and hands at the outer thigh line.',
+  };
+  return adultPoses[poseId];
 }
 
 export function buildMasterPrompt(
@@ -686,7 +714,8 @@ export function buildMasterPrompt(
   eventId: EventId = 'diwali',
   sessionId?: string,
   garmentTypeOrHint?: GarmentType | string,
-  promptSet?: VideoPromptSet
+  promptSet?: VideoPromptSet,
+  poseId?: CampaignPoseId,
 ): string {
   const event = getEventOption(eventId);
   const resolvedPromptSet: VideoPromptSet = promptSet || (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1');
@@ -695,7 +724,8 @@ export function buildMasterPrompt(
     : resolveGarmentType(category, typeof garmentTypeOrHint === 'string' ? garmentTypeOrHint : undefined);
   const garmentRules = getGarmentFidelityRules(resolvedGarment, false);
   const scene = getEventSceneDirection(category, eventId, resolvedPromptSet);
-  const campaignPose = getCampaignPose(category, resolvedPromptSet);
+  const resolvedPoseId = poseId || getCampaignPoseId(sessionId, category);
+  const campaignPose = getCampaignPose(category, resolvedPoseId);
   const safeImageScene = scene.imageScene
     .replace(/\s+in traditional pattu pavadai\b/gi, '')
     .replace(/\s+in traditional (?:ethnic|festive) wear\b/gi, '')
@@ -705,7 +735,7 @@ export function buildMasterPrompt(
   const childSafety = category === 'boy' || category === 'girl'
     ? '\n\nCHILD SAFETY: Keep the child fully age-appropriate, naturally cheerful, modestly styled, and free of adult glamour, mature posing, or suggestive presentation.'
     : '';
-  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nCAMPAIGN POSE — STATIC FIRST FRAME:\n${campaignPose}\n- This is a refined model-ad pose, not a hand gesture. No waving, pointing, prayer pose, crossed arms, touching the chest, holding props or rotating the body.\n- Preserve the uploaded customer's natural anatomy and keep the selected pose stable for the later H3 film.\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
+  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nCAMPAIGN POSE — STATIC FIRST FRAME (${resolvedPoseId}):\n${campaignPose}\n- This is a completed refined model-ad pose, not a hand gesture or action sequence. No waving, pointing, prayer pose, crossed arms, holding props or rotating the body.\n- Preserve the uploaded customer's natural anatomy and keep the selected pose stable for the later H3 film.\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
 }
 
 /** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, buildMasterPrompt, resolveGarmentType, type VideoPromptSet, getSceneIndex } from '@/lib/maharaja/config';
+import { type CampaignPoseId, type CustomerCategory, getCampaignPoseId, isCampaignPoseId, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, buildMasterPrompt, resolveGarmentType, type VideoPromptSet, getSceneIndex } from '@/lib/maharaja/config';
 import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
@@ -81,6 +81,10 @@ async function resolveImageBase64(input: unknown, bucket: any): Promise<string> 
 }
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now();
+  let referencesReadyAt = 0;
+  let geminiReadyAt = 0;
+  let storageReadyAt = 0;
   let reservedDeviceId = '';
   let reservedSessionId = '';
   let lockedPassCode = '';
@@ -206,6 +210,9 @@ export async function POST(req: NextRequest) {
     const promptSet: VideoPromptSet = (body.promptSet === 'set-2' || body.promptSet === 'set-1')
       ? body.promptSet
       : (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1');
+    const poseId: CampaignPoseId = isCampaignPoseId(body.poseId)
+      ? body.poseId
+      : getCampaignPoseId(sessionId, customerCategory);
 
     try {
         const contents: any[] = [];
@@ -218,6 +225,7 @@ export async function POST(req: NextRequest) {
         garmentBase64s.forEach((garmentBase64) => {
           if (garmentBase64) contents.push({ inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } });
         });
+        referencesReadyAt = Date.now();
 
         const suppliedRoles = Array.isArray(garmentRoles) ? garmentRoles.slice(0, garmentInputs.length) : [];
         const roleInstructions = suppliedRoles.length
@@ -272,7 +280,7 @@ ${categoryGarmentLine}
 - The garment photograph(s) are the authoritative garment-design references.
 ${tryOnRef ? '- The virtual try-on reference is supplied only to understand approximate garment placement and drape. If the virtual try-on differs from the original customer\'s face, body proportions, skin tone, hairstyle, age, or the original garment\'s color/design, IGNORE those differences and follow the original references.' : ''}`;
 
-          const fullConcept = buildMasterPrompt(customerCategory, eventId, sessionId, garmentType, promptSet);
+          const fullConcept = buildMasterPrompt(customerCategory, eventId, sessionId, garmentType, promptSet, poseId);
 
           prompt = `${fullConcept}\n\n${garmentFidelityRules}\n\n${referenceHierarchy}`;
         }
@@ -288,6 +296,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
             imageConfig: { aspectRatio: '9:16' },
           },
         });
+        geminiReadyAt = Date.now();
 
         const candidate = genResponse.candidates?.[0];
         const part = candidate?.content?.parts?.find((p: any) => p.inlineData);
@@ -311,6 +320,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
               const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
               masterImageUrl = signedUrl;
             }
+            storageReadyAt = Date.now();
           } catch (storageErr) {
             console.error('Firebase Storage upload failed for master image:', storageErr);
             throw new Error(`Cloud Storage error: Failed to persist ${service} image (${storageErr instanceof Error ? storageErr.message : String(storageErr)}). Verify Firebase Storage bucket permissions.`);
@@ -371,6 +381,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
         personAnalysis,
         templateId: templateId || null,
         promptSet,
+        poseId,
         garmentType,
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
@@ -393,6 +404,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
         personAnalysis,
         templateId: templateId || null,
         promptSet,
+        poseId,
         garmentType,
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
@@ -416,6 +428,7 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
         } else {
           await markPassVideoMasterDone(access.pass!.code, passImageUrl, {
             promptSet,
+            poseId,
             category: customerCategory,
             garmentType,
             referenceSessionId: sessionId,
@@ -443,12 +456,22 @@ ${tryOnRef ? '- The virtual try-on reference is supplied only to understand appr
 
     const updatedEntitlement = lockedPassCode ? await getCampaignEntitlementForPass(lockedPassCode) : null;
     const updatedAllowances = getCustomerServiceAllowances(updatedEntitlement);
+    const completedAt = Date.now();
+    const timing = {
+      referencePreparationMs: referencesReadyAt ? referencesReadyAt - startedAt : null,
+      geminiGenerationMs: geminiReadyAt && referencesReadyAt ? geminiReadyAt - referencesReadyAt : null,
+      imagePersistenceMs: storageReadyAt && geminiReadyAt ? storageReadyAt - geminiReadyAt : null,
+      totalMs: completedAt - startedAt,
+    };
+    console.info('Maharaja image generation timing', { sessionId, service, poseId, ...timing });
 
     return NextResponse.json({
       success: true,
       sessionId,
       masterImageUrl,
       approved: service === 'try-on',
+      poseId,
+      timing,
       allowances: updatedAllowances,
       operatorMessage: service === 'try-on'
         ? 'Try-On image generated successfully.'
