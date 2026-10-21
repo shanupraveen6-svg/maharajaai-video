@@ -23,9 +23,7 @@ import { compressImage } from '@/lib/utils/image';
 import {
   buildMasterPrompt,
   EVENT_OPTIONS,
-  getAllowedCampaignPoseIds,
   getCampaignPoseId,
-  getCampaignPoseLabel,
   getEventOption,
   getSceneIndex,
   type CampaignPoseId,
@@ -64,13 +62,57 @@ type Analysis = Record<string, unknown> & {
 };
 
 const GARMENT_ROLE_OPTIONS: Record<GarmentType, string[]> = {
+  unset: ['Garment piece 1', 'Garment piece 2', 'Garment detail'],
   saree: ['Saree body', 'Pallu / border', 'Blouse'],
   lehenga: ['Lehenga skirt', 'Choli / blouse', 'Dupatta / detail'],
   salwar: ['Kameez / top', 'Salwar / churidar', 'Dupatta / detail'],
+  one_piece: ['Front view', 'Back / side view', 'Fabric detail'],
+  two_piece: ['Top', 'Bottom', 'Detail / layer'],
+  three_piece: ['Outer layer', 'Inner layer', 'Bottom'],
+  shirt_pant: ['Shirt', 'Pant / trouser', 'Detail / layer'],
+  tshirt_bottom: ['T-shirt / top', 'Bottom', 'Detail / layer'],
   kurta_dhoti: ['Kurta / shirt', 'Dhoti / trouser', 'Angavastram / detail'],
+  dhoti_veshti: ['Shirt / kurta', 'Dhoti / veshti', 'Border / detail'],
   pattu_pavadai: ['Pavadai skirt', 'Blouse', 'Border / detail'],
   boy_ethnic: ['Top / shirt', 'Bottom / dhoti', 'Layer / detail'],
   generic: ['Garment front', 'Garment detail', 'Border / layer'],
+};
+
+const GARMENT_TYPE_OPTIONS: Record<CustomerCategory, Array<{ value: GarmentType; label: string }>> = {
+  women: [
+    { value: 'unset', label: 'Select garment type' },
+    { value: 'saree', label: 'Saree' },
+    { value: 'salwar', label: 'Salwar suit / churidar' },
+    { value: 'lehenga', label: 'Lehenga set' },
+    { value: 'one_piece', label: 'One-piece dress' },
+    { value: 'two_piece', label: 'Two-piece set' },
+    { value: 'three_piece', label: 'Three-piece set' },
+  ],
+  men: [
+    { value: 'unset', label: 'Select garment type' },
+    { value: 'shirt_pant', label: 'Shirt + pant' },
+    { value: 'tshirt_bottom', label: 'T-shirt + bottom' },
+    { value: 'kurta_dhoti', label: 'Kurta + bottom' },
+    { value: 'dhoti_veshti', label: 'Dhoti / veshti set' },
+    { value: 'one_piece', label: 'Single garment' },
+    { value: 'three_piece', label: 'Three-piece set' },
+  ],
+  girl: [
+    { value: 'unset', label: 'Select garment type' },
+    { value: 'pattu_pavadai', label: 'Pattu pavadai set' },
+    { value: 'lehenga', label: 'Lehenga set' },
+    { value: 'salwar', label: 'Salwar suit / churidar' },
+    { value: 'one_piece', label: 'One-piece dress' },
+    { value: 'two_piece', label: 'Two-piece set' },
+  ],
+  boy: [
+    { value: 'unset', label: 'Select garment type' },
+    { value: 'boy_ethnic', label: 'Kurta + bottom' },
+    { value: 'dhoti_veshti', label: 'Dhoti / veshti set' },
+    { value: 'shirt_pant', label: 'Shirt + pant' },
+    { value: 'tshirt_bottom', label: 'T-shirt + bottom' },
+    { value: 'one_piece', label: 'Single garment' },
+  ],
 };
 
 function rolesForGarment(garmentType: GarmentType) {
@@ -122,9 +164,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   });
   const [personPhoto, setPersonPhoto] = useState<string | null>(null);
   const [garmentPhotos, setGarmentPhotos] = useState<string[]>([]);
-  const [garmentType, setGarmentType] = useState<GarmentType>('generic');
+  const [garmentType, setGarmentType] = useState<GarmentType>('unset');
   const [garmentTypeConfirmed, setGarmentTypeConfirmed] = useState(false);
-  const [garmentRoles, setGarmentRoles] = useState<string[]>(() => rolesForGarment('generic'));
+  const [garmentRoles, setGarmentRoles] = useState<string[]>(() => rolesForGarment('unset'));
   const [personAnalysis, setPersonAnalysis] = useState<Analysis | null>(null);
   const [garmentAnalysis, setGarmentAnalysis] = useState<Analysis | null>(null);
   const [tryOnImageUrl, setTryOnImageUrl] = useState<string | null>(null);
@@ -303,7 +345,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     && (activeService === 'ai-video' || !!access?.access.phoneMasked || !!tryOnGrant)
     && !!personPhoto
     && garmentPhotos.length > 0
-    && (category !== 'women' || garmentTypeConfirmed)
+    && garmentTypeConfirmed
     && personAnalysis?.valid === true
     && personAnalysis.additionalPhotoRequired !== true
     && garmentAnalysis?.valid === true
@@ -773,21 +815,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { const nextGarmentType: GarmentType = option === 'women' ? 'generic' : option === 'men' ? 'generic' : option === 'girl' ? 'pattu_pavadai' : 'boy_ethnic'; setCategory(option); setGarmentType(nextGarmentType); setGarmentTypeConfirmed(option !== 'women'); setGarmentRoles(rolesForGarment(nextGarmentType)); setPoseId(getCampaignPoseId(sessionId, option, nextGarmentType)); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
-
-                  <label className="sm:col-span-2 text-xs font-bold uppercase text-[#5C4B43]">Approved pose
-                    <select
-                      value={poseId}
-                      disabled={busy || imagesLocked}
-                      onChange={(event) => setPoseId(event.target.value as CampaignPoseId)}
-                      className="mt-2 min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] px-3 text-base font-bold text-[#2A060C]"
-                    >
-                      {getAllowedCampaignPoseIds(category, garmentType).map((allowedPoseId) => (
-                        <option key={allowedPoseId} value={allowedPoseId}>{getCampaignPoseLabel(allowedPoseId)}</option>
-                      ))}
-                    </select>
-                    <span className="mt-1 block normal-case font-semibold text-[#6E0D1F]">Only the two approved poses for this category are available. The selected pose is stored in the master image and repeated to H3 as fixed.</span>
-                  </label>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); setPoseId(getCampaignPoseId(sessionId, option, 'unset')); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
 
                   <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
                     <select
@@ -818,30 +846,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         )}
                       </div>
 
-                      {category === 'women' && (
-                        <label className="mb-3 block text-xs font-bold text-[#5C4B43]">
-                          Garment type
-                          <select
-                            value={garmentType}
-                            disabled={busy || imagesLocked}
-                            onChange={(event) => {
-                              const nextType = event.target.value as GarmentType;
-                              setGarmentType(nextType);
-                              setGarmentTypeConfirmed(true);
-                              setGarmentRoles(rolesForGarment(nextType));
-                              setPoseId(getCampaignPoseId(sessionId, category, nextType));
-                              setGarmentAnalysis((current) => current ? { ...current, garmentType: nextType } : current);
-                            }}
-                            className="mt-1 min-h-11 w-full border border-[#B99A55] bg-white px-3 text-sm font-semibold text-[#2A060C] outline-none focus:border-[#6E0D1F]"
-                          >
-                            <option value="generic">Other / not sure</option>
-                            <option value="saree">Saree</option>
-                            <option value="lehenga">Lehenga</option>
-                            <option value="salwar">Salwar / Churidar</option>
-                          </select>
-                          {garmentType === 'saree' && <span className="mt-1 block text-[11px] font-medium text-[#6E0D1F]">For exact blouse output, add a blouse photo as the third reference.</span>}
-                        </label>
-                      )}
                       <div className="aspect-[3/4] overflow-hidden bg-white">
                         {personPhoto ? (
                           <img src={personPhoto} alt="Customer preview" className="h-full w-full object-cover" />
@@ -881,6 +885,27 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                           </button>
                         )}
                       </div>
+
+                      <label className="mb-3 block text-xs font-bold uppercase text-[#5C4B43]">
+                        Garment type
+                        <select
+                          value={garmentType}
+                          disabled={busy || imagesLocked}
+                          onChange={(event) => {
+                            const nextType = event.target.value as GarmentType;
+                            setGarmentType(nextType);
+                            setGarmentTypeConfirmed(nextType !== 'unset');
+                            setGarmentRoles(rolesForGarment(nextType));
+                            setPoseId(getCampaignPoseId(sessionId, category, nextType));
+                            setGarmentAnalysis((current) => current ? { ...current, garmentType: nextType } : current);
+                          }}
+                          className="mt-1 min-h-11 w-full border border-[#B99A55] bg-white px-3 text-sm font-semibold text-[#2A060C] outline-none focus:border-[#6E0D1F]"
+                        >
+                          {GARMENT_TYPE_OPTIONS[category].map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                        <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">Confirm the garment type first. The three labels below become the exact reference roles sent to AI.</span>
+                        {garmentType === 'saree' && <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">For exact blouse output, add a blouse photo as the third reference.</span>}
+                      </label>
 
                       {garmentPhotos.length === 0 ? (
                         <div className="aspect-[3/4] overflow-hidden bg-white p-2 flex flex-col items-center justify-center gap-2 text-slate-400">

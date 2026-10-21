@@ -206,8 +206,8 @@ export async function POST(req: NextRequest) {
 
     let masterImageUrl = '';
     const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
-    if (customerCategory === 'women' && body.garmentTypeConfirmed !== true) {
-      return NextResponse.json({ success: false, error: 'Choose the garment type before generating. This prevents sarees from being treated as salwar or churidar.' }, { status: 400 });
+    if (body.garmentTypeConfirmed !== true) {
+      return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
     }
     const garmentType = resolveGarmentType(customerCategory, body.garmentType, garmentAnalysis, garmentRoles);
     const promptSet: VideoPromptSet = (body.promptSet === 'set-2' || body.promptSet === 'set-1')
@@ -248,6 +248,18 @@ export async function POST(req: NextRequest) {
                   ? '- If the uploaded reference is traditional ethnic wear: preserve exact kurta-pyjama or dhoti-shirt silhouette. If the reference is a modern shirt/t-shirt/trousers: preserve exact shirt, print/ombre pattern, collar, and pants without converting to a kurta.'
                 : garmentType === 'pattu_pavadai'
                   ? '- For girls\' traditional wear: preserve exact pattu pavadai (silk skirt and blouse/choli) or anarkali silhouette and border details. Strictly no adult saree drape.'
+                  : garmentType === 'one_piece'
+                    ? '- For a one-piece garment: preserve the exact single-garment silhouette, neckline, sleeves, hem, print, and fabric details. Do not invent a second piece or layer.'
+                    : garmentType === 'two_piece'
+                      ? '- For a two-piece set: preserve the supplied top and bottom as separate pieces. Do not add a third layer, dupatta, saree drape, or replacement garment.'
+                      : garmentType === 'three_piece'
+                        ? '- For a three-piece set: preserve the exact outer layer, inner layer, and bottom in their supplied order. Do not remove or invent a layer.'
+                        : garmentType === 'shirt_pant'
+                          ? '- For shirt and pant: preserve the exact shirt collar, sleeves, placket, print or color treatment, and the supplied trousers. Never convert it to kurta or ethnic wear.'
+                          : garmentType === 'tshirt_bottom'
+                            ? '- For T-shirt and bottom: preserve the exact casual top, print, neckline, and supplied bottom. Never add a jacket or convert it to formal or ethnic wear.'
+                            : garmentType === 'dhoti_veshti'
+                              ? '- For dhoti or veshti: preserve the supplied shirt or kurta, dhoti/veshti pleats, border, drape, and any angavastram detail. Never convert it to trousers or a saree.'
                   : '- Garment type is intentionally unspecified. Copy only the uploaded garment references; do not infer a traditional, ethnic, western, formal, or casual replacement.';
 
         const garmentFidelityRules = `EXACT GARMENT ROLE & COLOR INSTRUCTIONS:

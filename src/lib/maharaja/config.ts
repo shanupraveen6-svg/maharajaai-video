@@ -184,7 +184,26 @@ FINAL QUALITY:
 - An aspirational ₹1-crore luxury Indian festive fashion campaign portrait faithful to the customer's identity and original garment.
 - Reject ordinary corridors, tight doorways, flat retail walls, shallow hallway framing and repetitive indoor compositions.`;
 
-export type GarmentType = 'saree' | 'lehenga' | 'salwar' | 'kurta_dhoti' | 'pattu_pavadai' | 'boy_ethnic' | 'generic';
+export type GarmentType =
+  | 'unset'
+  | 'saree'
+  | 'lehenga'
+  | 'salwar'
+  | 'one_piece'
+  | 'two_piece'
+  | 'three_piece'
+  | 'shirt_pant'
+  | 'tshirt_bottom'
+  | 'kurta_dhoti'
+  | 'dhoti_veshti'
+  | 'pattu_pavadai'
+  | 'boy_ethnic'
+  | 'generic';
+
+export const GARMENT_TYPE_VALUES: readonly GarmentType[] = [
+  'unset', 'saree', 'lehenga', 'salwar', 'one_piece', 'two_piece', 'three_piece',
+  'shirt_pant', 'tshirt_bottom', 'kurta_dhoti', 'dhoti_veshti', 'pattu_pavadai', 'boy_ethnic', 'generic',
+];
 
 export function resolveGarmentType(
   category: CustomerCategory = 'women',
@@ -192,6 +211,9 @@ export function resolveGarmentType(
   garmentAnalysis?: string,
   garmentRoles?: string[]
 ): GarmentType {
+  if (typeof explicitType === 'string' && GARMENT_TYPE_VALUES.includes(explicitType as GarmentType) && explicitType !== 'unset') {
+    return explicitType as GarmentType;
+  }
   const text = `${explicitType || ''} ${garmentAnalysis || ''} ${(garmentRoles || []).join(' ')}`.toLowerCase();
 
   if (text.includes('dhoti') || text.includes('veshti') || text.includes('kurta') || text.includes('pyjama') || text.includes('pajama')) {
@@ -226,7 +248,7 @@ export function getGarmentFidelityRules(
 - Fabric drape remains anchored to body contours with zero pattern drift and zero texture swimming.`;
   }
 
-  const type: GarmentType = ['saree', 'lehenga', 'salwar', 'kurta_dhoti', 'pattu_pavadai', 'boy_ethnic', 'generic'].includes(categoryOrGarment)
+  const type: GarmentType = GARMENT_TYPE_VALUES.includes(categoryOrGarment as GarmentType)
     ? (categoryOrGarment as GarmentType)
     : resolveGarmentType(categoryOrGarment as CustomerCategory);
 
@@ -248,12 +270,42 @@ export function getGarmentFidelityRules(
 - Strictly NO saree pleats, NO saree body drape, NO choli exposure.
 - Jewelry: Traditional festive jewelry naturally seated against skin and fabric.`;
 
+    case 'one_piece':
+      return `ONE-PIECE GARMENT FIDELITY:
+- Render the exact single-garment silhouette, neckline, sleeve length, hem, fit, fabric weave, print, and color from the supplied references.
+- Strictly no invented second garment, dupatta, saree drape, jacket, or layering.`;
+
+    case 'two_piece':
+      return `TWO-PIECE SET FIDELITY:
+- Render the exact top and bottom as separate supplied pieces, preserving their fit, joining line, colors, prints, and fabric texture.
+- Strictly no invented third layer, saree drape, dupatta, or altered proportions.`;
+
+    case 'three_piece':
+      return `THREE-PIECE SET FIDELITY:
+- Render the exact outer layer, inner layer, and bottom as three supplied pieces, preserving their order, fit, color, and details.
+- Do not remove, swap, or invent any layer.`;
+
+    case 'shirt_pant':
+      return `SHIRT AND PANT FIDELITY:
+- Render the exact shirt collar, placket, sleeves, print or color treatment, and the exact trouser fit and color from the references.
+- Strictly no kurta conversion, dhoti, jacket, or ethnic replacement.`;
+
+    case 'tshirt_bottom':
+      return `T-SHIRT AND BOTTOM FIDELITY:
+- Render the exact T-shirt or casual top, neckline, sleeves, print, and the exact supplied bottom garment.
+- Strictly no shirt-to-kurta conversion, added jacket, or formal/ethnic replacement.`;
+
     case 'kurta_dhoti':
       return `MEN'S ATTIRE SPECIFIC FIDELITY:
 - If the uploaded garment is traditional wear: render exact kurta silhouette, collar construction, placket buttons, fabric weave, and dhoti/veshti pleats or churidar/pyjama fit. Angavastram/shawl if present.
 - If the uploaded garment is modern shirts/trousers: render the exact shirt collar, sleeves, ombre/solid color pattern, and trousers faithfully from the reference. Never convert into a kurta or traditional wear.
 - Strictly NO feminine garment elements, NO saree drapes, NO blouse styling.
 - Posture: Confident, regal, masculine posture with grounded feet.`;
+
+    case 'dhoti_veshti':
+      return `DHOTI / VESHTI SET FIDELITY:
+- Render the exact supplied shirt or kurta, dhoti/veshti pleats, border, drape, and any angavastram detail.
+- Strictly no trousers, saree drape, or garment replacement.`;
 
     case 'boy_ethnic':
       return `BOY'S ATTIRE SPECIFIC FIDELITY:
@@ -268,6 +320,7 @@ export function getGarmentFidelityRules(
 - Strictly NO adult glamour, NO adult saree drape, NO mature styling.
 - Charming, natural girl princess elegance and modest styling.`;
 
+    case 'unset':
     case 'generic':
     default:
       return `GARMENT REFERENCE FIDELITY:
@@ -743,7 +796,7 @@ export function buildMasterPrompt(
 ): string {
   const event = getEventOption(eventId);
   const resolvedPromptSet: VideoPromptSet = promptSet || (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1');
-  const resolvedGarment = (typeof garmentTypeOrHint === 'string' && ['saree', 'lehenga', 'salwar', 'kurta_dhoti', 'pattu_pavadai', 'boy_ethnic', 'generic'].includes(garmentTypeOrHint))
+  const resolvedGarment = (typeof garmentTypeOrHint === 'string' && GARMENT_TYPE_VALUES.includes(garmentTypeOrHint as GarmentType))
     ? (garmentTypeOrHint as GarmentType)
     : resolveGarmentType(category, typeof garmentTypeOrHint === 'string' ? garmentTypeOrHint : undefined);
   const garmentRules = getGarmentFidelityRules(resolvedGarment, false);
@@ -806,7 +859,7 @@ export function buildEventVideoPrompt(
     }
   }
 
-  const resolvedGarment = (typeof candidateGarment === 'string' && ['saree', 'lehenga', 'salwar', 'kurta_dhoti', 'pattu_pavadai', 'boy_ethnic', 'generic'].includes(candidateGarment))
+  const resolvedGarment = (typeof candidateGarment === 'string' && GARMENT_TYPE_VALUES.includes(candidateGarment as GarmentType))
     ? (candidateGarment as GarmentType)
     : resolveGarmentType(category, typeof candidateGarment === 'string' ? candidateGarment : undefined);
   const garmentRules = getGarmentFidelityRules(resolvedGarment, true);
