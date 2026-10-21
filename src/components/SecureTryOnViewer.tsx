@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ShieldAlert, Sparkles, Lock, MoreVertical, RotateCcw, Image as ImageIcon } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sparkles, MoreVertical, RotateCcw } from 'lucide-react';
 
 interface SecureTryOnViewerProps {
   imageUrl: string | null;
@@ -25,9 +25,6 @@ export default function SecureTryOnViewer({
   allowanceMax = 2,
   enforceRepeatLimits = true,
 }: SecureTryOnViewerProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [isBlackout, setIsBlackout] = useState(false);
-  const [blackoutReason, setBlackoutReason] = useState<string>('');
   const [showMenu, setShowMenu] = useState(false);
 
   const used = typeof allowanceUsed === 'number' ? allowanceUsed : (retryUsed ? 2 : 1);
@@ -35,135 +32,15 @@ export default function SecureTryOnViewer({
   const isExhausted = enforceRepeatLimits ? used >= max : false;
   const serviceLabel = serviceType === 'try-on' ? 'AI Try-On' : 'Celebration Image';
 
-  const triggerBlackout = useCallback((reason: string) => {
-    setIsBlackout(true);
-    setBlackoutReason(reason);
-  }, []);
-
-  const resumeFromBlackout = useCallback(() => {
-    setIsBlackout(false);
-    setBlackoutReason('');
-  }, []);
-
-  // Anti-Screenshot Event Listeners
-  useEffect(() => {
-    // 1. Detect Window Blur (only when truly blurred/switched away, and auto-resume on return)
-    const handleBlur = () => {
-      // Avoid false-positive blackouts when focusing inputs or opening native file picker
-      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'BUTTON')) {
-        return;
-      }
-      triggerBlackout('Screen capture or window blur detected.');
-    };
-
-    const handleFocus = () => {
-      resumeFromBlackout();
-    };
-
-    // 2. Detect Page Visibility Change (triggered when OS screenshot overlay or app switcher activates)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        triggerBlackout('Backgrounded or capture tool opened.');
-      } else if (document.visibilityState === 'visible') {
-        resumeFromBlackout();
-      }
-    };
-
-    // 3. Detect Keyboard Screenshot Shortcuts
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // PrintScreen key
-      if (e.key === 'PrintScreen' || e.keyCode === 44) {
-        e.preventDefault();
-        triggerBlackout('PrintScreen shortcut blocked.');
-        return;
-      }
-      // macOS: Cmd + Shift + 3, Cmd + Shift + 4, Cmd + Shift + 5
-      if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) {
-        e.preventDefault();
-        triggerBlackout('macOS screenshot shortcut blocked.');
-        return;
-      }
-      // Windows Snipping Tool: Win + Shift + S or Ctrl + Shift + S
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'S' || e.key === 's')) {
-        e.preventDefault();
-        triggerBlackout('Snipping tool shortcut blocked.');
-        return;
-      }
-      // Print dialog: Cmd + P or Ctrl + P
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
-        e.preventDefault();
-        triggerBlackout('Printing is disabled for protected assets.');
-        return;
-      }
-    };
-
-    // 4. Print Event Listeners
-    const handleBeforePrint = () => {
-      triggerBlackout('Printing is blocked.');
-    };
-
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('keydown', handleKeyDown, true);
-    window.addEventListener('beforeprint', handleBeforePrint);
-
-    return () => {
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('keydown', handleKeyDown, true);
-      window.removeEventListener('beforeprint', handleBeforePrint);
-    };
-  }, [triggerBlackout, resumeFromBlackout]);
-
   return (
-    <div
-      ref={containerRef}
-      onContextMenu={(e) => e.preventDefault()}
-      className="relative aspect-[9/16] w-full overflow-hidden bg-black select-none"
-      style={{
-        WebkitTouchCallout: 'none',
-        WebkitUserSelect: 'none',
-        userSelect: 'none',
-      }}
-    >
-      {/* Pitch-Black Screen Overlay on Screenshot / Blur Detection */}
-      {isBlackout && (
-        <div
-          id="anti-screenshot-blackout"
-          onClick={resumeFromBlackout}
-          className="absolute inset-0 z-50 flex cursor-pointer flex-col items-center justify-center bg-black p-5 text-center text-white"
-        >
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-950/80 border border-red-500/50 text-red-400 mb-3">
-            <Lock className="h-7 w-7" />
-          </div>
-          <p className="font-serif text-lg font-bold text-[#F3E5AB]">Screenshots Disabled</p>
-          <p className="mt-2 text-xs leading-5 text-zinc-400 max-w-xs">
-            To protect Maharaja campaign fashion designs, screenshots are blocked and captured as black.
-          </p>
-          <p className="mt-2 text-[11px] text-amber-300 font-semibold">
-            Use the official &quot;Download Try-On&quot; button below for your HD photo.
-          </p>
-          <button
-            type="button"
-            onClick={resumeFromBlackout}
-            className="mt-4 rounded border border-[#D4AF37] bg-[#D4AF37]/20 px-4 py-2 text-xs font-bold uppercase text-[#F3E5AB] hover:bg-[#D4AF37]/30"
-          >
-            Tap to Resume View
-          </button>
-        </div>
-      )}
-
+    <div className="relative aspect-[9/16] w-full overflow-hidden bg-black">
       {/* Signed Storage URLs render directly; canvas CORS can otherwise leave the preview blank. */}
       {imageUrl ? (
         <img
           src={imageUrl}
           alt={alt}
-          draggable={false}
           referrerPolicy="no-referrer"
-          onContextMenu={(e) => e.preventDefault()}
-          className="h-full w-full object-cover pointer-events-none select-none"
+          className="h-full w-full object-cover"
         />
       ) : (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-[#F3E5AB]/45">
@@ -173,7 +50,7 @@ export default function SecureTryOnViewer({
       )}
 
       {/* Top-Right Client Logo */}
-      {imageUrl && !isBlackout && (
+      {imageUrl && (
         <div className="pointer-events-none absolute top-3 right-3 z-20 flex items-center gap-1.5 rounded-full border border-[#D4AF37]/50 bg-black/60 px-2 py-1 backdrop-blur-sm shadow-md">
           <img src="/maharaja-logo.png" alt="Maharaja Silks" className="h-4 w-4 rounded-full object-contain" />
           <span className="text-[10px] font-bold tracking-wider uppercase text-[#F3E5AB]">Maharaja</span>
@@ -181,7 +58,7 @@ export default function SecureTryOnViewer({
       )}
 
       {/* Top-Left Three-Dot Options Menu */}
-      {imageUrl && !isBlackout && onRetryRequested && (
+      {imageUrl && onRetryRequested && (
         <div className="absolute top-3 left-3 z-30">
           <button
             type="button"

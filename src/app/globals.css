@@ -73,14 +73,3 @@
 .animate-diya {
   animation: diyaFlicker 2s ease-in-out infinite;
 }
-
-/* Anti-Screenshot Print Blackout */
-@media print {
-  * {
-    visibility: hidden !important;
-  }
-  html, body {
-    background: #000000 !important;
-    background-color: #000000 !important;
-  }
-}

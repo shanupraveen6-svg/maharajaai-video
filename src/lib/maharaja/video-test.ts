@@ -35,7 +35,6 @@ ${sceneMotion} ${diwaliEnergy} Use physically believable camera inertia, natural
 export function buildVideoTestInput(
   modelId: VideoTestModelId,
   masterUrl: string,
-  endImageUrl: string,
   referenceUrls: string[],
   category: CustomerCategory,
   eventId: EventId,
@@ -44,7 +43,6 @@ export function buildVideoTestInput(
 ) {
   return {
     image_url: masterUrl,
-    end_image_url: endImageUrl,
     reference_image_urls: referenceUrls,
     prompt: buildH3Prompt(category, eventId, promptSet, poseId),
     duration: 6,
