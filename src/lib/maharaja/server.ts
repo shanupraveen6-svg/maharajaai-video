@@ -1691,6 +1691,7 @@ export async function finalizeCompletedVideo({
 
   let customerVideo: Buffer | null = fileBuffer;
   let liveVideo: Buffer | null = fileBuffer;
+  let audioEmbedded = true;
 
   if (fileBuffer) {
     try {
@@ -1704,6 +1705,7 @@ export async function finalizeCompletedVideo({
       console.warn('FFmpeg video branding warning (falling back to raw provider MP4):', procErr);
       customerVideo = fileBuffer;
       liveVideo = fileBuffer;
+      audioEmbedded = false;
     }
   }
 
@@ -1722,8 +1724,8 @@ export async function finalizeCompletedVideo({
             cacheControl: 'private, max-age=3600',
             metadata: {
               durationSeconds: '6',
-              playbackMode: 'embedded',
-              hasEmbeddedAudio: 'true',
+              playbackMode: audioEmbedded ? 'embedded' : 'external',
+              hasEmbeddedAudio: audioEmbedded ? 'true' : 'false',
             },
           },
         }),
@@ -1734,8 +1736,8 @@ export async function finalizeCompletedVideo({
             cacheControl: 'private, max-age=3600',
             metadata: {
               durationSeconds: '9',
-              playbackMode: 'embedded',
-              hasEmbeddedAudio: 'true',
+              playbackMode: audioEmbedded ? 'embedded' : 'external',
+              hasEmbeddedAudio: audioEmbedded ? 'true' : 'false',
             },
           },
         }),
@@ -1784,9 +1786,9 @@ export async function finalizeCompletedVideo({
         provider: provider || 'fal-h3-max-turbo',
         customerName: customerName || null,
         customerLocality: customerLocality || null,
-        playbackMode: 'embedded',
+        playbackMode: audioEmbedded ? 'embedded' : 'external',
         durationSeconds: 9,
-        hasEmbeddedAudio: true,
+        hasEmbeddedAudio: audioEmbedded,
         createdAt: nowIso,
       }, { merge: true }),
       db.collection('sessions').doc(sessionId).set({
@@ -1811,9 +1813,9 @@ export async function finalizeCompletedVideo({
       provider: provider || 'fal-h3-max-turbo',
       customerName: customerName || null,
       customerLocality: customerLocality || null,
-      playbackMode: 'embedded',
+      playbackMode: audioEmbedded ? 'embedded' : 'external',
       durationSeconds: 9,
-      hasEmbeddedAudio: true,
+      hasEmbeddedAudio: audioEmbedded,
       createdAt: nowIso,
     });
     const session = mockStore.sessions.get(sessionId) || {};

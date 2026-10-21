@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MoreVertical, Lock, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
 import { getEventOption, type EventId } from '@/lib/maharaja/config';
+import { getPreviewAudioTrack } from '@/lib/maharaja/audio';
 
 export default function ResultClient({
   sessionId,
@@ -61,6 +62,7 @@ export default function ResultClient({
   const [retryUsed, setRetryUsed] = useState(initialRetryUsed);
   const [allowances, setAllowances] = useState<any>(initialAllowances || null);
   const [videoDone, setVideoDone] = useState(false);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const enforceLimits = allowances?.enforceRepeatLimits ?? false;
   const imageAllowanceUsed = allowances?.masterImage?.used ?? (retryUsed ? 2 : 1);
@@ -70,6 +72,7 @@ export default function ResultClient({
 
   const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
   const eventLabel = getEventOption(eventId).label;
+  const previewAudioUrl = getPreviewAudioTrack(sessionId, eventId);
 
   useEffect(() => {
     let active = true;
@@ -269,6 +272,7 @@ export default function ResultClient({
       setLiveQueueStatus(data.status || 'queued');
       setLiveSuccess(true);
       setCountdownSeconds(0);
+      setLiveFarewell(true);
       const downloadResults = await Promise.allSettled([
         downloadAsset('image'),
         downloadAsset('video'),
@@ -483,11 +487,32 @@ export default function ResultClient({
           <video
             src={videoUrl}
             controls
-            loop
+            muted
             playsInline
             preload="auto"
             className="w-full h-full object-cover"
+            onPlay={(event) => {
+              const audio = previewAudioRef.current;
+              if (!audio) return;
+              audio.currentTime = Math.min(event.currentTarget.currentTime, 5.95);
+              void audio.play().catch(() => undefined);
+            }}
+            onPause={() => previewAudioRef.current?.pause()}
+            onTimeUpdate={(event) => {
+              const audio = previewAudioRef.current;
+              if (!audio || audio.paused) return;
+              if (Math.abs(audio.currentTime - event.currentTarget.currentTime) > 0.2) {
+                audio.currentTime = Math.min(event.currentTarget.currentTime, 5.95);
+              }
+            }}
+            onEnded={() => {
+              const audio = previewAudioRef.current;
+              if (!audio) return;
+              audio.pause();
+              audio.currentTime = 0;
+            }}
           />
+          <audio ref={previewAudioRef} src={previewAudioUrl} preload="auto" />
         </div>
 
         {/* Primary Action Buttons */}
