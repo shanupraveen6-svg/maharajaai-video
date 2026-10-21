@@ -41,13 +41,25 @@ const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil', 'கீ
 async function cleanupExpiredReservations(db: any) {
   try {
     const expiredCutoff = Timestamp.fromMillis(Date.now() - 30000); // 30s lease timeout
-    const expiredSnapshot = await db.collection('liveQueue')
-      .where('screenId', '==', 'maharaja-main')
-      .where('status', '==', 'reserved')
-      .where('reservedAt', '<', expiredCutoff)
-      .get();
+    const [expiredSnapshot, playingSnapshot] = await Promise.all([
+      db.collection('liveQueue')
+        .where('screenId', '==', 'maharaja-main')
+        .where('status', '==', 'reserved')
+        .where('reservedAt', '<', expiredCutoff)
+        .get(),
+      db.collection('liveQueue')
+        .where('screenId', '==', 'maharaja-main')
+        .where('status', '==', 'playing')
+        .get(),
+    ]);
 
-    if (!expiredSnapshot.empty) {
+    const stalePlaying = playingSnapshot.docs.filter((doc: any) => {
+      const data = doc.data() || {};
+      const activityAt = getMillis(data.startedAt || data.updatedAt || data.reservedAt || data.createdAt);
+      return activityAt > 0 && activityAt < Date.now() - 45000;
+    });
+
+    if (!expiredSnapshot.empty || stalePlaying.length > 0) {
       const batch = db.batch();
       expiredSnapshot.forEach((doc: any) => {
         batch.update(doc.ref, {
@@ -55,6 +67,17 @@ async function cleanupExpiredReservations(db: any) {
           reservedAt: null,
           reservedByScreenId: null,
           reservationId: null
+        });
+      });
+      stalePlaying.forEach((doc: any) => {
+        batch.update(doc.ref, {
+          status: 'queued',
+          playAtMs: Date.now(),
+          reservedAt: null,
+          reservedByScreenId: null,
+          reservationId: null,
+          repeatPending: false,
+          updatedAt: new Date().toISOString(),
         });
       });
       await batch.commit();
@@ -176,6 +199,18 @@ export async function GET(req: NextRequest) {
             item.status = 'queued';
             delete item.reservedAt;
             delete item.reservationId;
+          }
+        }
+        if (item.status === 'playing') {
+          const activityAt = getMillis(item.startedAt || (item as any).updatedAt || item.reservedAt || item.createdAt);
+          if (activityAt > 0 && activityAt < Date.now() - 45000) {
+            item.status = 'queued';
+            item.playAtMs = Date.now();
+            delete item.reservedAt;
+            delete item.reservationId;
+            delete (item as any).reservedByScreenId;
+            (item as any).repeatPending = false;
+            (item as any).updatedAt = nowIso;
           }
         }
       });
