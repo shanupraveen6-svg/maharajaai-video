@@ -33,6 +33,31 @@ async function normalizeStorageImage(sourcePath: string, outputPath: string) {
   };
 }
 
+async function normalizeGarmentReference(sourcePath: string, outputPath: string) {
+  const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/`;
+  if (!sourcePath.startsWith(expectedPrefix)) throw new Error('Video reference path is outside this Maharaja session.');
+  const bucket = getStorageBucket();
+  if (!bucket) throw new Error('Firebase Storage is unavailable.');
+  const [source] = await bucket.file(sourcePath).download();
+  const metadata = await sharp(source).rotate().metadata();
+  if (!metadata.width || !metadata.height) throw new Error('Garment reference has invalid image dimensions.');
+  const output = await sharp(source)
+    .rotate()
+    .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 94, chromaSubsampling: '4:4:4' })
+    .toBuffer();
+  const outputMetadata = await sharp(output).metadata();
+  await bucket.file(outputPath).save(output, { contentType: 'image/jpeg', resumable: false });
+  return {
+    url: await getSignedPlaybackUrl(outputPath),
+    sourceWidth: metadata.width,
+    sourceHeight: metadata.height,
+    outputWidth: outputMetadata.width,
+    outputHeight: outputMetadata.height,
+    storagePath: outputPath,
+  };
+}
+
 function falError(status: number, raw: string) {
   let detail = raw;
   try {
@@ -132,17 +157,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const master = await normalizeStorageImage(session.masterStoragePath, `${basePath}/input-master.jpg`);
-    const personPath = typeof access.pass.videoPersonPhotoStoragePath === 'string'
-      ? access.pass.videoPersonPhotoStoragePath
-      : typeof session.personPhotoStoragePath === 'string' ? session.personPhotoStoragePath : '';
-    if (!personPath) throw new Error('The original customer identity reference is missing for this approved master.');
-    const person = await normalizeStorageImage(personPath, `${basePath}/input-person.jpg`);
     const garmentPaths = Array.isArray(access.pass.videoGarmentPhotoStoragePaths)
       ? access.pass.videoGarmentPhotoStoragePaths.filter((value): value is string => typeof value === 'string').slice(0, 3)
       : [];
+    if (!garmentPaths.length) throw new Error('At least one garment reference is required for the approved master.');
     const garments = [];
     for (let index = 0; index < garmentPaths.length; index += 1) {
-      garments.push(await normalizeStorageImage(garmentPaths[index], `${basePath}/input-garment-${index + 1}.jpg`));
+      garments.push(await normalizeGarmentReference(garmentPaths[index], `${basePath}/input-garment-${index + 1}.jpg`));
     }
     const category = access.pass.videoMasterCategory || session.templateId;
     if (!['women', 'men', 'girl', 'boy'].includes(category)) throw new Error('The approved master image has no valid customer category.');
@@ -158,7 +179,7 @@ export async function POST(req: NextRequest) {
     const input = buildVideoTestInput(
       model.id,
       master.url,
-      [person.url, ...garments.map((item) => item.url)],
+      garments.map((item) => item.url),
       category as CustomerCategory,
       eventId,
       promptSet as VideoPromptSet,
@@ -180,12 +201,12 @@ export async function POST(req: NextRequest) {
 
     const update = {
       status: 'submitted', requestId, statusUrl, responseUrl,
-      referenceCount: garments.length + 2,
+      referenceCount: garments.length + 1,
       eventId,
       category,
       promptSet,
       poseId,
-      inputMetadata: { master, person, garments, originalPersonExcluded: false },
+      inputMetadata: { master, garments, originalPersonExcluded: true },
       updatedAt: new Date().toISOString(),
     };
     if (db) await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
