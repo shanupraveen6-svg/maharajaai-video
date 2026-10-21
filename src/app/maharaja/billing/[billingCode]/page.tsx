@@ -89,6 +89,11 @@ export default function MaharajaBillingPage() {
 
   async function generateCustomerQr(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedPhone = phone.replace(/\D/g, '').slice(0, 10);
+    if (normalizedPhone.length !== 10) {
+      setError('Enter exactly 10 digits for the customer mobile number.');
+      return;
+    }
     setLoading(true);
     setError('');
     setPass(null);
@@ -100,7 +105,7 @@ export default function MaharajaBillingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           billingCode: params.billingCode,
-          phone,
+          phone: normalizedPhone,
           billLast4,
           billAmount: Number(billAmount) || AI_VIDEO_MIN_PURCHASE,
           eventId,
@@ -203,10 +208,14 @@ export default function MaharajaBillingPage() {
                   <input
                     id="billing-phone-input"
                     value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))}
+                    type="tel"
                     inputMode="numeric"
                     autoComplete="tel"
-                    maxLength={14}
+                    pattern="[0-9]{10}"
+                    minLength={10}
+                    maxLength={10}
+                    required
                     placeholder="10 digit number"
                     className="min-h-12 w-full border border-[#D8C49B] bg-[#FFFDF8] pl-10 pr-3 text-base font-bold outline-none focus:border-[#6E0D1F]"
                   />

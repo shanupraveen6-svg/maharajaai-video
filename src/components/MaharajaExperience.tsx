@@ -32,7 +32,6 @@ import {
   type GarmentType,
   type VideoPromptSet,
 } from '@/lib/maharaja/config';
-import { VIDEO_TEST_MODELS } from '@/lib/maharaja/video-test';
 
 const BarcodePriceScanner = dynamic(() => import('@/components/BarcodePriceScanner'), { ssr: false });
 const SecureTryOnViewer = dynamic(() => import('@/components/SecureTryOnViewer'), { ssr: false });
@@ -178,11 +177,39 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [masterApproved, setMasterApproved] = useState(false);
   const [videoTestJobId, setVideoTestJobId] = useState('');
   const [videoTestUrl, setVideoTestUrl] = useState('');
+  const [generationProgress, setGenerationProgress] = useState(0);
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
   const maxGarmentPhotos = activeService === 'try-on' ? 1 : 3;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
+  const generationStatus = useMemo(() => {
+    if (stage === 'image') {
+      if (generationProgress < 25) return 'Securing your photos and garment details…';
+      if (generationProgress < 55) return 'Building your festive portrait composition…';
+      if (generationProgress < 82) return 'Refining identity, fabric and lighting…';
+      return 'Finishing your full-quality portrait…';
+    }
+    if (generationProgress < 25) return 'Preparing your approved portrait…';
+    if (generationProgress < 50) return 'Building cinematic camera movement…';
+    if (generationProgress < 75) return 'Animating festive lights and atmosphere…';
+    if (generationProgress < 96) return 'Refining motion, identity and garment detail…';
+    return 'Securing your finished film…';
+  }, [generationProgress, stage]);
+
+  useEffect(() => {
+    if (stage !== 'image' && stage !== 'video') return;
+    setGenerationProgress((current) => current > 0 ? current : 4);
+    const timer = window.setInterval(() => {
+      setGenerationProgress((current) => {
+        if (current >= 95) return current;
+        if (current < 35) return Math.min(95, current + 4);
+        if (current < 70) return Math.min(95, current + 2);
+        return Math.min(95, current + 1);
+      });
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [stage]);
   // A billing pass owns its two stored images; they are never cleared or regenerated client-side.
   const passOwnsImages = service === 'ai-video';
   // Each billing-pass tab owns a separate result. Completing Try-On must not
@@ -518,6 +545,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   async function generateImage() {
     if (!canGenerateImage || !personPhoto) return;
     setStage('image');
+    setGenerationProgress(4);
     setError('');
     setMessage(activeService === 'try-on' ? 'Uploading photos and preparing Try-On...' : `Uploading photos and preparing ${event.label} portrait...`);
     const progressTimers = [
@@ -578,6 +606,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       setMessage(activeService === 'try-on'
         ? `Your Maharaja AI Try-On is ready${elapsedSeconds ? ` in ${elapsedSeconds}s` : ''}.`
         : `Festival portrait ready${elapsedSeconds ? ` in ${elapsedSeconds}s` : ''}. Continue to create your AI video.`);
+      setGenerationProgress(100);
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
     } catch (caught) {
       setError(customerError(caught, 'The AI image could not be generated. Please ask Maharaja staff for assistance.'));
     } finally {
@@ -638,14 +668,16 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const data = await response.json().catch(() => ({}));
       if (data.status === 'ready' && data.videoUrl) {
         setVideoTestUrl(data.videoUrl);
+        setGenerationProgress(100);
         setMessage('Your cinematic video is ready. Review, download or send it to Maharaja TV.');
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
         setStage('result');
         return;
       }
       if (!response.ok || data.status === 'failed') {
         throw new Error(data.error || `Video test failed (${response.status}).`);
       }
-      setMessage('Fal is rendering the controlled test. Keep this page open.');
+      setMessage('Your AI film is being created. Keep this page open.');
     }
     throw new Error('Video test timed out. The job remains recorded for staff review.');
   }
@@ -653,9 +685,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   async function startVideoTest() {
     if (!videoMasterUrl || stage === 'video') return;
     setStage('video');
+    setGenerationProgress(4);
     setError('');
     setVideoTestUrl('');
-    setMessage('Locking this request and validating the exact image sent to Fal...');
+    setMessage('Preparing your approved portrait for film generation…');
     try {
       if (!masterApproved) {
         await readJson(await fetch('/api/ai/master-image/approve', {
@@ -671,11 +704,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         body: JSON.stringify({ accessCode, sessionId }),
       }));
       setVideoTestJobId(data.jobId);
-      setMessage(`Submitted to ${VIDEO_TEST_MODELS[0].label}. Keep this page open.`);
+      setGenerationProgress(16);
+      setMessage('Your AI film is now being created. Keep this page open.');
       await pollVideoTest(data.jobId);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The controlled video test failed.');
-      setMessage('The test stopped. No fallback model or automatic retry was used.');
+      setMessage('Generation stopped safely. Please try again or ask Maharaja staff for assistance.');
       setStage('ready');
     }
   }
@@ -718,7 +752,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
               <span className="absolute inset-0 flex items-center justify-center text-3xl">🪔</span>
             </div>
             <p className="font-serif text-xl font-bold text-[#F3E5AB]">{stage === 'image' ? 'Creating your Diwali portrait' : 'Rendering your Diwali film'}</p>
-            <p className="mt-2 text-sm leading-6 text-[#F3E5AB]/85">{stage === 'image' ? (message || 'Securing your photos and building the festive scene.') : 'Adding cinematic light, depth and motion to your approved portrait.'}</p>
+            <p className="mt-2 min-h-12 text-sm leading-6 text-[#F3E5AB]/85">{generationStatus}</p>
+            <div className="mt-5" aria-label={`Generation progress ${generationProgress}%`}>
+              <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wide text-[#F3E5AB]/75">
+                <span>Creating</span><span>{generationProgress}%</span>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-black/45">
+                <div className="h-full rounded-full bg-[#D4AF37] transition-[width] duration-700 ease-out" style={{ width: `${generationProgress}%` }} />
+              </div>
+            </div>
             <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#D4AF37]">Please keep this page open</p>
           </div>
         </div>
@@ -1050,8 +1092,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
-                    <div className="font-bold uppercase tracking-wide">H3 Max cinematic video · about ${VIDEO_TEST_MODELS[0].estimatedUsd.toFixed(2)}</div>
-                    <p className="text-[#F3E5AB]/80">One click submits one paid six-second H3 generation. The completed result is saved securely for download and optional nine-second showroom presentation.</p>
+                    <div className="font-bold uppercase tracking-wide">Create your cinematic AI film</div>
+                    <p className="text-[#F3E5AB]/80">Your approved portrait becomes a premium six-second film, saved securely for download and optional showroom presentation.</p>
                     <button
                       type="button"
                       onClick={() => void startVideoTest()}
@@ -1061,7 +1103,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                       {stage === 'video' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
                       {stage === 'video' ? 'Video in progress' : 'Generate AI video'}
                     </button>
-                    {videoTestJobId && <p className="break-all text-[10px] text-[#F3E5AB]/60">Job: {videoTestJobId}</p>}
                     {videoTestUrl && (
                       <video src={videoTestUrl} controls muted playsInline preload="metadata" className="aspect-[9/16] w-full bg-black object-contain" />
                     )}
