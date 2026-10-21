@@ -478,6 +478,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           if (dimensions.width < 256 || dimensions.height < 256) {
             throw new Error(`Photo is ${dimensions.width}×${dimensions.height}px. Retake it so the complete garment fills the frame; minimum size is 256×256px.`);
           }
+          const aspectRatio = dimensions.width / dimensions.height;
+          if (aspectRatio < 0.4 || aspectRatio > 2.5) {
+            throw new Error(`Photo shape is ${dimensions.width}×${dimensions.height}px. Retake it with the complete garment in frame; the image must not be an extremely narrow strip.`);
+          }
         }
       }
       const compressed = await Promise.all(files.map((file) => compressImage(file, 1280, 0.82)));
