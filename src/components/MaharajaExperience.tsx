@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Download,
   Film,
-  Image as ImageIcon,
   LoaderCircle,
   Shirt,
   Sparkles,
@@ -179,7 +178,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [videoTestUrl, setVideoTestUrl] = useState('');
   const [poseFrameUrl, setPoseFrameUrl] = useState('');
   const [generationProgress, setGenerationProgress] = useState(0);
-  const [allowTestGallery, setAllowTestGallery] = useState(false);
   const [photoInputError, setPhotoInputError] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
@@ -199,10 +197,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     if (generationProgress < 96) return 'Refining motion, identity and garment detail…';
     return 'Securing your finished film…';
   }, [generationProgress, stage]);
-
-  useEffect(() => {
-    setAllowTestGallery(new URLSearchParams(window.location.search).get('testUploads') === '1');
-  }, []);
 
   useEffect(() => {
     if (stage !== 'image' && stage !== 'video') return;
@@ -946,15 +940,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         )}
                       </div>
                     </div>
-                    <div className={`mt-3 grid gap-2 ${allowTestGallery ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    <div className="mt-3 grid grid-cols-1 gap-2">
                       <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]">
-                        <Camera className="h-4 w-4" /> Camera
-                        <input id="person-camera-input" type="file" accept="image/*" capture="user" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
+                        <Camera className="h-4 w-4" /> Add person photo
+                        <input id="person-photo-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
                       </label>
-                      {allowTestGallery && <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F]">
-                        <ImageIcon className="h-4 w-4" /> Gallery
-                        <input id="person-file-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
-                      </label>}
                     </div>
                   </div>
 
@@ -1047,7 +1037,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                               <input
                                 type="file"
                                 accept="image/*"
-                                capture="environment"
                                 className="hidden"
                                 disabled={busy || imagesLocked}
                                 onChange={(event) => {
@@ -1063,15 +1052,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                     </div>
 
                     {photoInputError && <p className="mt-3 border border-red-300 bg-red-50 p-3 text-xs font-bold leading-5 text-red-700">{photoInputError}</p>}
-                    {allowTestGallery && <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-amber-700">Home test upload mode</p>}
-                    <div className={`mt-3 grid gap-2 ${allowTestGallery ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    <div className="mt-3 grid grid-cols-1 gap-2">
                       <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] ${garmentPhotos.length >= maxGarmentPhotos ? 'opacity-40 pointer-events-none' : ''}`}>
                         <Camera className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < maxGarmentPhotos ? '+ Add photo' : 'Add photo'}
                         <input
-                          id="garment-camera-input"
+                          id="garment-photo-input"
                           type="file"
                           accept="image/*"
-                          capture="environment"
                           className="hidden"
                           disabled={busy || imagesLocked || garmentPhotos.length >= maxGarmentPhotos}
                           onChange={(event) => {
@@ -1081,22 +1068,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                           }}
                         />
                       </label>
-                      {allowTestGallery && <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F] ${garmentPhotos.length >= maxGarmentPhotos ? 'opacity-40 pointer-events-none' : ''}`}>
-                        <ImageIcon className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < maxGarmentPhotos ? '+ Add' : 'Gallery'}
-                        <input
-                          id="garment-file-input"
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          disabled={busy || imagesLocked || garmentPhotos.length >= maxGarmentPhotos}
-                          onChange={(event) => {
-                            const files = Array.from(event.target.files || []);
-                            event.currentTarget.value = '';
-                            if (files.length) void analyzeGarments(files, garmentPhotos.length > 0);
-                          }}
-                        />
-                      </label>}
                     </div>
                   </div>
                 </div>
