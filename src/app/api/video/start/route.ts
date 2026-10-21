@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { isCampaignPoseId, isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId, type VideoPromptSet } from '@/lib/maharaja/config';
+import { getCampaignPoseId, isCampaignPoseId, isEventId, MAHARAJA_CLIENT_ID, type CampaignPoseId, type CustomerCategory, type EventId, type VideoPromptSet } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
 
@@ -150,9 +150,11 @@ export async function POST(req: NextRequest) {
       ? access.pass.eventId
       : isEventId(session.eventId) ? session.eventId : 'diwali';
     const promptSet = access.pass.videoMasterPromptSet === 'set-2' ? 'set-2' : 'set-1';
-    const poseId = isCampaignPoseId(access.pass.videoMasterPoseId)
+    const poseId: CampaignPoseId = isCampaignPoseId(access.pass.videoMasterPoseId)
       ? access.pass.videoMasterPoseId
-      : 'relaxed-sides';
+      : isCampaignPoseId(session?.poseId)
+        ? session.poseId
+        : getCampaignPoseId(sessionId, category as CustomerCategory);
     const input = buildVideoTestInput(
       model.id,
       master.url,

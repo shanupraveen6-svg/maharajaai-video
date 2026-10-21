@@ -122,7 +122,7 @@ export function buildTryOnPrompt(category: CustomerCategory) {
     ? 'Use child-safe, age-appropriate, natural modest styling with no adult glamour.'
     : 'Use modest, family-friendly, natural styling.';
 
-  return `Create a hyper-photorealistic vertical 9:16 full-body Indian virtual try-on photograph of the ${subject}.
+  return `Create an authentic, living vertical 9:16 full-body photograph of the real ${subject} shot on a 35mm camera with genuine human skin texture and real textile physics.
 
 REFERENCE PRIORITY:
 - Image 1 is the authoritative real customer photograph (identity reference).
@@ -131,6 +131,11 @@ REFERENCE PRIORITY:
 IDENTITY & FACE LOCK:
 - Preserve the exact real customer identity from Image 1: facial structure, face shape, eyes, nose, mouth, jawline, ears, skin tone, hairstyle, hairline, facial hair, glasses, age appearance, height impression, and natural body proportions.
 - Do NOT beautify into another person, change age, alter body weight, change skin complexion, make slimmer or heavier, or substitute the face.
+
+PHOTOREALISM & TEXTURE LOCK (NO GRAPHIC/CGI MODEL):
+- Authentic real human skin texture: visible fine skin pores, natural micro-creases, genuine skin translucency, and natural skin undertones.
+- STRICTLY FORBIDDEN: 3D render, CGI character, digital illustration, graphic art, video game avatar, airbrushed plastic skin, porcelain doll face, oversaturated artificial colors, anime, wax figure, mannequin.
+- Must appear as an authentic real human photograph, never a computer graphic.
 
 GARMENT SPECIFICATION LOCK:
 - Dress the customer in the exact uploaded garment from the single garment reference photograph.
@@ -146,19 +151,21 @@ ANATOMY & FRAMING:
 
 SETTING & LIGHTING:
 - Clean, premium, neutral indoor fashion retail studio background.
-- Soft, flattering multi-point studio lighting that illuminates both the face and garment fabric details clearly.
+- Soft, natural multi-point studio lighting that illuminates both the face and garment fabric details clearly.
 - Do not create a festival environment. No diyas, no rangoli, no flowers, no festive props, no cinematic effects.
 - No text, no logos, no watermarks.
 The only purpose is to clearly and photorealistically show how this exact garment looks on this customer.`;
 }
 
 /** Section 5: Universal Gemini Master Image Prompt & Category/Event Builders */
-export const UNIVERSAL_GEMINI_IMAGE_PROMPT = `Create a photorealistic luxury festive fashion portrait of the customer using the uploaded customer photo and uploaded garment references.
+export const UNIVERSAL_GEMINI_IMAGE_PROMPT = `Create an authentic living photographic fashion portrait of the customer shot on 35mm cinema film (ARRI Alexa 35, 50mm f/2.0 lens) using the uploaded customer photo and garment references.
 
-P0 — ABSOLUTE IDENTITY & REFERENCE FIDELITY (NON-NEGOTIABLE):
+P0 — ABSOLUTE IDENTITY & AUTHENTIC REAL HUMAN TEXTURE (NO CGI / NO GRAPHIC MODEL):
 - Preserve the customer's exact face, identity, eye shape, nose bridge, lip contour, jawline, ears, skin tone, natural complexion, hairstyle, age impression, and body proportions.
 - Do NOT beautify into another person, reshape facial features, alter body weight, change skin complexion, or substitute identity.
-- Dress the customer in the exact uploaded garment references with authentic fabric texture, embroidery, and weave.
+- AUTHENTIC SKIN & HAIR: Render natural unretouched human skin texture with realistic fine pores, subtle skin micro-creases, natural subsurface warmth, and genuine skin undertones. Hair must have individual natural strands and authentic texture.
+- ANTI-GRAPHIC / ANTI-CGI BAN: Absolutely STRICTLY FORBIDDEN: 3D render, CGI character, Unreal Engine, Octane Render, digital painting, graphic model, video game avatar, airbrushed plastic skin, porcelain doll face, artificial digital smoothing, anime, wax figure, or mannequin look.
+- Dress the customer in the exact uploaded garment references with authentic physical fabric weave, embroidery stitching depth, and natural textile drape.
 - Strictly preserve true colors and dye hues. Neutral grey must remain pure neutral grey (never shift into beige, tan, cream, brown, or gold).
 - Jewelry: Visible necklaces, earrings, and traditional ornaments must have crisp metallic luster, naturally seated against skin and fabric with zero melting.
 
@@ -177,11 +184,12 @@ P2 — CINEMATIC MULTI-PLANE COMPOSITION (BUILT FOR PARALLAX):
 - The setting must contain at least three already-visible animation anchors chosen from distant lanterns, diya flames, water, fountain spray, reflective flooring, foliage, hanging decorations or distant celebration lights.
 - Full body visible head-to-toe in strict 9:16 vertical orientation. No extra people, no mannequins, no duplicated limbs.
 
-P3 — FESTIVE LIGHTING & TEXTILE LUSTER:
-- Flattering luxury fashion lighting accentuating fabric weave texture, borders, and metallic luster without altering true dye hues.
+P3 — NATURAL CINEMATIC LIGHTING & TEXTILE LUSTER:
+- Natural cinematic fashion lighting: soft key light, gentle environmental warmth from celebration lights, and authentic soft contact shadows.
+- Realistic fabric weave texture, borders, and metallic luster without artificial CGI halos or neon oversaturation.
 
 FINAL QUALITY:
-- An aspirational ₹1-crore luxury Indian festive fashion campaign portrait faithful to the customer's identity and original garment.
+- An authentic, lifelike 35mm cinema campaign portrait faithful to the customer's real identity and original garment.
 - Reject ordinary corridors, tight doorways, flat retail walls, shallow hallway framing and repetitive indoor compositions.`;
 
 export type GarmentType =
@@ -775,12 +783,12 @@ export function getCampaignPose(category: CustomerCategory, poseId: CampaignPose
 
   const adultPoses: Record<CampaignPoseId, string> = {
     'relaxed-sides': 'A calm upright stance with both arms relaxed at the sides, hands fully visible below the waist and clear of the torso and garment.',
-    'one-hand-hip': 'A confident static fashion stance with one hand already resting on the hip and the other arm relaxed at the side. The hand must remain on the hip, not move toward the chest.',
-    'two-hands-hips': 'A confident static fashion stance with both hands already resting symmetrically on the hips. No hand movement, chest touch, gesture or pose transition.',
+    'one-hand-hip': 'An elegant fashion stance with one hand placed naturally on the hip and the other arm relaxed at the side.',
+    'two-hands-hips': 'A confident regal stance with both hands resting symmetrically on the hips.',
     'front-open': 'A composed open fashion stance with both arms relaxed at the sides, hands fully visible below the waist and clear of the torso and garment.',
     'low-clasp': 'An elegant still stance with both hands softly clasped together below the waist, clear of the garment details.',
     'low-wrist-hold': 'A refined static stance with one hand gently holding the other wrist below the waist, clear of the torso and garment.',
-    namaste: 'A composed static namaste pose with palms already together at chest height. Keep both hands fixed, with no approach motion, bow, or gesture transition.',
+    namaste: 'A composed static namaste pose with palms together at chest height.',
     'soft-side-stance': 'A poised open-shoulder stance with a gentle natural weight shift, both arms relaxed at naturally different angles and hands at the outer thigh line.',
   };
   return adultPoses[poseId];
@@ -788,32 +796,32 @@ export function getCampaignPose(category: CustomerCategory, poseId: CampaignPose
 
 export function getCampaignStartingStance(category: CustomerCategory): string {
   if (category === 'boy' || category === 'girl') {
-    return 'A natural, upright child-safe standing stance with both arms relaxed comfortably at the sides, hands fully visible below the waist, empty and clear of the torso and clothing. Facing the camera with a sweet, cheerful festive smile.';
+    return 'A natural, upright child-safe standing stance with both arms hanging straight down naturally at the sides, hands resting loosely beside the outer thighs below the waist, clear of the torso and clothing. Facing the camera with a sweet, cheerful festive smile.';
   }
   if (category === 'men') {
-    return 'A dignified, regal upright standing stance with both arms relaxed naturally at the sides, hands fully visible below the waist, clear of the torso and garment. Grounded masculine posture, open chest, and a confident celebratory smile.';
+    return 'A dignified, regal upright standing stance with both arms hanging straight down naturally at the sides, hands resting loosely beside the outer thighs below the waist, clear of the torso and garment. Grounded masculine posture, open chest, and a confident celebratory smile.';
   }
-  return 'An elegant, poised upright standing stance with both arms relaxed naturally at the sides, hands fully visible below the waist, clear of the torso and garment. Poised luxury fashion posture and a warm, radiant festive smile.';
+  return 'An elegant, poised upright standing stance with both arms hanging straight down naturally at the sides, hands resting loosely beside the outer thighs below the waist, completely clear of the hips, waist, and garment. Poised luxury fashion posture and a warm, radiant festive smile.';
 }
 
 export function getCampaignPoseTransition(category: CustomerCategory, poseId: CampaignPoseId): string {
   switch (poseId) {
     case 'one-hand-hip':
-      return 'Between seconds 1.5 and 3.5, the customer gracefully and smoothly raises one hand to rest naturally on the hip in an elegant high-fashion pose while the other arm remains relaxed at the side, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer visibly and smoothly raises one hand from their side up to rest gracefully on their hip, with fingers softly curved on the hip, while the other arm remains relaxed at their side, settling into the pose by second 3.5 and holding through second 6.0.';
     case 'two-hands-hips':
-      return 'Between seconds 1.5 and 3.5, the customer smoothly and confidently places both hands on the hips in an authoritative, dignified Maharaja pose, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer visibly and confidently brings both hands from their sides up to rest symmetrically on their hips in an authoritative, dignified Maharaja pose, settling into the pose by second 3.5 and holding through second 6.0.';
     case 'low-wrist-hold':
-      return 'Between seconds 1.5 and 3.5, the customer gracefully brings hands together below the waist, gently holding the opposite wrist in a poised, royal posture, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer visibly and gracefully brings hands together below the waist, gently holding the opposite wrist in a poised, royal posture, settling into the pose by second 3.5 and holding through second 6.0.';
     case 'low-clasp':
-      return 'Between seconds 1.5 and 3.5, the customer smoothly brings both hands together into an elegant low clasp below the waist, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer visibly and smoothly brings both hands together into an elegant low clasp below the waist, settling into the pose by second 3.5 and holding through second 6.0.';
     case 'namaste':
-      return 'Between seconds 1.5 and 3.5, the customer smoothly and respectfully brings both palms together in front of the chest in a graceful traditional festive Namaste greeting, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer visibly and respectfully brings both palms together in front of the chest in a graceful traditional festive Namaste greeting, settling into the pose by second 3.5 and holding through second 6.0.';
     case 'soft-side-stance':
-      return 'Between seconds 1.5 and 3.5, the girl smoothly rests one hand lightly near the side of her dress with a charming natural tilt, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The girl smoothly rests one hand lightly near the side of her dress with a charming natural tilt, settling into the pose by second 3.5 and holding through second 6.0.';
     case 'relaxed-sides':
-      return 'Between seconds 1.5 and 3.5, the boy settles comfortably into a cheerful, confident posture with arms relaxed at the sides, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer stands upright with arms relaxed comfortably at the sides, maintaining a cheerful, confident posture with hands loose below the waist through second 6.0.';
     case 'front-open':
-      return 'Between seconds 1.5 and 3.5, the customer smoothly assumes a poised, confident open stance with hands relaxed at the sides, settling into the pose by second 3.5 and holding through second 6.0.';
+      return 'The customer smoothly assumes a poised, confident open stance with hands relaxed at the sides, settling into the pose by second 3.5 and holding through second 6.0.';
   }
 }
 
@@ -843,18 +851,32 @@ export function buildMasterPrompt(
   const childSafety = category === 'boy' || category === 'girl'
     ? '\n\nCHILD SAFETY: Keep the child fully age-appropriate, naturally cheerful, modestly styled, and free of adult glamour, mature posing, or suggestive presentation.'
     : '';
-  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}\n\nCAMPAIGN POSE — NATURAL STARTING STANCE:\n${startingStance}\n- The customer begins standing naturally and upright with arms relaxed at the sides, hands fully visible below the waist and clear of the torso. This relaxed natural stance serves as the clean opening frame for the subsequent video commercial where they smoothly transition into the signature ${getCampaignPoseLabel(resolvedPoseId)} pose.\n- Preserve the uploaded customer's natural anatomy and keep the presentation refined and dignified.\n\nGARMENT & STYLING ARCHITECTURE:\n${garmentRules}\n\nEVENT ENVIRONMENT (${event.label.toUpperCase()}):\n${safeImageScene}\n- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
+  return `${UNIVERSAL_GEMINI_IMAGE_PROMPT}
+
+MANDATORY SUBJECT POSTURE (OPENING FRAME FOR VIDEO):
+${startingStance}
+- EXACT ARM & HAND POSITION: The customer MUST be standing with both arms hanging naturally straight down at their sides. Both hands must rest loosely beside the outer thighs below the waist, completely clear of the hips, waist, and chest.
+- CRITICAL: Absolutely DO NOT place hands on hips, DO NOT place hands on waist, DO NOT cross arms, DO NOT touch chest. Both arms MUST hang straight down at the sides. This natural relaxed stance is essential because this image is Frame 0 for a video commercial where the customer starts with arms at sides and smoothly raises a hand onto the signature ${getCampaignPoseLabel(resolvedPoseId)} pose.
+- Preserve the uploaded customer's natural anatomy and keep the presentation refined and dignified.
+
+GARMENT & STYLING ARCHITECTURE:
+${garmentRules}
+
+EVENT ENVIRONMENT (${event.label.toUpperCase()}):
+${safeImageScene}
+- The event environment changes only the background. It must not change, replace, restyle, or add to the uploaded garment.${childSafety}`;
 }
 
 /** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */
-export const UNIVERSAL_VIDEO_PROMPT = `Create a premium luxury Indian festive fashion commercial from the approved master image with absolute identity and garment preservation.
+export const UNIVERSAL_VIDEO_PROMPT = `Create an authentic 35mm luxury Indian festive fashion commercial from the approved master image with absolute identity, natural human photorealism, and garment preservation.
 
 P0 — ABSOLUTE FIDELITY & ZERO CLOTHING CHANGE (NON-NEGOTIABLE):
-- Identity: Preserve exact facial geometry, eyes, nose, jawline, skin tone, hair, age, expression, pose, hands, feet, and body proportions. Zero reshaping, beautification, or identity alteration.
+- Identity: Preserve exact facial geometry, eyes, nose, jawline, skin tone, hair, age, expression, hands, feet, and body proportions. Zero reshaping, beautification, or identity alteration.
 - Garment: Preserve the exact clothing silhouette, fabric weave, collar, neckline, sleeves, drape, colors, patterns, borders, embroidery, jewelry, and accessories from first frame to last. Zero clothing change, morphing, swapping, additions, removal, recoloring, or texture drift.
+- PHOTOGRAPHIC REALISM (NO 3D/CGI): Maintain authentic 35mm cinema capture quality. Real human skin with natural pores, subtle micro-expressions, and genuine fabric drape physics. STRICTLY NO 3D model, NO CGI character, NO plastic airbrushing, NO uncanny digital avatar look.
 
 P1 — LIVING HUMAN PRESENCE & FLUID POSE TRANSITION:
-- Treat the person and attire as a protected reference layer. The customer begins naturally in the approved master stance with living presence (gentle breathing, eye catchlights, warm smile), performs one smooth intentional transition into the designated signature pose, and holds with royal composure through the hero loop.
+- Treat the person and attire as a protected reference layer. The customer begins naturally in the approved master stance with living presence (gentle breathing, eye catchlights, warm smile), visibly and smoothly performs the single designated hand motion into the signature pose, and holds with royal composure through the hero loop.
 - No erratic gesture, waving, pointing, chest-scratching, turning, or unscripted body displacement.
 
 P2 — LUXURY CINEMATIC CAMERA:

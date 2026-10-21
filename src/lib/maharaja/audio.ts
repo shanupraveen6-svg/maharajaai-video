@@ -2,15 +2,19 @@ import { type EventId, isEventId } from './config';
 
 export const DIWALI_LIVE_AUDIO_TRACKS = [
   '/audio/maharaja/live/diwali-hindu-9s.mp3',
+  '/audio/maharaja/live/go-live-final.mp3',
+  '/audio/maharaja/live/go-live-enjoy.mp3',
 ] as const;
 
 export const DIWALI_PREVIEW_AUDIO_TRACKS = [
   '/audio/maharaja/preview/diwali-hindu-6s.mp3',
+  '/audio/maharaja/preview/final-6.mp3',
+  '/audio/maharaja/preview/fina-2-6sec.mp3',
 ] as const;
 
 /**
  * Event-specific Live Audio Mappings (9-second Showroom Broadcast Audio)
- * - Diwali: one matched Hindu/Diwali music pair: 6s preview + 9s showroom cut
+ * - Diwali: 3 matched Hindu/Diwali music pairs rotating per session: 6s preview + 9s showroom cut
  * - Pongal: Traditional nadaswaram / harvest celebration rhythm (live-03.mp3)
  * - New Year: Modern gala upbeat celebration with celebration fanfare (live-04.mp3)
  * - Christmas: Festive holiday chimes and elegant joyful orchestral (live-05.mp3)
@@ -43,17 +47,22 @@ export const EVENT_PREVIEW_AUDIO_MAP: Record<EventId, readonly string[]> = {
 export const PREVIEW_AUDIO_TRACKS = DIWALI_PREVIEW_AUDIO_TRACKS;
 export const LIVE_AUDIO_TRACKS = DIWALI_LIVE_AUDIO_TRACKS;
 
-function hashSeed(seed: string) {
+function cleanSeed(seed: string): string {
+  return (seed || 'maharaja').replace(/^(live_|video_|session_)/i, '').trim();
+}
+
+function hashSeed(seed: string): number {
+  const normalized = cleanSeed(seed);
   let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(i)) >>> 0;
   }
   return hash;
 }
 
 export function pickAudioTrack(seed: string, tracks: readonly string[]) {
   if (!tracks.length) return '';
-  return tracks[hashSeed(seed || 'maharaja') % tracks.length];
+  return tracks[hashSeed(seed) % tracks.length];
 }
 
 export function getPreviewAudioTrack(seed: string, eventId?: string): string {
