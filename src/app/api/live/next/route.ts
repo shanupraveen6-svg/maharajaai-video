@@ -12,6 +12,9 @@ function getMillis(value: any): number {
 }
 
 function compareQueueItems(a: any, b: any): number {
+  const priorityDiff = Number(b.data.priority || 0) - Number(a.data.priority || 0);
+  if (priorityDiff !== 0) return priorityDiff;
+
   const queueDiff = Number(a.data.queueNumber || 0) - Number(b.data.queueNumber || 0);
   if (queueDiff !== 0) return queueDiff;
 

@@ -29,16 +29,15 @@ export async function POST(req: NextRequest) {
         status: 'completed',
         completedAt: nowIso,
         timesPlayed,
+        repeatPending: false,
       } : {
-        status: 'queued',
+        status: 'playing',
         timesPlayed,
-        reservedAt: null,
-        reservedByScreenId: null,
-        reservationId: null,
+        repeatPending: true,
         updatedAt: nowIso,
       });
       if (!shouldPublish) {
-        return NextResponse.json({ success: true, status: 'queued', timesPlayed, playsRemaining: LIVE_PLAY_COUNT - timesPlayed });
+        return NextResponse.json({ success: true, status: 'repeat', timesPlayed, playsRemaining: LIVE_PLAY_COUNT - timesPlayed });
       }
       const displayMetadata = {
         customerName: queueData.customerName || null,
@@ -66,14 +65,13 @@ export async function POST(req: NextRequest) {
       item.timesPlayed = (item.timesPlayed || 0) + 1;
       const shouldPublish = item.timesPlayed >= LIVE_PLAY_COUNT;
       if (!shouldPublish) {
-        item.status = 'queued';
-        delete item.reservedAt;
-        delete item.reservationId;
-        delete (item as any).reservedByScreenId;
-        return NextResponse.json({ success: true, status: 'queued', timesPlayed: item.timesPlayed, playsRemaining: LIVE_PLAY_COUNT - item.timesPlayed });
+        item.status = 'playing';
+        (item as any).repeatPending = true;
+        return NextResponse.json({ success: true, status: 'repeat', timesPlayed: item.timesPlayed, playsRemaining: LIVE_PLAY_COUNT - item.timesPlayed });
       }
       item.status = 'completed';
       item.completedAt = nowIso;
+      (item as any).repeatPending = false;
       const displayMetadata = {
         customerName: (item as any).customerName || null,
         customerLocality: (item as any).customerLocality || null,

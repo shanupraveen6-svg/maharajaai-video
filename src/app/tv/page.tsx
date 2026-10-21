@@ -207,7 +207,7 @@ export default function TvPlayerPage() {
     window.setTimeout(queueNextPlaylistItem, 80);
   }
 
-  async function notifyPlaybackComplete(playback: PlaybackItem): Promise<'queued' | 'completed' | null> {
+  async function notifyPlaybackComplete(playback: PlaybackItem): Promise<'repeat' | 'completed' | null> {
     if (completedQueueIdsRef.current.has(playback.queueId)) return 'completed';
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
@@ -226,7 +226,7 @@ export default function TvPlayerPage() {
           return 'completed';
         }
         completedQueueIdsRef.current.delete(playback.queueId);
-        return data.status === 'queued' ? 'queued' : null;
+        return data.status === 'repeat' ? 'repeat' : null;
       } catch (err) {
         console.error(`Failed to notify completion (attempt ${attempt}/3):`, err);
         if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, attempt * 500));
@@ -600,11 +600,17 @@ export default function TvPlayerPage() {
     resetExternalAudio();
 
     if (playback.source !== 'replay') {
-      removePlaybackFromPlaylist(playback.queueId);
       const completionStatus = await notifyPlaybackComplete(playback);
-      if (completionStatus === 'queued') {
-        insertLivePlaybackNext({ ...playback, source: 'live' });
-      } else {
+      if (completionStatus === 'repeat') {
+        loopInProgressRef.current = false;
+        liveAudioStartedRef.current = false;
+        window.setTimeout(() => {
+          void startVideoPlayback();
+        }, 80);
+        return;
+      }
+      removePlaybackFromPlaylist(playback.queueId);
+      if (completionStatus === 'completed') {
         void loadReplayLibrary();
       }
     }
