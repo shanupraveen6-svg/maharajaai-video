@@ -139,7 +139,7 @@ PHOTOREALISM & TEXTURE LOCK (NO GRAPHIC/CGI MODEL):
 
 GARMENT SPECIFICATION LOCK:
 - Dress the customer in the exact uploaded garment from the single garment reference photograph.
-- Preserve: exact primary and secondary colors (do not shift colors; keep neutrals, grey, gold, and zari authentic), fabric material texture (silk, cotton, georgette, velvet, linen), embroidery patterns, zari borders, neckline shape, sleeve length, drape, and silhouette.
+- Preserve every garment colour and colour transition exactly as shown in the uploaded garment reference. Do not introduce, remove, shift, warm, cool, desaturate, or reinterpret any garment colour. Preserve fabric material texture (silk, cotton, georgette, velvet, linen), embroidery patterns, zari borders, neckline shape, sleeve length, drape, and silhouette.
 - Natural fabric physics: render realistic cloth draping, gravity, and fold shadows conforming naturally to the customer's body contours without distortion.
 - Ignore any mannequin, hanger, rack, stand, or background elements in the garment photo. Transfer the textile garment only.
 
@@ -158,7 +158,7 @@ The only purpose is to clearly and photorealistically show how this exact garmen
 }
 
 /** Section 5: Universal Gemini Master Image Prompt & Category/Event Builders */
-export const UNIVERSAL_GEMINI_IMAGE_PROMPT = `Create an authentic living photographic fashion portrait of the customer shot on 35mm cinema film (ARRI Alexa 35, 50mm f/2.0 lens) using the uploaded customer photo and garment references.
+export const UNIVERSAL_GEMINI_IMAGE_PROMPT = `Create an authentic living photographic fashion portrait of the customer captured with the natural optical character of an ARRI Alexa 35 digital cinema camera and a 50mm f/2 prime lens using the uploaded customer photo and garment references.
 
 P0 — ABSOLUTE IDENTITY & AUTHENTIC REAL HUMAN TEXTURE (NO CGI / NO GRAPHIC MODEL):
 - Preserve the customer's exact face, identity, eye shape, nose bridge, lip contour, jawline, ears, skin tone, natural complexion, hairstyle, age impression, and body proportions.
@@ -166,7 +166,7 @@ P0 — ABSOLUTE IDENTITY & AUTHENTIC REAL HUMAN TEXTURE (NO CGI / NO GRAPHIC MOD
 - AUTHENTIC SKIN & HAIR: Render natural unretouched human skin texture with realistic fine pores, subtle skin micro-creases, natural subsurface warmth, and genuine skin undertones. Hair must have individual natural strands and authentic texture.
 - ANTI-GRAPHIC / ANTI-CGI BAN: Absolutely STRICTLY FORBIDDEN: 3D render, CGI character, Unreal Engine, Octane Render, digital painting, graphic model, video game avatar, airbrushed plastic skin, porcelain doll face, artificial digital smoothing, anime, wax figure, or mannequin look.
 - Dress the customer in the exact uploaded garment references with authentic physical fabric weave, embroidery stitching depth, and natural textile drape.
-- Strictly preserve true colors and dye hues. Neutral grey must remain pure neutral grey (never shift into beige, tan, cream, brown, or gold).
+- Preserve every garment colour, dye hue, and colour transition exactly as shown in the uploaded garment references. Do not introduce, remove, shift, warm, cool, desaturate, or reinterpret any garment colour.
 - Jewelry: Visible necklaces, earrings, and traditional ornaments must have crisp metallic luster, naturally seated against skin and fabric with zero melting.
 
 P1 — NATURAL HUMAN PRESENCE (LIVING CELEBRATION):
@@ -868,7 +868,7 @@ ${safeImageScene}
 }
 
 /** Section 6: Universal Video Prompt — Cinematic Freedom with Absolute Identity & Garment Protection */
-export const UNIVERSAL_VIDEO_PROMPT = `Create an authentic 35mm luxury Indian festive fashion commercial from the approved master image with absolute identity, natural human photorealism, and garment preservation.
+export const UNIVERSAL_VIDEO_PROMPT = `Create an authentic live-action luxury cinematic campaign film from the approved master image with absolute identity, natural human photorealism, and garment preservation.
 
 P0 — ABSOLUTE FIDELITY & ZERO CLOTHING CHANGE (NON-NEGOTIABLE):
 - Identity: Preserve exact facial geometry, eyes, nose, jawline, skin tone, hair, age, expression, hands, feet, and body proportions. Zero reshaping, beautification, or identity alteration.

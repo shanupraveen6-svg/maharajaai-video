@@ -264,7 +264,7 @@ export async function POST(req: NextRequest) {
 
         const garmentFidelityRules = `EXACT GARMENT ROLE & COLOR INSTRUCTIONS:
 ${roleInstructions}
-- Preserve exact fabric colors, patterns, and dye hues from each garment reference without color shift (white stays pure white, blue ombre stays blue ombre, grey stays grey).
+- Preserve every garment colour, dye hue, and colour transition exactly as shown in the uploaded garment references without color shift. Do not introduce, remove, shift, warm, cool, desaturate, or reinterpret any garment colour.
 - Never shift colors or alter clothing into unrequested garments or added embroidery.
 ${categoryGarmentLine}
 - Professional model lighting must enhance clarity, contrast, and depth without altering the true dye color of any garment.`;

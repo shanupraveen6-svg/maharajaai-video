@@ -21,7 +21,7 @@ function buildH3Prompt(category: CustomerCategory, eventId: EventId, promptSet: 
     ? `DIWALI FESTIVE ANIMATION — VIBRANT & ACTIVE: Ensure dynamic festive atmosphere across the scene: brass diya oil flames visibly flicker and dance with warm golden firelight, casting shimmering golden reflections across the polished marble floor. Distant festive fireworks bloom gracefully in the deep indigo night sky behind the palace arches. Floating golden sparks, Diwali bokeh motes, and warm celebratory light particles drift gently through the ambient air behind the customer. Suspended palace lanterns sway subtly with a gentle festive evening breeze. Keep the festive life active and glowing across the environment while preserving the customer's clothing and identity.`
     : '';
 
-  return `CINEMATIC ACTION — 35MM LIVE-ACTION CAPTURE: Create one continuous six-second luxury ${event.label} campaign commercial with an active festive environment, authentic human photorealism (NO 3D/CGI model), and fluid, natural arm-to-pose kinetics.
+  return `CINEMATIC ACTION — LIVE-ACTION CAPTURE: Create one continuous six-second luxury live-action cinematic campaign film from the approved master image with an active festive environment, authentic human photorealism (NO 3D/CGI model), and fluid, natural arm-to-pose kinetics.
 
 CHOREOGRAPHY & MOTION TIMELINE:
 - Seconds 0.0–1.5: Natural Opening Stance. The customer begins standing naturally with both arms hanging loosely at their sides, hands resting beside outer thighs below the waist, clear of hips. Living human presence: gentle breathing, subtle eye catchlights, warm smile.
