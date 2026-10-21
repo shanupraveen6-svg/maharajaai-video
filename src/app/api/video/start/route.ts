@@ -41,9 +41,18 @@ async function normalizeGarmentReference(sourcePath: string, outputPath: string)
   const [source] = await bucket.file(sourcePath).download();
   const metadata = await sharp(source).rotate().metadata();
   if (!metadata.width || !metadata.height) throw new Error('Garment reference has invalid image dimensions.');
+  const shortestSide = Math.min(metadata.width, metadata.height);
+  const longestSide = Math.max(metadata.width, metadata.height);
+  let scale = Math.min(1, 1600 / longestSide);
+  if (shortestSide * scale < 256) scale = 256 / shortestSide;
+  if (longestSide * scale > 2048) {
+    throw new Error('A garment reference is too narrow for video generation. Retake it with the complete garment filling the camera frame.');
+  }
+  const outputWidth = Math.max(256, Math.round(metadata.width * scale));
+  const outputHeight = Math.max(256, Math.round(metadata.height * scale));
   const output = await sharp(source)
     .rotate()
-    .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+    .resize(outputWidth, outputHeight, { fit: 'fill', kernel: sharp.kernel.lanczos3 })
     .jpeg({ quality: 94, chromaSubsampling: '4:4:4' })
     .toBuffer();
   const outputMetadata = await sharp(output).metadata();

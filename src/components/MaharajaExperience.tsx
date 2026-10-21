@@ -178,6 +178,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [videoTestJobId, setVideoTestJobId] = useState('');
   const [videoTestUrl, setVideoTestUrl] = useState('');
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [allowTestGallery, setAllowTestGallery] = useState(false);
+  const [photoInputError, setPhotoInputError] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
   const maxGarmentPhotos = activeService === 'try-on' ? 1 : 3;
@@ -196,6 +198,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     if (generationProgress < 96) return 'Refining motion, identity and garment detail…';
     return 'Securing your finished film…';
   }, [generationProgress, stage]);
+
+  useEffect(() => {
+    setAllowTestGallery(new URLSearchParams(window.location.search).get('testUploads') === '1');
+  }, []);
 
   useEffect(() => {
     if (stage !== 'image' && stage !== 'video') return;
@@ -442,8 +448,25 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     }
   }
 
+  async function readImageDimensions(file: File) {
+    return await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve({ width: image.naturalWidth, height: image.naturalHeight });
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('This photo could not be read. Retake it with the camera.'));
+      };
+      image.src = objectUrl;
+    });
+  }
+
   async function analyzeGarments(files: File[], append = false) {
     if (!files.length) return;
+    setPhotoInputError('');
     const maxAllowed = maxGarmentPhotos;
     const currentCount = append ? garmentPhotos.length : 0;
     if (currentCount + files.length > maxAllowed) {
@@ -456,6 +479,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setError('');
     clearActiveImage();
     try {
+      if (activeService === 'ai-video') {
+        for (const file of files) {
+          const dimensions = await readImageDimensions(file);
+          if (dimensions.width < 256 || dimensions.height < 256) {
+            throw new Error(`Photo is ${dimensions.width}×${dimensions.height}px. Retake it so the complete garment fills the frame; minimum size is 256×256px.`);
+          }
+        }
+      }
       const compressed = await Promise.all(files.map((file) => compressImage(file, 1280, 0.82)));
       const newImages = compressed.map((item) => item.dataUrl);
       const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
@@ -466,7 +497,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
     } catch (caught) {
       setGarmentAnalysis(null);
-      setError(customerError(caught, 'The garment photo could not be prepared. Please take the photo again.'));
+      const message = customerError(caught, 'The garment photo could not be prepared. Please take the photo again.');
+      setPhotoInputError(message);
     } finally {
       setStage('ready');
     }
@@ -708,7 +740,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       setMessage('Your AI film is now being created. Keep this page open.');
       await pollVideoTest(data.jobId);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The controlled video test failed.');
+      setError(customerError(caught, 'The AI video could not be created. Please retake any unclear garment photo and try again.'));
       setMessage('Generation stopped safely. Please try again or ask Maharaja staff for assistance.');
       setStage('ready');
     }
@@ -899,15 +931,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         )}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className={`mt-3 grid gap-2 ${allowTestGallery ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]">
                         <Camera className="h-4 w-4" /> Camera
                         <input id="person-camera-input" type="file" accept="image/*" capture="user" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
                       </label>
-                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F]">
+                      {allowTestGallery && <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F]">
                         <ImageIcon className="h-4 w-4" /> Gallery
                         <input id="person-file-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
-                      </label>
+                      </label>}
                     </div>
                   </div>
 
@@ -1000,6 +1032,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                               <input
                                 type="file"
                                 accept="image/*"
+                                capture="environment"
                                 className="hidden"
                                 disabled={busy || imagesLocked}
                                 onChange={(event) => {
@@ -1014,13 +1047,16 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                       )}
                     </div>
 
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    {photoInputError && <p className="mt-3 border border-red-300 bg-red-50 p-3 text-xs font-bold leading-5 text-red-700">{photoInputError}</p>}
+                    {allowTestGallery && <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-amber-700">Home test upload mode</p>}
+                    <div className={`mt-3 grid gap-2 ${allowTestGallery ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] ${garmentPhotos.length >= maxGarmentPhotos ? 'opacity-40 pointer-events-none' : ''}`}>
                         <Camera className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < maxGarmentPhotos ? '+ Add photo' : 'Add photo'}
                         <input
                           id="garment-camera-input"
                           type="file"
                           accept="image/*"
+                          capture="environment"
                           className="hidden"
                           disabled={busy || imagesLocked || garmentPhotos.length >= maxGarmentPhotos}
                           onChange={(event) => {
@@ -1030,7 +1066,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                           }}
                         />
                       </label>
-                      <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F] ${garmentPhotos.length >= maxGarmentPhotos ? 'opacity-40 pointer-events-none' : ''}`}>
+                      {allowTestGallery && <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 border border-[#6E0D1F] bg-white text-xs font-bold uppercase text-[#6E0D1F] ${garmentPhotos.length >= maxGarmentPhotos ? 'opacity-40 pointer-events-none' : ''}`}>
                         <ImageIcon className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < maxGarmentPhotos ? '+ Add' : 'Gallery'}
                         <input
                           id="garment-file-input"
@@ -1045,7 +1081,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                             if (files.length) void analyzeGarments(files, garmentPhotos.length > 0);
                           }}
                         />
-                      </label>
+                      </label>}
                     </div>
                   </div>
                 </div>
