@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { logMaharajaActivity } from '@/lib/maharaja/server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,6 +39,9 @@ export async function POST(req: NextRequest) {
       (item as any).lastHeartbeatAt = nowIso;
     }
 
+    if (!heartbeat) {
+      await logMaharajaActivity('video', 'TV playback started', { queueId, reservationId, stage: 'tv-play' });
+    }
     return NextResponse.json({ success: true, status: 'playing' });
   } catch (error: any) {
     console.error('TV Playing Error:', error);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { incrementPassUsage, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { incrementPassUsage, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
 const LIVE_PLAY_COUNT = 2;
@@ -183,6 +183,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (created) await incrementPassUsage(accessCode, 'goLive').catch(() => undefined);
+  if (created) {
+    await Promise.allSettled([
+      incrementPassUsage(accessCode, 'goLive'),
+      logMaharajaActivity('go-live', `AI Video queued for Maharaja TV #${queueNumber || '?'}`, {
+        sessionId,
+        jobId,
+        queueId,
+        queueNumber,
+        eventId,
+        customerName,
+        customerLocality,
+      }),
+    ]);
+  }
   return NextResponse.json({ success: true, queueId, queueNumber, status, created });
 }

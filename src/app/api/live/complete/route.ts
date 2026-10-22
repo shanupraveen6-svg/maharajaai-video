@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { logMaharajaActivity } from '@/lib/maharaja/server';
 
 const LIVE_PLAY_COUNT = 2;
 
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
       if (mockSession) mockStore.sessions.set(item.sessionId, { ...mockSession, ...displayMetadata });
     }
 
+    await logMaharajaActivity('video', 'TV playback completed and replay state updated', { queueId, reservationId, stage: 'tv-replay' });
     return NextResponse.json({ success: true, status: 'completed' });
   } catch (error: any) {
     console.error('API Live Complete Error:', error);
