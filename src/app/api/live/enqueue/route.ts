@@ -59,11 +59,12 @@ export async function POST(req: NextRequest) {
       const queueRef = db.collection('liveQueue').doc(queueId);
       const videoRef = db.collection('videos').doc(videoId);
       const screenRef = db.collection('screens').doc('maharaja-main');
-      const [sessionDoc, jobDoc, queueDoc, screenDoc] = await Promise.all([
+      const [sessionDoc, jobDoc, queueDoc, screenDoc, videoDoc] = await Promise.all([
         transaction.get(sessionRef),
         transaction.get(jobRef),
         transaction.get(queueRef),
         transaction.get(screenRef),
+        transaction.get(videoRef),
       ]);
       const session = sessionDoc.data();
       const job = jobDoc.data();
@@ -80,6 +81,8 @@ export async function POST(req: NextRequest) {
       }
 
       const nextQueueNumber = Number(screenDoc.data()?.lastQueueNumber || 0) + 1;
+      const liveStoragePath = String(job.liveVideoStoragePath || session.liveVideoStoragePath || videoDoc.data()?.liveStoragePath || '');
+      const hasFinalLiveAsset = Boolean(liveStoragePath);
       const media = {
         id: videoId,
         clientId: MAHARAJA_CLIENT_ID,
@@ -87,6 +90,7 @@ export async function POST(req: NextRequest) {
         accessCode,
         approvedJobId: jobId,
         storagePath: job.videoStoragePath,
+        ...(hasFinalLiveAsset ? { liveStoragePath } : {}),
         eventId,
         category,
         status: 'ready',
@@ -94,9 +98,9 @@ export async function POST(req: NextRequest) {
         replayEnabled: false,
         liveConsent: true,
         loopConsent: true,
-        playbackMode: 'external',
-        durationSeconds: 6,
-        hasEmbeddedAudio: false,
+        playbackMode: hasFinalLiveAsset ? 'embedded' : 'external',
+        durationSeconds: hasFinalLiveAsset ? 9 : 6,
+        hasEmbeddedAudio: hasFinalLiveAsset,
         customerName,
         customerLocality,
         createdAt: nowIso,
@@ -113,7 +117,7 @@ export async function POST(req: NextRequest) {
         eventId,
         customerName,
         customerLocality,
-        liveAudioUrl,
+        ...(hasFinalLiveAsset ? {} : { liveAudioUrl }),
         status: 'queued',
         priority: 100,
         repeatCount: LIVE_PLAY_COUNT,
@@ -156,17 +160,20 @@ export async function POST(req: NextRequest) {
       status = existing.status || 'queued';
     } else {
       queueNumber = store.liveQueue.reduce((highest, item) => Math.max(highest, Number(item.queueNumber || 0)), 0) + 1;
+      const liveStoragePath = String((job as any).liveVideoStoragePath || (session as any).liveVideoStoragePath || '');
+      const hasFinalLiveAsset = Boolean(liveStoragePath);
       store.videos.set(videoId, {
         id: videoId, sessionId, accessCode, approvedJobId: jobId, storagePath: job.videoStoragePath,
+        ...(hasFinalLiveAsset ? { liveStoragePath } : {}),
         eventId, category, status: 'ready', published: false, replayEnabled: false,
-        liveConsent: true, loopConsent: true, playbackMode: 'external', durationSeconds: 6,
-        hasEmbeddedAudio: false, customerName, customerLocality, createdAt: nowIso, expiresAt,
+        liveConsent: true, loopConsent: true, playbackMode: hasFinalLiveAsset ? 'embedded' : 'external', durationSeconds: hasFinalLiveAsset ? 9 : 6,
+        hasEmbeddedAudio: hasFinalLiveAsset, customerName, customerLocality, createdAt: nowIso, expiresAt,
       });
       store.liveQueue.push({
         id: queueId, screenId: 'maharaja-main', videoId, sessionId, queueNumber,
         status: 'queued', priority: 100, repeatCount: LIVE_PLAY_COUNT, timesPlayed: 0, createdAt: nowIso,
         playAtMs: now.getTime(), accessCode, videoJobId: jobId, eventId, customerName,
-        customerLocality, liveAudioUrl, liveConsent: true, loopConsent: true,
+        customerLocality, ...(hasFinalLiveAsset ? {} : { liveAudioUrl }), liveConsent: true, loopConsent: true,
       } as any);
       store.sessions.set(sessionId, {
         ...session, selectedVideoTestJobId: jobId, liveQueueId: queueId,
