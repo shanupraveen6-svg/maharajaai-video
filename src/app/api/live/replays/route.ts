@@ -133,6 +133,7 @@ export async function GET(req: NextRequest) {
         otherObjects: 0,
         scanError: null as string | null,
       };
+      const missingShowcaseRecords: Array<{ id: string; data: Record<string, unknown> }> = [];
       if (bucket) {
         try {
           // Only root-level files are operator-uploaded showcase clips. Customer media lives in folders.
@@ -150,8 +151,9 @@ export async function GET(req: NextRequest) {
             }
             storageDiagnostics.videoObjects += 1;
             if (videosByStoragePath.has(storagePath)) continue;
-            videosByStoragePath.set(storagePath, {
-              id: `root_showcase_${stableId(storagePath)}`,
+            const showcaseId = `root_showcase_${stableId(storagePath)}`;
+            const showcaseRecord = {
+              id: showcaseId,
               sessionId: stableSessionId(storagePath),
               storagePath,
               contentType: contentType || 'video/mp4',
@@ -163,11 +165,25 @@ export async function GET(req: NextRequest) {
               playbackMode: 'embedded',
               hasEmbeddedAudio: true,
               createdAt: file.metadata?.timeCreated || file.metadata?.updated || new Date().toISOString(),
-            });
+              updatedAt: new Date().toISOString(),
+            };
+            videosByStoragePath.set(storagePath, showcaseRecord);
+            missingShowcaseRecords.push({ id: showcaseId, data: showcaseRecord });
           }
         } catch (scanError: any) {
           storageDiagnostics.scanError = scanError?.message || 'Unable to scan root showcase videos.';
           console.warn('Root showcase scan warning:', scanError);
+        }
+      }
+      if (missingShowcaseRecords.length) {
+        try {
+          const batch = db.batch();
+          missingShowcaseRecords.forEach(({ id, data }) => {
+            batch.set(db.collection('videos').doc(id), data, { merge: true });
+          });
+          await batch.commit();
+        } catch (importError) {
+          console.warn('Root showcase import warning:', importError);
         }
       }
       const now = Date.now();

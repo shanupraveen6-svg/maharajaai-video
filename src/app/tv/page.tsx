@@ -200,6 +200,8 @@ export default function TvPlayerPage() {
     if (!playback) return;
 
     console.warn('Skipping pending TV playback:', reason, playback.queueId);
+    badQueueIdsRef.current.add(playback.queueId);
+    removePlaybackFromPlaylist(playback.queueId);
     setSlotPlayback(slot, null);
     if (pendingSlotRef.current === slot) {
       pendingSlotRef.current = null;
