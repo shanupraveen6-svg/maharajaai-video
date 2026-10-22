@@ -607,6 +607,18 @@ export default function TvPlayerPage() {
       return;
     }
 
+    const currentIndex = playlist.findIndex((item) => item.queueId === currentPlaybackRef.current?.queueId);
+    const currentStillInPlaylist = currentIndex >= 0
+      && playlist[currentIndex].source === currentPlaybackRef.current.source;
+
+    // A live item was just completed and replaced by its replay entry. Do not
+    // restart the stale live item; activate the replay asset instead.
+    if (!currentStillInPlaylist) {
+      playlistIndexRef.current = currentIndex >= 0 ? currentIndex : 0;
+      preparePlayback(playlist[playlistIndexRef.current]);
+      return;
+    }
+
     if (playlist.length === 1) {
       const video = getVideoRef(activeSlotRef.current);
       const playback = currentPlaybackRef.current;
@@ -663,6 +675,12 @@ export default function TvPlayerPage() {
 
       livePlayCountsRef.current.delete(playback.queueId);
       removePlaybackFromPlaylist(playback.queueId);
+      // If this was the only available clip, keep it on the TV as a normal
+      // replay item immediately rather than leaving the screen without a loop.
+      if (!playlistRef.current.length) {
+        playlistRef.current = [{ ...playback, source: 'replay' }];
+        playlistIndexRef.current = 0;
+      }
       void completion.then((status) => {
         if (status === 'completed') {
           void loadReplayLibrary();
