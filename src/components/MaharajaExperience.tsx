@@ -529,7 +529,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         }),
       });
       const data = await res.json();
-      if (!data.success || !data.uploadUrl) return '';
+      if (!res.ok || !data.success || !data.uploadUrl || !data.storagePath) {
+        throw new Error(data.error || 'Secure photo upload could not be prepared. Check the connection and try again.');
+      }
 
       const base64Data = dataUrl.split(',')[1] || dataUrl;
       const byteCharacters = atob(base64Data);
@@ -565,11 +567,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           }),
         });
         const fallback = await fallbackRes.json().catch(() => ({}));
-        if (!fallbackRes.ok || !fallback.success) return '';
+        if (!fallbackRes.ok || !fallback.success) {
+          throw new Error(fallback.error || 'Secure photo upload failed. Check the connection and try again.');
+        }
       }
       return data.storagePath;
-    } catch {
-      return '';
+    } catch (caught) {
+      throw caught instanceof Error
+        ? caught
+        : new Error('Secure photo upload failed. Check the connection and try again.');
     }
   }
 
@@ -584,10 +590,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       window.setTimeout(() => setMessage('Gemini is still creating the full-quality image. Your photos and selected pose are safely locked.'), 28000),
     ];
     try {
-      const [personStoragePath, ...garmentStoragePaths] = await Promise.all([
-        uploadPhotoToStorage(personPhoto, 'person'),
-        ...visibleGarmentPhotos.map((photo) => uploadPhotoToStorage(photo, 'garment')),
-      ]);
+      // Mobile browsers can drop one of several simultaneous signed uploads.
+      // Keep the upload transaction deterministic: person first, then each
+      // explicitly-labelled garment reference. Gemini is never called early.
+      const personStoragePath = await uploadPhotoToStorage(personPhoto, 'person');
+      const garmentStoragePaths: string[] = [];
+      for (const photo of visibleGarmentPhotos) {
+        garmentStoragePaths.push(await uploadPhotoToStorage(photo, 'garment'));
+      }
       const allUploaded = Boolean(personStoragePath && garmentStoragePaths.length === visibleGarmentPhotos.length && garmentStoragePaths.every(Boolean));
       if (!allUploaded) {
         throw new Error('Secure photo upload did not complete. Check the connection and try again. No AI credit was used.');
