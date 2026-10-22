@@ -407,7 +407,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
 
             {/* 2. Live TV Screen Link */}
             <a
-              href="/tv"
+              href="/maharaja/tv"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#D4AF37]/60 bg-[#280C12] px-2 text-[10px] font-bold uppercase text-[#F3E5AB] shadow-sm transition hover:border-[#D4AF37] hover:bg-[#381019] active:scale-[0.98] sm:px-3 sm:text-xs"

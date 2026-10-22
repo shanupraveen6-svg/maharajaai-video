@@ -52,6 +52,8 @@ export default function TvPlayerPage() {
   const liveAudioStartedRef = useRef(false);
   const loopInProgressRef = useRef(false);
   const completedQueueIdsRef = useRef<Set<string>>(new Set());
+  const completionRequestsRef = useRef<Map<string, Promise<'repeat' | 'completed' | null>>>(new Map());
+  const livePlayCountsRef = useRef<Map<string, number>>(new Map());
   const pollInFlightRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playbackWatchdogRef = useRef<number | null>(null);
@@ -234,6 +236,17 @@ export default function TvPlayerPage() {
       }
     }
     return null;
+  }
+
+  function beginCompletionNotification(playback: PlaybackItem): Promise<'repeat' | 'completed' | null> {
+    const existing = completionRequestsRef.current.get(playback.queueId);
+    if (existing) return existing;
+
+    const request = notifyPlaybackComplete(playback).finally(() => {
+      completionRequestsRef.current.delete(playback.queueId);
+    });
+    completionRequestsRef.current.set(playback.queueId, request);
+    return request;
   }
 
   function preparePlayback(playback: PlaybackItem) {
@@ -630,19 +643,33 @@ export default function TvPlayerPage() {
     resetExternalAudio();
 
     if (playback.source !== 'replay') {
-      const completionStatus = await notifyPlaybackComplete(playback);
-      if (completionStatus === 'repeat') {
+      const localPlayCount = (livePlayCountsRef.current.get(playback.queueId) || 0) + 1;
+      livePlayCountsRef.current.set(playback.queueId, localPlayCount);
+      const completion = beginCompletionNotification(playback);
+
+      // Never hold the screen on a final frame while Firestore/network work completes.
+      // The queue contract is exactly two live plays; record completion in parallel.
+      if (localPlayCount < 2) {
         loopInProgressRef.current = false;
         liveAudioStartedRef.current = false;
         window.setTimeout(() => {
           void startVideoPlayback();
-        }, 80);
+        }, 16);
+        void completion.then((status) => {
+          if (status !== 'repeat') console.warn('Unexpected first live completion status:', status);
+        });
         return;
       }
+
+      livePlayCountsRef.current.delete(playback.queueId);
       removePlaybackFromPlaylist(playback.queueId);
-      if (completionStatus === 'completed') {
-        void loadReplayLibrary();
-      }
+      void completion.then((status) => {
+        if (status === 'completed') {
+          void loadReplayLibrary();
+        } else {
+          console.warn('Live completion has not confirmed; backend recovery will retry it.', playback.queueId, status);
+        }
+      });
     }
 
     liveAudioStartedRef.current = false;
@@ -788,7 +815,7 @@ export default function TvPlayerPage() {
           }
         }}
         onError={() => handleVideoError(slot)}
-        className={`absolute inset-0 h-full w-full object-cover transition-none ${
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ease-out ${
           isActive ? 'opacity-100' : 'opacity-0'
         }`}
       />
