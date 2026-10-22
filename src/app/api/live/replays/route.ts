@@ -178,18 +178,10 @@ export async function GET(req: NextRequest) {
           const completedBefore = completedQueueByVideoId.has(video.id) || completedQueueByVideoId.has(`video_${video.sessionId}`);
           return includeUnpublished || (video.published === true && video.replayEnabled === true) || completedBefore;
         });
-      const availability = await Promise.all(replayCandidates.map(async (video: any) => {
-        const storagePath = selectedStoragePath(video);
-        try {
-          const [exists] = await bucket?.file(storagePath).exists();
-          return exists ? video : null;
-        } catch (error) {
-          console.warn(`Replay object availability check failed for ${storagePath}:`, error);
-          return null;
-        }
-      }));
-      const readyVideos = availability
-        .filter((video): video is any => Boolean(video))
+      // Do not block the whole showroom playlist on one Storage existence
+      // request per clip. Signing below is the final availability check; a
+      // broken object is skipped without delaying every healthy video.
+      const readyVideos = replayCandidates
         .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
 
       const usedNames = new Set(

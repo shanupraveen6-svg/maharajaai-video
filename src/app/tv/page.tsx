@@ -340,7 +340,9 @@ export default function TvPlayerPage() {
     try {
       let offset = 0;
       do {
-        const res = await fetch(`/api/live/replays?limit=200&offset=${offset}`, { cache: 'no-store' });
+        // Start with a small page so the screen begins playing promptly even
+        // when the showroom library contains many historical videos.
+        const res = await fetch(`/api/live/replays?limit=24&offset=${offset}`, { cache: 'no-store' });
         const data = await res.json();
         if (!data.success || !Array.isArray(data.items)) return;
         data.items.forEach((item: PlaybackItem) => {
