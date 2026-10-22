@@ -139,7 +139,9 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
       const items: StoredVideoItem[] = [];
       let offset = 0;
       do {
-        const data = await readJson(await fetch(`/api/live/replays?limit=200&offset=${offset}&includeUnpublished=1`, { cache: 'no-store' }));
+        // Match the actual TV source: root showcase MP4s plus completed Go Live
+        // videos. Historical Firestore jobs are not TV-loop entries.
+        const data = await readJson(await fetch(`/api/live/replays?limit=200&offset=${offset}`, { cache: 'no-store' }));
         if (Array.isArray(data.items)) items.push(...data.items);
         offset = typeof data.nextOffset === 'number' ? data.nextOffset : -1;
       } while (offset >= 0);
