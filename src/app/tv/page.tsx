@@ -459,6 +459,24 @@ export default function TvPlayerPage() {
   }, [isPlayingVideo, currentPlayback, activeSlot]);
 
   useEffect(() => {
+    if (!isPlayingVideo || !currentPlayback?.reservationId) return;
+    const heartbeat = () => {
+      void fetch('/api/tv/playing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          queueId: currentPlayback.queueId,
+          reservationId: currentPlayback.reservationId,
+          heartbeat: true,
+        }),
+      });
+    };
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 12000);
+    return () => window.clearInterval(interval);
+  }, [isPlayingVideo, currentPlayback]);
+
+  useEffect(() => {
     if (!currentPlayback) return;
 
     const timeout = window.setTimeout(preloadNextPlaylistItem, 500);

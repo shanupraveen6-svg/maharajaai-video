@@ -4,7 +4,7 @@ import { getDb, getMockStore } from '@/lib/firebase/admin';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { queueId, reservationId } = body;
+    const { queueId, reservationId, heartbeat = false } = body;
 
     if (!queueId || !reservationId) {
       return NextResponse.json({ success: false, error: 'Missing queueId or reservationId' }, { status: 400 });
@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
 
       await queueDocRef.update({
         status: 'playing',
-        startedAt: nowIso
+        startedAt: heartbeat ? queueDoc.data()?.startedAt || nowIso : nowIso,
+        lastHeartbeatAt: nowIso,
       });
     } else {
       const mockStore = getMockStore();
@@ -33,7 +34,8 @@ export async function POST(req: NextRequest) {
       }
 
       item.status = 'playing';
-      item.startedAt = nowIso;
+      item.startedAt = heartbeat ? item.startedAt || nowIso : nowIso;
+      (item as any).lastHeartbeatAt = nowIso;
     }
 
     return NextResponse.json({ success: true, status: 'playing' });

@@ -18,7 +18,8 @@ import {
 export const dynamic = 'force-dynamic';
 
 function cleanPhone(value: unknown) {
-  return String(value || '').replace(/\D/g, '').slice(-10);
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length === 10 ? digits : '';
 }
 
 function cleanBillLast4(value: unknown) {

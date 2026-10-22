@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
+import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { finalizeCompletedVideo, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { extractVideoUrl, publicFalQueueUrl } from '@/lib/maharaja/video-test';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +19,17 @@ async function falGet(url: string, falKey: string) {
     throw new Error(`Fal queue failed (${response.status}): ${detail.slice(0, 500)}`);
   }
   return data;
+}
+
+function providerFailure(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Video generation failed.';
+  const statusMatch = message.match(/\((4\d\d|5\d\d)\)/);
+  const statusCode = statusMatch ? Number(statusMatch[1]) : null;
+  return {
+    message,
+    providerStatusCode: statusCode,
+    retryable: statusCode === null || statusCode >= 500 || statusCode === 429,
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -69,13 +80,19 @@ export async function GET(req: NextRequest) {
     if (!contentType.startsWith('video/')) throw new Error(`Provider output is not a video (${contentType}).`);
     const providerBytes = Buffer.from(await videoResponse.arrayBuffer());
     if (providerBytes.length < 10_000) throw new Error('Generated video file is unexpectedly small.');
-    const bytes = providerBytes;
-    const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${job.sessionId}/video-tests/${jobId}/output.mp4`;
-    const bucket = getStorageBucket();
-    if (!bucket) throw new Error('Firebase Storage is unavailable for the completed test video.');
-    await bucket.file(storagePath).save(bytes, { contentType: 'video/mp4', resumable: false });
+    const finalized = await finalizeCompletedVideo({
+      sessionId: job.sessionId,
+      jobId,
+      videoBuffer: providerBytes,
+      provider: job.modelId || 'minimax/h3-max/reference-to-video',
+      accessCode,
+      clientId: MAHARAJA_CLIENT_ID,
+      eventId: job.eventId || 'diwali',
+    });
+    if (!finalized.success) throw new Error(finalized.error);
     const update = {
-      status: 'ready', providerStatus: state, videoStoragePath: storagePath,
+      status: 'ready', providerStatus: state, videoStoragePath: finalized.storagePath,
+      liveVideoStoragePath: finalized.liveStoragePath || null,
       providerVideoUrl: remoteVideoUrl, completedAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     if (db) {
@@ -84,7 +101,8 @@ export async function GET(req: NextRequest) {
         activeVideoTestJobId: null,
         latestReadyVideoTestJobId: jobId,
         videoStatus: 'ready',
-        videoStoragePath: storagePath,
+        videoStoragePath: finalized.storagePath,
+        liveVideoStoragePath: finalized.liveStoragePath || null,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
     } else {
@@ -92,16 +110,35 @@ export async function GET(req: NextRequest) {
       const session = getMockStore().sessions.get(job.sessionId) || {};
       getMockStore().sessions.set(job.sessionId, { ...session, activeVideoTestJobId: null });
     }
-    return NextResponse.json({ success: true, status: 'ready', jobId, modelId: job.modelId, videoUrl: await getSignedPlaybackUrl(storagePath), inputMetadata: job.inputMetadata });
+    return NextResponse.json({ success: true, status: 'ready', jobId, modelId: job.modelId, videoUrl: await getSignedPlaybackUrl(finalized.storagePath), inputMetadata: job.inputMetadata });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Video test failed.';
-    const update = { status: 'failed', error: message, updatedAt: new Date().toISOString() };
+    const failure = providerFailure(error);
+    const update = {
+      status: 'failed',
+      error: failure.message,
+      providerStatusCode: failure.providerStatusCode,
+      retryable: failure.retryable,
+      failedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
     if (db) {
       await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
       await db.collection('sessions').doc(job.sessionId).set({ activeVideoTestJobId: null }, { merge: true });
     } else {
       getMockStore().sessions.set(`video_test_${jobId}`, { ...job, ...update });
     }
-    return NextResponse.json({ success: false, status: 'failed', jobId, error: message }, { status: 422 });
+    await logMaharajaActivity('video', 'AI Video generation stopped', {
+      sessionId: job.sessionId,
+      jobId,
+      providerStatusCode: failure.providerStatusCode,
+      retryable: failure.retryable,
+    });
+    return NextResponse.json({
+      success: false,
+      status: 'failed',
+      jobId,
+      error: failure.message,
+      retryable: failure.retryable,
+    }, { status: 422 });
   }
 }

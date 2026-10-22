@@ -55,7 +55,7 @@ async function cleanupExpiredReservations(db: any) {
 
     const stalePlaying = playingSnapshot.docs.filter((doc: any) => {
       const data = doc.data() || {};
-      const activityAt = getMillis(data.startedAt || data.updatedAt || data.reservedAt || data.createdAt);
+      const activityAt = getMillis(data.lastHeartbeatAt || data.startedAt || data.updatedAt || data.reservedAt || data.createdAt);
       return activityAt > 0 && activityAt < Date.now() - 45000;
     });
 
@@ -202,7 +202,7 @@ export async function GET(req: NextRequest) {
           }
         }
         if (item.status === 'playing') {
-          const activityAt = getMillis(item.startedAt || (item as any).updatedAt || item.reservedAt || item.createdAt);
+          const activityAt = getMillis((item as any).lastHeartbeatAt || item.startedAt || (item as any).updatedAt || item.reservedAt || item.createdAt);
           if (activityAt > 0 && activityAt < Date.now() - 45000) {
             item.status = 'queued';
             item.playAtMs = Date.now();
