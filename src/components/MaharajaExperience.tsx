@@ -9,6 +9,7 @@ import {
   Camera,
   CheckCircle2,
   Download,
+  MoreVertical,
   Film,
   LoaderCircle,
   Shirt,
@@ -20,17 +21,13 @@ import {
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
 import {
-  buildMasterPrompt,
   EVENT_OPTIONS,
-  getCampaignPoseForExperience,
   getEventOption,
-  getSceneIndex,
-  type CampaignPoseId,
   type CustomerCategory,
   type EventId,
   type GarmentType,
-  type VideoPromptSet,
 } from '@/lib/maharaja/config';
+import { conceptsForCategory, getVideoConcept, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 
 const BarcodePriceScanner = dynamic(() => import('@/components/BarcodePriceScanner'), { ssr: false });
 const SecureTryOnViewer = dynamic(() => import('@/components/SecureTryOnViewer'), { ssr: false });
@@ -47,7 +44,7 @@ type AccessResponse = {
     tryOnUsed: boolean;
     videoMasterApproved?: boolean;
     videoMasterCategory?: CustomerCategory | null;
-    videoMasterPoseId?: CampaignPoseId | null;
+    videoMasterConceptId?: VideoConceptId | null;
   };
 };
 
@@ -140,8 +137,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [category, setCategory] = useState<CustomerCategory>('women');
   const [sessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
-  const [promptSet, setPromptSet] = useState<VideoPromptSet>(() => (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1'));
-  const [poseId, setPoseId] = useState<CampaignPoseId>(() => getCampaignPoseForExperience('women', promptSet));
+  const [conceptId, setConceptId] = useState<VideoConceptId>('women-golden-courtyard');
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
   const [deviceId, setDeviceId] = useState('');
@@ -314,9 +310,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           if (data.access.tryOnImageUrl) setTryOnImageUrl(data.access.tryOnImageUrl);
           setEventId(retryData.source.eventId);
           setCategory(retryData.source.category);
-          const retryPromptSet: VideoPromptSet = retryData.source.promptSet === 'set-2' ? 'set-2' : 'set-1';
-          setPromptSet(retryPromptSet);
-          setPoseId(getCampaignPoseForExperience(retryData.source.category, retryPromptSet));
+          const retryConcept = getVideoConcept(retryData.source.conceptId);
+          if (retryConcept) setConceptId(retryConcept.id);
           setGarmentAnalysis(retryData.source.garmentAnalysis);
           setMessage('Video retry ready. The safe backup prompt will use the same approved image.');
         } else if (data.access.service === 'ai-video' && (data.access.tryOnImageUrl || data.access.videoMasterUrl)) {
@@ -328,12 +323,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           if (data.access.videoMasterCategory) {
             setCategory(data.access.videoMasterCategory);
           }
-          if (data.access.videoMasterPoseId) {
-            setPoseId(data.access.videoMasterPoseId);
-          }
-          if (data.access.videoMasterPromptSet) {
-            setPromptSet(data.access.videoMasterPromptSet);
-          }
+          if (data.access.videoMasterConceptId) setConceptId(data.access.videoMasterConceptId);
           setMessage(data.access.videoMasterUrl
             ? 'Your festival portrait is ready. Create your 6-second AI video below.'
             : 'Your Try-On image is ready. Switch to AI Video to create your festival image and video.');
@@ -374,6 +364,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     && !!personPhoto
     && garmentPhotos.length > 0
     && garmentTypeConfirmed
+    && (activeService === 'try-on' || !!getVideoConcept(conceptId))
     && personAnalysis?.valid === true
     && personAnalysis.additionalPhotoRequired !== true
     && garmentAnalysis?.valid === true
@@ -611,8 +602,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         service: activeService,
         eventId,
         templateId: category,
-        promptSet,
-        poseId,
+        conceptId: activeService === 'ai-video' ? conceptId : undefined,
         garmentType,
         garmentTypeConfirmed,
         garmentRoles,
@@ -623,7 +613,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         processingConsent,
         guardianProcessingConsent: (category === 'girl' || category === 'boy') ? processingConsent : false,
         consentVersion: '2026-10-privacy-v1',
-        conceptPrompt: activeService === 'ai-video' ? buildMasterPrompt(category, eventId, sessionId, undefined, promptSet, poseId) : undefined,
       };
 
       requestBody.personPhotoStoragePath = personStoragePath;
@@ -714,6 +703,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         await new Promise((resolve) => window.setTimeout(resolve, 500));
         setStage('result');
         return;
+      }
+      if (data.status === 'unknown') {
+        setMessage('Checking the original film request after a connection interruption. No second request has been sent.');
+        continue;
       }
       if (!response.ok || data.status === 'failed') {
         throw new Error(data.error || `Video test failed (${response.status}).`);
@@ -898,7 +891,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); setPoseId(getCampaignPoseForExperience(option, promptSet)); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setConceptId(conceptsForCategory(option)[0].id); setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
 
                   <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
                     <select
@@ -975,7 +968,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                             setGarmentType(nextType);
                             setGarmentTypeConfirmed(nextType !== 'unset');
                             setGarmentRoles(rolesForGarment(nextType));
-                            setPoseId(getCampaignPoseForExperience(category, promptSet));
                             setGarmentAnalysis((current) => current ? { ...current, garmentType: nextType } : current);
                           }}
                           className="mt-1 min-h-11 w-full border border-[#B99A55] bg-white px-3 text-sm font-semibold text-[#2A060C] outline-none focus:border-[#6E0D1F]"
@@ -1050,6 +1042,29 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         </div>
                       )}
                     </div>
+
+                    {activeService === 'ai-video' && (
+                      <fieldset className="mt-5 border-t border-[#D8C49B] pt-4">
+                        <legend className="px-1 text-xs font-bold uppercase tracking-[0.16em] text-[#6E0D1F]">Choose your Diwali film</legend>
+                        <p className="mt-1 text-xs leading-5 text-[#5C4B43]">Choose a title only. Your final portrait remains a surprise.</p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                          {conceptsForCategory(category).map((concept, index) => (
+                            <button
+                              key={concept.id}
+                              type="button"
+                              disabled={busy || imagesLocked}
+                              aria-pressed={conceptId === concept.id}
+                              onClick={() => { setConceptId(concept.id); setProcessingConsent(false); clearActiveImage(); }}
+                              className={`min-h-24 border p-3 text-left transition ${conceptId === concept.id ? 'border-[#D4AF37] bg-[#21090E] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFF9EC] text-[#2A060C] hover:border-[#6E0D1F]'}`}
+                            >
+                              <span className={`block text-[10px] font-bold tracking-[0.18em] ${conceptId === concept.id ? 'text-[#D4AF37]' : 'text-[#6E0D1F]'}`}>0{index + 1}</span>
+                              <span className="mt-1 block font-serif text-base font-bold">{concept.title}</span>
+                              <span className={`mt-1 block text-[11px] leading-4 ${conceptId === concept.id ? 'text-[#F3E5AB]/80' : 'text-[#5C4B43]'}`}>{concept.mood}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </fieldset>
+                    )}
 
                     {photoInputError && <p className="mt-3 border border-red-300 bg-red-50 p-3 text-xs font-bold leading-5 text-red-700">{photoInputError}</p>}
                     <div className="mt-3 grid grid-cols-1 gap-2">

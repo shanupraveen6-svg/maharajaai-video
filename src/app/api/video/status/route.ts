@@ -113,8 +113,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, status: 'ready', jobId, modelId: job.modelId, videoUrl: await getSignedPlaybackUrl(finalized.storagePath), inputMetadata: job.inputMetadata });
   } catch (error) {
     const failure = providerFailure(error);
+    const isUnknown = failure.providerStatusCode === null || failure.providerStatusCode >= 500 || failure.providerStatusCode === 429;
     const update = {
-      status: 'failed',
+      status: isUnknown ? 'unknown' : 'failed',
       error: failure.message,
       providerStatusCode: failure.providerStatusCode,
       retryable: failure.retryable,
@@ -123,7 +124,7 @@ export async function GET(req: NextRequest) {
     };
     if (db) {
       await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
-      await db.collection('sessions').doc(job.sessionId).set({ activeVideoTestJobId: null }, { merge: true });
+      await db.collection('sessions').doc(job.sessionId).set({ activeVideoTestJobId: isUnknown ? jobId : null }, { merge: true });
     } else {
       getMockStore().sessions.set(`video_test_${jobId}`, { ...job, ...update });
     }
@@ -135,10 +136,10 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json({
       success: false,
-      status: 'failed',
+      status: isUnknown ? 'unknown' : 'failed',
       jobId,
       error: failure.message,
       retryable: failure.retryable,
-    }, { status: 422 });
+    }, { status: isUnknown ? 503 : 422 });
   }
 }

@@ -9,9 +9,6 @@ import {
   AI_VIDEO_MIN_PURCHASE,
   type EventId,
   type CustomerCategory,
-  type CampaignPoseId,
-  type CampaignExperienceId,
-  type VideoPromptSet,
   MAHARAJA_CLIENT_ID,
   MAHARAJA_WORKSPACE_CODE,
   TRY_ON_MIN_PURCHASE,
@@ -20,6 +17,7 @@ import {
   resolveGarmentType,
   ENFORCE_REPEAT_LIMITS,
 } from './config';
+import { type VideoConceptId } from './video-concepts';
 
 export type MaharajaWorkspace = {
   clientId: typeof MAHARAJA_CLIENT_ID;
@@ -92,11 +90,15 @@ export type MaharajaVideoPass = {
   videoMasterApproved?: boolean;
   videoMasterApprovedAtMs?: number;
   videoMasterApprovedUrl?: string;
-  videoMasterPromptSet?: VideoPromptSet;
-  videoMasterPoseId?: CampaignPoseId;
+  /** Deprecated v1 fields remain readable for passes created before the v2 rollout. */
+  videoMasterPromptSet?: 'set-1' | 'set-2';
+  videoMasterPoseId?: string;
+  videoMasterConceptId?: VideoConceptId;
+  videoPromptArchitectureVersion?: string;
   videoMasterCategory?: CustomerCategory;
   videoMasterGarmentType?: string;
-  videoMasterExperienceId?: CampaignExperienceId;
+  /** Legacy metadata retained for existing pass reads only. */
+  videoMasterExperienceId?: string;
   videoMasterGarmentRoles?: string[];
   videoReferenceSessionId?: string;
   videoPersonPhotoStoragePath?: string;
@@ -1179,11 +1181,12 @@ export async function markPassVideoMasterDone(
   code: string,
   videoMasterUrl: string,
   meta?: {
-    promptSet?: VideoPromptSet;
-    poseId?: CampaignPoseId;
+    conceptId?: VideoConceptId;
+    promptArchitectureVersion?: string;
     category?: CustomerCategory;
     garmentType?: string;
-    experienceId?: CampaignExperienceId;
+    /** Retained only so already-issued v1 sessions remain readable. New v2 jobs do not set it. */
+    experienceId?: string;
     garmentRoles?: string[];
     referenceSessionId?: string;
     personPhotoStoragePath?: string;
@@ -1216,8 +1219,8 @@ export async function markPassVideoMasterDone(
         imageGenerating: false,
         activeMasterGenerationId: FieldValue.delete(),
       };
-      if (meta?.promptSet) updateData.videoMasterPromptSet = meta.promptSet;
-      if (meta?.poseId) updateData.videoMasterPoseId = meta.poseId;
+      if (meta?.conceptId) updateData.videoMasterConceptId = meta.conceptId;
+      if (meta?.promptArchitectureVersion) updateData.videoPromptArchitectureVersion = meta.promptArchitectureVersion;
       if (cat) updateData.videoMasterCategory = cat;
       if (garment) updateData.videoMasterGarmentType = garment;
       if (meta?.experienceId) updateData.videoMasterExperienceId = meta.experienceId;
@@ -1250,8 +1253,8 @@ export async function markPassVideoMasterDone(
       imageGenerating: false,
     };
     delete passCopy.activeMasterGenerationId;
-    if (meta?.promptSet) passCopy.videoMasterPromptSet = meta.promptSet;
-    if (meta?.poseId) passCopy.videoMasterPoseId = meta.poseId;
+    if (meta?.conceptId) passCopy.videoMasterConceptId = meta.conceptId;
+    if (meta?.promptArchitectureVersion) passCopy.videoPromptArchitectureVersion = meta.promptArchitectureVersion;
     if (cat) passCopy.videoMasterCategory = cat;
     if (garment) passCopy.videoMasterGarmentType = garment;
     if (meta?.experienceId) passCopy.videoMasterExperienceId = meta.experienceId;

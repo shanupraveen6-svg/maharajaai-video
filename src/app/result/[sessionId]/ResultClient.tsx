@@ -304,6 +304,7 @@ export default function ResultClient({
       return;
     }
     setShowMenu(false);
+    if (!window.confirm('Use your final included image retry? Your current image and video remain safely saved.')) return;
     try {
       await fetch('/api/maharaja/activity', {
         method: 'POST',

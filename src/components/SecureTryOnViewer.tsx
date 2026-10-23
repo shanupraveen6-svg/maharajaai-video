@@ -88,7 +88,9 @@ export default function SecureTryOnViewer({
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowMenu(false);
-                    onRetryRequested();
+                    if (window.confirm('Use your final included retry? Your current result remains safely saved.')) {
+                      onRetryRequested();
+                    }
                   }}
                   className="w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold text-[#F3E5AB] hover:bg-[#6e0d1f] hover:text-white transition"
                 >

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, getCampaignExperience, getCampaignPoseForExperience, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, buildMasterPrompt, resolveGarmentType, type VideoPromptSet, getSceneIndex } from '@/lib/maharaja/config';
+import { type CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, MASTER_IMAGE_UNIVERSAL_PREFIX, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
+import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
@@ -210,11 +211,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
     }
     const garmentType = resolveGarmentType(customerCategory, body.garmentType, garmentAnalysis, garmentRoles);
-    const promptSet: VideoPromptSet = (body.promptSet === 'set-2' || body.promptSet === 'set-1')
-      ? body.promptSet
-      : (getSceneIndex(sessionId) === 1 ? 'set-2' : 'set-1');
-    const experience = getCampaignExperience(customerCategory, promptSet);
-    const poseId = getCampaignPoseForExperience(customerCategory, promptSet);
+    const concept = service === 'ai-video' ? getVideoConcept(body.conceptId) : null;
+    if (service === 'ai-video' && (!concept || concept.category !== customerCategory)) {
+      return NextResponse.json({ success: false, error: 'Select one Diwali film concept for the chosen customer category before generating.' }, { status: 400 });
+    }
     const sanitizedGarmentRoles = Array.isArray(garmentRoles)
       ? garmentRoles.slice(0, garmentInputs.length).map((role: unknown) => String(role))
       : [];
@@ -278,7 +278,7 @@ ${categoryGarmentLine}
 - The current garment photograph(s), identified by the explicit roles above, are the only authoritative garment-design references.
 - No previous Try-On result, previous master image or prior customer output is supplied or permitted as a reference.`;
 
-          const fullConcept = buildMasterPrompt(customerCategory, eventId, sessionId, garmentType, promptSet, poseId);
+          const fullConcept = buildVideoMasterPrompt(concept!, garmentType);
 
           prompt = `${fullConcept}\n\n${garmentFidelityRules}\n\n${referenceHierarchy}`;
         }
@@ -378,10 +378,9 @@ ${categoryGarmentLine}
         garmentAnalysis,
         personAnalysis,
         templateId: templateId || null,
-        promptSet,
-        poseId,
+        conceptId: concept?.id || null,
+        promptArchitectureVersion: service === 'ai-video' ? VIDEO_PROMPT_ARCHITECTURE_VERSION : null,
         garmentType,
-        experienceId: experience.id,
         garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
@@ -403,10 +402,9 @@ ${categoryGarmentLine}
         garmentAnalysis,
         personAnalysis,
         templateId: templateId || null,
-        promptSet,
-        poseId,
+        conceptId: concept?.id || null,
+        promptArchitectureVersion: service === 'ai-video' ? VIDEO_PROMPT_ARCHITECTURE_VERSION : null,
         garmentType,
-        experienceId: experience.id,
         garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
@@ -429,11 +427,10 @@ ${categoryGarmentLine}
           await markPassTryOnImageDone(access.pass!.code, '');
         } else {
           await markPassVideoMasterDone(access.pass!.code, passImageUrl, {
-            promptSet,
-            poseId,
+            conceptId: concept!.id,
+            promptArchitectureVersion: VIDEO_PROMPT_ARCHITECTURE_VERSION,
             category: customerCategory,
             garmentType,
-            experienceId: experience.id,
             garmentRoles: sanitizedGarmentRoles.slice(0, 3),
             referenceSessionId: sessionId,
             personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : undefined,
@@ -467,14 +464,14 @@ ${categoryGarmentLine}
       imagePersistenceMs: storageReadyAt && geminiReadyAt ? storageReadyAt - geminiReadyAt : null,
       totalMs: completedAt - startedAt,
     };
-    console.info('Maharaja image generation timing', { sessionId, service, poseId, ...timing });
+    console.info('Maharaja image generation timing', { sessionId, service, conceptId: concept?.id || null, ...timing });
 
     return NextResponse.json({
       success: true,
       sessionId,
       masterImageUrl,
       approved: service === 'try-on',
-      poseId,
+      conceptId: concept?.id || null,
       timing,
       allowances: updatedAllowances,
       operatorMessage: service === 'try-on'

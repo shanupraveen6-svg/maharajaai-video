@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { getCampaignExperience, isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId, type VideoPromptSet } from '@/lib/maharaja/config';
+import { isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId } from '@/lib/maharaja/config';
+import { getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
 
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
   const accessCode = typeof body?.accessCode === 'string' ? body.accessCode.trim() : '';
-  const model = getVideoTestModel('h3-max');
+  const model = getVideoTestModel();
   if (!sessionId || !accessCode || !model) {
     return NextResponse.json({ success: false, error: 'sessionId and accessCode are required.' }, { status: 400 });
   }
@@ -101,8 +102,8 @@ export async function POST(req: NextRequest) {
   if (!access.pass.videoMasterDone || !access.pass.videoMasterUrl) {
     return NextResponse.json({ success: false, error: 'Generate the festival master image first.' }, { status: 409 });
   }
-  if (!access.pass.videoMasterApproved || access.pass.videoMasterApprovedUrl !== access.pass.videoMasterUrl) {
-    return NextResponse.json({ success: false, error: 'Approve this exact master image before testing video.' }, { status: 409 });
+  if (access.pass.videoPromptArchitectureVersion !== VIDEO_PROMPT_ARCHITECTURE_VERSION) {
+    return NextResponse.json({ success: false, error: 'This is a legacy AI Video session. Please use a newly issued Maharaja QR for the updated film experience.' }, { status: 409 });
   }
   if (access.pass.videoReferenceSessionId && access.pass.videoReferenceSessionId !== sessionId) {
     return NextResponse.json({ success: false, error: 'The approved master belongs to a different session.' }, { status: 409 });
@@ -136,6 +137,8 @@ export async function POST(req: NextRequest) {
     jobId, sessionId, accessCode, modelId: model.id, model: model.model,
     status: 'preparing', createdAt, updatedAt: createdAt,
     estimatedUsd: model.estimatedUsd, duration: model.seconds,
+    attempt: 1,
+    promptArchitectureVersion: VIDEO_PROMPT_ARCHITECTURE_VERSION,
   };
 
   if (db) {
@@ -147,7 +150,7 @@ export async function POST(req: NextRequest) {
         const activeJobId = freshSession?.activeVideoTestJobId;
         let activeJob: any = null;
         if (activeJobId) activeJob = (await transaction.get(db.collection('videoTestJobs').doc(activeJobId))).data();
-        if (activeJob && ['preparing', 'submitted', 'processing'].includes(activeJob.status)) {
+        if (activeJob && ['preparing', 'submitted', 'processing', 'unknown'].includes(activeJob.status)) {
           throw new Error(`ACTIVE_VIDEO_TEST:${activeJobId}`);
         }
         transaction.set(jobRef, jobBase);
@@ -163,7 +166,7 @@ export async function POST(req: NextRequest) {
   } else {
     const activeJobId = session.activeVideoTestJobId;
     const activeJob = activeJobId ? getMockStore().sessions.get(`video_test_${activeJobId}`) : null;
-    if (activeJob && ['preparing', 'submitted', 'processing'].includes(activeJob.status)) {
+    if (activeJob && ['preparing', 'submitted', 'processing', 'unknown'].includes(activeJob.status)) {
       return NextResponse.json({ success: false, error: 'A video test is already running for this image. Please wait.', jobId: activeJobId }, { status: 409 });
     }
     getMockStore().sessions.set(`video_test_${jobId}`, jobBase);
@@ -185,20 +188,16 @@ export async function POST(req: NextRequest) {
     const eventId: EventId = isEventId(access.pass.eventId)
       ? access.pass.eventId
       : isEventId(session.eventId) ? session.eventId : 'diwali';
-    const promptSet = access.pass.videoMasterPromptSet === 'set-2' ? 'set-2' : 'set-1';
-    const experience = getCampaignExperience(category as CustomerCategory, promptSet as VideoPromptSet);
-    const poseId = experience.poseId;
+    const conceptId = (access.pass.videoMasterConceptId || session.conceptId) as VideoConceptId | undefined;
+    const concept = getVideoConcept(conceptId);
+    if (!concept || concept.category !== category) throw new Error('The selected Diwali film concept could not be verified. Generate the festival image again.');
     const garmentRoles = Array.isArray(access.pass.videoMasterGarmentRoles)
       ? access.pass.videoMasterGarmentRoles.map((value) => String(value)).slice(0, garments.length)
       : [];
     const input = buildVideoTestInput(
-      model.id,
       master.url,
       garments.map((item) => item.url),
-      category as CustomerCategory,
-      eventId,
-      promptSet as VideoPromptSet,
-      poseId,
+      concept.id,
       garmentRoles,
     );
     const response = await fetch(`https://queue.fal.run/${model.model}`, {
@@ -217,12 +216,12 @@ export async function POST(req: NextRequest) {
 
     const update = {
       status: 'submitted', requestId, statusUrl, responseUrl,
+      seed: typeof provider.seed === 'number' || typeof provider.seed === 'string' ? provider.seed : null,
       referenceCount: garments.length + 1,
       eventId,
       category,
-      promptSet,
-      poseId,
-      experienceId: experience.id,
+      conceptId: concept.id,
+      promptArchitectureVersion: VIDEO_PROMPT_ARCHITECTURE_VERSION,
       garmentRoles,
       inputMetadata: { master, garments, originalPersonExcluded: true },
       updatedAt: new Date().toISOString(),
