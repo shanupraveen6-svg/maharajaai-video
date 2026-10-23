@@ -101,30 +101,26 @@ async function run() {
   });
   assert(noMasterStart.response.status === 409 && /image first/i.test(noMasterStart.data.error || ''), 'Video cannot start without a stored video master, even with a spoofed Try-On image and isRetry:true');
 
-  // Verify All Eight Video Prompt Combinations
-  const { buildEventVideoPrompt, buildTryOnPrompt, buildMasterPrompt } = await import('../src/lib/maharaja/config.ts');
+  // Verify the single production prompt architecture.
+  const { buildTryOnPrompt } = await import('../src/lib/maharaja/config.ts');
+  const { VIDEO_CONCEPTS, buildVideoMasterPrompt, buildH3MotionPrompt } = await import('../src/lib/maharaja/video-concepts.ts');
 
   // Try-On prompt is garment-only; the festival scene belongs to the video master prompt only
   for (const cat of ['women', 'men', 'girl', 'boy']) {
     const tryOnPrompt = buildTryOnPrompt(cat);
-    assert(/Do not create a festival environment/.test(tryOnPrompt) && /premium, neutral indoor fashion retail studio background/.test(tryOnPrompt), `${cat}: Try-On prompt is plain/neutral`);
-    assert(!/golden|Diwali|lamp-lit|rangoli(?!,)/i.test(tryOnPrompt.replace(/No diyas, no rangoli, no flowers, no festive props/, '')), `${cat}: Try-On prompt has no festival scene wording`);
-    assert(/diwali/i.test(buildMasterPrompt(cat, 'diwali')), `${cat}: video master prompt keeps the Diwali scene`);
+    assert(/No festival environment/.test(tryOnPrompt) && /clean neutral fashion studio/.test(tryOnPrompt), `${cat}: Try-On prompt is plain/neutral`);
+    assert(!/golden|Diwali|lamp-lit|rangoli/i.test(tryOnPrompt), `${cat}: Try-On prompt has no festival scene wording`);
+    assert(/Do not add makeup/.test(tryOnPrompt) && /doll-like appearance/.test(tryOnPrompt), `${cat}: Try-On preserves natural customer identity`);
   }
 
-  const categories = ['women', 'men', 'girl', 'boy'];
-  const promptSets = ['set-1', 'set-2'];
-  for (const cat of categories) {
-    for (const pSet of promptSets) {
-      const prompt = buildEventVideoPrompt(cat, 'diwali', pSet);
-      assert(/facial identity|facial geometry/i.test(prompt) && /garment.*exact|exact.*garment/i.test(prompt), `${cat} ${pSet}: Identity and garment lock enforced`);
-      assert(/camera choreography/i.test(prompt) && /camera/i.test(prompt), `${cat} ${pSet}: Explicit camera direction is present`);
-      assert(prompt.length < 6000, `${cat} ${pSet}: Provider prompt fits the server prompt limit`);
-      assert(/diwali/i.test(prompt), `${cat} ${pSet}: Selected event is preserved`);
-      if (cat === 'girl' || cat === 'boy') {
-        assert(/child|child-appropriate/i.test(prompt), `${cat} ${pSet}: Child safety constraint present`);
-      }
-    }
+  for (const concept of VIDEO_CONCEPTS) {
+    const masterPrompt = buildVideoMasterPrompt(concept, 'generic');
+    const motionPrompt = buildH3MotionPrompt(concept, ['garment front']);
+    assert(/exact facial geometry/i.test(masterPrompt) && /exact garment/i.test(masterPrompt), `${concept.id}: Identity and garment lock enforced`);
+    assert(/Do not add foundation/.test(masterPrompt) && /doll-like appearance/.test(masterPrompt), `${concept.id}: Master keeps natural skin without makeup`);
+    assert(/outer thighs/.test(concept.finalPose) && !/Namaste|clasped|hip|wrist/i.test(concept.finalPose), `${concept.id}: Hands stay safely beside the thighs`);
+    assert(/still photographic layer/.test(motionPrompt) && /No hand may move toward or touch the chest/.test(motionPrompt), `${concept.id}: H3 freezes customer and hand pose`);
+    assert(/CAMERA CHOREOGRAPHY:/.test(motionPrompt) && /BACKGROUND ANIMATION:/.test(motionPrompt) && /CINEMATIC EFFECTS:/.test(motionPrompt), `${concept.id}: Camera, background and effects remain explicit`);
   }
 
   // Admin Logout Test
