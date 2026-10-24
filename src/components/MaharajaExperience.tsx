@@ -41,6 +41,8 @@ type AccessResponse = {
     eventLabel: string;
     phoneMasked: string | null;
     billLast4: string | null;
+    experienceType?: 'purchased-garment' | 'catalogue-gift';
+    catalogueProduct?: { sku: string; title?: string; price?: number } | null;
     tryOnUsed: boolean;
     videoMasterApproved?: boolean;
     videoMasterCategory?: CustomerCategory | null;
@@ -178,6 +180,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const maxGarmentPhotos = activeService === 'try-on' ? 1 : 3;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
+  const isCatalogueGift = access?.access.experienceType === 'catalogue-gift';
   const generationStatus = useMemo(() => {
     if (stage === 'image') {
       if (generationProgress < 25) return 'Securing your photos and garment details…';
@@ -269,7 +272,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       setPersonPhoto(null);
       setPersonAnalysis(null);
       setGarmentPhotos([]);
-      setGarmentAnalysis(null);
+      setGarmentAnalysis(isCatalogueGift ? { valid: true, additionalPhotoRequired: false, garmentType: 'saree', primaryColor: 'Original color' } : null);
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
       }
@@ -301,20 +304,18 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         }
         setEventId(data.access.eventId);
         setPurchaseConfirmed(data.access.service === 'ai-video');
+        if (data.access.experienceType === 'catalogue-gift') {
+          setActiveService('ai-video');
+          setCategory('women');
+          setGarmentType('saree');
+          setGarmentTypeConfirmed(true);
+          setGarmentRoles(['Saree body, pallu, border and blouse reference']);
+          setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'saree', primaryColor: 'Original color' });
+        }
         const used = data.access.service === 'try-on' && data.access.tryOnUsed === true;
         setTryOnUsed(used);
         if (data.access?.retryUsed) setRetryUsed(true);
-        if (retrySessionId && data.access.service === 'ai-video') {
-          const retryData = await readJson(await fetch(`/api/video/retry-source?sessionId=${encodeURIComponent(retrySessionId)}&accessCode=${encodeURIComponent(accessCode)}`, { cache: 'no-store' }));
-          setVideoMasterUrl(retryData.source.masterImageUrl);
-          if (data.access.tryOnImageUrl) setTryOnImageUrl(data.access.tryOnImageUrl);
-          setEventId(retryData.source.eventId);
-          setCategory(retryData.source.category);
-          const retryConcept = getVideoConcept(retryData.source.conceptId);
-          if (retryConcept) setConceptId(retryConcept.id);
-          setGarmentAnalysis(retryData.source.garmentAnalysis);
-          setMessage('Video retry ready. The safe backup prompt will use the same approved image.');
-        } else if (data.access.service === 'ai-video' && (data.access.tryOnImageUrl || data.access.videoMasterUrl)) {
+        if (data.access.service === 'ai-video' && (data.access.tryOnImageUrl || data.access.videoMasterUrl)) {
           if (data.access.tryOnImageUrl) setTryOnImageUrl(data.access.tryOnImageUrl);
           if (data.access.videoMasterUrl) {
             setVideoMasterUrl(data.access.videoMasterUrl);
@@ -325,7 +326,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           }
           if (data.access.videoMasterConceptId) setConceptId(data.access.videoMasterConceptId);
           setMessage(data.access.videoMasterUrl
-            ? 'Your festival portrait is ready. Create your 6-second AI video below.'
+            ? retrySessionId
+              ? 'Your approved festival portrait is ready for another video generation.'
+              : 'Your festival portrait is ready. Create your 6-second AI video below.'
             : 'Your Try-On image is ready. Switch to AI Video to create your festival image and video.');
         }
         if (!used) window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
@@ -362,7 +365,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     && purchaseConfirmed
     && (activeService === 'ai-video' || !!access?.access.phoneMasked || !!tryOnGrant)
     && !!personPhoto
-    && garmentPhotos.length > 0
+    && (isCatalogueGift || garmentPhotos.length > 0)
     && garmentTypeConfirmed
     && (activeService === 'try-on' || !!getVideoConcept(conceptId))
     && personAnalysis?.valid === true
@@ -586,10 +589,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       // explicitly-labelled garment reference. Gemini is never called early.
       const personStoragePath = await uploadPhotoToStorage(personPhoto, 'person');
       const garmentStoragePaths: string[] = [];
-      for (const photo of visibleGarmentPhotos) {
-        garmentStoragePaths.push(await uploadPhotoToStorage(photo, 'garment'));
+      if (!isCatalogueGift) {
+        for (const photo of visibleGarmentPhotos) {
+          garmentStoragePaths.push(await uploadPhotoToStorage(photo, 'garment'));
+        }
       }
-      const allUploaded = Boolean(personStoragePath && garmentStoragePaths.length === visibleGarmentPhotos.length && garmentStoragePaths.every(Boolean));
+      const allUploaded = Boolean(personStoragePath && (isCatalogueGift || (garmentStoragePaths.length === visibleGarmentPhotos.length && garmentStoragePaths.every(Boolean))));
       if (!allUploaded) {
         throw new Error('Secure photo upload did not complete. Check the connection and try again. No AI credit was used.');
       }
@@ -815,15 +820,16 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             initialVideoUrl={videoTestUrl}
             initialMasterImageUrl={videoMasterUrl || ''}
             initialEventId={eventId}
-            initialAllowances={allowances}
-            initialRetryUsed={retryUsed}
-            onRetryUsed={() => { if (enforceLimits) setRetryUsed(true); }}
+            allowGoLive={!isCatalogueGift}
+            catalogueProduct={access?.access.catalogueProduct || null}
             onBack={() => setStage('ready')}
           />
         ) : (
           <>
         {service === 'ai-video' && access?.access.phoneMasked && (
-          <div className="mb-4 border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">Pass verified for {access.access.phoneMasked} · Bill ****{access.access.billLast4}</div>
+          <div className="mb-4 border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">
+            {isCatalogueGift ? `Maharaja Catalogue Gift verified for ${access.access.phoneMasked}` : `Purchased Garment Video verified for ${access.access.phoneMasked}`}
+          </div>
         )}
 
 
@@ -844,10 +850,18 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           </div>
         )}
 
-        <div className="mb-5 grid grid-cols-2 border border-[#D8C49B] bg-white p-1">
+        {!isCatalogueGift && <div className="mb-5 grid grid-cols-2 border border-[#D8C49B] bg-white p-1">
           <button type="button" onClick={() => setActiveService('try-on')} className={`min-h-12 px-3 text-xs font-bold uppercase ${activeService === 'try-on' ? 'bg-[#6E0D1F] text-[#F3E5AB]' : 'text-[#6E0D1F]'}`}><Shirt className="mr-2 inline h-4 w-4" />AI Try-On</button>
           <button type="button" disabled={service !== 'ai-video'} onClick={() => { setActiveService('ai-video'); setPurchaseConfirmed(true); }} className={`min-h-12 px-3 text-xs font-bold uppercase disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${activeService === 'ai-video' ? 'bg-[#21090E] text-[#F3E5AB]' : 'text-[#6E0D1F]'}`}><Film className="mr-2 inline h-4 w-4" />AI Video<span className="block text-[10px] normal-case">{service === 'ai-video' ? 'Unlocked' : 'Above Rs 5000 purchase'}</span></button>
-        </div>
+        </div>}
+
+        {isCatalogueGift && access?.access.catalogueProduct && (
+          <div className="mb-5 border border-[#D8C49B] bg-white p-4 text-center">
+            <p className="text-xs font-bold uppercase text-[#8A6A20]">Your selected Maharaja saree</p>
+            <p className="mt-1 font-serif text-xl font-bold text-[#2A060C]">{access.access.catalogueProduct.title}</p>
+            <p className="mt-1 text-lg font-black text-[#6E0D1F]">Rs {new Intl.NumberFormat('en-IN').format(access.access.catalogueProduct.price || 0)}</p>
+          </div>
+        )}
 
         {enforceLimits && activeService === 'try-on' && tryOnUsed && (
           <section id="tryon-completed-banner" className="mx-auto max-w-xl border border-[#D8C49B] bg-white p-6 text-center">
@@ -890,7 +904,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           <>
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className={`${isCatalogueGift ? 'sm:grid-cols-1 [&>fieldset]:hidden' : 'sm:grid-cols-2'} grid gap-4`}>
                   <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setConceptId(conceptsForCategory(option)[0].id); setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
 
                   <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
@@ -906,8 +920,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   </label>
                 </div>
 
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex flex-col justify-between">
+                <div className={`${isCatalogueGift ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} mt-6 grid gap-4`}>
+                  <div className={`${isCatalogueGift ? 'hidden' : 'flex'} border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex-col justify-between`}>
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold uppercase text-[#6E0D1F]">Person Photo (1 only)</span>

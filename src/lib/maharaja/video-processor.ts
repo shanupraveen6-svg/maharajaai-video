@@ -11,6 +11,37 @@ function getFfmpegPath(): string | null {
   return null;
 }
 
+export async function validateBrandedVideo(
+  inputBuffer: Buffer,
+  expectedDurationSeconds: 6 | 9,
+): Promise<void> {
+  const binary = getFfmpegPath();
+  if (!binary || inputBuffer.length < 10_000) throw new Error('Final video is missing or unexpectedly small.');
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const tmpIn = path.join(os.tmpdir(), `mhr_probe_${id}.mp4`);
+  try {
+    await fs.promises.writeFile(tmpIn, inputBuffer);
+    const stderr = await new Promise<string>((resolve, reject) => {
+      const proc = spawn(binary, ['-i', tmpIn, '-f', 'null', '-']);
+      let output = '';
+      proc.stderr.on('data', (chunk) => { output += chunk.toString(); });
+      proc.on('close', () => resolve(output));
+      proc.on('error', reject);
+    });
+    const durationMatch = stderr.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/);
+    const duration = durationMatch
+      ? Number(durationMatch[1]) * 3600 + Number(durationMatch[2]) * 60 + Number(durationMatch[3])
+      : 0;
+    if (!stderr.includes('Video:')) throw new Error('Final MP4 has no playable video stream.');
+    if (!stderr.includes('Audio:')) throw new Error('Final MP4 has no embedded audio stream.');
+    if (Math.abs(duration - expectedDurationSeconds) > 0.35) {
+      throw new Error(`Final MP4 duration is ${duration.toFixed(2)}s; expected ${expectedDurationSeconds}s.`);
+    }
+  } finally {
+    await fs.promises.unlink(tmpIn).catch(() => undefined);
+  }
+}
+
 function resolvePublicAsset(relativeOrFullPath: string | undefined, fallback: string) {
   const requested = relativeOrFullPath || fallback;
   const candidate = requested.startsWith('/')

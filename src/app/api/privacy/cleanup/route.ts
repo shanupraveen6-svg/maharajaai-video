@@ -18,18 +18,33 @@ export async function GET(req: NextRequest) {
   }
 
   const nowIso = new Date().toISOString();
-  const snapshot = await db.collection('sessions').where('expiresAt', '<=', nowIso).limit(100).get();
+  const snapshot = await db.collection('sessions').where('expiresAt', '<=', nowIso).limit(500).get();
   let deleted = 0;
   let retainedForPromotion = 0;
 
   for (const doc of snapshot.docs) {
     const session = doc.data();
+    const sessionId = doc.id;
     if (session.promotionConsent === true) {
+      await Promise.all([
+        bucket.deleteFiles({ prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/person/`, force: true }),
+        bucket.deleteFiles({ prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/garment/`, force: true }),
+        bucket.deleteFiles({ prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/`, force: true }),
+        bucket.deleteFiles({ prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/video-tests/`, force: true }),
+      ]);
+      await doc.ref.set({
+        accessCode: null,
+        personPhotoStoragePath: null,
+        garmentPhotoStoragePaths: [],
+        masterStoragePath: null,
+        sourceMediaDeletedAt: nowIso,
+        retainedForPromotion: true,
+        updatedAt: nowIso,
+      }, { merge: true });
       retainedForPromotion += 1;
       continue;
     }
 
-    const sessionId = doc.id;
     await bucket.deleteFiles({ prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/`, force: true });
     const queue = await db.collection('liveQueue').where('sessionId', '==', sessionId).get();
     const batch = db.batch();

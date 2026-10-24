@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { AI_VIDEO_MIN_PURCHASE, isEventId, MAHARAJA_CLIENT_ID, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
+import { MAHARAJA_CLIENT_ID, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import {
@@ -14,16 +14,13 @@ import {
   getCustomerServiceAllowances,
   getPublicAppUrl,
 } from '@/lib/maharaja/server';
+import { getWhatsAppStatus, sendWhatsAppResult } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
 function cleanPhone(value: unknown) {
   const digits = String(value || '').replace(/\D/g, '');
   return digits.length === 10 ? digits : '';
-}
-
-function cleanBillLast4(value: unknown) {
-  return String(value || '').trim().replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
 }
 
 function maskPhone(phone: string) {
@@ -55,27 +52,14 @@ export async function POST(req: NextRequest) {
     if (body.billingCode !== workspace.billingCode) {
       return NextResponse.json({ success: false, error: 'Invalid Maharaja billing-counter link.' }, { status: 403 });
     }
-    const requestedTier = Number(body.billAmount || body.amount);
-    if (![5000, 7000, 10000].includes(requestedTier)) {
-      return NextResponse.json({ success: false, error: 'Select the customer bill tier: ₹5,000+, ₹7,000+, or ₹10,000+.' }, { status: 400 });
-    }
-
     const phone = cleanPhone(body.phone);
-    const billLast4 = cleanBillLast4(body.billLast4);
+    const experienceType = body.experienceType === 'catalogue-gift' ? 'catalogue-gift' : 'purchased-garment';
     if (phone.length !== 10) {
       return NextResponse.json({ success: false, error: 'Enter a valid 10 digit phone number.' }, { status: 400 });
     }
-    if (billLast4.length !== 4) {
-      return NextResponse.json({ success: false, error: 'Enter the last 4 characters or digits of the bill.' }, { status: 400 });
-    }
-    if (!isEventId(body.eventId)) {
-      return NextResponse.json({ success: false, error: 'Select a valid event.' }, { status: 400 });
-    }
-    if (!workspace.activeEvents.includes(body.eventId)) {
-      return NextResponse.json({ success: false, error: 'That event is currently inactive.' }, { status: 400 });
-    }
 
     const now = Date.now();
+    const validityMs = experienceType === 'catalogue-gift' ? 4 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
     const code = crypto.randomBytes(18).toString('base64url');
     const pass: MaharajaVideoPass = {
       id: code,
@@ -83,12 +67,13 @@ export async function POST(req: NextRequest) {
       clientId: MAHARAJA_CLIENT_ID,
       phone,
       phoneMasked: maskPhone(phone),
-      billLast4,
-      eventId: body.eventId,
+      experienceType,
+      billLast4: '',
+      eventId: workspace.defaultEvent,
       status: 'active',
       createdAt: new Date(now).toISOString(),
-      expiresAt: new Date(now + 1 * 60 * 60 * 1000).toISOString(),
-      expiresAtMs: now + 1 * 60 * 60 * 1000,
+      expiresAt: new Date(now + validityMs).toISOString(),
+      expiresAtMs: now + validityMs,
       tryOnImageDone: false,
       tryOnImageUrl: '',
       videoMasterDone: false,
@@ -98,18 +83,17 @@ export async function POST(req: NextRequest) {
       videoGenerating: false,
       videoDone: false,
       retryUsed: false,
-      whatsappOptIn: body.whatsappOptIn === true,
-      ...(body.whatsappOptIn === true ? { whatsappDeliveryStatus: 'pending' as const } : {}),
+      whatsappOptIn: experienceType === 'catalogue-gift' || body.whatsappOptIn === true,
+      ...(experienceType === 'catalogue-gift' || body.whatsappOptIn === true ? { whatsappDeliveryStatus: 'pending' as const } : {}),
       usage: { scans: 0, imagesGenerated: 0, videosGenerated: 0, goLive: 0 },
     };
 
     if (ENFORCE_REPEAT_LIMITS) {
-      const expiredCount = await expireActivePassesForPhone(phone);
+      const expiredCount = await expireActivePassesForPhone(phone, undefined, experienceType);
       if (expiredCount > 0) {
         await incrementMaharajaUsage('retries');
         await logMaharajaActivity('retry', `Previous AI Video QR superseded by retry (${maskPhone(phone)})`, {
           phone: maskPhone(phone),
-          billLast4,
           target: 'video',
           service: 'ai-video',
         });
@@ -120,26 +104,41 @@ export async function POST(req: NextRequest) {
       getCampaignEntitlementByPhone(phone),
       saveVideoPass(pass),
       incrementMaharajaUsage('videoPasses'),
-      logMaharajaActivity('video-pass', `${pass.eventId} AI Video QR created`, {
+      logMaharajaActivity('video-pass', `${experienceType === 'catalogue-gift' ? 'Catalogue Gift' : 'Purchased Garment'} AI Video access created`, {
         phone: pass.phoneMasked,
-        billLast4: pass.billLast4,
-        amount: requestedTier,
+        experienceType,
         whatsappOptIn: pass.whatsappOptIn === true,
       }),
     ]);
     const allowances = getCustomerServiceAllowances(entitlement);
 
+    const link = getPublicAppUrl(experienceType === 'catalogue-gift'
+      ? `/maharaja/catalogue/${pass.code}`
+      : `/maharaja/video/${pass.code}`);
+    let whatsappSent = false;
+    let whatsappError = '';
+    if (experienceType === 'catalogue-gift' && getWhatsAppStatus().configured) {
+      try {
+        await sendWhatsAppResult(phone, link);
+        whatsappSent = true;
+      } catch (error) {
+        whatsappError = error instanceof Error ? error.message : 'WhatsApp delivery failed.';
+      }
+    }
+
     return NextResponse.json({
       success: true,
+      whatsappSent,
+      whatsappError,
       allowances,
       pass: {
         code: pass.code,
         clientId: pass.clientId,
         phoneMasked: pass.phoneMasked,
-        billLast4: pass.billLast4,
         eventId: pass.eventId,
+        experienceType,
         expiresAt: pass.expiresAt,
-        link: getPublicAppUrl(`/maharaja/video/${pass.code}`),
+        link,
         allowances,
       },
     });

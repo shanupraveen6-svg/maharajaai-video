@@ -84,6 +84,9 @@ function stableSessionId(storagePath: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  if (!verifyOperatorRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Authenticated Maharaja TV required.' }, { status: 401 });
+  }
   try {
     const limit = cleanLimit(req.nextUrl.searchParams.get('limit'));
     const offset = cleanOffset(req.nextUrl.searchParams.get('offset'));

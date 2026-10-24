@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import type { NextRequest } from 'next/server';
+import { getDb } from '@/lib/firebase/admin';
 
 type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number };
 type LocalEntry = { count: number; resetAt: number };
@@ -31,7 +32,28 @@ export async function enforceRateLimit(
   const now = Date.now();
   const key = keyFor(req, scope, identity);
 
-  // Instant in-memory rate limiting — zero network latency (<0.1ms)
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('securityRateLimits').doc(key);
+    return db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      const stored = snapshot.data();
+      const resetAt = Number(stored?.resetAtMs || 0);
+      const count = resetAt > now ? Number(stored?.count || 0) : 0;
+      if (count >= limit) {
+        return { allowed: false as const, retryAfterSeconds: Math.max(1, Math.ceil((resetAt - now) / 1000)) };
+      }
+      transaction.set(ref, {
+        scope,
+        count: count + 1,
+        resetAtMs: resetAt > now ? resetAt : now + windowMs,
+        updatedAt: new Date(now).toISOString(),
+      }, { merge: true });
+      return { allowed: true as const };
+    });
+  }
+
+  // Local fallback for development and deterministic tests.
   const current = localLimits.get(key);
   if (current && current.resetAt > now) {
     if (current.count >= limit) {
@@ -44,4 +66,3 @@ export async function enforceRateLimit(
   localLimits.set(key, { count: 1, resetAt: now + windowMs });
   return { allowed: true };
 }
-

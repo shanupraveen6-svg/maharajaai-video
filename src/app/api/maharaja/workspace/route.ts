@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   try {
     const [workspace, recentPasses, allActivity] = await Promise.all([
       getMaharajaWorkspace(),
-      listRecentVideoPasses(),
+      listRecentVideoPasses(100),
       listMaharajaActivity(300),
     ]);
     const daily = new Map<string, { date: string; scans: number; tryOns: number; gmv: number; downloads: number }>();
@@ -97,6 +97,9 @@ export async function GET(req: NextRequest) {
       (item) => item.type === 'video-ready' || (item.type === 'video' && Boolean(item.metadata?.videoUrl))
     ).length;
     const videosSuccess = Math.max(workspace.usage.videosGenerated || 0, readyPassesCount, readyActivityCount);
+    const videoFailures = recentPasses.filter((pass) => pass.lastVideoFailed === true && pass.videoDone !== true).length;
+    const videosRendering = recentPasses.filter((pass) => pass.videoGenerating === true && pass.videoDone !== true).length;
+    const imageFailures = allActivity.filter((item) => item.type === 'image-failed').length;
 
     // Group days into weekly summary
     const weeklyMap = new Map<string, { week: string; scans: number; tryOns: number; gmv: number; conversion: number }>();
@@ -130,6 +133,13 @@ export async function GET(req: NextRequest) {
           .limit(50)
           .get();
         snap.docs.forEach((doc) => liveQueueItems.push({ id: doc.id, ...doc.data() }));
+        await Promise.all(liveQueueItems.map(async (item) => {
+          if (item.videoUrl || !item.videoId) return;
+          const video = await db.collection('videos').doc(String(item.videoId)).get();
+          const data = video.data();
+          item.videoUrl = data?.liveStoragePath || data?.storagePath || '';
+          item.promotionConsent = item.promotionConsent === true || data?.promotionConsent === true;
+        }));
       } catch (err) {
         console.warn('liveQueue fetch warning in workspace route:', err);
       }
@@ -148,6 +158,7 @@ export async function GET(req: NextRequest) {
       videoUrl: string;
       sessionId: string;
       queueNumber: number;
+      promotionConsent: boolean;
     }> = [];
 
     allActivity
@@ -163,6 +174,7 @@ export async function GET(req: NextRequest) {
         const phoneMasked = String(metadata.phoneMasked || (phone ? `${phone.slice(0, 2)}******${phone.slice(-2)}` : 'Customer'));
         const videoUrl = String(metadata.videoUrl || matchedQueue?.videoUrl || '');
         const queueNumber = Number(metadata.queueNumber || matchedQueue?.queueNumber || 1);
+        const promotionConsent = metadata.promotionConsent === true || matchedQueue?.promotionConsent === true;
 
         if (videoUrl && videoUrl.trim().length > 10 && !videoUrl.includes('undefined')) {
           rawAudit.push({
@@ -174,6 +186,7 @@ export async function GET(req: NextRequest) {
             videoUrl,
             sessionId,
             queueNumber,
+            promotionConsent,
           });
         }
       });
@@ -193,6 +206,7 @@ export async function GET(req: NextRequest) {
             videoUrl,
             sessionId: q.sessionId || '',
             queueNumber: Number(q.queueNumber || 1),
+            promotionConsent: q.promotionConsent === true,
           });
         }
       }
@@ -230,6 +244,9 @@ export async function GET(req: NextRequest) {
           imageRetries,
           videosSuccess,
           videoRetries,
+          imageFailures,
+          videoFailures,
+          videosRendering,
           tryOnsCount: imagesSuccess,
           shoppersAbove5000: tier5kPlus,
           tier5kPlus,
@@ -274,9 +291,15 @@ export async function PATCH(req: NextRequest) {
       }
       // Strictly enforce single event selection (no 2-3 events at the same time)
       const singleEvent = activeEvents[0];
+      if (singleEvent !== 'diwali') {
+        return NextResponse.json({ success: false, error: 'This event is planned. Diwali is the only production-ready theme.' }, { status: 409 });
+      }
       settings.activeEvents = [singleEvent];
       settings.defaultEvent = singleEvent;
     } else if (isEventId(body.defaultEvent)) {
+      if (body.defaultEvent !== 'diwali') {
+        return NextResponse.json({ success: false, error: 'This event is planned. Diwali is the only production-ready theme.' }, { status: 409 });
+      }
       settings.activeEvents = [body.defaultEvent];
       settings.defaultEvent = body.defaultEvent;
     }

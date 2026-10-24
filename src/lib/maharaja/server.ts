@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { getLiveAudioTrack, getPreviewAudioTrack } from './audio';
-import { generateCustomer6sVideo, generateLive9sVideo } from './video-processor';
+import { generateCustomer6sVideo, generateLive9sVideo, validateBrandedVideo } from './video-processor';
 import {
   AI_VIDEO_MIN_PURCHASE,
   type EventId,
@@ -52,6 +52,8 @@ export type MaharajaActivity = {
     | 'video-master'
     | 'video-start'
     | 'video-ready'
+    | 'video-failed'
+    | 'image-failed'
     | 'video'
     | 'go-live'
     | 'retry'
@@ -71,6 +73,11 @@ export type MaharajaVideoPass = {
   clientId: typeof MAHARAJA_CLIENT_ID;
   phone: string;
   phoneMasked: string;
+  experienceType?: 'purchased-garment' | 'catalogue-gift';
+  catalogueSku?: string;
+  catalogueTitle?: string;
+  cataloguePrice?: number;
+  catalogueStoragePath?: string;
   customerName?: string;
   customerLocality?: string;
   billLast4: string;
@@ -464,15 +471,10 @@ function defaultWorkspace(): MaharajaWorkspace {
 
 function normalizeWorkspace(data: Partial<MaharajaWorkspace>, fallback: MaharajaWorkspace): MaharajaWorkspace {
   const merged = { ...fallback, ...data, usage: { ...fallback.usage, ...data.usage } };
-  const defaultEv: EventId = isEventId(merged.defaultEvent) ? merged.defaultEvent : 'diwali';
-  // Strictly enforce single active event (no 2-3 events at the same time), defaulting to Diwali
-  const activeEv: EventId = (Array.isArray(merged.activeEvents) && merged.activeEvents.length === 1 && isEventId(merged.activeEvents[0]))
-    ? merged.activeEvents[0]
-    : defaultEv;
   return {
     ...merged,
-    activeEvents: [activeEv],
-    defaultEvent: activeEv,
+    activeEvents: ['diwali'],
+    defaultEvent: 'diwali',
   };
 }
 
@@ -507,11 +509,12 @@ export async function getMaharajaWorkspace(): Promise<MaharajaWorkspace> {
 
 export async function updateMaharajaSettings(settings: Partial<Pick<MaharajaWorkspace, 'campaignEnabled' | 'activeEvents' | 'defaultEvent'>>) {
   const workspace = await getMaharajaWorkspace();
-  const updated = { ...workspace, ...settings, updatedAt: new Date().toISOString() };
+  const productionSettings = { ...settings, activeEvents: ['diwali'] as EventId[], defaultEvent: 'diwali' as EventId };
+  const updated = { ...workspace, ...productionSettings, updatedAt: new Date().toISOString() };
   const db = getDb();
   if (db) {
     await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).set({
-      ...settings,
+      ...productionSettings,
       updatedAt: updated.updatedAt,
       updatedAtTimestamp: Timestamp.now(),
     }, { merge: true });
@@ -608,7 +611,7 @@ export async function saveVideoPass(pass: MaharajaVideoPass) {
 
   // Atomically bind pass to customer's normalized mobile campaign entitlement (₹5,000+ qualifying pass)
   const phone = normalizePhoneNumber(pass.phone);
-  if (phone && phone.length === 10) {
+  if (phone && phone.length === 10 && pass.experienceType !== 'catalogue-gift') {
     await getOrCreateCampaignEntitlement(phone, pass.code, 5000, pass.eventId, pass.billLast4);
   }
 }
@@ -726,6 +729,7 @@ export async function getCampaignEntitlementForPass(code: string): Promise<Custo
   if (!code) return null;
   // 1. Prioritize pass lookup if code corresponds to an existing customer pass
   const pass = await getVideoPass(code);
+  if (pass?.experienceType === 'catalogue-gift') return null;
   if (pass?.phone) {
     const normalized = normalizePhoneNumber(pass.phone);
     if (normalized.length === 10) {
@@ -749,6 +753,12 @@ export async function acquireServiceGenerationLock(
   service: 'try-on' | 'master-image' | 'video',
   options?: { jobId?: string; forceRegenerate?: boolean; generationId?: string }
 ): Promise<{ ok: true; generationId?: string } | { ok: false; error: string }> {
+  const targetPass = await getVideoPass(phoneOrCode);
+  if (targetPass?.experienceType === 'catalogue-gift') {
+    const used = service === 'video' ? Number(targetPass.usage?.videosGenerated || 0) : Number(targetPass.usage?.imagesGenerated || 0);
+    if (used >= 2) return { ok: false, error: 'Catalogue Gift allowance exhausted (2/2 completed).' };
+    return { ok: true, generationId: options?.generationId };
+  }
   const phone = await resolvePhoneFromTarget(phoneOrCode);
   if (!phone) {
     return { ok: true, generationId: options?.generationId };
@@ -902,6 +912,8 @@ export async function releaseServiceGenerationLock(
   service: 'try-on' | 'master-image' | 'video',
   _options?: { generationId?: string; jobId?: string }
 ): Promise<void> {
+  const targetPass = await getVideoPass(phoneOrCode);
+  if (targetPass?.experienceType === 'catalogue-gift') return;
   const phone = await resolvePhoneFromTarget(phoneOrCode);
   if (!phone) return;
 
@@ -949,6 +961,12 @@ export async function recordServiceGenerationSuccess(
   service: 'try-on' | 'master-image' | 'video',
   _payload?: { url?: string; jobId?: string }
 ): Promise<{ used: number; max: number; exhausted: boolean }> {
+  const targetPass = await getVideoPass(phoneOrCode);
+  if (targetPass?.experienceType === 'catalogue-gift') {
+    const current = service === 'video' ? Number(targetPass.usage?.videosGenerated || 0) : Number(targetPass.usage?.imagesGenerated || 0);
+    const used = Math.min(2, current + 1);
+    return { used, max: 2, exhausted: used >= 2 };
+  }
   const phone = await resolvePhoneFromTarget(phoneOrCode);
   if (!phone) return { used: 1, max: ENFORCE_REPEAT_LIMITS ? 2 : 999, exhausted: false };
 
@@ -1038,7 +1056,7 @@ export async function recordServiceGenerationSuccess(
   return { used: nextUsed, max: ENFORCE_REPEAT_LIMITS ? 2 : 999, exhausted: ENFORCE_REPEAT_LIMITS ? nextUsed >= 2 : false };
 }
 
-export async function expireActivePassesForPhone(phone: string, excludeCode?: string): Promise<number> {
+export async function expireActivePassesForPhone(phone: string, excludeCode?: string, experienceType?: 'purchased-garment' | 'catalogue-gift'): Promise<number> {
   const db = getDb();
   if (db) {
     const snapshot = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
@@ -1052,7 +1070,9 @@ export async function expireActivePassesForPhone(phone: string, excludeCode?: st
     let count = 0;
     const nowIso = new Date().toISOString();
     snapshot.docs.forEach((doc) => {
-      if (!excludeCode || doc.id !== excludeCode) {
+      const existing = doc.data() as MaharajaVideoPass;
+      const existingType = existing.experienceType || 'purchased-garment';
+      if ((!excludeCode || doc.id !== excludeCode) && (!experienceType || existingType === experienceType)) {
         batch.set(doc.ref, {
           status: 'expired',
           expiredReason: 'superseded_by_retry',
@@ -1074,7 +1094,7 @@ export async function expireActivePassesForPhone(phone: string, excludeCode?: st
   for (const [key, rawPass] of store.customerPasses.entries()) {
     if (key.startsWith(`${MAHARAJA_CLIENT_ID}:`)) {
       const p = rawPass as MaharajaVideoPass;
-      if (p.phone === phone && p.status === 'active' && (!excludeCode || p.code !== excludeCode)) {
+      if (p.phone === phone && p.status === 'active' && (!excludeCode || p.code !== excludeCode) && (!experienceType || (p.experienceType || 'purchased-garment') === experienceType)) {
         store.customerPasses.set(key, {
           ...p,
           status: 'expired',
@@ -1557,6 +1577,7 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
   // A stale failure callback must never release the phone-level lock of a newer active retry.
   if (releasedActiveJob) {
     await releaseServiceGenerationLock(code, 'video', { jobId });
+    await logMaharajaActivity('video-failed', 'Customer AI Video render failed', { code, jobId: jobId || null });
   }
 }
 
@@ -1569,8 +1590,16 @@ export async function markPassRetryApproved(
   target: 'image' | 'video' = 'video',
   service: 'try-on' | 'ai-video' = 'ai-video'
 ) {
+  const retryPass = await getVideoPass(code);
   const entitlement = await getCampaignEntitlementForPass(code);
-  const allowances = getCustomerServiceAllowances(entitlement);
+  const allowances = retryPass?.experienceType === 'catalogue-gift'
+    ? {
+        enforceRepeatLimits: true,
+        tryOn: { used: 0, max: 0, remaining: 0 },
+        masterImage: { used: Math.min(2, Number(retryPass.usage?.imagesGenerated || 0)), max: 2, remaining: Math.max(0, 2 - Number(retryPass.usage?.imagesGenerated || 0)) },
+        video: { used: Math.min(2, Number(retryPass.usage?.videosGenerated || 0)), max: 2, remaining: Math.max(0, 2 - Number(retryPass.usage?.videosGenerated || 0)) },
+      }
+    : getCustomerServiceAllowances(entitlement);
 
   if (target === 'video') {
     if (ENFORCE_REPEAT_LIMITS && allowances.video.used >= 2) {
@@ -1700,85 +1729,76 @@ export async function finalizeCompletedVideo({
     ? `clients/${clientId}/sessions/${sessionId}/video/live-9s.mp4`
     : `sessions/${sessionId}/video/live-9s.mp4`;
   const bucket = getStorageBucket();
+  const ownerPass = accessCode ? await getVideoPass(accessCode) : null;
+  const createLiveVersion = ownerPass?.experienceType !== 'catalogue-gift';
 
-  let customerVideo: Buffer | null = fileBuffer;
-  let liveVideo: Buffer | null = fileBuffer;
-  let audioEmbedded = true;
-
-  if (fileBuffer) {
-    try {
-      const [cv, lv] = await Promise.all([
-        generateCustomer6sVideo(fileBuffer, getPreviewAudioTrack(sessionId, eventId)),
-        generateLive9sVideo(fileBuffer, getLiveAudioTrack(sessionId, eventId)),
-      ]);
-      customerVideo = cv;
-      liveVideo = lv;
-    } catch (procErr) {
-      console.warn('FFmpeg video branding warning (falling back to raw provider MP4):', procErr);
-      customerVideo = fileBuffer;
-      liveVideo = fileBuffer;
-      audioEmbedded = false;
-    }
+  let customerVideo: Buffer;
+  let liveVideo: Buffer | null = null;
+  try {
+    customerVideo = await generateCustomer6sVideo(fileBuffer, getPreviewAudioTrack(sessionId, eventId));
+    if (createLiveVersion) liveVideo = await generateLive9sVideo(fileBuffer, getLiveAudioTrack(sessionId, eventId));
+    await validateBrandedVideo(customerVideo, 6);
+    if (liveVideo) await validateBrandedVideo(liveVideo, 9);
+  } catch (error) {
+    return { success: false, error: `Video branding validation failed: ${error instanceof Error ? error.message : 'unknown processing error'}` };
   }
 
   let signedUrl = outputVideoUrl || '';
   let liveSignedUrl = outputVideoUrl || '';
 
-  if (bucket && customerVideo && liveVideo) {
+  if (bucket) {
     try {
       const file = bucket.file(storagePath);
       const liveFile = bucket.file(liveStoragePath);
-      await Promise.all([
-        file.save(customerVideo, {
+      await file.save(customerVideo, {
           contentType: 'video/mp4',
           public: false,
           metadata: {
             cacheControl: 'private, max-age=3600',
             metadata: {
               durationSeconds: '6',
-              playbackMode: audioEmbedded ? 'embedded' : 'external',
-              hasEmbeddedAudio: audioEmbedded ? 'true' : 'false',
+              playbackMode: 'embedded',
+              hasEmbeddedAudio: 'true',
             },
           },
-        }),
-        liveFile.save(liveVideo, {
+        });
+      if (liveVideo) await liveFile.save(liveVideo, {
           contentType: 'video/mp4',
           public: false,
           metadata: {
             cacheControl: 'private, max-age=3600',
             metadata: {
               durationSeconds: '9',
-              playbackMode: audioEmbedded ? 'embedded' : 'external',
-              hasEmbeddedAudio: audioEmbedded ? 'true' : 'false',
+              playbackMode: 'embedded',
+              hasEmbeddedAudio: 'true',
             },
           },
-        }),
-      ]);
+        });
 
-      const [sUrlRes, lUrlRes] = await Promise.all([
-        file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }).catch(() => null),
-        liveFile.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }).catch(() => null),
-      ]);
+      const sUrlRes = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }).catch(() => null);
+      const lUrlRes = liveVideo ? await liveFile.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }).catch(() => null) : null;
       if (sUrlRes?.[0]) signedUrl = sUrlRes[0];
       if (lUrlRes?.[0]) liveSignedUrl = lUrlRes[0];
+      const [customerExists] = await file.exists();
+      const [liveExists] = liveVideo ? await liveFile.exists() : [true];
+      if (!customerExists || !liveExists) throw new Error('Final video files were not persisted to storage.');
     } catch (stErr) {
-      console.warn('Firebase Storage upload warning (falling back to provider URL):', stErr);
+      return { success: false, error: `Final video storage failed: ${stErr instanceof Error ? stErr.message : 'unknown storage error'}` };
     }
-  } else if (customerVideo && liveVideo) {
+  } else {
     const mockStore = getMockStore();
     mockStore.sessions?.set(`mock_blob_${storagePath}`, { buffer: customerVideo });
-    mockStore.sessions?.set(`mock_blob_${liveStoragePath}`, { buffer: liveVideo });
+    if (liveVideo) mockStore.sessions?.set(`mock_blob_${liveStoragePath}`, { buffer: liveVideo });
     if (!signedUrl) signedUrl = `/mock-media/${storagePath}`;
-    if (!liveSignedUrl) liveSignedUrl = `/mock-media/${liveStoragePath}`;
+    if (liveVideo && !liveSignedUrl) liveSignedUrl = `/mock-media/${liveStoragePath}`;
   }
 
   let customerName: string | null = null;
   let customerLocality: string | null = null;
   if (accessCode) {
     try {
-      const pass = await getVideoPass(accessCode);
-      if (pass?.customerName) customerName = pass.customerName;
-      if (pass?.customerLocality) customerLocality = pass.customerLocality;
+      if (ownerPass?.customerName) customerName = ownerPass.customerName;
+      if (ownerPass?.customerLocality) customerLocality = ownerPass.customerLocality;
     } catch {
       // non-blocking
     }
@@ -1792,23 +1812,22 @@ export async function finalizeCompletedVideo({
         id: `video_${sessionId}`,
         sessionId,
         storagePath,
-        liveStoragePath,
+        ...(liveVideo ? { liveStoragePath } : {}),
         eventId,
         status: 'ready',
         provider: provider || 'fal-h3-max-turbo',
         customerName: customerName || null,
         customerLocality: customerLocality || null,
-        playbackMode: audioEmbedded ? 'embedded' : 'external',
-        durationSeconds: 9,
-        hasEmbeddedAudio: audioEmbedded,
+	      playbackMode: 'embedded',
+        durationSeconds: liveVideo ? 9 : 6,
+	      hasEmbeddedAudio: true,
         createdAt: nowIso,
       }, { merge: true }),
       db.collection('sessions').doc(sessionId).set({
         videoStatus: 'ready',
         videoUrl: signedUrl,
         videoStoragePath: storagePath,
-        liveVideoUrl: liveSignedUrl,
-        liveVideoStoragePath: liveStoragePath,
+        ...(liveVideo ? { liveVideoUrl: liveSignedUrl, liveVideoStoragePath: liveStoragePath } : {}),
         expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
         updatedAt: nowIso,
       }, { merge: true }),
@@ -1819,15 +1838,15 @@ export async function finalizeCompletedVideo({
       id: `video_${sessionId}`,
       sessionId,
       storagePath,
-      liveStoragePath,
+      ...(liveVideo ? { liveStoragePath } : {}),
       eventId,
       status: 'ready',
       provider: provider || 'fal-h3-max-turbo',
       customerName: customerName || null,
       customerLocality: customerLocality || null,
-      playbackMode: audioEmbedded ? 'embedded' : 'external',
-      durationSeconds: 9,
-      hasEmbeddedAudio: audioEmbedded,
+      playbackMode: 'embedded',
+      durationSeconds: liveVideo ? 9 : 6,
+      hasEmbeddedAudio: true,
       createdAt: nowIso,
     });
     const session = mockStore.sessions.get(sessionId) || {};
@@ -1836,8 +1855,7 @@ export async function finalizeCompletedVideo({
       videoStatus: 'ready',
       videoUrl: signedUrl,
       videoStoragePath: storagePath,
-      liveVideoUrl: liveSignedUrl,
-      liveVideoStoragePath: liveStoragePath,
+      ...(liveVideo ? { liveVideoUrl: liveSignedUrl, liveVideoStoragePath: liveStoragePath } : {}),
       expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: nowIso,
     });
@@ -1848,7 +1866,7 @@ export async function finalizeCompletedVideo({
   }
   await logMaharajaActivity('video-ready', `${eventId} AI Video ready`, { sessionId, jobId });
 
-  return { success: true, videoUrl: signedUrl, liveVideoUrl: liveSignedUrl, storagePath, liveStoragePath };
+  return { success: true, videoUrl: signedUrl, ...(liveVideo ? { liveVideoUrl: liveSignedUrl, liveStoragePath } : {}), storagePath };
 }
 
 export async function markTryOnDeviceRetryApproved(deviceId: string) {
@@ -2087,7 +2105,14 @@ export async function verifyMaharajaAccess(
     }
   }
 
-  const allowances = getCustomerServiceAllowances(entitlement);
+  const allowances = pass?.experienceType === 'catalogue-gift'
+    ? {
+        enforceRepeatLimits: true,
+        tryOn: { used: 0, max: 0, remaining: 0 },
+        masterImage: { used: Math.min(2, Number(pass.usage?.imagesGenerated || 0)), max: 2, remaining: Math.max(0, 2 - Number(pass.usage?.imagesGenerated || 0)) },
+        video: { used: Math.min(2, Number(pass.usage?.videosGenerated || 0)), max: 2, remaining: Math.max(0, 2 - Number(pass.usage?.videosGenerated || 0)) },
+      }
+    : getCustomerServiceAllowances(entitlement);
 
   if (service === 'try-on') {
     // The permanent Try-On QR is a capability.

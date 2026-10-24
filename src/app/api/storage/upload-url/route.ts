@@ -48,6 +48,8 @@ export async function POST(req: NextRequest) {
 
     const db = getDb();
     const normalizedAccessCode = typeof accessCode === 'string' ? accessCode.trim() : '';
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString();
     if (db) {
       const sessionRef = db.collection('sessions').doc(sessionId);
       await db.runTransaction(async (transaction) => {
@@ -60,7 +62,8 @@ export async function POST(req: NextRequest) {
           sessionId,
           clientId: MAHARAJA_CLIENT_ID,
           accessCode: normalizedAccessCode || null,
-          updatedAt: new Date().toISOString(),
+          expiresAt: existing?.expiresAt || expiresAt,
+          updatedAt: now.toISOString(),
         }, { merge: true });
       });
     } else {
@@ -74,7 +77,8 @@ export async function POST(req: NextRequest) {
         sessionId,
         clientId: MAHARAJA_CLIENT_ID,
         accessCode: normalizedAccessCode || null,
-        updatedAt: new Date().toISOString(),
+        expiresAt: existing?.expiresAt || expiresAt,
+        updatedAt: now.toISOString(),
       });
     }
 

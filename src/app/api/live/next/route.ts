@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, generateReservationId, getSignedPlaybackUrl, type MockQueueItem } from '@/lib/firebase/admin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getVideoPlaybackProfile } from '@/lib/maharaja/video-playback';
+import { verifyOperatorRequest } from '@/lib/auth/operator';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -88,6 +89,9 @@ async function cleanupExpiredReservations(db: any) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!verifyOperatorRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Authenticated Maharaja TV required.' }, { status: 401 });
+  }
   try {
     const db = getDb();
     const nowMs = Date.now();

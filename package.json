@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "catalogue:upload": "node --env-file=.env.local scripts/upload-maharaja-catalogue.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",

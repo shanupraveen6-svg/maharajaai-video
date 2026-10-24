@@ -14,6 +14,41 @@ const ALLOWED_HOSTS = new Set([
 ]);
 const MAX_DOWNLOAD_BYTES = 80 * 1024 * 1024;
 
+function crc32(buffer: Buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function createStoredZip(entries: Array<{ name: string; data: Buffer }>) {
+  const localParts: Buffer[] = [];
+  const centralParts: Buffer[] = [];
+  let offset = 0;
+  for (const entry of entries) {
+    const name = Buffer.from(entry.name, 'utf8');
+    const checksum = crc32(entry.data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4); local.writeUInt16LE(0, 6);
+    local.writeUInt16LE(0, 8); local.writeUInt32LE(checksum, 14);
+    local.writeUInt32LE(entry.data.length, 18); local.writeUInt32LE(entry.data.length, 22); local.writeUInt16LE(name.length, 26);
+    localParts.push(local, name, entry.data);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6);
+    central.writeUInt32LE(checksum, 16); central.writeUInt32LE(entry.data.length, 20); central.writeUInt32LE(entry.data.length, 24);
+    central.writeUInt16LE(name.length, 28); central.writeUInt32LE(offset, 42);
+    centralParts.push(central, name);
+    offset += local.length + name.length + entry.data.length;
+  }
+  const centralDirectory = Buffer.concat(centralParts);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralDirectory.length, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...localParts, centralDirectory, end]);
+}
+
 function isMaharajaAsset(url: URL) {
   const decoded = decodeURIComponent(`${url.pathname}${url.search}`);
   return decoded.includes('clients/maharaja/');
@@ -30,7 +65,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (typeof sessionId === 'string' && typeof accessCode === 'string' && (kind === 'image' || kind === 'video')) {
+    if (typeof sessionId === 'string' && typeof accessCode === 'string' && (kind === 'image' || kind === 'video' || kind === 'bundle')) {
       const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
       if (!access.allowed || !access.pass) {
         return NextResponse.json({ success: false, error: access.error || 'A valid AI Video pass is required.' }, { status: 401 });
@@ -41,6 +76,42 @@ export async function POST(req: NextRequest) {
         : getMockStore().sessions.get(sessionId);
       if (!session || session.accessCode !== accessCode) {
         return NextResponse.json({ success: false, error: 'This media does not belong to this AI Video pass.' }, { status: 403 });
+      }
+
+      if (kind === 'bundle') {
+        if (typeof jobId !== 'string' || !jobId) return NextResponse.json({ success: false, error: 'A completed video job is required.' }, { status: 400 });
+        const job = db
+          ? (await db.collection('videoTestJobs').doc(jobId).get()).data()
+          : getMockStore().sessions.get(`video_test_${jobId}`);
+        if (!job || job.status !== 'ready' || job.sessionId !== sessionId || job.accessCode !== accessCode) {
+          return NextResponse.json({ success: false, error: 'The completed video could not be verified.' }, { status: 403 });
+        }
+        const imagePath = String(session.masterStoragePath || '');
+        const videoPath = String(job.videoStoragePath || '');
+        const expectedPrefix = `clients/maharaja/sessions/${sessionId}/`;
+        if (!imagePath.startsWith(expectedPrefix) || !videoPath.startsWith(expectedPrefix)) {
+          return NextResponse.json({ success: false, error: 'The requested media path is invalid.' }, { status: 403 });
+        }
+        const bucket = getStorageBucket();
+        if (!bucket) return NextResponse.json({ success: false, error: 'Secure media storage is unavailable.' }, { status: 503 });
+        const [[storedImage], [storedVideo]] = await Promise.all([
+          bucket.file(imagePath).download(),
+          bucket.file(videoPath).download(),
+        ]);
+        if (storedImage.byteLength + storedVideo.byteLength > MAX_DOWNLOAD_BYTES) {
+          return NextResponse.json({ success: false, error: 'Generated assets are too large to download.' }, { status: 413 });
+        }
+        const image = Buffer.from(await applyMaharajaWatermark(Buffer.from(storedImage)));
+        const zip = createStoredZip([
+          { name: `Maharaja-${sessionId}.jpg`, data: image },
+          { name: `Maharaja-${sessionId}.mp4`, data: Buffer.from(storedVideo) },
+        ]);
+        return new NextResponse(zip as any, { headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="Maharaja-${sessionId}.zip"`,
+          'Cache-Control': 'private, no-store',
+          'X-Content-Type-Options': 'nosniff',
+        } });
       }
 
       let storagePath = '';

@@ -11,9 +11,9 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 const MAX_VIDEO_REFERENCE_BYTES = 12 * 1024 * 1024;
 
-async function downloadValidatedReference(sourcePath: string, label: string) {
+async function downloadValidatedReference(sourcePath: string, label: string, allowedCataloguePath = '') {
   const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/`;
-  if (!sourcePath.startsWith(expectedPrefix)) throw new Error(`${label} path is outside this Maharaja session.`);
+  if (!sourcePath.startsWith(expectedPrefix) && sourcePath !== allowedCataloguePath) throw new Error(`${label} path is outside this Maharaja session.`);
   const bucket = getStorageBucket();
   if (!bucket) throw new Error('Firebase Storage is unavailable.');
   const file = bucket.file(sourcePath);
@@ -47,8 +47,8 @@ async function normalizeStorageImage(sourcePath: string, outputPath: string) {
   };
 }
 
-async function normalizeGarmentReference(sourcePath: string, outputPath: string) {
-  const { source, bucket } = await downloadValidatedReference(sourcePath, 'Garment reference');
+async function normalizeGarmentReference(sourcePath: string, outputPath: string, allowedCataloguePath = '') {
+  const { source, bucket } = await downloadValidatedReference(sourcePath, 'Garment reference', allowedCataloguePath);
   const metadata = await sharp(source).rotate().metadata();
   if (!metadata.width || !metadata.height) throw new Error('Garment reference has invalid image dimensions.');
   if (metadata.width < 256 || metadata.height < 256) {
@@ -100,7 +100,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: access.allowed ? 'A customer AI Video pass is required.' : access.error }, { status: 401 });
   }
   if (!access.pass.videoMasterDone || !access.pass.videoMasterUrl) {
-    return NextResponse.json({ success: false, error: 'Generate the festival master image first.' }, { status: 409 });
+    return NextResponse.json({ success: false, error: 'Create the AI Video image first.' }, { status: 409 });
+  }
+  if (access.pass.rejectedMasterUrls?.includes(access.pass.videoMasterUrl)) {
+    return NextResponse.json({ success: false, error: 'This master image was rejected. Generate and approve a new festival image.' }, { status: 409 });
+  }
+  if (!access.pass.videoMasterApproved || access.pass.videoMasterApprovedUrl !== access.pass.videoMasterUrl) {
+    return NextResponse.json({ success: false, error: 'Customer approval required before generating the AI video.' }, { status: 403 });
   }
   if (access.pass.videoPromptArchitectureVersion !== VIDEO_PROMPT_ARCHITECTURE_VERSION) {
     return NextResponse.json({ success: false, error: 'This is a legacy AI Video session. Please use a newly issued Maharaja QR for the updated film experience.' }, { status: 409 });
@@ -117,20 +123,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'The approved master image session could not be verified.' }, { status: 403 });
   }
 
-  if (db) {
-    const priorJobs = await db.collection('videoTestJobs').where('sessionId', '==', sessionId).limit(10).get();
-    const recoverable = priorJobs.docs
-      .map((doc) => doc.data())
-      .filter((job) => job.accessCode === accessCode && job.status === 'failed' && typeof job.error === 'string' && job.error.includes('FFmpeg binary') && job.responseUrl)
-      .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))[0];
-    if (recoverable?.jobId) {
-      await db.collection('videoTestJobs').doc(recoverable.jobId).set({ status: 'processing', error: null, updatedAt: new Date().toISOString() }, { merge: true });
-      await db.collection('sessions').doc(sessionId).set({ activeVideoTestJobId: recoverable.jobId }, { merge: true });
-      return NextResponse.json({ success: true, jobId: recoverable.jobId, status: 'processing', modelId: 'h3-max', estimatedUsd: 0, recovered: true });
-    }
-  }
-
   const jobId = `vtest_${crypto.randomUUID()}`;
+  const webhookToken = crypto.randomBytes(32).toString('hex');
+  const webhookTokenHash = crypto.createHash('sha256').update(webhookToken).digest('hex');
   const createdAt = new Date().toISOString();
   const basePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/video-tests/${jobId}`;
   const jobBase = {
@@ -138,6 +133,7 @@ export async function POST(req: NextRequest) {
     status: 'preparing', createdAt, updatedAt: createdAt,
     estimatedUsd: model.estimatedUsd, duration: model.seconds,
     attempt: 1,
+    webhookTokenHash,
     promptArchitectureVersion: VIDEO_PROMPT_ARCHITECTURE_VERSION,
   };
 
@@ -181,7 +177,7 @@ export async function POST(req: NextRequest) {
     if (!garmentPaths.length) throw new Error('At least one garment reference is required for the approved master.');
     const garments = [];
     for (let index = 0; index < garmentPaths.length; index += 1) {
-      garments.push(await normalizeGarmentReference(garmentPaths[index], `${basePath}/input-garment-${index + 1}.jpg`));
+      garments.push(await normalizeGarmentReference(garmentPaths[index], `${basePath}/input-garment-${index + 1}.jpg`, access.pass.catalogueStoragePath || ''));
     }
     const category = access.pass.videoMasterCategory || session.templateId;
     if (!['women', 'men', 'girl', 'boy'].includes(category)) throw new Error('The approved master image has no valid customer category.');
@@ -200,7 +196,12 @@ export async function POST(req: NextRequest) {
       concept.id,
       garmentRoles,
     );
-    const response = await fetch(`https://queue.fal.run/${model.model}`, {
+    const webhookUrl = new URL('/api/video/webhook', req.nextUrl.origin);
+    webhookUrl.searchParams.set('jobId', jobId);
+    webhookUrl.searchParams.set('token', webhookToken);
+    const queueUrl = new URL(`https://queue.fal.run/${model.model}`);
+    queueUrl.searchParams.set('fal_webhook', webhookUrl.toString());
+    const response = await fetch(queueUrl, {
       method: 'POST',
       headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(input),

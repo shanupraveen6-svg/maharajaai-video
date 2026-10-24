@@ -53,7 +53,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(canonicalUrl, 308);
   }
 
-  if (!request.nextUrl.pathname.startsWith('/maharaja/workspace')) {
+  const protectedPath = request.nextUrl.pathname.startsWith('/maharaja/workspace')
+    || request.nextUrl.pathname === '/tv'
+    || request.nextUrl.pathname === '/maharaja/tv';
+  if (!protectedPath) {
     return NextResponse.next();
   }
 

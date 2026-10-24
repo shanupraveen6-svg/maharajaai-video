@@ -40,13 +40,15 @@ function formatGeminiImageError(error: any) {
   return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
 }
 
-async function resolveImageBase64(input: unknown, bucket: any): Promise<string> {
+async function resolveImageBase64(input: unknown, bucket: any, sessionId: string, allowedCataloguePath = ''): Promise<string> {
   if (typeof input !== 'string' || !input.trim()) return '';
   const trimmed = input.trim();
-  if (trimmed.startsWith('data:') || (!trimmed.startsWith('http') && !trimmed.startsWith('clients/') && !trimmed.startsWith('sessions/'))) {
+  if (!bucket && trimmed.startsWith('data:image/')) {
     return trimmed.split(',')[1] || trimmed;
   }
-  if (bucket && (trimmed.startsWith('clients/') || trimmed.startsWith('sessions/'))) {
+  const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/`;
+  if (!trimmed.startsWith(expectedPrefix) && trimmed !== allowedCataloguePath) throw new Error('Photo source does not belong to this customer session.');
+  if (bucket) {
     try {
       const file = bucket.file(trimmed);
       const [metadata] = await file.getMetadata();
@@ -65,20 +67,7 @@ async function resolveImageBase64(input: unknown, bucket: any): Promise<string> 
   if (mockBlob?.buffer) {
     return mockBlob.buffer.toString('base64');
   }
-  try {
-    const res = await fetch(trimmed);
-    if (res.ok) {
-      if (Number(res.headers.get('content-length') || 0) > MAX_SOURCE_IMAGE_BYTES) {
-        throw new Error('Source photo exceeds the 8 MB processing limit.');
-      }
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Source photo exceeds the 8 MB processing limit.');
-      return buf.toString('base64');
-    }
-  } catch (err) {
-    console.warn('URL fetch image warning:', err);
-  }
-  return trimmed.split(',')[1] || trimmed;
+  throw new Error('Customer photo could not be read from secure storage.');
 }
 
 export async function POST(req: NextRequest) {
@@ -150,7 +139,8 @@ export async function POST(req: NextRequest) {
     }
 
     const personInput = body.personPhotoStoragePath || body.personPhotoUrl || personPhoto;
-    const garmentInputs: string[] = (Array.isArray(body.garmentPhotoStoragePaths) && body.garmentPhotoStoragePaths.length > 0)
+    const cataloguePath = access.pass?.experienceType === 'catalogue-gift' ? String(access.pass.catalogueStoragePath || '') : '';
+    const garmentInputs: string[] = cataloguePath ? [cataloguePath] : (Array.isArray(body.garmentPhotoStoragePaths) && body.garmentPhotoStoragePaths.length > 0)
       ? body.garmentPhotoStoragePaths
       : (Array.isArray(body.garmentPhotoUrls) && body.garmentPhotoUrls.length > 0)
       ? body.garmentPhotoUrls
@@ -165,7 +155,7 @@ export async function POST(req: NextRequest) {
 
     if (!Array.isArray(garmentInputs) || garmentInputs.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Garment photo is missing. Upload at least one garment photo before generating the AI image.' },
+        { success: false, error: access.pass?.experienceType === 'catalogue-gift' ? 'Select a Maharaja catalogue saree before generating.' : 'Garment photo is missing. Upload at least one garment photo before generating the AI image.' },
         { status: 400 }
       );
     }
@@ -223,8 +213,8 @@ export async function POST(req: NextRequest) {
         const contents: any[] = [];
 
         const [personBase64, ...garmentBase64s] = await Promise.all([
-          resolveImageBase64(personInput, bucket),
-          ...garmentInputs.map((input) => resolveImageBase64(input, bucket)),
+          resolveImageBase64(personInput, bucket, sessionId),
+          ...garmentInputs.map((input) => resolveImageBase64(input, bucket, sessionId, cataloguePath)),
         ]);
         if (personBase64) contents.push({ inlineData: { mimeType: 'image/jpeg', data: personBase64 } });
         garmentBase64s.forEach((garmentBase64) => {
@@ -332,6 +322,7 @@ ${categoryGarmentLine}
         }
     } catch (genError: any) {
       console.error('Gemini Master Image Generation Error:', genError);
+      await logMaharajaActivity('image-failed', `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generation failed`, { sessionId, service });
       if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(
         { success: false, error: formatGeminiImageError(genError) },
@@ -352,9 +343,7 @@ ${categoryGarmentLine}
         masterImageUrl,
         masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
         personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : null,
-        garmentPhotoStoragePaths: Array.isArray(body.garmentPhotoStoragePaths)
-          ? body.garmentPhotoStoragePaths.filter((value: unknown): value is string => typeof value === 'string').slice(0, 3)
-          : [],
+        garmentPhotoStoragePaths: garmentInputs.slice(0, 3),
         masterImageApproved: false,
         masterImageApprovedAt: null,
         masterImageApprovedUrl: null,
@@ -416,7 +405,7 @@ ${categoryGarmentLine}
       });
     }
 
-    persistenceTasks.push(incrementMaharajaUsage('tryOnGenerated'));
+    if (service === 'try-on') persistenceTasks.push(incrementMaharajaUsage('tryOnGenerated'));
     if (access.pass) {
       const passImageUrl = (db && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000)
         ? masterImageUrl.slice(0, 500) + '...[truncated-data-url]'
@@ -434,9 +423,7 @@ ${categoryGarmentLine}
             garmentRoles: sanitizedGarmentRoles.slice(0, 3),
             referenceSessionId: sessionId,
             personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : undefined,
-            garmentPhotoStoragePaths: Array.isArray(body.garmentPhotoStoragePaths)
-              ? body.garmentPhotoStoragePaths.filter((value: unknown): value is string => typeof value === 'string').slice(0, 3)
-              : [],
+            garmentPhotoStoragePaths: garmentInputs.slice(0, 3),
           }, boundGenerationId);
         }
       })());

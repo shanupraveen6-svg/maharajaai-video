@@ -1,40 +1,36 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, Tv, Sparkles, RotateCcw, Flame, ShieldCheck, AlertCircle, ExternalLink, MoreVertical, Lock, MessageCircle, Image as ImageIcon } from 'lucide-react';
+import { Download, Tv, Sparkles, RotateCcw, Flame, AlertCircle, ExternalLink, MessageCircle } from 'lucide-react';
 import { getEventOption, type EventId } from '@/lib/maharaja/config';
-import { getPreviewAudioTrack } from '@/lib/maharaja/audio';
 
 export default function ResultClient({
   sessionId,
   accessCode = '',
   onBack,
-  initialRetryUsed = false,
-  onRetryUsed,
-  initialAllowances,
   initialVideoJobId = '',
   initialVideoUrl = '',
   initialMasterImageUrl = '',
   initialEventId = 'diwali',
+  allowGoLive: initialAllowGoLive = true,
+  catalogueProduct: initialCatalogueProduct = null,
 }: {
   sessionId: string;
   accessCode?: string;
   onBack?: () => void;
-  initialRetryUsed?: boolean;
-  onRetryUsed?: () => void;
-  initialAllowances?: any;
   initialVideoJobId?: string;
   initialVideoUrl?: string;
   initialMasterImageUrl?: string;
   initialEventId?: EventId;
+  allowGoLive?: boolean;
+  catalogueProduct?: { sku: string; title?: string; price?: number } | null;
 }) {
   const router = useRouter();
   const [showThankYou, setShowThankYou] = useState(false);
   const [thankYouMode, setThankYouMode] = useState<'download' | 'live' | null>(null);
   const [liveFarewell, setLiveFarewell] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [liveSuccess, setLiveSuccess] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
@@ -49,6 +45,8 @@ export default function ResultClient({
   const [customerName, setCustomerName] = useState('');
   const [customerLocality, setCustomerLocality] = useState('');
   const [videoJobId, setVideoJobId] = useState(initialVideoJobId);
+  const [allowGoLive, setAllowGoLive] = useState(initialAllowGoLive);
+  const [catalogueProduct, setCatalogueProduct] = useState(initialCatalogueProduct);
 
   const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl || null);
   const [masterImageUrl, setMasterImageUrl] = useState<string | null>(initialMasterImageUrl || null);
@@ -60,20 +58,10 @@ export default function ResultClient({
   const [goLiveSubmitting, setGoLiveSubmitting] = useState(false);
   const [liveConsent, setLiveConsent] = useState(false);
   const [guardianLiveConsent, setGuardianLiveConsent] = useState(false);
-  const [retryUsed, setRetryUsed] = useState(initialRetryUsed);
-  const [allowances, setAllowances] = useState<any>(initialAllowances || null);
-  const [videoDone, setVideoDone] = useState(false);
-  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  const enforceLimits = allowances?.enforceRepeatLimits ?? false;
-  const imageAllowanceUsed = allowances?.masterImage?.used ?? (retryUsed ? 2 : 1);
-  const videoAllowanceUsed = allowances?.video?.used ?? (videoDone || videoUrl ? 1 : 0);
-  const imageExhausted = enforceLimits && imageAllowanceUsed >= 2;
-  const videoExhausted = enforceLimits && videoAllowanceUsed >= 2;
+  const [promotionConsent, setPromotionConsent] = useState(false);
 
   const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
   const eventLabel = getEventOption(eventId).label;
-  const previewAudioUrl = getPreviewAudioTrack(sessionId, eventId);
 
   useEffect(() => {
     let active = true;
@@ -90,6 +78,8 @@ export default function ResultClient({
         setCategory(data.category || null);
         setCustomerName(data.customerName || '');
         setCustomerLocality(data.customerLocality || '');
+        setAllowGoLive(data.allowGoLive !== false);
+        setCatalogueProduct(data.catalogueProduct || null);
         setVideoStatus('ready');
         if (data.queue?.queueId) {
           setQueueId(data.queue.queueId);
@@ -195,7 +185,7 @@ export default function ResultClient({
     );
   }
 
-  const fetchDownloadBlob = async (kind: 'image' | 'video') => {
+  const fetchDownloadBlob = async (kind: 'image' | 'video' | 'bundle') => {
     const proxyRes = await fetch('/api/download/asset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -210,12 +200,14 @@ export default function ResultClient({
     return await proxyRes.blob();
   };
 
-  const downloadAsset = async (kind: 'image' | 'video') => {
+  const downloadAsset = async (kind: 'image' | 'video' | 'bundle') => {
     const blob = await fetchDownloadBlob(kind);
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objectUrl;
-    a.download = kind === 'image'
+    a.download = kind === 'bundle'
+      ? `Maharaja-${eventLabel}-${sessionId}.zip`
+      : kind === 'image'
       ? `Maharaja-${eventLabel}-Master-${sessionId}.jpg`
       : `Maharaja-${eventLabel}-Video-${sessionId}.mp4`;
     a.rel = 'noopener';
@@ -231,15 +223,12 @@ export default function ResultClient({
     setDownloading('bundle');
     setLiveError(null);
     try {
-      const results = await Promise.allSettled([downloadAsset('image'), downloadAsset('video')]);
-      const succeeded = results.filter((result) => result.status === 'fulfilled').length;
-      if (!succeeded) throw new Error('Downloads could not start. Please try again.');
+      await downloadAsset('bundle');
       await fetch('/api/maharaja/activity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'download', label: `${eventLabel} image and video downloaded`, sessionId, accessCode }),
       }).catch(() => undefined);
-      if (succeeded < 2) setLiveError('One download did not start. Tap Download again to retry both files.');
       if (showConfirmation) {
         setLastDownloaded('bundle');
         setThankYouMode('download');
@@ -273,6 +262,7 @@ export default function ResultClient({
           liveConsent,
           loopConsent: liveConsent,
           guardianConsent: guardianLiveConsent,
+          promotionConsent,
           customerName,
           customerLocality,
         }),
@@ -285,47 +275,15 @@ export default function ResultClient({
       setLiveSuccess(true);
       setCountdownSeconds(0);
       setLiveFarewell(true);
-      const downloadResults = await Promise.allSettled([downloadAsset('image'), downloadAsset('video')]);
-      if (downloadResults.some((result) => result.status === 'rejected')) {
-        setLiveError('Your TV queue is confirmed. If either download did not begin, tap Download below.');
-      }
+      await downloadAsset('bundle').catch(() => {
+        setLiveError('Your TV queue is confirmed. Tap Download below if the ZIP did not begin.');
+      });
       setThankYouMode('live');
       setLiveFarewell(true);
     } catch (caught) {
       setLiveError(caught instanceof Error ? caught.message : 'Go Live failed.');
     } finally {
       setGoLiveSubmitting(false);
-    }
-  };
-
-  const handleRetryImage = async () => {
-    if (enforceLimits && imageExhausted) {
-      setLiveError('Celebration Image limit reached (2/2 used). Retries are exhausted for this mobile number.');
-      return;
-    }
-    setShowMenu(false);
-    if (!window.confirm('Use your final included image retry? Your current image and video remain safely saved.')) return;
-    try {
-      await fetch('/api/maharaja/activity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'retry',
-          label: 'Customer AI Image re-upload retry',
-          sessionId,
-          accessCode,
-          target: 'image',
-          service: 'ai-video',
-        }),
-      });
-      onRetryUsed?.();
-    } catch (err) {
-      console.warn('Image retry log warning:', err);
-    }
-    if (onBack) {
-      onBack();
-    } else {
-      router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}` : '/maharaja/workspace');
     }
   };
 
@@ -443,6 +401,13 @@ export default function ResultClient({
       ) : (
         /* Main Result Card when Ready */
         <div className="space-y-6 text-center">
+          {catalogueProduct && (
+            <div className="border border-[#D4AF37]/35 bg-[#21090E] p-4">
+              <p className="text-[10px] font-bold uppercase text-[#D4AF37]">Maharaja Catalogue Gift</p>
+              <p className="mt-1 font-serif text-lg font-bold text-[#F3E5AB]">{catalogueProduct.title}</p>
+              <p className="mt-1 font-bold text-[#D4AF37]">Rs {new Intl.NumberFormat('en-IN').format(catalogueProduct.price || 0)}</p>
+            </div>
+          )}
           <div className="inline-flex items-center gap-2 border-l-2 border-[#D4AF37] bg-[#6e0d1f]/40 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F3E5AB]">
             <Sparkles className="w-4 h-4 text-[#D4AF37]" /> YOUR {eventLabel.toUpperCase()} FILM IS READY
           </div>
@@ -455,67 +420,13 @@ export default function ResultClient({
             <span className="text-[10px] font-bold tracking-wider uppercase text-[#F3E5AB]">Maharaja</span>
           </div>
 
-          {/* Top-Left Three-Dot Options Menu */}
-          <div className="absolute left-3 top-3 z-20">
-            <button
-              type="button"
-              onClick={() => setShowMenu((prev) => !prev)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#D4AF37]/50 bg-black/65 text-[#D4AF37] backdrop-blur-sm hover:bg-black/90 transition shadow-lg"
-              aria-label="Options menu"
-              title="Options"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
-
-            {showMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-30 cursor-default"
-                  onClick={() => setShowMenu(false)}
-                />
-                <div className="absolute left-0 top-10 z-40 w-48 rounded-lg border border-[#D4AF37]/60 bg-[#170203]/95 p-1.5 shadow-2xl backdrop-blur-md text-left space-y-1 animate-in fade-in zoom-in-95 duration-150">
-                  {/* Image Retry (Back to Upload) */}
-                  <button
-                    type="button"
-                    onClick={handleRetryImage}
-                    className="w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs font-bold text-[#F3E5AB] hover:bg-[#6e0d1f] hover:text-white transition"
-                  >
-                    <ImageIcon className="h-4 w-4 text-[#D4AF37] shrink-0" />
-                    <span>Retry Image</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
           <video
             src={videoUrl}
             controls
-            muted
             playsInline
             preload="auto"
             className="w-full h-full object-cover"
-            onPlay={(event) => {
-              const audio = previewAudioRef.current;
-              if (!audio) return;
-              audio.currentTime = Math.min(event.currentTarget.currentTime, 5.95);
-              void audio.play().catch(() => undefined);
-            }}
-            onPause={() => previewAudioRef.current?.pause()}
-            onTimeUpdate={(event) => {
-              const audio = previewAudioRef.current;
-              if (!audio || audio.paused) return;
-              if (Math.abs(audio.currentTime - event.currentTarget.currentTime) > 0.2) {
-                audio.currentTime = Math.min(event.currentTarget.currentTime, 5.95);
-              }
-            }}
-            onEnded={() => {
-              const audio = previewAudioRef.current;
-              if (!audio) return;
-              audio.pause();
-              audio.currentTime = 0;
-            }}
           />
-          <audio ref={previewAudioRef} src={previewAudioUrl} preload="auto" />
         </div>
 
         {/* Primary Action Buttons */}
@@ -529,6 +440,7 @@ export default function ResultClient({
             <Download className="h-4 w-4" /> {downloading ? 'Preparing downloads' : 'Download image & video'}
           </button>
 
+          {allowGoLive && <>
           <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-[11px] leading-5 text-[#F3E5AB]/80">
             <input
               type="checkbox"
@@ -537,6 +449,11 @@ export default function ResultClient({
               className="mt-0.5 h-5 w-5 shrink-0 accent-[#D4AF37]"
             />
             <span>I agree that this video may play on the Maharaja showroom TV and remain in its approved loop for up to three days.</span>
+          </label>
+
+          <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-[11px] leading-5 text-[#F3E5AB]/80">
+            <input type="checkbox" checked={promotionConsent} onChange={(event) => setPromotionConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D4AF37]" />
+            <span>Optional: I permit Maharaja to select and share this finished video on its official social media pages. Leaving this unchecked allows showroom TV playback only.</span>
           </label>
 
           <div className="space-y-3 rounded-lg border border-[#D4AF37]/25 bg-black/35 p-4 text-left text-xs leading-5 text-[#F3E5AB]/80">
@@ -583,6 +500,7 @@ export default function ResultClient({
           >
             <Tv className="h-5 w-5" /> {goLiveSubmitting ? 'Adding to TV queue' : liveSuccess ? 'Added to TV queue' : 'Go Live on Maharaja TV'}
           </button>
+          </>}
 
           <p className="px-2 text-[11px] leading-5 text-[#F3E5AB]/65">
             AI Video media is retained temporarily for delivery and removed within 3 days unless an adult separately permits promotional use. Anonymous usage totals may be retained.{' '}

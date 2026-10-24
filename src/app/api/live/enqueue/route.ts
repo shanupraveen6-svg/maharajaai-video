@@ -24,10 +24,14 @@ export async function POST(req: NextRequest) {
   if (body?.liveConsent !== true || body?.loopConsent !== true) {
     return NextResponse.json({ success: false, error: 'Showroom playback and three-day loop consent are required.' }, { status: 400 });
   }
+  const promotionConsent = body?.promotionConsent === true;
 
   const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
   if (!access.allowed || !access.pass) {
     return NextResponse.json({ success: false, error: access.error || 'A valid AI Video pass is required.' }, { status: 401 });
+  }
+  if (access.pass.experienceType === 'catalogue-gift') {
+    return NextResponse.json({ success: false, error: 'Catalogue Gift videos are private customer gifts and cannot be sent to the showroom TV.' }, { status: 403 });
   }
   const category = access.pass.videoMasterCategory || null;
   if ((category === 'girl' || category === 'boy') && body?.guardianConsent !== true) {
@@ -98,6 +102,7 @@ export async function POST(req: NextRequest) {
         replayEnabled: false,
         liveConsent: true,
         loopConsent: true,
+        promotionConsent,
         playbackMode: hasFinalLiveAsset ? 'embedded' : 'external',
         durationSeconds: hasFinalLiveAsset ? 9 : 6,
         hasEmbeddedAudio: hasFinalLiveAsset,
@@ -112,6 +117,7 @@ export async function POST(req: NextRequest) {
         screenId: 'maharaja-main',
         videoId,
         videoJobId: jobId,
+        videoUrl: liveStoragePath || job.videoStoragePath,
         sessionId,
         accessCode,
         eventId,
@@ -128,6 +134,7 @@ export async function POST(req: NextRequest) {
         consentVersion: '2026-10-live-loop-v1',
         liveConsent: true,
         loopConsent: true,
+        promotionConsent,
       });
       transaction.set(screenRef, { lastQueueNumber: nextQueueNumber, updatedAt: nowIso }, { merge: true });
       transaction.set(sessionRef, {
@@ -135,6 +142,7 @@ export async function POST(req: NextRequest) {
         liveQueueId: queueId,
         liveConsent: true,
         loopConsent: true,
+        promotionConsent,
         liveConsentAt: nowIso,
         expiresAt,
         updatedAt: nowIso,
@@ -166,18 +174,18 @@ export async function POST(req: NextRequest) {
         id: videoId, sessionId, accessCode, approvedJobId: jobId, storagePath: job.videoStoragePath,
         ...(hasFinalLiveAsset ? { liveStoragePath } : {}),
         eventId, category, status: 'ready', published: false, replayEnabled: false,
-        liveConsent: true, loopConsent: true, playbackMode: hasFinalLiveAsset ? 'embedded' : 'external', durationSeconds: hasFinalLiveAsset ? 9 : 6,
+        liveConsent: true, loopConsent: true, promotionConsent, playbackMode: hasFinalLiveAsset ? 'embedded' : 'external', durationSeconds: hasFinalLiveAsset ? 9 : 6,
         hasEmbeddedAudio: hasFinalLiveAsset, customerName, customerLocality, createdAt: nowIso, expiresAt,
       });
       store.liveQueue.push({
         id: queueId, screenId: 'maharaja-main', videoId, sessionId, queueNumber,
         status: 'queued', priority: 100, repeatCount: LIVE_PLAY_COUNT, timesPlayed: 0, createdAt: nowIso,
         playAtMs: now.getTime(), accessCode, videoJobId: jobId, eventId, customerName,
-        customerLocality, ...(hasFinalLiveAsset ? {} : { liveAudioUrl }), liveConsent: true, loopConsent: true,
+        customerLocality, videoUrl: liveStoragePath || job.videoStoragePath, ...(hasFinalLiveAsset ? {} : { liveAudioUrl }), liveConsent: true, loopConsent: true, promotionConsent,
       } as any);
       store.sessions.set(sessionId, {
         ...session, selectedVideoTestJobId: jobId, liveQueueId: queueId,
-        liveConsent: true, loopConsent: true, liveConsentAt: nowIso, expiresAt, updatedAt: nowIso,
+        liveConsent: true, loopConsent: true, promotionConsent, liveConsentAt: nowIso, expiresAt, updatedAt: nowIso,
       });
       created = true;
     }
@@ -194,6 +202,7 @@ export async function POST(req: NextRequest) {
         eventId,
         customerName,
         customerLocality,
+        promotionConsent,
       }),
     ]);
   }

@@ -48,6 +48,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         eventLabel: getEventOption(access.pass?.eventId || 'diwali').label,
         phoneMasked: access.pass?.phoneMasked || null,
         billLast4: access.pass?.billLast4 || null,
+        experienceType: access.pass?.experienceType || 'purchased-garment',
+        catalogueProduct: access.pass?.catalogueSku ? {
+          sku: access.pass.catalogueSku,
+          title: access.pass.catalogueTitle,
+          price: access.pass.cataloguePrice,
+        } : null,
         expiresAt: access.pass?.expiresAt || null,
         tryOnUsed: ENFORCE_REPEAT_LIMITS && (deviceStatus?.status === 'used' || access.allowances.tryOn.used >= 2),
         tryOnImageDone: access.pass?.tryOnImageDone || false,

@@ -63,6 +63,12 @@ export async function GET(req: NextRequest) {
     category: job.category || access.pass.videoMasterCategory || null,
     customerName: access.pass.customerName || null,
     customerLocality: access.pass.customerLocality || null,
+    allowGoLive: access.pass.experienceType !== 'catalogue-gift',
+    catalogueProduct: access.pass.catalogueSku ? {
+      sku: access.pass.catalogueSku,
+      title: access.pass.catalogueTitle,
+      price: access.pass.cataloguePrice,
+    } : null,
     queue: queue ? {
       queueId,
       queueNumber: queue.queueNumber || null,
