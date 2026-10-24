@@ -44,7 +44,7 @@ const {
   releasePassVideoLock,
   markPassVideoReady,
   markPassVideoFailed,
-  markPassRetryApproved,
+  enablePassCustomerRetry,
 } = server;
 
 let assertionCount = 0;
@@ -255,10 +255,10 @@ await markPassVideoReady(passCodeB, jobId1);
 entB = await getCampaignEntitlementByPhone(testPhoneB);
 allowancesB = getCustomerServiceAllowances(entB);
 assert(allowancesB.video.used === 1, 'Cinematic Video used is 1/2');
-// 2. Customer retry succeeds without manager approval
+// 2. Included customer retry succeeds automatically
 const jobId2 = 'job_video_2_customer_retry';
 const vidLock2Auth = await acquirePassVideoLock(passCodeB, jobId2);
-assert(vidLock2Auth.ok, 'Acquired video generation lock #2 without manager approval');
+assert(vidLock2Auth.ok, 'Acquired video generation lock #2 as the included customer retry');
 await markPassVideoReady(passCodeB, jobId2);
 
 entB = await getCampaignEntitlementByPhone(testPhoneB);

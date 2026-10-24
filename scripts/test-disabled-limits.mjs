@@ -20,7 +20,7 @@ const {
   verifyMaharajaAccess,
   acquirePassVideoLock,
   markPassVideoReady,
-  markPassRetryApproved,
+  enablePassCustomerRetry,
   approvePassVideoMaster,
   markPassVideoMasterDone,
 } = server;
@@ -80,9 +80,9 @@ const rec1 = await recordServiceGenerationSuccess(phone, 'video');
 assert(rec1.used === 1, 'Generation #1 count is 1');
 assert(rec1.exhausted === false, 'Generation #1 does not exhaust quota');
 
-// 3. Perform Generation #2 without any manager authorization step
+// 3. Perform the included customer retry without any extra approval step
 const lock2 = await acquireServiceGenerationLock(phone, 'video');
-assert(lock2.ok, 'Generation #2 lock acquired WITHOUT manager authorization');
+assert(lock2.ok, 'Generation #2 lock acquired as the included customer retry');
 const rec2 = await recordServiceGenerationSuccess(phone, 'video');
 assert(rec2.used === 2, 'Generation #2 count is 2');
 assert(rec2.exhausted === false, 'Generation #2 does not exhaust quota');
@@ -95,9 +95,9 @@ assert(rec3.used === 3, 'Generation #3 count increments to 3 (not clamped to 2)'
 assert(rec3.exhausted === false, 'Generation #3 does not exhaust quota');
 
 // 5. Test customer retry approval
-await markPassRetryApproved(code, 'video', 'ai-video');
+await enablePassCustomerRetry(code, 'video', 'ai-video');
 const passAfterRetry = await getVideoPass(code);
-assert(passAfterRetry.retryApproved === true, 'retryApproved is true on pass');
+assert(passAfterRetry.retryEnabled === true, 'retryEnabled is true on pass');
 assert(passAfterRetry.retryUsed === false, 'retryUsed remains false when ENFORCE_REPEAT_LIMITS=false');
 assert(passAfterRetry.videoDone === false, 'videoDone reset to false for retry generation');
 

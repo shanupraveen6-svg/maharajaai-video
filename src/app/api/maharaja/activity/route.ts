@@ -9,8 +9,8 @@ import {
   getCustomerServiceAllowances,
   incrementMaharajaUsage,
   logMaharajaActivity,
-  markPassRetryApproved,
-  markTryOnDeviceRetryApproved,
+  enablePassCustomerRetry,
+  enableTryOnDeviceCustomerRetry,
   validTryOnDeviceId,
   verifyMaharajaAccess,
   type MaharajaActivity,
@@ -97,9 +97,9 @@ export async function POST(req: NextRequest) {
         }
 
         if (access.pass) {
-          await markPassRetryApproved(access.pass.code, target, service);
+          await enablePassCustomerRetry(access.pass.code, target, service);
         } else if (service === 'try-on' && validTryOnDeviceId(body.deviceId)) {
-          await markTryOnDeviceRetryApproved(body.deviceId);
+          await enableTryOnDeviceCustomerRetry(body.deviceId);
         }
       }
     }

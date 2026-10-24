@@ -120,8 +120,8 @@ export type MaharajaVideoPass = {
   videoGeneratingAtMs?: number;
   videoDone?: boolean;
   retryUsed?: boolean;
-  retryApproved?: boolean;
-  retryApprovedAtMs?: number;
+  retryEnabled?: boolean;
+  retryEnabledAtMs?: number;
   lastVideoFailed?: boolean;
   lastVideoFailedAtMs?: number;
   /** Active generation job ID bound to this pass to prevent stale job updates. */
@@ -1543,7 +1543,7 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
         videoGenerating: false,
         providerAccepted: false,
         retryUsed: false,
-        retryApproved: true,
+        retryEnabled: true,
         lastVideoFailed: true,
         lastVideoFailedAtMs: Date.now(),
         activeVideoJobId: FieldValue.delete(),
@@ -1564,7 +1564,7 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
         videoGenerating: false,
         providerAccepted: false,
         retryUsed: false,
-        retryApproved: true,
+        retryEnabled: true,
         lastVideoFailed: true,
         lastVideoFailedAtMs: Date.now(),
       };
@@ -1585,7 +1585,7 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
  * Retry approval, enforced server-side.
  * Enforces independent 2-generation ceiling per service (original + retry).
  */
-export async function markPassRetryApproved(
+export async function enablePassCustomerRetry(
   code: string,
   target: 'image' | 'video' = 'video',
   service: 'try-on' | 'ai-video' = 'ai-video'
@@ -1620,7 +1620,7 @@ export async function markPassRetryApproved(
   const db = getDb();
   const updates: Record<string, any> = {
     retryUsed: false,
-    retryApproved: true,
+    retryEnabled: true,
     status: 'active' as const,
   };
 
@@ -1869,7 +1869,7 @@ export async function finalizeCompletedVideo({
   return { success: true, videoUrl: signedUrl, ...(liveVideo ? { liveVideoUrl: liveSignedUrl, liveStoragePath } : {}), storagePath };
 }
 
-export async function markTryOnDeviceRetryApproved(deviceId: string) {
+export async function enableTryOnDeviceCustomerRetry(deviceId: string) {
   const hash = deviceHash(deviceId);
   const db = getDb();
   const update = {
@@ -2136,7 +2136,7 @@ export async function verifyMaharajaAccess(
       return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
     }
     // Note: Do not block access if pass has completed video (pass.status === 'used' or videoDone);
-    // customer retains the right to view, download, or claim an authorized retry.
+    // Customer retains the right to view, download, or use an included retry.
     return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass, workspace, entitlement, allowances };
   }
 
