@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import QRCode from 'qrcode';
-import { CheckCircle2, Copy, Film, Gift, LoaderCircle, LockKeyhole, Phone, QrCode, Store } from 'lucide-react';
+import { CheckCircle2, Film, Gift, LoaderCircle, LockKeyhole, Phone, QrCode, Store } from 'lucide-react';
 
 type ExperienceType = 'purchased-garment' | 'catalogue-gift';
 type GeneratedPass = { code: string; phoneMasked: string; expiresAt: string; link: string; experienceType: ExperienceType };
@@ -56,7 +56,7 @@ export default function MaharajaBillingPage() {
       setPass(data.pass);
       setQrDataUrl(await QRCode.toDataURL(data.pass.link, { width: 480, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#2A060C', light: '#FFFFFF' } }));
       setMessage(mode === 'catalogue-gift'
-        ? data.whatsappSent ? 'Catalogue Gift link sent on WhatsApp.' : 'Gift link is ready. WhatsApp is not connected, so copy the link or show this QR.'
+        ? data.whatsappSent ? 'Catalogue Gift link sent on WhatsApp.' : 'Gift QR is ready. WhatsApp delivery will activate when Maharaja connects its WhatsApp API.'
         : 'Purchased Garment Video QR is ready.');
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to create customer access.'); }
     finally { setLoading(false); }
@@ -69,18 +69,18 @@ export default function MaharajaBillingPage() {
     <header className="flex items-center gap-3 border-b border-[#D8C49B] pb-5"><span className="flex h-12 w-12 items-center justify-center bg-[#6E0D1F] text-[#F3E5AB]"><Store className="h-5 w-5" /></span><div><p className="font-serif text-2xl font-bold text-[#6E0D1F]">Maharaja</p><p className="text-xs font-bold uppercase text-[#8A6A20]">Customer experience counter</p></div></header>
     <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
       <form onSubmit={generate} className="border border-[#D8C49B] bg-white p-6">
-        <h1 className="font-serif text-3xl font-bold">Create customer access</h1>
+        <h1 className="font-serif text-3xl font-bold">Customer AI Video QR</h1>
         <div className="mt-5 grid grid-cols-2 border border-[#D8C49B] p-1">
-          <button type="button" onClick={() => { setMode('purchased-garment'); setPass(null); }} className={`min-h-16 px-3 text-xs font-bold uppercase ${mode === 'purchased-garment' ? 'bg-[#6E0D1F] text-[#F3E5AB]' : ''}`}><Film className="mx-auto mb-1 h-4 w-4" />Purchased garment</button>
-          <button type="button" onClick={() => { setMode('catalogue-gift'); setPass(null); }} className={`min-h-16 px-3 text-xs font-bold uppercase ${mode === 'catalogue-gift' ? 'bg-[#21090E] text-[#F3E5AB]' : ''}`}><Gift className="mx-auto mb-1 h-4 w-4" />Catalogue gift</button>
+          <button type="button" onClick={() => { setMode('purchased-garment'); setPass(null); }} className={`min-h-16 px-3 text-xs font-bold uppercase ${mode === 'purchased-garment' ? 'bg-[#6E0D1F] text-[#F3E5AB]' : ''}`}><Film className="mx-auto mb-1 h-4 w-4" />Own garment AI video</button>
+          <button type="button" onClick={() => { setMode('catalogue-gift'); setPass(null); }} className={`min-h-16 px-3 text-xs font-bold uppercase ${mode === 'catalogue-gift' ? 'bg-[#21090E] text-[#F3E5AB]' : ''}`}><Gift className="mx-auto mb-1 h-4 w-4" />Maharaja saree gift</button>
         </div>
-        <p className="mt-4 text-sm leading-6 text-[#5C4B43]">{mode === 'purchased-garment' ? 'Customer uploads the garment they purchased and creates a Maharaja AI video.' : 'Customer receives a private gift link, selects a Maharaja saree and creates a downloadable AI video. No Go Live.'}</p>
+        <p className="mt-4 text-sm leading-6 text-[#5C4B43]">{mode === 'purchased-garment' ? 'Customer uploads the garment they purchased and creates a Maharaja AI video.' : 'Customer selects a Maharaja saree and creates a private downloadable AI video. No Go Live.'}</p>
         <label className="mt-5 block text-xs font-bold uppercase text-[#5C4B43]">Customer WhatsApp number<div className="relative mt-2"><Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E0D1F]" /><input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" pattern="[0-9]{10}" required className="min-h-12 w-full border border-[#D8C49B] pl-10 pr-3 text-base font-bold" placeholder="10 digit number" /></div></label>
         {error && <p className="mt-4 border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-800">{error}</p>}
         {message && <p className="mt-4 border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p>}
-        <button disabled={loading} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-45">{loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : mode === 'catalogue-gift' ? <Gift className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}{mode === 'catalogue-gift' ? 'Send catalogue gift link' : 'Generate customer QR'}</button>
+        <button disabled={loading} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-45">{loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : mode === 'catalogue-gift' ? <Gift className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}Generate customer QR</button>
       </form>
-      <aside className="border border-[#D8C49B] bg-[#21090E] p-6 text-center text-[#F3E5AB]">{pass && qrDataUrl ? <><CheckCircle2 className="mx-auto h-6 w-6 text-emerald-300" /><img src={qrDataUrl} alt="Customer access QR" className="mx-auto mt-4 w-full max-w-[280px] bg-white p-4" /><p className="mt-4 font-mono text-sm font-bold">{pass.phoneMasked}</p><button type="button" onClick={() => navigator.clipboard.writeText(pass.link)} className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black"><Copy className="h-4 w-4" />Copy link</button><button type="button" onClick={() => { setPhone(''); setPass(null); setQrDataUrl(''); setMessage(''); }} className="mt-2 min-h-11 w-full border border-[#D4AF37]/40 text-xs font-bold uppercase">Next customer</button></> : <div className="flex min-h-[420px] flex-col items-center justify-center"><QrCode className="h-20 w-20 text-[#D4AF37]" /><p className="mt-4 font-serif text-xl font-bold">Customer access appears here</p></div>}</aside>
+      <aside className="border border-[#D8C49B] bg-[#21090E] p-6 text-center text-[#F3E5AB]">{pass && qrDataUrl ? <><CheckCircle2 className="mx-auto h-6 w-6 text-emerald-300" /><img src={qrDataUrl} alt="Customer access QR" className="mx-auto mt-4 w-full max-w-[280px] bg-white p-4" /><p className="mt-4 font-mono text-sm font-bold">{pass.phoneMasked}</p><p className="mt-3 text-xs leading-5 text-[#F3E5AB]/75">WhatsApp API is not connected. The customer can scan this QR now. When Maharaja connects WhatsApp API, catalogue links can be delivered to their WhatsApp automatically.</p><button type="button" onClick={() => { setPhone(''); setPass(null); setQrDataUrl(''); setMessage(''); }} className="mt-4 min-h-11 w-full border border-[#D4AF37]/40 text-xs font-bold uppercase">Next customer</button></> : <div className="flex min-h-[420px] flex-col items-center justify-center"><QrCode className="h-20 w-20 text-[#D4AF37]" /><p className="mt-4 font-serif text-xl font-bold">Customer QR appears here</p></div>}</aside>
     </div>
   </div></main>;
 }
