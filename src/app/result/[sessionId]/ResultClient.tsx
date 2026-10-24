@@ -403,7 +403,7 @@ export default function ResultClient({
         <div className="space-y-6 text-center">
           {catalogueProduct && (
             <div className="border border-[#D4AF37]/35 bg-[#21090E] p-4">
-              <p className="text-[10px] font-bold uppercase text-[#D4AF37]">Universal AI Video Gift Link</p>
+              <p className="text-[10px] font-bold uppercase text-[#D4AF37]">AI Video Gift Link</p>
               <p className="mt-1 font-serif text-lg font-bold text-[#F3E5AB]">{catalogueProduct.title}</p>
               <p className="mt-1 font-bold text-[#D4AF37]">Rs {new Intl.NumberFormat('en-IN').format(catalogueProduct.price || 0)}</p>
             </div>
