@@ -19,16 +19,19 @@ export default function MaharajaCatalogueGiftPage() {
   const [selectedSku, setSelectedSku] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/maharaja/catalogue', { cache: 'no-store' }).then(readJson),
+      fetch('/api/maharaja/catalogue?offset=0&limit=8', { cache: 'force-cache' }).then(readJson),
       fetch(`/api/maharaja/access/${encodeURIComponent(code)}?service=ai-video`, { cache: 'no-store' }).then(readJson),
     ]).then(([catalogue, access]) => {
       if (access.access.experienceType !== 'catalogue-gift') throw new Error('This is not a Maharaja Catalogue Gift link.');
       setProducts(catalogue.products || []);
+      setTotalProducts(Number(catalogue.total || 0));
       if (access.access.catalogueProduct?.sku) {
         setSelectedSku(access.access.catalogueProduct.sku);
         setConfirmed(true);
@@ -55,6 +58,20 @@ export default function MaharajaCatalogueGiftPage() {
     }
   }
 
+  async function loadMore() {
+    if (loadingMore || products.length >= totalProducts) return;
+    setLoadingMore(true);
+    try {
+      const catalogue = await readJson(await fetch(`/api/maharaja/catalogue?offset=${products.length}&limit=8`, { cache: 'force-cache' }));
+      setProducts((current) => [...current, ...(catalogue.products || [])]);
+      setTotalProducts(Number(catalogue.total || totalProducts));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to load more sarees.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   if (confirmed) return <MaharajaExperience service="ai-video" accessCode={code} />;
   return (
     <main className="min-h-screen bg-[#F7F4EE] text-[#211A17]">
@@ -69,13 +86,14 @@ export default function MaharajaCatalogueGiftPage() {
             {products.map((product) => {
               const selected = selectedSku === product.sku;
               return <button key={product.sku} type="button" onClick={() => setSelectedSku(product.sku)} className={`relative overflow-hidden border bg-white text-left transition ${selected ? 'border-[#6E0D1F] ring-2 ring-[#D4AF37]' : 'border-[#DDD2BD]'}`}>
-                <img src={product.imageUrl} alt={product.title} className="aspect-[5/7] w-full object-cover" />
+                <img src={product.imageUrl} alt={product.title} loading="lazy" decoding="async" className="aspect-[5/7] w-full object-cover" />
                 <div className="p-3"><p className="line-clamp-2 min-h-10 text-sm font-bold text-[#2A060C]">{product.title}</p><p className="mt-2 font-black text-[#6E0D1F]">Rs {new Intl.NumberFormat('en-IN').format(product.price)}</p><p className="mt-1 text-[10px] font-bold uppercase text-[#8A6A20]">{product.sku}</p></div>
                 {selected && <span className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#6E0D1F] text-white"><Check className="h-4 w-4" /></span>}
               </button>;
             })}
           </div>
         )}
+        {!loading && products.length < totalProducts && <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="mx-auto mt-6 flex min-h-12 items-center justify-center border border-[#6E0D1F] bg-white px-6 text-xs font-bold uppercase text-[#6E0D1F] disabled:opacity-50">{loadingMore ? 'Loading sarees' : 'View more sarees'}</button>}
         {!loading && <div className="sticky bottom-3 mt-6"><button type="button" onClick={() => void confirmSelection()} disabled={!selectedSku || saving} className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#6E0D1F] px-5 text-sm font-bold uppercase text-[#F3E5AB] shadow-xl disabled:opacity-45"><ShoppingBag className="h-5 w-5" />{saving ? 'Securing selection' : 'Create my Maharaja gift'}</button></div>}
       </div>
     </main>

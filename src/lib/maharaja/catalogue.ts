@@ -37,16 +37,20 @@ const ROOT_SILK_CATALOGUE = ([
   ['8IC4', 'Kanchivaram Bronze Checks Saree with Black Border', 16500, '25_kanchivaram_bronze_checks_saree_with_black_border.jpg'],
 ] as Array<[string, string, number, string]>).map(([sku, title, price, storagePath], index): MaharajaCatalogueProduct => ({ sku, title, price, storagePath, productUrl: '', active: true, sortOrder: index + 1 }));
 
-export async function listCatalogueProducts(): Promise<PublicCatalogueProduct[]> {
+export async function listCatalogueProducts(offset = 0, limit = 8): Promise<{ products: PublicCatalogueProduct[]; total: number }> {
   const db = getDb();
   const snapshot = db ? await db.collection(collectionPath).where('active', '==', true).get() : null;
-  const products = (snapshot && !snapshot.empty
+  const allProducts = (snapshot && !snapshot.empty
     ? snapshot.docs.map((doc) => doc.data() as MaharajaCatalogueProduct)
     : ROOT_SILK_CATALOGUE).sort((left, right) => left.sortOrder - right.sortOrder);
-  return Promise.all(products.map(async ({ storagePath: _storagePath, ...product }) => ({
+  const products = allProducts.slice(Math.max(0, offset), Math.max(0, offset) + Math.min(Math.max(1, limit), 8));
+  return {
+    total: allProducts.length,
+    products: await Promise.all(products.map(async ({ storagePath: _storagePath, ...product }) => ({
     ...product,
     imageUrl: await getSignedPlaybackUrl(_storagePath),
-  })));
+    }))),
+  };
 }
 
 export async function getCatalogueProduct(sku: string): Promise<MaharajaCatalogueProduct | null> {

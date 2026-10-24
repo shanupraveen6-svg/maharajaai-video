@@ -177,7 +177,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [photoInputError, setPhotoInputError] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
-  const maxGarmentPhotos = activeService === 'try-on' ? 1 : 3;
+  const maxGarmentPhotos = 3;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   const isCatalogueGift = access?.access.experienceType === 'catalogue-gift';
@@ -458,18 +458,19 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setPhotoInputError('');
     const maxAllowed = maxGarmentPhotos;
     const currentCount = append ? garmentPhotos.length : 0;
-    if (currentCount + files.length > maxAllowed) {
-      setError(activeService === 'try-on'
-        ? 'AI Try-On accepts exactly one garment photo.'
-        : `Upload up to 3 garment photos max (${garmentPhotos.length} already uploaded).`);
+    const availableSlots = maxAllowed - currentCount;
+    if (availableSlots <= 0) {
+      setError('Only 3 garment photos can be added.');
       return;
     }
+    const selectedFiles = files.slice(0, availableSlots);
+    const trimmedSelection = selectedFiles.length !== files.length;
     setStage('analyzing');
     setError('');
     clearActiveImage();
     try {
       if (activeService === 'ai-video') {
-        for (const file of files) {
+        for (const file of selectedFiles) {
           const dimensions = await readImageDimensions(file);
           if (dimensions.width < 256 || dimensions.height < 256) {
             throw new Error(`Photo is ${dimensions.width}×${dimensions.height}px. Retake it so the complete garment fills the frame; minimum size is 256×256px.`);
@@ -480,13 +481,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           }
         }
       }
-      const compressed = await Promise.all(files.map((file) => compressImage(file, 1280, 0.82)));
+      const compressed = await Promise.all(selectedFiles.map((file) => compressImage(file, 1280, 0.82)));
       const newImages = compressed.map((item) => item.dataUrl);
       const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
       setGarmentPhotos(combined);
       setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType, primaryColor: 'Original color' });
-      setMessage(activeService === 'try-on'
-        ? 'Garment photo ready.'
+      setMessage(trimmedSelection
+        ? `Only ${availableSlots} garment photo${availableSlots === 1 ? '' : 's'} could be added. Maximum is 3.`
         : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
     } catch (caught) {
       setGarmentAnalysis(null);
@@ -921,7 +922,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 </div>
 
                 <div className={`${isCatalogueGift ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} mt-6 grid gap-4`}>
-                  <div className={`${isCatalogueGift ? 'hidden' : 'flex'} border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex-col justify-between`}>
+                  <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold uppercase text-[#6E0D1F]">Person Photo (1 only)</span>
@@ -955,7 +956,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                     </div>
                   </div>
 
-                  <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex flex-col justify-between">
+                  <div className={`${isCatalogueGift ? 'hidden' : 'flex'} border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex-col justify-between`}>
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold uppercase text-[#6E0D1F]">
@@ -996,7 +997,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         <div className="aspect-[3/4] overflow-hidden bg-white p-2 flex flex-col items-center justify-center gap-2 text-slate-400">
                           <Shirt className="h-10 w-10 text-slate-300" />
                           <span className="text-xs font-bold uppercase text-center">
-                            {activeService === 'try-on' ? '1 garment photo' : '1 to 3 garment photos'}
+                            1 to 3 garment photos
                           </span>
                           <span className="text-[11px] text-center text-slate-400">
                             {garmentType === 'saree' ? 'Saree body, pallu / border, and blouse' : 'Front view, detail, or border / layer'}
@@ -1043,12 +1044,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                               <input
                                 type="file"
                                 accept="image/*"
+                                multiple
                                 className="hidden"
                                 disabled={busy || imagesLocked}
                                 onChange={(event) => {
-                                  const file = event.target.files?.[0];
+                                  const files = Array.from(event.target.files || []);
                                   event.currentTarget.value = '';
-                                  if (file) void analyzeGarments([file], true);
+                                  if (files.length) void analyzeGarments(files, true);
                                 }}
                               />
                             </label>
@@ -1088,12 +1090,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                           id="garment-photo-input"
                           type="file"
                           accept="image/*"
+                          multiple
                           className="hidden"
                           disabled={busy || imagesLocked || garmentPhotos.length >= maxGarmentPhotos}
                           onChange={(event) => {
-                            const file = event.target.files?.[0];
+                            const files = Array.from(event.target.files || []);
                             event.currentTarget.value = '';
-                            if (file) void analyzeGarments([file], garmentPhotos.length > 0);
+                            if (files.length) void analyzeGarments(files, garmentPhotos.length > 0);
                           }}
                         />
                       </label>
