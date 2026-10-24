@@ -828,7 +828,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           <>
         {service === 'ai-video' && access?.access.phoneMasked && (
           <div className="mb-4 border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">
-            {isCatalogueGift ? `Maharaja Catalogue Gift verified for ${access.access.phoneMasked}` : `Purchased Garment Video verified for ${access.access.phoneMasked}`}
+            {isCatalogueGift ? `Universal AI Video Gift Link verified for ${access.access.phoneMasked}` : `Purchased Garment Video verified for ${access.access.phoneMasked}`}
           </div>
         )}
 

@@ -756,7 +756,7 @@ export async function acquireServiceGenerationLock(
   const targetPass = await getVideoPass(phoneOrCode);
   if (targetPass?.experienceType === 'catalogue-gift') {
     const used = service === 'video' ? Number(targetPass.usage?.videosGenerated || 0) : Number(targetPass.usage?.imagesGenerated || 0);
-    if (used >= 2) return { ok: false, error: 'Catalogue Gift allowance exhausted (2/2 completed).' };
+    if (used >= 2) return { ok: false, error: 'Universal AI Video Gift Link allowance exhausted (2/2 completed).' };
     return { ok: true, generationId: options?.generationId };
   }
   const phone = await resolvePhoneFromTarget(phoneOrCode);

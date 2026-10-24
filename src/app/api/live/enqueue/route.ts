@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: access.error || 'A valid AI Video pass is required.' }, { status: 401 });
   }
   if (access.pass.experienceType === 'catalogue-gift') {
-    return NextResponse.json({ success: false, error: 'Catalogue Gift videos are private customer gifts and cannot be sent to the showroom TV.' }, { status: 403 });
+    return NextResponse.json({ success: false, error: 'Universal AI Video Gift Link videos are private customer gifts and cannot be sent to the showroom TV.' }, { status: 403 });
   }
   const category = access.pass.videoMasterCategory || null;
   if ((category === 'girl' || category === 'boy') && body?.guardianConsent !== true) {

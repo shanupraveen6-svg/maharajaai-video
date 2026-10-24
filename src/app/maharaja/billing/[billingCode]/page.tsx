@@ -56,7 +56,7 @@ export default function MaharajaBillingPage() {
       setPass(data.pass);
       setQrDataUrl(await QRCode.toDataURL(data.pass.link, { width: 480, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#2A060C', light: '#FFFFFF' } }));
       setMessage(mode === 'catalogue-gift'
-        ? data.whatsappSent ? 'Catalogue Gift link sent on WhatsApp.' : 'Gift QR is ready. WhatsApp delivery will activate when Maharaja connects its WhatsApp API.'
+        ? data.whatsappSent ? 'Universal AI Video Gift Link sent on WhatsApp.' : 'Gift QR is ready. WhatsApp delivery will activate when Maharaja connects its WhatsApp API.'
         : 'Purchased Garment Video QR is ready.');
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to create customer access.'); }
     finally { setLoading(false); }
@@ -72,7 +72,7 @@ export default function MaharajaBillingPage() {
         <h1 className="font-serif text-3xl font-bold">Customer AI Video QR</h1>
         <div className="mt-5 grid grid-cols-2 border border-[#D8C49B] p-1">
           <button type="button" onClick={() => { setMode('purchased-garment'); setPass(null); }} className={`min-h-16 px-3 text-xs font-bold uppercase ${mode === 'purchased-garment' ? 'bg-[#6E0D1F] text-[#F3E5AB]' : ''}`}><Film className="mx-auto mb-1 h-4 w-4" />Own garment AI video</button>
-          <button type="button" onClick={() => { setMode('catalogue-gift'); setPass(null); }} className={`min-h-16 px-3 text-xs font-bold uppercase ${mode === 'catalogue-gift' ? 'bg-[#21090E] text-[#F3E5AB]' : ''}`}><Gift className="mx-auto mb-1 h-4 w-4" />Maharaja saree gift</button>
+          <button type="button" onClick={() => { setMode('catalogue-gift'); setPass(null); }} className={`min-h-16 px-3 text-xs font-bold uppercase ${mode === 'catalogue-gift' ? 'bg-[#21090E] text-[#F3E5AB]' : ''}`}><Gift className="mx-auto mb-1 h-4 w-4" />Universal AI Video Gift Link</button>
         </div>
         <p className="mt-4 text-sm leading-6 text-[#5C4B43]">{mode === 'purchased-garment' ? 'Customer uploads the garment they purchased and creates a Maharaja AI video.' : 'Customer selects a Maharaja saree and creates a private downloadable AI video. No Go Live.'}</p>
         <label className="mt-5 block text-xs font-bold uppercase text-[#5C4B43]">Customer WhatsApp number<div className="relative mt-2"><Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E0D1F]" /><input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" pattern="[0-9]{10}" required className="min-h-12 w-full border border-[#D8C49B] pl-10 pr-3 text-base font-bold" placeholder="10 digit number" /></div></label>
