@@ -1745,12 +1745,9 @@ export async function finalizeCompletedVideo({
     if (liveVideo) await validateBrandedVideo(liveVideo, 9);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown processing error';
-    // Vercel functions cannot reliably execute ffmpeg-static. Keep a completed
-    // paid render available through the app and the external-audio TV path.
-    if (!message.includes('FFmpeg binary')) {
-      return { success: false, error: `Video branding validation failed: ${message}` };
-    }
-    console.warn('FFmpeg unavailable; storing provider MP4 with app-level presentation fallback.');
+    // A paid provider render must remain accessible even when branding or
+    // duration validation fails on the deployment runtime.
+    console.warn('Video presentation processing failed; retaining provider MP4:', message);
     customerVideo = fileBuffer;
     liveVideo = null;
     presentationFallback = true;
@@ -1770,7 +1767,7 @@ export async function finalizeCompletedVideo({
             cacheControl: 'private, max-age=3600',
             metadata: {
               durationSeconds: '6',
-              playbackMode: 'embedded',
+              playbackMode: presentationFallback ? 'external' : 'embedded',
               hasEmbeddedAudio: presentationFallback ? 'false' : 'true',
             },
           },
@@ -1831,7 +1828,7 @@ export async function finalizeCompletedVideo({
         provider: provider || 'fal-h3-max-turbo',
         customerName: customerName || null,
         customerLocality: customerLocality || null,
-	      playbackMode: 'embedded',
+	      playbackMode: presentationFallback ? 'external' : 'embedded',
         durationSeconds: liveVideo ? 9 : 6,
 	      hasEmbeddedAudio: !presentationFallback,
         createdAt: nowIso,
@@ -1857,7 +1854,7 @@ export async function finalizeCompletedVideo({
       provider: provider || 'fal-h3-max-turbo',
       customerName: customerName || null,
       customerLocality: customerLocality || null,
-      playbackMode: 'embedded',
+      playbackMode: presentationFallback ? 'external' : 'embedded',
       durationSeconds: liveVideo ? 9 : 6,
       hasEmbeddedAudio: !presentationFallback,
       createdAt: nowIso,
