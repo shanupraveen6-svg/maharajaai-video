@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
+import { getDb } from '@/lib/firebase/admin';
 import { getEventOption, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import {
   getTryOnDeviceStatus,
@@ -23,6 +24,26 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
     const workspace = access.workspace;
     const deviceId = req.nextUrl.searchParams.get('deviceId');
     const deviceStatus = validTryOnDeviceId(deviceId) ? await getTryOnDeviceStatus(deviceId) : null;
+    let recoveryJob: { id: string; sessionId: string } | null = null;
+    if (service === 'ai-video' && access.pass && !access.pass.videoDone) {
+      const recoverableStatuses = new Set(['preparing', 'submitted', 'processing', 'unknown', 'finalizing', 'post_processing_failed']);
+      const db = getDb();
+      if (db) {
+        let job: { id?: string; sessionId?: string; status?: string; updatedAt?: string } | undefined;
+        const activeJobId = access.pass.activeVideoJobId;
+        if (activeJobId) job = (await db.collection('videoTestJobs').doc(activeJobId).get()).data();
+        if (!job || !recoverableStatuses.has(String(job.status))) {
+          const snapshot = await db.collection('videoTestJobs').where('accessCode', '==', access.pass.code).limit(20).get();
+          job = snapshot.docs
+            .map((doc) => ({ id: doc.id, ...(doc.data() as { sessionId?: string; status?: string; updatedAt?: string }) }))
+            .filter((item) => recoverableStatuses.has(String(item.status)))
+            .sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))[0];
+        }
+        if (job && typeof job.id === 'string' && typeof job.sessionId === 'string' && recoverableStatuses.has(String(job.status))) {
+          recoveryJob = { id: job.id, sessionId: job.sessionId };
+        }
+      }
+    }
     const runBackground = async () => {
       try {
         if (service === 'try-on') await incrementMaharajaUsage('tryOnScans');
@@ -66,8 +87,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         videoMasterCategory: access.pass?.videoMasterCategory || null,
         videoMasterGarmentType: access.pass?.videoMasterGarmentType || null,
         videoDone: access.pass?.videoDone || false,
-        videoReferenceSessionId: access.pass?.videoReferenceSessionId || null,
-        activeVideoJobId: access.pass?.activeVideoJobId || null,
+        videoReferenceSessionId: recoveryJob?.sessionId || access.pass?.videoReferenceSessionId || null,
+        activeVideoJobId: recoveryJob?.id || access.pass?.activeVideoJobId || null,
         retryUsed: ENFORCE_REPEAT_LIMITS ? Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed) : false,
         allowances: access.allowances,
       },
