@@ -5,7 +5,7 @@ import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/l
 import { isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId } from '@/lib/maharaja/config';
 import { getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
-import { buildVideoTestInput, buildWaveSpeedVideoInput, getActiveVideoProvider, getVideoTestModel, isVideoModelTestingEnabled } from '@/lib/maharaja/video-test';
+import { buildVideoTestInput, getVideoTestModel, isVideoModelTestingEnabled } from '@/lib/maharaja/video-test';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
   const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
   const accessCode = typeof body?.accessCode === 'string' ? body.accessCode.trim() : '';
   const requestedModelId = typeof body?.videoModel === 'string' ? body.videoModel.trim() : '';
-  const providerName = getActiveVideoProvider();
-  if (requestedModelId && (providerName !== 'wavespeed' || !isVideoModelTestingEnabled())) {
+  const providerName = 'fal';
+  if (requestedModelId && !isVideoModelTestingEnabled()) {
     return NextResponse.json({ success: false, error: 'Video model selection is unavailable.' }, { status: 400 });
   }
   const model = getVideoTestModel(requestedModelId || undefined);
@@ -98,9 +98,7 @@ export async function POST(req: NextRequest) {
   }
 
   const falKey = process.env.FAL_KEY?.trim();
-  const waveSpeedKey = process.env.WAVESPEED_API_KEY?.trim();
-  if (providerName === 'fal' && !falKey) return NextResponse.json({ success: false, error: 'Video provider is temporarily unavailable.' }, { status: 503 });
-  if (providerName === 'wavespeed' && !waveSpeedKey) return NextResponse.json({ success: false, error: 'Video provider is temporarily unavailable.' }, { status: 503 });
+  if (!falKey) return NextResponse.json({ success: false, error: 'Video provider is temporarily unavailable.' }, { status: 503 });
 
   const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
   if (!access.allowed || !access.pass) {
@@ -201,28 +199,8 @@ export async function POST(req: NextRequest) {
     let statusUrl = '';
     let responseUrl = '';
     let providerSeed: string | number | null = null;
-    if (providerName === 'wavespeed') {
-      if (model.inputFormat === 'fal') throw new Error('The selected WaveSpeed video model is unavailable.');
-      const response = await fetch(`https://api.wavespeed.ai/api/v3/${model.model}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${waveSpeedKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(buildWaveSpeedVideoInput(model.inputFormat, master.url, garments.map((item) => item.url), concept.id, garmentRoles)),
-        cache: 'no-store',
-      });
-      const raw = await response.text();
-      if (!response.ok) throw new Error(`WaveSpeed request failed (${response.status}): ${raw.slice(0, 500)}`);
-      const parsed = JSON.parse(raw);
-      if (parsed?.code && parsed.code !== 200 && parsed.code !== 0) {
-        throw new Error(`WaveSpeed rejected request (${parsed.code}): ${parsed.message || parsed.error || raw.slice(0, 500)}`);
-      }
-      const task = parsed?.data || parsed;
-      requestId = String(task?.id || '');
-      providerSeed = typeof task?.seed === 'number' || typeof task?.seed === 'string' ? task.seed : null;
-      statusUrl = requestId ? `https://api.wavespeed.ai/api/v3/predictions/${encodeURIComponent(requestId)}/result` : '';
-      responseUrl = statusUrl;
-      if (!requestId) throw new Error('WaveSpeed accepted the request but returned no prediction id.');
-    } else {
-      const input = buildVideoTestInput(master.url, garments.map((item) => item.url), concept.id, garmentRoles);
+    {
+      const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), concept.id, garmentRoles);
       const webhookUrl = new URL('/api/video/webhook', req.nextUrl.origin);
       webhookUrl.searchParams.set('jobId', jobId);
       webhookUrl.searchParams.set('token', webhookToken);

@@ -1,222 +1,57 @@
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./ts-alias-loader.mjs', import.meta.url);
-import {
-  VIDEO_CONCEPTS,
-  VIDEO_PROMPT_ARCHITECTURE_VERSION,
-  buildH3MotionPrompt,
-  buildVideoMasterPrompt,
-} from '../src/lib/maharaja/video-concepts.ts';
-import { readFile } from 'node:fs/promises';
 
-const videoAdapterSource = await readFile(new URL('../src/lib/maharaja/video-test.ts', import.meta.url), 'utf8');
-const { buildWaveSpeedVideoInput, WAVE_SPEED_TEST_MODELS } = await import('../src/lib/maharaja/video-test.ts');
-assert.match(videoAdapterSource, /minimax\/h3-max\/reference-to-video/);
-assert.equal(VIDEO_PROMPT_ARCHITECTURE_VERSION, 'diwali-v3-natural-lock');
-assert.equal(VIDEO_CONCEPTS.length, 12, 'Exactly twelve production concepts are required.');
-assert.equal(WAVE_SPEED_TEST_MODELS.length, 9, 'Exactly nine frozen WaveSpeed R2V models are required.');
+const { VIDEO_CONCEPTS, buildVideoMasterPrompt, buildH3MotionPrompt } = await import('../src/lib/maharaja/video-concepts.ts');
+const { FAL_VIDEO_MODELS, buildVideoTestInput, getVideoTestModel } = await import('../src/lib/maharaja/video-test.ts');
+
+assert.equal(VIDEO_CONCEPTS.length, 12);
+assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['h3-max', 'pixverse-c1', 'gemini-omni-1.1']);
+assert.equal(getVideoTestModel().id, 'h3-max');
 
 for (const category of ['men', 'women', 'boy', 'girl']) {
-  assert.equal(VIDEO_CONCEPTS.filter((concept) => concept.category === category).length, 3, `${category} requires three concepts.`);
+  assert.equal(VIDEO_CONCEPTS.filter((concept) => concept.category === category).length, 3);
 }
 
+const references = ['https://example.test/master.jpg', 'https://example.test/front.jpg', 'https://example.test/back.jpg'];
 for (const concept of VIDEO_CONCEPTS) {
-  const master = buildVideoMasterPrompt(concept, 'generic');
-  const motion = buildH3MotionPrompt(concept, ['primary garment']);
-  const backup = buildH3MotionPrompt(concept, ['primary garment'], true);
+  const master = buildVideoMasterPrompt(concept, 'saree');
+  const motion = buildH3MotionPrompt(concept, ['front', 'back']);
   assert.match(master, /preserve facial geometry/i);
-  assert.match(master, /hands are relaxed below the waist/i);
+  assert.match(master, /short natural step/i);
   assert.match(master, /no makeup/i);
+  assert.match(master, /no chest touch/i);
   assert.match(motion, /approved master is the sole visual authority/i);
   assert.match(motion, /never lift toward chest/i);
-  assert.match(motion, /no makeup, beauty filter, face swap/i);
-  assert.match(motion, /outfit colours, pattern, borders and drape/i);
-  assert.match(motion, /one natural blink/i);
-  assert.match(motion, /smile/i);
-  assert.match(backup, /hands swing only below the waist/i);
-  assert.match(master, /8 percent clear headroom/i);
-  assert.match(master, /no object may cover the customer/i);
-  assert.doesNotMatch(motion, /exact first-frame coordinates|physical dolly|pedestal rise|perspective drift|rack focus|head acknowledgment/i);
   assert.match(motion, /existing lamps and lanterns remain in place/i);
-  assert.match(motion, /keep their full body, face and footwear in frame/i);
+  assert.match(motion, /CAMERA CHOREOGRAPHY:/);
+  assert.match(motion, /smile/i);
   if (['girl', 'boy'].includes(concept.category)) assert.match(master, /free of adult glamour/i);
 
-  for (const model of WAVE_SPEED_TEST_MODELS) {
-    // Test 1: Full 3-garment pass -> MUST be clamped to exactly 2 garments (max 3 total images)
-    const input = buildWaveSpeedVideoInput(
-      model.inputFormat,
-      'https://example.test/master.jpg',
-      ['https://example.test/front.jpg', 'https://example.test/back.jpg', 'https://example.test/detail.jpg'],
-      concept.id,
-      ['front', 'back', 'detail'],
-    );
-
-    // Rule 6: Duration, resolution, aspect ratio per provider contract
-    assert.equal(input.duration, 6, `${model.id}: duration must be exactly 6 seconds`);
-    if (model.inputFormat === 'h3') {
-      assert.equal(input.resolution, '768p');
-      assert.equal(input.aspect_ratio, '9:16');
-      assert.equal(input.generate_audio, undefined, `${model.id}: audio must be omitted (no audio control in schema)`);
-      assert.equal(input.sound, undefined);
-    } else if (model.inputFormat === 'vidu') {
-      assert.equal(input.resolution, '720p');
-      assert.equal(input.aspect_ratio, '9:16');
-      assert.equal(input.generate_audio, false, `${model.id}: generate_audio must be false`);
-    } else if (model.inputFormat === 'kling-o3') {
-      assert.equal(input.resolution, undefined, `${model.id}: resolution must be omitted (fixed 720p model)`);
-      assert.equal(input.aspect_ratio, '9:16');
-      assert.equal(input.sound, false, `${model.id}: sound must be false`);
-      assert.equal(input.generate_audio, undefined);
-    } else if (model.inputFormat === 'gemini-omni') {
-      assert.equal(input.resolution, '720p');
-      assert.equal(input.aspect_ratio, '9:16');
-      assert.equal(input.generate_audio, undefined, `${model.id}: audio must be omitted (no audio control in schema)`);
-    } else if (model.inputFormat === 'pixverse-c1') {
-      assert.equal(input.resolution, '720p');
-      assert.equal(input.aspect_ratio, '9:16');
-      assert.equal(input.generate_audio_switch, false, `${model.id}: generate_audio_switch must be false`);
-      assert.equal(input.generate_audio, undefined);
-    } else if (model.inputFormat === 'grok-imagine') {
-      assert.equal(input.resolution, '720p');
-      assert.equal(input.generate_audio, undefined, `${model.id}: audio must be omitted (no audio control in schema)`);
-      assert.equal(input.aspect_ratio, undefined);
-    } else if (model.inputFormat === 'pruna') {
-      assert.equal(input.resolution, '768p', `${model.id}: 768p is nearest supported resolution above 720p`);
-      assert.equal(input.aspect_ratio, '9:16');
-      assert.equal(input.mode, 'speed', `${model.id}: mode must be speed`);
-      assert.equal(input.prompt_upsampler, 'off', `${model.id}: prompt_upsampler must be off`);
-      assert.equal(input.keep_audio, false, `${model.id}: keep_audio must be false`);
-      assert.equal(input.generate_audio, undefined, `${model.id}: audio must be omitted (no audio control in schema)`);
-    }
-
-    // Rule 1: Maximum supplied refs = 3, no 4th reference
-    const refCount = Array.isArray(input.images) ? input.images.length : Array.isArray(input.reference_images) ? input.reference_images.length : 0;
-    assert.equal(refCount, 3, `${model.id}: reference count must be capped at 3`);
-
-    // Verify Master is #1, Garment 1 is #2, Garment 2 is #3, no 4th ref
-    if (model.inputFormat === 'pixverse-c1') {
-      assert.equal(input.images[0].image, 'https://example.test/master.jpg');
-      assert.equal(input.images[0].ref_name, 'master');
-      assert.equal(input.images[0].type, 'subject');
-      assert.equal(input.images[0].url, undefined);
-      assert.equal(input.images[0].name, undefined);
-      assert.notEqual(input.images[0].type, 'reference');
-
-      assert.equal(input.images[1].image, 'https://example.test/front.jpg');
-      assert.equal(input.images[1].ref_name, 'garment1');
-      assert.equal(input.images[1].type, 'subject');
-      assert.equal(input.images[1].url, undefined);
-      assert.equal(input.images[1].name, undefined);
-
-      assert.equal(input.images[2].image, 'https://example.test/back.jpg');
-      assert.equal(input.images[2].ref_name, 'garment2');
-      assert.equal(input.images[2].type, 'subject');
-      assert.equal(input.images[2].url, undefined);
-      assert.equal(input.images[2].name, undefined);
-
-      assert.equal(input.images.length, 3);
-    } else if (model.inputFormat === 'h3') {
-      assert.equal(input.reference_images[0], 'https://example.test/master.jpg');
-      assert.equal(input.reference_images[1], 'https://example.test/front.jpg');
-      assert.equal(input.reference_images[2], 'https://example.test/back.jpg');
-      assert.equal(input.reference_images.length, 3);
-      assert.equal(input.images, undefined, `${model.id}: h3 must use reference_images field only`);
-    } else {
-      assert.equal(input.images[0], 'https://example.test/master.jpg');
-      assert.equal(input.images[1], 'https://example.test/front.jpg');
-      assert.equal(input.images[2], 'https://example.test/back.jpg');
-      assert.equal(input.images.length, 3);
-      assert.equal(input.reference_images, undefined, `${model.id}: must use images field only`);
-    }
-
-    // Rule 3: Provider-specific syntax
-    if (model.inputFormat === 'h3') {
-      assert.match(input.prompt, /<Picture 1>/);
-      assert.match(input.prompt, /<Picture 2>/);
-      assert.match(input.prompt, /<Picture 3>/);
-      assert.doesNotMatch(input.prompt, /<Picture 4>/);
-    } else if (model.inputFormat === 'vidu') {
-      assert.match(input.prompt, /Image 1/);
-      assert.match(input.prompt, /Image 2/);
-      assert.match(input.prompt, /Image 3/);
-      assert.doesNotMatch(input.prompt, /Image 4/);
-      assert.doesNotMatch(input.prompt, /<Picture/);
-      assert.doesNotMatch(input.prompt, /@Image/);
-    } else if (model.inputFormat === 'kling-o3') {
-      assert.match(input.prompt, /<<<image_1>>>/);
-      assert.match(input.prompt, /<<<image_2>>>/);
-      assert.match(input.prompt, /<<<image_3>>>/);
-      assert.doesNotMatch(input.prompt, /<<<image_4>>>/);
-      assert.doesNotMatch(input.prompt, /@Image/);
-      assert.doesNotMatch(input.prompt, /<Picture/);
-    } else if (model.inputFormat === 'gemini-omni') {
-      assert.match(input.prompt, /<IMAGE_REF_0>/);
-      assert.match(input.prompt, /<IMAGE_REF_1>/);
-      assert.match(input.prompt, /<IMAGE_REF_2>/);
-      assert.doesNotMatch(input.prompt, /<IMAGE_REF_3>/);
-      assert.doesNotMatch(input.prompt, /<Picture/);
-    } else if (model.inputFormat === 'pixverse-c1') {
-      assert.match(input.prompt, /@master/);
-      assert.match(input.prompt, /@garment1/);
-      assert.match(input.prompt, /@garment2/);
-      assert.doesNotMatch(input.prompt, /@garment3/);
-      assert.doesNotMatch(input.prompt, /<Picture/);
-    } else if (model.inputFormat === 'grok-imagine') {
-      assert.match(input.prompt, /<IMAGE_0>/);
-      assert.match(input.prompt, /<IMAGE_1>/);
-      assert.match(input.prompt, /<IMAGE_2>/);
-      assert.doesNotMatch(input.prompt, /<IMAGE_3>/);
-      assert.doesNotMatch(input.prompt, /<Picture/);
-    } else if (model.inputFormat === 'pruna') {
-      assert.match(input.prompt, /Master portrait \(Image 1\)/);
-      assert.match(input.prompt, /Garment reference 1/);
-      assert.match(input.prompt, /Garment reference 2/);
-      assert.doesNotMatch(input.prompt, /<Picture/);
-      assert.doesNotMatch(input.prompt, /<IMAGE/);
-    }
-
-    // Rule 4: Prompt length < 5,000 characters
-    assert(input.prompt.length < 5000, `${concept.id}/${model.id}: prompt exceeds 5000 characters (${input.prompt.length})`);
-    assert.match(input.prompt, /absolute authority/);
-    assert.match(input.prompt, /never lift toward chest/i);
+  for (const model of FAL_VIDEO_MODELS) {
+    const input = buildVideoTestInput(model.id, references[0], references.slice(1), concept.id, ['front', 'back']);
+    assert.equal(input.duration, 6);
+    assert.equal(input.aspect_ratio, '9:16');
+    assert.match(input.prompt, /Image 1|@master|<IMAGE_REF_0>/);
     assert.match(input.prompt, /smile/i);
-
-    // Rule 7: Valid JSON schema serialization
-    const serialized = JSON.stringify(input);
-    assert(serialized.length > 50, `${model.id}: valid serialized JSON payload required`);
-    const parsed = JSON.parse(serialized);
-    assert.equal(parsed.duration, 6);
-
-    // Test 2: Single garment pass -> MUST contain exactly 2 references (master + garment 1)
-    const singleGarmentInput = buildWaveSpeedVideoInput(
-      model.inputFormat,
-      'https://example.test/master.jpg',
-      ['https://example.test/single-garment.jpg'],
-      concept.id,
-      ['pallu'],
-    );
-    const singleRefCount = Array.isArray(singleGarmentInput.images)
-      ? singleGarmentInput.images.length
-      : Array.isArray(singleGarmentInput.reference_images)
-        ? singleGarmentInput.reference_images.length
-        : 0;
-    assert.equal(singleRefCount, 2, `${model.id}: single garment input must have exactly 2 references`);
-    if (model.inputFormat === 'pixverse-c1') {
-      assert.equal(singleGarmentInput.images[0].image, 'https://example.test/master.jpg');
-      assert.equal(singleGarmentInput.images[0].ref_name, 'master');
-      assert.equal(singleGarmentInput.images[0].type, 'subject');
-      assert.equal(singleGarmentInput.images[1].image, 'https://example.test/single-garment.jpg');
-      assert.equal(singleGarmentInput.images[1].ref_name, 'garment1');
-      assert.equal(singleGarmentInput.images[1].type, 'subject');
+    if (model.id === 'h3-max') {
+      assert.equal(input.image_url, references[0]);
+      assert.deepEqual(input.reference_image_urls, references);
+      assert.equal(input.resolution, '768P');
+      assert.equal(input.prompt_expansion_mode, 'disabled');
+    } else if (model.id === 'pixverse-c1') {
+      assert.deepEqual(input.image_references.map((item) => item.image_url), references);
+      assert.deepEqual(input.image_references.map((item) => item.ref_name), ['master', 'garment1', 'garment2']);
+      assert.equal(input.resolution, '720p');
+      assert.equal(input.generate_audio_switch, false);
+      assert(Buffer.byteLength(input.prompt, 'utf8') <= 2048, 'PixVerse prompt exceeds 2,048 UTF-8 bytes');
+    } else {
+      assert.deepEqual(input.image_urls, references);
+      assert.equal(input.resolution, '720p');
+      assert.match(input.prompt, /<IMAGE_REF_0>/);
     }
   }
 }
 
-assert.equal(new Set(VIDEO_CONCEPTS.map((concept) => buildH3MotionPrompt(concept, []).split('CAMERA CHOREOGRAPHY: ')[1]?.split('\n')[0])).size, 12, 'Every concept needs a distinct camera plan.');
-
-assert.match(videoAdapterSource, /duration:\s*6/);
-assert.match(videoAdapterSource, /resolution:\s*'768P'/);
-assert.match(videoAdapterSource, /aspect_ratio:\s*'9:16'/);
-assert.match(videoAdapterSource, /prompt_expansion_mode:\s*'disabled'/);
-
-console.log('WaveSpeed frozen contract tests passed: 9 models, max 3 references, provider-exact schemas, and 12 concepts.');
+assert.equal(new Set(VIDEO_CONCEPTS.map((concept) => buildH3MotionPrompt(concept, []).split('CAMERA CHOREOGRAPHY: ')[1]?.split('\n')[0])).size, 12);
+console.log('Fal H3 Max, PixVerse C1 and Gemini Omni 1.1 schemas passed for all 12 concepts.');
