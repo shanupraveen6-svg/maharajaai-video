@@ -2,9 +2,9 @@ import { buildH3MotionPrompt, getVideoConcept, type VideoConceptId } from './vid
 import type { EventId } from './config';
 
 export const FAL_VIDEO_MODELS = [
+  { id: 'gemini-omni-1.1', label: 'Gemini Omni 1.1 · 720p', model: 'google/gemini-omni-flash/v1.1/reference-to-video', seconds: 6, estimatedUsd: 0.60 },
   { id: 'h3-max', label: 'H3 Max · 768p', model: 'minimax/h3-max/reference-to-video', seconds: 6, estimatedUsd: 0.48 },
   { id: 'pixverse-c1', label: 'PixVerse C1 · 720p', model: 'fal-ai/pixverse/c1/reference-to-video', seconds: 6, estimatedUsd: 0.30 },
-  { id: 'gemini-omni-1.1', label: 'Gemini Omni 1.1 · 720p', model: 'google/gemini-omni-flash/v1.1/reference-to-video', seconds: 6, estimatedUsd: 0.60 },
 ] as const;
 
 export function isVideoModelTestingEnabled() {
@@ -37,7 +37,7 @@ export function buildVideoTestInput(
 
   if (modelId === 'h3-max') {
     return {
-      prompt: `Image 1 is the approved customer's exact face, outfit and ${eventLabel} setting. ${garmentMap} ${buildH3MotionPrompt(concept, roles, false, eventId)}`,
+      prompt: `Image 1 is the approved customer's exact face, outfit and ${eventLabel} setting. ${garmentMap} ${buildH3MotionPrompt(concept, roles, false, eventId, modelId)}`,
       image_url: masterImageUrl,
       reference_image_urls: references,
       duration: 6,
@@ -50,7 +50,7 @@ export function buildVideoTestInput(
 
   if (modelId === 'pixverse-c1') {
     const garmentTags = garments.map((_, index) => `@garment${index + 1} confirms fabric only.`).join(' ');
-    const prompt = `@master is the approved customer, exact outfit and ${eventLabel} setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true, eventId)}`;
+    const prompt = `@master is the approved customer, exact outfit and ${eventLabel} setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true, eventId, modelId)}`;
     if (Buffer.byteLength(prompt, 'utf8') > 2048) throw new Error('PixVerse prompt exceeds its 2,048-byte limit.');
     return {
       prompt,
@@ -70,7 +70,7 @@ export function buildVideoTestInput(
   if (modelId === 'gemini-omni-1.1') {
     const garmentTags = garments.map((_, index) => `<IMAGE_REF_${index + 1}> confirms fabric only.`).join(' ');
     return {
-      prompt: `<IMAGE_REF_0> is the approved customer's exact face, outfit and ${eventLabel} setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true, eventId)}`,
+      prompt: `<IMAGE_REF_0> is the approved customer's exact face, outfit and ${eventLabel} setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true, eventId, modelId)}`,
       image_urls: references,
       duration: 6,
       resolution: '720p',

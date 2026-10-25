@@ -7,8 +7,8 @@ const { FAL_VIDEO_MODELS, buildVideoTestInput, getVideoTestModel } = await impor
 
 assert.equal(VIDEO_CONCEPTS.length, 12);
 assert.equal(VIDEO_PROMPT_ARCHITECTURE_VERSION, 'festival-v4-anchored-hand');
-assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['h3-max', 'pixverse-c1', 'gemini-omni-1.1']);
-assert.equal(getVideoTestModel().id, 'h3-max');
+assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['gemini-omni-1.1', 'h3-max', 'pixverse-c1']);
+assert.equal(getVideoTestModel().id, 'gemini-omni-1.1');
 
 for (const category of ['men', 'women', 'boy', 'girl']) {
   assert.equal(VIDEO_CONCEPTS.filter((concept) => concept.category === category).length, 3);
@@ -30,7 +30,7 @@ for (const concept of VIDEO_CONCEPTS) {
   assert.match(motion, /never lift toward chest/i);
   assert.match(motion, /continuous visible contact/i);
   assert.match(motion, /head turn/i);
-  assert.match(motion, /seconds 0-2/i);
+  assert.match(motion, /0-2s/i);
   assert.doesNotMatch(motion, /take (?:one|a) .*step/i);
   assert.match(motion, /existing lamps and lanterns remain in place/i);
   assert.match(motion, /CAMERA CHOREOGRAPHY:/);
@@ -44,17 +44,22 @@ for (const concept of VIDEO_CONCEPTS) {
     assert.match(input.prompt, /Image 1|@master|<IMAGE_REF_0>/);
     assert.match(input.prompt, /smile/i);
     if (model.id === 'h3-max') {
+      assert.match(input.prompt, /no head turn, nod or tilt/i);
+      assert.match(input.prompt, /camera translates laterally/i);
       assert.equal(input.image_url, references[0]);
       assert.deepEqual(input.reference_image_urls, references);
       assert.equal(input.resolution, '768P');
       assert.equal(input.prompt_expansion_mode, 'disabled');
     } else if (model.id === 'pixverse-c1') {
+      assert.match(input.prompt, /no body rotation, spin, head turn or walking/i);
+      assert.match(input.prompt, /camera sideways/i);
       assert.deepEqual(input.image_references.map((item) => item.image_url), references);
       assert.deepEqual(input.image_references.map((item) => item.ref_name), ['master', 'garment1', 'garment2']);
       assert.equal(input.resolution, '720p');
       assert.equal(input.generate_audio_switch, false);
       assert(Buffer.byteLength(input.prompt, 'utf8') <= 2048, 'PixVerse prompt exceeds 2,048 UTF-8 bytes');
     } else {
+      assert.match(input.prompt, /small head turn back to the camera/i);
       assert.deepEqual(input.image_urls, references);
       assert.equal(input.resolution, '720p');
       assert.match(input.prompt, /<IMAGE_REF_0>/);
