@@ -102,10 +102,10 @@ export function buildWaveSpeedVideoInput(
   const prompt = `REFERENCE MAP:\n<Picture 1> is the approved Gemini master image and is the absolute authority for the customer's identity, natural unretouched skin, exact garment, pose, framing and environment.\n${garmentMap}\n\n${buildH3MotionPrompt(concept, garmentRoles)}`;
 
   if (inputFormat === 'vidu') {
-    return { prompt, images: references, duration: 6, resolution: '720p', aspect_ratio: '9:16', generate_audio: true };
+    return { prompt: prompt.replace(/<Picture (\d+)>/g, 'Image $1'), images: references, duration: 6, resolution: '720p', aspect_ratio: '9:16', generate_audio: false };
   }
   if (inputFormat === 'kling') {
-    const klingPrompt = `REFERENCE MAP:\n${references.map((_, index) => `@Image${index + 1} ${index === 0 ? 'is the approved master image and is the authority for identity, garment, pose, framing and environment.' : `confirms garment construction reference ${index}.`}`).join('\n')}\n\n${buildH3MotionPrompt(concept, garmentRoles)}`;
+    const klingPrompt = prompt.replace(/<Picture (\d+)>/g, '@Image$1');
     return { prompt: klingPrompt, images: references, duration: 6, resolution: '720p', aspect_ratio: '9:16', keep_original_sound: false };
   }
   return { prompt, reference_images: references, duration: 6, resolution: '768p', aspect_ratio: '9:16' };
