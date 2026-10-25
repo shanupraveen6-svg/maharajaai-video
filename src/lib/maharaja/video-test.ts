@@ -1,4 +1,5 @@
 import { buildH3MotionPrompt, getVideoConcept, type VideoConceptId } from './video-concepts';
+import type { EventId } from './config';
 
 export const FAL_VIDEO_MODELS = [
   { id: 'h3-max', label: 'H3 Max · 768p', model: 'minimax/h3-max/reference-to-video', seconds: 6, estimatedUsd: 0.48 },
@@ -24,17 +25,19 @@ export function buildVideoTestInput(
   garmentReferenceUrls: string[],
   conceptId: VideoConceptId,
   garmentRoles: string[],
+  eventId: EventId = 'diwali',
 ) {
   const concept = getVideoConcept(conceptId);
-  if (!concept) throw new Error('The selected Diwali film concept is unavailable. Please select a concept again.');
+  if (!concept) throw new Error('The selected film concept is unavailable. Please select a concept again.');
   const garments = garmentReferenceUrls.filter(Boolean).slice(0, 2);
   const roles = garmentRoles.slice(0, garments.length);
   const references = [masterImageUrl, ...garments];
+  const eventLabel = eventId === 'new-year' ? 'New Year' : eventId.charAt(0).toUpperCase() + eventId.slice(1);
   const garmentMap = garments.map((_, index) => `Image ${index + 2} confirms ${roles[index] || `garment ${index + 1}`} details only.`).join(' ');
 
   if (modelId === 'h3-max') {
     return {
-      prompt: `Image 1 is the approved customer's exact face, outfit and Diwali setting. ${garmentMap} ${buildH3MotionPrompt(concept, roles)}`,
+      prompt: `Image 1 is the approved customer's exact face, outfit and ${eventLabel} setting. ${garmentMap} ${buildH3MotionPrompt(concept, roles, false, eventId)}`,
       image_url: masterImageUrl,
       reference_image_urls: references,
       duration: 6,
@@ -47,7 +50,7 @@ export function buildVideoTestInput(
 
   if (modelId === 'pixverse-c1') {
     const garmentTags = garments.map((_, index) => `@garment${index + 1} confirms fabric only.`).join(' ');
-    const prompt = `@master is the approved customer, exact outfit and setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true)}`;
+    const prompt = `@master is the approved customer, exact outfit and ${eventLabel} setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true, eventId)}`;
     if (Buffer.byteLength(prompt, 'utf8') > 2048) throw new Error('PixVerse prompt exceeds its 2,048-byte limit.');
     return {
       prompt,
@@ -67,7 +70,7 @@ export function buildVideoTestInput(
   if (modelId === 'gemini-omni-1.1') {
     const garmentTags = garments.map((_, index) => `<IMAGE_REF_${index + 1}> confirms fabric only.`).join(' ');
     return {
-      prompt: `<IMAGE_REF_0> is the approved customer's exact face, outfit and Diwali setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true)}`,
+      prompt: `<IMAGE_REF_0> is the approved customer's exact face, outfit and ${eventLabel} setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true, eventId)}`,
       image_urls: references,
       duration: 6,
       resolution: '720p',

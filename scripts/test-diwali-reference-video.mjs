@@ -14,6 +14,7 @@ for (const category of ['men', 'women', 'boy', 'girl']) {
 }
 
 const references = ['https://example.test/master.jpg', 'https://example.test/front.jpg', 'https://example.test/back.jpg'];
+const events = ['diwali', 'pongal', 'new-year', 'christmas', 'ramadan', 'birthday'];
 for (const concept of VIDEO_CONCEPTS) {
   const master = buildVideoMasterPrompt(concept, 'saree');
   const motion = buildH3MotionPrompt(concept, ['front', 'back']);
@@ -49,6 +50,22 @@ for (const concept of VIDEO_CONCEPTS) {
       assert.deepEqual(input.image_urls, references);
       assert.equal(input.resolution, '720p');
       assert.match(input.prompt, /<IMAGE_REF_0>/);
+    }
+  }
+  for (const eventId of events) {
+    const eventMaster = buildVideoMasterPrompt(concept, 'saree', eventId);
+    const eventMotion = buildH3MotionPrompt(concept, ['front', 'back'], false, eventId);
+    assert.match(eventMaster, /preserve facial geometry/i);
+    assert.match(eventMotion, /same recognizable face/i);
+    if (eventId !== 'diwali') {
+      assert.doesNotMatch(eventMaster, /diwali|firework|diya/i);
+      assert.doesNotMatch(eventMotion, /diwali|firework|diya/i);
+    }
+    for (const model of FAL_VIDEO_MODELS) {
+      const eventInput = buildVideoTestInput(model.id, references[0], references.slice(1), concept.id, ['front', 'back'], eventId);
+      assert.equal(eventInput.duration, 6);
+      assert.match(eventInput.prompt, new RegExp(eventId === 'new-year' ? 'New Year' : eventId, 'i'));
+      if (model.id === 'pixverse-c1') assert(Buffer.byteLength(eventInput.prompt, 'utf8') <= 2048);
     }
   }
 }

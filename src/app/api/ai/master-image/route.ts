@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
     const garmentType = resolveGarmentType(customerCategory, body.garmentType, garmentAnalysis, garmentRoles);
     const concept = service === 'ai-video' ? getVideoConcept(body.conceptId) : null;
     if (service === 'ai-video' && (!concept || concept.category !== customerCategory)) {
-      return NextResponse.json({ success: false, error: 'Select one Diwali film concept for the chosen customer category before generating.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Select one film concept for the chosen customer category before generating.' }, { status: 400 });
     }
     const sanitizedGarmentRoles = Array.isArray(garmentRoles)
       ? garmentRoles.slice(0, garmentInputs.length).map((role: unknown) => String(role))
@@ -276,7 +276,7 @@ ${categoryGarmentLine}
 - The current garment photograph(s), identified by the explicit roles above, are the only authoritative garment-design references.
 - No previous Try-On result, previous master image or prior customer output is supplied or permitted as a reference.`;
 
-          const fullConcept = buildVideoMasterPrompt(concept!, garmentType);
+          const fullConcept = buildVideoMasterPrompt(concept!, garmentType, eventId);
 
           prompt = `${fullConcept}\n\n${garmentFidelityRules}\n\n${referenceHierarchy}`;
         }

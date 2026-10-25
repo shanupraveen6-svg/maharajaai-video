@@ -1,4 +1,4 @@
-import type { CustomerCategory, GarmentType } from './config';
+import type { CustomerCategory, EventId, GarmentType } from './config';
 
 export const VIDEO_PROMPT_ARCHITECTURE_VERSION = 'diwali-v3-natural-lock';
 
@@ -35,19 +35,64 @@ const concepts: VideoConcept[] = [
 ];
 
 const shotPlans: Record<VideoConceptId, string> = {
-  'men-heritage-passage': '0-1.5s: glide past the visible foreground lamp at the frame edge. 1.5-4.5s: track sideways through the colonnade with distinct foreground and rear-arch parallax, keeping the customer full-body and sharp. 4.5-6s: settle as a firework illuminates the far arch and its floor reflection.',
-  'men-grand-arrival': '0-1.5s: reveal the customer as the nearest existing lantern passes the frame edge. 1.5-4.5s: rise gently at the same frontal angle while the fountain and courtyard separate in depth. 4.5-6s: settle on the full-body portrait as a distant firework lights the stone behind him.',
-  'men-royal-lounge': '0-1.5s: slide behind the existing carved chair edge without obscuring the face. 1.5-4.5s: pull back on a diagonal rail to reveal more of the already visible lounge, preserving body proportions. 4.5-6s: hold while the rear wall receives a warm light sweep.',
-  'women-golden-courtyard': '0-1.5s: pass an existing foreground diya across one lower frame edge. 1.5-4.5s: travel sideways through the courtyard with rangoli and rear arches moving at different depths. 4.5-6s: settle full-body as the diya reflections and marigold-lit background brighten.',
-  'women-heritage-balcony': '0-1.5s: reveal the customer past the near balcony rail at the frame edge. 1.5-4.5s: track sideways along the rail while the water garden shifts behind her at a different speed. 4.5-6s: hold as a distant firework reflects across the water.',
-  'women-grand-hall': '0-1.5s: reveal through the nearest visible arch edge. 1.5-4.5s: glide laterally across the diya rows, letting the near arch and far arches separate in depth. 4.5-6s: settle full-body as a warm light wave travels across the distant ceiling.',
-  'girl-garden-lights': '0-1.5s: pass a visible lantern at the outer frame edge at child eye level. 1.5-4.5s: track sideways through near foliage while garden lights separate behind the child. 4.5-6s: settle full-body as lanterns twinkle in a staggered sequence.',
-  'girl-festive-arch': '0-1.5s: reveal past a near marigold strand at the frame edge. 1.5-4.5s: pull back through the existing arch with foreground carving moving faster than the distant garden. 4.5-6s: hold full-body as lamps under the arch brighten in sequence.',
-  'girl-rangoli-evening': '0-1.5s: reveal from the nearest visible rangoli edge at child eye level. 1.5-4.5s: travel sideways above the patterned floor while wall lights slide at a slower depth. 4.5-6s: hold full-body as the floor-edge diya reflections brighten around the pattern.',
-  'boy-heritage-entrance': '0-1.5s: reveal past the nearest visible gateway pillar edge. 1.5-4.5s: track sideways at child eye level while the second gateway arch separates in depth. 4.5-6s: settle full-body with one firework above the distant gateway.',
-  'boy-lantern-pathway': '0-1.5s: reveal past a near lantern at the outer frame edge. 1.5-4.5s: track sideways along the visible pathway while lanterns and foliage move at different depths. 4.5-6s: settle full-body as the far lanterns brighten one after another.',
-  'boy-lighted-corridor': '0-1.5s: reveal through the nearest existing corridor arch. 1.5-4.5s: glide sideways at child eye level through repeating arches with clear foreground depth. 4.5-6s: settle full-body as the distant wall diyas illuminate in sequence.',
+  'men-heritage-passage': '0-1s: foreground lamp wipes past the left edge. 1-4.5s: camera trucks right beside the columns; near pillars cross faster than far arches while the customer remains full-body. 4.5-6s: camera lands as one firework lights the rear arch and floor.',
+  'men-grand-arrival': '0-1s: lantern reveals the customer from the lower frame edge. 1-4.5s: camera rises from waist-height to eye-height on one smooth pedestal, maintaining full-body framing as the fountain appears behind. 4.5-6s: hold on a distant firework glow across the courtyard.',
+  'men-royal-lounge': '0-1s: carved chair edge clears the foreground. 1-4.5s: camera dollies diagonally backward, widening the visible lounge while holding the customer full-body at the same angle. 4.5-6s: settle as a warm light passes across the rear wall.',
+  'women-golden-courtyard': '0-1s: a foreground diya passes across the lower frame edge. 1-4.5s: camera makes a short diagonal dolly from the rangoli toward the customer, keeping head and footwear visible while the rear arches shift in depth. 4.5-6s: settle as existing diya reflections brighten.',
+  'women-heritage-balcony': '0-1s: near balcony rail reveals the customer without crossing her body. 1-4.5s: camera tracks left parallel to the rail at eye height; the water garden moves behind at a slower apparent speed. 4.5-6s: hold as one distant firework reflects in the water.',
+  'women-grand-hall': '0-1s: reveal through one existing arch edge. 1-4.5s: camera lifts gently along the arch while tilting down just enough to keep the customer full-body; diya rows spread into view. 4.5-6s: settle as a warm light travels across the far ceiling.',
+  'girl-garden-lights': '0-1s: a visible lantern clears the outer frame edge at child eye level. 1-4.5s: camera dollies backward along the path as the child takes one step, maintaining full-body scale and clear face. 4.5-6s: hold as existing garden lanterns twinkle in sequence.',
+  'girl-festive-arch': '0-1s: a marigold strand moves past the outer frame edge. 1-4.5s: camera slides through the existing arch at child eye level; near carving crosses faster than the garden behind. 4.5-6s: hold as lamps under the arch brighten one after another.',
+  'girl-rangoli-evening': '0-1s: reveal the full rangoli at the lower frame edge. 1-4.5s: camera rises smoothly from child waist-height to child eye-height while keeping the child head-to-foot in frame. 4.5-6s: settle as the floor-edge diya reflections brighten.',
+  'boy-heritage-entrance': '0-1s: nearest gateway pillar wipes past the frame edge. 1-4.5s: camera trucks left at child eye level; the nearer gateway shifts faster than the rear arch. 4.5-6s: hold as one distant firework illuminates the gateway.',
+  'boy-lantern-pathway': '0-1s: a lantern reveals the child at the outer frame edge. 1-4.5s: camera makes a short diagonal dolly backward along the path, preserving full-body framing while lanterns separate in depth. 4.5-6s: settle as far lanterns brighten in sequence.',
+  'boy-lighted-corridor': '0-1s: first corridor arch clears the frame edge. 1-4.5s: camera travels forward through the repeating arches at child eye level, matching the child\'s single step and keeping head and footwear visible. 4.5-6s: settle as wall diyas light up down the far corridor.',
 };
+
+const eventFilmSettings: Record<EventId, { label: string; set: string; motion: string; finish: string }> = {
+  diwali: {
+    label: 'Diwali',
+    set: '',
+    motion: '',
+    finish: '',
+  },
+  pongal: {
+    label: 'Pongal',
+    set: 'A realistic South Indian heritage courtyard in morning light, with an existing kolam at the floor edge, sugarcane leaves at the outer frame edge, and sunlit stone architecture behind the customer. No cooking vessel or object in the customer\'s hands.',
+    motion: 'Existing sugarcane leaves move in the breeze and sunlight travels across the rear wall and kolam edge. Nothing crosses the customer.',
+    finish: 'A warm sunbeam reaches the far wall and its floor reflection.',
+  },
+  'new-year': {
+    label: 'New Year',
+    set: 'A refined heritage celebration hall with existing warm decorative lights at the outer frame edge, polished floor and elegant distant architecture. No confetti on the customer or object in their hands.',
+    motion: 'Existing decorative lights brighten in sequence and their reflections travel across the distant floor. Keep all lights visible throughout.',
+    finish: 'The rear architecture receives one celebratory light wash.',
+  },
+  christmas: {
+    label: 'Christmas',
+    set: 'A refined heritage hall with an existing decorated Christmas tree at the outer frame edge, warm window light and a distant festive arch. No gift or ornament in the customer\'s hands.',
+    motion: 'Existing tree lights illuminate in sequence and warm window highlights move across the rear wall. The tree stays in place.',
+    finish: 'The distant arch glows softly while the tree lights remain visible.',
+  },
+  ramadan: {
+    label: 'Ramadan',
+    set: 'A dignified heritage courtyard at evening with existing hanging lanterns at the outer frame edge, patterned rear wall and a visible crescent-lit sky. No lantern or object in the customer\'s hands.',
+    motion: 'Existing lanterns glow in sequence and their patterned light shifts across the rear wall. Keep the lanterns fixed and visible.',
+    finish: 'A warm glow settles across the far courtyard.',
+  },
+  birthday: {
+    label: 'Birthday',
+    set: 'An elegant heritage celebration room with existing decorative lights and distant balloons along the outer frame edge, a clear floor and warm architectural depth. No cake or gift in the customer\'s hands.',
+    motion: 'Existing balloons sway behind the customer and decorative lights brighten in sequence. Nothing crosses the face or garment.',
+    finish: 'The rear lights brighten for a clean celebratory finish.',
+  },
+};
+
+const alternateEventCameras = [
+  '0-1s: an existing foreground detail clears the outer frame edge. 1-4.5s: camera trucks sideways at the customer\'s eye height, showing clear near-to-far architectural parallax while keeping the full body in frame. 4.5-6s: settle as the background reaches its final light cue.',
+  '0-1s: reveal the customer past an existing set detail at the frame edge. 1-4.5s: camera dollies diagonally backward, revealing more of the already visible set while keeping the face and garment sharp. 4.5-6s: hold on the full-body portrait and final background light cue.',
+  '0-1s: reveal an existing floor detail at the lower frame edge. 1-4.5s: camera rises smoothly from waist-height to eye-height while keeping head and footwear visible. 4.5-6s: settle as the distant architecture receives the final light cue.',
+] as const;
 
 export const VIDEO_CONCEPTS = concepts;
 
@@ -59,34 +104,37 @@ export function getVideoConcept(value: unknown): VideoConcept | null {
   return typeof value === 'string' ? VIDEO_CONCEPTS.find((concept) => concept.id === value) || null : null;
 }
 
-export function buildVideoMasterPrompt(concept: VideoConcept, garmentType: GarmentType) {
+export function buildVideoMasterPrompt(concept: VideoConcept, garmentType: GarmentType, eventId: EventId = 'diwali') {
+  const event = eventFilmSettings[eventId];
   const childSafety = concept.category === 'boy' || concept.category === 'girl'
     ? 'Keep the child fully age-appropriate, naturally cheerful and free of adult glamour or mature posing.'
     : 'Keep the presentation family-friendly, refined and photorealistic.';
-  return `Create one photorealistic vertical 9:16 full-body Diwali fashion photograph.\n\nREFERENCE AUTHORITY: Image 1 is the real customer's identity reference. The garment images alone define the exact ${garmentType}. Do not use any previous generated portrait.\n\nIDENTITY AND GARMENT: Preserve facial geometry, natural asymmetry, age, body proportions, hairline, skin tone and real skin texture. Keep the customer's natural expression. No makeup, beauty filter, facial reshaping, skin smoothing or doll-like finish. Transfer the exact garment silhouette, pieces, colour, border, print, embroidery and drape. Never invent a different outfit.\n\nSTARTING POSE: ${concept.finalPose} Stand balanced with one foot slightly ahead, ready for a short natural step in the later video. Hands are relaxed below the waist and away from the garment front; no chest touch, clasp or Namaste. Leave 8 percent clear headroom and 8 percent space below the footwear.\n\nLUXURY DIWALI SET: ${concept.masterScene} Show real depth between an existing foreground element at the frame edge, the customer, and the distant architecture. Stage the existing lamps, reflections, festive flowers and distant lights so they can animate later; do not paint motion trails or graphic overlays into this still photograph. No object may cover the customer.\n\nLIGHT: A large soft fashion key reveals the real face and textile. Neutral fill preserves natural skin detail; a restrained warm rim separates the garment from the architecture. Let practical Diwali lights enrich the surroundings without changing skin tone or dress colour. Full body from head to footwear. No text, logo or watermark. ${childSafety}`;
+  return `Create one photorealistic vertical 9:16 full-body ${event.label} fashion photograph.\n\nREFERENCE AUTHORITY: Image 1 is the real customer's identity reference. The garment images alone define the exact ${garmentType}. Do not use any previous generated portrait.\n\nIDENTITY AND GARMENT: Preserve facial geometry, natural asymmetry, age, body proportions, hairline, skin tone and real skin texture. Keep the customer's natural expression. No makeup, beauty filter, facial reshaping, skin smoothing or doll-like finish. Transfer the exact garment silhouette, pieces, colour, border, print, embroidery and drape. Never invent a different outfit.\n\nSTARTING POSE: ${concept.finalPose} Stand balanced with one foot slightly ahead, ready for a short natural step in the later video. Hands are relaxed below the waist and away from the garment front; no chest touch, clasp or Namaste. Leave 8 percent clear headroom and 8 percent space below the footwear.\n\nLUXURY ${event.label.toUpperCase()} SET: ${eventId === 'diwali' ? concept.masterScene : event.set} Show real depth between an existing foreground element at the frame edge, the customer, and the distant architecture. Place all background details visibly in this starting image so the video can animate them later; do not paint motion trails or graphic overlays into the still photograph. No object may cover the customer.\n\nLIGHT: A large soft fashion key reveals the real face and textile. Neutral fill preserves natural skin detail; a restrained warm rim separates the garment from the architecture. Let practical set lights enrich the surroundings without changing skin tone or dress colour. Full body from head to footwear. No text, logo or watermark. ${childSafety}`;
 }
 
-export function buildH3MotionPrompt(concept: VideoConcept, referenceRoles: string[], backup = false) {
+export function buildH3MotionPrompt(concept: VideoConcept, referenceRoles: string[], backup = false, eventId: EventId = 'diwali') {
   void referenceRoles;
-  const camera = shotPlans[concept.id];
+  const event = eventFilmSettings[eventId];
+  const camera = eventId === 'diwali' ? shotPlans[concept.id] : alternateEventCameras[conceptsForCategory(concept.category).findIndex((item) => item.id === concept.id)];
   const identity = 'The approved master is the sole visual authority. Keep the same recognizable face, age, skin texture, body shape, hairstyle and exact outfit colours, pattern, borders and drape in every frame. Photographic skin, not waxy or doll-like; no makeup, beauty filter, face swap or garment redesign.';
-  const categoryConcepts = conceptsForCategory(concept.category);
-  const variant = categoryConcepts.findIndex((item) => item.id === concept.id);
-  const adultActions = [
-    'Take one short, natural step forward, then settle and smile toward the camera.',
-    'Shift weight onto the front foot, turn the shoulders a few degrees toward camera, then hold a confident smile.',
-    'Take one small diagonal step into the light, glance toward camera, then smile.',
-    'Turn the head briefly toward the existing lights, then look back at camera with an easy smile.',
-  ];
-  const childActions = [
-    'Take one playful short step forward, then stop and smile at camera.',
-    'Shift weight from one foot to the other and give a cheerful natural smile.',
-    'Turn the head toward the existing lights, then back to camera with a genuine smile.',
-    'Take one small side step into the light and smile at camera.',
-  ];
-  const action = (concept.category === 'girl' || concept.category === 'boy' ? childActions : adultActions)[variant];
-  const performance = `Customer action: ${action} One natural blink. Hands swing only below the waist alongside the body; never lift toward chest, face, hair or garment. No Namaste, clasp, pointing or hand-to-chest pose. Maintain the same face and outfit during the action.`;
-  const environment = `Animate the existing scene continuously for all six seconds: ${concept.environmentMotion} ${concept.effectMotion} Existing lamps and lanterns remain in place and visible to the end; never dissolve, erase or replace them. Effects stay behind the person and must not cover face or clothing.`;
-  if (backup) return `Six-second vertical Diwali fashion film. ${identity} ${performance} CAMERA CHOREOGRAPHY: ${camera} BACKGROUND ANIMATION: ${environment} Keep the customer full-body and sharp. No hard cut, face change, new prop or text.`;
-  return `Create a six-second vertical cinematic fashion film from the approved master. ${identity}\n\n${performance}\n\nCAMERA CHOREOGRAPHY: ${camera}\nBACKGROUND ANIMATION: ${environment}\n\nDIRECTING: Begin the foreground reveal immediately. Make the camera travel and depth parallax visible, not a static zoom. Time the customer's single action with the moving camera; keep their full body, face and footwear in frame. Preserve natural anatomy and fabric motion. Use the luxurious architecture already present in the master; do not invent a replacement set. No hard cut, orbit, aggressive zoom, new prop, text or sticker.`;
+  const actions: Record<VideoConceptId, string> = {
+    'men-heritage-passage': 'Take one measured step forward as the camera trucks, stop, then look into the lens with a confident smile.',
+    'men-grand-arrival': 'Shift weight onto the front foot as the camera rises, lift the chin to meet the lens, then smile.',
+    'men-royal-lounge': 'Turn the shoulders a few degrees toward the retreating camera, settle the stance, then smile.',
+    'women-golden-courtyard': 'Take one short diagonal step beside the rangoli, stop with a balanced stance, then smile at the lens.',
+    'women-heritage-balcony': 'Turn the head toward the water lights, return the gaze to the moving camera, then smile.',
+    'women-grand-hall': 'Shift weight to the front foot while the camera rises, turn the shoulders toward the lens, then smile.',
+    'girl-garden-lights': 'Take one playful short step down the path, stop, then give the camera a cheerful smile.',
+    'girl-festive-arch': 'Look toward the existing arch lamps, return the gaze to camera, then smile naturally.',
+    'girl-rangoli-evening': 'Take one small side step beside the rangoli, stop clear of the lamps, then smile at camera.',
+    'boy-heritage-entrance': 'Take one short step through the gateway, stop, then smile at the camera.',
+    'boy-lantern-pathway': 'Shift weight forward and take one short step along the path, then smile at the lens.',
+    'boy-lighted-corridor': 'Take one short step in time with the advancing camera, stop, then give a cheerful smile.',
+  };
+  const performance = `Customer action: ${actions[concept.id]} One natural blink. Arms move naturally at the sides; hands stay below the waist and never lift toward chest, face or garment. No Namaste, clasp or hand-to-chest pose. Maintain the same face and outfit during the action.`;
+  const environment = eventId === 'diwali'
+    ? `Animate the existing scene continuously for all six seconds: ${concept.environmentMotion} ${concept.effectMotion} Existing lamps and lanterns remain in place and visible to the end; never dissolve, erase or replace them. Effects stay behind the person and must not cover face or clothing.`
+    : `Animate only existing ${event.label} set details: ${event.motion} Finish with ${event.finish} All effects remain behind the person; never dissolve, erase or replace existing objects.`;
+  if (backup) return `Six-second vertical ${event.label} fashion film. ${identity} ${performance} CAMERA CHOREOGRAPHY: ${camera} BACKGROUND ANIMATION: ${environment} Keep the customer full-body and sharp. No hard cut, face change, new prop or text.`;
+  return `Create a six-second vertical cinematic ${event.label} fashion film from the approved master. ${identity}\n\n${performance}\n\nCAMERA CHOREOGRAPHY: ${camera}\nBACKGROUND ANIMATION: ${environment}\n\nDIRECTING: One continuous shot and one customer action. Begin the foreground reveal immediately. Show physical camera travel and depth parallax, not a digital zoom. Keep face, full body and footwear in frame. Preserve natural anatomy and fabric response. Use only architecture and props already visible in the master. No hard cut, orbit, new prop, text or sticker.`;
 }

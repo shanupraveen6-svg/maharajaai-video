@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
       : isEventId(session.eventId) ? session.eventId : 'diwali';
     const conceptId = (access.pass.videoMasterConceptId || session.conceptId) as VideoConceptId | undefined;
     const concept = getVideoConcept(conceptId);
-    if (!concept || concept.category !== category) throw new Error('The selected Diwali film concept could not be verified. Generate the festival image again.');
+    if (!concept || concept.category !== category) throw new Error('The selected film concept could not be verified. Generate the festival image again.');
     const garmentRoles = Array.isArray(access.pass.videoMasterGarmentRoles)
       ? access.pass.videoMasterGarmentRoles.map((value) => String(value)).slice(0, garments.length)
       : [];
@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
     let responseUrl = '';
     let providerSeed: string | number | null = null;
     {
-      const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), concept.id, garmentRoles);
+      const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), concept.id, garmentRoles, eventId);
       const webhookUrl = new URL('/api/video/webhook', req.nextUrl.origin);
       webhookUrl.searchParams.set('jobId', jobId);
       webhookUrl.searchParams.set('token', webhookToken);
