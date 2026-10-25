@@ -5,36 +5,100 @@ export const WAVESPEED_H3_REFERENCE_TO_VIDEO_MODEL = 'wavespeed-ai/minimax-h3/re
 
 export const WAVE_SPEED_TEST_MODELS = [
   {
-    id: 'minimax-h3-original',
-    label: 'MiniMax H3 Original · 768p',
-    model: 'minimax/h3/reference-to-video',
-    inputFormat: 'h3',
-    seconds: 6,
-    estimatedUsd: 0.6,
-  },
-  {
     id: 'wavespeed-h3-open',
-    label: 'WaveSpeed H3 Open Weights · 768p',
+    label: '#1 WaveSpeed H3 Open (50% OFF · ₹39.15)',
     model: WAVESPEED_H3_REFERENCE_TO_VIDEO_MODEL,
     inputFormat: 'h3',
     seconds: 6,
-    estimatedUsd: 0.64,
+    estimatedUsd: 0.45,
+  },
+  {
+    id: 'minimax-h3-original',
+    label: '#2 MiniMax H3 Normal · 768p (₹52.20)',
+    model: 'minimax/h3/reference-to-video',
+    inputFormat: 'h3',
+    seconds: 6,
+    estimatedUsd: 0.60,
   },
   {
     id: 'vidu-q4',
-    label: 'Vidu Q4 · 720p',
+    label: '#3 Vidu Q4 Preview (15% OFF · ₹42.18)',
     model: 'vidu/q4-preview/reference-to-video',
     inputFormat: 'vidu',
     seconds: 6,
-    estimatedUsd: 0.57,
+    estimatedUsd: 0.485,
   },
   {
-    id: 'kling-v4',
-    label: 'Kling V4 · 720p',
-    model: 'kwaivgi/kling-v4.0/reference-to-video',
+    id: 'kling-video-o3-std',
+    label: '#4 Kling Omni O3 Std · 720p (₹43.85)',
+    model: 'kwaivgi/kling-video-o3-std/reference-to-video',
     inputFormat: 'kling',
     seconds: 6,
-    estimatedUsd: 0.942,
+    estimatedUsd: 0.504,
+  },
+  {
+    id: 'wavespeed-h3-singularity',
+    label: '#5 WaveSpeed H3 Singularity (50% OFF · ₹39.15)',
+    model: 'wavespeed-ai/minimax-h3-singularity/reference-to-video',
+    inputFormat: 'h3',
+    seconds: 6,
+    estimatedUsd: 0.45,
+  },
+  {
+    id: 'wan-2-7',
+    label: '#6 Alibaba Wan 2.7 R2V · 720p (₹52.20)',
+    model: 'alibaba/wan-2.7/reference-to-video',
+    inputFormat: 'wan',
+    seconds: 6,
+    estimatedUsd: 0.60,
+  },
+  {
+    id: 'wan-2-6',
+    label: '#7 Alibaba Wan 2.6 R2V · 720p (₹52.20)',
+    model: 'alibaba/wan-2.6/reference-to-video',
+    inputFormat: 'wan',
+    seconds: 6,
+    estimatedUsd: 0.60,
+  },
+  {
+    id: 'gemini-omni-flash',
+    label: '#8 Google Gemini Omni 1.1 Flash (₹52.20)',
+    model: 'google/gemini-omni-1.1-flash/reference-to-video',
+    inputFormat: 'gemini',
+    seconds: 6,
+    estimatedUsd: 0.60,
+  },
+  {
+    id: 'pixverse-c1',
+    label: '#9 PixVerse C1 R2V · 720p (₹26.10)',
+    model: 'pixverse/pixverse-c1/reference-to-video',
+    inputFormat: 'general',
+    seconds: 6,
+    estimatedUsd: 0.30,
+  },
+  {
+    id: 'wan-2-6-flash',
+    label: '#10 Wan 2.6 Flash R2V · 720p (₹26.10)',
+    model: 'alibaba/wan-2.6/reference-to-video-flash',
+    inputFormat: 'wan',
+    seconds: 6,
+    estimatedUsd: 0.30,
+  },
+  {
+    id: 'grok-imagine',
+    label: '#11 xAI Grok Imagine R2V (₹26.10)',
+    model: 'x-ai/grok-imagine-video/reference-to-video',
+    inputFormat: 'general',
+    seconds: 6,
+    estimatedUsd: 0.30,
+  },
+  {
+    id: 'pruna-p-video-2',
+    label: '#12 Pruna P-Video-2 Pro · 720p (₹18.27)',
+    model: 'pruna-ai/p-video-2-pro/reference-to-video',
+    inputFormat: 'general',
+    seconds: 6,
+    estimatedUsd: 0.21,
   },
 ] as const;
 
@@ -107,6 +171,10 @@ export function buildWaveSpeedVideoInput(
   if (inputFormat === 'kling') {
     const klingPrompt = prompt.replace(/<Picture (\d+)>/g, '@Image$1');
     return { prompt: klingPrompt, images: references, duration: 6, resolution: '720p', aspect_ratio: '9:16', keep_original_sound: false };
+  }
+  if (inputFormat === 'wan' || inputFormat === 'gemini' || inputFormat === 'general') {
+    const naturalPrompt = prompt.replace(/<Picture (\d+)>/g, 'Image $1');
+    return { prompt: naturalPrompt, images: references, reference_images: references, duration: 6, resolution: '720p', aspect_ratio: '9:16' };
   }
   return { prompt, reference_images: references, duration: 6, resolution: '768p', aspect_ratio: '9:16' };
 }
