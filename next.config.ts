@@ -4,8 +4,16 @@ const nextConfig: NextConfig = {
   // ffmpeg-static resolves its binary at runtime. Include it only with the
   // routes that create the branded customer and showroom MP4 files.
   outputFileTracingIncludes: {
-    '/api/video/status': ['./node_modules/ffmpeg-static/ffmpeg'],
-    '/api/video/webhook': ['./node_modules/ffmpeg-static/ffmpeg'],
+    '/api/video/status': [
+      './node_modules/ffmpeg-static/ffmpeg',
+      './public/maharaja-logo.png',
+      './public/audio/maharaja/**/*',
+    ],
+    '/api/video/webhook': [
+      './node_modules/ffmpeg-static/ffmpeg',
+      './public/maharaja-logo.png',
+      './public/audio/maharaja/**/*',
+    ],
   },
   async headers() {
     return [{
