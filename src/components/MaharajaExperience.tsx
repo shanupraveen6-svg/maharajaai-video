@@ -208,15 +208,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       if (generationProgress < 82) return 'Refining identity, fabric and lighting…';
       return 'Finishing your full-quality portrait…';
     }
-    if (generationProgress < 25) return 'Preparing your approved portrait…';
-    if (generationProgress < 50) return 'Building cinematic camera movement…';
-    if (generationProgress < 75) return 'Animating festive lights and atmosphere…';
-    if (generationProgress < 96) return 'Refining motion, identity and garment detail…';
-    return 'Securing your finished film…';
+    return 'The video provider is rendering your film. This can take several minutes; your request remains saved.';
   }, [generationProgress, stage]);
 
   useEffect(() => {
-    if (stage !== 'image' && stage !== 'video') return;
+    if (stage !== 'image') return;
     setGenerationProgress((current) => current > 0 ? current : 4);
     const timer = window.setInterval(() => {
       setGenerationProgress((current) => {
@@ -364,7 +360,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           resumedVideoJobRef.current = recoveryJobId;
           setSessionId(recoverySessionId);
           setVideoTestJobId(recoveryJobId);
-          setGenerationProgress(95);
+          setGenerationProgress(0);
           setMessage('Your completed film is being prepared for preview. No new video request has been sent.');
           setStage('video');
           void pollVideoTest(recoveryJobId).catch((error) => {
@@ -740,8 +736,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   }
 
   async function pollVideoTest(jobId: string) {
-    const startedAt = Date.now();
-    while (Date.now() - startedAt < 12 * 60 * 1000) {
+    while (true) {
       await new Promise((resolve) => window.setTimeout(resolve, 3000));
       const response = await fetch(`/api/video/status?jobId=${encodeURIComponent(jobId)}&accessCode=${encodeURIComponent(accessCode)}`, { cache: 'no-store' });
       const data = await response.json().catch(() => ({}));
@@ -760,9 +755,10 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       if (!response.ok || data.status === 'failed') {
         throw new Error(data.error || `Video test failed (${response.status}).`);
       }
-      setMessage('Your AI film is being created. Keep this page open.');
+      setMessage(data.providerStatus === 'FINALIZING'
+        ? 'The video is ready and is being prepared for preview.'
+        : 'The video provider is still rendering. This request is saved; refreshing will resume checking it.');
     }
-    throw new Error('Video test timed out. The job remains recorded for staff review.');
   }
 
   async function startVideoTest() {
@@ -787,7 +783,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         body: JSON.stringify({ accessCode, sessionId, ...(videoModelTestingEnabled ? { videoModel: videoTestModel } : {}) }),
       }));
       setVideoTestJobId(data.jobId);
-      setGenerationProgress(16);
+      setGenerationProgress(0);
       setMessage('Your AI film is now being created. Keep this page open.');
       await pollVideoTest(data.jobId);
     } catch (caught) {
@@ -836,15 +832,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             </div>
             <p className="font-serif text-xl font-bold text-[#F3E5AB]">{stage === 'image' ? 'Creating your Diwali portrait' : 'Rendering your Diwali film'}</p>
             <p className="mt-2 min-h-12 text-sm leading-6 text-[#F3E5AB]/85">{generationStatus}</p>
-            <div className="mt-5" aria-label={`Generation progress ${generationProgress}%`}>
+            {stage === 'image' ? <div className="mt-5" aria-label={`Generation progress ${generationProgress}%`}>
               <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wide text-[#F3E5AB]/75">
                 <span>Creating</span><span>{generationProgress}%</span>
               </div>
               <div className="h-2.5 w-full overflow-hidden rounded-full bg-black/45">
                 <div className="h-full rounded-full bg-[#D4AF37] transition-[width] duration-700 ease-out" style={{ width: `${generationProgress}%` }} />
               </div>
-            </div>
-            <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#D4AF37]">Please keep this page open</p>
+            </div> : <p className="mt-5 text-sm text-[#F3E5AB]" role="status">{message || 'Waiting for the video provider…'}</p>}
+            <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#D4AF37]">You can refresh this page; the same job will resume</p>
           </div>
         </div>
       )}
