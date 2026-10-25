@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./ts-alias-loader.mjs', import.meta.url);
 
-const { VIDEO_CONCEPTS, buildVideoMasterPrompt, buildH3MotionPrompt } = await import('../src/lib/maharaja/video-concepts.ts');
+const { VIDEO_CONCEPTS, VIDEO_PROMPT_ARCHITECTURE_VERSION, buildVideoMasterPrompt, buildH3MotionPrompt } = await import('../src/lib/maharaja/video-concepts.ts');
 const { FAL_VIDEO_MODELS, buildVideoTestInput, getVideoTestModel } = await import('../src/lib/maharaja/video-test.ts');
 
 assert.equal(VIDEO_CONCEPTS.length, 12);
+assert.equal(VIDEO_PROMPT_ARCHITECTURE_VERSION, 'festival-v4-anchored-hand');
 assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['h3-max', 'pixverse-c1', 'gemini-omni-1.1']);
 assert.equal(getVideoTestModel().id, 'h3-max');
 
@@ -19,11 +20,18 @@ for (const concept of VIDEO_CONCEPTS) {
   const master = buildVideoMasterPrompt(concept, 'saree');
   const motion = buildH3MotionPrompt(concept, ['front', 'back']);
   assert.match(master, /preserve facial geometry/i);
-  assert.match(master, /short natural step/i);
+  assert.match(master, /physically touching the anchored hand/i);
+  assert.match(master, /both feet planted/i);
+  assert.match(master, /natural skin texture/i);
+  assert.match(master, /catchlights/i);
   assert.match(master, /no makeup/i);
-  assert.match(master, /no chest touch/i);
+  assert.match(master, /clear of the chest/i);
   assert.match(motion, /approved master is the sole visual authority/i);
   assert.match(motion, /never lift toward chest/i);
+  assert.match(motion, /continuous visible contact/i);
+  assert.match(motion, /head turn/i);
+  assert.match(motion, /seconds 0-2/i);
+  assert.doesNotMatch(motion, /take (?:one|a) .*step/i);
   assert.match(motion, /existing lamps and lanterns remain in place/i);
   assert.match(motion, /CAMERA CHOREOGRAPHY:/);
   assert.match(motion, /smile/i);
@@ -56,7 +64,9 @@ for (const concept of VIDEO_CONCEPTS) {
     const eventMaster = buildVideoMasterPrompt(concept, 'saree', eventId);
     const eventMotion = buildH3MotionPrompt(concept, ['front', 'back'], false, eventId);
     assert.match(eventMaster, /preserve facial geometry/i);
+    assert.match(eventMaster, /physically touching the anchored hand/i);
     assert.match(eventMotion, /same recognizable face/i);
+    assert.match(eventMotion, /continuous visible contact/i);
     if (eventId !== 'diwali') {
       assert.doesNotMatch(eventMaster, /diwali|firework|diya/i);
       assert.doesNotMatch(eventMotion, /diwali|firework|diya/i);

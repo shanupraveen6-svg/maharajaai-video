@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Customer approval required before generating the AI video.' }, { status: 403 });
   }
   if (access.pass.videoPromptArchitectureVersion !== VIDEO_PROMPT_ARCHITECTURE_VERSION) {
-    return NextResponse.json({ success: false, error: 'This is a legacy AI Video session. Please use a newly issued Maharaja QR for the updated film experience.' }, { status: 409 });
+    return NextResponse.json({ success: false, error: 'This approved image predates the new hand pose. Create a fresh festival image before starting a paid video.' }, { status: 409 });
   }
   if (access.pass.videoReferenceSessionId && access.pass.videoReferenceSessionId !== sessionId) {
     return NextResponse.json({ success: false, error: 'The approved master belongs to a different session.' }, { status: 409 });
