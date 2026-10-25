@@ -81,7 +81,9 @@ for (const concept of VIDEO_CONCEPTS) {
     } else if (model.inputFormat === 'pruna') {
       assert.equal(input.resolution, '768p', `${model.id}: 768p is nearest supported resolution above 720p`);
       assert.equal(input.aspect_ratio, '9:16');
-      assert.equal(input.prompt_upsampler, 'off');
+      assert.equal(input.mode, 'speed', `${model.id}: mode must be speed`);
+      assert.equal(input.prompt_upsampler, 'off', `${model.id}: prompt_upsampler must be off`);
+      assert.equal(input.keep_audio, false, `${model.id}: keep_audio must be false`);
       assert.equal(input.generate_audio, undefined, `${model.id}: audio must be omitted (no audio control in schema)`);
     }
 
@@ -91,13 +93,25 @@ for (const concept of VIDEO_CONCEPTS) {
 
     // Verify Master is #1, Garment 1 is #2, Garment 2 is #3, no 4th ref
     if (model.inputFormat === 'pixverse-c1') {
-      assert.equal(input.images[0].url, 'https://example.test/master.jpg');
-      assert.equal(input.images[0].name, 'master');
-      assert.equal(input.images[0].type, 'reference');
-      assert.equal(input.images[1].url, 'https://example.test/front.jpg');
-      assert.equal(input.images[1].name, 'garment1');
-      assert.equal(input.images[2].url, 'https://example.test/back.jpg');
-      assert.equal(input.images[2].name, 'garment2');
+      assert.equal(input.images[0].image, 'https://example.test/master.jpg');
+      assert.equal(input.images[0].ref_name, 'master');
+      assert.equal(input.images[0].type, 'subject');
+      assert.equal(input.images[0].url, undefined);
+      assert.equal(input.images[0].name, undefined);
+      assert.notEqual(input.images[0].type, 'reference');
+
+      assert.equal(input.images[1].image, 'https://example.test/front.jpg');
+      assert.equal(input.images[1].ref_name, 'garment1');
+      assert.equal(input.images[1].type, 'subject');
+      assert.equal(input.images[1].url, undefined);
+      assert.equal(input.images[1].name, undefined);
+
+      assert.equal(input.images[2].image, 'https://example.test/back.jpg');
+      assert.equal(input.images[2].ref_name, 'garment2');
+      assert.equal(input.images[2].type, 'subject');
+      assert.equal(input.images[2].url, undefined);
+      assert.equal(input.images[2].name, undefined);
+
       assert.equal(input.images.length, 3);
     } else if (model.inputFormat === 'h3') {
       assert.equal(input.reference_images[0], 'https://example.test/master.jpg');
@@ -185,6 +199,14 @@ for (const concept of VIDEO_CONCEPTS) {
         ? singleGarmentInput.reference_images.length
         : 0;
     assert.equal(singleRefCount, 2, `${model.id}: single garment input must have exactly 2 references`);
+    if (model.inputFormat === 'pixverse-c1') {
+      assert.equal(singleGarmentInput.images[0].image, 'https://example.test/master.jpg');
+      assert.equal(singleGarmentInput.images[0].ref_name, 'master');
+      assert.equal(singleGarmentInput.images[0].type, 'subject');
+      assert.equal(singleGarmentInput.images[1].image, 'https://example.test/single-garment.jpg');
+      assert.equal(singleGarmentInput.images[1].ref_name, 'garment1');
+      assert.equal(singleGarmentInput.images[1].type, 'subject');
+    }
   }
 }
 

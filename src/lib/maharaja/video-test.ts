@@ -6,11 +6,11 @@ export const WAVESPEED_H3_REFERENCE_TO_VIDEO_MODEL = 'wavespeed-ai/minimax-h3/re
 export const WAVE_SPEED_TEST_MODELS = [
   {
     id: 'wavespeed-h3-open',
-    label: '#1 WaveSpeed H3 Open (Estimated current cost $0.45 / ₹39.15)',
+    label: '#1 WaveSpeed H3 Open (Estimated current cost $0.66 / ₹57.42)',
     model: WAVESPEED_H3_REFERENCE_TO_VIDEO_MODEL,
     inputFormat: 'h3' as const,
     seconds: 6,
-    estimatedUsd: 0.45,
+    estimatedUsd: 0.66,
   },
   {
     id: 'minimax-h3-original',
@@ -22,19 +22,19 @@ export const WAVE_SPEED_TEST_MODELS = [
   },
   {
     id: 'wavespeed-h3-singularity',
-    label: '#3 WaveSpeed H3 Singularity (Estimated current cost $0.45 / ₹39.15)',
+    label: '#3 WaveSpeed H3 Singularity (Estimated current cost $0.66 / ₹57.42)',
     model: 'wavespeed-ai/minimax-h3-singularity/reference-to-video',
     inputFormat: 'h3' as const,
     seconds: 6,
-    estimatedUsd: 0.45,
+    estimatedUsd: 0.66,
   },
   {
     id: 'vidu-q4',
-    label: '#4 Vidu Q4 Preview (Estimated current cost $0.485 / ₹42.18)',
+    label: '#4 Vidu Q4 Preview (Estimated current cost $0.57 / ₹49.59)',
     model: 'vidu/q4-preview/reference-to-video',
     inputFormat: 'vidu' as const,
     seconds: 6,
-    estimatedUsd: 0.485,
+    estimatedUsd: 0.57,
   },
   {
     id: 'kling-video-o3-std',
@@ -70,11 +70,11 @@ export const WAVE_SPEED_TEST_MODELS = [
   },
   {
     id: 'pruna-p-video-2',
-    label: '#9 Pruna P-Video-2 Pro · 720p (Estimated current cost $0.21 / ₹18.27)',
+    label: '#9 Pruna P-Video-2 Pro · 768p Speed (Estimated current cost $0.24 / ₹20.88)',
     model: 'pruna-ai/p-video-2-pro/reference-to-video',
     inputFormat: 'pruna' as const,
     seconds: 6,
-    estimatedUsd: 0.21,
+    estimatedUsd: 0.24,
   },
 ] as const;
 
@@ -223,9 +223,9 @@ export function buildWaveSpeedVideoInput(
     finalPrompt = `REFERENCE MAP:\n@master is the approved Gemini master image and is the absolute authority for the customer's identity, natural unretouched skin, exact garment, pose, framing and environment.\n${garmentMap}\n\n${motion}`;
     if (finalPrompt.length > 5000) throw new Error(`PixVerse prompt exceeds 5,000 characters limit (${finalPrompt.length}).`);
     const structuredImages = references.map((url, index) => ({
-      url,
-      name: index === 0 ? 'master' : `garment${index}`,
-      type: 'reference' as const,
+      image: url,
+      ref_name: index === 0 ? 'master' : `garment${index}`,
+      type: 'subject' as const,
     }));
     return {
       prompt: finalPrompt,
@@ -270,7 +270,9 @@ export function buildWaveSpeedVideoInput(
       duration: 6,
       resolution: '768p',
       aspect_ratio: '9:16',
+      mode: 'speed',
       prompt_upsampler: 'off',
+      keep_audio: false,
     };
   }
 

@@ -135,15 +135,15 @@ function customerError(caught: unknown, fallback: string) {
 
 const videoModelTestingEnabled = process.env.NEXT_PUBLIC_VIDEO_MODEL_TESTING === 'true';
 const videoTestModelOptions = [
-  { value: 'wavespeed-h3-open', label: '#1 WaveSpeed H3 Open (Estimated current cost $0.45 / ₹39.15)' },
+  { value: 'wavespeed-h3-open', label: '#1 WaveSpeed H3 Open (Estimated current cost $0.66 / ₹57.42)' },
   { value: 'minimax-h3-original', label: '#2 MiniMax H3 Normal · 768p (Estimated current cost $0.60 / ₹52.20)' },
-  { value: 'wavespeed-h3-singularity', label: '#3 WaveSpeed H3 Singularity (Estimated current cost $0.45 / ₹39.15)' },
-  { value: 'vidu-q4', label: '#4 Vidu Q4 Preview (Estimated current cost $0.485 / ₹42.18)' },
+  { value: 'wavespeed-h3-singularity', label: '#3 WaveSpeed H3 Singularity (Estimated current cost $0.66 / ₹57.42)' },
+  { value: 'vidu-q4', label: '#4 Vidu Q4 Preview (Estimated current cost $0.57 / ₹49.59)' },
   { value: 'kling-video-o3-std', label: '#5 Kling Omni O3 Standard · 720p (Estimated current cost $0.504 / ₹43.85)' },
   { value: 'gemini-omni-flash', label: '#6 Google Gemini Omni 1.1 Flash (Estimated current cost $0.60 / ₹52.20)' },
   { value: 'pixverse-c1', label: '#7 PixVerse C1 R2V · 720p (Estimated current cost $0.30 / ₹26.10)' },
   { value: 'grok-imagine', label: '#8 xAI Grok Imagine R2V (Estimated current cost $0.30 / ₹26.10)' },
-  { value: 'pruna-p-video-2', label: '#9 Pruna P-Video-2 Pro · 720p (Estimated current cost $0.21 / ₹18.27)' },
+  { value: 'pruna-p-video-2', label: '#9 Pruna P-Video-2 Pro · 768p Speed (Estimated current cost $0.24 / ₹20.88)' },
 ];
 
 export default function MaharajaExperience({ service, accessCode, retrySessionId = '' }: { service: 'try-on' | 'ai-video'; accessCode: string; retrySessionId?: string }) {
