@@ -1683,7 +1683,7 @@ export async function finalizeCompletedVideo({
   accessCode?: string | null;
   clientId?: string;
   eventId?: string;
-}): Promise<{ success: true; videoUrl: string; liveVideoUrl?: string; storagePath: string; liveStoragePath?: string } | { success: false; error: string }> {
+}): Promise<{ success: true; videoUrl: string; liveVideoUrl?: string; storagePath: string; liveStoragePath?: string; presentationFallback?: boolean } | { success: false; error: string }> {
   const db = getDb();
 
   let fileBuffer: Buffer | null = videoBuffer || null;
@@ -1737,13 +1737,23 @@ export async function finalizeCompletedVideo({
 
   let customerVideo: Buffer;
   let liveVideo: Buffer | null = null;
+  let presentationFallback = false;
   try {
     customerVideo = await generateCustomer6sVideo(fileBuffer, getPreviewAudioTrack(sessionId, eventId));
     if (createLiveVersion) liveVideo = await generateLive9sVideo(fileBuffer, getLiveAudioTrack(sessionId, eventId));
     await validateBrandedVideo(customerVideo, 6);
     if (liveVideo) await validateBrandedVideo(liveVideo, 9);
   } catch (error) {
-    return { success: false, error: `Video branding validation failed: ${error instanceof Error ? error.message : 'unknown processing error'}` };
+    const message = error instanceof Error ? error.message : 'unknown processing error';
+    // Vercel functions cannot reliably execute ffmpeg-static. Keep a completed
+    // paid render available through the app and the external-audio TV path.
+    if (!message.includes('FFmpeg binary')) {
+      return { success: false, error: `Video branding validation failed: ${message}` };
+    }
+    console.warn('FFmpeg unavailable; storing provider MP4 with app-level presentation fallback.');
+    customerVideo = fileBuffer;
+    liveVideo = null;
+    presentationFallback = true;
   }
 
   let signedUrl = outputVideoUrl || '';
@@ -1761,7 +1771,7 @@ export async function finalizeCompletedVideo({
             metadata: {
               durationSeconds: '6',
               playbackMode: 'embedded',
-              hasEmbeddedAudio: 'true',
+              hasEmbeddedAudio: presentationFallback ? 'false' : 'true',
             },
           },
         });
@@ -1823,7 +1833,7 @@ export async function finalizeCompletedVideo({
         customerLocality: customerLocality || null,
 	      playbackMode: 'embedded',
         durationSeconds: liveVideo ? 9 : 6,
-	      hasEmbeddedAudio: true,
+	      hasEmbeddedAudio: !presentationFallback,
         createdAt: nowIso,
       }, { merge: true }),
       db.collection('sessions').doc(sessionId).set({
@@ -1849,7 +1859,7 @@ export async function finalizeCompletedVideo({
       customerLocality: customerLocality || null,
       playbackMode: 'embedded',
       durationSeconds: liveVideo ? 9 : 6,
-      hasEmbeddedAudio: true,
+      hasEmbeddedAudio: !presentationFallback,
       createdAt: nowIso,
     });
     const session = mockStore.sessions.get(sessionId) || {};
@@ -1869,7 +1879,13 @@ export async function finalizeCompletedVideo({
   }
   await logMaharajaActivity('video-ready', `${eventId} AI Video ready`, { sessionId, jobId });
 
-  return { success: true, videoUrl: signedUrl, ...(liveVideo ? { liveVideoUrl: liveSignedUrl, liveStoragePath } : {}), storagePath };
+  return {
+    success: true,
+    videoUrl: signedUrl,
+    ...(liveVideo ? { liveVideoUrl: liveSignedUrl, liveStoragePath } : {}),
+    ...(presentationFallback ? { presentationFallback: true } : {}),
+    storagePath,
+  };
 }
 
 export async function enableTryOnDeviceCustomerRetry(deviceId: string) {
