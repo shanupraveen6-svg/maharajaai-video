@@ -40,5 +40,10 @@ const resultSource = fs.readFileSync(new URL('../src/app/result/[sessionId]/Resu
 assert.match(resultSource, /allowGoLive/);
 const passSource = fs.readFileSync(new URL('../src/app/api/maharaja/video-pass/route.ts', import.meta.url), 'utf8');
 assert.doesNotMatch(passSource, /\[5000, 7000, 10000\]/);
+const masterImageSource = fs.readFileSync(new URL('../src/app/api/ai/master-image/route.ts', import.meta.url), 'utf8');
+assert.match(masterImageSource, /experienceType === 'catalogue-gift' && customerCategory !== 'women' && customerCategory !== 'girl'/);
+const experienceSource = fs.readFileSync(new URL('../src/components/MaharajaExperience.tsx', import.meta.url), 'utf8');
+assert.match(experienceSource, /isCatalogueGift\s*\?\s*\['women', 'girl'\]/);
+assert.match(experienceSource, /Choose your Diwali visual set/);
 
-console.log('Catalogue contract passed: isolated quota, one retry, phone-only issue, and no Go Live.');
+console.log('Catalogue contract passed: isolated quota, one retry, Women/Girl visual sets, phone-only issue, and no Go Live.');

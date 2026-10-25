@@ -197,6 +197,9 @@ export async function POST(req: NextRequest) {
 
     let masterImageUrl = '';
     const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
+    if (access.pass?.experienceType === 'catalogue-gift' && customerCategory !== 'women' && customerCategory !== 'girl') {
+      return NextResponse.json({ success: false, error: 'AI Video Gift is available only for Women or Girl categories.' }, { status: 400 });
+    }
     if (body.garmentTypeConfirmed !== true) {
       return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
     }

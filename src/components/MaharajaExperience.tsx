@@ -181,6 +181,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   const isCatalogueGift = access?.access.experienceType === 'catalogue-gift';
+  const selectableCategories: CustomerCategory[] = isCatalogueGift
+    ? ['women', 'girl']
+    : ['women', 'men', 'girl', 'boy'];
   const generationStatus = useMemo(() => {
     if (stage === 'image') {
       if (generationProgress < 25) return 'Securing your photos and garment details…';
@@ -306,7 +309,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setPurchaseConfirmed(data.access.service === 'ai-video');
         if (data.access.experienceType === 'catalogue-gift') {
           setActiveService('ai-video');
-          setCategory('women');
+          const giftCategory = data.access.videoMasterCategory === 'girl' ? 'girl' : 'women';
+          setCategory(giftCategory);
+          setConceptId(conceptsForCategory(giftCategory)[0].id);
           setGarmentType('saree');
           setGarmentTypeConfirmed(true);
           setGarmentRoles(['Saree body, pallu, border and blouse reference']);
@@ -905,8 +910,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           <>
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
               {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
-                <div className={`${isCatalogueGift ? 'sm:grid-cols-1 [&>fieldset]:hidden' : 'sm:grid-cols-2'} grid gap-4`}>
-                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['women', 'men', 'girl', 'boy'] as CustomerCategory[]).map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setConceptId(conceptsForCategory(option)[0].id); setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div></fieldset>
+                <div className={`${isCatalogueGift ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} grid gap-4`}>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className={`mt-2 grid grid-cols-2 gap-2 ${isCatalogueGift ? 'max-w-md' : 'sm:grid-cols-4'}`}>{selectableCategories.map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setConceptId(conceptsForCategory(option)[0].id); if (isCatalogueGift) { setGarmentType('saree'); setGarmentTypeConfirmed(true); setGarmentRoles(['Saree body, pallu, border and blouse reference']); setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'saree', primaryColor: 'Original color' }); } else { setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); } setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div>{isCatalogueGift && <p className="mt-2 text-xs leading-5 text-[#5C4B43]">Choose Women or Girl, then select one of three festive visual sets below. Your selected Maharaja saree stays unchanged.</p>}</fieldset>
 
                   <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
                     <select
@@ -1059,7 +1064,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                       )}
                     </div>
 
-                    {activeService === 'ai-video' && (
+                    {!isCatalogueGift && activeService === 'ai-video' && (
                       <fieldset className="mt-5 border-t border-[#D8C49B] pt-4">
                         <legend className="px-1 text-xs font-bold uppercase tracking-[0.16em] text-[#6E0D1F]">Choose your Diwali film</legend>
                         <p className="mt-1 text-xs leading-5 text-[#5C4B43]">Choose a title only. Your final portrait remains a surprise.</p>
@@ -1103,6 +1108,29 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                     </div>
                   </div>
                 </div>
+
+                {isCatalogueGift && activeService === 'ai-video' && (
+                  <fieldset className="mt-6 border-t border-[#D8C49B] pt-4">
+                    <legend className="px-1 text-xs font-bold uppercase tracking-[0.16em] text-[#6E0D1F]">Choose your Diwali visual set</legend>
+                    <p className="mt-1 text-xs leading-5 text-[#5C4B43]">Three approved settings are available for {category === 'girl' ? 'Girl' : 'Women'}. Your face and selected saree remain the visual authority.</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      {conceptsForCategory(category).map((concept, index) => (
+                        <button
+                          key={concept.id}
+                          type="button"
+                          disabled={busy || imagesLocked}
+                          aria-pressed={conceptId === concept.id}
+                          onClick={() => { setConceptId(concept.id); setProcessingConsent(false); clearActiveImage(); }}
+                          className={`min-h-24 border p-3 text-left transition ${conceptId === concept.id ? 'border-[#D4AF37] bg-[#21090E] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFF9EC] text-[#2A060C] hover:border-[#6E0D1F]'}`}
+                        >
+                          <span className={`block text-[10px] font-bold tracking-[0.18em] ${conceptId === concept.id ? 'text-[#D4AF37]' : 'text-[#6E0D1F]'}`}>0{index + 1}</span>
+                          <span className="mt-1 block font-serif text-base font-bold">{concept.title}</span>
+                          <span className={`mt-1 block text-[11px] leading-4 ${conceptId === concept.id ? 'text-[#F3E5AB]/80' : 'text-[#5C4B43]'}`}>{concept.mood}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
 
                 {message && <div className="mt-4 border border-[#E2D4B8] bg-[#FFF9EC] p-3 text-sm font-semibold text-[#6E0D1F]">{message}</div>}
                 {error && <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</div>}
