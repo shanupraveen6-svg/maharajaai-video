@@ -21,6 +21,19 @@ async function falGet(url: string, falKey: string) {
   return data;
 }
 
+async function waveSpeedGet(url: string, waveSpeedKey: string) {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'api.wavespeed.ai' || !parsed.pathname.startsWith('/api/v3/predictions/')) {
+    throw new Error('Stored WaveSpeed prediction URL is invalid.');
+  }
+  const response = await fetch(parsed, { headers: { Authorization: `Bearer ${waveSpeedKey}`, Accept: 'application/json' }, cache: 'no-store' });
+  const raw = await response.text();
+  let data: any = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
+  if (!response.ok) throw new Error(`WaveSpeed queue failed (${response.status}): ${typeof data === 'string' ? data.slice(0, 500) : JSON.stringify(data).slice(0, 500)}`);
+  return data?.data || data;
+}
+
 function providerFailure(error: unknown) {
   const message = error instanceof Error ? error.message : 'Video generation failed.';
   const statusMatch = message.match(/\((4\d\d|5\d\d)\)/);
@@ -56,19 +69,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, status: 'failed', jobId, error: job.error || 'Video test failed.' }, { status: 422 });
   }
 
+  const providerName = job.providerName === 'wavespeed' ? 'wavespeed' : 'fal';
   const falKey = process.env.FAL_KEY?.trim();
-  if (!falKey) return NextResponse.json({ success: false, status: 'failed', error: 'FAL_KEY is not configured.' }, { status: 503 });
+  const waveSpeedKey = process.env.WAVESPEED_API_KEY?.trim();
+  if (providerName === 'fal' && !falKey) return NextResponse.json({ success: false, status: 'failed', error: 'Video provider is temporarily unavailable.' }, { status: 503 });
+  if (providerName === 'wavespeed' && !waveSpeedKey) return NextResponse.json({ success: false, status: 'failed', error: 'Video provider is temporarily unavailable.' }, { status: 503 });
 
   try {
-    const providerStatus = await falGet(job.statusUrl, falKey);
+    const providerStatus = providerName === 'wavespeed'
+      ? await waveSpeedGet(job.statusUrl, waveSpeedKey!)
+      : await falGet(job.statusUrl, falKey!);
     const state = String(providerStatus?.status || '').toUpperCase();
-    if (state === 'IN_QUEUE' || state === 'IN_PROGRESS') {
+    if (state === 'IN_QUEUE' || state === 'IN_PROGRESS' || state === 'PENDING' || state === 'PROCESSING' || state === 'RUNNING') {
       const update = { status: 'processing', providerStatus: state, updatedAt: new Date().toISOString() };
       if (db) await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
       else getMockStore().sessions.set(`video_test_${jobId}`, { ...job, ...update });
       return NextResponse.json({ success: true, status: 'processing', jobId, providerStatus: state });
     }
-    if (state !== 'COMPLETED') throw new Error(`Fal returned terminal status ${state || 'UNKNOWN'}.`);
+    if (state !== 'COMPLETED' && state !== 'SUCCEEDED') throw new Error(`${providerName === 'wavespeed' ? 'WaveSpeed' : 'Fal'} returned terminal status ${state || 'UNKNOWN'}.`);
 
     const leaseUntil = Date.now() + 2 * 60 * 1000;
     if (db) {
@@ -98,9 +116,11 @@ export async function GET(req: NextRequest) {
       getMockStore().sessions.set(`video_test_${jobId}`, { ...current, status: 'finalizing', finalizationLeaseUntil: leaseUntil });
     }
 
-    const result = await falGet(job.responseUrl, falKey);
+    const result = providerName === 'wavespeed'
+      ? providerStatus
+      : await falGet(job.responseUrl, falKey!);
     const remoteVideoUrl = extractVideoUrl(result);
-    if (!remoteVideoUrl) throw new Error('Fal completed the request without a playable video URL.');
+    if (!remoteVideoUrl) throw new Error(`${providerName === 'wavespeed' ? 'WaveSpeed' : 'Fal'} completed the request without a playable video URL.`);
     const videoResponse = await fetch(remoteVideoUrl, { cache: 'no-store' });
     if (!videoResponse.ok) throw new Error(`Generated video download failed (${videoResponse.status}).`);
     const contentType = videoResponse.headers.get('content-type') || 'video/mp4';

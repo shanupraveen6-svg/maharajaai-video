@@ -35,6 +35,9 @@ GOOGLE_AI_API_KEY_PRIMARY="..."
 GEMINI_ANALYSIS_MODEL="gemini-2.5-flash-lite"
 GEMINI_IMAGE_MODEL="gemini-3.1-flash-image"
 FAL_KEY="..."
+WAVESPEED_API_KEY="..."
+# Use "wavespeed" only while validating its H3 R2V output. Omit or set "fal" for normal production.
+VIDEO_PROVIDER="fal"
 
 OPERATOR_USERNAME="..."
 OPERATOR_PASSWORD="..."

@@ -5,7 +5,7 @@ import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/l
 import { isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId } from '@/lib/maharaja/config';
 import { getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
-import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
+import { buildVideoTestInput, buildWaveSpeedVideoInput, getActiveVideoProvider, getVideoTestModel } from '@/lib/maharaja/video-test';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -92,8 +92,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'sessionId and accessCode are required.' }, { status: 400 });
   }
 
+  const providerName = getActiveVideoProvider();
   const falKey = process.env.FAL_KEY?.trim();
-  if (!falKey) return NextResponse.json({ success: false, error: 'FAL_KEY is not configured.' }, { status: 503 });
+  const waveSpeedKey = process.env.WAVESPEED_API_KEY?.trim();
+  if (providerName === 'fal' && !falKey) return NextResponse.json({ success: false, error: 'Video provider is temporarily unavailable.' }, { status: 503 });
+  if (providerName === 'wavespeed' && !waveSpeedKey) return NextResponse.json({ success: false, error: 'Video provider is temporarily unavailable.' }, { status: 503 });
 
   const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
   if (!access.allowed || !access.pass) {
@@ -132,7 +135,7 @@ export async function POST(req: NextRequest) {
     jobId, sessionId, accessCode, modelId: model.id, model: model.model,
     status: 'preparing', createdAt, updatedAt: createdAt,
     estimatedUsd: model.estimatedUsd, duration: model.seconds,
-    attempt: 1,
+    attempt: 1, providerName,
     webhookTokenHash,
     promptArchitectureVersion: VIDEO_PROMPT_ARCHITECTURE_VERSION,
   };
@@ -190,34 +193,52 @@ export async function POST(req: NextRequest) {
     const garmentRoles = Array.isArray(access.pass.videoMasterGarmentRoles)
       ? access.pass.videoMasterGarmentRoles.map((value) => String(value)).slice(0, garments.length)
       : [];
-    const input = buildVideoTestInput(
-      master.url,
-      garments.map((item) => item.url),
-      concept.id,
-      garmentRoles,
-    );
-    const webhookUrl = new URL('/api/video/webhook', req.nextUrl.origin);
-    webhookUrl.searchParams.set('jobId', jobId);
-    webhookUrl.searchParams.set('token', webhookToken);
-    const queueUrl = new URL(`https://queue.fal.run/${model.model}`);
-    queueUrl.searchParams.set('fal_webhook', webhookUrl.toString());
-    const response = await fetch(queueUrl, {
-      method: 'POST',
-      headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(input),
-      cache: 'no-store',
-    });
-    const raw = await response.text();
-    if (!response.ok) throw new Error(falError(response.status, raw));
-    const provider = JSON.parse(raw);
-    const requestId = provider.request_id || provider.requestId;
-    const statusUrl = provider.status_url || provider.statusUrl;
-    const responseUrl = provider.response_url || provider.responseUrl;
-    if (!requestId || !statusUrl || !responseUrl) throw new Error('Fal accepted the request but returned incomplete queue tracking data.');
+    let requestId = '';
+    let statusUrl = '';
+    let responseUrl = '';
+    let providerSeed: string | number | null = null;
+    if (providerName === 'wavespeed') {
+      const response = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/minimax-h3/reference-to-video', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${waveSpeedKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(buildWaveSpeedVideoInput(master.url, garments.map((item) => item.url), concept.id, garmentRoles)),
+        cache: 'no-store',
+      });
+      const raw = await response.text();
+      if (!response.ok) throw new Error(`WaveSpeed request failed (${response.status}): ${raw.slice(0, 500)}`);
+      const parsed = JSON.parse(raw);
+      const task = parsed?.data || parsed;
+      requestId = String(task?.id || '');
+      providerSeed = typeof task?.seed === 'number' || typeof task?.seed === 'string' ? task.seed : null;
+      statusUrl = requestId ? `https://api.wavespeed.ai/api/v3/predictions/${encodeURIComponent(requestId)}/result` : '';
+      responseUrl = statusUrl;
+      if (!requestId) throw new Error('WaveSpeed accepted the request but returned no prediction id.');
+    } else {
+      const input = buildVideoTestInput(master.url, garments.map((item) => item.url), concept.id, garmentRoles);
+      const webhookUrl = new URL('/api/video/webhook', req.nextUrl.origin);
+      webhookUrl.searchParams.set('jobId', jobId);
+      webhookUrl.searchParams.set('token', webhookToken);
+      const queueUrl = new URL(`https://queue.fal.run/${model.model}`);
+      queueUrl.searchParams.set('fal_webhook', webhookUrl.toString());
+      const response = await fetch(queueUrl, {
+        method: 'POST',
+        headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(input),
+        cache: 'no-store',
+      });
+      const raw = await response.text();
+      if (!response.ok) throw new Error(falError(response.status, raw));
+      const provider = JSON.parse(raw);
+      requestId = provider.request_id || provider.requestId;
+      statusUrl = provider.status_url || provider.statusUrl;
+      responseUrl = provider.response_url || provider.responseUrl;
+      providerSeed = typeof provider.seed === 'number' || typeof provider.seed === 'string' ? provider.seed : null;
+      if (!requestId || !statusUrl || !responseUrl) throw new Error('Fal accepted the request but returned incomplete queue tracking data.');
+    }
 
     const update = {
-      status: 'submitted', requestId, statusUrl, responseUrl,
-      seed: typeof provider.seed === 'number' || typeof provider.seed === 'string' ? provider.seed : null,
+      status: 'submitted', requestId, statusUrl, responseUrl, providerName,
+      seed: providerSeed,
       referenceCount: garments.length + 1,
       eventId,
       category,
