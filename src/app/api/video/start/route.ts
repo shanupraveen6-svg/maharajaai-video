@@ -212,6 +212,9 @@ export async function POST(req: NextRequest) {
       const raw = await response.text();
       if (!response.ok) throw new Error(`WaveSpeed request failed (${response.status}): ${raw.slice(0, 500)}`);
       const parsed = JSON.parse(raw);
+      if (parsed?.code && parsed.code !== 200 && parsed.code !== 0) {
+        throw new Error(`WaveSpeed rejected request (${parsed.code}): ${parsed.message || parsed.error || raw.slice(0, 500)}`);
+      }
       const task = parsed?.data || parsed;
       requestId = String(task?.id || '');
       providerSeed = typeof task?.seed === 'number' || typeof task?.seed === 'string' ? task.seed : null;

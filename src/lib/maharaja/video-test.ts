@@ -48,7 +48,7 @@ export function getActiveVideoProvider(): VideoProvider {
 }
 
 export function isVideoModelTestingEnabled() {
-  return process.env.VIDEO_MODEL_TESTING?.trim().toLowerCase() === 'true';
+  return (process.env.VIDEO_MODEL_TESTING || process.env.NEXT_PUBLIC_VIDEO_MODEL_TESTING)?.trim().toLowerCase() === 'true';
 }
 
 function findWaveSpeedTestModel(value: unknown) {
@@ -122,10 +122,24 @@ export function publicFalQueueUrl(value: unknown) {
 }
 
 export function extractVideoUrl(result: any) {
-  const outputs = Array.isArray(result?.outputs) ? result.outputs : Array.isArray(result?.data?.outputs) ? result.data.outputs : [];
+  const outputs = Array.isArray(result?.outputs)
+    ? result.outputs
+    : Array.isArray(result?.data?.outputs)
+      ? result.data.outputs
+      : Array.isArray(result?.output)
+        ? result.output
+        : typeof result?.output === 'string'
+          ? [result.output]
+          : typeof result?.data?.output === 'string'
+            ? [result.data.output]
+            : [];
   const candidates = [
-    result?.video?.url, result?.video_url, result?.data?.video?.url, result?.output?.video?.url,
-    ...outputs.map((output: unknown) => typeof output === 'string' ? output : (output as any)?.url),
+    result?.video?.url,
+    result?.video_url,
+    result?.data?.video?.url,
+    result?.output?.video?.url,
+    result?.data?.output?.video?.url,
+    ...outputs.map((output: unknown) => (typeof output === 'string' ? output : (output as any)?.url)),
   ];
   return candidates.find((value) => typeof value === 'string' && value.startsWith('http')) || '';
 }

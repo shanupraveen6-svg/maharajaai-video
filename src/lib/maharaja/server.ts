@@ -1699,7 +1699,9 @@ export async function finalizeCompletedVideo({
       providerUrl.hostname === 'fal.media' ||
       providerUrl.hostname.endsWith('.fal.media') ||
       providerUrl.hostname === 'fal.run' ||
-      providerUrl.hostname.endsWith('.fal.run')
+      providerUrl.hostname.endsWith('.fal.run') ||
+      providerUrl.hostname === 'api.wavespeed.ai' ||
+      providerUrl.hostname.endsWith('.wavespeed.ai')
     );
     if (!providerHostAllowed) {
       return { success: false, error: 'Video provider returned an untrusted result URL.' };

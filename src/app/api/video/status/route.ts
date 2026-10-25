@@ -31,6 +31,9 @@ async function waveSpeedGet(url: string, waveSpeedKey: string) {
   let data: any = null;
   try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
   if (!response.ok) throw new Error(`WaveSpeed queue failed (${response.status}): ${typeof data === 'string' ? data.slice(0, 500) : JSON.stringify(data).slice(0, 500)}`);
+  if (data?.code && data.code !== 200 && data.code !== 0) {
+    throw new Error(`WaveSpeed queue error (${data.code}): ${data.message || data.error || raw.slice(0, 500)}`);
+  }
   return data?.data || data;
 }
 
@@ -80,13 +83,31 @@ export async function GET(req: NextRequest) {
       ? await waveSpeedGet(job.statusUrl, waveSpeedKey!)
       : await falGet(job.statusUrl, falKey!);
     const state = String(providerStatus?.status || '').toUpperCase();
-    if (state === 'IN_QUEUE' || state === 'IN_PROGRESS' || state === 'PENDING' || state === 'PROCESSING' || state === 'RUNNING') {
-      const update = { status: 'processing', providerStatus: state, updatedAt: new Date().toISOString() };
+    const isCompleted = state === 'COMPLETED' || state === 'SUCCEEDED';
+    const isTerminalFailure = ['FAILED', 'CANCELLED', 'TIMEOUT', 'DELETED', 'ERROR'].includes(state)
+      || (typeof providerStatus?.error === 'string' && providerStatus.error.trim().length > 0);
+
+    if (!isCompleted && !isTerminalFailure) {
+      const activeState = state || 'PROCESSING';
+      const update = { status: 'processing', providerStatus: activeState, updatedAt: new Date().toISOString() };
       if (db) await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
       else getMockStore().sessions.set(`video_test_${jobId}`, { ...job, ...update });
-      return NextResponse.json({ success: true, status: 'processing', jobId, providerStatus: state });
+      return NextResponse.json({ success: true, status: 'processing', jobId, providerStatus: activeState });
     }
-    if (state !== 'COMPLETED' && state !== 'SUCCEEDED') throw new Error(`${providerName === 'wavespeed' ? 'WaveSpeed' : 'Fal'} returned terminal status ${state || 'UNKNOWN'}.`);
+
+    if (isTerminalFailure) {
+      const providerError = typeof providerStatus?.error === 'string'
+        ? providerStatus.error
+        : typeof providerStatus?.message === 'string'
+          ? providerStatus.message
+          : typeof providerStatus?.detail === 'string'
+            ? providerStatus.detail
+            : '';
+      const failureMessage = providerError
+        ? `${providerName === 'wavespeed' ? 'WaveSpeed' : 'Fal'} error: ${providerError.slice(0, 500)}`
+        : `${providerName === 'wavespeed' ? 'WaveSpeed' : 'Fal'} returned terminal status ${state || 'UNKNOWN'}.`;
+      throw new Error(failureMessage);
+    }
 
     const leaseUntil = Date.now() + 2 * 60 * 1000;
     if (db) {
