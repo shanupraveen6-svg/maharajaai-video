@@ -191,7 +191,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [photoInputError, setPhotoInputError] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
-  const maxGarmentPhotos = 3;
+  const maxGarmentPhotos = isTryOn ? 3 : 2;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   const isCatalogueGift = access?.access.experienceType === 'catalogue-gift';
@@ -479,7 +479,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     const currentCount = append ? garmentPhotos.length : 0;
     const availableSlots = maxAllowed - currentCount;
     if (availableSlots <= 0) {
-      setError('Only 3 garment photos can be added.');
+      setError(`Only ${maxGarmentPhotos} garment photos can be added.`);
       return;
     }
     const selectedFiles = files.slice(0, availableSlots);
@@ -506,8 +506,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       setGarmentPhotos(combined);
       setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType, primaryColor: 'Original color' });
       setMessage(trimmedSelection
-        ? `Only ${availableSlots} garment photo${availableSlots === 1 ? '' : 's'} could be added. Maximum is 3.`
-        : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to 3).`);
+        ? `Only ${availableSlots} garment photo${availableSlots === 1 ? '' : 's'} could be added. Maximum is ${maxGarmentPhotos}.`
+        : `${combined.length} garment photo${combined.length === 1 ? '' : 's'} ready (up to ${maxGarmentPhotos}).`);
     } catch (caught) {
       setGarmentAnalysis(null);
       const message = customerError(caught, 'The garment photo could not be prepared. Please take the photo again.');
@@ -1008,22 +1008,22 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         >
                           {GARMENT_TYPE_OPTIONS[category].map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
-                        <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">Confirm the garment type first. The three labels below become the exact reference roles sent to AI.</span>
-                        {garmentType === 'saree' && <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">For exact blouse output, add a blouse photo as the third reference.</span>}
+                        <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">Confirm the garment type first. The reference roles below are sent to AI.</span>
+                        {garmentType === 'saree' && isTryOn && <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">For exact blouse output, add a blouse photo as the third reference.</span>}
                       </label>
 
                       {garmentPhotos.length === 0 ? (
                         <div className="aspect-[3/4] overflow-hidden bg-white p-2 flex flex-col items-center justify-center gap-2 text-slate-400">
                           <Shirt className="h-10 w-10 text-slate-300" />
                           <span className="text-xs font-bold uppercase text-center">
-                            1 to 3 garment photos
+                            {isTryOn ? '1 to 3 garment photos' : '1 to 2 garment photos'}
                           </span>
                           <span className="text-[11px] text-center text-slate-400">
-                            {garmentType === 'saree' ? 'Saree body, pallu / border, and blouse' : 'Front view, detail, or border / layer'}
+                            {garmentType === 'saree' ? 'Saree body, pallu / border' : 'Front view, detail, or border / layer'}
                           </span>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className={`grid gap-2 ${maxGarmentPhotos === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                           {visibleGarmentPhotos.map((photo, idx) => {
                             const defaultRole = GARMENT_ROLE_OPTIONS[garmentType][idx] || 'Garment detail';
                             const role = garmentRoles[idx] || defaultRole;

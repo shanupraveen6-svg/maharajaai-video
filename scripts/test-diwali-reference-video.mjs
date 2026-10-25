@@ -49,12 +49,41 @@ for (const concept of VIDEO_CONCEPTS) {
       ['front', 'back', 'detail'],
     );
 
-    // Rule 6: Duration, resolution, aspect ratio
+    // Rule 6: Duration, resolution, aspect ratio per provider contract
     assert.equal(input.duration, 6, `${model.id}: duration must be exactly 6 seconds`);
-    assert.equal(input.aspect_ratio, '9:16', `${model.id}: aspect ratio must be 9:16`);
-    assert(['768p', '720p'].includes(input.resolution), `${model.id}: resolution must be 768p or 720p`);
-    if (model.inputFormat === 'h3') assert.equal(input.resolution, '768p');
-    else assert.equal(input.resolution, '720p');
+    if (model.inputFormat === 'h3') {
+      assert.equal(input.resolution, '768p');
+      assert.equal(input.aspect_ratio, '9:16');
+      assert.equal(input.generate_audio, undefined, `${model.id}: audio must be omitted (no audio control in schema)`);
+      assert.equal(input.sound, undefined);
+    } else if (model.inputFormat === 'vidu') {
+      assert.equal(input.resolution, '720p');
+      assert.equal(input.aspect_ratio, '9:16');
+      assert.equal(input.generate_audio, false, `${model.id}: generate_audio must be false`);
+    } else if (model.inputFormat === 'kling-o3') {
+      assert.equal(input.resolution, undefined, `${model.id}: resolution must be omitted (fixed 720p model)`);
+      assert.equal(input.aspect_ratio, '9:16');
+      assert.equal(input.sound, false, `${model.id}: sound must be false`);
+      assert.equal(input.generate_audio, undefined);
+    } else if (model.inputFormat === 'gemini-omni') {
+      assert.equal(input.resolution, '720p');
+      assert.equal(input.aspect_ratio, '9:16');
+      assert.equal(input.generate_audio, undefined, `${model.id}: audio must be omitted (no audio control in schema)`);
+    } else if (model.inputFormat === 'pixverse-c1') {
+      assert.equal(input.resolution, '720p');
+      assert.equal(input.aspect_ratio, '9:16');
+      assert.equal(input.generate_audio_switch, false, `${model.id}: generate_audio_switch must be false`);
+      assert.equal(input.generate_audio, undefined);
+    } else if (model.inputFormat === 'grok-imagine') {
+      assert.equal(input.resolution, '720p');
+      assert.equal(input.generate_audio, undefined, `${model.id}: audio must be omitted (no audio control in schema)`);
+      assert.equal(input.aspect_ratio, undefined);
+    } else if (model.inputFormat === 'pruna') {
+      assert.equal(input.resolution, '768p', `${model.id}: 768p is nearest supported resolution above 720p`);
+      assert.equal(input.aspect_ratio, '9:16');
+      assert.equal(input.prompt_upsampler, 'off');
+      assert.equal(input.generate_audio, undefined, `${model.id}: audio must be omitted (no audio control in schema)`);
+    }
 
     // Rule 1: Maximum supplied refs = 3, no 4th reference
     const refCount = Array.isArray(input.images) ? input.images.length : Array.isArray(input.reference_images) ? input.reference_images.length : 0;
@@ -97,7 +126,6 @@ for (const concept of VIDEO_CONCEPTS) {
       assert.doesNotMatch(input.prompt, /Image 4/);
       assert.doesNotMatch(input.prompt, /<Picture/);
       assert.doesNotMatch(input.prompt, /@Image/);
-      assert.equal(input.generate_audio, false);
     } else if (model.inputFormat === 'kling-o3') {
       assert.match(input.prompt, /<<<image_1>>>/);
       assert.match(input.prompt, /<<<image_2>>>/);
@@ -105,35 +133,30 @@ for (const concept of VIDEO_CONCEPTS) {
       assert.doesNotMatch(input.prompt, /<<<image_4>>>/);
       assert.doesNotMatch(input.prompt, /@Image/);
       assert.doesNotMatch(input.prompt, /<Picture/);
-      assert.equal(input.keep_original_sound, false);
     } else if (model.inputFormat === 'gemini-omni') {
       assert.match(input.prompt, /<IMAGE_REF_0>/);
       assert.match(input.prompt, /<IMAGE_REF_1>/);
       assert.match(input.prompt, /<IMAGE_REF_2>/);
       assert.doesNotMatch(input.prompt, /<IMAGE_REF_3>/);
       assert.doesNotMatch(input.prompt, /<Picture/);
-      assert.equal(input.generate_audio, false);
     } else if (model.inputFormat === 'pixverse-c1') {
       assert.match(input.prompt, /@master/);
       assert.match(input.prompt, /@garment1/);
       assert.match(input.prompt, /@garment2/);
       assert.doesNotMatch(input.prompt, /@garment3/);
       assert.doesNotMatch(input.prompt, /<Picture/);
-      assert.equal(input.generate_audio, false);
     } else if (model.inputFormat === 'grok-imagine') {
       assert.match(input.prompt, /<IMAGE_0>/);
       assert.match(input.prompt, /<IMAGE_1>/);
       assert.match(input.prompt, /<IMAGE_2>/);
       assert.doesNotMatch(input.prompt, /<IMAGE_3>/);
       assert.doesNotMatch(input.prompt, /<Picture/);
-      assert.equal(input.generate_audio, false);
     } else if (model.inputFormat === 'pruna') {
       assert.match(input.prompt, /Master portrait \(Image 1\)/);
       assert.match(input.prompt, /Garment reference 1/);
       assert.match(input.prompt, /Garment reference 2/);
       assert.doesNotMatch(input.prompt, /<Picture/);
       assert.doesNotMatch(input.prompt, /<IMAGE/);
-      assert.equal(input.generate_audio, false);
     }
 
     // Rule 4: Prompt length < 5,000 characters

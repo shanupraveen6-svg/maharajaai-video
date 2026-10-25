@@ -191,10 +191,8 @@ export function buildWaveSpeedVideoInput(
       prompt: finalPrompt,
       images: references,
       duration: 6,
-      resolution: '720p',
       aspect_ratio: '9:16',
-      keep_original_sound: false,
-      generate_audio: false,
+      sound: false,
     };
   }
 
@@ -212,7 +210,6 @@ export function buildWaveSpeedVideoInput(
       duration: 6,
       resolution: '720p',
       aspect_ratio: '9:16',
-      generate_audio: false,
     };
   }
 
@@ -236,7 +233,7 @@ export function buildWaveSpeedVideoInput(
       duration: 6,
       resolution: '720p',
       aspect_ratio: '9:16',
-      generate_audio: false,
+      generate_audio_switch: false,
     };
   }
 
@@ -253,13 +250,11 @@ export function buildWaveSpeedVideoInput(
       images: references,
       duration: 6,
       resolution: '720p',
-      aspect_ratio: '9:16',
-      generate_audio: false,
     };
   }
 
   if (inputFormat === 'pruna') {
-    // Pruna: Documented plain images array without unsupported special tags
+    // Pruna: Documented plain images array without unsupported special tags; nearest supported resolution above 720p is 768p
     const garmentMap = safeGarments
       .map((_, index) => `Garment reference ${index + 1} (Image ${index + 2})${safeRoles[index] ? ` (${safeRoles[index]})` : ''} confirms exact garment construction only.`)
       .join('\n');
@@ -273,9 +268,9 @@ export function buildWaveSpeedVideoInput(
       prompt: finalPrompt,
       images: references,
       duration: 6,
-      resolution: '720p',
+      resolution: '768p',
       aspect_ratio: '9:16',
-      generate_audio: false,
+      prompt_upsampler: 'off',
     };
   }
 

@@ -1245,10 +1245,10 @@ export async function markPassVideoMasterDone(
       if (cat) updateData.videoMasterCategory = cat;
       if (garment) updateData.videoMasterGarmentType = garment;
       if (meta?.experienceId) updateData.videoMasterExperienceId = meta.experienceId;
-      if (meta?.garmentRoles) updateData.videoMasterGarmentRoles = meta.garmentRoles.slice(0, 3);
+      if (meta?.garmentRoles) updateData.videoMasterGarmentRoles = meta.garmentRoles.slice(0, 2);
       if (meta?.referenceSessionId) updateData.videoReferenceSessionId = meta.referenceSessionId;
       if (meta?.personPhotoStoragePath) updateData.videoPersonPhotoStoragePath = meta.personPhotoStoragePath;
-      if (meta?.garmentPhotoStoragePaths) updateData.videoGarmentPhotoStoragePaths = meta.garmentPhotoStoragePaths.slice(0, 3);
+      if (meta?.garmentPhotoStoragePaths) updateData.videoGarmentPhotoStoragePaths = meta.garmentPhotoStoragePaths.slice(0, 2);
       tx.update(ref, updateData);
     });
     await recordServiceGenerationSuccess(code, 'master-image', { url: videoMasterUrl });
@@ -1279,10 +1279,10 @@ export async function markPassVideoMasterDone(
     if (cat) passCopy.videoMasterCategory = cat;
     if (garment) passCopy.videoMasterGarmentType = garment;
     if (meta?.experienceId) passCopy.videoMasterExperienceId = meta.experienceId;
-    if (meta?.garmentRoles) passCopy.videoMasterGarmentRoles = meta.garmentRoles.slice(0, 3);
+    if (meta?.garmentRoles) passCopy.videoMasterGarmentRoles = meta.garmentRoles.slice(0, 2);
     if (meta?.referenceSessionId) passCopy.videoReferenceSessionId = meta.referenceSessionId;
     if (meta?.personPhotoStoragePath) passCopy.videoPersonPhotoStoragePath = meta.personPhotoStoragePath;
-    if (meta?.garmentPhotoStoragePaths) passCopy.videoGarmentPhotoStoragePaths = meta.garmentPhotoStoragePaths.slice(0, 3);
+    if (meta?.garmentPhotoStoragePaths) passCopy.videoGarmentPhotoStoragePaths = meta.garmentPhotoStoragePaths.slice(0, 2);
     getMockStore().customerPasses.set(key, passCopy);
     await recordServiceGenerationSuccess(code, 'master-image', { url: videoMasterUrl });
   }

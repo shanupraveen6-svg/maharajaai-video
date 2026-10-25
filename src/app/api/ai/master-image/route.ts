@@ -162,11 +162,13 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const maxGarmentPhotos = 3;
+    const maxGarmentPhotos = service === 'ai-video' ? 2 : 3;
     if (garmentInputs.length > maxGarmentPhotos) {
       return NextResponse.json({
         success: false,
-        error: 'Upload up to 3 garment photos max.',
+        error: service === 'ai-video'
+          ? 'Upload up to 2 garment photos max for AI Video.'
+          : 'Upload up to 3 garment photos max.',
       }, { status: 400 });
     }
 
@@ -349,7 +351,7 @@ ${categoryGarmentLine}
         masterImageUrl,
         masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
         personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : null,
-        garmentPhotoStoragePaths: garmentInputs.slice(0, 3),
+        garmentPhotoStoragePaths: garmentInputs.slice(0, 2),
         masterImageApproved: false,
         masterImageApprovedAt: null,
         masterImageApprovedUrl: null,
@@ -426,10 +428,10 @@ ${categoryGarmentLine}
             promptArchitectureVersion: VIDEO_PROMPT_ARCHITECTURE_VERSION,
             category: customerCategory,
             garmentType,
-            garmentRoles: sanitizedGarmentRoles.slice(0, 3),
+            garmentRoles: sanitizedGarmentRoles.slice(0, 2),
             referenceSessionId: sessionId,
             personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : undefined,
-            garmentPhotoStoragePaths: garmentInputs.slice(0, 3),
+            garmentPhotoStoragePaths: garmentInputs.slice(0, 2),
           }, boundGenerationId);
         }
       })());
