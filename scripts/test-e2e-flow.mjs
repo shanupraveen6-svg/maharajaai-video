@@ -150,7 +150,7 @@ async function run() {
     assert(/exact facial geometry/i.test(masterPrompt) && /exact garment/i.test(masterPrompt), `${concept.id}: Identity and garment lock enforced`);
     assert(/Do not add foundation/.test(masterPrompt) && /doll-like appearance/.test(masterPrompt), `${concept.id}: Master keeps natural skin without makeup`);
     assert(/outer thighs/.test(concept.finalPose) && !/Namaste|clasped|hip|wrist/i.test(concept.finalPose), `${concept.id}: Hands stay safely beside the thighs`);
-    assert(/still photographic layer/.test(motionPrompt) && /No hand may move toward or touch the chest/.test(motionPrompt), `${concept.id}: H3 freezes customer and hand pose`);
+    assert(/small genuine smile/.test(motionPrompt) && /no hand rises, folds inward or approaches the chest/.test(motionPrompt), `${concept.id}: H3 permits natural expression while keeping hands safely below the waist`);
     assert(/CAMERA CHOREOGRAPHY:/.test(motionPrompt) && /BACKGROUND ANIMATION:/.test(motionPrompt) && /CINEMATIC EFFECTS:/.test(motionPrompt), `${concept.id}: Camera, background and effects remain explicit`);
   }
 
