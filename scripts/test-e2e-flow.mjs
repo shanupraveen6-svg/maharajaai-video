@@ -39,6 +39,21 @@ async function run() {
   assert(typeof workspaceResult.data.workspace?.analytics?.luxuryThreshold === 'number', 'Analytics includes configurable luxury threshold');
   const { tryOnCode, billingCode } = workspaceResult.data.workspace;
 
+  const pairing = await fetch(`${BASE_URL}/api/tv/pair`, { method: 'POST', headers: { cookie } });
+  const displayCookie = pairing.headers.get('set-cookie')?.split(';')[0] || '';
+  assert(pairing.ok && displayCookie.startsWith('maharaja_display_auth='), 'Staff can pair a display independently of the operator session');
+  const displayPage = await fetch(`${BASE_URL}/maharaja/tv`, { headers: { cookie: displayCookie }, redirect: 'manual' });
+  assert(displayPage.ok, 'Paired display opens TV without an operator cookie');
+  const displayLibrary = await fetch(`${BASE_URL}/api/live/replays`, { headers: { cookie: displayCookie } });
+  assert(displayLibrary.ok, 'Paired display can read the replay library');
+  const displayAdmin = await fetch(`${BASE_URL}/api/maharaja/workspace`, { headers: { cookie: displayCookie } });
+  assert(displayAdmin.status === 401, 'Paired display cannot access the client admin API');
+  const displayPublish = await fetch(`${BASE_URL}/api/live/replays`, { method: 'POST', headers: { cookie: displayCookie, 'Content-Type': 'application/json' }, body: '{}' });
+  assert(displayPublish.status === 401, 'Paired display cannot publish stored videos');
+  await fetch(`${BASE_URL}/api/tv/pair`, { method: 'DELETE', headers: { cookie } });
+  const revokedLibrary = await fetch(`${BASE_URL}/api/live/replays`, { headers: { cookie: displayCookie } });
+  assert(revokedLibrary.status === 401, 'Revoked display immediately loses replay access');
+
   const missingTryOnQr = await json(await fetch(`${BASE_URL}/api/ai/analyze-price-tag`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ accessCode: '', deviceId: `missingqr${Date.now()}`, printedText: 'MRP Rs. 799' }),
@@ -51,11 +66,11 @@ async function run() {
   }));
   assert(unauthenticatedBilling.response.status === 401, 'Public link cannot generate pass without authenticated biller/operator access');
 
-  const invalidTier = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
+  const invalidPhone = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', cookie },
-    body: JSON.stringify({ billingCode, phone: '9999999999', billLast4: '5678', eventId: 'diwali', billAmount: 1000 }),
+    body: JSON.stringify({ billingCode, phone: '123' }),
   }));
-  assert(invalidTier.response.status === 400, 'Biller must select a valid ₹5,000+, ₹7,000+, or ₹10,000+ tier');
+  assert(invalidPhone.response.status === 400, 'Phone-only billing rejects invalid phone numbers');
 
   // Biller Role Test: Creates customer pass with operator cookie
   const passResult = await json(await fetch(`${BASE_URL}/api/maharaja/video-pass`, {
@@ -65,15 +80,31 @@ async function run() {
   assert(passResult.response.ok && passResult.data.pass?.code, 'Biller creates customer AI Video QR');
   const customerPassCode = passResult.data.pass.code;
 
+  // Stop at garment-type confirmation, before any upload reads or paid calls.
+  for (const count of [1, 2, 3, 4]) {
+    const validation = await json(await fetch(`${BASE_URL}/api/ai/master-image`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'e2e_photo_limit', accessCode: customerPassCode, service: 'try-on', templateId: 'women',
+        processingConsent: true, consentVersion: '2026-10-privacy-v1', garmentTypeConfirmed: false,
+        personPhotoStoragePath: 'clients/maharaja/sessions/e2e_photo_limit/person/photo.jpg',
+        garmentPhotoStoragePaths: Array.from({ length: count }, (_, i) => `clients/maharaja/sessions/e2e_photo_limit/garment/${i}.jpg`),
+      }),
+    }));
+    assert(validation.response.status === 400 && (count === 4
+      ? /up to 3 garment/i.test(validation.data.error)
+      : /confirm the garment type/i.test(validation.data.error)), `${count} garment reference(s): API enforces the 1–3 limit before generation`, `${validation.response.status}: ${validation.data.error}`);
+  }
+
   // Billing-QR Customer Role Test: Customer with billing pass accesses ai-video
   const customerPassAccess = await json(await fetch(`${BASE_URL}/api/maharaja/access/${customerPassCode}?service=ai-video`));
-  assert(customerPassAccess.response.ok && customerPassAccess.data.access?.service === 'ai-video' && customerPassAccess.data.access?.billLast4 === '5678', 'Billing-QR customer accesses AI Video service');
+  assert(customerPassAccess.response.ok && customerPassAccess.data.access?.service === 'ai-video', 'Phone-only billing QR opens the customer AI Video service');
 
   // Wall-QR Customer Role Test: scans a locally decoded Rs 799 barcode
   const deviceId = `e2edevice${Date.now()}`;
   const tagResult = await json(await fetch(`${BASE_URL}/api/ai/analyze-price-tag`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accessCode: tryOnCode, deviceId, barcode: '', printedText: 'Maximum Retail Price: Rs. 799.00', format: 'PRINTED_MRP' }),
+    body: JSON.stringify({ accessCode: tryOnCode, deviceId, barcode: '', printedText: 'Maximum Retail Price: Rs. 799.00', format: 'PRINTED_MRP', confirmed: true }),
   }));
   assert(tagResult.response.ok && tagResult.data.analysis?.eligible && tagResult.data.grant?.token, 'Printed Rs 799 MRP grants one Try-On without requiring a readable barcode');
 

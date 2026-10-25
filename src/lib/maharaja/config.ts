@@ -48,7 +48,7 @@ export function buildTryOnPrompt(category: CustomerCategory) {
 
 REFERENCE AUTHORITY:
 - Image 1 is the authoritative customer identity reference.
-- Image 2 is the sole garment reference.
+- Images 2 onwards show the same garment or its explicitly labelled pieces and details. Use all supplied garment references together.
 
 IDENTITY AND NATURAL-SKIN LOCK:
 - Preserve the exact face, natural asymmetry, eyes, nose, lips, jawline, ears, skin tone, hairstyle, hairline, facial hair, glasses, age appearance and body proportions from Image 1.
@@ -56,7 +56,7 @@ IDENTITY AND NATURAL-SKIN LOCK:
 - Do not add makeup, foundation, lipstick, eyeliner, contouring, false lashes, skin whitening, glamour styling, beauty filters, facial reshaping, symmetry correction, airbrushing, waxy skin, plastic skin, porcelain texture, CGI or a doll-like appearance.
 
 GARMENT LOCK:
-- Dress the customer in the exact garment from Image 2.
+- Dress the customer in the exact garment from the supplied garment references; combine their details into one outfit.
 - Preserve its exact colours, colour transitions, fabric, weave, prints, embroidery, borders, neckline, sleeves, drape, pieces and silhouette.
 - Ignore the garment photo's mannequin, hanger, rack, stand and background. Transfer only the garment.
 - Use realistic cloth gravity, folds and contact shadows without changing the customer's body.

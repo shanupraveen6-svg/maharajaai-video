@@ -113,6 +113,7 @@ export type MaharajaVideoPass = {
   rejectedMasterUrls?: string[];
   /** Active image generation ID bound to this pass to prevent in-flight race conditions. */
   activeMasterGenerationId?: string;
+  activeImageGenerationId?: string;
   imageGenerating?: boolean;
   imageGeneratingAtMs?: number;
   videoGenerating?: boolean;
@@ -1938,6 +1939,7 @@ export async function acquirePassImageLock(
   const lockUpdate: Record<string, any> = {
     imageGenerating: true,
     imageGeneratingAtMs: now,
+    activeImageGenerationId: boundGenId,
   };
   if (service === 'ai-video') {
     lockUpdate.activeMasterGenerationId = boundGenId;
@@ -1984,17 +1986,17 @@ export async function releasePassImageLock(code: string, generationId?: string):
       const snap = await tx.get(ref);
       if (!snap.exists) return;
       const pass = snap.data() as MaharajaVideoPass;
-      if (generationId && pass.activeMasterGenerationId !== generationId) {
+      if (generationId && (pass.activeImageGenerationId || pass.activeMasterGenerationId) !== generationId) {
         return;
       }
-      tx.update(ref, { imageGenerating: false, activeMasterGenerationId: FieldValue.delete() });
+      tx.update(ref, { imageGenerating: false, activeImageGenerationId: FieldValue.delete(), activeMasterGenerationId: FieldValue.delete() });
     });
   } else {
     const key = `${MAHARAJA_CLIENT_ID}:${code}`;
     const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
     if (pass) {
-      if (!generationId || pass.activeMasterGenerationId === generationId) {
-        getMockStore().customerPasses.set(key, { ...pass, imageGenerating: false, activeMasterGenerationId: undefined });
+      if (!generationId || (pass.activeImageGenerationId || pass.activeMasterGenerationId) === generationId) {
+        getMockStore().customerPasses.set(key, { ...pass, imageGenerating: false, activeImageGenerationId: undefined, activeMasterGenerationId: undefined });
       }
     }
   }

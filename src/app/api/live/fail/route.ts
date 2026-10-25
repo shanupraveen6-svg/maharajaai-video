@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { verifyTvRequest } from '@/lib/auth/display';
 
 export async function POST(req: NextRequest) {
-  if (!verifyOperatorRequest(req)) {
+  if (!await verifyTvRequest(req)) {
     return NextResponse.json({ success: false, error: 'Authenticated Maharaja TV required.' }, { status: 401 });
   }
   try {

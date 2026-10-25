@@ -26,18 +26,21 @@ function formatGeminiImageError(error: any) {
   const lower = raw.toLowerCase();
 
   if (lower.includes('resource_exhausted') || lower.includes('quota') || lower.includes('free tier')) {
-    return 'Gemini image quota is exhausted or the Vercel API key is connected to a free-tier Google AI project. Create/use an API key from the paid/prepay Maharaja project and update GOOGLE_AI_API_KEY_PRIMARY in Vercel.';
+    return 'Image generation is temporarily unavailable because the service limit was reached. Please ask Maharaja staff for assistance.';
   }
 
   if (lower.includes('api key') || lower.includes('permission') || lower.includes('unauthenticated')) {
-    return 'Gemini API key is invalid or does not have access to image generation. Update GOOGLE_AI_API_KEY_PRIMARY in Vercel with the Maharaja project API key.';
+    return 'Image generation needs attention from Maharaja staff. Please try again after staff check the service.';
   }
 
   if (lower.includes('model') || lower.includes('not found')) {
-    return `Gemini image model is not available for this API key/project. Current model: ${AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image'}.`;
+    return 'The image service is temporarily unavailable. Please ask Maharaja staff for assistance.';
   }
 
-  return raw.length > 280 ? `${raw.slice(0, 280)}...` : raw;
+  if (/safety|blocked|policy/.test(lower)) return 'These photos could not be processed. Please use a clear, appropriate customer and garment photo.';
+  if (/timeout|timed out|deadline|abort/.test(lower)) return 'Image generation took too long. Please check your connection and try again.';
+  if (/photo|source/.test(lower)) return 'The uploaded photos could not be read. Please add them again and retry.';
+  return 'Your image could not be completed. Please try again or ask Maharaja staff for assistance.';
 }
 
 async function resolveImageBase64(input: unknown, bucket: any, sessionId: string, allowedCataloguePath = ''): Promise<string> {
@@ -159,11 +162,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const maxGarmentPhotos = service === 'try-on' ? 1 : 3;
+    const maxGarmentPhotos = 3;
     if (garmentInputs.length > maxGarmentPhotos) {
       return NextResponse.json({
         success: false,
-        error: service === 'try-on' ? 'AI Try-On accepts exactly one garment photo.' : 'Upload up to 3 garment photos max.',
+        error: 'Upload up to 3 garment photos max.',
       }, { status: 400 });
     }
 
@@ -319,7 +322,7 @@ ${categoryGarmentLine}
         } else {
           if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
           return NextResponse.json(
-            { success: false, error: 'Gemini returned no image. No fallback image was used. Upload a manual AI image or retry after checking the model.' },
+            { success: false, error: 'An image could not be created from these photos. Please try a clearer customer and garment photo.' },
             { status: 502 }
           );
         }
@@ -472,7 +475,7 @@ ${categoryGarmentLine}
     console.error('Master Image Route Error:', error);
     if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false).catch(() => undefined);
     return NextResponse.json(
-      { success: false, error: 'Failed to generate master reference image.' },
+      { success: false, error: formatGeminiImageError(error) },
       { status: 500 }
     );
   } finally {

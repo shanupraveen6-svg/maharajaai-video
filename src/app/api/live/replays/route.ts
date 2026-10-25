@@ -11,6 +11,7 @@ import {
 } from '@/lib/maharaja/names';
 import { getVideoFormat, getVideoPlaybackProfile, isSupportedVideoPath } from '@/lib/maharaja/video-playback';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { verifyTvRequest } from '@/lib/auth/display';
 
 const FALLBACK_NAME = 'Maharaja Guest';
 const MAX_PAGE_ITEMS = 200;
@@ -84,7 +85,7 @@ function stableSessionId(storagePath: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  if (!verifyOperatorRequest(req)) {
+  if (!await verifyTvRequest(req)) {
     return NextResponse.json({ success: false, error: 'Authenticated Maharaja TV required.' }, { status: 401 });
   }
   try {

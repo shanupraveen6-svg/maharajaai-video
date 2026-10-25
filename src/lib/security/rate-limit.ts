@@ -47,6 +47,7 @@ export async function enforceRateLimit(
         scope,
         count: count + 1,
         resetAtMs: resetAt > now ? resetAt : now + windowMs,
+        expiresAt: new Date((resetAt > now ? resetAt : now + windowMs) + 24 * 60 * 60 * 1000),
         updatedAt: new Date(now).toISOString(),
       }, { merge: true });
       return { allowed: true as const };

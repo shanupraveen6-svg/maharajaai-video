@@ -11,6 +11,23 @@ function getFfmpegPath(): string | null {
   return null;
 }
 
+async function videoDuration(binary: string, filePath: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(binary, ['-v', 'error', '-i', filePath, '-map', '0:v:0', '-an', '-f', 'null', '-progress', 'pipe:1', '-']);
+    let progress = '';
+    let errors = '';
+    proc.stdout.on('data', (chunk) => { progress += chunk.toString(); });
+    proc.stderr.on('data', (chunk) => { errors += chunk.toString(); });
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      const values = [...progress.matchAll(/out_time_us=(\d+)/g)];
+      const seconds = Number(values.at(-1)?.[1] || 0) / 1_000_000;
+      if (code !== 0 || !Number.isFinite(seconds) || seconds <= 0) reject(new Error(`Video duration could not be verified: ${errors.slice(-200)}`));
+      else resolve(seconds);
+    });
+  });
+}
+
 export async function validateBrandedVideo(
   inputBuffer: Buffer,
   expectedDurationSeconds: 6 | 9,
@@ -34,6 +51,10 @@ export async function validateBrandedVideo(
       : 0;
     if (!stderr.includes('Video:')) throw new Error('Final MP4 has no playable video stream.');
     if (!stderr.includes('Audio:')) throw new Error('Final MP4 has no embedded audio stream.');
+    const visualDuration = await videoDuration(binary, tmpIn);
+    if (Math.abs(visualDuration - expectedDurationSeconds) > 0.15) {
+      throw new Error(`Final video stream is ${visualDuration.toFixed(2)}s; expected ${expectedDurationSeconds}s.`);
+    }
     if (Math.abs(duration - expectedDurationSeconds) > 0.35) {
       throw new Error(`Final MP4 duration is ${duration.toFixed(2)}s; expected ${expectedDurationSeconds}s.`);
     }
@@ -53,8 +74,7 @@ function resolvePublicAsset(relativeOrFullPath: string | undefined, fallback: st
 async function generateBrandedVideo(
   inputBuffer: Buffer,
   durationSeconds: 6 | 9,
-  audioRelativeOrFullPath: string,
-  stretchToNineSeconds: boolean
+  audioRelativeOrFullPath: string
 ): Promise<Buffer> {
   const binary = getFfmpegPath();
   const logoPath = path.join(process.cwd(), 'public', 'maharaja-logo.png');
@@ -68,7 +88,8 @@ async function generateBrandedVideo(
   const tmpOut = path.join(os.tmpdir(), `mhr_brand_${durationSeconds}_${id}.mp4`);
   try {
     await fs.promises.writeFile(tmpIn, inputBuffer);
-    const timingFilter = stretchToNineSeconds ? 'setpts=1.5*PTS' : 'setpts=PTS-STARTPTS';
+    const sourceSeconds = await videoDuration(binary, tmpIn);
+    const timingFilter = `setpts=${durationSeconds / sourceSeconds}*(PTS-STARTPTS),fps=30`;
     const fadeOutStart = (durationSeconds - 0.25).toFixed(2);
     const audioFilter = `[1:a]apad,aformat=sample_rates=44100:channel_layouts=stereo,afade=t=in:st=0:d=0.05,afade=t=out:st=${fadeOutStart}:d=0.25[a_out]`;
     const filterComplex = `[0:v]${timingFilter}[timed];[2:v]scale=96:96[logo];[timed][logo]overlay=W-w-24:24[v_out];${audioFilter}`;
@@ -109,98 +130,10 @@ async function generateBrandedVideo(
   }
 }
 
-/**
- * Creates a deterministic 6-second vertical video (768x1366 @ 30fps) directly from
- * the approved master image with a subtle 3–5% whole-frame cinematic optical push-in.
- * Preserves 100% of source pixels with zero generative morphing or dress hallucinations.
- */
-export async function generateDeterministicPushVideo(
-  imageBuffer: Buffer,
-  durationSeconds = 6
-): Promise<Buffer> {
-  const binary = getFfmpegPath();
-  if (!binary || imageBuffer.length === 0) {
-    throw new Error('FFmpeg binary or valid master image buffer is required for deterministic video.');
-  }
-
-  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const tmpIn = path.join(os.tmpdir(), `mhr_master_in_${id}.jpg`);
-  const tmpOut = path.join(os.tmpdir(), `mhr_push_${id}.mp4`);
-
-  try {
-    await fs.promises.writeFile(tmpIn, imageBuffer);
-    const frameCount = durationSeconds * 30;
-    // Slow 4.5% whole-frame push-in (within the approved 3-5% range)
-    const zoomFilter = `scale=1536:2732:force_original_aspect_ratio=increase,crop=1536:2732,zoompan=z='min(zoom+0.00025,1.045)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frameCount}:s=768x1366:fps=30`;
-
-    const args = [
-      '-y',
-      '-i', tmpIn,
-      '-vf', zoomFilter,
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '20',
-      '-pix_fmt', 'yuv420p',
-      '-movflags', '+faststart',
-      '-t', String(durationSeconds),
-      tmpOut,
-    ];
-
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn(binary, args);
-      let stderr = '';
-      proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
-      proc.on('close', (code) => code === 0
-        ? resolve()
-        : reject(new Error(`FFmpeg deterministic push-in exited with code ${code}: ${stderr.slice(-400)}`)));
-      proc.on('error', reject);
-    });
-
-    const output = await fs.promises.readFile(tmpOut);
-    if (!output.length) throw new Error('FFmpeg produced an empty video.');
-    return output;
-  } finally {
-    await Promise.allSettled([
-      fs.promises.unlink(tmpIn).catch(() => undefined),
-      fs.promises.unlink(tmpOut).catch(() => undefined),
-    ]);
-  }
-}
-
-/** Removes provider-generated audio without re-encoding the video stream. */
-export async function stripVideoAudio(inputBuffer: Buffer): Promise<Buffer> {
-  const binary = getFfmpegPath();
-  if (!binary || inputBuffer.length === 0) {
-    throw new Error('FFmpeg binary or valid video buffer is required to remove provider audio.');
-  }
-  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const tmpIn = path.join(os.tmpdir(), `mhr_audio_in_${id}.mp4`);
-  const tmpOut = path.join(os.tmpdir(), `mhr_silent_${id}.mp4`);
-  try {
-    await fs.promises.writeFile(tmpIn, inputBuffer);
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn(binary, ['-y', '-i', tmpIn, '-map', '0:v:0', '-c:v', 'copy', '-an', '-movflags', '+faststart', tmpOut]);
-      let stderr = '';
-      proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
-      proc.on('close', (code) => code === 0
-        ? resolve()
-        : reject(new Error(`FFmpeg audio removal exited with code ${code}: ${stderr.slice(-400)}`)));
-      proc.on('error', reject);
-    });
-    const output = await fs.promises.readFile(tmpOut);
-    if (!output.length) throw new Error('FFmpeg produced an empty silent video.');
-    return output;
-  } finally {
-    await Promise.allSettled([
-      fs.promises.unlink(tmpIn).catch(() => undefined),
-      fs.promises.unlink(tmpOut).catch(() => undefined),
-    ]);
-  }
-}
 
 /** Creates the downloadable six-second MP4 with embedded Maharaja logo and preview audio. */
 export function generateCustomer6sVideo(inputBuffer: Buffer, audioRelativeOrFullPath: string) {
-  return generateBrandedVideo(inputBuffer, 6, audioRelativeOrFullPath, false);
+  return generateBrandedVideo(inputBuffer, 6, audioRelativeOrFullPath);
 }
 
 /**
@@ -266,7 +199,7 @@ export async function applyMaharajaVideoWatermark(inputBuffer: Buffer): Promise<
 }
 
 /**
- * Creates the authentic 9-second live showroom video by retiming the 6-second video (setpts=1.5*PTS),
+ * Creates the nine-second live video from the measured source-video duration,
  * overlaying the Maharaja logo, and multiplexing the 9-second festival audio track.
  */
 export async function generateLive9sVideo(
@@ -274,5 +207,5 @@ export async function generateLive9sVideo(
   audioRelativeOrFullPath?: string
 ): Promise<Buffer> {
   const audio = audioRelativeOrFullPath || '/audio/maharaja/live/diwali-hindu-9s.mp3';
-  return generateBrandedVideo(input6sBuffer, 9, audio, true);
+  return generateBrandedVideo(input6sBuffer, 9, audio);
 }

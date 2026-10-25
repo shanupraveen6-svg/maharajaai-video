@@ -7,7 +7,7 @@ const [start, status, webhook, finalize, cleanup, next, playing, proxy, master, 
   read('src/app/api/video/status/route.ts'),
   read('src/app/api/video/webhook/route.ts'),
   read('src/lib/maharaja/server.ts'),
-  read('src/app/api/privacy/cleanup/route.ts'),
+  read('src/lib/maharaja/privacy-cleanup.ts'),
   read('src/app/api/live/next/route.ts'),
   read('src/app/api/tv/playing/route.ts'),
   read('src/proxy.ts'),
@@ -26,8 +26,8 @@ assert.match(finalize, /validateBrandedVideo\(liveVideo, 9\)/);
 assert.doesNotMatch(finalize, /falling back to raw provider MP4/);
 assert.match(cleanup, /sourceMediaDeletedAt/);
 assert.match(cleanup, /\/person\//);
-assert.match(next, /verifyOperatorRequest/);
-assert.match(playing, /verifyOperatorRequest/);
+assert.match(next, /verifyTvRequest/);
+assert.match(playing, /verifyTvRequest/);
 assert.match(proxy, /pathname === '\/tv'/);
 assert.match(master, /Photo source does not belong to this customer session/);
 assert.doesNotMatch(master, /await fetch\(trimmed\)/);

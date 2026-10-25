@@ -43,10 +43,7 @@ export async function POST(req: NextRequest) {
   const queueId = `live_${sessionId}`;
   const videoId = `video_${sessionId}`;
   const eventId = isEventId(access.pass.eventId) ? access.pass.eventId : 'diwali';
-  const expiresAt = new Date(Math.min(
-    Number.isFinite(new Date(access.pass.expiresAt).getTime()) ? new Date(access.pass.expiresAt).getTime() : now.getTime() + 3 * 24 * 60 * 60 * 1000,
-    now.getTime() + 3 * 24 * 60 * 60 * 1000,
-  )).toISOString();
+  const expiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
   const customerName = cleanDisplayText(body?.customerName) || cleanDisplayText(access.pass.customerName);
   const customerLocality = cleanDisplayText(body?.customerLocality) || cleanDisplayText(access.pass.customerLocality) || 'தஞ்சாவூர்';
   const liveAudioUrl = getLiveAudioTrack(queueId, eventId);
@@ -138,6 +135,7 @@ export async function POST(req: NextRequest) {
       });
       transaction.set(screenRef, { lastQueueNumber: nextQueueNumber, updatedAt: nowIso }, { merge: true });
       transaction.set(sessionRef, {
+        retentionPolicyVersion: 'live-v2',
         selectedVideoTestJobId: jobId,
         liveQueueId: queueId,
         liveConsent: true,
@@ -185,7 +183,7 @@ export async function POST(req: NextRequest) {
       } as any);
       store.sessions.set(sessionId, {
         ...session, selectedVideoTestJobId: jobId, liveQueueId: queueId,
-        liveConsent: true, loopConsent: true, promotionConsent, liveConsentAt: nowIso, expiresAt, updatedAt: nowIso,
+        retentionPolicyVersion: 'live-v2', liveConsent: true, loopConsent: true, promotionConsent, liveConsentAt: nowIso, expiresAt, updatedAt: nowIso,
       });
       created = true;
     }

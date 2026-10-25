@@ -39,6 +39,12 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
     finally { setSaving(false); }
   }
   async function logout() { await fetch('/api/operator/logout', { method: 'POST' }).catch(() => undefined); window.location.assign('/login?store=maharaja'); }
+  async function disconnectDisplays() {
+    try {
+      await readJson(await fetch('/api/tv/pair', { method: 'DELETE' }));
+      setMessage('Paired displays disconnected. Sign in on each TV to pair it again.');
+    } catch (caught) { setMessage(caught instanceof Error ? caught.message : 'Unable to disconnect displays.'); }
+  }
   async function downloadPoster() {
     if (!workspace) return; setPosterLoading(true);
     try { const value = poster || await createTryOnPosterDataUrl(workspace.tryOnUrl); setPoster(value); downloadDataUrl(value, 'maharaja-ai-try-on-qr.png'); }
@@ -72,7 +78,7 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
 
       <section><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase text-[#8A6A20]">Manager review</p><h2 className="font-serif text-2xl font-bold">Explore Go Live Videos</h2><p className="mt-1 text-sm text-[#5C4B43]">Only customer videos submitted to Maharaja TV appear here.</p></div><Link href={`/maharaja/${workspace.workspaceCode}/videos`} className="flex min-h-10 items-center gap-2 bg-[#6E0D1F] px-4 text-xs font-bold uppercase text-[#F3E5AB]">View all</Link></div>{videos.length ? <div className="mt-4 grid gap-4 sm:grid-cols-3">{videos.map((item) => <article key={item.id} className="border border-[#DDD2BD] bg-white p-3"><div className="flex aspect-[9/16] items-center justify-center bg-[#17080C]"><button onClick={() => setPlaying(item)} className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D4AF37] text-black"><Play className="h-6 w-6 fill-current" /></button></div><p className="mt-3 font-bold">{item.customerName}</p><p className="text-xs text-[#6B625C]">Queue #{item.queueNumber} · {new Date(item.createdAt).toLocaleDateString('en-IN')}</p><p className={`mt-2 text-xs font-bold ${item.promotionConsent ? 'text-emerald-700' : 'text-[#6B625C]'}`}>{item.promotionConsent ? 'Social promotion approved' : 'Showroom playback only'}</p></article>)}</div> : <div className="mt-4 border border-dashed border-[#D8C49B] bg-white p-10 text-center text-sm text-[#6B625C]">No customer Go Live videos yet.</div>}</section>
 
-      <section className="border border-[#DDD2BD] bg-white p-4 text-sm"><span className="font-bold">WhatsApp API:</span> {workspace.integrations.whatsapp.configured ? `Connected · ${workspace.integrations.whatsapp.templateName}` : 'Not connected. QR and Copy Link remain available.'}</section>
+      <section className="flex flex-wrap items-center justify-between gap-4 border border-[#DDD2BD] bg-white p-4 text-sm"><p><span className="font-bold">WhatsApp API:</span> {workspace.integrations.whatsapp.configured ? `Connected · ${workspace.integrations.whatsapp.templateName}` : 'Not connected. QR and Copy Link remain available.'}</p><button type="button" onClick={() => void disconnectDisplays()} className="flex min-h-10 items-center gap-2 border border-[#D8C49B] px-3 text-xs font-bold"><Tv className="h-4 w-4" />Disconnect paired TVs</button></section>
     </div>
     {playing && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"><div className="relative w-full max-w-sm"><button onClick={() => setPlaying(null)} className="absolute -right-2 -top-12 flex h-10 w-10 items-center justify-center rounded-full bg-white text-black"><X className="h-5 w-5" /></button><video src={playing.videoUrl} controls autoPlay playsInline className="aspect-[9/16] w-full bg-black object-contain" /></div></div>}
   </main>;

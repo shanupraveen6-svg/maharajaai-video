@@ -64,6 +64,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (request.nextUrl.pathname === '/tv' || request.nextUrl.pathname === '/maharaja/tv') {
+    const { verifyDisplayRequest } = await import('@/lib/auth/display');
+    if (await verifyDisplayRequest(request)) return NextResponse.next();
+  }
+
   const loginUrl = new URL('/login', request.url);
   loginUrl.searchParams.set('next', request.nextUrl.pathname);
   return NextResponse.redirect(loginUrl);

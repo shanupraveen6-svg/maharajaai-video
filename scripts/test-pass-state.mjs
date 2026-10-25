@@ -34,6 +34,10 @@ await saveVideoPass({
 });
 
 assert.equal((await acquirePassVideoLock(code, 'premature')).ok, false, 'video must wait for a master');
+const failedTryOn = await acquirePassImageLock(code, 'try-on');
+assert.equal(failedTryOn.ok, true);
+await releasePassImageLock(code, failedTryOn.generationId);
+assert.equal((await getVideoPass(code)).imageGenerating, false, 'failed Try-On must release its generation lock');
 const firstImage = await acquirePassImageLock(code, 'ai-video');
 assert.equal(firstImage.ok, true);
 assert.equal((await acquirePassImageLock(code, 'ai-video')).ok, false, 'parallel image generation is blocked');
@@ -61,5 +65,26 @@ await markPassVideoFailed(code, retryJob);
 assert.equal((await getVideoPass(code)).videoGenerating, false, 'failed provider restores the lock');
 assert.equal((await acquirePassVideoLock(code, retryJob)).ok, true, 'failed attempt can be retried');
 await releasePassVideoLock(code, retryJob);
+
+const { NextRequest } = await import('next/server');
+const { getMockStore } = await import('../src/lib/firebase/admin.ts');
+const { POST: enqueue } = await import('../src/app/api/live/enqueue/route.ts');
+const liveSession = 'retention-regression';
+const liveJob = 'retention-job';
+await saveVideoPass({ ...(await getVideoPass(code)), expiresAt: new Date(Date.now() + 60_000).toISOString(), expiresAtMs: Date.now() + 60_000 });
+const store = getMockStore();
+store.sessions.set(liveSession, { accessCode: code });
+store.sessions.set(`video_test_${liveJob}`, { status: 'ready', sessionId: liveSession, accessCode: code, videoStoragePath: 'final-6s.mp4', liveVideoStoragePath: 'live-9s.mp4' });
+const request = () => new NextRequest('http://localhost/api/live/enqueue', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ sessionId: liveSession, jobId: liveJob, accessCode: code, liveConsent: true, loopConsent: true }),
+});
+assert.equal((await enqueue(request())).status, 200);
+const liveExpiry = store.sessions.get(liveSession).expiresAt;
+assert.ok(new Date(liveExpiry).getTime() > Date.now() + 71 * 60 * 60 * 1000, 'One-minute pass still grants a full three-day live replay window.');
+assert.equal(store.sessions.get(liveSession).retentionPolicyVersion, 'live-v2');
+assert.equal((await enqueue(request())).status, 200);
+assert.equal(store.sessions.get(liveSession).expiresAt, liveExpiry, 'Duplicate Go Live must not extend retention.');
+assert.equal(store.liveQueue.filter((item) => item.sessionId === liveSession).length, 1);
 
 console.log('Current v3 pass state audit passed: approval, fencing, retry, and failure restoration.');

@@ -29,6 +29,10 @@ type PlaybackItem = {
 };
 
 export default function TvPlayerPage() {
+  useEffect(() => {
+    // Staff login pairs this browser once; subsequent visits use display-only access.
+    void fetch('/api/tv/pair', { method: 'POST' }).catch(() => undefined);
+  }, []);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [currentPlayback, setCurrentPlayback] = useState<PlaybackItem | null>(null);

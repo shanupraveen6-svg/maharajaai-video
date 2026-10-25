@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { applyMaharajaVideoWatermark, generateCustomer6sVideo, generateLive9sVideo } from '../src/lib/maharaja/video-processor.ts';
+import { applyMaharajaVideoWatermark, generateCustomer6sVideo, generateLive9sVideo, validateBrandedVideo } from '../src/lib/maharaja/video-processor.ts';
 
 async function runCommand(bin, args) {
   return new Promise((resolve, reject) => {
@@ -106,6 +106,19 @@ async function main() {
   console.log(`✓ Verified multiplexed AAC audio stream: ${hasAudio ? 'YES' : 'NO'}`);
   if (!hasAudio) {
     throw new Error('Live 9s video container is missing multiplexed AAC audio stream');
+  }
+
+  // Provider output may differ from the requested six seconds. Verify the
+  // decoded video stream spans the full output, independently of audio length.
+  for (const sourceSeconds of [5, 6.7]) {
+    const sourcePath = path.join(os.tmpdir(), `test_drift_${sourceSeconds}_${Date.now()}.mp4`);
+    try {
+      await runCommand(ffmpegPath, ['-y', '-f', 'lavfi', '-i', `testsrc=duration=${sourceSeconds}:size=360x640:rate=30`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', sourcePath]);
+      const source = await fs.promises.readFile(sourcePath);
+      await validateBrandedVideo(await generateCustomer6sVideo(source, '/audio/maharaja/preview/final-6.mp3'), 6);
+      await validateBrandedVideo(await generateLive9sVideo(source), 9);
+      console.log(`✓ ${sourceSeconds}s source produces full 6s and 9s video streams with audio`);
+    } finally { await fs.promises.unlink(sourcePath).catch(() => {}); }
   }
 
   // Cleanup
