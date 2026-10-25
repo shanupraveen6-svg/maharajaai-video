@@ -80,7 +80,13 @@ async function generateBrandedVideo(
   const logoPath = path.join(process.cwd(), 'public', 'maharaja-logo.png');
   const audioPath = resolvePublicAsset(audioRelativeOrFullPath, audioRelativeOrFullPath);
   if (!binary || !fs.existsSync(logoPath) || !audioPath || inputBuffer.length === 0) {
-    throw new Error('Required FFmpeg, Maharaja logo, or event audio asset is unavailable.');
+    const missing = [
+      !binary && 'FFmpeg binary',
+      !fs.existsSync(logoPath) && 'Maharaja logo',
+      !audioPath && 'event audio',
+      inputBuffer.length === 0 && 'provider video',
+    ].filter(Boolean).join(', ');
+    throw new Error(`Required media asset is unavailable: ${missing || 'unknown'}.`);
   }
 
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
