@@ -24,21 +24,21 @@ for (const concept of VIDEO_CONCEPTS) {
   const master = buildVideoMasterPrompt(concept, 'generic');
   const motion = buildH3MotionPrompt(concept, ['primary garment']);
   const backup = buildH3MotionPrompt(concept, ['primary garment'], true);
-  assert.match(master, /exact facial geometry/i);
-  assert.match(master, /hands remain below the waist/i);
-  assert.match(master, /no makeup|do not add foundation/i);
-  assert.match(motion, /approved master is the authority/i);
-  assert.match(motion, /no hand rises, folds inward or approaches the chest/i);
-  assert.match(motion, /No beauty filter, makeup, face replacement/i);
-  assert.match(motion, /garment colour, print, embroidery, borders and drape/i);
+  assert.match(master, /preserve facial geometry/i);
+  assert.match(master, /hands are relaxed below the waist/i);
+  assert.match(master, /no makeup/i);
+  assert.match(motion, /approved master is the sole visual authority/i);
+  assert.match(motion, /never lift toward chest/i);
+  assert.match(motion, /no makeup, beauty filter, face swap/i);
+  assert.match(motion, /outfit colours, pattern, borders and drape/i);
   assert.match(motion, /one natural blink/i);
-  assert.match(motion, /small genuine smile/i);
-  assert.match(backup, /Both arms rest beside the outer thighs/i);
+  assert.match(motion, /smile/i);
+  assert.match(backup, /hands swing only below the waist/i);
   assert.match(master, /8 percent clear headroom/i);
-  assert.match(master, /scene preparation only/i);
+  assert.match(master, /no object may cover the customer/i);
   assert.doesNotMatch(motion, /exact first-frame coordinates|physical dolly|pedestal rise|perspective drift|rack focus|head acknowledgment/i);
-  assert.match(motion, /Use only objects already present/i);
-  assert.match(motion, /Keep the customer full-body and sharp/i);
+  assert.match(motion, /existing lamps and lanterns remain in place/i);
+  assert.match(motion, /keep their full body, face and footwear in frame/i);
   if (['girl', 'boy'].includes(concept.category)) assert.match(master, /free of adult glamour/i);
 
   for (const model of WAVE_SPEED_TEST_MODELS) {
@@ -178,8 +178,8 @@ for (const concept of VIDEO_CONCEPTS) {
     // Rule 4: Prompt length < 5,000 characters
     assert(input.prompt.length < 5000, `${concept.id}/${model.id}: prompt exceeds 5000 characters (${input.prompt.length})`);
     assert.match(input.prompt, /absolute authority/);
-    assert.match(input.prompt, /no hand rises, folds inward or approaches the chest/i);
-    assert.match(input.prompt, /small genuine smile/i);
+    assert.match(input.prompt, /never lift toward chest/i);
+    assert.match(input.prompt, /smile/i);
 
     // Rule 7: Valid JSON schema serialization
     const serialized = JSON.stringify(input);

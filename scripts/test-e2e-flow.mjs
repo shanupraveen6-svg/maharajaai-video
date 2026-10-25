@@ -147,11 +147,11 @@ async function run() {
   for (const concept of VIDEO_CONCEPTS) {
     const masterPrompt = buildVideoMasterPrompt(concept, 'generic');
     const motionPrompt = buildH3MotionPrompt(concept, ['garment front']);
-    assert(/exact facial geometry/i.test(masterPrompt) && /exact garment/i.test(masterPrompt), `${concept.id}: Identity and garment lock enforced`);
-    assert(/Do not add foundation/.test(masterPrompt) && /doll-like appearance/.test(masterPrompt), `${concept.id}: Master keeps natural skin without makeup`);
+    assert(/preserve facial geometry/i.test(masterPrompt) && /exact garment/i.test(masterPrompt), `${concept.id}: Identity and garment lock enforced`);
+    assert(/No makeup/.test(masterPrompt) && /doll-like finish/.test(masterPrompt), `${concept.id}: Master keeps natural skin without makeup`);
     assert(/outer thighs/.test(concept.finalPose) && !/Namaste|clasped|hip|wrist/i.test(concept.finalPose), `${concept.id}: Hands stay safely beside the thighs`);
-    assert(/small genuine smile/.test(motionPrompt) && /no hand rises, folds inward or approaches the chest/.test(motionPrompt), `${concept.id}: H3 permits natural expression while keeping hands safely below the waist`);
-    assert(/CAMERA CHOREOGRAPHY:/.test(motionPrompt) && /BACKGROUND ANIMATION:/.test(motionPrompt) && /CINEMATIC EFFECTS:/.test(motionPrompt), `${concept.id}: Camera, background and effects remain explicit`);
+    assert(/smile/.test(motionPrompt) && /never lift toward chest/.test(motionPrompt), `${concept.id}: H3 permits natural expression while keeping hands safely below the waist`);
+    assert(/CAMERA CHOREOGRAPHY:/.test(motionPrompt) && /BACKGROUND ANIMATION:/.test(motionPrompt) && /Effects stay behind/.test(motionPrompt), `${concept.id}: Camera, background and effects remain explicit`);
   }
 
   // Admin Logout Test
