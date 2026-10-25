@@ -133,6 +133,14 @@ function customerError(caught: unknown, fallback: string) {
     .replace(/Key\s+[\w-]{20,}/gi, 'Key [redacted]');
 }
 
+const videoModelTestingEnabled = process.env.NEXT_PUBLIC_VIDEO_MODEL_TESTING === 'true';
+const videoTestModelOptions = [
+  { value: 'minimax-h3-original', label: 'MiniMax H3 Original · 768p' },
+  { value: 'wavespeed-h3-open', label: 'WaveSpeed H3 Open Weights · 768p' },
+  { value: 'vidu-q4', label: 'Vidu Q4 · 720p' },
+  { value: 'kling-v4', label: 'Kling V4 · 720p' },
+];
+
 export default function MaharajaExperience({ service, accessCode, retrySessionId = '' }: { service: 'try-on' | 'ai-video'; accessCode: string; retrySessionId?: string }) {
   const [access, setAccess] = useState<AccessResponse | null>(null);
   const [activeService, setActiveService] = useState<'try-on' | 'ai-video'>(service);
@@ -173,6 +181,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [masterApproved, setMasterApproved] = useState(false);
   const [videoTestJobId, setVideoTestJobId] = useState('');
   const [videoTestUrl, setVideoTestUrl] = useState('');
+  const [videoTestModel, setVideoTestModel] = useState('wavespeed-h3-open');
   const [generationProgress, setGenerationProgress] = useState(0);
   const [photoInputError, setPhotoInputError] = useState('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
@@ -746,7 +755,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const data = await readJson(await fetch('/api/video/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessCode, sessionId }),
+        body: JSON.stringify({ accessCode, sessionId, ...(videoModelTestingEnabled ? { videoModel: videoTestModel } : {}) }),
       }));
       setVideoTestJobId(data.jobId);
       setGenerationProgress(16);
@@ -1176,6 +1185,19 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   <div className="mt-4 space-y-3 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
                     <div className="font-bold uppercase tracking-wide">Create your cinematic AI film</div>
                     <p className="text-[#F3E5AB]/80">Your approved portrait becomes a premium six-second film, saved securely for download and optional showroom presentation.</p>
+                    {videoModelTestingEnabled && (
+                      <label className="block space-y-1.5 text-[10px] font-bold uppercase tracking-wide text-[#F3E5AB]/85">
+                        Test video model
+                        <select
+                          value={videoTestModel}
+                          onChange={(event) => setVideoTestModel(event.target.value)}
+                          disabled={stage === 'video'}
+                          className="min-h-11 w-full border border-[#D4AF37]/50 bg-[#21090E] px-3 text-sm font-semibold normal-case tracking-normal text-[#F3E5AB] disabled:opacity-50"
+                        >
+                          {videoTestModelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                    )}
                     <button
                       type="button"
                       onClick={() => void startVideoTest()}

@@ -38,6 +38,8 @@ FAL_KEY="..."
 WAVESPEED_API_KEY="..."
 # Use "wavespeed" only while validating its H3 R2V output. Omit or set "fal" for normal production.
 VIDEO_PROVIDER="fal"
+VIDEO_MODEL_TESTING="false"
+NEXT_PUBLIC_VIDEO_MODEL_TESTING="false"
 
 OPERATOR_USERNAME="..."
 OPERATOR_PASSWORD="..."

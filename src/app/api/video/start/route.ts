@@ -5,7 +5,7 @@ import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/l
 import { isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId } from '@/lib/maharaja/config';
 import { getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
-import { buildVideoTestInput, buildWaveSpeedVideoInput, getActiveVideoProvider, getVideoTestModel } from '@/lib/maharaja/video-test';
+import { buildVideoTestInput, buildWaveSpeedVideoInput, getActiveVideoProvider, getVideoTestModel, isVideoModelTestingEnabled } from '@/lib/maharaja/video-test';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -87,12 +87,16 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
   const accessCode = typeof body?.accessCode === 'string' ? body.accessCode.trim() : '';
-  const model = getVideoTestModel();
+  const requestedModelId = typeof body?.videoModel === 'string' ? body.videoModel.trim() : '';
+  const providerName = getActiveVideoProvider();
+  if (requestedModelId && (providerName !== 'wavespeed' || !isVideoModelTestingEnabled())) {
+    return NextResponse.json({ success: false, error: 'Video model selection is unavailable.' }, { status: 400 });
+  }
+  const model = getVideoTestModel(requestedModelId || undefined);
   if (!sessionId || !accessCode || !model) {
-    return NextResponse.json({ success: false, error: 'sessionId and accessCode are required.' }, { status: 400 });
+    return NextResponse.json({ success: false, error: requestedModelId ? 'The selected video test model is unavailable.' : 'sessionId and accessCode are required.' }, { status: 400 });
   }
 
-  const providerName = getActiveVideoProvider();
   const falKey = process.env.FAL_KEY?.trim();
   const waveSpeedKey = process.env.WAVESPEED_API_KEY?.trim();
   if (providerName === 'fal' && !falKey) return NextResponse.json({ success: false, error: 'Video provider is temporarily unavailable.' }, { status: 503 });
@@ -198,10 +202,11 @@ export async function POST(req: NextRequest) {
     let responseUrl = '';
     let providerSeed: string | number | null = null;
     if (providerName === 'wavespeed') {
-      const response = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/minimax-h3/reference-to-video', {
+      if (model.inputFormat === 'fal') throw new Error('The selected WaveSpeed video model is unavailable.');
+      const response = await fetch(`https://api.wavespeed.ai/api/v3/${model.model}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${waveSpeedKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(buildWaveSpeedVideoInput(master.url, garments.map((item) => item.url), concept.id, garmentRoles)),
+        body: JSON.stringify(buildWaveSpeedVideoInput(model.inputFormat, master.url, garments.map((item) => item.url), concept.id, garmentRoles)),
         cache: 'no-store',
       });
       const raw = await response.text();
