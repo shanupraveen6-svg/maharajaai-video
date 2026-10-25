@@ -46,6 +46,13 @@ export async function POST(req: NextRequest) {
   const remoteVideoUrl = extractVideoUrl(body?.payload || body?.data || body);
   if (!remoteVideoUrl) return NextResponse.json({ success: false, error: 'Webhook has no video result.' }, { status: 422 });
 
+  // Save the completed provider result before local post-processing so a
+  // transient branding failure can be recovered without a second paid render.
+  await jobRef.set({
+    providerVideoUrl: remoteVideoUrl,
+    updatedAt: new Date().toISOString(),
+  }, { merge: true });
+
   const leaseUntil = Date.now() + 2 * 60 * 1000;
   const claimed = await db.runTransaction(async (transaction) => {
     const fresh = (await transaction.get(jobRef)).data();

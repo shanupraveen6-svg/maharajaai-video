@@ -47,6 +47,8 @@ type AccessResponse = {
     videoMasterApproved?: boolean;
     videoMasterCategory?: CustomerCategory | null;
     videoMasterConceptId?: VideoConceptId | null;
+    videoReferenceSessionId?: string | null;
+    activeVideoJobId?: string | null;
   };
 };
 
@@ -151,7 +153,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [activeService, setActiveService] = useState<'try-on' | 'ai-video'>(service);
   const [eventId, setEventId] = useState<EventId>('diwali');
   const [category, setCategory] = useState<CustomerCategory>('women');
-  const [sessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
+  const [sessionId, setSessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
   const [conceptId, setConceptId] = useState<VideoConceptId>('women-golden-courtyard');
   const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
@@ -189,6 +191,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [videoTestModel, setVideoTestModel] = useState('wavespeed-h3-open');
   const [generationProgress, setGenerationProgress] = useState(0);
   const [photoInputError, setPhotoInputError] = useState('');
+  const resumedVideoJobRef = useRef('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
   const maxGarmentPhotos = isTryOn ? 3 : 2;
@@ -349,6 +352,27 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
               ? 'Your approved festival portrait is ready for another video generation.'
               : 'Your festival portrait is ready. Create your 6-second AI video below.'
             : 'Your Try-On image is ready. Switch to AI Video to create your festival image and video.');
+        }
+        const recoveryJobId = data.access.activeVideoJobId;
+        const recoverySessionId = data.access.videoReferenceSessionId;
+        if (
+          data.access.service === 'ai-video'
+          && recoveryJobId
+          && recoverySessionId
+          && resumedVideoJobRef.current !== recoveryJobId
+        ) {
+          resumedVideoJobRef.current = recoveryJobId;
+          setSessionId(recoverySessionId);
+          setVideoTestJobId(recoveryJobId);
+          setGenerationProgress(95);
+          setMessage('Your completed film is being prepared for preview. No new video request has been sent.');
+          setStage('video');
+          void pollVideoTest(recoveryJobId).catch((error) => {
+            setError(customerError(error, 'Your completed film is still being prepared. Please refresh once more.'));
+            setMessage('Your completed film is still being prepared. No new video request has been sent.');
+            setStage('ready');
+          });
+          return;
         }
         if (!used) window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
         setStage('ready');

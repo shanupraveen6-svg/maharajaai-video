@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   if (job.status === 'finalizing' && Number(job.finalizationLeaseUntil || 0) > Date.now()) {
     return NextResponse.json({ success: true, status: 'processing', providerStatus: 'FINALIZING', jobId });
   }
-  if (job.status === 'failed' || job.status === 'post_processing_failed') {
+  if (job.status === 'failed') {
     return NextResponse.json({ success: false, status: 'failed', jobId, error: job.error || 'Video test failed.' }, { status: 422 });
   }
 
@@ -78,6 +78,7 @@ export async function GET(req: NextRequest) {
   if (providerName === 'fal' && !falKey) return NextResponse.json({ success: false, status: 'failed', error: 'Video provider is temporarily unavailable.' }, { status: 503 });
   if (providerName === 'wavespeed' && !waveSpeedKey) return NextResponse.json({ success: false, status: 'failed', error: 'Video provider is temporarily unavailable.' }, { status: 503 });
 
+  let remoteVideoUrl = '';
   try {
     const providerStatus = providerName === 'wavespeed'
       ? await waveSpeedGet(job.statusUrl, waveSpeedKey!)
@@ -140,8 +141,18 @@ export async function GET(req: NextRequest) {
     const result = providerName === 'wavespeed'
       ? providerStatus
       : await falGet(job.responseUrl, falKey!);
-    const remoteVideoUrl = extractVideoUrl(result);
+    remoteVideoUrl = extractVideoUrl(result);
     if (!remoteVideoUrl) throw new Error(`${providerName === 'wavespeed' ? 'WaveSpeed' : 'Fal'} completed the request without a playable video URL.`);
+
+    // Persist the provider result before local branding. A deployment problem
+    // must never require another paid provider generation to recover the video.
+    if (db) {
+      await db.collection('videoTestJobs').doc(jobId).set({
+        providerVideoUrl: remoteVideoUrl,
+        providerStatus: state,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+    }
     const videoResponse = await fetch(remoteVideoUrl, { cache: 'no-store' });
     if (!videoResponse.ok) throw new Error(`Generated video download failed (${videoResponse.status}).`);
     const contentType = videoResponse.headers.get('content-type') || 'video/mp4';
@@ -188,6 +199,7 @@ export async function GET(req: NextRequest) {
     const update = {
       status: isPostProcessingFailure ? 'post_processing_failed' : isUnknown ? 'unknown' : 'failed',
       error: failure.message,
+      ...(remoteVideoUrl ? { providerVideoUrl: remoteVideoUrl } : {}),
       providerStatusCode: failure.providerStatusCode,
       retryable: failure.retryable,
       failedAt: new Date().toISOString(),
@@ -195,7 +207,11 @@ export async function GET(req: NextRequest) {
     };
     if (db) {
       await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
-      await db.collection('sessions').doc(job.sessionId).set({ activeVideoTestJobId: isUnknown ? jobId : null }, { merge: true });
+      await db.collection('sessions').doc(job.sessionId).set({
+        // A completed provider render with a local branding failure is still
+        // recoverable. Keep it attached to the session for refresh recovery.
+        activeVideoTestJobId: isUnknown || isPostProcessingFailure ? jobId : null,
+      }, { merge: true });
     } else {
       getMockStore().sessions.set(`video_test_${jobId}`, { ...job, ...update });
     }

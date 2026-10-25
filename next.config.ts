@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // ffmpeg-static resolves its binary at runtime. Include it only with the
+  // routes that create the branded customer and showroom MP4 files.
+  outputFileTracingIncludes: {
+    '/api/video/status': ['./node_modules/ffmpeg-static/ffmpeg'],
+    '/api/video/webhook': ['./node_modules/ffmpeg-static/ffmpeg'],
+  },
   async headers() {
     return [{
       source: '/:path*',
