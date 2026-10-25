@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
   try {
     const master = await normalizeStorageImage(session.masterStoragePath, `${basePath}/input-master.jpg`);
     const garmentPaths = Array.isArray(access.pass.videoGarmentPhotoStoragePaths)
-      ? access.pass.videoGarmentPhotoStoragePaths.filter((value): value is string => typeof value === 'string').slice(0, 3)
+      ? access.pass.videoGarmentPhotoStoragePaths.filter((value): value is string => typeof value === 'string').slice(0, 2)
       : [];
     if (!garmentPaths.length) throw new Error('At least one garment reference is required for the approved master.');
     const garments = [];

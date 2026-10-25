@@ -135,18 +135,15 @@ function customerError(caught: unknown, fallback: string) {
 
 const videoModelTestingEnabled = process.env.NEXT_PUBLIC_VIDEO_MODEL_TESTING === 'true';
 const videoTestModelOptions = [
-  { value: 'wavespeed-h3-open', label: '#1 WaveSpeed H3 Open (50% OFF · ₹39.15)' },
-  { value: 'minimax-h3-original', label: '#2 MiniMax H3 Normal · 768p (₹52.20)' },
-  { value: 'vidu-q4', label: '#3 Vidu Q4 Preview (15% OFF · ₹42.18)' },
-  { value: 'kling-video-o3-std', label: '#4 Kling Omni O3 Std · 720p (₹43.85)' },
-  { value: 'wavespeed-h3-singularity', label: '#5 WaveSpeed H3 Singularity (50% OFF · ₹39.15)' },
-  { value: 'wan-2-7', label: '#6 Alibaba Wan 2.7 R2V · 720p (₹52.20)' },
-  { value: 'wan-2-6', label: '#7 Alibaba Wan 2.6 R2V · 720p (₹52.20)' },
-  { value: 'gemini-omni-flash', label: '#8 Google Gemini Omni 1.1 Flash (₹52.20)' },
-  { value: 'pixverse-c1', label: '#9 PixVerse C1 R2V · 720p (₹26.10)' },
-  { value: 'wan-2-6-flash', label: '#10 Wan 2.6 Flash R2V · 720p (₹26.10)' },
-  { value: 'grok-imagine', label: '#11 xAI Grok Imagine R2V (₹26.10)' },
-  { value: 'pruna-p-video-2', label: '#12 Pruna P-Video-2 Pro · 720p (₹18.27)' },
+  { value: 'wavespeed-h3-open', label: '#1 WaveSpeed H3 Open (Estimated current cost $0.45 / ₹39.15)' },
+  { value: 'minimax-h3-original', label: '#2 MiniMax H3 Normal · 768p (Estimated current cost $0.60 / ₹52.20)' },
+  { value: 'wavespeed-h3-singularity', label: '#3 WaveSpeed H3 Singularity (Estimated current cost $0.45 / ₹39.15)' },
+  { value: 'vidu-q4', label: '#4 Vidu Q4 Preview (Estimated current cost $0.485 / ₹42.18)' },
+  { value: 'kling-video-o3-std', label: '#5 Kling Omni O3 Standard · 720p (Estimated current cost $0.504 / ₹43.85)' },
+  { value: 'gemini-omni-flash', label: '#6 Google Gemini Omni 1.1 Flash (Estimated current cost $0.60 / ₹52.20)' },
+  { value: 'pixverse-c1', label: '#7 PixVerse C1 R2V · 720p (Estimated current cost $0.30 / ₹26.10)' },
+  { value: 'grok-imagine', label: '#8 xAI Grok Imagine R2V (Estimated current cost $0.30 / ₹26.10)' },
+  { value: 'pruna-p-video-2', label: '#9 Pruna P-Video-2 Pro · 720p (Estimated current cost $0.21 / ₹18.27)' },
 ];
 
 export default function MaharajaExperience({ service, accessCode, retrySessionId = '' }: { service: 'try-on' | 'ai-video'; accessCode: string; retrySessionId?: string }) {
