@@ -147,14 +147,17 @@ async function run() {
   for (const concept of VIDEO_CONCEPTS) {
     const masterPrompt = buildVideoMasterPrompt(concept, 'generic');
     const motionPrompt = buildH3MotionPrompt(concept, ['garment front']);
+    const isChild = ['girl', 'boy'].includes(concept.category);
     assert(/recognizable facial geometry/i.test(masterPrompt) && /exact garment/i.test(masterPrompt), `${concept.id}: Identity and garment lock enforced`);
-    assert(/No makeup/.test(masterPrompt) && /doll-like finish/.test(masterPrompt), `${concept.id}: Master keeps natural skin without makeup`);
-    if (['women-golden-courtyard', 'men-heritage-passage'].includes(concept.id)) {
+    assert(/No makeup/.test(masterPrompt) && /waxy\/plastic\/doll finish/.test(masterPrompt), `${concept.id}: Master keeps natural skin without makeup`);
+    if (isChild) {
+      assert(/palms gently together in a simple Namaste/i.test(masterPrompt) && /child's Namaste pose unchanged/i.test(motionPrompt), `${concept.id}: Child has a safe Namaste pose`);
+    } else if (['women-golden-courtyard', 'men-heritage-passage'].includes(concept.id)) {
       assert(/both hands and both feet completely visible/i.test(masterPrompt), `${concept.id}: Sample pose keeps full body visible`);
     } else {
       assert(/supported hand anatomically correct and visibly touching/i.test(masterPrompt) && /both hands stay below the waist/i.test(masterPrompt), `${concept.id}: Master supports the hand and keeps it below the waist`);
     }
-    assert(/smile/.test(motionPrompt) && /both hands stay below waist, away from chest/.test(motionPrompt), `${concept.id}: Film permits natural expression while keeping hands safely below the waist`);
+    assert(/smile/.test(motionPrompt) && (isChild ? /Namaste pose unchanged/.test(motionPrompt) : /both hands below waist, away from chest/.test(motionPrompt)), `${concept.id}: Film permits natural expression with category-safe hand direction`);
     assert(/CAMERA: 0-1s/.test(motionPrompt) && /BACKGROUND(?: \+ FX)?: Animate throughout|BACKGROUND: Animate only visible/.test(motionPrompt) && /Effects stay behind/.test(motionPrompt), `${concept.id}: Camera, background and effects remain explicit`);
   }
 

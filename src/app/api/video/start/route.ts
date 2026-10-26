@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { isEventId, MAHARAJA_CLIENT_ID, type CustomerCategory, type EventId } from '@/lib/maharaja/config';
+import { isEventId, MAHARAJA_CLIENT_ID, type EventId, type GarmentType } from '@/lib/maharaja/config';
 import { getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel, isVideoModelTestingEnabled } from '@/lib/maharaja/video-test';
@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
     let responseUrl = '';
     let providerSeed: string | number | null = null;
     {
-      const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), concept.id, garmentRoles, eventId);
+      const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), concept.id, garmentRoles, eventId, (access.pass.videoMasterGarmentType || 'generic') as GarmentType);
       const webhookUrl = new URL('/api/video/webhook', req.nextUrl.origin);
       webhookUrl.searchParams.set('jobId', jobId);
       webhookUrl.searchParams.set('token', webhookToken);
