@@ -2,7 +2,6 @@ import { buildH3MotionPrompt, getVideoConcept, type VideoConceptId } from './vid
 import type { EventId } from './config';
 
 export const FAL_VIDEO_MODELS = [
-  { id: 'gemini-omni-1.1', label: 'Gemini Omni 1.1 · 720p', model: 'google/gemini-omni-flash/v1.1/reference-to-video', seconds: 6, estimatedUsd: 0.60 },
   { id: 'h3-max', label: 'H3 Max · 768p', model: 'minimax/h3-max/reference-to-video', seconds: 6, estimatedUsd: 0.48 },
   { id: 'pixverse-c1', label: 'PixVerse C1 · 720p', model: 'fal-ai/pixverse/c1/reference-to-video', seconds: 6, estimatedUsd: 0.30 },
 ] as const;
@@ -32,12 +31,10 @@ export function buildVideoTestInput(
   const garments = garmentReferenceUrls.filter(Boolean).slice(0, 2);
   const roles = garmentRoles.slice(0, garments.length);
   const references = [masterImageUrl, ...garments];
-  const eventLabel = eventId === 'new-year' ? 'New Year' : eventId.charAt(0).toUpperCase() + eventId.slice(1);
-  const garmentMap = garments.map((_, index) => `Image ${index + 2} confirms ${roles[index] || `garment ${index + 1}`} details only.`).join(' ');
 
   if (modelId === 'h3-max') {
     return {
-      prompt: `Image 1 is the approved customer's exact face, outfit and ${eventLabel} setting. ${garmentMap} ${buildH3MotionPrompt(concept, roles, false, eventId, modelId)}`,
+      prompt: buildH3MotionPrompt(concept, roles, eventId),
       image_url: masterImageUrl,
       reference_image_urls: references,
       duration: 6,
@@ -49,8 +46,7 @@ export function buildVideoTestInput(
   }
 
   if (modelId === 'pixverse-c1') {
-    const garmentTags = garments.map((_, index) => `@garment${index + 1} confirms fabric only.`).join(' ');
-    const prompt = `@master is the approved customer, exact outfit and ${eventLabel} setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true, eventId, modelId)}`;
+    const prompt = buildH3MotionPrompt(concept, roles, eventId, 'pixverse');
     if (Buffer.byteLength(prompt, 'utf8') > 2048) throw new Error('PixVerse prompt exceeds its 2,048-byte limit.');
     return {
       prompt,
@@ -64,17 +60,6 @@ export function buildVideoTestInput(
       aspect_ratio: '9:16',
       generate_audio_switch: false,
       enable_safety_checker: true,
-    };
-  }
-
-  if (modelId === 'gemini-omni-1.1') {
-    const garmentTags = garments.map((_, index) => `<IMAGE_REF_${index + 1}> confirms fabric only.`).join(' ');
-    return {
-      prompt: `<IMAGE_REF_0> is the approved customer's exact face, outfit and ${eventLabel} setting. ${garmentTags} ${buildH3MotionPrompt(concept, roles, true, eventId, modelId)}`,
-      image_urls: references,
-      duration: 6,
-      resolution: '720p',
-      aspect_ratio: '9:16',
     };
   }
 

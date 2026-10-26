@@ -147,11 +147,15 @@ async function run() {
   for (const concept of VIDEO_CONCEPTS) {
     const masterPrompt = buildVideoMasterPrompt(concept, 'generic');
     const motionPrompt = buildH3MotionPrompt(concept, ['garment front']);
-    assert(/preserve facial geometry/i.test(masterPrompt) && /exact garment/i.test(masterPrompt), `${concept.id}: Identity and garment lock enforced`);
+    assert(/recognizable facial geometry/i.test(masterPrompt) && /exact garment/i.test(masterPrompt), `${concept.id}: Identity and garment lock enforced`);
     assert(/No makeup/.test(masterPrompt) && /doll-like finish/.test(masterPrompt), `${concept.id}: Master keeps natural skin without makeup`);
-    assert(/physically touching the anchored hand/i.test(masterPrompt) && /both hands remain below the waist/i.test(masterPrompt), `${concept.id}: Master supports the hand and keeps it below the waist`);
-    assert(/smile/.test(motionPrompt) && /never lift toward chest/.test(motionPrompt), `${concept.id}: Film permits natural expression while keeping hands safely below the waist`);
-    assert(/CAMERA CHOREOGRAPHY:/.test(motionPrompt) && /BACKGROUND ANIMATION:/.test(motionPrompt) && /Effects stay behind/.test(motionPrompt), `${concept.id}: Camera, background and effects remain explicit`);
+    if (['women-golden-courtyard', 'men-heritage-passage'].includes(concept.id)) {
+      assert(/both hands and both feet completely visible/i.test(masterPrompt), `${concept.id}: Sample pose keeps full body visible`);
+    } else {
+      assert(/supported hand anatomically correct and visibly touching/i.test(masterPrompt) && /both hands stay below the waist/i.test(masterPrompt), `${concept.id}: Master supports the hand and keeps it below the waist`);
+    }
+    assert(/smile/.test(motionPrompt) && /both hands stay below waist, away from chest/.test(motionPrompt), `${concept.id}: Film permits natural expression while keeping hands safely below the waist`);
+    assert(/CAMERA: 0-1s/.test(motionPrompt) && /BACKGROUND(?: \+ FX)?: Animate throughout|BACKGROUND: Animate only visible/.test(motionPrompt) && /Effects stay behind/.test(motionPrompt), `${concept.id}: Camera, background and effects remain explicit`);
   }
 
   // Admin Logout Test

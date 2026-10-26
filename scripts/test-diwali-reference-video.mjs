@@ -6,9 +6,10 @@ const { VIDEO_CONCEPTS, VIDEO_PROMPT_ARCHITECTURE_VERSION, buildVideoMasterPromp
 const { FAL_VIDEO_MODELS, buildVideoTestInput, getVideoTestModel } = await import('../src/lib/maharaja/video-test.ts');
 
 assert.equal(VIDEO_CONCEPTS.length, 12);
-assert.equal(VIDEO_PROMPT_ARCHITECTURE_VERSION, 'festival-v4-anchored-hand');
-assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['gemini-omni-1.1', 'h3-max', 'pixverse-c1']);
-assert.equal(getVideoTestModel().id, 'gemini-omni-1.1');
+assert.equal(VIDEO_PROMPT_ARCHITECTURE_VERSION, 'festival-v6-two-shot-test');
+assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['h3-max', 'pixverse-c1']);
+assert.equal(getVideoTestModel().id, 'h3-max');
+assert.equal(getVideoTestModel('gemini-omni-1.1'), null);
 
 for (const category of ['men', 'women', 'boy', 'girl']) {
   assert.equal(VIDEO_CONCEPTS.filter((concept) => concept.category === category).length, 3);
@@ -19,24 +20,30 @@ const events = ['diwali', 'pongal', 'new-year', 'christmas', 'ramadan', 'birthda
 for (const concept of VIDEO_CONCEPTS) {
   const master = buildVideoMasterPrompt(concept, 'saree');
   const motion = buildH3MotionPrompt(concept, ['front', 'back']);
-  assert.match(master, /preserve facial geometry/i);
-  assert.match(master, /physically touching the anchored hand/i);
-  assert.match(master, /both feet planted/i);
-  assert.match(master, /natural skin texture/i);
-  assert.match(master, /catchlights/i);
+  assert.match(master, /sole authority for face/i);
+  if (['women-golden-courtyard', 'men-heritage-passage'].includes(concept.id)) {
+    assert.match(master, /both hands and both feet completely visible/i);
+  } else {
+    assert.match(master, /supported hand anatomically correct and visibly touching/i);
+    assert.match(master, /both feet planted/i);
+  }
+  assert.match(master, /real skin texture/i);
+  assert.match(master, /soft frontal key light/i);
   assert.match(master, /no makeup/i);
-  assert.match(master, /clear of the chest/i);
-  assert.match(motion, /approved master is the sole visual authority/i);
-  assert.match(motion, /never lift toward chest/i);
-  assert.match(motion, /continuous visible contact/i);
-  assert.match(motion, /one palm-width outward beside the hip/i);
-  assert.match(motion, /remains below the waist/i);
-  assert.match(motion, /head turn/i);
-  assert.match(motion, /0-2s/i);
+  if (!['women-golden-courtyard', 'men-heritage-passage'].includes(concept.id)) assert.match(master, /outside the chest and garment/i);
+  assert.match(motion, /approved exact opening frame and sole authority/i);
+  assert.match(motion, /both hands stay below waist, away from chest/i);
+  if (['women-golden-courtyard', 'men-heritage-passage'].includes(concept.id)) {
+    assert.doesNotMatch(motion, /supported hand touching that same support throughout/i);
+  } else {
+    assert.match(motion, /supported hand touching that same support throughout/i);
+  }
+  assert.match(motion, /subtle breathing/i);
   assert.doesNotMatch(motion, /take (?:one|a) .*step/i);
-  assert.match(motion, /existing lamps and lanterns remain in place/i);
-  assert.match(motion, /CAMERA CHOREOGRAPHY:/);
+  assert.match(motion, /BACKGROUND(?: \+ FX)?: Animate throughout|BACKGROUND: Animate only visible Diwali details/i);
+  assert.match(motion, /CAMERA: 0-1s/i);
   assert.match(motion, /smile/i);
+  assert.match(motion, /parallax/i);
   if (['girl', 'boy'].includes(concept.category)) assert.match(master, /free of adult glamour/i);
 
   for (const model of FAL_VIDEO_MODELS) {
@@ -46,34 +53,39 @@ for (const concept of VIDEO_CONCEPTS) {
     assert.match(input.prompt, /Image 1|@master|<IMAGE_REF_0>/);
     assert.match(input.prompt, /smile/i);
     if (model.id === 'h3-max') {
-      assert.match(input.prompt, /no head turn, nod or tilt/i);
-      assert.match(input.prompt, /translate the camera laterally/i);
+      assert.match(input.prompt, /Image 1 is the approved exact opening frame/i);
+      assert.match(input.prompt, /CAMERA: 0-1s/i);
+      assert.match(input.prompt, /small warm smile/i);
+      assert.match(input.prompt, /no slow motion, freeze,/i);
+      assert.match(input.prompt, /Track (?:right|left) (?:past|beside)|horizontal(?:ly)? reveal|modest elevated angle/i);
+      assert.match(input.prompt, /both hands stay below waist, away from chest/i);
       assert.equal(input.image_url, references[0]);
       assert.deepEqual(input.reference_image_urls, references);
       assert.equal(input.resolution, '768P');
       assert.equal(input.prompt_expansion_mode, 'disabled');
     } else if (model.id === 'pixverse-c1') {
-      assert.match(input.prompt, /no body rotation, spin, head turn or walking/i);
-      assert.match(input.prompt, /translate the camera sideways/i);
+      assert.match(input.prompt, /@master is the approved exact opening frame/i);
+      assert.match(input.prompt, /small warm smile/i);
+      assert.match(input.prompt, /both hands stay below waist, away from chest/i);
+      assert.match(input.prompt, /Track (?:right|left) (?:past|beside)|horizontal(?:ly)? reveal|modest elevated angle/i);
       assert.deepEqual(input.image_references.map((item) => item.image_url), references);
       assert.deepEqual(input.image_references.map((item) => item.ref_name), ['master', 'garment1', 'garment2']);
       assert.equal(input.resolution, '720p');
       assert.equal(input.generate_audio_switch, false);
       assert(Buffer.byteLength(input.prompt, 'utf8') <= 2048, 'PixVerse prompt exceeds 2,048 UTF-8 bytes');
-    } else {
-      assert.match(input.prompt, /small head turn back to the camera/i);
-      assert.deepEqual(input.image_urls, references);
-      assert.equal(input.resolution, '720p');
-      assert.match(input.prompt, /<IMAGE_REF_0>/);
     }
   }
   for (const eventId of events) {
     const eventMaster = buildVideoMasterPrompt(concept, 'saree', eventId);
-    const eventMotion = buildH3MotionPrompt(concept, ['front', 'back'], false, eventId);
-    assert.match(eventMaster, /preserve facial geometry/i);
-    assert.match(eventMaster, /physically touching the anchored hand/i);
-    assert.match(eventMotion, /same recognizable face/i);
-    assert.match(eventMotion, /continuous visible contact/i);
+    const eventMotion = buildH3MotionPrompt(concept, ['front', 'back'], eventId);
+    assert.match(eventMaster, /sole authority for face/i);
+    if (!['women-golden-courtyard', 'men-heritage-passage'].includes(concept.id)) {
+      assert.match(eventMaster, /supported hand anatomically correct and visibly touching/i);
+    }
+    assert.match(eventMotion, /Preserve identity and exact garment/i);
+    if (!['women-golden-courtyard', 'men-heritage-passage'].includes(concept.id)) {
+      assert.match(eventMotion, /supported hand touching that same support throughout/i);
+    }
     if (eventId !== 'diwali') {
       assert.doesNotMatch(eventMaster, /diwali|firework|diya/i);
       assert.doesNotMatch(eventMotion, /diwali|firework|diya/i);
@@ -87,5 +99,29 @@ for (const concept of VIDEO_CONCEPTS) {
   }
 }
 
-assert.equal(new Set(VIDEO_CONCEPTS.map((concept) => buildH3MotionPrompt(concept, []).split('CAMERA CHOREOGRAPHY: ')[1]?.split('\n')[0])).size, 12);
-console.log('Fal H3 Max, PixVerse C1 and Gemini Omni 1.1 schemas passed for all 12 concepts.');
+const womenSample = VIDEO_CONCEPTS.find((concept) => concept.id === 'women-golden-courtyard');
+const womenImagePrompt = buildVideoMasterPrompt(womenSample, 'saree');
+const womenVideoPrompt = buildH3MotionPrompt(womenSample, ['front']);
+assert.match(womenImagePrompt, /right hand on the hip/i);
+assert.match(womenImagePrompt, /both hands and both feet completely visible/i);
+assert.match(womenImagePrompt, /tall brass diya stand in the near foreground/i);
+assert.match(womenVideoPrompt, /brisk stabilized horizontal reveal from behind the near diya stand/i);
+assert.match(womenVideoPrompt, /gently dolly closer/i);
+
+const menSample = VIDEO_CONCEPTS.find((concept) => concept.id === 'men-heritage-passage');
+const menImagePrompt = buildVideoMasterPrompt(menSample, 'generic');
+const menVideoPrompt = buildH3MotionPrompt(menSample, ['front']);
+assert.match(menImagePrompt, /both hands naturally at the front trouser pockets/i);
+assert.match(menImagePrompt, /both hands and both feet completely visible/i);
+assert.match(menVideoPrompt, /modest elevated angle/i);
+assert.match(menVideoPrompt, /descend smoothly to eye level while dollying toward the man/i);
+assert.match(menVideoPrompt, /dolly back and settle into a centered full-body hero frame/i);
+
+assert.equal(new Set(VIDEO_CONCEPTS.map((concept) => buildH3MotionPrompt(concept, []).match(/1-(?:4|4\.5)s:? ([^.]+)/i)?.[1])).size, 12);
+for (const concept of VIDEO_CONCEPTS) {
+  const h3Prompt = buildH3MotionPrompt(concept, ['front', 'back']);
+  const pixversePrompt = buildH3MotionPrompt(concept, ['front', 'back'], 'diwali', 'pixverse')
+    .replaceAll('@master', 'Image 1').replaceAll('@garment1', 'Image 2').replaceAll('@garment2', 'Image 3');
+  assert.equal(pixversePrompt, h3Prompt, `${concept.id}: H3 and PixVerse use identical creative direction`);
+}
+console.log('H3 Max and PixVerse schemas and shared H3 direction passed for all 12 concepts.');

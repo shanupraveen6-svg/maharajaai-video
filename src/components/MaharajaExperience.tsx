@@ -139,7 +139,6 @@ function customerError(caught: unknown, fallback: string) {
 
 const videoModelTestingEnabled = process.env.NEXT_PUBLIC_VIDEO_MODEL_TESTING === 'true';
 const videoTestModelOptions = [
-  { value: 'gemini-omni-1.1', label: 'Gemini Omni 1.1 · 720p' },
   { value: 'h3-max', label: 'H3 Max · 768p' },
   { value: 'pixverse-c1', label: 'PixVerse C1 · 720p' },
 ];
@@ -185,7 +184,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [masterApproved, setMasterApproved] = useState(false);
   const [videoTestJobId, setVideoTestJobId] = useState('');
   const [videoTestUrl, setVideoTestUrl] = useState('');
-  const [videoTestModel, setVideoTestModel] = useState('gemini-omni-1.1');
+  const [videoTestModel, setVideoTestModel] = useState('h3-max');
   const [generationProgress, setGenerationProgress] = useState(0);
   const [photoInputError, setPhotoInputError] = useState('');
   const resumedVideoJobRef = useRef('');
