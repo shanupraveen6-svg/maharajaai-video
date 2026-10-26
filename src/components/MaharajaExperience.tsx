@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Download,
   MoreVertical,
+  RotateCcw,
   Film,
   LoaderCircle,
   Shirt,
@@ -31,6 +32,7 @@ import { conceptsForCategory, getVideoConcept, type VideoConceptId } from '@/lib
 
 const BarcodePriceScanner = dynamic(() => import('@/components/BarcodePriceScanner'), { ssr: false });
 const SecureTryOnViewer = dynamic(() => import('@/components/SecureTryOnViewer'), { ssr: false });
+const BeforeAfterSlider = dynamic(() => import('@/components/BeforeAfterSlider'), { ssr: false });
 const ResultClient = dynamic(() => import('@/app/result/[sessionId]/ResultClient'), { ssr: false });
 
 type AccessResponse = {
@@ -155,6 +157,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [tryOnGrant, setTryOnGrant] = useState('');
   const [tryOnUsed, setTryOnUsed] = useState(false);
   const [retryUsed, setRetryUsed] = useState(false);
+  const [showImageRetryMenu, setShowImageRetryMenu] = useState(false);
   const [allowances, setAllowances] = useState<{
     enforceRepeatLimits?: boolean;
     tryOn: { used: number; max: number; remaining: number };
@@ -188,7 +191,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const resumedVideoJobRef = useRef('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
-  const maxGarmentPhotos = isTryOn ? 3 : 2;
+  const maxGarmentPhotos = isTryOn ? (allowances.tryOn.used > 0 || (service === 'try-on' && retryUsed) ? 3 : 1) : 2;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   const isCatalogueGift = access?.access.experienceType === 'catalogue-gift';
@@ -243,18 +246,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       return;
     }
     try {
-      // Safely invalidate master image on server immediately
-      await fetch('/api/ai/master-image/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accessCode,
-          sessionId,
-          service: activeService,
-          reason: 'customer_retry_requested',
-        }),
-      }).catch((e) => console.warn('Master image reject call failed:', e));
-
       const res = await fetch('/api/maharaja/activity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -274,7 +265,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       if (!res.ok) {
         throw new Error(data.error || 'Retry request could not be processed.');
       }
+      await readJson(await fetch('/api/ai/master-image/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessCode, sessionId, service: activeService, reason: 'customer_retry_requested' }),
+      }));
       setStage('ready');
+      setRetryUsed(true);
       setTryOnImageUrl(null);
       setTryOnUsed(false);
       setVideoMasterUrl(null);
@@ -614,8 +611,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setError('');
     setMessage(activeService === 'try-on' ? 'Uploading photos and preparing Try-On...' : `Uploading photos and preparing ${event.label} portrait...`);
     const progressTimers = [
-      window.setTimeout(() => setMessage('Creating your image with Gemini. This normally takes a little longer than photo upload.'), 8000),
-      window.setTimeout(() => setMessage('Gemini is still creating the full-quality image. Your photos and selected pose are safely locked.'), 28000),
+      window.setTimeout(() => setMessage(activeService === 'try-on' ? 'Creating your Try-On image...' : 'Creating your festival image with Gemini...'), 8000),
+      window.setTimeout(() => setMessage('Your image request is still processing. Please keep this page open.'), 28000),
     ];
     try {
       // Mobile browsers can drop one of several simultaneous signed uploads.
@@ -651,7 +648,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         tryOnGrant,
         processingConsent,
         guardianProcessingConsent: (category === 'girl' || category === 'boy') ? processingConsent : false,
-        consentVersion: '2026-10-privacy-v1',
+        consentVersion: '2026-10-privacy-v2',
       };
 
       requestBody.personPhotoStoragePath = personStoragePath;
@@ -841,13 +838,24 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <div><p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by <a href="https://www.tryfocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition">TryFocus</a></p><h1 className="mt-1 font-serif text-2xl font-bold">Maharaja AI Experience</h1></div>
-          {activeService === 'try-on' ? <Shirt className="h-7 w-7 text-[#D4AF37]" /> : <Film className="h-7 w-7 text-[#D4AF37]" />}
+          <div className="relative flex shrink-0 items-center gap-2">
+            {masterImageUrl && stage !== 'result' && (
+              <>
+                <button type="button" aria-label="Image options" title="Image options" onClick={() => setShowImageRetryMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center border border-[#D4AF37]/45 text-[#D4AF37] hover:bg-white/10"><MoreVertical className="h-5 w-5" /></button>
+                {showImageRetryMenu && <div className="absolute right-0 top-11 z-40 w-40 border border-[#D4AF37]/50 bg-[#21090E] p-1 shadow-xl">
+                  <button type="button" onClick={() => { setShowImageRetryMenu(false); if (window.confirm('Use your included image retry?')) void handleRetryImage(); }} className="flex min-h-10 w-full items-center gap-2 px-2 text-left text-xs font-bold hover:bg-white/10"><RotateCcw className="h-4 w-4" /> Retry image</button>
+                </div>}
+              </>
+            )}
+            {activeService === 'try-on' ? <Shirt className="h-7 w-7 text-[#D4AF37]" /> : <Film className="h-7 w-7 text-[#D4AF37]" />}
+          </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-5xl px-4 py-6">
         {stage === 'result' ? (
           <ResultClient
+            embedded
             sessionId={sessionId}
             accessCode={accessCode}
             initialVideoJobId={videoTestJobId}
@@ -856,7 +864,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             initialEventId={eventId}
             allowGoLive={!isCatalogueGift}
             catalogueProduct={access?.access.catalogueProduct || null}
-            onBack={() => setStage('ready')}
+            onBack={() => { setVideoTestUrl(''); setVideoTestJobId(''); setStage('ready'); }}
           />
         ) : (
           <>
@@ -1023,14 +1031,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                           {GARMENT_TYPE_OPTIONS[category].map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
                         <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">Confirm the garment type first. The reference roles below are sent to AI.</span>
-                        {garmentType === 'saree' && isTryOn && <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">For exact blouse output, add a blouse photo as the third reference.</span>}
+                        {garmentType === 'saree' && isTryOn && maxGarmentPhotos === 3 && <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">On the Gemini retry, a blouse photo may be the third reference.</span>}
                       </label>
 
                       {garmentPhotos.length === 0 ? (
                         <div className="aspect-[3/4] overflow-hidden bg-white p-2 flex flex-col items-center justify-center gap-2 text-slate-400">
                           <Shirt className="h-10 w-10 text-slate-300" />
                           <span className="text-xs font-bold uppercase text-center">
-                            {isTryOn ? '1 to 3 garment photos' : '1 to 2 garment photos'}
+                            {isTryOn ? `1 to ${maxGarmentPhotos} garment photo${maxGarmentPhotos === 1 ? '' : 's'}` : '1 to 2 garment photos'}
                           </span>
                           <span className="text-[11px] text-center text-slate-400">
                             {garmentType === 'saree' ? 'Saree body, pallu / border' : 'Front view, detail, or border / layer'}
@@ -1189,15 +1197,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 <SecureTryOnViewer
                   imageUrl={masterImageUrl}
                   alt="Generated Maharaja AI fashion result"
-                  onRetryRequested={handleRetryImage}
-                  retryUsed={retryUsed}
-                  serviceType={activeService}
-                  allowanceUsed={activeService === 'try-on' ? allowances?.tryOn?.used : allowances?.masterImage?.used}
-                  allowanceMax={2}
                 />
                 {masterImageUrl && activeService === 'try-on' && (
                   <div className="mt-4 space-y-2">
                     <button type="button" id="download-tryon-btn" onClick={downloadImage} className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black hover:brightness-105"><Download className="h-4 w-4" /> Download Try-On</button>
+                    {personPhoto && <BeforeAfterSlider before={personPhoto} after={masterImageUrl} />}
                   </div>
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (

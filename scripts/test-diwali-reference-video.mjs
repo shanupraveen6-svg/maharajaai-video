@@ -29,6 +29,8 @@ for (const concept of VIDEO_CONCEPTS) {
   assert.match(motion, /approved master is the sole visual authority/i);
   assert.match(motion, /never lift toward chest/i);
   assert.match(motion, /continuous visible contact/i);
+  assert.match(motion, /one palm-width outward beside the hip/i);
+  assert.match(motion, /remains below the waist/i);
   assert.match(motion, /head turn/i);
   assert.match(motion, /0-2s/i);
   assert.doesNotMatch(motion, /take (?:one|a) .*step/i);
@@ -45,14 +47,14 @@ for (const concept of VIDEO_CONCEPTS) {
     assert.match(input.prompt, /smile/i);
     if (model.id === 'h3-max') {
       assert.match(input.prompt, /no head turn, nod or tilt/i);
-      assert.match(input.prompt, /camera translates laterally/i);
+      assert.match(input.prompt, /translate the camera laterally/i);
       assert.equal(input.image_url, references[0]);
       assert.deepEqual(input.reference_image_urls, references);
       assert.equal(input.resolution, '768P');
       assert.equal(input.prompt_expansion_mode, 'disabled');
     } else if (model.id === 'pixverse-c1') {
       assert.match(input.prompt, /no body rotation, spin, head turn or walking/i);
-      assert.match(input.prompt, /camera sideways/i);
+      assert.match(input.prompt, /translate the camera sideways/i);
       assert.deepEqual(input.image_references.map((item) => item.image_url), references);
       assert.deepEqual(input.image_references.map((item) => item.ref_name), ['master', 'garment1', 'garment2']);
       assert.equal(input.resolution, '720p');

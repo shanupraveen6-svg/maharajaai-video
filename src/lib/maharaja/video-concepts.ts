@@ -48,6 +48,21 @@ const shotPlans: Record<VideoConceptId, string> = {
   'boy-lighted-corridor': '0-1s: first corridor arch clears the frame edge. 1-4.5s: camera travels forward through the repeating arches at child eye level while the child stays beside a column, keeping head and footwear visible. 4.5-6s: settle as wall diyas light up down the far corridor.',
 };
 
+const lateralShotPlans: Record<VideoConceptId, string> = {
+  'men-heritage-passage': 'Track right past the near column; the distant arches drift left.',
+  'men-grand-arrival': 'Track left past a foreground lantern; reveal the fountain beyond.',
+  'men-royal-lounge': 'Track right past the carved chair edge; reveal the lamp wall.',
+  'women-golden-courtyard': 'Track left past a lower-frame diya; reveal the rangoli and rear arches.',
+  'women-heritage-balcony': 'Track left beside the near railing; distant water lights drift slowly.',
+  'women-grand-hall': 'Track right past an arch edge; reveal the diya-lined hall.',
+  'girl-garden-lights': 'Track right past a lantern at the outer edge; reveal the garden path.',
+  'girl-festive-arch': 'Track left past the marigold arch edge; reveal the lit garden.',
+  'girl-rangoli-evening': 'Track right past a floor-edge lamp; reveal the full rangoli.',
+  'boy-heritage-entrance': 'Track left past the near gateway pillar; reveal the far arch.',
+  'boy-lantern-pathway': 'Track right past a lantern at the outer edge; reveal the pathway.',
+  'boy-lighted-corridor': 'Track left past the first corridor arch; reveal the repeating lights.',
+};
+
 const handAnchors: Record<VideoConceptId, { prop: string; pose: string }> = {
   'men-heritage-passage': { prop: 'a solid stone column', pose: 'Rest the right palm lightly on the side of that column at hip height.' },
   'men-grand-arrival': { prop: 'a low stone parapet', pose: 'Rest the left hand lightly on the parapet top at hip height.' },
@@ -153,15 +168,16 @@ export function buildH3MotionPrompt(concept: VideoConcept, referenceRoles: strin
     : model === 'pixverse-c1'
       ? '0-2s: face the lens. 2-4s: one natural blink and a visible smile. 4-6s: keep the smile. Shoulders, hips and feet remain facing forward; no body rotation, spin, head turn or walking.'
       : `0-2s: glance toward ${headTarget}. 2-4s: make a small head turn back to the camera, keeping at least three quarters of the face visible. 4-6s: meet the lens with a natural smile and one blink.`;
-  const performance = `Customer action: ${action} Natural breathing, not a rigid mannequin. Keep the body and both feet planted. ${anchor.pose} Keep that same hand in continuous visible contact with the same support from first to last frame; do not slide, release or redraw it. The other hand stays beside the outer thigh. Hands never lift toward chest, face or garment. No Namaste, clasp or hand-to-chest pose. Maintain the same face and outfit.`;
+  const performance = `Customer action: ${action} Natural breathing and a visible change in expression, not a rigid mannequin. Keep the body facing the camera and both feet planted. ${anchor.pose} Keep that same hand in continuous visible contact with the same support from first to last frame; do not slide, release or redraw it. During seconds 2-4, the free hand opens and moves one palm-width outward beside the hip, then returns beside the outer thigh by second 6. The free hand remains below the waist and outside the garment silhouette for the entire shot. Hands never lift toward chest, face or garment. No Namaste, clasp or hand-to-chest pose. Maintain the same face and outfit.`;
   const cameraDirection = model === 'pixverse-c1'
-    ? 'Move the camera sideways past one existing foreground set edge for parallax; the customer does not rotate. Keep the face unobstructed and sharp throughout.'
+    ? `Translate the camera sideways: ${lateralShotPlans[concept.id]} The customer does not rotate. Foreground crosses only the outer frame edge; face and dress stay sharp.`
     : model === 'h3-max'
-      ? 'Camera translates laterally past an existing foreground edge; keep the face front-facing, sharp and unobstructed. The background may defocus, never the person or garment.'
+      ? `Translate the camera laterally while the customer remains front-facing: ${lateralShotPlans[concept.id]} Keep the face and dress sharp and unobstructed; only foreground and background may defocus.`
       : camera;
   const environment = eventId === 'diwali'
     ? `Animate the existing scene continuously for all six seconds: ${concept.environmentMotion} ${concept.effectMotion} Existing lamps and lanterns remain in place and visible to the end; never dissolve, erase or replace them. Effects stay behind the person and must not cover face or clothing.`
     : `Animate only existing ${event.label} set details: ${event.motion} Finish with ${event.finish} All effects remain behind the person; never dissolve, erase or replace existing objects.`;
+  if (model === 'pixverse-c1') return `Six-second vertical ${event.label} film. Master fixes the exact recognizable face, natural skin, dress colors and set; no beauty filter, face swap or costume change. Customer faces camera, shoulders and hips fixed; no body rotation, spin, head turn or walking. Natural smile, blink and breath. ${anchor.pose} Keep the supported hand touching ${anchor.prop} throughout. Free hand moves one palm-width outward beside the hip and returns by 6s, always below waist; never hand to chest. Camera: translate the camera sideways. ${lateralShotPlans[concept.id]} Face and dress stay sharp and unobstructed; only the set may defocus. Animate existing background: ${eventId === 'diwali' ? concept.environmentMotion : event.motion} ${eventId === 'diwali' ? concept.effectMotion : event.finish} Keep all set objects visible to the end. One continuous shot, no cut or new prop.`;
   if (backup) return `Six-second vertical ${event.label} fashion film. The approved master alone defines the recognizable face, natural skin, body, exact dress and set; no makeup, plastic skin, face swap or garment change. One continuous shot. ${performance} CAMERA CHOREOGRAPHY: ${cameraDirection} BACKGROUND ANIMATION: ${environment} Keep face, full body, footwear and hand contact visible. No cut, new prop, text or effect over the person.`;
   return `Create a six-second vertical cinematic ${event.label} fashion film from the approved master. ${identity}\n\n${performance}\n\nCAMERA CHOREOGRAPHY: ${cameraDirection}\nBACKGROUND ANIMATION: ${environment}\n\nDIRECTING: One continuous shot and one physical camera move. Begin the foreground reveal immediately. Show physical camera travel and depth parallax, not a digital zoom. Keep face, full body, hand contact and footwear in frame. Preserve natural anatomy and fabric response. Use only architecture and props already visible in the master. No hard cut, orbit, new prop, text or sticker.`;
 }

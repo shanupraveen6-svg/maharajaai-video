@@ -4,8 +4,9 @@ import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
 import { type CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
-import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
+import { FalTryOnRejected, generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 
 export const maxDuration = 120;
@@ -76,7 +77,10 @@ async function resolveImageBase64(input: unknown, bucket: any, sessionId: string
 export async function POST(req: NextRequest) {
   const startedAt = Date.now();
   let referencesReadyAt = 0;
-  let geminiReadyAt = 0;
+  let imageReadyAt = 0;
+  let imageProvider = 'gemini';
+  let falTryOnAttempted = false;
+  let geminiAttempted = false;
   let storageReadyAt = 0;
   let reservedDeviceId = '';
   let reservedSessionId = '';
@@ -87,7 +91,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, garmentRoles, conceptPrompt, templateId, accessCode } = body;
     const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
-    if (body.processingConsent !== true || body.consentVersion !== '2026-10-privacy-v1') {
+    if (body.processingConsent !== true || body.consentVersion !== '2026-10-privacy-v2') {
       return NextResponse.json({ success: false, error: 'Photo processing permission is required before generation.' }, { status: 400 });
     }
     if ((body.templateId === 'girl' || body.templateId === 'boy') && body.guardianProcessingConsent !== true) {
@@ -162,13 +166,17 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const maxGarmentPhotos = service === 'ai-video' ? 2 : 3;
+    const deviceStatus = service === 'try-on' && validTryOnDeviceId(body.deviceId)
+      ? await getTryOnDeviceStatus(body.deviceId)
+      : null;
+    const tryOnRetry = service === 'try-on' && (Number(access.allowances.tryOn.used || 0) > 0 || deviceStatus?.retryUsed === true);
+    const maxGarmentPhotos = service === 'ai-video' ? 2 : tryOnRetry ? 3 : 1;
     if (garmentInputs.length > maxGarmentPhotos) {
       return NextResponse.json({
         success: false,
         error: service === 'ai-video'
           ? 'Upload up to 2 garment photos max for AI Video.'
-          : 'Upload up to 3 garment photos max.',
+          : tryOnRetry ? 'Upload up to 3 garment photos max for the Gemini retry.' : 'The first Try-On uses exactly one garment photo.',
       }, { status: 400 });
     }
 
@@ -184,7 +192,7 @@ export async function POST(req: NextRequest) {
 
     const nowIso = new Date().toISOString();
     const ai = getGenAIClient();
-    if (!ai) {
+    if (!ai && (service === 'ai-video' || tryOnRetry || !process.env.FAL_KEY?.trim())) {
       if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(
         { success: false, error: 'Gemini image generation is not configured.' },
@@ -281,25 +289,34 @@ ${categoryGarmentLine}
           prompt = `${fullConcept}\n\n${garmentFidelityRules}\n\n${referenceHierarchy}`;
         }
 
-        contents.push(prompt);
-
-        const imageModel = AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
-        const genResponse = await ai.models.generateContent({
-          model: imageModel,
-          contents,
-          config: {
-            responseModalities: ['TEXT', 'IMAGE'],
-            imageConfig: { aspectRatio: '9:16' },
-          },
-        });
-        geminiReadyAt = Date.now();
-
-        const candidate = genResponse.candidates?.[0];
-        const part = candidate?.content?.parts?.find((p: any) => p.inlineData);
-        if (part?.inlineData?.data) {
-          const rawBase64 = part.inlineData.data;
-
-          const rawBuffer = Buffer.from(rawBase64, 'base64');
+        let rawBuffer: Buffer | null = null;
+        if (service === 'try-on' && !tryOnRetry && process.env.FAL_KEY?.trim()) {
+          falTryOnAttempted = true;
+          try {
+            rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], process.env.FAL_KEY.trim());
+            imageProvider = 'fal-image-apps-v2-try-on';
+          } catch (falError) {
+            if (!(falError instanceof FalTryOnRejected)) throw falError;
+            console.warn('Fal Try-On rejected before completion; using Gemini backup.', { sessionId, reason: falError.message });
+          }
+        }
+        if (!rawBuffer) {
+          if (!ai) throw new Error('Both Try-On image services are unavailable. Please ask Maharaja staff for assistance.');
+          contents.push(prompt);
+          geminiAttempted = true;
+          const genResponse = await ai.models.generateContent({
+            model: AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
+            contents,
+            config: {
+              responseModalities: ['TEXT', 'IMAGE'],
+              imageConfig: { aspectRatio: '9:16' },
+            },
+          });
+          const part = genResponse.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+          if (part?.inlineData?.data) rawBuffer = Buffer.from(part.inlineData.data, 'base64');
+        }
+        imageReadyAt = Date.now();
+        if (rawBuffer) {
           const finalBuffer = service === 'try-on'
             ? await applyMaharajaWatermark(rawBuffer)
             : rawBuffer;
@@ -329,11 +346,17 @@ ${categoryGarmentLine}
           );
         }
     } catch (genError: any) {
-      console.error('Gemini Master Image Generation Error:', genError);
+      console.error('Master Image Generation Error:', genError);
       await logMaharajaActivity('image-failed', `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generation failed`, { sessionId, service });
       if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(
-        { success: false, error: formatGeminiImageError(genError) },
+        { success: false, error: geminiAttempted
+          ? formatGeminiImageError(genError)
+          : falTryOnAttempted && !imageReadyAt
+            ? 'Try-On provider outcome is uncertain. Please ask staff to check before retrying; no second AI request was sent.'
+            : falTryOnAttempted
+              ? 'Try-On was created but could not be delivered. Please ask staff to check this result before retrying.'
+              : formatGeminiImageError(genError) },
         { status: 500 }
       );
     }
@@ -381,7 +404,7 @@ ${categoryGarmentLine}
         garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
-        consentVersion: '2026-10-privacy-v1',
+        consentVersion: '2026-10-privacy-v2',
         consentedAt: nowIso,
         ...safeImageFields,
         status: 'master_ready',
@@ -405,7 +428,7 @@ ${categoryGarmentLine}
         garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
-        consentVersion: '2026-10-privacy-v1',
+        consentVersion: '2026-10-privacy-v2',
         consentedAt: nowIso,
         ...imageFields,
         status: 'master_ready',
@@ -437,7 +460,7 @@ ${categoryGarmentLine}
       })());
     }
     const activityType: 'try-on' | 'video-master' = service === 'try-on' ? 'try-on' : 'video-master';
-    persistenceTasks.push(logMaharajaActivity(activityType, `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId, service }));
+    persistenceTasks.push(logMaharajaActivity(activityType, `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generated`, { sessionId, eventId, service, provider: imageProvider }));
     if (reservedDeviceId) persistenceTasks.push(finishTryOnGrant(reservedDeviceId, reservedSessionId, true));
     await Promise.all(persistenceTasks);
 
@@ -455,11 +478,11 @@ ${categoryGarmentLine}
     const completedAt = Date.now();
     const timing = {
       referencePreparationMs: referencesReadyAt ? referencesReadyAt - startedAt : null,
-      geminiGenerationMs: geminiReadyAt && referencesReadyAt ? geminiReadyAt - referencesReadyAt : null,
-      imagePersistenceMs: storageReadyAt && geminiReadyAt ? storageReadyAt - geminiReadyAt : null,
+      imageGenerationMs: imageReadyAt && referencesReadyAt ? imageReadyAt - referencesReadyAt : null,
+      imagePersistenceMs: storageReadyAt && imageReadyAt ? storageReadyAt - imageReadyAt : null,
       totalMs: completedAt - startedAt,
     };
-    console.info('Maharaja image generation timing', { sessionId, service, conceptId: concept?.id || null, ...timing });
+    console.info('Maharaja image generation timing', { sessionId, service, provider: imageProvider, conceptId: concept?.id || null, ...timing });
 
     return NextResponse.json({
       success: true,

@@ -86,14 +86,14 @@ async function run() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sessionId: 'e2e_photo_limit', accessCode: customerPassCode, service: 'try-on', templateId: 'women',
-        processingConsent: true, consentVersion: '2026-10-privacy-v1', garmentTypeConfirmed: false,
+        processingConsent: true, consentVersion: '2026-10-privacy-v2', garmentTypeConfirmed: false,
         personPhotoStoragePath: 'clients/maharaja/sessions/e2e_photo_limit/person/photo.jpg',
         garmentPhotoStoragePaths: Array.from({ length: count }, (_, i) => `clients/maharaja/sessions/e2e_photo_limit/garment/${i}.jpg`),
       }),
     }));
-    assert(validation.response.status === 400 && (count === 4
-      ? /up to 3 garment/i.test(validation.data.error)
-      : /confirm the garment type/i.test(validation.data.error)), `${count} garment reference(s): API enforces the 1–3 limit before generation`, `${validation.response.status}: ${validation.data.error}`);
+    assert(validation.response.status === 400 && (count > 1
+      ? /first Try-On uses exactly one garment/i.test(validation.data.error)
+      : /confirm the garment type/i.test(validation.data.error)), `${count} garment reference(s): API enforces the first Try-On's single-garment limit before generation`, `${validation.response.status}: ${validation.data.error}`);
   }
 
   // Billing-QR Customer Role Test: Customer with billing pass accesses ai-video
@@ -149,8 +149,8 @@ async function run() {
     const motionPrompt = buildH3MotionPrompt(concept, ['garment front']);
     assert(/preserve facial geometry/i.test(masterPrompt) && /exact garment/i.test(masterPrompt), `${concept.id}: Identity and garment lock enforced`);
     assert(/No makeup/.test(masterPrompt) && /doll-like finish/.test(masterPrompt), `${concept.id}: Master keeps natural skin without makeup`);
-    assert(/outer thighs/.test(concept.finalPose) && !/Namaste|clasped|hip|wrist/i.test(concept.finalPose), `${concept.id}: Hands stay safely beside the thighs`);
-    assert(/smile/.test(motionPrompt) && /never lift toward chest/.test(motionPrompt), `${concept.id}: H3 permits natural expression while keeping hands safely below the waist`);
+    assert(/physically touching the anchored hand/i.test(masterPrompt) && /both hands remain below the waist/i.test(masterPrompt), `${concept.id}: Master supports the hand and keeps it below the waist`);
+    assert(/smile/.test(motionPrompt) && /never lift toward chest/.test(motionPrompt), `${concept.id}: Film permits natural expression while keeping hands safely below the waist`);
     assert(/CAMERA CHOREOGRAPHY:/.test(motionPrompt) && /BACKGROUND ANIMATION:/.test(motionPrompt) && /Effects stay behind/.test(motionPrompt), `${concept.id}: Camera, background and effects remain explicit`);
   }
 

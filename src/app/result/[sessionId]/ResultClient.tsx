@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, Tv, Sparkles, RotateCcw, Flame, AlertCircle, ExternalLink, MessageCircle } from 'lucide-react';
+import { Download, Tv, Sparkles, RotateCcw, AlertCircle, ExternalLink, MessageCircle, MoreVertical } from 'lucide-react';
 import { getEventOption, type EventId } from '@/lib/maharaja/config';
 
 export default function ResultClient({
@@ -16,6 +16,7 @@ export default function ResultClient({
   initialEventId = 'diwali',
   allowGoLive: initialAllowGoLive = true,
   catalogueProduct: initialCatalogueProduct = null,
+  embedded = false,
 }: {
   sessionId: string;
   accessCode?: string;
@@ -26,6 +27,7 @@ export default function ResultClient({
   initialEventId?: EventId;
   allowGoLive?: boolean;
   catalogueProduct?: { sku: string; title?: string; price?: number } | null;
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [showThankYou, setShowThankYou] = useState(false);
@@ -59,6 +61,8 @@ export default function ResultClient({
   const [liveConsent, setLiveConsent] = useState(false);
   const [guardianLiveConsent, setGuardianLiveConsent] = useState(false);
   const [promotionConsent, setPromotionConsent] = useState(false);
+  const [showRetryMenu, setShowRetryMenu] = useState(false);
+  const [retrySubmitting, setRetrySubmitting] = useState(false);
 
   const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
   const eventLabel = getEventOption(eventId).label;
@@ -246,6 +250,27 @@ export default function ResultClient({
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
+  const handleVideoRetry = async () => {
+    if (retrySubmitting || !accessCode || !videoUrl || !window.confirm('Use your included video retry? Your current film remains available to Maharaja.')) return;
+    setRetrySubmitting(true);
+    setLiveError(null);
+    try {
+      const response = await fetch('/api/maharaja/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'retry', target: 'video', service: 'ai-video', label: 'Customer video retry', accessCode, sessionId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'Video retry is unavailable.');
+      if (onBack) onBack();
+      else router.push(`/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}`);
+    } catch (error) {
+      setLiveError(error instanceof Error ? error.message : 'Video retry is unavailable.');
+    } finally {
+      setRetrySubmitting(false);
+    }
+  };
+
   const handleGoLive = async () => {
     const childCategory = category === 'girl' || category === 'boy';
     if (!liveConsent || (childCategory && !guardianLiveConsent) || goLiveSubmitting || !videoJobId) return;
@@ -289,7 +314,9 @@ export default function ResultClient({
 
   if (liveFarewell) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#070609] px-5 py-10 text-center text-[#F8F5EE]">
+      <main className="min-h-screen bg-[#070609] text-[#F8F5EE]">
+        {!embedded && <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]"><div className="mx-auto max-w-5xl"><p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by TryFocus</p><h1 className="mt-1 font-serif text-2xl font-bold">Maharaja AI Experience</h1></div></header>}
+        <div className="flex justify-center px-5 py-10 text-center">
         <section className="w-full max-w-lg">
           <img src="/maharaja-logo.png" alt="Majestic Maharaja" className="mx-auto h-24 w-24 border border-[#D4AF37]/45 object-cover shadow-xl" />
           <Sparkles className="mx-auto mt-7 h-9 w-9 text-[#D4AF37]" />
@@ -334,12 +361,14 @@ export default function ResultClient({
 
           <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thank you for experiencing the Maharaja AI visual celebration.</p>
         </section>
+        </div>
       </main>
     );
   }
 
   return (
     <main className="min-h-screen bg-[#070609] text-[#F8F5EE] p-4 md:p-8 font-sans max-w-lg mx-auto relative">
+      {!embedded && <div className="mb-5 border-b border-[#D4AF37]/30 pb-4"><p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by TryFocus</p><p className="mt-1 font-serif text-2xl font-bold text-[#F3E5AB]">Maharaja AI Experience</p></div>}
       
       {/* Header */}
       {onBack && (
@@ -351,16 +380,17 @@ export default function ResultClient({
           ← Back to Outfits & Try-On
         </button>
       )}
-      <header className="flex justify-between items-center border-b border-[#D4AF37]/20 pb-4 mb-6">
+      <header className="relative flex justify-between items-center border-b border-[#D4AF37]/20 pb-4 mb-6">
         <div className="flex items-center gap-2">
-          <Flame className="w-6 h-6 text-[#D4AF37] animate-diya" />
+          <img src="/maharaja-logo.png" alt="" className="h-7 w-7 object-cover" />
           <h1 className="text-base font-serif font-bold text-[#F3E5AB] tracking-widest uppercase">
             MAHARAJA {eventLabel.toUpperCase()} FILM
           </h1>
         </div>
-        <span className="text-[10px] font-mono text-[#D4AF37] bg-[#6e0d1f]/40 px-2 py-1 rounded border border-[#D4AF37]/30">
-          ID: {sessionId.substring(0, 10)}
-        </span>
+        {videoStatus === 'ready' && videoUrl && !liveSuccess && <div className="relative shrink-0">
+          <button type="button" aria-label="Video options" title="Video options" onClick={() => setShowRetryMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center border border-[#D4AF37]/45 text-[#D4AF37]"><MoreVertical className="h-5 w-5" /></button>
+          {showRetryMenu && <div className="absolute right-0 top-11 z-40 w-40 border border-[#D4AF37]/50 bg-[#21090E] p-1 shadow-xl"><button type="button" disabled={retrySubmitting} onClick={() => { setShowRetryMenu(false); void handleVideoRetry(); }} className="flex min-h-10 w-full items-center gap-2 px-2 text-left text-xs font-bold disabled:opacity-50"><RotateCcw className="h-4 w-4" /> Retry video</button></div>}
+        </div>}
       </header>
 
       {/* Rendering / Loading State */}
@@ -521,6 +551,7 @@ export default function ResultClient({
       {showThankYou && thankYouMode !== 'live' && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="max-w-md w-full rounded-lg border border-[#D4AF37]/55 bg-[#120203] p-6 text-center shadow-2xl space-y-5">
+            <p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by TryFocus</p>
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg border border-[#D4AF37]/60 bg-[#6e0d1f]/80 text-[#F3E5AB]">
               <Sparkles className="h-7 w-7 text-[#D4AF37]" />
             </div>
