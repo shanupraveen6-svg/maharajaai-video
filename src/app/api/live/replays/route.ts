@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import {
-  TAMIL_SHOWROOM_NAMES,
   TAMIL_GENTS_NAMES,
   TAMIL_LADIES_NAMES,
   getAssignedTvName,
@@ -12,6 +11,7 @@ import {
 import { getVideoFormat, getVideoPlaybackProfile, isSupportedVideoPath } from '@/lib/maharaja/video-playback';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
+import { filterStoredVideos } from '@/lib/maharaja/storage-video';
 
 const FALLBACK_NAME = 'Maharaja Guest';
 const MAX_PAGE_ITEMS = 200;
@@ -62,19 +62,8 @@ function selectedStoragePath(video: any): string {
   return String(video.liveStoragePath || video.storagePath || '');
 }
 
-const EXCLUDED_REPLAY_SESSIONS = new Set([
-  'maharaja_1792393529122_6ad0255f',
-  'maharaja_1792346771305_af3118e5',
-]);
-
 function isPlayableVideo(video: any): boolean {
   const storagePath = selectedStoragePath(video);
-  const sessionId = video.sessionId || stableSessionId(storagePath);
-  if (EXCLUDED_REPLAY_SESSIONS.has(sessionId)) return false;
-  if (EXCLUDED_REPLAY_SESSIONS.has(video.id)) return false;
-  for (const excluded of EXCLUDED_REPLAY_SESSIONS) {
-    if (storagePath.includes(excluded)) return false;
-  }
   const contentType = String(video.contentType || '');
   return isSupportedVideoPath(storagePath) || contentType.startsWith('video/');
 }
@@ -99,7 +88,7 @@ export async function GET(req: NextRequest) {
 
     if (db) {
       const [videosSnapshot, queueSnapshot, catalogSnapshot] = await Promise.all([
-        db.collection('videos').orderBy('createdAt', 'desc').get(),
+        db.collection('videos').get(),
         db.collection('liveQueue').where('screenId', '==', 'maharaja-main').limit(1000).get(),
         db.collection('videoCatalog').get(),
       ]);
@@ -122,9 +111,10 @@ export async function GET(req: NextRequest) {
       const videosByStoragePath = new Map<string, any>();
       videosSnapshot.docs
         .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-        .filter((video: any) => video.storagePath && (!video.status || video.status === 'ready' || video.status === 'succeeded'))
+        .filter((video: any) => selectedStoragePath(video) && (!video.status || ['ready', 'succeeded', 'completed'].includes(video.status)))
         .forEach((video: any) => {
-          videosByStoragePath.set(video.storagePath, video);
+          const path = selectedStoragePath(video);
+          if (!videosByStoragePath.has(path)) videosByStoragePath.set(path, video);
         });
 
       const bucket = getStorageBucket();
@@ -140,43 +130,55 @@ export async function GET(req: NextRequest) {
       const missingShowcaseRecords: Array<{ id: string; data: Record<string, unknown> }> = [];
       if (bucket) {
         try {
-          // Only root-level files are operator-uploaded showcase clips. Customer media lives in folders.
-          const [files] = await bucket.getFiles({ delimiter: '/' });
-          storageDiagnostics.totalObjects = files.length;
-          for (const file of files) {
+          // Demo clips can be stored at the bucket root or in the dedicated
+          // showcase upload folder. Customer session media is never auto-published.
+          const [[rootFiles], [showcaseFiles]] = await Promise.all([
+            bucket.getFiles({ delimiter: '/' }),
+            bucket.getFiles({ prefix: 'clients/maharaja/live-testing/' }),
+          ]);
+          const showcaseFilesByPath = new Map<string, any>();
+          [...rootFiles, ...showcaseFiles].forEach((file: any) => showcaseFilesByPath.set(file.name, file));
+          storageDiagnostics.totalObjects = showcaseFilesByPath.size;
+          for (const file of showcaseFilesByPath.values()) {
             const storagePath = file.name;
             const contentType = String(file.metadata?.contentType || '');
-            const isRootVideo = !storagePath.includes('/') && (
+            const isShowcaseVideo = (
+              !storagePath.includes('/') || storagePath.startsWith('clients/maharaja/live-testing/')
+            ) && (
               isSupportedVideoPath(storagePath) || contentType.startsWith('video/')
             );
-            if (!isRootVideo) {
+            if (!isShowcaseVideo) {
               storageDiagnostics.otherObjects += 1;
               continue;
             }
             storageDiagnostics.videoObjects += 1;
-            if (videosByStoragePath.has(storagePath)) continue;
-            const showcaseId = `root_showcase_${stableId(storagePath)}`;
+            const existing = videosByStoragePath.get(storagePath);
+            const showcaseId = existing?.id || `showcase_${stableId(storagePath)}`;
             const showcaseRecord = {
+              ...existing,
               id: showcaseId,
-              sessionId: stableSessionId(storagePath),
+              sessionId: existing?.sessionId || stableSessionId(storagePath),
               storagePath,
               contentType: contentType || 'video/mp4',
               status: 'ready',
               published: true,
               replayEnabled: true,
+              universalPool: true,
               isShowcaseSample: true,
               displayName: SHOWCASE_NAME,
               playbackMode: 'embedded',
               hasEmbeddedAudio: true,
-              createdAt: file.metadata?.timeCreated || file.metadata?.updated || new Date().toISOString(),
+              createdAt: existing?.createdAt || file.metadata?.timeCreated || file.metadata?.updated || new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
             videosByStoragePath.set(storagePath, showcaseRecord);
-            missingShowcaseRecords.push({ id: showcaseId, data: showcaseRecord });
+            if (!existing || existing.published !== true || existing.replayEnabled !== true || existing.isShowcaseSample !== true) {
+              missingShowcaseRecords.push({ id: showcaseId, data: showcaseRecord });
+            }
           }
         } catch (scanError: any) {
-          storageDiagnostics.scanError = scanError?.message || 'Unable to scan root showcase videos.';
-          console.warn('Root showcase scan warning:', scanError);
+          storageDiagnostics.scanError = scanError?.message || 'Unable to scan showcase videos.';
+          console.warn('Showcase video scan warning:', scanError);
         }
       }
       if (missingShowcaseRecords.length) {
@@ -194,9 +196,9 @@ export async function GET(req: NextRequest) {
       const replayCandidates = Array.from(videosByStoragePath.values())
         .filter(isPlayableVideo)
         .filter((video: any) => {
-          if (video.expiresAt && getMillis(video.expiresAt) <= now) return false;
+          if (video.isShowcaseSample !== true && video.expiresAt && getMillis(video.expiresAt) <= now) return false;
           const completedBefore = completedQueueByVideoId.has(video.id) || completedQueueByVideoId.has(`video_${video.sessionId}`);
-          return includeUnpublished || (video.published === true && video.replayEnabled === true) || completedBefore;
+          return includeUnpublished || video.universalPool === true || (video.published === true && video.replayEnabled === true) || completedBefore;
         });
       // Do not block the whole showroom playlist on one Storage existence
       // request per clip. Signing below is the final availability check; a
@@ -276,7 +278,11 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      const pageVideos = preparedVideos.slice(offset, offset + limit);
+      const pageCandidates = preparedVideos.slice(offset, offset + limit);
+      const pageVideos = await filterStoredVideos(
+        bucket,
+        pageCandidates.map((video: any) => ({ ...video, storagePath: selectedStoragePath(video) })),
+      );
       const settledItems = await Promise.allSettled(
         pageVideos.map(async (video: any, pageIndex: number) => {
           const index = offset + pageIndex;
@@ -326,10 +332,10 @@ export async function GET(req: NextRequest) {
       );
 
       const items = settledItems.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-      const failed = settledItems.length - items.length;
-      if (failed) console.warn(`Replay library skipped ${failed} video(s) that could not be signed.`);
+      const failed = pageCandidates.length - items.length;
+      if (failed) console.warn(`Replay library skipped ${failed} unavailable or unplayable video(s).`);
 
-      const nextOffset = offset + pageVideos.length < readyVideos.length ? offset + pageVideos.length : null;
+      const nextOffset = offset + pageCandidates.length < readyVideos.length ? offset + pageCandidates.length : null;
       return NextResponse.json({
         success: true,
         count: readyVideos.length,
@@ -351,7 +357,7 @@ export async function GET(req: NextRequest) {
     const readyVideos = Array.from(mockStore.videos.values())
       .filter((video: any) => video.storagePath && isSupportedVideoPath(selectedStoragePath(video)))
       .filter((video: any) => !video.expiresAt || getMillis(video.expiresAt) > now)
-      .filter((video: any) => includeUnpublished || (video.published === true && video.replayEnabled === true) || mockCompletedVideoIds.has(video.id))
+      .filter((video: any) => includeUnpublished || video.universalPool === true || (video.published === true && video.replayEnabled === true) || mockCompletedVideoIds.has(video.id))
       .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
     const pageVideos = readyVideos.slice(offset, offset + limit);
     const items = await Promise.all(pageVideos.map(async (video: any, pageIndex: number) => {
@@ -420,7 +426,7 @@ export async function DELETE(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const targetSessionIds: string[] = Array.isArray(body.sessionIds) && body.sessionIds.length > 0
       ? body.sessionIds
-      : Array.from(EXCLUDED_REPLAY_SESSIONS);
+      : [];
 
     const db = getDb();
     const bucket = getStorageBucket();

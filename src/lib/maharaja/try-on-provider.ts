@@ -1,8 +1,6 @@
 const FAL_TRY_ON_MODEL = 'fal-ai/image-apps-v2/virtual-try-on';
 const MAX_RESULT_BYTES = 16 * 1024 * 1024;
 
-export class FalTryOnRejected extends Error {}
-
 export function buildFalTryOnInput(personBase64: string, garmentBase64: string) {
   return {
     person_image_url: `data:image/jpeg;base64,${personBase64}`,
@@ -21,11 +19,6 @@ export async function generateFalTryOn(personBase64: string, garmentBase64: stri
     cache: 'no-store',
   });
   if (!response.ok) {
-    // Only a definite provider rejection may switch to Gemini. A timeout or
-    // connection loss might hide a paid render, so it must never auto-retry.
-    if ([401, 402, 404, 429, 503].includes(response.status)) {
-      throw new FalTryOnRejected(`Fal rejected Try-On before an image was returned (${response.status}).`);
-    }
     throw new Error(`Fal Try-On did not complete (${response.status}). Please ask staff to check this request before retrying.`);
   }
   const payload = await response.json();

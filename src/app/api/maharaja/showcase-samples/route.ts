@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       isShowcaseSample: true,
       published: true,
       replayEnabled: true,
+      universalPool: true,
       playbackMode: 'embedded',
       hasEmbeddedAudio: true,
       createdAt: new Date().toISOString(),

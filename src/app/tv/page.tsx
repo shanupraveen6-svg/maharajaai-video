@@ -26,6 +26,7 @@ type PlaybackItem = {
   durationSeconds?: number;
   playbackRate?: number;
   hasEmbeddedAudio?: boolean;
+  timesPlayed?: number;
 };
 
 export default function TvPlayerPage() {
@@ -57,13 +58,12 @@ export default function TvPlayerPage() {
   const loopInProgressRef = useRef(false);
   const completedQueueIdsRef = useRef<Set<string>>(new Set());
   const completionRequestsRef = useRef<Map<string, Promise<'repeat' | 'completed' | null>>>(new Map());
-  const livePlayCountsRef = useRef<Map<string, number>>(new Map());
   const pollInFlightRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playbackWatchdogRef = useRef<number | null>(null);
   const pendingWatchdogRef = useRef<number | null>(null);
   const stallRecoveryTimerRef = useRef<number | null>(null);
-  const lastProgressAtRef = useRef<number>(Date.now());
+  const lastProgressAtRef = useRef<number>(0);
   const lastProgressPosRef = useRef<number>(0);
   const badQueueIdsRef = useRef<Set<string>>(new Set());
   const activatingSlotRef = useRef<Slot | null>(null);
@@ -216,7 +216,7 @@ export default function TvPlayerPage() {
     window.setTimeout(queueNextPlaylistItem, 80);
   }
 
-  async function notifyPlaybackComplete(playback: PlaybackItem): Promise<'repeat' | 'completed' | null> {
+  async function notifyPlaybackComplete(playback: PlaybackItem, playNumber: number): Promise<'repeat' | 'completed' | null> {
     if (completedQueueIdsRef.current.has(playback.queueId)) return 'completed';
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
@@ -226,6 +226,7 @@ export default function TvPlayerPage() {
           body: JSON.stringify({
             queueId: playback.queueId,
             reservationId: playback.reservationId,
+            playNumber,
           }),
         });
         if (!response.ok) throw new Error(`Completion returned ${response.status}`);
@@ -244,11 +245,11 @@ export default function TvPlayerPage() {
     return null;
   }
 
-  function beginCompletionNotification(playback: PlaybackItem): Promise<'repeat' | 'completed' | null> {
+  function beginCompletionNotification(playback: PlaybackItem, playNumber: number): Promise<'repeat' | 'completed' | null> {
     const existing = completionRequestsRef.current.get(playback.queueId);
     if (existing) return existing;
 
-    const request = notifyPlaybackComplete(playback).finally(() => {
+    const request = notifyPlaybackComplete(playback, playNumber).finally(() => {
       completionRequestsRef.current.delete(playback.queueId);
     });
     completionRequestsRef.current.set(playback.queueId, request);
@@ -352,7 +353,6 @@ export default function TvPlayerPage() {
         const data = await res.json();
         if (!data.success || !Array.isArray(data.items)) return;
         data.items.forEach((item: PlaybackItem) => {
-          badQueueIdsRef.current.delete(item.queueId);
           appendPlaylistItem({ ...item, source: 'replay' });
         });
         offset = typeof data.nextOffset === 'number' ? data.nextOffset : -1;
@@ -401,6 +401,7 @@ export default function TvPlayerPage() {
             durationSeconds: data.durationSeconds || null,
             playbackRate: data.playbackRate || 1,
             hasEmbeddedAudio: data.hasEmbeddedAudio !== false,
+            timesPlayed: Number(data.timesPlayed || 0),
             source: 'live',
           });
         }
@@ -663,25 +664,28 @@ export default function TvPlayerPage() {
     resetExternalAudio();
 
     if (playback.source !== 'replay') {
-      const localPlayCount = (livePlayCountsRef.current.get(playback.queueId) || 0) + 1;
-      livePlayCountsRef.current.set(playback.queueId, localPlayCount);
-      const completion = beginCompletionNotification(playback);
+      const playNumber = Number(playback.timesPlayed || 0) + 1;
+      const completionStatus = await beginCompletionNotification(playback, playNumber);
 
-      // Never hold the screen on a final frame while Firestore/network work completes.
-      // The queue contract is exactly two live plays; record completion in parallel.
-      if (localPlayCount < 2) {
+      if (completionStatus === 'repeat') {
+        const nextPlay = { ...playback, timesPlayed: playNumber };
+        currentPlaybackRef.current = nextPlay;
         loopInProgressRef.current = false;
         liveAudioStartedRef.current = false;
         window.setTimeout(() => {
           void startVideoPlayback();
         }, 16);
-        void completion.then((status) => {
-          if (status !== 'repeat') console.warn('Unexpected first live completion status:', status);
-        });
         return;
       }
 
-      livePlayCountsRef.current.delete(playback.queueId);
+      if (completionStatus !== 'completed') {
+        window.setTimeout(() => {
+          loopInProgressRef.current = false;
+          void handleVideoEnded();
+        }, 1500);
+        return;
+      }
+
       removePlaybackFromPlaylist(playback.queueId);
       // If this was the only available clip, keep it on the TV as a normal
       // replay item immediately rather than leaving the screen without a loop.
@@ -689,13 +693,7 @@ export default function TvPlayerPage() {
         playlistRef.current = [{ ...playback, source: 'replay' }];
         playlistIndexRef.current = 0;
       }
-      void completion.then((status) => {
-        if (status === 'completed') {
-          void loadReplayLibrary();
-        } else {
-          console.warn('Live completion has not confirmed; backend recovery will retry it.', playback.queueId, status);
-        }
-      });
+      void loadReplayLibrary();
     }
 
     liveAudioStartedRef.current = false;

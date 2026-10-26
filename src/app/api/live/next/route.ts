@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getMockStore, generateReservationId, getSignedPlaybackUrl, type MockQueueItem } from '@/lib/firebase/admin';
+import { getDb, getMockStore, generateReservationId, getSignedPlaybackUrl, getStorageBucket, type MockQueueItem } from '@/lib/firebase/admin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getVideoPlaybackProfile } from '@/lib/maharaja/video-playback';
 import { verifyTvRequest } from '@/lib/auth/display';
+import { inspectStoredVideo } from '@/lib/maharaja/storage-video';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -158,6 +159,7 @@ export async function GET(req: NextRequest) {
           queueId: queueDoc.id,
           queueNumber: queueData.queueNumber || null,
           reservationId,
+          timesPlayed: Number(queueData.timesPlayed || 0),
           storagePath,
           playbackProfile: getVideoPlaybackProfile(videoData, storagePath),
           customerName,
@@ -178,6 +180,16 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Video playback metadata is unavailable.' }, { status: 500 });
       }
 
+      const storedVideo = await inspectStoredVideo(getStorageBucket(), result.storagePath);
+      if (!storedVideo.playable) {
+        await db.collection('liveQueue').doc(result.queueId).update({
+          status: 'playback_failed',
+          reason: `Stored video is ${storedVideo.reason}`,
+          failedAt: FieldValue.serverTimestamp(),
+        });
+        return NextResponse.json({ status: 'idle', reason: 'unplayable-video-skipped' });
+      }
+
       const signedUrl = await getSignedPlaybackUrl(result.storagePath);
 
       return NextResponse.json({
@@ -185,6 +197,7 @@ export async function GET(req: NextRequest) {
         queueId: result.queueId,
         queueNumber: result.queueNumber || null,
         reservationId: result.reservationId,
+        timesPlayed: result.timesPlayed,
         videoUrl: signedUrl,
         customerName: result.customerName || null,
         customerLocality: result.customerLocality || null,
@@ -263,6 +276,7 @@ export async function GET(req: NextRequest) {
         queueId: nextItem.id,
         queueNumber: nextItem.queueNumber || null,
         reservationId,
+        timesPlayed: Number(nextItem.timesPlayed || 0),
         videoUrl: signedUrl,
         customerName: mockCustomerName,
         customerLocality: cleanDisplayText((nextItem as any).customerLocality) || cleanDisplayText((video as any).customerLocality) || 'தஞ்சாவூர்',

@@ -6,7 +6,7 @@ import { type CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, buildTryOnPrompt,
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
-import { FalTryOnRejected, generateFalTryOn } from '@/lib/maharaja/try-on-provider';
+import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 
 export const maxDuration = 120;
@@ -292,13 +292,8 @@ ${categoryGarmentLine}
         let rawBuffer: Buffer | null = null;
         if (service === 'try-on' && !tryOnRetry && process.env.FAL_KEY?.trim()) {
           falTryOnAttempted = true;
-          try {
-            rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], process.env.FAL_KEY.trim());
-            imageProvider = 'fal-image-apps-v2-try-on';
-          } catch (falError) {
-            if (!(falError instanceof FalTryOnRejected)) throw falError;
-            console.warn('Fal Try-On rejected before completion; using Gemini backup.', { sessionId, reason: falError.message });
-          }
+          rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], process.env.FAL_KEY.trim());
+          imageProvider = 'fal-image-apps-v2-try-on';
         }
         if (!rawBuffer) {
           if (!ai) throw new Error('Both Try-On image services are unavailable. Please ask Maharaja staff for assistance.');

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildFalTryOnInput, FalTryOnRejected, generateFalTryOn } from '../src/lib/maharaja/try-on-provider.ts';
+import { buildFalTryOnInput, generateFalTryOn } from '../src/lib/maharaja/try-on-provider.ts';
 
 const input = buildFalTryOnInput('person', 'garment');
 assert.equal(input.person_image_url, 'data:image/jpeg;base64,person');
@@ -23,7 +23,10 @@ try {
   assert.equal(requests.length, 2);
 
   globalThis.fetch = async () => new Response('Unavailable', { status: 503 });
-  await assert.rejects(generateFalTryOn('person', 'garment', 'test-key'), FalTryOnRejected);
+  await assert.rejects(
+    generateFalTryOn('person', 'garment', 'test-key'),
+    /Fal Try-On did not complete \(503\)/,
+  );
 
   globalThis.fetch = async () => { throw new TypeError('Network outcome unknown'); };
   await assert.rejects(generateFalTryOn('person', 'garment', 'test-key'), TypeError);

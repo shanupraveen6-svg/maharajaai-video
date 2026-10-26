@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getStorageBucket } from '@/lib/firebase/admin';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { finalizeCompletedVideo } from '@/lib/maharaja/server';
+import { finalizeCompletedVideo, markPassVideoFailed } from '@/lib/maharaja/server';
 import { extractVideoUrl } from '@/lib/maharaja/video-test';
 
 export const dynamic = 'force-dynamic';
@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
   if (body?.status === 'ERROR' || body?.error) {
     await jobRef.set({ status: 'failed', error: 'Fal video generation failed.', updatedAt: new Date().toISOString() }, { merge: true });
     await db.collection('sessions').doc(job.sessionId).set({ activeVideoTestJobId: null }, { merge: true });
+    const passCode = String(job.passCode || job.accessCode || '');
+    if (passCode) await markPassVideoFailed(passCode, jobId);
     return NextResponse.json({ success: true, status: 'failed' });
   }
 
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest) {
       jobId,
       videoBuffer: providerBytes,
       provider: job.modelId || 'minimax/h3-max/reference-to-video',
-      accessCode: job.accessCode,
+      accessCode: String(job.passCode || job.accessCode || ''),
       clientId: MAHARAJA_CLIENT_ID,
       eventId: job.eventId || 'diwali',
     });
@@ -108,7 +110,9 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Video finalization failed.';
     await jobRef.set({ status: 'post_processing_failed', error: message, finalizationLeaseUntil: null, updatedAt: new Date().toISOString() }, { merge: true });
-    await db.collection('sessions').doc(job.sessionId).set({ activeVideoTestJobId: null }, { merge: true });
+    // Keep the paid provider render attached to the session. Refresh/polling can
+    // retry local branding and storage without submitting another Fal request.
+    await db.collection('sessions').doc(job.sessionId).set({ activeVideoTestJobId: jobId }, { merge: true });
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

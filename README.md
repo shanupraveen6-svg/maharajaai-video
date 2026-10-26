@@ -6,9 +6,9 @@ Production retail experience for Maharaja, Thanjavur, provided by TryFocus.
 
 1. Maharaja staff sign in through `/login` and open `/maharaja/workspace`.
 2. The admin workspace downloads the permanent AI Try-On wall QR and opens the billing-counter link.
-3. Wall-QR customers scan an eligible price tag, add one customer photo and one garment photo, and generate a Gemini AI Try-On image.
+3. Wall-QR customers scan an eligible price tag, add one customer photo and one garment photo, and generate a Fal AI Try-On image.
 4. Billing-counter staff create a one-hour customer QR for purchases of Rs 5,000+, Rs 7,000+, or Rs 10,000+.
-5. AI Video customers can add one customer photo and up to three garment photos. Gemini creates the event master image and MiniMax H3 Max Turbo creates the 6-second 768p video.
+5. AI Video customers add one customer photo and up to two garment photos. Gemini creates the event master image; the customer explicitly selects MiniMax H3 Max (768p) or PixVerse C1 (720p) for the six-second video.
 6. Customers preview and download inside the web app or send the completed video to the Maharaja TV queue.
 7. `/tv` continuously plays queued and stored completed videos with Maharaja live audio.
 
@@ -35,10 +35,7 @@ GOOGLE_AI_API_KEY_PRIMARY="..."
 GEMINI_ANALYSIS_MODEL="gemini-2.5-flash-lite"
 GEMINI_IMAGE_MODEL="gemini-3.1-flash-image"
 FAL_KEY="..."
-# New video renders use Fal. Keep a legacy WaveSpeed key only until previously
-# submitted WaveSpeed jobs have completed and been recovered.
-VIDEO_MODEL_TESTING="false"
-NEXT_PUBLIC_VIDEO_MODEL_TESTING="false"
+# Video renders use Fal with explicit H3 Max and PixVerse C1 customer selection.
 
 OPERATOR_USERNAME="..."
 OPERATOR_PASSWORD="..."

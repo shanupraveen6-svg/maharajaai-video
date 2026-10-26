@@ -4,8 +4,13 @@ import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
 import { isEventId, MAHARAJA_CLIENT_ID, type EventId, type GarmentType } from '@/lib/maharaja/config';
 import { getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION, type VideoConceptId } from '@/lib/maharaja/video-concepts';
-import { verifyMaharajaAccess } from '@/lib/maharaja/server';
-import { buildVideoTestInput, getVideoTestModel, isVideoModelTestingEnabled } from '@/lib/maharaja/video-test';
+import {
+  acquirePassVideoLock,
+  markPassVideoFailed,
+  markPassVideoSubmitted,
+  verifyMaharajaAccess,
+} from '@/lib/maharaja/server';
+import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -89,9 +94,6 @@ export async function POST(req: NextRequest) {
   const accessCode = typeof body?.accessCode === 'string' ? body.accessCode.trim() : '';
   const requestedModelId = typeof body?.videoModel === 'string' ? body.videoModel.trim() : '';
   const providerName = 'fal';
-  if (requestedModelId && !isVideoModelTestingEnabled()) {
-    return NextResponse.json({ success: false, error: 'Video model selection is unavailable.' }, { status: 400 });
-  }
   const model = getVideoTestModel(requestedModelId || undefined);
   if (!sessionId || !accessCode || !model) {
     return NextResponse.json({ success: false, error: requestedModelId ? 'The selected video test model is unavailable.' : 'sessionId and accessCode are required.' }, { status: 400 });
@@ -104,6 +106,7 @@ export async function POST(req: NextRequest) {
   if (!access.allowed || !access.pass) {
     return NextResponse.json({ success: false, error: access.allowed ? 'A customer AI Video pass is required.' : access.error }, { status: 401 });
   }
+  const passCode = access.pass.code;
   if (!access.pass.videoMasterDone || !access.pass.videoMasterUrl) {
     return NextResponse.json({ success: false, error: 'Create the AI Video image first.' }, { status: 409 });
   }
@@ -134,13 +137,18 @@ export async function POST(req: NextRequest) {
   const createdAt = new Date().toISOString();
   const basePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/video-tests/${jobId}`;
   const jobBase = {
-    jobId, sessionId, accessCode, modelId: model.id, model: model.model,
+    jobId, sessionId, accessCode, passCode, modelId: model.id, model: model.model,
     status: 'preparing', createdAt, updatedAt: createdAt,
     estimatedUsd: model.estimatedUsd, duration: model.seconds,
     attempt: 1, providerName,
     webhookTokenHash,
     promptArchitectureVersion: VIDEO_PROMPT_ARCHITECTURE_VERSION,
   };
+
+  const passLock = await acquirePassVideoLock(passCode, jobId);
+  if (!passLock.ok) {
+    return NextResponse.json({ success: false, error: passLock.error }, { status: 409 });
+  }
 
   if (db) {
     const sessionRef = db.collection('sessions').doc(sessionId);
@@ -160,14 +168,17 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (message.startsWith('ACTIVE_VIDEO_TEST:')) {
+        await markPassVideoFailed(passCode, jobId);
         return NextResponse.json({ success: false, error: 'A video test is already running for this image. Please wait.', jobId: message.split(':')[1] }, { status: 409 });
       }
+      await markPassVideoFailed(passCode, jobId);
       throw error;
     }
   } else {
     const activeJobId = session.activeVideoTestJobId;
     const activeJob = activeJobId ? getMockStore().sessions.get(`video_test_${activeJobId}`) : null;
     if (activeJob && ['preparing', 'submitted', 'processing', 'unknown'].includes(activeJob.status)) {
+      await markPassVideoFailed(passCode, jobId);
       return NextResponse.json({ success: false, error: 'A video test is already running for this image. Please wait.', jobId: activeJobId }, { status: 409 });
     }
     getMockStore().sessions.set(`video_test_${jobId}`, jobBase);
@@ -236,6 +247,7 @@ export async function POST(req: NextRequest) {
     };
     if (db) await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
     else getMockStore().sessions.set(`video_test_${jobId}`, { ...jobBase, ...update });
+    await markPassVideoSubmitted(passCode, jobId);
     return NextResponse.json({ success: true, jobId, status: 'submitted', modelId: model.id, estimatedUsd: model.estimatedUsd });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Video test submission failed.';
@@ -247,6 +259,7 @@ export async function POST(req: NextRequest) {
       getMockStore().sessions.set(`video_test_${jobId}`, { ...jobBase, ...update });
       getMockStore().sessions.set(sessionId, { ...session, activeVideoTestJobId: null });
     }
+    await markPassVideoFailed(passCode, jobId);
     return NextResponse.json({ success: false, status: 'failed', jobId, error: message }, { status: 502 });
   }
 }

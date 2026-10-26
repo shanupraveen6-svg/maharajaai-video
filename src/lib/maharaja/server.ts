@@ -1670,7 +1670,7 @@ export async function finalizeCompletedVideo({
   jobId,
   outputVideoUrl,
   videoBuffer,
-  provider = 'fal-h3-max-turbo',
+  provider = 'fal-h3-max',
   accessCode,
   clientId = MAHARAJA_CLIENT_ID,
   eventId = 'diwali',
@@ -1699,9 +1699,7 @@ export async function finalizeCompletedVideo({
       providerUrl.hostname === 'fal.media' ||
       providerUrl.hostname.endsWith('.fal.media') ||
       providerUrl.hostname === 'fal.run' ||
-      providerUrl.hostname.endsWith('.fal.run') ||
-      providerUrl.hostname === 'api.wavespeed.ai' ||
-      providerUrl.hostname.endsWith('.wavespeed.ai')
+      providerUrl.hostname.endsWith('.fal.run')
     );
     if (!providerHostAllowed) {
       return { success: false, error: 'Video provider returned an untrusted result URL.' };
@@ -1825,7 +1823,7 @@ export async function finalizeCompletedVideo({
         ...(liveVideo ? { liveStoragePath } : {}),
         eventId,
         status: 'ready',
-        provider: provider || 'fal-h3-max-turbo',
+        provider: provider || 'fal-h3-max',
         customerName: customerName || null,
         customerLocality: customerLocality || null,
 	      playbackMode: presentationFallback ? 'external' : 'embedded',
@@ -1851,7 +1849,7 @@ export async function finalizeCompletedVideo({
       ...(liveVideo ? { liveStoragePath } : {}),
       eventId,
       status: 'ready',
-      provider: provider || 'fal-h3-max-turbo',
+      provider: provider || 'fal-h3-max',
       customerName: customerName || null,
       customerLocality: customerLocality || null,
       playbackMode: presentationFallback ? 'external' : 'embedded',
@@ -1904,7 +1902,9 @@ export async function enableTryOnDeviceCustomerRetry(deviceId: string) {
   }
 }
 
-const IMAGE_LOCK_STALE_MS = 90 * 1000;
+// Longer than the 120-second image route budget so a slow provider response
+// cannot be mistaken for a stale request and charged a second time.
+const IMAGE_LOCK_STALE_MS = 3 * 60 * 1000;
 
 export type ImageLockResult =
   | { ok: true; existingUrl?: string; approved?: boolean; generationId?: string }
@@ -2077,20 +2077,25 @@ export async function acquirePassVideoLock(code: string, jobId?: string): Promis
     return { ok: false, error: serviceLock.error };
   }
 
-  if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
-    await db.runTransaction(async (tx) => {
-      tx.update(ref, lockUpdate);
-    });
-    return { ok: true };
-  }
+  try {
+    if (db) {
+      const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+      await db.runTransaction(async (tx) => {
+        tx.update(ref, lockUpdate);
+      });
+      return { ok: true };
+    }
 
-  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
-  const existingPass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
-  if (existingPass) {
-    getMockStore().customerPasses.set(key, { ...existingPass, ...lockUpdate });
+    const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+    const existingPass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+    if (existingPass) {
+      getMockStore().customerPasses.set(key, { ...existingPass, ...lockUpdate });
+    }
+    return { ok: true };
+  } catch (error) {
+    await releaseServiceGenerationLock(code, 'video', { jobId });
+    throw error;
   }
-  return { ok: true };
 }
 
 export async function verifyMaharajaAccess(

@@ -137,7 +137,6 @@ function customerError(caught: unknown, fallback: string) {
     .replace(/Key\s+[\w-]{20,}/gi, 'Key [redacted]');
 }
 
-const videoModelTestingEnabled = process.env.NEXT_PUBLIC_VIDEO_MODEL_TESTING === 'true';
 const videoTestModelOptions = [
   { value: 'h3-max', label: 'H3 Max · 768p' },
   { value: 'pixverse-c1', label: 'PixVerse C1 · 720p' },
@@ -687,14 +686,20 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     try {
       let blob: Blob;
       if (masterImageUrl.startsWith('data:')) {
-        const response = await fetch(masterImageUrl);
-        if (!response.ok) throw new Error('Unable to prepare the image download.');
-        blob = await response.blob();
+        const parts = masterImageUrl.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        const binary = atob(parts[1]);
+        const array = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          array[i] = binary.charCodeAt(i);
+        }
+        blob = new Blob([array], { type: mime });
       } else {
         const response = await fetch('/api/download/asset', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: masterImageUrl }),
+          body: JSON.stringify({ url: masterImageUrl, sessionId, accessCode, kind: 'image' }),
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
@@ -703,15 +708,40 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         blob = await response.blob();
       }
 
+      const filename = `maharaja-${eventId}-${activeService === 'try-on' ? 'ai-try-on' : 'festival-image'}.jpg`;
+      const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+
+      // On mobile devices (iOS Safari, Android Chrome), use the native share sheet so users can directly "Save Image" to Photos
+      if (typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Maharaja AI Try-On',
+            text: 'Your Maharaja AI Try-On photo',
+          });
+          setMessage('Try-On photo saved successfully.');
+          void fetch('/api/maharaja/activity', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'download', label: `${event.label} AI Try-On saved`, sessionId, accessCode }),
+          }).catch(() => undefined);
+          return;
+        } catch (shareErr: any) {
+          if (shareErr?.name === 'AbortError') return;
+        }
+      }
+
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = objectUrl;
-      anchor.download = `maharaja-${eventId}-${activeService === 'try-on' ? 'ai-try-on' : 'festival-image'}.jpg`;
+      anchor.download = filename;
+      anchor.rel = 'noopener noreferrer';
       anchor.style.display = 'none';
       document.body.appendChild(anchor);
       anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+      window.setTimeout(() => {
+        anchor.remove();
+        URL.revokeObjectURL(objectUrl);
+      }, 30000);
 
       setMessage(activeService === 'try-on'
         ? 'Thanks for experiencing Maharaja AI. Your Try-On image has been downloaded.'
@@ -751,13 +781,16 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     }
   }
 
-  async function startVideoTest() {
+  async function startVideoTest(modelOverride?: string) {
     if (!videoMasterUrl || stage === 'video') return;
+    const currentModel = modelOverride || videoTestModel;
     setStage('video');
     setGenerationProgress(4);
     setError('');
     setVideoTestUrl('');
-    setMessage('Preparing your approved portrait for film generation…');
+    setMessage(currentModel === 'pixverse-c1'
+      ? 'Preparing your approved portrait for PixVerse film generation…'
+      : 'Preparing your approved portrait for film generation…');
     try {
       if (!masterApproved) {
         await readJson(await fetch('/api/ai/master-image/approve', {
@@ -770,15 +803,17 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       const data = await readJson(await fetch('/api/video/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessCode, sessionId, ...(videoModelTestingEnabled ? { videoModel: videoTestModel } : {}) }),
+        body: JSON.stringify({ accessCode, sessionId, videoModel: currentModel }),
       }));
       setVideoTestJobId(data.jobId);
       setGenerationProgress(0);
-      setMessage('Your AI film is now being created. Keep this page open.');
+      setMessage(currentModel === 'pixverse-c1'
+        ? 'Creating your film with PixVerse. Keep this page open.'
+        : 'Your AI film is now being created. Keep this page open.');
       await pollVideoTest(data.jobId);
     } catch (caught) {
-      setError(customerError(caught, 'The AI video could not be created. Please retake any unclear garment photo and try again.'));
-      setMessage('Generation stopped safely. Please try again or ask Maharaja staff for assistance.');
+      setError(customerError(caught, 'Video generation interrupted. Please click Retry below to generate your video.'));
+      setMessage('Generation interrupted. No second model was started. Review the message, then retry or choose the other video model.');
       setStage('ready');
     }
   }
@@ -976,6 +1011,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                           </button>
                         )}
                       </div>
+                      <p className="mb-2 text-[11px] leading-4 text-[#5C4B43]">
+                        Stand ~3 feet away in full stature. Keep head, hands, and legs/footwear clearly visible.
+                      </p>
 
                       <div className="aspect-[3/4] overflow-hidden bg-white">
                         {personPhoto ? (
@@ -1207,9 +1245,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   <div className="mt-4 space-y-3 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
                     <div className="font-bold uppercase tracking-wide">Create your cinematic AI film</div>
                     <p className="text-[#F3E5AB]/80">Your approved portrait becomes a premium six-second film, saved securely for download and optional showroom presentation.</p>
-                    {videoModelTestingEnabled && (
-                      <label className="block space-y-1.5 text-[10px] font-bold uppercase tracking-wide text-[#F3E5AB]/85">
-                        Test video model
+                    <label className="block space-y-1.5 text-[10px] font-bold uppercase tracking-wide text-[#F3E5AB]/85">
+                        Video model
                         <select
                           value={videoTestModel}
                           onChange={(event) => setVideoTestModel(event.target.value)}
@@ -1218,16 +1255,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         >
                           {videoTestModelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
-                      </label>
-                    )}
+                    </label>
                     <button
                       type="button"
                       onClick={() => void startVideoTest()}
                       disabled={stage === 'video'}
-                      className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 font-bold uppercase text-[#21090E] disabled:cursor-not-allowed disabled:opacity-45"
+                      className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 font-bold uppercase text-[#21090E] disabled:cursor-not-allowed disabled:opacity-45 hover:brightness-105"
                     >
                       {stage === 'video' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
-                      {stage === 'video' ? 'Generation in progress' : 'Generate cinematic video'}
+                      {stage === 'video' ? 'Generation in progress' : error ? 'Please Retry Video Generation' : 'Generate cinematic video'}
                     </button>
                     {videoTestUrl && (
                       <video src={videoTestUrl} controls muted playsInline preload="metadata" className="aspect-[9/16] w-full bg-black object-contain" />

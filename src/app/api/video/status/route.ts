@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { finalizeCompletedVideo, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { finalizeCompletedVideo, logMaharajaActivity, markPassVideoFailed, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { extractVideoUrl, publicFalQueueUrl } from '@/lib/maharaja/video-test';
 
 export const dynamic = 'force-dynamic';
@@ -19,22 +19,6 @@ async function falGet(url: string, falKey: string) {
     throw new Error(`Fal queue failed (${response.status}): ${detail.slice(0, 500)}`);
   }
   return data;
-}
-
-async function waveSpeedGet(url: string, waveSpeedKey: string) {
-  const parsed = new URL(url);
-  if (parsed.protocol !== 'https:' || parsed.hostname !== 'api.wavespeed.ai' || !parsed.pathname.startsWith('/api/v3/predictions/')) {
-    throw new Error('Stored WaveSpeed prediction URL is invalid.');
-  }
-  const response = await fetch(parsed, { headers: { Authorization: `Bearer ${waveSpeedKey}`, Accept: 'application/json' }, cache: 'no-store' });
-  const raw = await response.text();
-  let data: any = null;
-  try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
-  if (!response.ok) throw new Error(`WaveSpeed queue failed (${response.status}): ${typeof data === 'string' ? data.slice(0, 500) : JSON.stringify(data).slice(0, 500)}`);
-  if (data?.code && data.code !== 200 && data.code !== 0) {
-    throw new Error(`WaveSpeed queue error (${data.code}): ${data.message || data.error || raw.slice(0, 500)}`);
-  }
-  return data?.data || data;
 }
 
 function providerFailure(error: unknown) {
@@ -72,17 +56,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, status: 'failed', jobId, error: job.error || 'Video test failed.' }, { status: 422 });
   }
 
-  const providerName = job.providerName === 'wavespeed' ? 'wavespeed' : 'fal';
   const falKey = process.env.FAL_KEY?.trim();
-  const waveSpeedKey = process.env.WAVESPEED_API_KEY?.trim();
-  if (providerName === 'fal' && !falKey) return NextResponse.json({ success: false, status: 'failed', error: 'Video provider is temporarily unavailable.' }, { status: 503 });
-  if (providerName === 'wavespeed' && !waveSpeedKey) return NextResponse.json({ success: false, status: 'failed', error: 'Video provider is temporarily unavailable.' }, { status: 503 });
+  if (!falKey) return NextResponse.json({ success: false, status: 'failed', error: 'Video provider is temporarily unavailable.' }, { status: 503 });
 
   let remoteVideoUrl = '';
+  let providerTerminalFailure = false;
   try {
-    const providerStatus = providerName === 'wavespeed'
-      ? await waveSpeedGet(job.statusUrl, waveSpeedKey!)
-      : await falGet(job.statusUrl, falKey!);
+    const providerStatus = await falGet(job.statusUrl, falKey);
     const state = String(providerStatus?.status || '').toUpperCase();
     const isCompleted = state === 'COMPLETED' || state === 'SUCCEEDED';
     const isTerminalFailure = ['FAILED', 'CANCELLED', 'TIMEOUT', 'DELETED', 'ERROR'].includes(state)
@@ -97,6 +77,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (isTerminalFailure) {
+      providerTerminalFailure = true;
       const providerError = typeof providerStatus?.error === 'string'
         ? providerStatus.error
         : typeof providerStatus?.message === 'string'
@@ -105,8 +86,8 @@ export async function GET(req: NextRequest) {
             ? providerStatus.detail
             : '';
       const failureMessage = providerError
-        ? `${providerName === 'wavespeed' ? 'WaveSpeed' : 'Fal'} error: ${providerError.slice(0, 500)}`
-        : `${providerName === 'wavespeed' ? 'WaveSpeed' : 'Fal'} returned terminal status ${state || 'UNKNOWN'}.`;
+        ? `Fal error: ${providerError.slice(0, 500)}`
+        : `Fal returned terminal status ${state || 'UNKNOWN'}.`;
       throw new Error(failureMessage);
     }
 
@@ -138,11 +119,9 @@ export async function GET(req: NextRequest) {
       getMockStore().sessions.set(`video_test_${jobId}`, { ...current, status: 'finalizing', finalizationLeaseUntil: leaseUntil });
     }
 
-    const result = providerName === 'wavespeed'
-      ? providerStatus
-      : await falGet(job.responseUrl, falKey!);
+    const result = await falGet(job.responseUrl, falKey);
     remoteVideoUrl = extractVideoUrl(result);
-    if (!remoteVideoUrl) throw new Error(`${providerName === 'wavespeed' ? 'WaveSpeed' : 'Fal'} completed the request without a playable video URL.`);
+    if (!remoteVideoUrl) throw new Error('Fal completed the request without a playable video URL.');
 
     // Persist the provider result before local branding. A deployment problem
     // must never require another paid provider generation to recover the video.
@@ -164,7 +143,7 @@ export async function GET(req: NextRequest) {
       jobId,
       videoBuffer: providerBytes,
       provider: job.modelId || 'minimax/h3-max/reference-to-video',
-      accessCode,
+      accessCode: String(job.passCode || access.pass?.code || accessCode),
       clientId: MAHARAJA_CLIENT_ID,
       eventId: job.eventId || 'diwali',
     });
@@ -195,7 +174,7 @@ export async function GET(req: NextRequest) {
     const failure = providerFailure(error);
     const isPostProcessingFailure = failure.message.startsWith('Video branding validation failed:')
       || failure.message.startsWith('Final video storage failed:');
-    const isUnknown = !isPostProcessingFailure && (failure.providerStatusCode === null || failure.providerStatusCode >= 500 || failure.providerStatusCode === 429);
+    const isUnknown = !providerTerminalFailure && !isPostProcessingFailure;
     const update = {
       status: isPostProcessingFailure ? 'post_processing_failed' : isUnknown ? 'unknown' : 'failed',
       error: failure.message,
@@ -214,6 +193,10 @@ export async function GET(req: NextRequest) {
       }, { merge: true });
     } else {
       getMockStore().sessions.set(`video_test_${jobId}`, { ...job, ...update });
+    }
+    if (providerTerminalFailure) {
+      const passCode = String(job.passCode || access.pass?.code || '');
+      if (passCode) await markPassVideoFailed(passCode, jobId);
     }
     await logMaharajaActivity('video', 'AI Video generation stopped', {
       sessionId: job.sessionId,

@@ -69,6 +69,63 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
     <header className="sticky top-0 z-20 border-b border-[#D4AF37]/35 bg-[#1C060B] text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="text-[10px] font-bold uppercase text-[#D4AF37]">TryFocus client workspace</p><h1 className="font-serif text-2xl font-bold text-[#F3E5AB]">Majestic Maharaja</h1></div><div className="flex gap-2"><button onClick={() => void toggleCampaign()} disabled={saving} className={`flex min-h-10 items-center gap-2 border px-3 text-xs font-bold uppercase ${workspace.campaignEnabled ? 'border-emerald-600 bg-emerald-950 text-emerald-200' : 'border-red-700 bg-red-950 text-red-200'}`}><Power className="h-4 w-4" />{workspace.campaignEnabled ? 'Campaign Live' : 'Paused'}</button><Link href="/maharaja/tv" target="_blank" className="flex min-h-10 items-center gap-2 border border-[#D4AF37]/50 px-3 text-xs font-bold uppercase text-[#F3E5AB]"><Tv className="h-4 w-4" />Live Screen</Link><button onClick={() => void logout()} className="flex h-10 w-10 items-center justify-center border border-white/20" title="Sign out"><LogOut className="h-4 w-4" /></button></div></div></header>
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-7">
       {message && <div className="border border-[#D8C49B] bg-white p-3 text-sm font-bold text-[#6E0D1F]">{message}</div>}
+
+      <section className="border border-[#D4AF37]/40 bg-[#1C060B] p-5 text-[#F3E5AB]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D4AF37]/30 pb-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">TryFocus Client Contract</p>
+            <h2 className="font-serif text-xl font-bold text-white">1,000 Videos + 1,000 Try-Ons Package Accounting</h2>
+          </div>
+          <div className="flex items-center gap-2 rounded border border-[#D4AF37]/30 bg-black/40 px-3 py-1.5 text-xs font-semibold text-[#D4AF37]">
+            <span>15% Retries Included Free</span>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="border border-[#D4AF37]/30 bg-black/30 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide text-[#D4AF37]">AI Try-On Quota</span>
+              <span className="text-[11px] font-semibold text-emerald-400">1,000 Total Pool</span>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-white">{analytics.imagesSuccess || 0}</span>
+              <span className="text-xs text-[#F3E5AB]/70">/ 1,000 debited</span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full bg-[#D4AF37]"
+                style={{ width: `${Math.min(100, Math.round(((analytics.imagesSuccess || 0) / 1000) * 100))}%` }}
+              />
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-[#F3E5AB]/80">
+              <span>Remaining: <strong>{Math.max(0, 1000 - (analytics.imagesSuccess || 0))}</strong></span>
+              <span>Retries used: <strong>{analytics.imageRetries || 0}</strong></span>
+            </div>
+          </div>
+
+          <div className="border border-[#D4AF37]/30 bg-black/30 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide text-[#D4AF37]">AI Video Quota</span>
+              <span className="text-[11px] font-semibold text-emerald-400">1,000 Total Pool</span>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-white">{analytics.videosSuccess || 0}</span>
+              <span className="text-xs text-[#F3E5AB]/70">/ 1,000 debited</span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full bg-emerald-500"
+                style={{ width: `${Math.min(100, Math.round(((analytics.videosSuccess || 0) / 1000) * 100))}%` }}
+              />
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-[#F3E5AB]/80">
+              <span>Remaining: <strong>{Math.max(0, 1000 - (analytics.videosSuccess || 0))}</strong></span>
+              <span>Retries used: <strong>{analytics.videoRetries || 0}</strong></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section><div className="flex items-end justify-between"><div><p className="text-xs font-bold uppercase text-[#8A6A20]">Live operations</p><h2 className="font-serif text-2xl font-bold">Today at a glance</h2></div><button onClick={() => void load()} className="flex items-center gap-2 text-xs font-bold uppercase text-[#6E0D1F]"><RefreshCw className="h-4 w-4" />Refresh</button></div><div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3">{kpis.map(({ label, value, icon: Icon }) => <article key={label} className="border border-[#DDD2BD] bg-white p-4"><Icon className="h-5 w-5 text-[#8A6A20]" /><p className="mt-4 text-2xl font-black text-[#2A060C]">{value}</p><p className="mt-1 text-xs font-bold uppercase text-[#6B625C]">{label}</p></article>)}</div></section>
 
       <section><p className="text-xs font-bold uppercase text-[#8A6A20]">Customer access</p><h2 className="font-serif text-2xl font-bold">Maharaja QR experiences</h2><div className="mt-4 grid gap-4 lg:grid-cols-2">

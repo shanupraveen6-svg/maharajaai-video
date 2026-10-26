@@ -6,13 +6,8 @@ export const FAL_VIDEO_MODELS = [
   { id: 'pixverse-c1', label: 'PixVerse C1 · 720p', model: 'fal-ai/pixverse/c1/reference-to-video', seconds: 6, estimatedUsd: 0.30 },
 ] as const;
 
-export function isVideoModelTestingEnabled() {
-  return (process.env.VIDEO_MODEL_TESTING || process.env.NEXT_PUBLIC_VIDEO_MODEL_TESTING)?.trim().toLowerCase() === 'true';
-}
-
 export function getVideoTestModel(requestedModelId?: unknown) {
   if (typeof requestedModelId === 'string' && requestedModelId) {
-    if (!isVideoModelTestingEnabled()) return null;
     return FAL_VIDEO_MODELS.find((model) => model.id === requestedModelId) || null;
   }
   return FAL_VIDEO_MODELS[0];
