@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   ArrowRight, BarChart3, Camera, Check, ChevronDown, CirclePlay,
-  LockKeyhole, MonitorPlay, ShieldCheck, Sparkles, Store,
+  LockKeyhole, MonitorPlay, Phone, ShieldCheck, Sparkles, Store,
 } from 'lucide-react';
 
 const stores = [{ id: 'maharaja', name: 'Majestic Maharaja', location: 'Thanjavur, Tamil Nadu' }];
@@ -38,15 +38,16 @@ export default function LandingPage() {
             <a href="#operations" className="transition hover:text-[#7A1428]">Operations</a>
             <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="transition hover:text-[#7A1428]">Company</a>
           </nav>
-          <Link href="/login?store=maharaja" className="inline-flex min-h-10 items-center gap-2 bg-[#161918] px-4 text-xs font-bold text-white transition hover:bg-[#7A1428] shadow-sm">
-            Client sign in <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          <a href="tel:9994837342" className="inline-flex min-h-10 items-center gap-2 bg-[#161918] px-4 text-xs font-bold text-white transition hover:bg-[#7A1428] shadow-sm">
+            <Phone className="h-3.5 w-3.5 text-[#E8B878]" />
+            Contact: 9994837342
+          </a>
         </div>
       </header>
 
       <section className="border-b border-[#D8DCD7]">
         <div className="mx-auto grid min-h-[660px] max-w-7xl grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div className="flex flex-col justify-center border-[#D8DCD7] px-5 py-12 md:px-8 lg:border-r lg:py-14">
+          <div className="flex flex-col justify-center border-[#D8DCD7] px-5 py-12 md:px-8 lg:border-r lg:py-16">
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7A1428]">Fashion retail, made participatory</p>
             <h1 className="mt-4 max-w-3xl text-4xl font-black leading-[1.05] sm:text-5xl lg:text-6xl tracking-tight">
               TryFocus turns a store visit into a customer experience.
@@ -54,15 +55,7 @@ export default function LandingPage() {
             <p className="mt-5 max-w-2xl text-base sm:text-lg leading-7 sm:leading-8 text-[#515955]">
               A client-managed platform for virtual try-on, personalized retail films, QR journeys and showroom screens. Designed for fashion stores that want measurable engagement without adding friction at the counter.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a href="#client-access" className="inline-flex min-h-12 items-center gap-2 bg-[#7A1428] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#5D0F1F]">
-                Open client workspace <ArrowRight className="h-4 w-4" />
-              </a>
-              <a href="#platform" className="inline-flex min-h-12 items-center border border-[#BFC5C0] bg-white px-5 text-sm font-bold text-[#161918] transition hover:border-[#161918]">
-                Explore the platform
-              </a>
-            </div>
-            <div className="mt-9 flex flex-wrap gap-x-7 gap-y-3 border-t border-[#D8DCD7] pt-6 text-xs font-bold text-[#515955]">
+            <div className="mt-10 flex flex-wrap gap-x-7 gap-y-3 border-t border-[#D8DCD7] pt-6 text-xs font-bold text-[#515955]">
               <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#7A1428]" /> Client-isolated</span>
               <span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-[#7A1428]" /> Consent-led</span>
               <span className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-[#7A1428]" /> Usage-controlled</span>
@@ -205,9 +198,9 @@ export default function LandingPage() {
             <a href="#client-access" className="inline-flex min-h-12 items-center gap-2 bg-[#7A1428] px-6 text-sm font-bold text-white transition hover:bg-[#5D0F1F] shadow-sm">
               Select store in hero <ArrowRight className="h-4 w-4" />
             </a>
-            <Link href="/login?store=maharaja" className="inline-flex min-h-12 items-center border border-[#BFC5C0] bg-white px-5 text-sm font-bold text-[#161918] transition hover:border-[#161918]">
-              Direct sign in
-            </Link>
+            <a href="tel:9994837342" className="inline-flex min-h-12 items-center gap-2 border border-[#BFC5C0] bg-white px-5 text-sm font-bold text-[#161918] transition hover:border-[#161918]">
+              <Phone className="h-4 w-4 text-[#7A1428]" /> Contact: 9994837342
+            </a>
           </div>
         </div>
       </section>
