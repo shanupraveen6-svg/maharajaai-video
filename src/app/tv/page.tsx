@@ -72,6 +72,8 @@ export default function TvPlayerPage() {
   const activatingSlotRef = useRef<Slot | null>(null);
   const pauseRecoveryRef = useRef<number | null>(null);
   const continuityRecoveryRef = useRef<number | null>(null);
+  const buildVersionRef = useRef<string | null>(null);
+  const pendingBuildReloadRef = useRef(false);
 
   useEffect(() => {
     currentPlaybackRef.current = currentPlayback;
@@ -99,6 +101,40 @@ export default function TvPlayerPage() {
       if (continuityRecoveryRef.current) clearTimeout(continuityRecoveryRef.current);
       const audioEl = audioRef.current;
       audioEl?.pause();
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const checkVersion = async () => {
+      try {
+        const response = await fetch(`/api/version?t=${Date.now()}`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        const version = typeof data.version === 'string' ? data.version : '';
+        if (!version || !mounted) return;
+        if (!buildVersionRef.current) {
+          buildVersionRef.current = version;
+          return;
+        }
+        if (version !== buildVersionRef.current) {
+          pendingBuildReloadRef.current = true;
+          if (!currentPlaybackRef.current && !pendingSlotRef.current) window.location.reload();
+        }
+      } catch (error) {
+        console.warn('TV deployment version check failed; playback continues:', error);
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void checkVersion();
+    };
+    void checkVersion();
+    const interval = window.setInterval(checkVersion, 60_000);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 
@@ -755,6 +791,11 @@ export default function TvPlayerPage() {
       void loadReplayLibrary();
     }
 
+    if (pendingBuildReloadRef.current) {
+      window.location.reload();
+      return;
+    }
+
     liveAudioStartedRef.current = false;
     setPlaybackError(null);
     queueNextPlaylistItem();
@@ -851,6 +892,10 @@ export default function TvPlayerPage() {
     } catch (err) {
       console.error('Failed to notify playback failure:', err);
     } finally {
+      if (pendingBuildReloadRef.current) {
+        window.location.reload();
+        return;
+      }
       badQueueIdsRef.current.add(playback.queueId);
       removePlaybackFromPlaylist(playback.queueId);
       resetActivePlaybackState();
