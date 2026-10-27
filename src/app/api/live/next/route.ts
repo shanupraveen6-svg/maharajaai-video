@@ -147,11 +147,15 @@ export async function GET(req: NextRequest) {
           reservationId
         });
 
-        let customerName = cleanDisplayText(queueData.customerName) || cleanDisplayText(videoData.customerName);
-        const isLegacyNamedMedia = !queueData.customerName
-          && Boolean(storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
-        if (isLegacyNamedMedia || (customerName && (REMOVED_TV_NAMES.has(customerName.toLowerCase()) || customerName === 'திவ்யா' || customerName.toLowerCase() === 'divya'))) {
-          customerName = 'கார்த்திக்';
+        const queueCustomerName = cleanDisplayText(queueData.customerName);
+        let customerName = queueCustomerName || cleanDisplayText(videoData.customerName);
+        // Legacy alias rules apply only to old media without a customer-entered
+        // queue name. A live customer always sees the name they typed.
+        if (!queueCustomerName) {
+          const isLegacyNamedMedia = Boolean(storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
+          if (isLegacyNamedMedia || (customerName && (REMOVED_TV_NAMES.has(customerName.toLowerCase()) || customerName === 'திவ்யா' || customerName.toLowerCase() === 'divya'))) {
+            customerName = 'கார்த்திக்';
+          }
         }
 
         return {
@@ -264,11 +268,13 @@ export async function GET(req: NextRequest) {
 
       const signedUrl = await getSignedPlaybackUrl(storagePath);
 
-      let mockCustomerName = cleanDisplayText((nextItem as any).customerName) || cleanDisplayText((video as any).customerName);
-      const isLegacyMockMedia = !(nextItem as any).customerName
-        && Boolean(storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
-      if (isLegacyMockMedia || (mockCustomerName && (REMOVED_TV_NAMES.has(mockCustomerName.toLowerCase()) || mockCustomerName === 'திவ்யா' || mockCustomerName.toLowerCase() === 'divya'))) {
-        mockCustomerName = 'கார்த்திக்';
+      const mockQueueName = cleanDisplayText((nextItem as any).customerName);
+      let mockCustomerName = mockQueueName || cleanDisplayText((video as any).customerName);
+      if (!mockQueueName) {
+        const isLegacyMockMedia = Boolean(storagePath && (storagePath.toLowerCase().includes('men') || storagePath.toLowerCase().includes('karthi')));
+        if (isLegacyMockMedia || (mockCustomerName && (REMOVED_TV_NAMES.has(mockCustomerName.toLowerCase()) || mockCustomerName === 'திவ்யா' || mockCustomerName.toLowerCase() === 'divya'))) {
+          mockCustomerName = 'கார்த்திக்';
+        }
       }
 
       return NextResponse.json({

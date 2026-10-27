@@ -6,7 +6,7 @@ const { VIDEO_CONCEPTS, VIDEO_PROMPT_ARCHITECTURE_VERSION, buildVideoMasterPromp
 const { FAL_VIDEO_MODELS, buildVideoTestInput, getVideoTestModel } = await import('../src/lib/maharaja/video-test.ts');
 
 assert.equal(VIDEO_CONCEPTS.length, 12);
-assert.equal(VIDEO_PROMPT_ARCHITECTURE_VERSION, 'festival-v7-south-indian-cinema');
+assert.equal(VIDEO_PROMPT_ARCHITECTURE_VERSION, 'festival-v8-grounded-performance');
 assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['h3-max', 'pixverse-c1']);
 assert.equal(getVideoTestModel().id, 'h3-max');
 assert.equal(getVideoTestModel('gemini-omni-1.1'), null);
@@ -43,6 +43,9 @@ for (const concept of VIDEO_CONCEPTS) {
     assert.match(motion, /supported hand touching that same support throughout/i);
   }
   assert.match(motion, /subtle breathing/i);
+  assert.match(motion, /both feet planted/i);
+  if (isChild) assert.match(motion, /tiny natural weight settle/i);
+  else assert.match(motion, /small natural weight shift/i);
   assert.doesNotMatch(motion, /take (?:one|a) .*step/i);
   assert.match(motion, /BACKGROUND(?: \+ FX)?: Animate throughout|BACKGROUND: Animate only visible Diwali details/i);
   assert.match(motion, /CAMERA: 0-1s/i);

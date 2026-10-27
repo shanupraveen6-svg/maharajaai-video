@@ -204,22 +204,64 @@ export default function ResultClient({
     return await proxyRes.blob();
   };
 
-  const downloadAsset = async (kind: 'image' | 'video' | 'bundle') => {
-    const blob = await fetchDownloadBlob(kind);
+  const downloadFileName = (kind: 'image' | 'video' | 'bundle') => (kind === 'bundle'
+    ? `Maharaja-${eventLabel}-${sessionId}.zip`
+    : kind === 'image'
+    ? `Maharaja-${eventLabel}-Master-${sessionId}.jpg`
+    : `Maharaja-${eventLabel}-Video-${sessionId}.mp4`);
+
+  const triggerFileDownload = (blob: Blob, filename: string) => {
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objectUrl;
-    a.download = kind === 'bundle'
-      ? `Maharaja-${eventLabel}-${sessionId}.zip`
-      : kind === 'image'
-      ? `Maharaja-${eventLabel}-Master-${sessionId}.jpg`
-      : `Maharaja-${eventLabel}-Video-${sessionId}.mp4`;
+    a.download = filename;
     a.rel = 'noopener';
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+    window.setTimeout(() => {
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    }, 30000);
+  };
+
+  const downloadAsset = async (kind: 'image' | 'video' | 'bundle') => {
+    const blob = await fetchDownloadBlob(kind);
+    triggerFileDownload(blob, downloadFileName(kind));
+  };
+
+  /**
+   * Saves the image and video as two separate files so phones can put them in
+   * the gallery. Prefers the native share sheet ("Save to Photos"); falls back
+   * to two individual downloads, and only then to the ZIP bundle.
+   * Returns 'cancelled' when the customer dismisses the share sheet.
+   */
+  const saveImageAndVideo = async (): Promise<'shared' | 'downloaded' | 'cancelled'> => {
+    let imageBlob: Blob;
+    let videoBlob: Blob;
+    try {
+      [imageBlob, videoBlob] = await Promise.all([fetchDownloadBlob('image'), fetchDownloadBlob('video')]);
+    } catch {
+      await downloadAsset('bundle');
+      return 'downloaded';
+    }
+    const files = [
+      new File([imageBlob], downloadFileName('image'), { type: 'image/jpeg' }),
+      new File([videoBlob], downloadFileName('video'), { type: 'video/mp4' }),
+    ];
+    if (typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files })) {
+      try {
+        await navigator.share({ files, title: `Maharaja ${eventLabel} AI film` });
+        return 'shared';
+      } catch (shareError: any) {
+        if (shareError?.name === 'AbortError') return 'cancelled';
+        // NotAllowedError (share sheet blocked after network wait) falls through to downloads.
+      }
+    }
+    triggerFileDownload(imageBlob, downloadFileName('image'));
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+    triggerFileDownload(videoBlob, downloadFileName('video'));
+    return 'downloaded';
   };
 
   const handleDownloadBundle = async (showConfirmation = true) => {
@@ -227,7 +269,8 @@ export default function ResultClient({
     setDownloading('bundle');
     setLiveError(null);
     try {
-      await downloadAsset('bundle');
+      const outcome = await saveImageAndVideo();
+      if (outcome === 'cancelled') return;
       await fetch('/api/maharaja/activity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -300,8 +343,8 @@ export default function ResultClient({
       setLiveSuccess(true);
       setCountdownSeconds(0);
       setLiveFarewell(true);
-      await downloadAsset('bundle').catch(() => {
-        setLiveError('Your TV queue is confirmed. Tap Download below if the ZIP did not begin.');
+      await saveImageAndVideo().catch(() => {
+        setLiveError('Your TV queue is confirmed. Tap Download below if the image and video did not save.');
       });
       setThankYouMode('live');
       setLiveFarewell(true);

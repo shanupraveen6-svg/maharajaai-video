@@ -11,7 +11,8 @@ import {
 import { getVideoFormat, getVideoPlaybackProfile, isSupportedVideoPath } from '@/lib/maharaja/video-playback';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
-import { filterStoredVideos } from '@/lib/maharaja/storage-video';
+import { resolveStoredVideoPaths } from '@/lib/maharaja/storage-video';
+import { isApprovedDemoVideoPath } from '@/lib/maharaja/tv-pool';
 
 const FALLBACK_NAME = 'Maharaja Guest';
 const MAX_PAGE_ITEMS = 200;
@@ -59,7 +60,7 @@ function buildReplayId(videoId: string, sessionId: string) {
 }
 
 function selectedStoragePath(video: any): string {
-  return String(video.liveStoragePath || video.storagePath || '');
+  return String(video.resolvedStoragePath || video.liveStoragePath || video.storagePath || '');
 }
 
 function isPlayableVideo(video: any): boolean {
@@ -130,21 +131,18 @@ export async function GET(req: NextRequest) {
       const missingShowcaseRecords: Array<{ id: string; data: Record<string, unknown> }> = [];
       if (bucket) {
         try {
-          // Demo clips can be stored at the bucket root or in the dedicated
-          // showcase upload folder. Customer session media is never auto-published.
-          const [[rootFiles], [showcaseFiles]] = await Promise.all([
-            bucket.getFiles({ delimiter: '/' }),
-            bucket.getFiles({ prefix: 'clients/maharaja/live-testing/' }),
-          ]);
+          // Discover demos recursively, but never auto-publish private customer
+          // session media. Completed customer films enter through Go Live consent.
+          const [allFiles] = await bucket.getFiles();
           const showcaseFilesByPath = new Map<string, any>();
-          [...rootFiles, ...showcaseFiles].forEach((file: any) => showcaseFilesByPath.set(file.name, file));
+          allFiles
+            .filter((file: any) => isApprovedDemoVideoPath(String(file.name || '')))
+            .forEach((file: any) => showcaseFilesByPath.set(file.name, file));
           storageDiagnostics.totalObjects = showcaseFilesByPath.size;
           for (const file of showcaseFilesByPath.values()) {
             const storagePath = file.name;
             const contentType = String(file.metadata?.contentType || '');
-            const isShowcaseVideo = (
-              !storagePath.includes('/') || storagePath.startsWith('clients/maharaja/live-testing/')
-            ) && (
+            const isShowcaseVideo = isApprovedDemoVideoPath(storagePath) && (
               isSupportedVideoPath(storagePath) || contentType.startsWith('video/')
             );
             if (!isShowcaseVideo) {
@@ -279,10 +277,7 @@ export async function GET(req: NextRequest) {
       }
 
       const pageCandidates = preparedVideos.slice(offset, offset + limit);
-      const pageVideos = await filterStoredVideos(
-        bucket,
-        pageCandidates.map((video: any) => ({ ...video, storagePath: selectedStoragePath(video) })),
-      );
+      const pageVideos = await resolveStoredVideoPaths(bucket, pageCandidates);
       const settledItems = await Promise.allSettled(
         pageVideos.map(async (video: any, pageIndex: number) => {
           const index = offset + pageIndex;

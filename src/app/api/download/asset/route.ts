@@ -12,8 +12,6 @@ const ALLOWED_HOSTS = new Set([
   'storage.googleapis.com',
   'firebasestorage.googleapis.com',
   'storage.cloud.google.com',
-  'fal.media',
-  'v3.fal.media',
 ]);
 const MAX_DOWNLOAD_BYTES = 80 * 1024 * 1024;
 
@@ -54,7 +52,7 @@ function createStoredZip(entries: Array<{ name: string; data: Buffer }>) {
 
 function isMaharajaAsset(url: URL) {
   const decoded = decodeURIComponent(`${url.pathname}${url.search}`);
-  return decoded.includes('clients/maharaja/') || url.hostname.endsWith('fal.media') || url.hostname.endsWith('fal.ai');
+  return decoded.includes('clients/maharaja/');
 }
 
 export async function POST(req: NextRequest) {
@@ -69,12 +67,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (typeof sessionId === 'string' && typeof accessCode === 'string' && (kind === 'image' || kind === 'video' || kind === 'bundle')) {
-      let access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
-      if (!access.allowed && kind === 'image') {
-        access = await verifyMaharajaAccess(req, accessCode, 'try-on');
-      }
-      if (!access.allowed || (!access.pass && !access.workspace)) {
-        return NextResponse.json({ success: false, error: access.error || 'A valid Maharaja pass is required.' }, { status: 401 });
+      const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+      if (!access.allowed || !access.pass) {
+        return NextResponse.json({ success: false, error: access.error || 'A valid AI Video pass is required.' }, { status: 401 });
       }
       const db = getDb();
       const session = db

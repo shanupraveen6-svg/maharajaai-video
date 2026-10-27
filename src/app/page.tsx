@@ -1,367 +1,154 @@
-import React from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight,
-  BadgeCheck,
-  BarChart3,
-  Camera,
-  LockKeyhole,
-  MonitorPlay,
-  QrCode,
-  ShieldCheck,
-  Sparkles,
-  Store,
-  Phone,
-  Users,
-  WandSparkles,
+  ArrowRight, BarChart3, Camera, Check, ChevronDown, CirclePlay,
+  LockKeyhole, MonitorPlay, QrCode, ShieldCheck, Sparkles, Store,
 } from 'lucide-react';
 
-const stores = [
-  {
-    id: 'maharaja',
-    name: 'Maharaja',
-    location: 'Thanjavur, Tamil Nadu',
-    href: '/maharaja/workspace',
-  },
-];
+const stores = [{ id: 'maharaja', name: 'Majestic Maharaja', location: 'Thanjavur, Tamil Nadu' }];
 
-const pricingPlans = [
-  {
-    title: 'Growth',
-    volume: '1000 videos + 1000 try-ons',
-    retry: '15% retry included',
-    price: 'Rs 2 lakhs',
-  },
-  {
-    title: 'Scale',
-    volume: '2000 videos + 2000 try-ons',
-    retry: '15% retry included',
-    price: 'Rs 3.5 lakhs',
-  },
-  {
-    title: 'Enterprise',
-    volume: '3000 videos + 5000 try-ons',
-    retry: '20% retry included',
-    price: 'Rs 5 lakhs',
-  },
-];
+const capabilities = [
+  ['01', 'Virtual try-on', 'Turn a shopper photo and garment reference into an immediate, downloadable retail try-on.', Camera],
+  ['02', 'Cinematic retail video', 'Create event-led customer films with controlled identity, garment detail and brand presentation.', CirclePlay],
+  ['03', 'Showroom live', 'Move approved customer films into a managed television queue and an always-on replay library.', MonitorPlay],
+  ['04', 'Store intelligence', 'Track scans, successful generations, retries, downloads and participation from one workspace.', BarChart3],
+] as const;
 
-const pricingIncludes = [
-  'No leakage',
-  'No duplication',
-  'No competitor support',
-  'Regional courtesy',
-  'Future brand growth & creative campaigns',
-  'Full customer protection',
-  '100% secured',
-  'Privacy and brand value maintained',
-];
-
-const eventModules = [
-  { title: 'Diwali', status: 'Active' },
-  { title: 'New Year', status: 'Active' },
-  { title: 'Pongal', status: 'Active' },
-  { title: 'Christmas', status: 'Active' },
-  { title: 'Ramadan', status: 'Active' },
-  { title: 'Birthday', status: 'Active' },
+const principles = [
+  'Client-isolated workspaces',
+  'Consent-led showroom publishing',
+  'Usage and retry controls',
+  'Automatic media retention rules',
 ];
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#F8F5EE] text-[#1A1412] font-sans">
-      <section className="border-b border-[#e1d1ad] bg-[#fbf7ef]">
-        <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 md:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center border border-[#6e0d1f]/20 bg-[#6e0d1f] text-[#F3E5AB]">
-              <WandSparkles className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-serif text-2xl font-bold tracking-[0.02em] text-[#6e0d1f]">TryFocus</p>
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">AI retail growth platform</p>
-            </div>
-          </div>
+    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+      <header className="border-b border-[#D8DCD7]">
+        <div className="mx-auto flex min-h-18 max-w-7xl items-center justify-between px-5 md:px-8">
+          <Link href="/" className="flex items-center gap-3" aria-label="TryFocus home">
+            <span className="flex h-9 w-9 items-center justify-center bg-[#7A1428] text-white"><Sparkles className="h-4 w-4" /></span>
+            <span>
+              <span className="block text-lg font-black leading-none">TryFocus</span>
+              <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.2em] text-[#626A66]">Retail experience platform</span>
+            </span>
+          </Link>
+          <nav className="hidden items-center gap-7 text-xs font-bold text-[#4D5551] md:flex" aria-label="Primary navigation">
+            <a href="#platform" className="transition hover:text-[#7A1428]">Platform</a>
+            <a href="#operations" className="transition hover:text-[#7A1428]">Operations</a>
+            <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="transition hover:text-[#7A1428]">Company</a>
+          </nav>
+          <Link href="/login?store=maharaja" className="inline-flex min-h-10 items-center gap-2 bg-[#161918] px-4 text-xs font-bold text-white transition hover:bg-[#7A1428]">
+            Client sign in <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </header>
 
-          <div className="flex items-center gap-3">
-            <a
-              href="https://wefocus.in"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 border border-[#8A6A20]/40 bg-[#fffaf0] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#6e0d1f] transition hover:bg-[#6e0d1f] hover:text-[#F3E5AB] shadow-sm"
-            >
-              <span>wefocus.in</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </a>
-          </div>
-        </header>
-      </section>
-
-      <section className="px-5 py-10 md:px-8 md:py-14">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 lg:grid-cols-[1.02fr_0.98fr]">
-          <div className="pt-2">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-[#8A6A20]">TryFocus Fashion Marketing Platform</p>
-            <h1 className="mt-4 max-w-2xl font-serif text-4xl font-bold leading-tight text-[#2A060C] md:text-6xl">
-              AI try-on and event video marketing for fashion stores.
+      <section className="border-b border-[#D8DCD7]">
+        <div className="mx-auto grid min-h-[650px] max-w-7xl grid-cols-1 lg:grid-cols-[1.04fr_0.96fr]">
+          <div className="flex flex-col justify-center border-[#D8DCD7] px-5 py-16 md:px-8 lg:border-r lg:py-20">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7A1428]">Fashion retail, made participatory</p>
+            <h1 className="mt-5 max-w-3xl text-5xl font-black leading-[1.02] sm:text-6xl lg:text-7xl">
+              TryFocus turns a store visit into a customer experience.
             </h1>
-            <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-[#5C4B43]">
-              TryFocus helps retail teams turn real shoppers, garments and store events into personalized AI visuals, showroom TV ads, QR-led campaigns and measurable customer engagement.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-[#515955]">
+              A client-managed platform for virtual try-on, personalized retail films, QR journeys and showroom screens. Designed for fashion stores that want measurable engagement without adding friction at the counter.
             </p>
-
-            <div className="mt-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                ['AI try-on', 'Customer dress previews'],
-                ['AI video', 'Personalized event ads'],
-                ['Go live', 'Store TV engagement'],
-              ].map(([step, label]) => (
-                <div key={step} className="border border-[#d8c49b] bg-white p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7A5B16]">{step}</p>
-                  <p className="mt-2 text-sm font-bold leading-5 text-[#2A060C]">{label}</p>
-                </div>
-              ))}
+            <div className="mt-9 flex flex-wrap gap-3">
+              <a href="#client-access" className="inline-flex min-h-12 items-center gap-2 bg-[#7A1428] px-5 text-sm font-bold text-white hover:bg-[#5D0F1F]">Open client workspace <ArrowRight className="h-4 w-4" /></a>
+              <a href="#platform" className="inline-flex min-h-12 items-center border border-[#BFC5C0] px-5 text-sm font-bold hover:border-[#161918]">Explore the platform</a>
             </div>
-
-            <div className="mt-7 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                [QrCode, 'QR entry'],
-                [Camera, 'Photo capture'],
-                [Sparkles, 'AI creation'],
-                [BarChart3, 'Client insights'],
-              ].map(([Icon, label]) => {
-                const DisplayIcon = Icon as typeof QrCode;
-                return (
-                  <div key={label as string} className="flex items-center gap-2 border border-[#eadab7] bg-[#fffaf0] px-3 py-3">
-                    <DisplayIcon className="h-4 w-4 text-[#6e0d1f]" />
-                    <p className="text-[10px] font-black uppercase tracking-wider text-[#5C4B43]">{label as string}</p>
-                  </div>
-                );
-              })}
+            <div className="mt-10 flex flex-wrap gap-x-7 gap-y-3 border-t border-[#D8DCD7] pt-6 text-xs font-bold text-[#515955]">
+              <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#7A1428]" /> Client-isolated</span>
+              <span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-[#7A1428]" /> Consent-led</span>
+              <span className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-[#7A1428]" /> Usage-controlled</span>
             </div>
           </div>
 
-          <div className="border border-[#d9c7a1] bg-white p-5 shadow-lg md:p-7">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-[#8A6A20]">Client Portal</p>
-                <h2 className="mt-2 font-serif text-4xl font-bold text-[#2A060C]">Choose your store</h2>
-                <p className="mt-3 text-sm font-semibold leading-6 text-[#5C4B43]">
-                  Existing clients select their assigned workspace here. Maharaja is the active client workspace.
-                </p>
+          <div className="flex items-center bg-[#E8EBE7] px-5 py-12 md:px-8 lg:py-16">
+            <div className="w-full border border-[#BBC2BC] bg-[#FAFBF8] shadow-[0_24px_60px_rgba(21,28,24,0.12)]">
+              <div className="flex items-center justify-between border-b border-[#D8DCD7] px-5 py-4">
+                <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7A1428]">Store experience</p><p className="mt-1 text-base font-black">Customer journey</p></div>
+                <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#3D664E]"><span className="h-2 w-2 bg-[#3D8A5E]" /> Live</span>
               </div>
-              <Store className="h-6 w-6 shrink-0 text-[#8A6A20]" />
+              <div className="grid grid-cols-[72px_1fr] sm:grid-cols-[92px_1fr]">
+                <div className="border-r border-[#D8DCD7] bg-[#171B19] py-5 text-white">
+                  {[QrCode, Camera, Sparkles, MonitorPlay].map((Icon, index) => (
+                    <div key={index} className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center ${index === 1 ? 'bg-[#7A1428]' : 'text-[#9FA7A2]'}`}><Icon className="h-4 w-4" /></div>
+                  ))}
+                </div>
+                <div className="p-5 sm:p-7">
+                  <div className="flex items-start justify-between gap-4">
+                    <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#68716C]">Step 02 / 04</p><h2 className="mt-2 text-2xl font-black">Create the look</h2></div>
+                    <span className="border border-[#CDD2CE] px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider">Maharaja</span>
+                  </div>
+                  <div className="mt-7 grid grid-cols-2 gap-3">
+                    <div className="aspect-[4/5] border border-dashed border-[#AAB2AC] bg-[#EFF1EE] p-4"><Camera className="h-5 w-5 text-[#7A1428]" /><p className="mt-3 text-xs font-black">Person photo</p><p className="mt-1 text-[10px] leading-4 text-[#68716C]">Full stature, clear light</p></div>
+                    <div className="aspect-[4/5] border border-dashed border-[#AAB2AC] bg-[#EFF1EE] p-4"><Store className="h-5 w-5 text-[#7A1428]" /><p className="mt-3 text-xs font-black">Garment</p><p className="mt-1 text-[10px] leading-4 text-[#68716C]">Purchased or catalogue</p></div>
+                  </div>
+                  <div className="mt-4 flex min-h-12 items-center justify-center gap-2 bg-[#7A1428] px-3 text-center text-xs font-black text-white"><Sparkles className="h-4 w-4" /> Generate customer experience</div>
+                  <div className="mt-5 grid grid-cols-3 border-y border-[#D8DCD7] py-4 text-center">
+                    <div><p className="text-lg font-black">1</p><p className="text-[9px] font-bold uppercase text-[#68716C]">QR entry</p></div>
+                    <div className="border-x border-[#D8DCD7]"><p className="text-lg font-black">2</p><p className="text-[9px] font-bold uppercase text-[#68716C]">AI assets</p></div>
+                    <div><p className="text-lg font-black">1</p><p className="text-[9px] font-bold uppercase text-[#68716C]">Live screen</p></div>
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
+        </div>
+      </section>
 
-            <form action="/login" method="get" className="border border-[#e7d9b7] bg-[#fffaf0] p-4 md:p-5">
-              <input type="hidden" name="next" value="/maharaja/workspace" />
+      <section id="platform" className="border-b border-[#D8DCD7] bg-white">
+        <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
+          <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr]">
+            <div><p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7A1428]">One operating system</p><h2 className="mt-4 max-w-md text-4xl font-black leading-tight">From fitting-room curiosity to measurable retail engagement.</h2></div>
+            <p className="max-w-2xl self-end text-base leading-7 text-[#59615D]">TryFocus connects the shopper experience, billing counter, client workspace and showroom display. Each part works as one controlled flow instead of a collection of disconnected AI tools.</p>
+          </div>
+          <div className="mt-12 grid grid-cols-1 border-l border-t border-[#D8DCD7] sm:grid-cols-2 lg:grid-cols-4">
+            {capabilities.map(([number, title, copy, Icon]) => (
+              <article key={title} className="min-h-72 border-b border-r border-[#D8DCD7] p-6">
+                <div className="flex items-center justify-between"><span className="text-xs font-black text-[#8A918D]">{number}</span><Icon className="h-5 w-5 text-[#7A1428]" /></div>
+                <h3 className="mt-16 text-xl font-black">{title}</h3><p className="mt-3 text-sm leading-6 text-[#59615D]">{copy}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
-              <label htmlFor="store-select" className="text-[10px] font-black uppercase tracking-[0.24em] text-[#8A6A20]">
-                Store workspace
-              </label>
-              <select
-                id="store-select"
-                name="store"
-                defaultValue=""
-                required
-                className="mt-3 w-full border border-[#6e0d1f]/25 bg-white px-4 py-4 text-base font-black uppercase tracking-wider text-[#2A060C] outline-none focus:border-[#6e0d1f]"
-              >
-                <option value="" disabled>
-                  Select store
-                </option>
-                {stores.map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.name} - {store.location}
-                  </option>
-                ))}
+      <section id="operations" className="border-b border-[#303633] bg-[#171B19] text-white">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-2">
+          <div><p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#D9A9B4]">Built for store operations</p><h2 className="mt-4 max-w-xl text-4xl font-black leading-tight">Customer-facing creativity. Manager-level control.</h2><p className="mt-5 max-w-xl text-base leading-7 text-[#B8C0BB]">Every client receives a separate workspace for campaign status, permanent try-on QR, customer video access, usage, retries and approved showroom content.</p></div>
+          <div className="grid gap-px bg-[#3A423E] sm:grid-cols-2">
+            {principles.map((item) => <div key={item} className="flex min-h-28 items-center gap-3 bg-[#171B19] p-5"><Check className="h-4 w-4 shrink-0 text-[#D9A9B4]" /><p className="text-sm font-bold">{item}</p></div>)}
+          </div>
+        </div>
+      </section>
+
+      <section id="client-access">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-[0.8fr_1.2fr]">
+          <div><p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7A1428]">Client access</p><h2 className="mt-4 text-4xl font-black leading-tight">Your store. Your workspace. Your customer experience.</h2><p className="mt-5 text-base leading-7 text-[#59615D]">Choose the assigned retail workspace to continue. Access is restricted to approved store operators.</p></div>
+          <form action="/login" method="get" className="border border-[#C8CEC9] bg-white p-5 sm:p-7">
+            <input type="hidden" name="next" value="/maharaja/workspace" />
+            <label htmlFor="store-select" className="text-[10px] font-black uppercase tracking-[0.2em] text-[#68716C]">Retail workspace</label>
+            <div className="relative mt-3">
+              <select id="store-select" name="store" defaultValue="" required className="min-h-14 w-full appearance-none border border-[#ABB3AD] bg-white px-4 pr-12 text-base font-bold outline-none focus:border-[#7A1428]">
+                <option value="" disabled>Select your store</option>
+                {stores.map((store) => <option key={store.id} value={store.id}>{store.name} · {store.location}</option>)}
               </select>
-
-              <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#e7d9b7] pt-4 text-[10px] font-black uppercase tracking-wider">
-                <span className="flex items-center gap-1.5 text-emerald-800">
-                  <BadgeCheck className="h-3.5 w-3.5" />
-                  Maharaja live
-                </span>
-                <span className="text-[#6e0d1f]">Secured login</span>
-              </div>
-
-              <button
-                type="submit"
-                id="continue-to-login-btn"
-                className="mt-5 flex w-full items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#F3E5AB] transition hover:bg-[#800A1D]"
-              >
-                Continue to login <ArrowRight className="h-4 w-4" />
-              </button>
-            </form>
-
-            <div className="mt-5 border border-[#6e0d1f]/10 bg-[#F8F5EE] p-4">
-              <div className="flex items-center gap-3">
-                <LockKeyhole className="h-4 w-4 text-[#6e0d1f]" />
-                <p className="text-xs font-semibold leading-5 text-[#5C4B43]">
-                  Login opens only the selected campaign workspace. Other client stores can be added here later without changing the Maharaja flow.
-                </p>
-              </div>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2" />
             </div>
-          </div>
+            <button type="submit" id="continue-to-login-btn" className="mt-4 flex min-h-14 w-full items-center justify-center gap-2 bg-[#7A1428] px-5 text-sm font-black text-white hover:bg-[#5D0F1F]">Continue securely <ArrowRight className="h-4 w-4" /></button>
+            <p className="mt-4 flex items-center gap-2 text-xs text-[#68716C]"><LockKeyhole className="h-3.5 w-3.5" /> Authentication opens only the selected client environment.</p>
+          </form>
         </div>
       </section>
 
-      <section className="border-y border-[#e1d1ad] bg-white px-5 py-12 md:px-8">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[0.75fr_1.25fr]">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#8A6A20]">What TryFocus does</p>
-              <h2 className="mt-3 font-serif text-4xl font-bold leading-tight text-[#2A060C]">
-                A campaign engine for fashion retail, not just a generator.
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {[
-                ['Customer entry', 'QR links can be issued from store billing for eligible shoppers.'],
-                ['AI fashion assets', 'Create try-on images and event videos from real customer and garment photos.'],
-                ['Showroom TV', 'Approved videos can go live on the store screen with brand-safe greeting layout.'],
-                ['Client control', 'Stores get package usage, downloads, go-live activity and campaign controls.'],
-              ].map(([title, copy]) => (
-                <div key={title} className="border border-[#e1d4c2] bg-[#F8F5EE] p-5">
-                  <h3 className="font-serif text-2xl font-bold text-[#6e0d1f]">{title}</h3>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5C4B43]">{copy}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+      <footer className="border-t border-[#D8DCD7] bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-7 text-xs text-[#5E6662] md:flex-row md:items-center md:justify-between md:px-8">
+          <div><span className="font-black text-[#161918]">TryFocus</span><span className="ml-2">AI retail experiences for fashion brands.</span></div>
+          <div className="flex flex-wrap gap-5"><Link href="/privacy" className="underline underline-offset-4 hover:text-[#7A1428]">Privacy</Link><Link href="/terms" className="underline underline-offset-4 hover:text-[#7A1428]">Terms</Link><a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-[#7A1428]">A weFOCUS product</a></div>
         </div>
-      </section>
-
-      <section className="border-y border-[#e1d1ad] bg-[#fbf7ef] px-5 py-12 md:px-8">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#8A6A20]">Event library</p>
-              <h2 className="mt-3 font-serif text-4xl font-bold leading-tight text-[#2A060C]">
-                One platform, many retail moments.
-              </h2>
-            </div>
-            <p className="max-w-xl text-sm font-semibold leading-6 text-[#5C4B43]">
-              Maharaja can activate or pause each event from its client admin. Every active event uses its own aligned image and video prompt.
-            </p>
-          </div>
-
-          <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {eventModules.map((event) => (
-              <div key={event.title} className="border border-[#d8c49b] bg-white p-4">
-                <p className="font-serif text-xl font-bold text-[#6e0d1f]">{event.title}</p>
-                <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-[#8A6A20]">{event.status}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t border-[#e1d1ad] bg-[#fffaf0] px-5 py-12 md:px-8">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#8A6A20]">Campaign packages</p>
-              <h2 className="mt-3 font-serif text-4xl font-bold leading-tight text-[#2A060C]">
-                Built for retail volume and brand safety.
-              </h2>
-            </div>
-            <div className="flex items-center gap-2 border border-[#d8c49b] bg-white px-4 py-3 text-xs font-black uppercase tracking-wider text-[#6e0d1f]">
-              <MonitorPlay className="h-4 w-4 text-[#8A6A20]" />
-              Try-on + AI video + TV
-            </div>
-          </div>
-
-          <div className="mt-7 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {pricingPlans.map((plan) => (
-              <div key={plan.title} className="border border-[#d8c49b] bg-white p-6 shadow-sm">
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-[#6e0d1f]">{plan.title}</p>
-                <h3 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">{plan.price}</h3>
-                <p className="mt-5 text-sm font-bold uppercase tracking-wider text-[#3B2D28]">{plan.volume}</p>
-                <p className="mt-2 text-xs font-semibold text-[#7A5B16]">{plan.retry}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
-            <div className="border border-[#d8c49b] bg-white p-6">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#6e0d1f]">Included</p>
-              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {pricingIncludes.map((item) => (
-                  <div key={item} className="flex items-center gap-3 border border-[#e7d9b7] bg-[#fffaf0] px-3 py-3">
-                    <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" />
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#4A3B35]">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div id="wefocus-branding" className="border border-[#6e0d1f]/25 bg-[#2A060C] p-6 text-[#F3E5AB]">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#D4AF37]">Branding & Creative Agency</p>
-              <h3 className="mt-3 font-serif text-3xl font-bold">weFOCUS — Strategic Brand Marketing & Technology</h3>
-              <p className="mt-3 text-sm font-semibold leading-6 text-[#F3E5AB]/85">
-                Ready to elevate your store and brand reach? weFOCUS partners with retail brands, fashion houses, and growing businesses across:
-              </p>
-              
-              <ul className="mt-4 space-y-2.5 text-xs font-semibold text-[#F3E5AB]/90">
-                <li className="flex items-start gap-2">
-                  <Sparkles className="h-4 w-4 text-[#D4AF37] shrink-0 mt-0.5" />
-                  <span><strong className="text-[#F3E5AB]">Brand Marketing:</strong> Brand identity, luxury showroom positioning, retail storytelling & visual guidelines.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <BarChart3 className="h-4 w-4 text-[#D4AF37] shrink-0 mt-0.5" />
-                  <span><strong className="text-[#F3E5AB]">Digital Marketing:</strong> High-ROI customer acquisition campaigns, festive promotions & social media growth.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <WandSparkles className="h-4 w-4 text-[#D4AF37] shrink-0 mt-0.5" />
-                  <span><strong className="text-[#F3E5AB]">Design & Development:</strong> Bespoke UI/UX, interactive AI retail platforms, mobile apps & custom web engineering.</span>
-                </li>
-              </ul>
-
-              <div className="mt-6 flex flex-col gap-2.5">
-                <a
-                  href="https://wefocus.in"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3.5 text-xs font-black uppercase tracking-wider text-black transition hover:brightness-110 shadow-sm"
-                >
-                  Visit wefocus.in <ArrowRight className="h-4 w-4" />
-                </a>
-                <a
-                  href="tel:9994837342"
-                  className="flex w-full items-center justify-center gap-2 border border-[#D4AF37]/50 bg-white/10 px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#F3E5AB] hover:bg-white/20 transition"
-                >
-                  <Phone className="h-4 w-4 text-[#D4AF37]" />
-                  Call 9994837342
-                </a>
-              </div>
-
-              <p className="mt-5 border-t border-[#D4AF37]/25 pt-4 text-xs font-bold uppercase tracking-wider text-[#F3E5AB]/86">
-                Direct Agency Consultation: <a href="tel:9994837342" className="text-[#D4AF37] underline hover:text-white">9994837342</a>
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-col gap-3 border border-[#d8c49b] bg-white p-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <Users className="h-5 w-5 text-[#6e0d1f]" />
-              <p className="text-sm font-bold leading-6 text-[#4A3B35]">
-                Built for client-specific retail campaigns. Maharaja is the first live workspace.
-              </p>
-            </div>
-            <a
-              href="https://wefocus.in"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 bg-[#6e0d1f] px-5 py-3 text-xs font-black uppercase tracking-wider text-[#F3E5AB] hover:bg-[#851025] transition"
-            >
-              weFOCUS Branding Services <ArrowRight className="h-4 w-4" />
-            </a>
-          </div>
-
-          <footer className="mt-8 border-t border-[#e1d1ad] pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-[#5C4B43]">
-            <p>© {new Date().getFullYear()} TryFocus Fashion Marketing Platform · Built for client-specific campaigns.</p>
-            <p>
-              Partnered with <a href="https://wefocus.in" target="_blank" rel="noreferrer" className="text-[#6e0d1f] font-bold underline hover:text-[#800A1D]">wefocus.in</a> — Brand Marketing, Digital Growth & Software Development.
-            </p>
-          </footer>
-        </div>
-      </section>
+      </footer>
     </main>
   );
 }

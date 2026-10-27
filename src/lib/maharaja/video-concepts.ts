@@ -1,6 +1,6 @@
 import type { CustomerCategory, EventId, GarmentType } from './config';
 
-export const VIDEO_PROMPT_ARCHITECTURE_VERSION = 'festival-v7-south-indian-cinema';
+export const VIDEO_PROMPT_ARCHITECTURE_VERSION = 'festival-v8-grounded-performance';
 
 export type VideoConceptId =
   | 'men-heritage-passage' | 'men-grand-arrival' | 'men-royal-lounge'
@@ -231,11 +231,14 @@ export function buildH3MotionPrompt(
   const cameraDirection = sampleCinematicPlan?.camera || distinctCinematicPlans[concept.id] || `CAMERA: 0-1s begin a smooth physical move past ${foreground}. 1-4.5s ${camera} Create clear near-to-far depth parallax. 4.5-6s ease into a full-body hero frame.`;
   const backgroundDirection = sampleCinematicPlan?.background || `BACKGROUND: Animate only visible ${event.label} details throughout: ${background}`;
   const identityLock = `${masterRef} locks the approved opening identity, face, hair, body, outfit and framing. ${garmentReferences} Keep the South Indian set and exact garment colour, pattern, border and drape. No makeup, face swap, plastic skin or wardrobe change.`;
-  const performance = `Keep face and fabric sharp; preserve full-body framing. One natural blink, a small warm smile and subtle breathing; head toward camera. Effects remain behind the customer.`;
+  const groundedPerformance = isChild
+    ? 'Keep both feet planted. Add one tiny natural weight settle through the knees and a subtle shoulder relaxation; no step, turn, sway or hand movement.'
+    : 'Keep both feet planted. Add one small natural weight shift through the hips and knees plus a subtle shoulder release; no step, torso turn or uncontrolled sway.';
+  const performance = `Keep face and fabric sharp; preserve full-body framing. One natural blink, a small warm smile and subtle breathing; head toward camera. ${groundedPerformance} Effects remain behind the customer.`;
   if (isPixVerse) {
     const handRule = isChild ? "Keep the child's Namaste pose unchanged." : 'Keep hands below waist and away from chest and face.';
     return `${identityLock}\nSix-second vertical ${event.label} fashion film, one continuous real-time shot.\n${cameraDirection} Create distinct foreground-to-background parallax.\n${performance} POSE: ${poseDirection} ${handRule}\n${backgroundDirection}\nNo slow motion, freeze, digital zoom, uncontrolled orbit, shake, cut, transition, text, logo or new prop.`;
   }
   const handRule = isChild ? "Keep the child's Namaste pose unchanged; no other hand gesture." : 'Keep both hands below waist, away from chest and face.';
-  return `${masterRef} is the approved exact opening frame and sole authority for the customer's face, natural skin, hair, body, outfit and composition. ${garmentReferences}\n\nSix-second vertical ${event.label} fashion film, one continuous real-time shot. Preserve the South Indian set from the opening frame, customer identity and exact garment colour, pattern, border and drape. No makeup, face swap, plastic skin, wardrobe redesign, text or logo.\n\n${cameraDirection} Create distinct foreground-to-background parallax. Keep the customer's face and garment sharp; preserve full-body framing whenever the move allows. The customer gives one natural blink and a small warm smile with subtle breathing; head stays nearly level and toward camera.\n${backgroundDirection}\n\nPOSE: ${poseDirection} ${handRule} Avoid a rigid mannequin hold; use only the specific natural movement stated above. Preserve face, garment and natural anatomy. Effects stay behind the customer. No slow motion, freeze, digital zoom, uncontrolled orbit, shake, cut, transition or new prop.`;
+  return `${masterRef} is the approved exact opening frame and sole authority for the customer's face, natural skin, hair, body, outfit and composition. ${garmentReferences}\n\nSix-second vertical ${event.label} fashion film, one continuous real-time shot. Preserve the South Indian set from the opening frame, customer identity and exact garment colour, pattern, border and drape. No makeup, face swap, plastic skin, wardrobe redesign, text or logo.\n\n${cameraDirection} Create distinct foreground-to-background parallax. Keep the customer's face and garment sharp; preserve full-body framing whenever the move allows. The customer gives one natural blink and a small warm smile with subtle breathing; head stays nearly level and toward camera. ${groundedPerformance}\n${backgroundDirection}\n\nPOSE: ${poseDirection} ${handRule} Avoid a rigid mannequin hold; use only the specific natural movement stated above. Preserve face, garment and natural anatomy. Effects stay behind the customer. No slow motion, freeze, digital zoom, uncontrolled orbit, shake, cut, transition or new prop.`;
 }

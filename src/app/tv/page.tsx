@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Sparkles, Volume2 } from 'lucide-react';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import { getTamilCustomerName } from '@/lib/maharaja/names';
+import { mergeTvPool, nextTvPoolIndex } from '@/lib/maharaja/tv-pool';
 
 const SOURCE_SECONDS_FOR_LIVE = 6;
 const TV_SECONDS_FOR_LIVE = 9;
@@ -14,6 +15,8 @@ const TV_LOCALITY = 'தஞ்சாவூர்';
 
 type PlaybackItem = {
   queueId: string;
+  videoId?: string | null;
+  storagePath?: string | null;
   queueNumber?: number | null;
   reservationId: string;
   videoUrl: string;
@@ -67,6 +70,8 @@ export default function TvPlayerPage() {
   const lastProgressPosRef = useRef<number>(0);
   const badQueueIdsRef = useRef<Set<string>>(new Set());
   const activatingSlotRef = useRef<Slot | null>(null);
+  const pauseRecoveryRef = useRef<number | null>(null);
+  const continuityRecoveryRef = useRef<number | null>(null);
 
   useEffect(() => {
     currentPlaybackRef.current = currentPlayback;
@@ -90,6 +95,8 @@ export default function TvPlayerPage() {
       if (playbackWatchdogRef.current) clearTimeout(playbackWatchdogRef.current);
       if (pendingWatchdogRef.current) clearTimeout(pendingWatchdogRef.current);
       if (stallRecoveryTimerRef.current) clearTimeout(stallRecoveryTimerRef.current);
+      if (pauseRecoveryRef.current) clearTimeout(pauseRecoveryRef.current);
+      if (continuityRecoveryRef.current) clearTimeout(continuityRecoveryRef.current);
       const audioEl = audioRef.current;
       audioEl?.pause();
     };
@@ -100,10 +107,13 @@ export default function TvPlayerPage() {
 
   function displayCustomerName(playback: PlaybackItem | null): string {
     const value = playback?.customerName?.trim() || '';
+    const isPlaceholder = !value || value === 'Maharaja Guest' || value === 'Maharaja Customer';
+    // Live plays show exactly the name the customer entered.
+    if (playback?.source === 'live' && !isPlaceholder) return value;
     if (value === 'திவ்யா' || value.toLocaleLowerCase() === 'divya') {
       return 'கார்த்திக்';
     }
-    if (!value || value === 'Maharaja Guest' || value === 'Maharaja Customer' || REMOVED_TV_NAMES.has(value.toLocaleLowerCase())) {
+    if (isPlaceholder || REMOVED_TV_NAMES.has(value.toLocaleLowerCase())) {
       const name = getTamilCustomerName(playback?.queueId || 'tv');
       return (name === 'திவ்யா' || name.toLocaleLowerCase() === 'divya') ? 'கார்த்திக்' : name;
     }
@@ -187,16 +197,34 @@ export default function TvPlayerPage() {
     setPlaybackError(null);
   }
 
+  function scheduleContinuityRecovery(delayMs = 250) {
+    if (continuityRecoveryRef.current) return;
+    continuityRecoveryRef.current = window.setTimeout(() => {
+      continuityRecoveryRef.current = null;
+      if (currentPlaybackRef.current || pendingSlotRef.current) return;
+      if (playlistRef.current.length > 0) {
+        queueNextPlaylistItem();
+        return;
+      }
+      void loadReplayLibrary().finally(() => {
+        if (!currentPlaybackRef.current && !pendingSlotRef.current && !playlistRef.current.length) {
+          scheduleContinuityRecovery(2000);
+        }
+      });
+    }, delayMs);
+  }
+
   function skipCurrentPlayback(reason: string) {
     const playback = currentPlaybackRef.current;
     if (!playback) return;
 
     console.warn('Skipping TV playback:', reason, playback.queueId);
+    badQueueIdsRef.current.add(playback.queueId);
+    removePlaybackFromPlaylist(playback.queueId);
+    setSlotPlayback(activeSlotRef.current, null);
     resetActivePlaybackState();
 
-    if (playlistRef.current.length > 0) {
-      window.setTimeout(() => queueNextPlaylistItem(), 80);
-    }
+    scheduleContinuityRecovery(80);
   }
 
   function skipPendingPlayback(slot: Slot, reason: string) {
@@ -213,7 +241,15 @@ export default function TvPlayerPage() {
     }
     clearPendingWatchdog();
 
-    window.setTimeout(queueNextPlaylistItem, 80);
+    window.setTimeout(() => {
+      const activeVideo = getVideoRef(activeSlotRef.current);
+      if (!currentPlaybackRef.current || activeVideo?.ended || loopInProgressRef.current) {
+        if (!currentPlaybackRef.current) scheduleContinuityRecovery(0);
+        else queueNextPlaylistItem();
+        return;
+      }
+      preloadNextPlaylistItem();
+    }, 80);
   }
 
   async function notifyPlaybackComplete(playback: PlaybackItem, playNumber: number): Promise<'repeat' | 'completed' | null> {
@@ -293,16 +329,11 @@ export default function TvPlayerPage() {
   }
 
   function appendPlaylistItem(playback: PlaybackItem) {
-    if (badQueueIdsRef.current.has(playback.queueId)) return;
-
-    const existingIndex = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
-    if (existingIndex >= 0) {
-      playlistRef.current = playlistRef.current.map((item, index) => (
-        index === existingIndex ? { ...item, ...playback } : item
-      ));
-    } else {
-      playlistRef.current = [...playlistRef.current, playback];
-    }
+    playlistRef.current = mergeTvPool(
+      playlistRef.current,
+      [playback],
+      badQueueIdsRef.current,
+    );
 
     if (!currentPlaybackRef.current && !pendingSlotRef.current) {
       playlistIndexRef.current = Math.max(playlistRef.current.findIndex((item) => item.queueId === playback.queueId), 0);
@@ -466,7 +497,16 @@ export default function TvPlayerPage() {
     } catch (err) {
       console.error('Video playback error / autoplay blocked:', err);
       resetExternalAudio();
-      setPlaybackError('Autoplay blocked. Press play to start video.');
+      try {
+        // Some kiosk browsers revoke audible autoplay after a source change.
+        // Preserve continuous visuals and restore normal audio on the next item.
+        video.muted = true;
+        await video.play();
+        setPlaybackError('Audio was blocked for this video. Continuous playback remains active.');
+      } catch (mutedError) {
+        console.error('Muted playback recovery also failed:', mutedError);
+        skipCurrentPlayback('browser rejected normal and muted playback');
+      }
     }
   };
 
@@ -505,16 +545,21 @@ export default function TvPlayerPage() {
     return () => window.clearTimeout(timeout);
   }, [currentPlayback, activeSlot]);
 
-  // Continuous freeze watchdog: if video is active but currentTime does not advance for >5s, auto-advance
+  // Recover browser pauses, then skip an asset that still makes no progress.
   useEffect(() => {
     if (!isPlayingVideo || !currentPlayback) return;
     const interval = window.setInterval(() => {
       const activeVideo = getVideoRef(activeSlotRef.current);
-      if (!activeVideo || activeVideo.paused || activeVideo.ended || loopInProgressRef.current) return;
-      if (Date.now() - lastProgressAtRef.current > 5000) {
-        console.warn('Continuous stall watchdog triggered: video position frozen for >5s, auto-advancing.');
+      if (!activeVideo || activeVideo.ended || loopInProgressRef.current) return;
+      const stalledFor = Date.now() - lastProgressAtRef.current;
+      if (activeVideo.paused && stalledFor < 8000) {
+        void activeVideo.play().catch(() => undefined);
+        return;
+      }
+      if (stalledFor > 8000) {
+        console.warn('Continuous stall watchdog triggered: playback made no progress for >8s, skipping asset.');
         loopInProgressRef.current = true;
-        void handleVideoEnded();
+        void handleVideoError(activeSlotRef.current);
       }
     }, 1500);
     return () => window.clearInterval(interval);
@@ -558,6 +603,7 @@ export default function TvPlayerPage() {
 
     activatingSlotRef.current = slot;
     try {
+      const previousSlot = activeSlotRef.current;
       // Retain the finished clip until the replacement video has actually started.
       video.currentTime = 0;
       configureVideo(video, playback);
@@ -568,7 +614,8 @@ export default function TvPlayerPage() {
       const index = playlistRef.current.findIndex((item) => item.queueId === playback.queueId);
       if (index >= 0) playlistIndexRef.current = index;
       resetExternalAudio();
-      loopInProgressRef.current = false;
+      currentPlaybackRef.current = playback;
+      activeSlotRef.current = slot;
       setCurrentPlayback(playback);
       setActiveSlot(slot);
       setPendingSlot(null);
@@ -576,6 +623,13 @@ export default function TvPlayerPage() {
       preloadedSlotRef.current = null;
       preloadedQueueIdRef.current = null;
       setIsPlayingVideo(true);
+      const previousVideo = getVideoRef(previousSlot);
+      if (previousSlot !== slot && previousVideo && !previousVideo.paused) previousVideo.pause();
+      lastProgressAtRef.current = Date.now();
+      lastProgressPosRef.current = 0;
+      window.requestAnimationFrame(() => {
+        loopInProgressRef.current = false;
+      });
       void fetch('/api/tv/playing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -607,7 +661,10 @@ export default function TvPlayerPage() {
 
   function queueNextPlaylistItem() {
     const playlist = playlistRef.current;
-    if (!playlist.length) return;
+    if (!playlist.length) {
+      scheduleContinuityRecovery(500);
+      return;
+    }
 
     if (!currentPlaybackRef.current) {
       const index = playlistIndexRef.current % playlist.length;
@@ -638,7 +695,11 @@ export default function TvPlayerPage() {
       return;
     }
 
-    const nextIndex = (playlistIndexRef.current + 1) % playlist.length;
+    const nextIndex = nextTvPoolIndex(playlist, currentPlaybackRef.current.queueId);
+    if (nextIndex < 0) {
+      scheduleContinuityRecovery(500);
+      return;
+    }
     const nextPlayback = playlist[nextIndex];
     const preloadedSlot = preloadedSlotRef.current;
 
@@ -679,10 +740,8 @@ export default function TvPlayerPage() {
       }
 
       if (completionStatus !== 'completed') {
-        window.setTimeout(() => {
-          loopInProgressRef.current = false;
-          void handleVideoEnded();
-        }, 1500);
+        console.warn('TV completion could not be acknowledged; releasing item to keep the screen moving.');
+        void handleVideoError(activeSlotRef.current);
         return;
       }
 
@@ -708,10 +767,20 @@ export default function TvPlayerPage() {
       stallRecoveryTimerRef.current = null;
       const activeVideo = getVideoRef(activeSlotRef.current);
       if (!activeVideo || activeVideo.ended || loopInProgressRef.current) return;
-      console.warn('Playback stalled for >3.5s, advancing to next item.');
-      loopInProgressRef.current = true;
-      void handleVideoEnded();
+      console.warn('Playback stalled for >3.5s; attempting recovery before the main watchdog skips it.');
+      void activeVideo.play().catch(() => undefined);
     }, 3500);
+  };
+
+  const handleVideoPaused = (slot: Slot, video: HTMLVideoElement) => {
+    if (slot !== activeSlotRef.current || video.ended || loopInProgressRef.current) return;
+    if (!currentPlaybackRef.current || !isPlayingVideo) return;
+    if (pauseRecoveryRef.current) clearTimeout(pauseRecoveryRef.current);
+    pauseRecoveryRef.current = window.setTimeout(() => {
+      pauseRecoveryRef.current = null;
+      if (slot !== activeSlotRef.current || video.ended || loopInProgressRef.current) return;
+      void video.play().catch(() => undefined);
+    }, 250);
   };
 
   const handleVideoProgress = (slot: Slot, video: HTMLVideoElement) => {
@@ -727,16 +796,6 @@ export default function TvPlayerPage() {
       lastProgressPosRef.current = video.currentTime;
       lastProgressAtRef.current = Date.now();
       clearStallRecoveryTimer();
-    }
-
-    // Dynamic duration end guard: if within 0.22s of the video end, proactively advance smoothly
-    const dur = video.duration;
-    if (Number.isFinite(dur) && dur > 1 && video.currentTime >= (dur - 0.22)) {
-      if (!loopInProgressRef.current) {
-        loopInProgressRef.current = true;
-        void handleVideoEnded();
-        return;
-      }
     }
 
     const playback = currentPlaybackRef.current;
@@ -795,7 +854,7 @@ export default function TvPlayerPage() {
       badQueueIdsRef.current.add(playback.queueId);
       removePlaybackFromPlaylist(playback.queueId);
       resetActivePlaybackState();
-      window.setTimeout(queueNextPlaylistItem, 80);
+      scheduleContinuityRecovery(80);
     }
   };
 
@@ -825,6 +884,7 @@ export default function TvPlayerPage() {
           if (isPending) void activatePendingSlot(slot);
         }}
         onPlaying={(event) => startLiveAudioWithVisibleVideo(slot, event.currentTarget)}
+        onPause={(event) => handleVideoPaused(slot, event.currentTarget)}
         onTimeUpdate={(event) => handleVideoProgress(slot, event.currentTarget)}
         onWaiting={() => {
           if (isActive) handleVideoStalled(slot);

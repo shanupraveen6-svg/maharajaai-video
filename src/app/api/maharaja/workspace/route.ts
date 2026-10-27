@@ -84,12 +84,19 @@ export async function GET(req: NextRequest) {
       tier5kTo7k += remainingPasses;
     }
 
-    const imageRetries = allActivity.filter(
+    const recordedTotalRetries = Number(workspace.usage.retries || 0);
+    const activityImageRetries = allActivity.filter(
       (item) => item.type === 'retry' && (item.metadata?.target === 'image' || item.metadata?.service === 'try-on')
     ).length;
-    const videoRetries = allActivity.filter(
+    const activityVideoRetries = allActivity.filter(
       (item) => item.type === 'retry' && (item.metadata?.target === 'video' || item.metadata?.service === 'ai-video')
     ).length;
+    const activityTotalRetries = activityImageRetries + activityVideoRetries;
+    const effectiveTotalRetries = Math.max(recordedTotalRetries, activityTotalRetries);
+    const imageRetries = activityTotalRetries > 0
+      ? Math.round(effectiveTotalRetries * (activityImageRetries / activityTotalRetries))
+      : Math.floor(effectiveTotalRetries / 2);
+    const videoRetries = effectiveTotalRetries - imageRetries;
 
     const imagesSuccess = Math.max(workspace.usage.tryOnGenerated || 0, allActivity.filter((item) => item.type === 'try-on').length);
     const readyPassesCount = recentPasses.filter((pass) => pass.videoDone === true).length;
