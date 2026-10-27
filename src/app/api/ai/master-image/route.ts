@@ -55,10 +55,6 @@ async function resolveImageBase64(input: unknown, bucket: any, sessionId: string
   if (bucket) {
     try {
       const file = bucket.file(trimmed);
-      const [metadata] = await file.getMetadata();
-      if (Number(metadata.size || 0) > MAX_SOURCE_IMAGE_BYTES) {
-        throw new Error('Uploaded photo exceeds the 8 MB processing limit.');
-      }
       const [buffer] = await file.download();
       if (buffer.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Uploaded photo exceeds the 8 MB processing limit.');
       return buffer.toString('base64');

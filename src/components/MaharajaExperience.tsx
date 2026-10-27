@@ -453,7 +453,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setError('');
     clearActiveImage();
     try {
-      const { dataUrl } = await compressImage(file, 1280, 0.82);
+      const { dataUrl } = await compressImage(file, 1024, 0.78);
       setPersonPhoto(dataUrl);
       setPersonAnalysis({ valid: true, additionalPhotoRequired: false, operatorMessage: 'Person photo added.' });
       setMessage('Person photo is ready.');
@@ -509,7 +509,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           }
         }
       }
-      const compressed = await Promise.all(selectedFiles.map((file) => compressImage(file, 1280, 0.82)));
+      const compressed = await Promise.all(selectedFiles.map((file) => compressImage(file, 1024, 0.78)));
       const newImages = compressed.map((item) => item.dataUrl);
       const combined = append ? [...garmentPhotos, ...newImages].slice(0, maxAllowed) : newImages.slice(0, maxAllowed);
       setGarmentPhotos(combined);
@@ -609,20 +609,17 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setError('');
     setMessage(activeService === 'try-on' ? 'Uploading photos and preparing Try-On...' : `Uploading photos and preparing ${event.label} portrait...`);
     const progressTimers = [
-      window.setTimeout(() => setMessage(activeService === 'try-on' ? 'Creating your Try-On image...' : 'Creating your festival image with Gemini...'), 8000),
-      window.setTimeout(() => setMessage('Your image request is still processing. Please keep this page open.'), 28000),
+      window.setTimeout(() => setMessage(activeService === 'try-on' ? 'Creating your Try-On image...' : 'Creating your festival portrait with Gemini...'), 3500),
+      window.setTimeout(() => setMessage('Synthesizing garment details and festival scene...'), 14000),
+      window.setTimeout(() => setMessage('Applying lighting, depth and high-resolution polish...'), 24000),
     ];
     try {
-      // Mobile browsers can drop one of several simultaneous signed uploads.
-      // Keep the upload transaction deterministic: person first, then each
-      // explicitly-labelled garment reference. Gemini is never called early.
-      const personStoragePath = await uploadPhotoToStorage(personPhoto, 'person');
-      const garmentStoragePaths: string[] = [];
-      if (!isCatalogueGift) {
-        for (const photo of visibleGarmentPhotos) {
-          garmentStoragePaths.push(await uploadPhotoToStorage(photo, 'garment'));
-        }
-      }
+      // Upload person and garment references concurrently via Promise.all
+      // to eliminate sequential upload wait time on mobile networks.
+      const [personStoragePath, ...garmentStoragePaths] = await Promise.all([
+        uploadPhotoToStorage(personPhoto, 'person'),
+        ...(isCatalogueGift ? [] : visibleGarmentPhotos.map((photo) => uploadPhotoToStorage(photo, 'garment'))),
+      ]);
       const allUploaded = Boolean(personStoragePath && (isCatalogueGift || (garmentStoragePaths.length === visibleGarmentPhotos.length && garmentStoragePaths.every(Boolean))));
       if (!allUploaded) {
         throw new Error('Secure photo upload did not complete. Check the connection and try again. No AI credit was used.');
