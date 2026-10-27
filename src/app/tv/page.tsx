@@ -189,9 +189,38 @@ export default function TvPlayerPage() {
     if (!usesExternalAudio) resetExternalAudio();
   }
 
+  const prefetchedUrlsRef = useRef<Set<string>>(new Set());
+  function prefetchVideoUrl(url: string) {
+    if (!url || prefetchedUrlsRef.current.has(url)) return;
+    prefetchedUrlsRef.current.add(url);
+    try {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.as = 'video';
+      link.href = url;
+      document.head.appendChild(link);
+    } catch {
+      // Ignore if document head is unavailable
+    }
+  }
+
   function setSlotPlayback(slot: Slot, playback: PlaybackItem | null) {
     slotItemsRef.current = { ...slotItemsRef.current, [slot]: playback };
     setSlotItems((prev) => ({ ...prev, [slot]: playback }));
+
+    if (playback?.videoUrl) {
+      prefetchVideoUrl(playback.videoUrl);
+      window.requestAnimationFrame(() => {
+        const video = getVideoRef(slot);
+        if (video && playback.videoUrl) {
+          if (video.src !== playback.videoUrl) {
+            video.src = playback.videoUrl;
+          }
+          configureVideo(video, playback);
+          video.load();
+        }
+      });
+    }
   }
 
   function clearStallRecoveryTimer() {
@@ -401,7 +430,7 @@ export default function TvPlayerPage() {
     playlistRef.current = nextPlaylist;
     preloadedSlotRef.current = null;
     preloadedQueueIdRef.current = null;
-    window.setTimeout(preloadNextPlaylistItem, 50);
+    preloadNextPlaylistItem();
   }
 
   function hasOutstandingLivePlayback() {
@@ -577,7 +606,7 @@ export default function TvPlayerPage() {
   useEffect(() => {
     if (!currentPlayback) return;
 
-    const timeout = window.setTimeout(preloadNextPlaylistItem, 500);
+    const timeout = window.setTimeout(preloadNextPlaylistItem, 80);
     return () => window.clearTimeout(timeout);
   }, [currentPlayback, activeSlot]);
 
@@ -660,7 +689,9 @@ export default function TvPlayerPage() {
       preloadedQueueIdRef.current = null;
       setIsPlayingVideo(true);
       const previousVideo = getVideoRef(previousSlot);
-      if (previousSlot !== slot && previousVideo && !previousVideo.paused) previousVideo.pause();
+      window.setTimeout(() => {
+        if (previousSlot !== slot && previousVideo && !previousVideo.paused) previousVideo.pause();
+      }, 140);
       lastProgressAtRef.current = Date.now();
       lastProgressPosRef.current = 0;
       window.requestAnimationFrame(() => {
@@ -758,32 +789,26 @@ export default function TvPlayerPage() {
     if (!playback) return;
     clearPlaybackWatchdog();
     clearStallRecoveryTimer();
-    resetExternalAudio();
 
     if (playback.source !== 'replay') {
       const playNumber = Number(playback.timesPlayed || 0) + 1;
-      const completionStatus = await beginCompletionNotification(playback, playNumber);
 
-      if (completionStatus === 'repeat') {
+      // Start completion notification in background so screen continuity is never stalled
+      void beginCompletionNotification(playback, playNumber).catch((err) => {
+        console.warn('Background completion notice failed:', err);
+      });
+
+      if (playNumber < 2) {
         const nextPlay = { ...playback, timesPlayed: playNumber };
         currentPlaybackRef.current = nextPlay;
         loopInProgressRef.current = false;
         liveAudioStartedRef.current = false;
-        window.setTimeout(() => {
-          void startVideoPlayback();
-        }, 16);
+        void startVideoPlayback();
         return;
       }
 
-      if (completionStatus !== 'completed') {
-        console.warn('TV completion could not be acknowledged; releasing item to keep the screen moving.');
-        void handleVideoError(activeSlotRef.current);
-        return;
-      }
-
+      completedQueueIdsRef.current.add(playback.queueId);
       removePlaybackFromPlaylist(playback.queueId);
-      // If this was the only available clip, keep it on the TV as a normal
-      // replay item immediately rather than leaving the screen without a loop.
       if (!playlistRef.current.length) {
         playlistRef.current = [{ ...playback, source: 'replay' }];
         playlistIndexRef.current = 0;
@@ -796,6 +821,7 @@ export default function TvPlayerPage() {
       return;
     }
 
+    resetExternalAudio();
     liveAudioStartedRef.current = false;
     setPlaybackError(null);
     queueNextPlaylistItem();
@@ -910,7 +936,7 @@ export default function TvPlayerPage() {
 
     return (
       <video
-        key={`${slot}-${playback?.queueId || 'empty'}`}
+        key={`tv-video-slot-${slot}`}
         ref={slot === 'a' ? videoARef : videoBRef}
         src={playback?.videoUrl || undefined}
         playsInline
@@ -944,8 +970,8 @@ export default function TvPlayerPage() {
           }
         }}
         onError={() => handleVideoError(slot)}
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ease-out ${
-          isActive ? 'opacity-100' : 'opacity-0'
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-in-out ${
+          isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
         }`}
       />
     );
