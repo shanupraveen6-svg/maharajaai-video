@@ -184,244 +184,28 @@ export default function LandingPage() {
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7A1428]">Transparent Retail Licensing</p>
             <h2 className="mt-3 text-3xl font-black leading-tight sm:text-4xl text-[#161918]">
-              Predictable, quota-backed pricing for fashion retail.
+              Choose only the AI modules your store needs.
             </h2>
             <p className="mt-4 text-sm sm:text-base leading-7 text-[#59615D]">
-              Full platform capabilities in every tier. Choose the right volume of customer try-on images and retail films for your showroom traffic, backed by generous included retry guarantees.
+              Start with Image Try-On, Live AI Try-On or AI Video. Every module runs on the same TryFocus platform and can be activated on mobile, tablet, TV or the complete store setup.
             </p>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8 items-stretch">
-            {/* Pro Plan (Active) */}
-            <article className="relative flex flex-col justify-between border-2 border-[#7A1428] bg-white p-6 sm:p-8 shadow-[0_20px_50px_rgba(122,20,40,0.08)]">
-              <div className="absolute -top-3.5 left-6 sm:left-8">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#7A1428] px-3.5 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-sm">
-                  <Sparkles className="h-3 w-3 text-[#E8B878]" /> Active Plan · Ready Now
-                </span>
-              </div>
-
-              <div>
-                <div className="mt-2 flex items-center justify-between">
-                  <h3 className="text-xl font-black text-[#161918]">Pro Account</h3>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#7A1428]">Single Store</span>
-                </div>
-                <p className="mt-1 text-xs leading-5 text-[#59615D]">
-                  Designed for flagship showrooms launching live AR try-on and customer TV broadcasting.
-                </p>
-
-                <div className="mt-6 border-b border-[#E8EBE7] pb-6">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl sm:text-4xl font-black text-[#161918]">₹2,00,000</span>
-                    <span className="text-xs font-bold text-[#6B7570]">/ 2 Lakhs</span>
-                  </div>
-                  <p className="mt-1 text-[11px] font-semibold text-[#7A1428]">Full campaign license & complete store setup</p>
-                </div>
-
-                <div className="mt-6 space-y-3.5">
-                  <div className="rounded border border-[#E0D5C1] bg-[#FAF7F0] p-3 text-xs font-bold text-[#161918]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#7A1428]">AI Try-On Images</span>
-                      <span className="font-black text-[#161918]">1,000 Try-Ons</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-[#E8DFC9] pt-2">
-                      <span className="text-[#7A1428]">AI Retail Videos</span>
-                      <span className="font-black text-[#161918]">1,000 Films</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-[#E8DFC9] pt-2">
-                      <span className="text-[#7A1428]">Included Retry Buffer</span>
-                      <span className="font-black text-[#3D8A5E]">15% Included (150 extra)</span>
-                    </div>
-                  </div>
-
-                  <ul className="space-y-2.5 pt-2 text-xs font-medium text-[#444D48]">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#7A1428]" />
-                      <span>Client-isolated private workspace</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#7A1428]" />
-                      <span>Showroom TV live broadcast & universal loop</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#7A1428]" />
-                      <span>Staff counter portal & QR journey</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#7A1428]" />
-                      <span>High-resolution customer downloads</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#7A1428]" />
-                      <span>Store analytics & retry transparency</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4">
-                <a
-                  href="tel:9994837342"
-                  className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#7A1428] px-4 text-xs sm:text-sm font-black uppercase tracking-wider text-white shadow-sm transition hover:bg-[#5D0F1F] active:scale-[0.99]"
-                >
-                  <Phone className="h-3.5 w-3.5 text-[#E8B878]" />
-                  <span>Call to Get Started (9994837342)</span>
-                </a>
-              </div>
-            </article>
-
-            {/* Gold Plan (Inactive / Coming Soon) */}
-            <article className="relative flex flex-col justify-between border border-[#D0D6D0] bg-[#F7F9F6] p-6 sm:p-8 opacity-75">
-              <div className="absolute -top-3.5 left-6 sm:left-8">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#CBD2CB] bg-[#E8ECE6] px-3.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#515955] shadow-xs">
-                  Coming Soon
-                </span>
-              </div>
-
-              <div>
-                <div className="mt-2 flex items-center justify-between">
-                  <h3 className="text-xl font-black text-[#515955]">Gold Plan</h3>
-                  <span className="rounded bg-[#E8ECE6] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#6B7570]">Inactive</span>
-                </div>
-                <p className="mt-1 text-xs leading-5 text-[#6B7570]">
-                  For high-volume wedding and peak festive seasons requiring higher throughput.
-                </p>
-
-                <div className="mt-6 border-b border-[#D8DCD7] pb-6">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl sm:text-4xl font-black text-[#515955]">₹3,50,000</span>
-                    <span className="text-xs font-bold text-[#6B7570]">/ 3.5 Lakhs</span>
-                  </div>
-                  <p className="mt-1 text-[11px] font-semibold text-[#6B7570]">Extended volume campaign tier</p>
-                </div>
-
-                <div className="mt-6 space-y-3.5">
-                  <div className="rounded border border-[#D8DCD7] bg-[#EFF2ED] p-3 text-xs font-bold text-[#515955]">
-                    <div className="flex items-center justify-between">
-                      <span>AI Try-On Images</span>
-                      <span className="font-black text-[#161918]">3,000 Try-Ons</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-[#DDE2DC] pt-2">
-                      <span>AI Retail Videos</span>
-                      <span className="font-black text-[#161918]">3,000 Films</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-[#DDE2DC] pt-2">
-                      <span>Included Retry Buffer</span>
-                      <span className="font-black text-[#3D8A5E]">20% Included (600 extra)</span>
-                    </div>
-                  </div>
-
-                  <ul className="space-y-2.5 pt-2 text-xs font-medium text-[#6B7570]">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>Everything in Pro Account</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>Multi-counter concurrent staff pairing</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>Priority GPU generation queue</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>Custom seasonal festive video templates</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>Dedicated support manager</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4">
-                <button
-                  type="button"
-                  disabled
-                  className="flex min-h-11 w-full items-center justify-center gap-2 border border-[#D0D6D0] bg-[#E4E8E3] px-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-[#6B7570] cursor-not-allowed"
-                >
-                  <span>Coming Soon</span>
-                </button>
-              </div>
-            </article>
-
-            {/* Diamond Plan (Inactive / Coming Soon) */}
-            <article className="relative flex flex-col justify-between border border-[#D0D6D0] bg-[#F7F9F6] p-6 sm:p-8 opacity-75">
-              <div className="absolute -top-3.5 left-6 sm:left-8">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#CBD2CB] bg-[#E8ECE6] px-3.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#515955] shadow-xs">
-                  Coming Soon
-                </span>
-              </div>
-
-              <div>
-                <div className="mt-2 flex items-center justify-between">
-                  <h3 className="text-xl font-black text-[#515955]">Diamond Plan</h3>
-                  <span className="rounded bg-[#E8ECE6] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#6B7570]">Inactive</span>
-                </div>
-                <p className="mt-1 text-xs leading-5 text-[#6B7570]">
-                  For multi-store retail brands and large format showroom chains.
-                </p>
-
-                <div className="mt-6 border-b border-[#D8DCD7] pb-6">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl sm:text-4xl font-black text-[#515955]">Enterprise</span>
-                    <span className="text-xs font-bold text-[#6B7570]">/ Multi-Store</span>
-                  </div>
-                  <p className="mt-1 text-[11px] font-semibold text-[#6B7570]">Enterprise fleet licensing</p>
-                </div>
-
-                <div className="mt-6 space-y-3.5">
-                  <div className="rounded border border-[#D8DCD7] bg-[#EFF2ED] p-3 text-xs font-bold text-[#515955]">
-                    <div className="flex items-center justify-between">
-                      <span>AI Try-On Images</span>
-                      <span className="font-black text-[#161918]">5,000 Try-Ons</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-[#DDE2DC] pt-2">
-                      <span>AI Retail Videos</span>
-                      <span className="font-black text-[#161918]">5,000 Films</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-[#DDE2DC] pt-2">
-                      <span>Included Retry Buffer</span>
-                      <span className="font-black text-[#3D8A5E]">25% Included (1,250 extra)</span>
-                    </div>
-                  </div>
-
-                  <ul className="space-y-2.5 pt-2 text-xs font-medium text-[#6B7570]">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>Everything in Gold Plan</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>Multi-store centralized dashboard</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>Custom brand neural model fine-tuning</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>Multi-screen synchronous TV showroom network</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-[#8A948E]" />
-                      <span>24/7 SLA & dedicated retail solutions engineer</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4">
-                <button
-                  type="button"
-                  disabled
-                  className="flex min-h-11 w-full items-center justify-center gap-2 border border-[#D0D6D0] bg-[#E4E8E3] px-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-[#6B7570] cursor-not-allowed"
-                >
-                  <span>Coming Soon</span>
-                </button>
-              </div>
-            </article>
+          <div className="mx-auto mt-12 grid max-w-5xl gap-6 lg:grid-cols-2">
+            <PricingPlan title="Standard" label="For a focused store launch" items={[
+              ['AI Image Try-On', '4,000 generations', '₹50,000', '₹40,000'],
+              ['Live AI Try-On', '500 × 30-second sessions', '₹50,000', '₹40,000'],
+              ['AI Video', '500 video journeys', '₹50,000', '₹40,000'],
+            ]} />
+            <PricingPlan featured title="Pro" label="For a complete flagship experience" items={[
+              ['AI Image Try-On', '6,000 generations', '₹99,999', '₹80,000'],
+              ['Live AI Try-On', '1,000 × 30-second sessions', '₹99,999', '₹80,000'],
+              ['AI Video', '1,000 video journeys', '₹99,999', '₹80,000'],
+            ]} />
+          </div>
+          <div className="mx-auto mt-6 grid max-w-5xl gap-4 border border-[#D8DCD7] bg-white p-5 text-sm text-[#515955] md:grid-cols-[1fr_auto] md:items-center">
+            <div><p className="font-black text-[#161918]">One platform. Activate only the surfaces you purchase.</p><p className="mt-1 leading-6">Mobile, tablet, TV/standee and wall player access are configured per client. AI image and AI video include a 15% retry allowance; Live AI Try-On has no retry.</p></div>
+            <div className="border-l-0 border-[#E3D7C3] pt-3 md:border-l md:pl-5 md:pt-0"><p className="text-xs font-bold uppercase tracking-wider text-[#7A1428]">Optional hardware</p><p className="mt-1 font-black text-[#161918]">43” Interactive TV Standee</p><p className="text-lg font-black text-[#7A1428]">₹1,00,000</p></div>
           </div>
         </div>
       </section>
@@ -460,5 +244,35 @@ export default function LandingPage() {
         </div>
       </footer>
     </main>
+  );
+}
+
+function PricingPlan({
+  title,
+  label,
+  items,
+  featured = false,
+}: {
+  title: string;
+  label: string;
+  items: Array<[string, string, string, string]>;
+  featured?: boolean;
+}) {
+  return (
+    <article className={`relative border bg-white p-6 shadow-sm sm:p-8 ${featured ? 'border-2 border-[#7A1428] shadow-[0_20px_50px_rgba(122,20,40,0.10)]' : 'border-[#D8DCD7]'}`}>
+      {featured && <span className="absolute -top-3.5 left-6 inline-flex items-center gap-1.5 bg-[#7A1428] px-3.5 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-sm"><Sparkles className="h-3 w-3 text-[#E8B878]" /> Most complete</span>}
+      <p className={`text-[11px] font-black uppercase tracking-[0.2em] ${featured ? 'text-[#7A1428]' : 'text-[#6B7570]'}`}>{label}</p>
+      <h3 className="mt-2 text-3xl font-black text-[#161918]">{title} Modules</h3>
+      <div className="mt-7 divide-y divide-[#E5E8E4] border-y border-[#E5E8E4]">
+        {items.map(([module, volume, oldPrice, offerPrice]) => (
+          <div key={module} className="grid gap-2 py-5 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div><p className="font-black text-[#161918]">{module}</p><p className="mt-1 text-xs font-semibold text-[#626A66]">{volume}</p></div>
+            <div className="text-left sm:text-right"><p className="text-sm font-bold text-[#858D88] line-through">{oldPrice}</p><p className="text-2xl font-black text-[#7A1428]">{offerPrice}</p></div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-5 text-xs leading-5 text-[#59615D]">Each module is selected independently. AI Video and Live access can be restricted by your retailer’s campaign conditions.</p>
+      <a href="tel:9994837342" className={`mt-6 flex min-h-12 w-full items-center justify-center gap-2 px-4 text-xs font-black uppercase tracking-wider transition ${featured ? 'bg-[#7A1428] text-white hover:bg-[#5D0F1F]' : 'border border-[#7A1428] text-[#7A1428] hover:bg-[#7A1428] hover:text-white'}`}><Phone className="h-4 w-4" />Request this plan</a>
+    </article>
   );
 }
