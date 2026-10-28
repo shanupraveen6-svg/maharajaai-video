@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Download, ExternalLink, Film, IndianRupee, LoaderCircle, LogOut, Play, Power, QrCode, RefreshCw, ScanLine, Shirt, Tv, X } from 'lucide-react';
+import { Download, ExternalLink, Film, IndianRupee, LoaderCircle, LogOut, Power, QrCode, RefreshCw, ScanLine, Shirt, Tv } from 'lucide-react';
 import { createTryOnPosterDataUrl, downloadDataUrl } from '@/lib/maharaja/qr-poster';
 
 export type GoLiveAuditItem = { id: string; createdAt: string; customerName: string; phone: string; phoneMasked: string; videoUrl: string; sessionId: string; queueNumber: number; promotionConsent: boolean };
@@ -24,7 +24,6 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
   const [poster, setPoster] = useState('');
   const [videoPoster, setVideoPoster] = useState('');
   const [posterLoading, setPosterLoading] = useState(false);
-  const [playing, setPlaying] = useState<GoLiveAuditItem | null>(null);
 
   async function load() {
     try { const data = await readJson(await fetch('/api/maharaja/workspace', { cache: 'no-store' })); setWorkspace(data.workspace); }
@@ -66,7 +65,6 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-[#F7F4EE]"><LoaderCircle className="h-8 w-8 animate-spin text-[#6E0D1F]" /></main>;
   if (!workspace || (expectedWorkspaceCode && expectedWorkspaceCode !== workspace.workspaceCode)) return <main className="flex min-h-screen items-center justify-center bg-[#F7F4EE] p-6 font-bold text-red-800">{message || 'Maharaja workspace not found.'}</main>;
   const analytics = workspace.analytics;
-  const videos = (workspace.goLiveAudit || []).filter((item) => item.videoUrl).slice(0, 3);
   const kpis = [
     { label: 'Price tags scanned', value: analytics.totalGarments, icon: ScanLine },
     { label: 'Scanned merchandise value', value: `Rs ${new Intl.NumberFormat('en-IN').format(analytics.totalGmv || 0)}`, icon: IndianRupee },
@@ -146,10 +144,9 @@ export default function MaharajaAdminDashboard({ expectedWorkspaceCode }: { expe
 
       <section className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-5"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase text-[#8A6A20]">Pre-WhatsApp testing</p><h2 className="mt-1 font-serif text-xl font-bold text-[#2A060C]">Temporary permanent AI Video QR</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[#5C4B43]">Use this only while staff are supervising the no-limit video test. It is available only when the deployment has <code>ALLOW_OPEN_VIDEO_QR=true</code>. Turn it off before public launch, then use billing QR and WhatsApp/OTP only.</p></div><button onClick={() => void downloadOpenVideoPoster()} disabled={posterLoading} className="flex min-h-12 items-center justify-center gap-2 border border-[#6E0D1F] bg-white px-4 text-xs font-bold uppercase text-[#6E0D1F] disabled:opacity-45"><Download className="h-4 w-4" />{posterLoading ? 'Preparing QR' : 'Download temporary video QR'}</button></div></section>
 
-      <section><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase text-[#8A6A20]">Manager review</p><h2 className="font-serif text-2xl font-bold">Explore Go Live Videos</h2><p className="mt-1 text-sm text-[#5C4B43]">Only customer videos submitted to Maharaja TV appear here.</p></div><Link href={`/maharaja/${workspace.workspaceCode}/videos`} className="flex min-h-10 items-center gap-2 bg-[#6E0D1F] px-4 text-xs font-bold uppercase text-[#F3E5AB]">View all</Link></div>{videos.length ? <div className="mt-4 grid gap-4 sm:grid-cols-3">{videos.map((item) => <article key={item.id} className="border border-[#DDD2BD] bg-white p-3"><div className="flex aspect-[9/16] items-center justify-center bg-[#17080C]"><button onClick={() => setPlaying(item)} className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D4AF37] text-black"><Play className="h-6 w-6 fill-current" /></button></div><p className="mt-3 font-bold">{item.customerName}</p><p className="text-xs text-[#6B625C]">Queue #{item.queueNumber} · {new Date(item.createdAt).toLocaleDateString('en-IN')}</p><p className={`mt-2 text-xs font-bold ${item.promotionConsent ? 'text-emerald-700' : 'text-[#6B625C]'}`}>{item.promotionConsent ? 'Social promotion approved' : 'Showroom playback only'}</p></article>)}</div> : <div className="mt-4 border border-dashed border-[#D8C49B] bg-white p-10 text-center text-sm text-[#6B625C]">No customer Go Live videos yet.</div>}</section>
+      <section className="flex flex-wrap items-center justify-between gap-4 border border-[#DDD2BD] bg-white p-5"><div><p className="text-xs font-bold uppercase text-[#8A6A20]">Manager review</p><h2 className="mt-1 font-serif text-2xl font-bold">Go Live video library</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[#5C4B43]">Videos are intentionally not displayed on this dashboard. Open the library to list, review and play approved Go Live content.</p></div><Link href={`/maharaja/${workspace.workspaceCode}/videos`} className="flex min-h-12 items-center gap-2 bg-[#6E0D1F] px-5 text-xs font-bold uppercase text-[#F3E5AB]">Explore all videos <ExternalLink className="h-4 w-4" /></Link></section>
 
       <section className="flex flex-wrap items-center justify-between gap-4 border border-[#DDD2BD] bg-white p-4 text-sm"><p><span className="font-bold">WhatsApp API:</span> {workspace.integrations.whatsapp.configured ? `Connected · ${workspace.integrations.whatsapp.templateName}` : 'Not connected. QR and Copy Link remain available.'}</p><button type="button" onClick={() => void disconnectDisplays()} className="flex min-h-10 items-center gap-2 border border-[#D8C49B] px-3 text-xs font-bold"><Tv className="h-4 w-4" />Disconnect paired TVs</button></section>
     </div>
-    {playing && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"><div className="relative w-full max-w-sm"><button onClick={() => setPlaying(null)} className="absolute -right-2 -top-12 flex h-10 w-10 items-center justify-center rounded-full bg-white text-black"><X className="h-5 w-5" /></button><video src={playing.videoUrl} controls autoPlay playsInline className="aspect-[9/16] w-full bg-black object-contain" /></div></div>}
   </main>;
 }

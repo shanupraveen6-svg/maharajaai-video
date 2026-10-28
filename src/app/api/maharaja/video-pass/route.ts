@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       : `/maharaja/video/${pass.code}`);
     let whatsappSent = false;
     let whatsappError = '';
-    if (experienceType === 'catalogue-gift' && getWhatsAppStatus().configured) {
+    if (pass.whatsappOptIn && getWhatsAppStatus().configured) {
       try {
         await sendWhatsAppResult(phone, link);
         whatsappSent = true;
