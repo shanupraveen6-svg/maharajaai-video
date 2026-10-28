@@ -6,7 +6,6 @@ import QRCode from 'qrcode';
 import { CheckCircle2, Film, Gift, LoaderCircle, LockKeyhole, Phone, QrCode, Store } from 'lucide-react';
 
 type ExperienceType = 'purchased-garment' | 'catalogue-gift';
-type DeliveryMethod = 'whatsapp' | 'qr';
 type GeneratedPass = { code: string; phoneMasked: string; expiresAt: string; link: string; experienceType: ExperienceType };
 
 async function readJson(response: Response) {
@@ -19,7 +18,6 @@ export default function MaharajaBillingPage() {
   const params = useParams<{ billingCode: string }>();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<ExperienceType>(searchParams.get('mode') === 'catalogue' ? 'catalogue-gift' : 'purchased-garment');
-  const [delivery, setDelivery] = useState<DeliveryMethod>('whatsapp');
   const [phone, setPhone] = useState('');
   const [pass, setPass] = useState<GeneratedPass | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -53,13 +51,11 @@ export default function MaharajaBillingPage() {
     try {
       const data = await readJson(await fetch('/api/maharaja/video-pass', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingCode: params.billingCode, phone: normalizedPhone, experienceType: mode, whatsappOptIn: delivery === 'whatsapp' }),
+        body: JSON.stringify({ billingCode: params.billingCode, phone: normalizedPhone, experienceType: mode, whatsappOptIn: false }),
       }));
       setPass(data.pass);
       setQrDataUrl(await QRCode.toDataURL(data.pass.link, { width: 480, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#2A060C', light: '#FFFFFF' } }));
-      setMessage(delivery === 'whatsapp'
-        ? data.whatsappSent ? 'One-day AI Video link sent on WhatsApp. QR is also available as backup.' : 'WhatsApp is not connected or could not send. Show the one-day QR to the customer.'
-        : 'One-day customer QR is ready.');
+      setMessage('One-day customer QR is ready. Ask the customer to scan and continue privately on their phone.');
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to create customer access.'); }
     finally { setLoading(false); }
   }
@@ -78,12 +74,12 @@ export default function MaharajaBillingPage() {
         </div>
         <p className="mt-4 text-sm leading-6 text-[#5C4B43]">{mode === 'purchased-garment' ? 'Customer uploads their purchased garment and photo, then creates an image and AI video. Download or Go Live is chosen privately on mobile.' : 'Customer selects a Maharaja catalogue garment, then completes the private image and AI-video journey on mobile.'}</p>
         <label className="mt-5 block text-xs font-bold uppercase text-[#5C4B43]">Customer WhatsApp number<div className="relative mt-2"><Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6E0D1F]" /><input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" pattern="[0-9]{10}" required className="min-h-12 w-full border border-[#D8C49B] pl-10 pr-3 text-base font-bold" placeholder="10 digit number" /></div></label>
-        <fieldset className="mt-5"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Send customer access by</legend><div className="mt-2 grid grid-cols-2 border border-[#D8C49B] p-1"><button type="button" onClick={() => setDelivery('whatsapp')} className={`min-h-12 px-3 text-xs font-bold uppercase ${delivery === 'whatsapp' ? 'bg-[#6E0D1F] text-[#F3E5AB]' : 'text-[#6E0D1F]'}`}>WhatsApp link</button><button type="button" onClick={() => setDelivery('qr')} className={`min-h-12 px-3 text-xs font-bold uppercase ${delivery === 'qr' ? 'bg-[#6E0D1F] text-[#F3E5AB]' : 'text-[#6E0D1F]'}`}>Show QR</button></div><p className="mt-2 text-xs leading-5 text-[#6B625C]">The client decides this per store. Both customer links expire after 24 hours.</p></fieldset>
+        <div className="mt-5 border border-[#D8C49B] bg-[#FFF9EC] p-4"><p className="flex items-center gap-2 text-xs font-bold uppercase text-[#6E0D1F]"><QrCode className="h-4 w-4" />Customer continuation</p><p className="mt-2 text-sm leading-6 text-[#5C4B43]">Generate a direct QR. The customer scans it on their phone and has 24 hours to complete the private image and AI-video experience.</p></div>
         {error && <p className="mt-4 border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-800">{error}</p>}
         {message && <p className="mt-4 border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</p>}
         <button disabled={loading} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-45">{loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : mode === 'catalogue-gift' ? <Gift className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}Generate customer QR</button>
       </form>
-      <aside className="border border-[#D8C49B] bg-[#21090E] p-6 text-center text-[#F3E5AB]">{pass && qrDataUrl ? <><CheckCircle2 className="mx-auto h-6 w-6 text-emerald-300" /><img src={qrDataUrl} alt="One-day customer access QR" className="mx-auto mt-4 w-full max-w-[280px] bg-white p-4" /><p className="mt-4 font-mono text-sm font-bold">{pass.phoneMasked}</p><p className="mt-3 text-xs text-[#F3E5AB]/75">{delivery === 'whatsapp' ? 'WhatsApp link requested. Keep this QR as customer backup.' : 'Ask the customer to scan now. This QR is valid for one day.'}</p><button type="button" onClick={() => { setPhone(''); setPass(null); setQrDataUrl(''); setMessage(''); }} className="mt-4 min-h-11 w-full border border-[#D4AF37]/40 text-xs font-bold uppercase">Next customer</button></> : <div className="flex min-h-[420px] flex-col items-center justify-center"><QrCode className="h-20 w-20 text-[#D4AF37]" /><p className="mt-4 font-serif text-xl font-bold">One-day customer QR appears here</p></div>}</aside>
+      <aside className="border border-[#D8C49B] bg-[#21090E] p-6 text-center text-[#F3E5AB]">{pass && qrDataUrl ? <><CheckCircle2 className="mx-auto h-6 w-6 text-emerald-300" /><img src={qrDataUrl} alt="One-day customer access QR" className="mx-auto mt-4 w-full max-w-[280px] bg-white p-4" /><p className="mt-4 font-mono text-sm font-bold">{pass.phoneMasked}</p><p className="mt-3 text-xs text-[#F3E5AB]/75">Ask the customer to scan now. This QR is valid for one day.</p><button type="button" onClick={() => { setPhone(''); setPass(null); setQrDataUrl(''); setMessage(''); }} className="mt-4 min-h-11 w-full border border-[#D4AF37]/40 text-xs font-bold uppercase">Next customer</button></> : <div className="flex min-h-[420px] flex-col items-center justify-center"><QrCode className="h-20 w-20 text-[#D4AF37]" /><p className="mt-4 font-serif text-xl font-bold">One-day customer QR appears here</p></div>}</aside>
     </div>
   </div></main>;
 }
