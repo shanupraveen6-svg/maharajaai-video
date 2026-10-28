@@ -656,6 +656,31 @@ export async function listClientWorkspaces(): Promise<MaharajaWorkspace[]> {
   return Array.from(byId.values());
 }
 
+export async function getClientWorkspaceByWorkspaceCode(workspaceCode?: string | null): Promise<MaharajaWorkspace | null> {
+  const cleanCode = String(workspaceCode || '').trim();
+  if (!cleanCode || cleanCode === 'workspace' || cleanCode === MAHARAJA_CLIENT_ID || cleanCode === (process.env.MAHARAJA_WORKSPACE_CODE || MAHARAJA_WORKSPACE_CODE)) {
+    return getMaharajaWorkspace();
+  }
+  const all = await listClientWorkspaces();
+  const matched = all.find(
+    (ws) =>
+      ws.workspaceCode === cleanCode ||
+      ws.clientId === cleanCode.toLowerCase() ||
+      `${ws.clientId}-workspace` === cleanCode.toLowerCase()
+  );
+  return matched || null;
+}
+
+export async function resolveWorkspaceByAccessCode(code?: string | null): Promise<MaharajaWorkspace> {
+  const clean = String(code || '').trim();
+  if (!clean) return getMaharajaWorkspace();
+  const all = await listClientWorkspaces();
+  const matched = all.find(
+    (ws) => ws.tryOnCode === clean || ws.billingCode === clean || ws.openVideoCode === clean
+  );
+  return matched || getMaharajaWorkspace();
+}
+
 export async function upsertClientWorkspace(input: {
   id?: string;
   clientId?: string;
@@ -2315,8 +2340,9 @@ export async function verifyMaharajaAccess(
   service: 'try-on' | 'ai-video'
 ) {
   const code = typeof accessCode === 'string' ? accessCode.trim() : '';
-  const workspace = await getMaharajaWorkspace();
-  if (!workspace.campaignEnabled) return { allowed: false as const, error: 'Maharaja campaign is currently paused.' };
+  const workspace = await resolveWorkspaceByAccessCode(code);
+  const resolvedClientId = workspace.clientId || MAHARAJA_CLIENT_ID;
+  if (!workspace.campaignEnabled) return { allowed: false as const, error: `${workspace.clientName || 'Maharaja'} campaign is currently paused.` };
 
   // 1. Resolve entitlement and pass by normalized phone number or QR code
   const cleanPhone = normalizePhoneNumber(code);
@@ -2350,16 +2376,16 @@ export async function verifyMaharajaAccess(
   if (service === 'try-on') {
     // The permanent Try-On QR is a capability.
     if (code === workspace.tryOnCode) {
-      return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace, entitlement, allowances };
+      return { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances };
     }
     if (pass) {
       if (pass.expiresAtMs < Date.now()) {
         return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
       }
-      return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass, workspace, entitlement, allowances };
+      return { allowed: true as const, clientId: resolvedClientId, pass, workspace, entitlement, allowances };
     }
     return (req?.headers && verifyOperatorRequest(req))
-      ? { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace, entitlement, allowances }
+      ? { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances }
       : { allowed: false as const, error: 'This Maharaja Try-On QR is invalid or expired. Please scan the Maharaja QR again.' };
   }
 
@@ -2367,24 +2393,24 @@ export async function verifyMaharajaAccess(
   // This is intentionally opt-in. A permanent public video QR spends paid model
   // credits, so it must never become live merely because a deployment is production.
   if (code === workspace.openVideoCode && process.env.ALLOW_OPEN_VIDEO_QR === 'true') {
-    return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace, entitlement, allowances };
+    return { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances };
   }
 
-  if (pass && pass.clientId === MAHARAJA_CLIENT_ID) {
+  if (pass) {
     if (pass.expiresAtMs < Date.now()) {
       return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
     }
     // Note: Do not block access if pass has completed video (pass.status === 'used' or videoDone);
     // Customer retains the right to view, download, or use an included retry.
-    return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass, workspace, entitlement, allowances };
+    return { allowed: true as const, clientId: pass.clientId || resolvedClientId, pass, workspace, entitlement, allowances };
   }
 
   if (entitlement) {
-    return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass, workspace, entitlement, allowances };
+    return { allowed: true as const, clientId: resolvedClientId, pass, workspace, entitlement, allowances };
   }
 
   return (req?.headers && verifyOperatorRequest(req))
-    ? { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace, entitlement, allowances }
+    ? { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances }
     : { allowed: false as const, error: 'This Maharaja AI Video pass is invalid or expired.' };
 }
 

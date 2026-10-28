@@ -171,7 +171,10 @@ export default function MaharajaAdminDashboard({
 
   const loadWorkspace = useCallback(async () => {
     try {
-      const response = await fetch('/api/maharaja/workspace', { cache: 'no-store' });
+      const response = await fetch(
+        `/api/maharaja/workspace?workspaceCode=${encodeURIComponent(activeWorkspaceCode)}`,
+        { cache: 'no-store' }
+      );
       const data = await response.json();
       if (response.status === 401) {
         setAuthRequired(true);
@@ -188,7 +191,7 @@ export default function MaharajaAdminDashboard({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeWorkspaceCode]);
 
   const loadCatalogue = useCallback(async () => {
     try {
@@ -256,7 +259,7 @@ export default function MaharajaAdminDashboard({
       const response = await fetch('/api/maharaja/workspace', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
+        body: JSON.stringify({ ...patch, workspaceCode: activeWorkspaceCode }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -348,7 +351,7 @@ export default function MaharajaAdminDashboard({
       const response = await fetch('/api/maharaja/workspace', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ regenerateOpenVideoCode: true }),
+        body: JSON.stringify({ regenerateOpenVideoCode: true, workspaceCode: activeWorkspaceCode }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -537,7 +540,13 @@ export default function MaharajaAdminDashboard({
     );
   }
 
-  if (!workspace || activeWorkspaceCode !== workspace.workspaceCode) {
+  const isValidWorkspace =
+    Boolean(workspace) &&
+    (activeWorkspaceCode === workspace?.workspaceCode ||
+      activeWorkspaceCode === workspace?.clientId ||
+      (workspace?.clientId === 'maharaja' && activeWorkspaceCode === 'workspace'));
+
+  if (!workspace || !isValidWorkspace) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-[#161918]">
         <div className="max-w-md border border-[#D8DCD7] bg-[#FAFBF8] p-8 text-center">

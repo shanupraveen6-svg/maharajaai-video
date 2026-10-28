@@ -5,7 +5,7 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import {
-  getMaharajaWorkspace,
+  resolveWorkspaceByAccessCode,
   incrementMaharajaUsage,
   type MaharajaVideoPass,
   saveVideoPass,
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const workspace = await getMaharajaWorkspace();
+    const workspace = await resolveWorkspaceByAccessCode(body.billingCode);
 
     // Public kiosk handoff is permitted only in the local client demo. A production
     // kiosk must use an authenticated counter request (or an explicitly enabled

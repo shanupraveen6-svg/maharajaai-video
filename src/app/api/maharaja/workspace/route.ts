@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import {
+  getClientWorkspaceByWorkspaceCode,
   getMaharajaWorkspace,
   getWorkspaceLinks,
   listRecentVideoPasses,
   listMaharajaActivity,
   logMaharajaActivity,
+  type MaharajaWorkspace,
   updateMaharajaSettings,
 } from '@/lib/maharaja/server';
 import { EVENT_IDS, FESTIVE_TIER_MIN, LUXURY_TIER_MIN, isEventId } from '@/lib/maharaja/config';
@@ -57,9 +59,9 @@ async function listShowcaseSamples(): Promise<Array<{ id: string; displayName: s
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-async function buildHydratedWorkspacePayload() {
+async function buildHydratedWorkspacePayload(targetWorkspace?: MaharajaWorkspace) {
   const [workspace, recentPasses, allActivity, showcaseSamples] = await Promise.all([
-    getMaharajaWorkspace(),
+    targetWorkspace ? Promise.resolve(targetWorkspace) : getMaharajaWorkspace(),
     listRecentVideoPasses(100),
     listMaharajaActivity(300),
     listShowcaseSamples(),
@@ -333,7 +335,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const workspace = await buildHydratedWorkspacePayload();
+    const requestedCode = req.nextUrl.searchParams.get('workspaceCode') || req.nextUrl.searchParams.get('clientId');
+    const targetWorkspace = await getClientWorkspaceByWorkspaceCode(requestedCode);
+    if (!targetWorkspace) {
+      return NextResponse.json({ success: false, error: 'Client workspace not found.' }, { status: 404 });
+    }
+    const workspace = await buildHydratedWorkspacePayload(targetWorkspace);
     return NextResponse.json({
       success: true,
       workspace,
@@ -351,6 +358,11 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const body = await req.json();
+    const requestedCode = body.workspaceCode || body.clientId || req.nextUrl.searchParams.get('workspaceCode');
+    const targetWorkspace = await getClientWorkspaceByWorkspaceCode(requestedCode);
+    if (!targetWorkspace) {
+      return NextResponse.json({ success: false, error: 'Client workspace not found.' }, { status: 404 });
+    }
     const settings: Parameters<typeof updateMaharajaSettings>[0] = {};
 
     if (typeof body.campaignEnabled === 'boolean') {
@@ -407,14 +419,15 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const updated = await updateMaharajaSettings(settings);
-    await logMaharajaActivity('campaign', 'Maharaja workspace settings updated', {
+    const updated = await updateMaharajaSettings(settings, targetWorkspace.clientId);
+    await logMaharajaActivity('campaign', `${updated.clientName} workspace settings updated`, {
+      clientId: updated.clientId,
       enabled: updated.campaignEnabled,
       minPurchaseTryOnDisabled: updated.minPurchaseTryOnDisabled ?? true,
       deliveryMode: updated.deliveryMode || 'qr',
     });
 
-    const workspace = await buildHydratedWorkspacePayload();
+    const workspace = await buildHydratedWorkspacePayload(updated);
     return NextResponse.json({ success: true, workspace });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to update Maharaja workspace.';
