@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     category: job.category || access.pass.videoMasterCategory || null,
     customerName: access.pass.customerName || null,
     customerLocality: access.pass.customerLocality || null,
-    allowGoLive: access.pass.experienceType !== 'catalogue-gift',
+    allowGoLive: true,
     catalogueProduct: access.pass.catalogueSku ? {
       sku: access.pass.catalogueSku,
       title: access.pass.catalogueTitle,

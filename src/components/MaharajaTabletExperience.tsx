@@ -1,46 +1,719 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, Check, CirclePlay, ImageIcon, LockKeyhole, QrCode, ScanFace, Shirt, Sparkles, Store, Tag, UserRound, WandSparkles } from 'lucide-react';
-import { catalogueCategories, events, formatINR, sampleCatalogue, type TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
+import {
+  Camera,
+  CheckCircle2,
+  Copy,
+  Download,
+  ExternalLink,
+  Gift,
+  LoaderCircle,
+  Phone,
+  QrCode,
+  ShoppingBag,
+  Sparkles,
+  Tablet,
+  Upload,
+  Video,
+} from 'lucide-react';
+import BeforeAfterSlider from '@/components/BeforeAfterSlider';
+import {
+  catalogueCategories,
+  events,
+  formatINR,
+  sampleCatalogue,
+  type CatalogueCategoryId,
+  type TryFocusProduct,
+} from '@/lib/tryfocus/sample-data';
 
-type Screen = 'home' | 'image-source' | 'image-catalogue' | 'image-capture' | 'video-billing' | 'video-catalogue' | 'handoff';
+type TabletTab = 'video-pass' | 'image-tryon';
+type VideoPassMode = 'purchased-garment' | 'catalogue-gift';
 
 export default function MaharajaTabletExperience() {
-  const [screen, setScreen] = useState<Screen>('home');
-  const [audience, setAudience] = useState<'Women' | 'Men'>('Women');
-  const [category, setCategory] = useState('sarees');
-  const [selected, setSelected] = useState<TryFocusProduct | null>(null);
-  const [ownGarment, setOwnGarment] = useState(false);
-  const [billValue, setBillValue] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [eventId, setEventId] = useState<string>(events[0].id);
-  const [handoff, setHandoff] = useState<'image' | 'video'>('image');
-  const products = useMemo(() => sampleCatalogue.filter((item) => item.category === category), [category]);
-  const categories = catalogueCategories.filter((item) => item.audience === audience);
-  const eligible = Number(billValue) >= 5000;
+  const [tab, setTab] = useState<TabletTab>('video-pass');
 
-  function openImage() { setScreen('image-source'); setSelected(null); setOwnGarment(false); }
-  function sendToMobile(kind: 'image' | 'video') { setHandoff(kind); setScreen('handoff'); }
-  function home() { setScreen('home'); setSelected(null); setBillValue(''); setCustomerPhone(''); }
+  // Catalogue state
+  const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
+  const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
+  const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
+  const [selectedEventId, setSelectedEventId] = useState<string>(events[0].id);
 
-  return <main className="min-h-[100svh] bg-[#f6f2ea] text-[#291c19]"><div className="mx-auto min-h-[100svh] max-w-[1180px] bg-[#fffdf9] shadow-2xl"><header className="flex min-h-20 items-center justify-between border-b border-[#e5d9c8] px-6"><button onClick={home} className="flex items-center gap-3 text-left"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#6f0e20] text-[#f6d481]"><Sparkles className="h-5 w-5" /></span><span><span className="block text-xl font-black">Maharaja Silks</span><span className="text-[10px] font-black uppercase tracking-[.2em] text-[#916b3a]">Counter Tablet · Staff Assisted</span></span></button><span className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700"><span className="h-2 w-2 rounded-full bg-emerald-500" />Ready for customer</span></header>
+  // Tab 1: AI Video Pass / Giveaway state
+  const [passMode, setPassMode] = useState<VideoPassMode>('catalogue-gift');
+  const [phone, setPhone] = useState<string>('');
+  const [passLoading, setPassLoading] = useState<boolean>(false);
+  const [passError, setPassError] = useState<string>('');
+  const [passLink, setPassLink] = useState<string>('');
+  const [passCode, setPassCode] = useState<string>('');
+  const [passQr, setPassQr] = useState<string>('');
+  const [copied, setCopied] = useState<boolean>(false);
 
-    {screen === 'home' && <section className="px-6 py-8"><p className="text-xs font-black uppercase tracking-[.2em] text-[#916b3a]">Choose a staff-assisted experience</p><h1 className="mt-2 text-4xl font-black tracking-tight">What would you like to help with?</h1><div className="mt-8 grid gap-5 md:grid-cols-2"><button onClick={openImage} className="group min-h-80 rounded-[2rem] bg-[radial-gradient(circle_at_80%_5%,rgba(242,202,115,.43),transparent_27%),linear-gradient(130deg,#6f0e20,#2d0610)] p-7 text-left text-[#fff4dc] shadow-xl"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10 text-[#f4cf79]"><Shirt className="h-7 w-7" /></span><h2 className="mt-16 text-3xl font-black">AI Image Try-On</h2><p className="mt-3 max-w-sm text-base leading-7 text-[#fff4dc]/75">Capture the customer and try a catalogue style or an own garment from the store.</p><span className="mt-8 inline-flex items-center gap-2 text-sm font-black text-[#f3ce7b]">Start image try-on <ArrowRight className="h-4 w-4" /></span></button><button onClick={() => setScreen('video-billing')} className="group min-h-80 rounded-[2rem] bg-[radial-gradient(circle_at_80%_5%,rgba(240,190,111,.33),transparent_27%),linear-gradient(130deg,#613718,#260d08)] p-7 text-left text-[#fff4dc] shadow-xl"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10 text-[#f4cf79]"><CirclePlay className="h-7 w-7" /></span><h2 className="mt-16 text-3xl font-black">AI Video Reward</h2><p className="mt-3 max-w-sm text-base leading-7 text-[#fff4dc]/75">For an eligible ₹5,000+ purchase, prepare a private mobile video journey.</p><span className="mt-8 inline-flex items-center gap-2 text-sm font-black text-[#f3ce7b]">Start video reward <ArrowRight className="h-4 w-4" /></span></button></div><p className="mt-6 text-center text-xs font-bold text-[#7b6b62]">Live AI Try-On is available only at the interactive TV.</p></section>}
+  // Tab 2: Staff-Assisted AI Image Try-On state
+  const [tryOnSource, setTryOnSource] = useState<'catalogue' | 'own-garment'>('catalogue');
+  const [personPhoto, setPersonPhoto] = useState<string>('');
+  const [ownGarmentPhoto, setOwnGarmentPhoto] = useState<string>('');
+  const [tryOnGenerating, setTryOnGenerating] = useState<boolean>(false);
+  const [tryOnResultUrl, setTryOnResultUrl] = useState<string>('');
+  const [tryOnStatusNote, setTryOnStatusNote] = useState<string>('');
+  const [tryOnMobileQr, setTryOnMobileQr] = useState<string>('');
 
-    {screen === 'image-source' && <section className="px-6 py-8"><Top onBack={home} eyebrow="AI image try-on" title="Start with the customer" /><div className="mt-8 grid gap-5 lg:grid-cols-[.75fr_1.25fr]"><div className="rounded-[2rem] bg-[#f8f1e4] p-6"><p className="text-xs font-black uppercase tracking-[.18em] text-[#8a612c]">Customer profile</p><h2 className="mt-3 text-2xl font-black">Who are we styling?</h2><div className="mt-6 grid grid-cols-2 gap-3">{(['Women', 'Men'] as const).map((item) => <button key={item} onClick={() => setAudience(item)} className={`rounded-xl p-4 text-left font-black ${audience === item ? 'bg-[#6f0e20] text-[#fff5dd]' : 'bg-white text-[#55443b]'}`}>{item}</button>)}</div></div><div className="grid gap-5 sm:grid-cols-2"><ActionCard icon={<Store className="h-8 w-8" />} title="Store catalogue" copy="Select a catalogue garment, then capture the customer." onClick={() => { setOwnGarment(false); setScreen('image-catalogue'); }} /><ActionCard icon={<Tag className="h-8 w-8" />} title="Own garment" copy="Show the exact garment the customer selected in-store." onClick={() => { setOwnGarment(true); setScreen('image-capture'); }} /></div></div></section>}
+  const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
+  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory);
 
-    {screen === 'image-catalogue' && <section className="px-6 py-8"><Top onBack={() => setScreen('image-source')} eyebrow="AI image try-on" title="Choose a catalogue garment" /><div className="mt-7 flex flex-wrap gap-2">{categories.map((item) => <button key={item.id} onClick={() => setCategory(item.id)} className={`rounded-full px-4 py-2 text-sm font-bold ${category === item.id ? 'bg-[#6f0e20] text-[#fff5dd]' : 'border border-[#ddcfbb] bg-white text-[#705f54]'}`}>{item.label}</button>)}</div><div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">{products.slice(0, 6).map((product) => <button key={product.id} onClick={() => { setSelected(product); setScreen('image-capture'); }} className="overflow-hidden rounded-2xl border border-[#e2d6c5] bg-white text-left shadow-sm"><div className={`h-32 bg-gradient-to-br ${product.accent}`}><img src={product.imageUrl} alt="" className="h-full w-full object-cover opacity-85" /></div><div className="p-4"><p className="font-black leading-tight">{product.title}</p><p className="mt-2 text-sm font-bold text-[#8c5e22]">{formatINR(product.price)}</p></div></button>)}</div></section>}
+  useEffect(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
+    const url = `${origin}/maharaja/try-on?sku=${encodeURIComponent(selectedProduct.sku)}&source=tablet`;
+    QRCode.toDataURL(url, {
+      width: 220,
+      margin: 1,
+      color: { dark: '#161918', light: '#FAFBF8' },
+    })
+      .then(setTryOnMobileQr)
+      .catch(() => setTryOnMobileQr(''));
+  }, [selectedProduct]);
 
-    {screen === 'image-capture' && <section className="px-6 py-8"><Top onBack={() => setScreen(ownGarment ? 'image-source' : 'image-catalogue')} eyebrow="AI image try-on" title="Capture the customer" /><div className="mt-8 grid items-center gap-6 lg:grid-cols-[1.1fr_.9fr]"><div className="relative aspect-[4/3] overflow-hidden rounded-[2rem] border-2 border-dashed border-[#c89a51] bg-[linear-gradient(145deg,#f7ecd6,#f4f1ea)]"><div className="absolute inset-7 rounded-[1.5rem] border border-[#c8a467]" /><div className="absolute inset-0 grid place-items-center text-center"><div><ScanFace className="mx-auto h-20 w-20 text-[#8b5b22]" /><p className="mt-5 text-xl font-black">Camera capture area</p><p className="mt-2 text-sm text-[#76665d]">Ask the customer to stand clearly in frame.</p></div></div></div><div className="rounded-[2rem] bg-[#6f0e20] p-7 text-[#fff4dc]"><p className="text-xs font-black uppercase tracking-[.18em] text-[#efc671]">Ready to generate</p><h2 className="mt-3 text-3xl font-black">{ownGarment ? 'Own garment selected' : selected?.title || 'Catalogue look selected'}</h2><p className="mt-4 leading-7 text-[#fff4dc]/75">The result will be transferred to the customer’s phone through a private QR session.</p><button onClick={() => sendToMobile('image')} className="mt-7 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#efc671] font-black text-[#491019]"><WandSparkles className="h-5 w-5" />Capture & create result</button></div></div></section>}
+  function handleFileRead(setter: (val: string) => void, file?: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setter(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
 
-    {screen === 'video-billing' && <section className="px-6 py-8"><Top onBack={home} eyebrow="AI video reward" title="Check purchase eligibility" /><div className="mt-8 grid gap-5 lg:grid-cols-[.9fr_1.1fr]"><div className="rounded-[2rem] bg-[#f8f1e4] p-6"><p className="text-xs font-black uppercase tracking-[.18em] text-[#8a612c]">Billing details</p><label className="mt-6 block text-sm font-bold">Bill value<div className="mt-2 flex h-14 items-center rounded-xl border border-[#d9c8ae] bg-white px-4"><span className="font-black text-[#8d622c]">₹</span><input value={billValue} onChange={(e) => setBillValue(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="5000" className="w-full bg-transparent px-2 text-lg font-black outline-none" /></div></label><label className="mt-5 block text-sm font-bold">Customer WhatsApp number<div className="mt-2 flex h-14 items-center rounded-xl border border-[#d9c8ae] bg-white px-4"><UserRound className="h-4 w-4 text-[#8d622c]" /><input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" placeholder="10-digit number" className="w-full bg-transparent px-3 text-lg font-black outline-none" /></div></label></div><div className="rounded-[2rem] bg-[#2e0a10] p-7 text-[#fff4dc]"><p className="text-xs font-black uppercase tracking-[.18em] text-[#efc671]">Eligibility status</p><h2 className="mt-3 text-3xl font-black">{eligible ? 'Purchase is eligible' : 'Requires ₹5,000+ purchase'}</h2><p className="mt-4 leading-7 text-[#fff4dc]/75">{eligible ? 'Choose the purchased garment and event. The customer receives a one-time WhatsApp link, valid for 24 hours.' : 'Enter the completed bill value. The video reward cannot be started below the client’s threshold.'}</p><button disabled={!eligible || customerPhone.length !== 10} onClick={() => setScreen('video-catalogue')} className="mt-7 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#efc671] font-black text-[#491019] disabled:cursor-not-allowed disabled:opacity-35"><Check className="h-5 w-5" />Continue to garment</button></div></div></section>}
+  async function handleGenerateVideoPass(e: React.FormEvent) {
+    e.preventDefault();
+    setPassLoading(true);
+    setPassError('');
+    try {
+      const res = await fetch('/api/maharaja/video-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'tablet-kiosk',
+          phone: phone || '9876543210',
+          experienceType: passMode,
+          catalogueSku: passMode === 'catalogue-gift' ? selectedProduct.sku : undefined,
+          eventId: selectedEventId,
+          whatsappOptIn: false,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Unable to generate 1-day AI Video QR.');
+      }
+      const link = data.pass.link;
+      setPassLink(link);
+      setPassCode(data.pass.code);
+      const qr = await QRCode.toDataURL(link, {
+        width: 300,
+        margin: 1,
+        color: { dark: '#161918', light: '#FAFBF8' },
+      });
+      setPassQr(qr);
+    } catch (err: unknown) {
+      setPassError(err instanceof Error ? err.message : 'Unable to generate QR.');
+    } finally {
+      setPassLoading(false);
+    }
+  }
 
-    {screen === 'video-catalogue' && <section className="px-6 py-8"><Top onBack={() => setScreen('video-billing')} eyebrow="AI video reward" title="Choose garment & event" /><div className="mt-7 grid gap-6 lg:grid-cols-[1.2fr_.8fr]"><div><p className="text-sm text-[#6e5b50]">Choose the purchased garment for the customer’s video portrait.</p><div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">{sampleCatalogue.filter((item) => item.eligibleForVideo).slice(0, 6).map((product) => <button key={product.id} onClick={() => setSelected(product)} className={`overflow-hidden rounded-2xl border text-left ${selected?.id === product.id ? 'border-[#8c5a21] ring-2 ring-[#d7ac5b]/40' : 'border-[#e2d6c5]'}`}><div className={`h-28 bg-gradient-to-br ${product.accent}`}><img src={product.imageUrl} alt="" className="h-full w-full object-cover opacity-80" /></div><p className="p-3 text-sm font-black leading-tight">{product.title}</p></button>)}</div></div><div className="rounded-[2rem] bg-[#f8f1e4] p-6"><p className="text-sm font-black">Choose a video theme</p><div className="mt-4 space-y-2">{events.map((event) => <button key={event.id} onClick={() => setEventId(event.id)} className={`w-full rounded-xl border p-3 text-left ${eventId === event.id ? 'border-[#8b5b22] bg-white' : 'border-transparent bg-white/55'}`}><span className="block font-black">{event.label}</span><span className="mt-1 block text-xs text-[#77655b]">{event.note}</span></button>)}</div><button disabled={!selected} onClick={() => sendToMobile('video')} className="mt-5 flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-[#6f0e20] font-black text-[#fff4dc] disabled:opacity-40"><CirclePlay className="h-5 w-5" />Create mobile handoff</button></div></div></section>}
+  async function handleGenerateImageTryOn() {
+    const garmentImg =
+      tryOnSource === 'own-garment'
+        ? ownGarmentPhoto
+        : selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl;
 
-    {screen === 'handoff' && <section className="grid min-h-[calc(100svh-5rem)] place-items-center px-6 py-8"><div className="w-full max-w-2xl rounded-[2rem] border border-[#ddcfbb] bg-white p-8 text-center shadow-xl"><span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#6f0e20] text-[#f4cf79]">{handoff === 'video' ? <CirclePlay className="h-8 w-8" /> : <ImageIcon className="h-8 w-8" />}</span><p className="mt-6 text-xs font-black uppercase tracking-[.2em] text-[#95682f]">Private mobile continuation</p><h1 className="mt-3 text-4xl font-black">{handoff === 'video' ? 'Video reward is ready' : 'Image result is ready'}</h1><p className="mx-auto mt-4 max-w-lg leading-7 text-[#6f5d52]">Ask the customer to scan this QR. {handoff === 'video' ? 'They will complete video generation, download, or give separate Go Live consent on their phone.' : 'They can view and download their private try-on image on their phone.'}</p><div className="mx-auto mt-7 grid h-40 w-40 grid-cols-6 gap-1 rounded-xl bg-white p-3 shadow-inner">{Array.from({ length: 36 }, (_, index) => <span key={index} className={index % 4 === 0 || [0, 1, 6, 7, 28, 29, 34, 35].includes(index) ? 'bg-[#350b12]' : 'bg-white'} />)}</div>{handoff === 'video' && <p className="mx-auto mt-5 flex max-w-md items-center justify-center gap-2 rounded-xl bg-[#fff6df] px-4 py-3 text-sm font-bold text-[#79572c]"><LockKeyhole className="h-4 w-4" />One-time WhatsApp link valid for 24 hours</p>}<button onClick={home} className="mt-8 h-13 rounded-xl bg-[#6f0e20] px-7 font-black text-[#fff4dc]">Finish counter session</button></div></section>}
-  </div></main>;
+    if (!personPhoto || !garmentImg) {
+      setTryOnStatusNote('Please upload/capture Image 1 (Customer Photo) and Image 2 (Garment Photo).');
+      return;
+    }
+
+    setTryOnGenerating(true);
+    setTryOnStatusNote('');
+    const sessionId = `tablet_tryon_${Date.now()}`;
+
+    try {
+      const res = await fetch('/api/ai/master-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          service: 'try-on',
+          templateId: selectedProduct.gender,
+          garmentType: selectedProduct.garmentType,
+          garmentTypeConfirmed: true,
+          processingConsent: true,
+          consentVersion: '2026-10-privacy-v2',
+          personPhoto,
+          garmentPhotos: [garmentImg],
+          garmentRoles: ['Primary Garment Reference'],
+          garmentAnalysis: `${selectedProduct.title} (${selectedProduct.fabricNote})`,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.masterImageUrl) {
+        setTryOnResultUrl(data.masterImageUrl);
+        setTryOnStatusNote('AI Try-On generated (Image 1 = Customer Identity, Image 2 = Garment Reference).');
+      } else {
+        setTryOnResultUrl(selectedProduct.imageUrl);
+        setTryOnStatusNote(
+          data?.error
+            ? `Showing studio drape preview (${data.error})`
+            : 'Showing studio drape preview.'
+        );
+      }
+    } catch {
+      setTryOnResultUrl(selectedProduct.imageUrl);
+      setTryOnStatusNote('Showing studio drape preview.');
+    } finally {
+      setTryOnGenerating(false);
+    }
+  }
+
+  async function copyPassLink() {
+    if (!passLink) return;
+    await navigator.clipboard.writeText(passLink);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  return (
+    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+      {/* Unified TryFocus Header */}
+      <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
+              TF
+            </span>
+            <div>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
+                TryFocus × The Majestic Maharaja · Counter Tablet
+              </p>
+              <h1 className="font-serif text-lg font-semibold text-[#161918]">Counter assistant</h1>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTab('video-pass')}
+              className={`flex items-center gap-1.5 border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${
+                tab === 'video-pass'
+                  ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+              }`}
+            >
+              <Video className="h-3.5 w-3.5" />
+              Create video pass
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('image-tryon')}
+              className={`flex items-center gap-1.5 border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${
+                tab === 'image-tryon'
+                  ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Try-on assistant
+            </button>
+            <Link
+              href="/maharaja/workspace"
+              className="border border-[#D8DCD7] bg-white px-3.5 py-2 text-xs font-semibold text-[#161918]"
+            >
+              Workspace
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
+        {/* =========================================================
+            TAB 1: AI VIDEO PASS & GIVEAWAY (Direct QR when WhatsApp not connected)
+           ========================================================= */}
+        {tab === 'video-pass' && (
+          <div className="space-y-6">
+            {/* Delivery Status Banner */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-5">
+              <div>
+                <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">Customer handoff</p>
+                <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">Create a video pass</h2>
+                <p className="mt-1 max-w-3xl text-xs leading-relaxed text-[#535A56]">Select the experience, then let the customer continue privately by scanning the QR.</p>
+              </div>
+              <span className="border border-[#7A1428] bg-[#7A1428]/10 px-3.5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">
+                QR valid 24 hours
+              </span>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+              {/* Left: Pass Type + Optional Catalogue Selection + Customer Phone */}
+              <form
+                onSubmit={handleGenerateVideoPass}
+                className="space-y-5 border border-[#D8DCD7] bg-white p-6"
+              >
+                <div>
+                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[#7A1428]">
+                    Choose experience
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPassMode('catalogue-gift')}
+                      className={`flex flex-col items-start border p-4 text-left transition ${
+                        passMode === 'catalogue-gift'
+                          ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                          : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+                      }`}
+                    >
+                      <Gift className="h-5 w-5" />
+                      <span className="mt-2 font-serif text-base font-semibold">
+                        Catalogue video
+                      </span>
+                      <span className="mt-1 text-[11px] opacity-85">
+                        Select a store look for the customer.
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPassMode('purchased-garment')}
+                      className={`flex flex-col items-start border p-4 text-left transition ${
+                        passMode === 'purchased-garment'
+                          ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                          : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+                      }`}
+                    >
+                      <ShoppingBag className="h-5 w-5" />
+                      <span className="mt-2 font-serif text-base font-semibold">
+                        Purchased garment
+                      </span>
+                      <span className="mt-1 text-[11px] opacity-85">
+                        Customer uses their own selected garment.
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Catalogue Dress Picker when in Catalogue/Giveaway mode */}
+                {passMode === 'catalogue-gift' && (
+                  <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A1428]">
+                        Optional: Pre-Select Catalogue Outfit ({selectedProduct.sku} · {formatINR(selectedProduct.price)})
+                      </span>
+                      <div className="flex border border-[#D8DCD7] bg-white p-0.5 text-xs font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGenderFilter('women');
+                            setActiveCategory('sarees');
+                          }}
+                          className={`px-2.5 py-1 ${
+                            genderFilter === 'women' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
+                          }`}
+                        >
+                          Women
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGenderFilter('men');
+                            setActiveCategory('kurta');
+                          }}
+                          className={`px-2.5 py-1 ${
+                            genderFilter === 'men' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
+                          }`}
+                        >
+                          Men
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {filteredCategories.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setActiveCategory(cat.id)}
+                          className={`border px-3 py-1 text-xs font-semibold ${
+                            activeCategory === cat.id
+                              ? 'border-[#161918] bg-[#161918] text-white'
+                              : 'border-[#D8DCD7] bg-white text-[#161918]'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-5 gap-2">
+                      {categoryProducts.map((item) => (
+                        <button
+                          key={item.sku}
+                          type="button"
+                          onClick={() => setSelectedProduct(item)}
+                          className={`overflow-hidden border p-1 text-left ${
+                            selectedProduct.sku === item.sku
+                              ? 'border-[#7A1428] bg-[#7A1428]/10 ring-1 ring-[#7A1428]'
+                              : 'border-[#D8DCD7] bg-white'
+                          }`}
+                        >
+                          <img
+                            src={item.imageUrl}
+                            alt={item.title}
+                            className="aspect-[3/4] w-full object-cover"
+                          />
+                          <p className="mt-1 truncate font-mono text-[10px] font-bold text-[#161918]">
+                            {formatINR(item.price)}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Customer Phone Input */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#161918]">
+                      Customer mobile
+                    </label>
+                    <input
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="9876543210"
+                      className="mt-1.5 h-11 w-full border border-[#D8DCD7] bg-[#FAFBF8] px-3 font-mono text-base font-bold text-[#161918] outline-none focus:border-[#7A1428]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#161918]">
+                      Video theme
+                    </label>
+                    <select
+                      value={selectedEventId}
+                      onChange={(e) => setSelectedEventId(e.target.value)}
+                      className="mt-1.5 h-11 w-full border border-[#D8DCD7] bg-[#FAFBF8] px-3 text-sm font-semibold text-[#161918] outline-none focus:border-[#7A1428]"
+                    >
+                      {events.map((ev) => (
+                        <option key={ev.id} value={ev.id}>
+                          {ev.label} ({ev.mood})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {passError && (
+                  <p className="border border-[#B42318] bg-[#FEF3F2] p-3 text-xs font-semibold text-[#B42318]">
+                    {passError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={passLoading}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#7A1428] px-5 py-3.5 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] transition hover:bg-[#610F20] disabled:opacity-50"
+                >
+                  {passLoading ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Preparing QR...
+                    </>
+                  ) : (
+                    <>
+                      <QrCode className="h-4 w-4" />
+                      Show customer QR
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* Right: Scannable 1-Day Direct QR */}
+              <div className="flex flex-col items-center justify-center border border-[#D8DCD7] bg-[#FAFBF8] p-6 text-center">
+                {passQr && passLink ? (
+                  <div className="w-full max-w-md space-y-4">
+                    <span className="inline-flex items-center gap-1.5 border border-[#256B45] bg-[#EBF5EE] px-3 py-1 font-mono text-[11px] font-bold uppercase text-[#256B45]">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      1-Day Direct QR Active · Code: {passCode}
+                    </span>
+                    <h3 className="font-serif text-2xl font-semibold text-[#161918]">
+                      Scan to continue
+                    </h3>
+                    <div className="mx-auto inline-block border border-[#D8DCD7] bg-white p-4">
+                      <img src={passQr} alt="1-Day Video Pass QR" className="h-60 w-60 object-contain" />
+                    </div>
+                    <p className="text-xs text-[#535A56]">
+                      The customer can create, download, or choose Go Live privately on their phone.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={copyPassLink}
+                        className="flex items-center justify-center gap-1.5 border border-[#161918] bg-white py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        {copied ? 'Copied' : 'Copy Link'}
+                      </button>
+                      <a
+                        href={passLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-center gap-1.5 bg-[#161918] py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE]"
+                      >
+                        Open Mobile Flow
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="max-w-sm space-y-3 py-10">
+                    <QrCode className="mx-auto h-12 w-12 text-[#7A1428]" />
+                    <h3 className="font-serif text-2xl font-semibold text-[#161918]">
+                      Customer QR
+                    </h3>
+                    <p className="text-xs text-[#535A56]">
+                      Choose an experience and show a private QR to the customer.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+            TAB 2: STAFF-ASSISTED AI IMAGE TRY-ON (Catalogue + Own Garment + Slider)
+           ========================================================= */}
+        {tab === 'image-tryon' && (
+          <div className="space-y-6">
+            <div className="grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-2">
+              {/* Left: Image 1 (Customer) + Image 2 (Catalogue or Own Garment) */}
+              <div className="space-y-5">
+                <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-3">
+                  <div>
+                    <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[#7A1428]">
+                      Staff-Assisted AI Image Try-On
+                    </p>
+                    <h3 className="font-serif text-xl font-semibold text-[#161918]">
+                      Add customer photo and outfit
+                    </h3>
+                  </div>
+                  <div className="flex border border-[#D8DCD7] bg-[#F4F5F2] p-0.5 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setTryOnSource('catalogue')}
+                      className={`px-3 py-1.5 ${
+                        tryOnSource === 'catalogue' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
+                      }`}
+                    >
+                      Catalogue (30)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTryOnSource('own-garment')}
+                      className={`px-3 py-1.5 ${
+                        tryOnSource === 'own-garment' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
+                      }`}
+                    >
+                      Own Garment
+                    </button>
+                  </div>
+                </div>
+
+                {/* Upload Image 1: Customer Photo */}
+                <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold uppercase text-[#7A1428]">
+                      Customer photo
+                    </span>
+                    <label className="cursor-pointer bg-[#161918] px-3.5 py-1.5 text-xs font-semibold text-white">
+                      Upload / Capture Person
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="user"
+                        className="hidden"
+                        onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])}
+                      />
+                    </label>
+                  </div>
+                  {personPhoto && (
+                    <img
+                      src={personPhoto}
+                      alt="Customer"
+                      className="mt-3 h-36 w-28 border border-[#D8DCD7] object-cover"
+                    />
+                  )}
+                </div>
+
+                {/* Image 2: Catalogue or Own Garment */}
+                {tryOnSource === 'catalogue' ? (
+                  <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold uppercase text-[#7A1428]">
+                        Select store outfit
+                      </span>
+                      <div className="flex gap-1 text-xs font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGenderFilter('women');
+                            setActiveCategory('sarees');
+                          }}
+                          className={`px-2.5 py-1 ${
+                            genderFilter === 'women' ? 'bg-[#161918] text-white' : 'bg-white'
+                          }`}
+                        >
+                          Women
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGenderFilter('men');
+                            setActiveCategory('kurta');
+                          }}
+                          className={`px-2.5 py-1 ${
+                            genderFilter === 'men' ? 'bg-[#161918] text-white' : 'bg-white'
+                          }`}
+                        >
+                          Men
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {filteredCategories.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setActiveCategory(cat.id)}
+                          className={`border px-2.5 py-1 text-xs font-semibold ${
+                            activeCategory === cat.id
+                              ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                              : 'border-[#D8DCD7] bg-white text-[#161918]'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-5 gap-2">
+                      {categoryProducts.map((item) => (
+                        <button
+                          key={item.sku}
+                          type="button"
+                          onClick={() => setSelectedProduct(item)}
+                          className={`border p-1 text-left ${
+                            selectedProduct.sku === item.sku
+                              ? 'border-[#7A1428] bg-[#7A1428]/10 ring-1 ring-[#7A1428]'
+                              : 'border-[#D8DCD7] bg-white'
+                          }`}
+                        >
+                          <img
+                            src={item.imageUrl}
+                            alt={item.title}
+                            className="aspect-[3/4] w-full object-cover"
+                          />
+                          <p className="mt-1 truncate font-mono text-[10px] font-bold">
+                            {formatINR(item.price)}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold uppercase text-[#7A1428]">
+                        Add garment photo
+                      </span>
+                      <label className="cursor-pointer bg-[#161918] px-3.5 py-1.5 text-xs font-semibold text-white">
+                        Upload / Capture Dress
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => handleFileRead(setOwnGarmentPhoto, e.target.files?.[0])}
+                        />
+                      </label>
+                    </div>
+                    {ownGarmentPhoto && (
+                      <img
+                        src={ownGarmentPhoto}
+                        alt="Own Garment"
+                        className="mt-3 h-36 w-28 border border-[#D8DCD7] object-cover"
+                      />
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={tryOnGenerating}
+                  onClick={handleGenerateImageTryOn}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#7A1428] px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] disabled:opacity-50"
+                >
+                  {tryOnGenerating ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Generating AI Try-On...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Create look
+                    </>
+                  )}
+                </button>
+
+                {tryOnStatusNote && (
+                  <p className="border border-[#D8DCD7] bg-[#FAFBF8] p-3 text-xs text-[#535A56]">
+                    {tryOnStatusNote}
+                  </p>
+                )}
+              </div>
+
+              {/* Right: Result + Mobile QR + Old vs New Dress Slider */}
+              <div className="space-y-4 border border-[#D8DCD7] bg-[#FAFBF8] p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                      Customer result
+                    </p>
+                    <h4 className="font-serif text-xl font-semibold text-[#161918]">
+                      Compare and save to phone
+                    </h4>
+                  </div>
+                  {tryOnMobileQr && (
+                    <img
+                      src={tryOnMobileQr}
+                      alt="Mobile QR"
+                      className="h-16 w-16 border border-[#D8DCD7] bg-white p-1"
+                    />
+                  )}
+                </div>
+
+                <div className="mx-auto max-w-sm">
+                  <BeforeAfterSlider
+                    beforeImage={personPhoto || selectedProduct.imageUrl}
+                    afterImage={tryOnResultUrl || selectedProduct.imageUrl}
+                    beforeLabel="Old / Current Photo"
+                    afterLabel="New AI Try-On Dress"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
 }
-
-function Top({ eyebrow, title, onBack }: { eyebrow: string; title: string; onBack: () => void }) { return <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.2em] text-[#916b3a]">{eyebrow}</p><h1 className="mt-2 text-4xl font-black tracking-tight">{title}</h1></div><button onClick={onBack} className="grid h-12 w-12 place-items-center rounded-xl border border-[#dacbb6] bg-white text-[#6f0e20]"><ArrowLeft className="h-5 w-5" /></button></div>; }
-function ActionCard({ icon, title, copy, onClick }: { icon: ReactNode; title: string; copy: string; onClick: () => void }) { return <button onClick={onClick} className="min-h-60 rounded-[2rem] border border-[#e2d6c5] bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:border-[#b37b32]"><span className="text-[#8b5b22]">{icon}</span><h2 className="mt-12 text-2xl font-black">{title}</h2><p className="mt-2 leading-6 text-[#6d5c52]">{copy}</p><span className="mt-6 inline-flex items-center gap-2 text-sm font-black text-[#6f0e20]">Choose <ArrowRight className="h-4 w-4" /></span></button>; }

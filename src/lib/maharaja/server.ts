@@ -1735,7 +1735,7 @@ export async function finalizeCompletedVideo({
     : `sessions/${sessionId}/video/live-9s.mp4`;
   const bucket = getStorageBucket();
   const ownerPass = accessCode ? await getVideoPass(accessCode) : null;
-  const createLiveVersion = ownerPass?.experienceType !== 'catalogue-gift';
+  const createLiveVersion = true;
 
   let customerVideo: Buffer;
   let liveVideo: Buffer | null = null;

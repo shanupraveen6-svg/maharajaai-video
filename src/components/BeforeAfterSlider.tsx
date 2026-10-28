@@ -2,24 +2,53 @@
 
 import { useState } from 'react';
 
-export default function BeforeAfterSlider({ before, after }: { before: string; after: string }) {
+type BeforeAfterSliderProps = {
+  before?: string;
+  after?: string;
+  beforeImage?: string;
+  afterImage?: string;
+  beforeLabel?: string;
+  afterLabel?: string;
+};
+
+export default function BeforeAfterSlider({
+  before,
+  after,
+  beforeImage,
+  afterImage,
+  beforeLabel = 'Current look',
+  afterLabel = 'AI Try-On',
+}: BeforeAfterSliderProps) {
   const [position, setPosition] = useState(50);
+  const resolvedBefore = before || beforeImage || '';
+  const resolvedAfter = after || afterImage || '';
 
   return (
-    <section aria-label="Compare your current photo with your AI Try-On" className="mt-4 text-left">
-      <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase text-[#F3E5AB]">
-        <span>Current look</span><span>AI Try-On</span>
+    <section aria-label="Compare your current photo with your AI Try-On" className="mt-2 text-left">
+      <div className="mb-2 flex items-center justify-between font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#161918]">
+        <span>{beforeLabel}</span>
+        <span className="text-[#7A1428]">{afterLabel}</span>
       </div>
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-black">
-        <img src={before} alt="Current customer photo" className="absolute inset-0 h-full w-full object-contain" />
+      <div className="relative aspect-[3/4] w-full overflow-hidden border border-[#D8DCD7] bg-[#161918]">
         <img
-          src={after}
-          alt="AI Try-On result"
+          src={resolvedBefore}
+          alt={beforeLabel}
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+        <img
+          src={resolvedAfter}
+          alt={afterLabel}
           className="absolute inset-0 h-full w-full object-contain"
           style={{ clipPath: `inset(0 0 0 ${position}%)` }}
         />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow-[0_0_6px_#000]" style={{ left: `${position}%` }}>
-          <span className="absolute top-1/2 left-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-[#6E0D1F] text-sm text-white shadow-lg">↔</span>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow-[0_0_6px_#000]"
+          style={{ left: `${position}%` }}
+        >
+          <span className="absolute top-1/2 left-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-[#7A1428] text-sm text-white shadow-lg">
+            ↔
+          </span>
         </div>
         <input
           type="range"

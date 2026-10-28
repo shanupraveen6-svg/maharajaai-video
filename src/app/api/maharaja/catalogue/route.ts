@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const offset = Number(req.nextUrl.searchParams.get('offset') || '0');
-    const limit = Number(req.nextUrl.searchParams.get('limit') || '8');
-    const catalogue = await listCatalogueProducts(Number.isFinite(offset) ? offset : 0, Number.isFinite(limit) ? limit : 8);
+    const limit = Number(req.nextUrl.searchParams.get('limit') || '30');
+    const catalogue = await listCatalogueProducts(Number.isFinite(offset) ? offset : 0, Number.isFinite(limit) ? limit : 30);
     return NextResponse.json({ success: true, ...catalogue }, {
       headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' },
     });

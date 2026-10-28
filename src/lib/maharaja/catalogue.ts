@@ -1,10 +1,21 @@
 import 'server-only';
 
 import { getDb, getSignedPlaybackUrl } from '@/lib/firebase/admin';
+import { sampleCatalogue } from '@/lib/tryfocus/sample-data';
 import { MAHARAJA_CLIENT_ID } from './config';
 import type { MaharajaCatalogueProduct, PublicCatalogueProduct } from './catalogue-types';
 
 const collectionPath = `clientWorkspaces/${MAHARAJA_CLIENT_ID}/catalogueProducts`;
+
+const LOCAL_DEMO_CATALOGUE: MaharajaCatalogueProduct[] = sampleCatalogue.map((item, index) => ({
+  sku: item.sku,
+  title: item.title,
+  price: item.price,
+  storagePath: item.garmentReferenceUrl || item.imageUrl,
+  productUrl: '',
+  active: true,
+  sortOrder: index + 1,
+}));
 
 // The first Maharaja catalogue was uploaded directly to the Storage root from
 // Firebase Console. Keep this inventory in code so it is usable immediately;
@@ -35,20 +46,36 @@ const ROOT_SILK_CATALOGUE = ([
   ['8IC21', 'Kanchivaram Dual Tone Checked Silk Saree with Traditional Zari Border', 26000, '23_kanchivaram_dual_tone_checked_silk_saree_with_traditional_za.jpg'],
   ['8IC416', 'Kanchivaram Multi Colour Checks Silk Saree with Vintage Border', 27900, '24_kanchivaram_multi_colour_checks_silk_saree_with_vintage_bord.jpg'],
   ['8IC4', 'Kanchivaram Bronze Checks Saree with Black Border', 16500, '25_kanchivaram_bronze_checks_saree_with_black_border.jpg'],
-] as Array<[string, string, number, string]>).map(([sku, title, price, storagePath], index): MaharajaCatalogueProduct => ({ sku, title, price, storagePath, productUrl: '', active: true, sortOrder: index + 1 }));
+] as Array<[string, string, number, string]>).map(([sku, title, price, storagePath], index): MaharajaCatalogueProduct => ({ sku, title, price, storagePath, productUrl: '', active: true, sortOrder: index + 101 }));
 
-export async function listCatalogueProducts(offset = 0, limit = 8): Promise<{ products: PublicCatalogueProduct[]; total: number }> {
+const COMBINED_FALLBACK_CATALOGUE: MaharajaCatalogueProduct[] = [
+  ...LOCAL_DEMO_CATALOGUE,
+  ...ROOT_SILK_CATALOGUE,
+];
+
+async function resolveCatalogueImageUrl(storagePath: string): Promise<string> {
+  if (storagePath.startsWith('/') || storagePath.startsWith('http://') || storagePath.startsWith('https://')) {
+    return storagePath;
+  }
+  const db = getDb();
+  if (!db) {
+    return `/images/catalogue-demo/saree-1.jpg`;
+  }
+  return getSignedPlaybackUrl(storagePath);
+}
+
+export async function listCatalogueProducts(offset = 0, limit = 30): Promise<{ products: PublicCatalogueProduct[]; total: number }> {
   const db = getDb();
   const snapshot = db ? await db.collection(collectionPath).where('active', '==', true).get() : null;
   const allProducts = (snapshot && !snapshot.empty
     ? snapshot.docs.map((doc) => doc.data() as MaharajaCatalogueProduct)
-    : ROOT_SILK_CATALOGUE).sort((left, right) => left.sortOrder - right.sortOrder);
-  const products = allProducts.slice(Math.max(0, offset), Math.max(0, offset) + Math.min(Math.max(1, limit), 8));
+    : LOCAL_DEMO_CATALOGUE).sort((left, right) => left.sortOrder - right.sortOrder);
+  const products = allProducts.slice(Math.max(0, offset), Math.max(0, offset) + Math.min(Math.max(1, limit), 50));
   return {
     total: allProducts.length,
     products: await Promise.all(products.map(async ({ storagePath: _storagePath, ...product }) => ({
-    ...product,
-    imageUrl: await getSignedPlaybackUrl(_storagePath),
+      ...product,
+      imageUrl: await resolveCatalogueImageUrl(_storagePath),
     }))),
   };
 }
@@ -56,11 +83,11 @@ export async function listCatalogueProducts(offset = 0, limit = 8): Promise<{ pr
 export async function getCatalogueProduct(sku: string): Promise<MaharajaCatalogueProduct | null> {
   const db = getDb();
   if (!sku) return null;
-  if (!db) return ROOT_SILK_CATALOGUE.find((product) => product.sku === sku) || null;
+  if (!db) return COMBINED_FALLBACK_CATALOGUE.find((product) => product.sku === sku) || null;
   const snapshot = await db.collection(collectionPath).doc(sku).get();
   if (snapshot.exists) {
     const product = snapshot.data() as MaharajaCatalogueProduct;
     return product.active ? product : null;
   }
-  return ROOT_SILK_CATALOGUE.find((product) => product.sku === sku) || null;
+  return COMBINED_FALLBACK_CATALOGUE.find((product) => product.sku === sku) || null;
 }

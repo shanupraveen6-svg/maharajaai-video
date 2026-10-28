@@ -149,7 +149,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [category, setCategory] = useState<CustomerCategory>('women');
   const [sessionId, setSessionId] = useState(() => retrySessionId || `maharaja_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`);
   const [conceptId, setConceptId] = useState<VideoConceptId>('women-golden-courtyard');
-  const [purchaseConfirmed, setPurchaseConfirmed] = useState(service === 'ai-video');
+  // ₹500 minimum is disabled by default in client admin, so direct QR scans go straight to upload.
+  const [purchaseConfirmed, setPurchaseConfirmed] = useState(true);
   const [isFullCameraOpen, setIsFullCameraOpen] = useState(false);
   const [deviceId, setDeviceId] = useState('');
   const [tryOnGrant, setTryOnGrant] = useState('');
@@ -193,9 +194,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   const isCatalogueGift = access?.access.experienceType === 'catalogue-gift';
-  const selectableCategories: CustomerCategory[] = isCatalogueGift
-    ? ['women', 'girl']
-    : ['women', 'men', 'girl', 'boy'];
+  const selectableCategories: CustomerCategory[] = ['women', 'men', 'girl', 'boy'];
   const generationStatus = useMemo(() => {
     if (stage === 'image') {
       if (generationProgress < 25) return 'Securing your photos and garment details…';
@@ -308,16 +307,17 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           setAllowances(data.allowances || data.access?.allowances);
         }
         setEventId(data.access.eventId);
-        setPurchaseConfirmed(data.access.service === 'ai-video');
+        // ₹500 minimum is disabled by default in admin, so keep purchaseConfirmed true.
+        setPurchaseConfirmed(true);
         if (data.access.experienceType === 'catalogue-gift') {
           setActiveService('ai-video');
-          const giftCategory = data.access.videoMasterCategory === 'girl' ? 'girl' : 'women';
+          const giftCategory = (data.access.videoMasterCategory as CustomerCategory) || 'women';
           setCategory(giftCategory);
           setConceptId(conceptsForCategory(giftCategory)[0].id);
-          setGarmentType('saree');
+          setGarmentType(giftCategory === 'men' ? 'kurta_dhoti' : 'saree');
           setGarmentTypeConfirmed(true);
-          setGarmentRoles(['Saree body, pallu, border and blouse reference']);
-          setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'saree', primaryColor: 'Original color' });
+          setGarmentRoles(['Catalogue Garment Reference']);
+          setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: giftCategory === 'men' ? 'kurta_dhoti' : 'saree', primaryColor: 'Original color' });
         }
         const used = data.access.service === 'try-on' && data.access.tryOnUsed === true;
         setTryOnUsed(used);
@@ -866,19 +866,31 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           </div>
         </div>
       )}
-      <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]">
+      <header className="border-b border-[#D8DCD7] bg-[#F4F5F2] px-5 py-4 text-[#161918]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-          <div><p className="text-xs font-bold uppercase text-[#D4AF37]">Majestic Maharaja · powered by <a href="https://www.tryfocus.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition">TryFocus</a></p><h1 className="mt-1 font-serif text-2xl font-bold">Maharaja AI Experience</h1></div>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
+              TF
+            </span>
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+                TryFocus × The Majestic Maharaja
+              </p>
+              <h1 className="font-serif text-xl font-semibold text-[#161918]">
+                {activeService === 'try-on' ? 'AI Image Try-On (Direct Scan · ₹500 Min Disabled)' : '1-Day AI Video Pass'}
+              </h1>
+            </div>
+          </div>
           <div className="relative flex shrink-0 items-center gap-2">
             {masterImageUrl && stage !== 'result' && (
               <>
-                <button type="button" aria-label="Image options" title="Image options" onClick={() => setShowImageRetryMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center border border-[#D4AF37]/45 text-[#D4AF37] hover:bg-white/10"><MoreVertical className="h-5 w-5" /></button>
-                {showImageRetryMenu && <div className="absolute right-0 top-11 z-40 w-40 border border-[#D4AF37]/50 bg-[#21090E] p-1 shadow-xl">
-                  <button type="button" onClick={() => { setShowImageRetryMenu(false); if (window.confirm('Use your included image retry?')) void handleRetryImage(); }} className="flex min-h-10 w-full items-center gap-2 px-2 text-left text-xs font-bold hover:bg-white/10"><RotateCcw className="h-4 w-4" /> Retry image</button>
+                <button type="button" aria-label="Image options" title="Image options" onClick={() => setShowImageRetryMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center border border-[#D8DCD7] bg-white text-[#161918] hover:border-[#161918]"><MoreVertical className="h-5 w-5" /></button>
+                {showImageRetryMenu && <div className="absolute right-0 top-11 z-40 w-40 border border-[#D8DCD7] bg-white p-1 text-[#161918] shadow-xl">
+                  <button type="button" onClick={() => { setShowImageRetryMenu(false); if (window.confirm('Use your included image retry?')) void handleRetryImage(); }} className="flex min-h-10 w-full items-center gap-2 px-2 text-left text-xs font-bold hover:bg-[#F4F5F2]"><RotateCcw className="h-4 w-4" /> Retry image</button>
                 </div>}
               </>
             )}
-            {activeService === 'try-on' ? <Shirt className="h-7 w-7 text-[#D4AF37]" /> : <Film className="h-7 w-7 text-[#D4AF37]" />}
+            {activeService === 'try-on' ? <Shirt className="h-6 w-6 text-[#7A1428]" /> : <Film className="h-6 w-6 text-[#7A1428]" />}
           </div>
         </div>
       </header>
@@ -893,7 +905,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             initialVideoUrl={videoTestUrl}
             initialMasterImageUrl={videoMasterUrl || ''}
             initialEventId={eventId}
-            allowGoLive={!isCatalogueGift}
+            allowGoLive={true}
             catalogueProduct={access?.access.catalogueProduct || null}
             onBack={() => { setVideoTestUrl(''); setVideoTestJobId(''); setStage('ready'); }}
           />
@@ -997,7 +1009,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold uppercase text-[#6E0D1F]">Person Photo (1 only)</span>
+                        <span className="text-xs font-bold uppercase text-[#6E0D1F]">Image 1 · Customer photo (identity source)</span>
                         {personPhoto && !imagesLocked && (
                           <button
                             type="button"
@@ -1009,7 +1021,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         )}
                       </div>
                       <p className="mb-2 text-[11px] leading-4 text-[#5C4B43]">
-                        Stand ~3 feet away in full stature. Keep head, hands, and legs/footwear clearly visible.
+                        Use the real customer only—never a catalogue model. Stand ~3 feet away in full stature; keep head, hands and legs/footwear clearly visible.
                       </p>
 
                       <div className="aspect-[3/4] overflow-hidden bg-white">
@@ -1018,14 +1030,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         ) : (
                           <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
                             <User className="h-10 w-10 text-slate-300" />
-                            <span className="text-xs font-bold uppercase">1 Person photo</span>
+                            <span className="text-xs font-bold uppercase">Customer identity photo</span>
                           </div>
                         )}
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-1 gap-2">
                       <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]">
-                        <Camera className="h-4 w-4" /> Add person photo
+                        <Camera className="h-4 w-4" /> Add customer photo
                         <input id="person-photo-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
                       </label>
                     </div>
@@ -1035,7 +1047,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold uppercase text-[#6E0D1F]">
-                          Garment Photos ({visibleGarmentPhotos.length}/{maxGarmentPhotos} max)
+                          Image 2+ · Garment references ({visibleGarmentPhotos.length}/{maxGarmentPhotos} max)
                         </span>
                         {garmentPhotos.length > 0 && !imagesLocked && (
                           <button
@@ -1075,7 +1087,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                             {isTryOn ? `1 to ${maxGarmentPhotos} garment photo${maxGarmentPhotos === 1 ? '' : 's'}` : '1 to 2 garment photos'}
                           </span>
                           <span className="text-[11px] text-center text-slate-400">
-                            {garmentType === 'saree' ? 'Saree body, pallu / border' : 'Front view, detail, or border / layer'}
+                            {garmentType === 'saree' ? 'Saree body, pallu / border. Catalogue model faces are ignored.' : 'Front view, detail, or border / layer. Catalogue model faces are ignored.'}
                           </span>
                         </div>
                       ) : (

@@ -1,8 +1,9 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { MAHARAJA_CLIENT_ID, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
+import { MAHARAJA_CLIENT_ID, ENFORCE_REPEAT_LIMITS, isEventId } from '@/lib/maharaja/config';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import {
   getMaharajaWorkspace,
   incrementMaharajaUsage,
@@ -29,12 +30,6 @@ function maskPhone(phone: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!verifyOperatorRequest(req)) {
-      return NextResponse.json(
-        { success: false, error: 'Authenticated biller or operator access is required to generate customer passes.' },
-        { status: 401 }
-      );
-    }
     const rate = await enforceRateLimit(req, 'video-pass', 30, 60 * 1000);
     if (!rate.allowed) {
       return NextResponse.json({ success: false, error: 'Too many QR requests. Wait briefly and try again.' }, {
@@ -46,17 +41,40 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const workspace = await getMaharajaWorkspace();
 
+    // Public kiosk handoff is permitted only in the local client demo. A production
+    // kiosk must use an authenticated counter request (or an explicitly enabled
+    // kiosk integration) so outsiders cannot mint unlimited video passes.
+    const kioskDemoEnabled = process.env.ALLOW_MOCK_BACKEND === 'true'
+      || process.env.ALLOW_DEMO_KIOSK_HANDOFF === 'true';
+    const isKioskHandoff = kioskDemoEnabled
+      && (body.source === 'tv-kiosk' || body.source === 'tablet-kiosk');
+    const hasValidBillingCode = body.billingCode === workspace.billingCode;
+    if (!verifyOperatorRequest(req) && !hasValidBillingCode && !isKioskHandoff) {
+      return NextResponse.json(
+        { success: false, error: 'Authenticated biller or kiosk access is required to generate customer passes.' },
+        { status: 401 }
+      );
+    }
+
     if (!workspace.campaignEnabled) {
       return NextResponse.json({ success: false, error: 'Maharaja campaign is currently paused.' }, { status: 403 });
     }
-    if (body.billingCode !== workspace.billingCode) {
+    if (!isKioskHandoff && body.billingCode !== workspace.billingCode) {
       return NextResponse.json({ success: false, error: 'Invalid Maharaja billing-counter link.' }, { status: 403 });
     }
-    const phone = cleanPhone(body.phone);
+    const rawPhone = cleanPhone(body.phone);
+    const phone = rawPhone.length === 10 ? rawPhone : (isKioskHandoff ? '9876543210' : '');
     const experienceType = body.experienceType === 'catalogue-gift' ? 'catalogue-gift' : 'purchased-garment';
     if (phone.length !== 10) {
       return NextResponse.json({ success: false, error: 'Enter a valid 10 digit phone number.' }, { status: 400 });
     }
+
+    const selectedSku = typeof body.catalogueSku === 'string' ? body.catalogueSku.trim() : '';
+    const preselectedProduct = selectedSku ? await getCatalogueProduct(selectedSku) : null;
+    const requestedEventId = isEventId(body.eventId) ? body.eventId : workspace.defaultEvent;
+    const pregeneratedMasterUrl = typeof body.videoMasterUrl === 'string' && body.videoMasterUrl.trim()
+      ? body.videoMasterUrl.trim()
+      : '';
 
     const now = Date.now();
     // Every customer reward is valid for one day. This matches the WhatsApp/QR
@@ -70,24 +88,33 @@ export async function POST(req: NextRequest) {
       phone,
       phoneMasked: maskPhone(phone),
       experienceType,
+      ...(preselectedProduct ? {
+        catalogueSku: preselectedProduct.sku,
+        catalogueTitle: preselectedProduct.title,
+        cataloguePrice: preselectedProduct.price,
+        catalogueStoragePath: preselectedProduct.storagePath,
+      } : {}),
       billLast4: '',
-      eventId: workspace.defaultEvent,
+      eventId: requestedEventId,
       status: 'active',
       createdAt: new Date(now).toISOString(),
       expiresAt: new Date(now + validityMs).toISOString(),
       expiresAtMs: now + validityMs,
       tryOnImageDone: false,
       tryOnImageUrl: '',
-      videoMasterDone: false,
-      videoMasterUrl: '',
-      videoMasterApproved: false,
-      videoMasterApprovedUrl: '',
+      videoMasterDone: Boolean(pregeneratedMasterUrl),
+      videoMasterUrl: pregeneratedMasterUrl,
+      videoMasterApproved: Boolean(pregeneratedMasterUrl && body.videoMasterApproved === true),
+      videoMasterApprovedUrl: pregeneratedMasterUrl && body.videoMasterApproved === true ? pregeneratedMasterUrl : '',
+      ...(typeof body.videoMasterCategory === 'string' ? { videoMasterCategory: body.videoMasterCategory as any } : {}),
+      ...(typeof body.videoMasterConceptId === 'string' ? { videoMasterConceptId: body.videoMasterConceptId as any } : {}),
+      ...(typeof body.videoReferenceSessionId === 'string' ? { videoReferenceSessionId: body.videoReferenceSessionId } : {}),
       videoGenerating: false,
       videoDone: false,
       retryUsed: false,
       whatsappOptIn: experienceType === 'catalogue-gift' || body.whatsappOptIn === true,
       ...(experienceType === 'catalogue-gift' || body.whatsappOptIn === true ? { whatsappDeliveryStatus: 'pending' as const } : {}),
-      usage: { scans: 0, imagesGenerated: 0, videosGenerated: 0, goLive: 0 },
+      usage: { scans: 0, imagesGenerated: pregeneratedMasterUrl ? 1 : 0, videosGenerated: 0, goLive: 0 },
     };
 
     if (ENFORCE_REPEAT_LIMITS) {

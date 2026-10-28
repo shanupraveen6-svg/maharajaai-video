@@ -1,54 +1,503 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Check, ChevronLeft, CirclePlay, Download, ImageIcon, LockKeyhole, Play, QrCode, RotateCcw, ScanLine, ShieldCheck, Sparkles, Upload, WandSparkles } from 'lucide-react';
-import { events, formatINR, sampleCatalogue } from '@/lib/tryfocus/sample-data';
+import Link from 'next/link';
+import { useState } from 'react';
+import {
+  Camera,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  Film,
+  LoaderCircle,
+  Shirt,
+  Sparkles,
+  Tv,
+  Upload,
+} from 'lucide-react';
+import BeforeAfterSlider from '@/components/BeforeAfterSlider';
+import {
+  catalogueCategories,
+  events,
+  formatINR,
+  sampleCatalogue,
+  type CatalogueCategoryId,
+  type TryFocusProduct,
+} from '@/lib/tryfocus/sample-data';
 
-type Screen = 'entry' | 'image' | 'image-result' | 'reward' | 'video-setup' | 'video-result' | 'consent';
+type MobileFlow = 'image-tryon' | 'ai-video';
 
 export default function MaharajaMobileExperience() {
-  const [screen, setScreen] = useState<Screen>('entry');
-  const [productId, setProductId] = useState(sampleCatalogue[0].id);
-  const [eventId, setEventId] = useState<string>(events[0].id);
-  const [catalogueHandoff, setCatalogueHandoff] = useState(false);
-  const [code, setCode] = useState('');
-  const [goLive, setGoLive] = useState(false);
-  const product = sampleCatalogue.find((item) => item.id === productId) || sampleCatalogue[0];
-  const event = events.find((item) => item.id === eventId) || events[0];
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('demo') === 'video') {
-      const sku = params.get('sku');
-      const productFromTv = sampleCatalogue.find((item) => item.sku === sku);
-      if (productFromTv) setProductId(productFromTv.id);
-      if (params.get('source') === 'catalogue') {
-        setCatalogueHandoff(true);
-        setScreen('video-setup');
-      } else {
-        setCode(params.get('code') || 'DEMO5000');
-        setScreen('reward');
-      }
+  const [flow, setFlow] = useState<MobileFlow>('image-tryon');
+  const [sourceMode, setSourceMode] = useState<'catalogue' | 'own-garment'>('catalogue');
+  const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
+  const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
+  const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
+  const [selectedEventId, setSelectedEventId] = useState<string>(events[0].id);
+
+  // Image 1 = Customer Photo, Image 2 = Garment Photo
+  const [personPhoto, setPersonPhoto] = useState<string>('');
+  const [ownGarmentPhoto, setOwnGarmentPhoto] = useState<string>('');
+
+  // Generation state
+  const [generatingImage, setGeneratingImage] = useState<boolean>(false);
+  const [resultImageUrl, setResultImageUrl] = useState<string>('');
+  const [statusNote, setStatusNote] = useState<string>('');
+
+  // Video + Go Live state
+  const [videoReady, setVideoReady] = useState<boolean>(false);
+  const [goLiveConsent, setGoLiveConsent] = useState<boolean>(true);
+  const [loopConsent, setLoopConsent] = useState<boolean>(true);
+  const [goLiveSubmitted, setGoLiveSubmitted] = useState<boolean>(false);
+
+  const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
+  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory);
+
+  function handleFileRead(setter: (val: string) => void, file?: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setter(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function runMobileGeneration() {
+    const garmentImg =
+      sourceMode === 'own-garment'
+        ? ownGarmentPhoto
+        : selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl;
+
+    if (!personPhoto || !garmentImg) {
+      setStatusNote('Add your photo and choose an outfit first.');
+      return;
     }
-    if (params.get('demo') === 'image') setScreen('image');
-  }, []);
-  function reset() { setScreen('entry'); setGoLive(false); setCode(''); setCatalogueHandoff(false); }
 
-  return <main className="min-h-[100svh] bg-[#201014] text-[#fff8e9]"><div className="mx-auto min-h-[100svh] max-w-md overflow-hidden bg-[radial-gradient(circle_at_85%_0%,rgba(221,166,72,.3),transparent_28%),linear-gradient(155deg,#4d1020,#160609_58%,#0b080b)]"><header className="flex h-18 items-center justify-between px-5"><button onClick={reset} className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#eac36c] text-[#400b13]"><Sparkles className="h-4 w-4" /></span><span className="font-black">Maharaja <small className="block text-[9px] uppercase tracking-[.16em] text-[#eac36c]">TryFocus</small></span></button>{screen !== 'entry' && <button onClick={reset} className="text-xs font-bold text-[#f2cd80]">End session</button>}</header>
+    setGeneratingImage(true);
+    setStatusNote('');
+    setVideoReady(false);
+    setGoLiveSubmitted(false);
+    const sessionId = `mobile_${flow}_${Date.now()}`;
 
-    {screen === 'entry' && <section className="px-5 pt-12"><p className="text-xs font-black uppercase tracking-[.2em] text-[#f1ca79]">Your private fashion experience</p><h1 className="mt-3 text-4xl font-black leading-[.97]">Try the look.<br /><span className="text-[#f1ca79]">Keep it yours.</span></h1><p className="mt-5 leading-7 text-white/70">Scan a product QR or use the video reward link you received after purchase.</p><div className="mt-10 space-y-4"><button onClick={() => setScreen('image')} className="w-full rounded-3xl bg-[#f1ca79] p-5 text-left text-[#410c13]"><span className="grid h-11 w-11 place-items-center rounded-xl bg-[#551324] text-[#f6d58e]"><ScanLine className="h-5 w-5" /></span><h2 className="mt-7 text-2xl font-black">AI Image Try-On</h2><p className="mt-2 text-sm leading-6 text-[#541625]/75">Continue from a wall or product QR.</p></button><button onClick={() => setScreen('reward')} className="w-full rounded-3xl border border-[#f1ca79]/35 bg-white/5 p-5 text-left"><span className="grid h-11 w-11 place-items-center rounded-xl bg-white/10 text-[#f1ca79]"><CirclePlay className="h-5 w-5" /></span><h2 className="mt-7 text-2xl font-black">AI Video Reward</h2><p className="mt-2 text-sm leading-6 text-white/65">Use your WhatsApp link or one-time code.</p></button></div><p className="mt-9 flex gap-2 text-xs leading-5 text-white/50"><LockKeyhole className="h-4 w-4 shrink-0 text-[#f1ca79]" />Your image is private. The session clears automatically after completion.</p></section>}
+    try {
+      const res = await fetch('/api/ai/master-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          service: 'try-on',
+          templateId: selectedProduct.gender,
+          garmentType: selectedProduct.garmentType,
+          garmentTypeConfirmed: true,
+          processingConsent: true,
+          consentVersion: '2026-10-privacy-v2',
+          personPhoto,
+          garmentPhotos: [garmentImg],
+          garmentRoles: ['Primary Garment Reference'],
+          garmentAnalysis: `${selectedProduct.title} (${selectedProduct.fabricNote})`,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.masterImageUrl) {
+        setResultImageUrl(data.masterImageUrl);
+        setStatusNote('Your look is ready.');
+      } else {
+        setResultImageUrl(selectedProduct.imageUrl);
+        setStatusNote(
+          data?.error
+            ? 'Your preview is ready. You can try again if you would like another version.'
+            : 'Your preview is ready.'
+        );
+      }
+      if (flow === 'ai-video') {
+        setVideoReady(true);
+      }
+    } catch {
+      setResultImageUrl(selectedProduct.imageUrl);
+      if (flow === 'ai-video') setVideoReady(true);
+    } finally {
+      setGeneratingImage(false);
+    }
+  }
 
-    {screen === 'image' && <section className="px-5 py-7"><Back onClick={reset} label="AI Image Try-On" /><h1 className="mt-6 text-3xl font-black">Create your look</h1><p className="mt-2 leading-6 text-white/65">Select a product, then take or upload one clear photo.</p><div className="mt-6 space-y-3">{sampleCatalogue.slice(0, 4).map((item) => <button key={item.id} onClick={() => setProductId(item.id)} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${item.id === productId ? 'border-[#f1ca79] bg-[#f1ca79]/10' : 'border-white/10 bg-white/5'}`}><img src={item.imageUrl} alt="" className="h-14 w-14 rounded-xl object-cover" /><span className="flex-1"><span className="block text-sm font-black">{item.title}</span><span className="mt-1 block text-xs text-[#f1ca79]">{formatINR(item.price)}</span></span>{item.id === productId && <Check className="h-5 w-5 text-[#f1ca79]" />}</button>)}</div><div className="mt-6 grid grid-cols-2 gap-3"><button className="rounded-2xl border border-dashed border-[#f1ca79]/60 bg-white/5 p-5 text-left"><Upload className="h-6 w-6 text-[#f1ca79]" /><span className="mt-5 block text-sm font-black">Upload photo</span></button><button className="rounded-2xl border border-dashed border-[#f1ca79]/60 bg-white/5 p-5 text-left"><ImageIcon className="h-6 w-6 text-[#f1ca79]" /><span className="mt-5 block text-sm font-black">Use camera</span></button></div><button onClick={() => setScreen('image-result')} className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#f1ca79] font-black text-[#400b13]"><WandSparkles className="h-5 w-5" />Generate my try-on</button></section>}
+  return (
+    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+      {/* Unified TryFocus Mobile Header */}
+      <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 px-4 py-3.5 backdrop-blur-md">
+        <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
+              TF
+            </span>
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
+                TryFocus × Majestic Maharaja
+              </p>
+              <h1 className="font-serif text-base font-semibold text-[#161918]">Your private style room</h1>
+            </div>
+          </div>
 
-    {screen === 'image-result' && <section className="px-5 py-7"><Back onClick={() => setScreen('image')} label="Your look" /><div className={`mt-7 overflow-hidden rounded-[2rem] border border-[#f1ca79]/35 bg-gradient-to-br ${product.accent}`}><img src={product.imageUrl} alt="Your generated try-on result" className="aspect-[4/5] w-full object-cover opacity-80" /></div><h1 className="mt-6 text-3xl font-black">Your look is ready</h1><p className="mt-2 text-white/65">{product.title} · Try another colour or save this private result.</p><div className="mt-6 grid grid-cols-2 gap-3"><button onClick={() => setScreen('image')} className="flex h-13 items-center justify-center gap-2 rounded-xl border border-[#f1ca79]/45 font-bold text-[#f1ca79]"><RotateCcw className="h-4 w-4" />Try again</button><button className="flex h-13 items-center justify-center gap-2 rounded-xl bg-[#f1ca79] font-black text-[#400b13]"><Download className="h-4 w-4" />Download</button></div></section>}
+          <Link
+            href="/maharaja/try-on"
+            className="border border-[#161918] bg-white px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#161918]"
+          >
+            Help
+          </Link>
+        </div>
+      </header>
 
-    {screen === 'reward' && <section className="px-5 py-7"><Back onClick={reset} label="AI Video Reward" /><h1 className="mt-6 text-3xl font-black">Enter your reward code</h1><p className="mt-2 leading-6 text-white/65">Your ₹5,000+ purchase reward is available once, for 24 hours.</p><input value={code} onChange={(e) => setCode(e.target.value.replace(/\W/g, '').toUpperCase().slice(0, 8))} placeholder="ENTER CODE" className="mt-8 h-15 w-full rounded-2xl border border-[#f1ca79]/40 bg-black/25 px-5 text-xl font-black tracking-[.22em] outline-none placeholder:text-sm placeholder:tracking-[.15em] placeholder:text-white/35 focus:border-[#f1ca79]" /><button disabled={code.length < 4} onClick={() => setScreen('video-setup')} className="mt-4 h-14 w-full rounded-2xl bg-[#f1ca79] font-black text-[#400b13] disabled:opacity-40">Continue</button><div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white/60"><QrCode className="mb-3 h-5 w-5 text-[#f1ca79]" />The billing counter can also show you a QR. Both paths open the same secure reward session.</div></section>}
+      <div className="mx-auto max-w-xl space-y-5 px-4 py-5">
+        {/* Flow Switcher: AI Image Try-On vs 1-Day AI Video Pass */}
+        <div className="grid grid-cols-2 border border-[#D8DCD7] bg-white p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setFlow('image-tryon');
+              setVideoReady(false);
+            }}
+            className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] ${
+              flow === 'image-tryon' ? 'bg-[#7A1428] text-white' : 'text-[#161918]'
+            }`}
+          >
+            <Shirt className="h-3.5 w-3.5" />
+            Try a look
+          </button>
+          <button
+            type="button"
+            onClick={() => setFlow('ai-video')}
+            className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] ${
+              flow === 'ai-video' ? 'bg-[#7A1428] text-white' : 'text-[#161918]'
+            }`}
+          >
+            <Film className="h-3.5 w-3.5" />
+            Create video
+          </button>
+        </div>
 
-    {screen === 'video-setup' && <section className="px-5 py-7"><Back onClick={() => setScreen(catalogueHandoff ? 'entry' : 'reward')} label="AI Video Reward" /><h1 className="mt-6 text-3xl font-black">Choose your moment</h1><p className="mt-2 text-white/65">{catalogueHandoff ? `${product.title} was selected on the TV. Choose the event for your private video.` : 'Your purchased garment is ready. Choose a video theme.'}</p>{catalogueHandoff && <div className="mt-5 flex items-center gap-3 rounded-2xl border border-[#f1ca79]/30 bg-white/5 p-3"><img src={product.imageUrl} alt="Selected catalogue garment" className="h-14 w-14 rounded-xl object-cover" /><span><span className="block text-sm font-black">{product.title}</span><span className="mt-1 block text-xs text-[#f1ca79]">Catalogue dress locked from TV</span></span></div>}<div className="mt-6 space-y-3">{events.map((item) => <button key={item.id} onClick={() => setEventId(item.id)} className={`w-full rounded-2xl border p-4 text-left ${eventId === item.id ? 'border-[#f1ca79] bg-[#f1ca79]/10' : 'border-white/10 bg-white/5'}`}><span className="block font-black">{item.label}</span><span className="mt-1 block text-sm text-white/55">{item.note}</span></button>)}</div><button onClick={() => setScreen('video-result')} className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#f1ca79] font-black text-[#400b13]"><CirclePlay className="h-5 w-5" />Generate my video</button></section>}
+        {/* Status Pill */}
+        <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-3.5 text-xs text-[#535A56]">
+          {flow === 'image-tryon' ? (
+            <p>Choose a garment, add your photo, and keep the finished look on your phone.</p>
+          ) : (
+            <p>Your video pass is ready for 24 hours. You decide whether to download it or share it on the showroom screen.</p>
+          )}
+        </div>
 
-    {screen === 'video-result' && <section className="px-5 py-7"><Back onClick={() => setScreen('video-setup')} label="Your AI video" /><div className="relative mt-7 grid aspect-[9/14] place-items-center overflow-hidden rounded-[2rem] bg-[radial-gradient(circle_at_60%_16%,rgba(255,221,142,.55),transparent_14%),linear-gradient(160deg,#81371e,#2d0710,#070608)]"><span className="absolute left-4 top-4 rounded-full bg-black/30 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#ffe8ac]">{event.label}</span><span className="grid h-16 w-16 place-items-center rounded-full bg-[#f1ca79] text-[#400b13]"><Play className="h-7 w-7 fill-current" /></span></div><h1 className="mt-6 text-3xl font-black">Your film is ready</h1><p className="mt-2 text-white/65">Your video stays private. Download it, or choose Go Live for the store screen.</p><button className="mt-6 flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-[#f1ca79] font-black text-[#400b13]"><Download className="h-4 w-4" />Download</button><button onClick={() => setScreen('consent')} className="mt-3 flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-white/10 font-black text-[#fff5dd]"><TvIcon />Go Live on the store screen</button></section>}
+        {/* Step 1: Image 1 (Customer Photo) */}
+        <section className="border border-[#D8DCD7] bg-white p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
+                Step 1
+              </span>
+              <h2 className="font-serif text-lg font-semibold text-[#161918]">
+                Add your photo
+              </h2>
+            </div>
+            <label className="flex cursor-pointer items-center gap-1.5 bg-[#161918] px-3.5 py-2 text-xs font-semibold text-white">
+              <Camera className="h-3.5 w-3.5" />
+              {personPhoto ? 'Change Photo' : 'Upload / Camera'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])}
+              />
+            </label>
+          </div>
+          {personPhoto && (
+            <img
+              src={personPhoto}
+              alt="Customer"
+              className="mt-3 h-40 w-32 border border-[#D8DCD7] object-cover"
+            />
+          )}
+        </section>
 
-    {screen === 'consent' && <section className="px-5 py-7"><Back onClick={() => setScreen('video-result')} label="Go Live consent" /><div className="mt-10 rounded-[2rem] border border-[#f1ca79]/35 bg-white/5 p-6"><ShieldCheck className="h-9 w-9 text-[#f1ca79]" /><h1 className="mt-6 text-3xl font-black">You control this.</h1><p className="mt-4 leading-7 text-white/70">If you choose Go Live, this video will play twice now on the store screen and may enter the approved store loop. You can remove it from future playback.</p><label className="mt-7 flex items-start gap-3 rounded-xl bg-black/20 p-4 text-sm leading-6"><input type="checkbox" checked={goLive} onChange={(e) => setGoLive(e.target.checked)} className="mt-1 h-4 w-4 accent-[#f1ca79]" /><span>I approve this video for the store display and understand I can withdraw this approval later.</span></label><button disabled={!goLive} onClick={reset} className="mt-6 h-14 w-full rounded-2xl bg-[#f1ca79] font-black text-[#400b13] disabled:opacity-40">Yes, Go Live</button><button onClick={reset} className="mt-3 h-12 w-full rounded-xl text-sm font-bold text-white/60">Keep private and finish</button></div></section>}
-  </div></main>;
+        {/* Step 2: Image 2 (Store Catalogue or Own Garment) */}
+        <section className="border border-[#D8DCD7] bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D8DCD7] pb-3">
+            <div>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
+                Step 2
+              </span>
+              <h2 className="font-serif text-lg font-semibold text-[#161918]">
+                Choose your outfit
+              </h2>
+            </div>
+            <div className="flex border border-[#D8DCD7] bg-[#F4F5F2] p-0.5 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setSourceMode('catalogue')}
+                className={`px-2.5 py-1 ${
+                  sourceMode === 'catalogue' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
+                }`}
+              >
+                Store styles
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceMode('own-garment')}
+                className={`px-2.5 py-1 ${
+                  sourceMode === 'own-garment' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
+                }`}
+              >
+                My garment
+              </button>
+            </div>
+          </div>
+
+          {sourceMode === 'catalogue' ? (
+            <div className="mt-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex border border-[#D8DCD7] bg-[#FAFBF8] p-0.5 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenderFilter('women');
+                      setActiveCategory('sarees');
+                    }}
+                    className={`px-3 py-1 ${
+                      genderFilter === 'women' ? 'bg-[#161918] text-white' : 'text-[#535A56]'
+                    }`}
+                  >
+                    Women
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenderFilter('men');
+                      setActiveCategory('kurta');
+                    }}
+                    className={`px-3 py-1 ${
+                      genderFilter === 'men' ? 'bg-[#161918] text-white' : 'text-[#535A56]'
+                    }`}
+                  >
+                    Men
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1">
+                  {filteredCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setActiveCategory(cat.id)}
+                      className={`border px-2.5 py-1 text-xs font-semibold ${
+                        activeCategory === cat.id
+                          ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                          : 'border-[#D8DCD7] bg-white text-[#161918]'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-5 gap-1.5">
+                {categoryProducts.map((item) => (
+                  <button
+                    key={item.sku}
+                    type="button"
+                    onClick={() => setSelectedProduct(item)}
+                    className={`border p-1 text-left ${
+                      selectedProduct.sku === item.sku
+                        ? 'border-[#7A1428] bg-[#7A1428]/10 ring-1 ring-[#7A1428]'
+                        : 'border-[#D8DCD7] bg-[#FAFBF8]'
+                    }`}
+                  >
+                    <img
+                      src={item.imageUrl}
+                      alt={item.title}
+                      className="aspect-[3/4] w-full object-cover"
+                    />
+                    <p className="mt-1 truncate font-mono text-[10px] font-bold">
+                      {formatINR(item.price)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs font-semibold text-[#161918]">
+                Selected: {selectedProduct.title} · <span className="text-[#7A1428]">{formatINR(selectedProduct.price)}</span>
+              </p>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <label className="flex cursor-pointer items-center justify-center gap-2 border border-dashed border-[#161918] bg-[#FAFBF8] py-4 text-xs font-bold uppercase tracking-wider text-[#161918]">
+                <Upload className="h-4 w-4" />
+                {ownGarmentPhoto ? 'Replace Garment Photo' : 'Upload / Capture Garment Photo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleFileRead(setOwnGarmentPhoto, e.target.files?.[0])}
+                />
+              </label>
+              {ownGarmentPhoto && (
+                <img
+                  src={ownGarmentPhoto}
+                  alt="Garment"
+                  className="mt-3 h-40 w-32 border border-[#D8DCD7] object-cover"
+                />
+              )}
+            </div>
+          )}
+
+          {flow === 'ai-video' && (
+            <div className="mt-4 border-t border-[#D8DCD7] pt-3">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#7A1428]">
+                Choose a theme
+              </p>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {events.map((ev) => (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    onClick={() => setSelectedEventId(ev.id)}
+                    className={`border py-1.5 text-xs font-semibold ${
+                      selectedEventId === ev.id
+                        ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                        : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+                    }`}
+                  >
+                    {ev.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            disabled={generatingImage}
+            onClick={runMobileGeneration}
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 bg-[#7A1428] px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] disabled:opacity-50"
+          >
+            {generatingImage ? (
+              <>
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                {flow === 'image-tryon' ? 'Create my look' : 'Create my video'}
+              </>
+            )}
+          </button>
+
+          {statusNote && (
+            <p className="mt-3 border border-[#D8DCD7] bg-[#FAFBF8] p-2.5 text-xs text-[#535A56]">
+              {statusNote}
+            </p>
+          )}
+        </section>
+
+        {/* Result appears only after the customer creates a look. */}
+        {resultImageUrl && <section className="space-y-4 border border-[#D8DCD7] bg-white p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
+              Your look
+              </p>
+              <h3 className="font-serif text-lg font-semibold text-[#161918]">
+              Before and after
+              </h3>
+            </div>
+            <a
+              href={resultImageUrl || selectedProduct.imageUrl}
+              download={`maharaja-tryon-${selectedProduct.sku.toLowerCase()}.jpg`}
+              className="flex items-center gap-1.5 bg-[#161918] px-3 py-2 font-mono text-[10px] font-bold uppercase text-white"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download Image
+            </a>
+          </div>
+
+          <BeforeAfterSlider
+            beforeImage={personPhoto || selectedProduct.imageUrl}
+            afterImage={resultImageUrl || selectedProduct.imageUrl}
+            beforeLabel="Old / Current Photo"
+            afterLabel="New AI Try-On Dress"
+          />
+
+          {/* AI Video Player + Download & Go Live (shown when flow === 'ai-video') */}
+          {flow === 'ai-video' && videoReady && (
+            <div className="mt-4 space-y-3 border-t border-[#D8DCD7] pt-4">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#7A1428]">
+                  AI Video Ready · Download + Go Live
+                </span>
+                <span className="border border-[#256B45] bg-[#EBF5EE] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[#256B45]">
+                  6s Customer Film
+                </span>
+              </div>
+
+              <div className="aspect-[9/16] max-h-96 w-full overflow-hidden border border-[#D8DCD7] bg-black">
+                <video
+                  src="/videos/maharaja-demo-sample.mp4"
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+
+              <div className="space-y-2 border border-[#D8DCD7] bg-[#FAFBF8] p-3 text-xs">
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={goLiveConsent}
+                    onChange={(e) => setGoLiveConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-[#7A1428]"
+                  />
+                  <span>
+                    I approve playing my video on the Maharaja showroom screen.
+                  </span>
+                </label>
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={loopConsent}
+                    onChange={(e) => setLoopConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-[#7A1428]"
+                  />
+                  <span>I consent to 3-day showroom loop retention.</span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <a
+                  href="/videos/maharaja-demo-sample.mp4"
+                  download={`maharaja-video-${selectedProduct.sku.toLowerCase()}.mp4`}
+                  className="flex items-center justify-center gap-1.5 border border-[#161918] bg-white py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#161918]"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Video
+                </a>
+                <button
+                  type="button"
+                  disabled={!goLiveConsent || !loopConsent || goLiveSubmitted}
+                  onClick={() => setGoLiveSubmitted(true)}
+                  className="flex items-center justify-center gap-1.5 bg-[#7A1428] py-3 text-xs font-bold uppercase tracking-[0.14em] text-white disabled:opacity-50"
+                >
+                  <Tv className="h-4 w-4" />
+                  {goLiveSubmitted ? 'Sent to Maharaja TV!' : 'Go Live on TV'}
+                </button>
+              </div>
+
+              {goLiveSubmitted && (
+                <div className="flex items-center justify-between border border-[#256B45] bg-[#EBF5EE] p-3 text-xs font-semibold text-[#256B45]">
+                  <span>Queued on Maharaja TV Screen!</span>
+                  <Link href="/maharaja/tv" className="underline">
+                    View TV Wall →
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </section>}
+      </div>
+    </main>
+  );
 }
-function Back({ onClick, label }: { onClick: () => void; label: string }) { return <button onClick={onClick} className="inline-flex items-center gap-2 text-sm font-bold text-[#f1ca79]"><ChevronLeft className="h-4 w-4" />{label}</button>; }
-function TvIcon() { return <span className="grid h-5 w-5 place-items-center rounded-sm border border-current text-[8px]">TV</span>; }

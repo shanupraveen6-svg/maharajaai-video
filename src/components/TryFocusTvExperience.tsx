@@ -1,187 +1,1696 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import QRCodeLib from 'qrcode';
+import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import {
-  ArrowLeft, ArrowRight, Check, ChevronRight, CirclePlay, Clock3, Download,
-  Gem, Heart, ImageIcon, Layers3, Play, QrCode, ScanFace, Shirt,
-  Sparkles, Stars, WandSparkles,
+  ArrowLeft,
+  Camera,
+  Check,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  Home,
+  LoaderCircle,
+  QrCode,
+  RefreshCw,
+  RotateCcw,
+  Shirt,
+  Sparkles,
+  Upload,
+  User,
+  Video,
+  X,
 } from 'lucide-react';
-import { catalogueCategories, events, formatINR, sampleCatalogue, type TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
+import {
+  catalogueCategories,
+  events,
+  formatINR,
+  sampleCatalogue,
+  type CatalogueCategoryId,
+  type TryFocusProduct,
+} from '@/lib/tryfocus/sample-data';
 
-type Screen = 'home' | 'image' | 'live' | 'video' | 'discover' | 'result';
-type ImageStep = 'source' | 'category' | 'product' | 'capture';
-
-const menu = [
-  { id: 'image', title: 'AI Image\nTry-On', eyebrow: 'Free on this screen', icon: Shirt, tone: 'from-rose-900 via-[#4b0816] to-[#16050b]' },
-  { id: 'live', title: 'Live AI\nTry-On', eyebrow: '30-second experience', icon: ScanFace, tone: 'from-[#2a174f] via-[#100d2c] to-[#07141f]' },
-  { id: 'video', title: 'AI Video\nReward', eyebrow: 'Code or catalogue', icon: CirclePlay, tone: 'from-[#5c3012] via-[#211007] to-[#100705]' },
-  { id: 'discover', title: 'Discover\nYour Look', eyebrow: 'Your AI stylist', icon: WandSparkles, tone: 'from-[#143b38] via-[#081b1d] to-[#061112]' },
-] as const;
+type TvMode = 'home' | 'image-tryon' | 'live-tryon' | 'catalogue-video';
+type ImageTryOnSource = 'catalogue' | 'own-garment';
+type CatalogueTryOnStage = 'browse' | 'camera' | 'generating' | 'result';
+type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
 
 export default function TryFocusTvExperience() {
-  const [screen, setScreen] = useState<Screen>('home');
-  const [imageStep, setImageStep] = useState<ImageStep>('source');
-  const [source, setSource] = useState<'catalogue' | 'own'>('catalogue');
-  const [audience, setAudience] = useState<'Women' | 'Men'>('Women');
-  const [selectedCategory, setSelectedCategory] = useState<string>('sarees');
-  const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct | null>(null);
-  const [resultTitle, setResultTitle] = useState('Your look is ready');
-  const [resultKind, setResultKind] = useState<'image' | 'video' | 'live'>('image');
-  const [liveSeconds, setLiveSeconds] = useState(30);
-  const [liveRunning, setLiveRunning] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(events[0].id);
-  const [occasion, setOccasion] = useState('Wedding');
+  const [mode, setMode] = useState<TvMode>('home');
 
-  const visibleCategories = catalogueCategories.filter((category) => category.audience === audience);
-  const visibleProducts = sampleCatalogue.filter((product) => product.category === selectedCategory);
-  const videoProducts = sampleCatalogue.filter((product) => product.eligibleForVideo).slice(0, 6);
+  // Catalogue filtering
+  const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
+  const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
+  const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
 
-  useEffect(() => {
-    if (!liveRunning) return;
-    if (liveSeconds <= 0) {
-      setLiveRunning(false);
-      setResultTitle('Your Live Try-On is complete');
-      setResultKind('live');
-      setScreen('result');
+  // AI Image Try-On state
+  const [imageSource, setImageSource] = useState<ImageTryOnSource>('catalogue');
+  const [tryOnStage, setTryOnStage] = useState<CatalogueTryOnStage>('browse');
+
+  // Photos (Image 1 = Customer identity, Image 2 = Garment reference)
+  const [customerPhoto, setCustomerPhoto] = useState<string>('');
+  const [ownGarmentPhoto, setOwnGarmentPhoto] = useState<string>('');
+  const [tryOnResultUrl, setTryOnResultUrl] = useState<string>('');
+  const [tryOnError, setTryOnError] = useState<string>('');
+  const [tryOnStatusNote, setTryOnStatusNote] = useState<string>('');
+  const [tryOnMobileQr, setTryOnMobileQr] = useState<string>('');
+  const [tryOnMobileUrl, setTryOnMobileUrl] = useState<string>('');
+
+  // Camera capture modal / full-screen stage
+  const [cameraOpen, setCameraOpen] = useState<boolean>(false);
+  const [cameraTarget, setCameraTarget] = useState<CameraTarget>('catalogue-person');
+  const [cameraError, setCameraError] = useState<string>('');
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // AI Catalogue Video state
+  const [selectedEventId, setSelectedEventId] = useState<string>(events[0].id);
+  const [videoPersonPhoto, setVideoPersonPhoto] = useState<string>('');
+  const [videoMasterUrl, setVideoMasterUrl] = useState<string>('');
+  const [videoGeneratingMaster, setVideoGeneratingMaster] = useState<boolean>(false);
+  const [videoPassCreating, setVideoPassCreating] = useState<boolean>(false);
+  const [videoPassUrl, setVideoPassUrl] = useState<string>('');
+  const [videoPassQr, setVideoPassQr] = useState<string>('');
+  const [videoPassCode, setVideoPassCode] = useState<string>('');
+  const [videoStatusNote, setVideoStatusNote] = useState<string>('');
+
+  const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
+  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory);
+
+  // Stop camera helper
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCountdown(null);
+  }
+
+  useEffect(() => () => stopCamera(), []);
+
+  async function openCameraFor(target: CameraTarget) {
+    setCameraTarget(target);
+    setCameraError('');
+    setCameraOpen(true);
+    stopCamera();
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Webcam requires HTTPS or localhost. You can also use the Upload Photo button below.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => undefined);
+      }
+    } catch (err: unknown) {
+      setCameraError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to access PC/TV camera. Use the Upload Photo option below.'
+      );
+    }
+  }
+
+  function triggerCountdownCapture() {
+    if (!videoRef.current || !streamRef.current) {
+      setCameraError('Camera stream is not active. Please upload a photo or retry camera.');
       return;
     }
-    const timer = window.setTimeout(() => setLiveSeconds((value) => value - 1), 1000);
-    return () => window.clearTimeout(timer);
-  }, [liveRunning, liveSeconds]);
+    setCountdown(3);
+    let current = 3;
+    const interval = window.setInterval(() => {
+      current -= 1;
+      if (current <= 0) {
+        window.clearInterval(interval);
+        setCountdown(null);
+        captureFrameNow();
+      } else {
+        setCountdown(current);
+      }
+    }, 900);
+  }
 
-  const selectedEventLabel = useMemo(() => events.find((event) => event.id === selectedEvent)?.label || 'Royal Diwali', [selectedEvent]);
+  function captureFrameNow() {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 720;
+    canvas.height = video.videoHeight || 960;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    stopCamera();
+    setCameraOpen(false);
+    applyCapturedPhoto(cameraTarget, dataUrl);
+  }
 
-  function startMenu(next: Screen) {
-    setScreen(next);
-    if (next === 'image') {
-      setImageStep('source');
-      setSelectedProduct(null);
+  function handleFileUpload(target: CameraTarget, file?: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+      if (!dataUrl) return;
+      stopCamera();
+      setCameraOpen(false);
+      applyCapturedPhoto(target, dataUrl);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function applyCapturedPhoto(target: CameraTarget, dataUrl: string) {
+    if (target === 'catalogue-person') {
+      setCustomerPhoto(dataUrl);
+      void runTryOnGeneration(dataUrl, selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl, selectedProduct);
+    } else if (target === 'own-person') {
+      setCustomerPhoto(dataUrl);
+    } else if (target === 'own-garment') {
+      setOwnGarmentPhoto(dataUrl);
+    } else if (target === 'video-person') {
+      setVideoPersonPhoto(dataUrl);
     }
-    if (next === 'live') {
-      setLiveSeconds(30);
-      setLiveRunning(false);
+  }
+
+  // Generate QR for mobile download of try-on result
+  useEffect(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
+    const url = `${origin}/maharaja/try-on?sku=${encodeURIComponent(selectedProduct.sku)}&source=tv`;
+    setTryOnMobileUrl(url);
+    QRCode.toDataURL(url, {
+      width: 240,
+      margin: 1,
+      color: { dark: '#161918', light: '#FAFBF8' },
+    })
+      .then(setTryOnMobileQr)
+      .catch(() => setTryOnMobileQr(''));
+  }, [selectedProduct]);
+
+  // Create or refresh 1-day Catalogue Video QR Pass when product or event changes in catalogue-video mode
+  useEffect(() => {
+    if (mode !== 'catalogue-video') return;
+    void createCatalogueVideoPass(selectedProduct, selectedEventId, videoMasterUrl);
+  }, [mode, selectedProduct, selectedEventId]);
+
+  async function createCatalogueVideoPass(
+    product: TryFocusProduct,
+    eventId: string,
+    masterUrl = ''
+  ) {
+    setVideoPassCreating(true);
+    setVideoStatusNote('');
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
+    try {
+      const res = await fetch('/api/maharaja/video-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'tv-kiosk',
+          experienceType: 'catalogue-gift',
+          catalogueSku: product.sku,
+          eventId,
+          videoMasterUrl: masterUrl || undefined,
+          videoMasterApproved: Boolean(masterUrl),
+          videoMasterCategory: product.gender,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const passLink =
+        data?.pass?.link ||
+        `${origin}/maharaja/catalogue/demo-pass?sku=${encodeURIComponent(product.sku)}&event=${encodeURIComponent(eventId)}`;
+      setVideoPassUrl(passLink);
+      setVideoPassCode(data?.pass?.code || 'TV-CATALOGUE-PASS');
+      const qr = await QRCode.toDataURL(passLink, {
+        width: 280,
+        margin: 1,
+        color: { dark: '#161918', light: '#FAFBF8' },
+      });
+      setVideoPassQr(qr);
+    } catch {
+      const fallbackUrl = `${origin}/maharaja/try-on?mode=catalogue-video&sku=${encodeURIComponent(product.sku)}&event=${encodeURIComponent(eventId)}`;
+      setVideoPassUrl(fallbackUrl);
+      const qr = await QRCode.toDataURL(fallbackUrl, {
+        width: 280,
+        margin: 1,
+        color: { dark: '#161918', light: '#FAFBF8' },
+      }).catch(() => '');
+      setVideoPassQr(qr);
+    } finally {
+      setVideoPassCreating(false);
     }
   }
 
-  function showImageResult(product?: TryFocusProduct | null) {
-    setSelectedProduct(product || selectedProduct);
-    setResultKind('image');
-    setResultTitle(product ? `${product.title} looks beautiful on you` : 'Your own garment look is ready');
-    setScreen('result');
+  async function runTryOnGeneration(
+    personImg: string,
+    garmentImg: string,
+    product?: TryFocusProduct
+  ) {
+    if (!personImg || !garmentImg) {
+      setTryOnError('Both Image 1 (Customer Photo) and Image 2 (Garment Photo) are required.');
+      return;
+    }
+    setTryOnError('');
+    setTryOnStatusNote('');
+    setTryOnStage('generating');
+
+    const sessionId = `tv_tryon_${Date.now()}`;
+    const targetProduct = product || selectedProduct;
+
+    try {
+      const res = await fetch('/api/ai/master-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          service: 'try-on',
+          templateId: targetProduct.gender,
+          garmentType: targetProduct.garmentType,
+          garmentTypeConfirmed: true,
+          processingConsent: true,
+          consentVersion: '2026-10-privacy-v2',
+          // Strict reference order: Image 1 = Customer Identity, Image 2 = Garment Reference
+          personPhoto: personImg,
+          garmentPhotos: [garmentImg],
+          garmentRoles: ['Primary Garment Reference'],
+          garmentAnalysis: `${targetProduct.title} (${targetProduct.fabricNote})`,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.masterImageUrl) {
+        setTryOnResultUrl(data.masterImageUrl);
+        setTryOnStatusNote('AI Virtual Try-On rendered with customer identity lock (Image 1 = Person, Image 2 = Garment).');
+        setTryOnStage('result');
+        return;
+      }
+      // Graceful studio preview fallback if external AI provider quota/key is inactive during demo
+      setTryOnResultUrl(targetProduct.imageUrl);
+      setTryOnStatusNote(
+        data?.error
+          ? `Showing catalogue drape preview (${data.error})`
+          : 'Showing Smart Mirror studio drape preview.'
+      );
+      setTryOnStage('result');
+    } catch {
+      setTryOnResultUrl(targetProduct.imageUrl);
+      setTryOnStatusNote('Showing Smart Mirror studio drape preview.');
+      setTryOnStage('result');
+    }
   }
 
-  function showVideoHandoff(product?: TryFocusProduct | null) {
-    setSelectedProduct(product || selectedProduct);
-    setResultKind('video');
-    setResultTitle(`${selectedEventLabel} catalogue video is ready to create`);
-    setScreen('result');
+  async function generateCatalogueVideoMasterOnTv() {
+    if (!videoPersonPhoto) return;
+    setVideoGeneratingMaster(true);
+    setVideoStatusNote('');
+    const sessionId = `tv_vidmaster_${Date.now()}`;
+    const conceptId = selectedProduct.gender === 'men' ? 'men_festive_1' : 'women_saree_1';
+
+    try {
+      const res = await fetch('/api/ai/master-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          service: 'ai-video',
+          eventId: selectedEventId,
+          templateId: selectedProduct.gender,
+          conceptId,
+          garmentType: selectedProduct.garmentType,
+          garmentTypeConfirmed: true,
+          processingConsent: true,
+          consentVersion: '2026-10-privacy-v2',
+          personPhoto: videoPersonPhoto,
+          garmentPhotos: [selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl],
+          garmentRoles: ['Catalogue Silk Garment'],
+          garmentAnalysis: `${selectedProduct.title} (${selectedProduct.fabricNote})`,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const generatedUrl = data?.masterImageUrl || selectedProduct.imageUrl;
+      setVideoMasterUrl(generatedUrl);
+      setVideoStatusNote(
+        res.ok && data?.masterImageUrl
+          ? 'Festival master image generated! Scan the QR below on mobile to render your AI video and Download or Go Live.'
+          : 'Catalogue dress locked to mobile pass! Scan the QR below on mobile to complete your AI video.'
+      );
+      await createCatalogueVideoPass(selectedProduct, selectedEventId, generatedUrl);
+    } catch {
+      setVideoMasterUrl(selectedProduct.imageUrl);
+      await createCatalogueVideoPass(selectedProduct, selectedEventId, selectedProduct.imageUrl);
+    } finally {
+      setVideoGeneratingMaster(false);
+    }
   }
 
-  function resetToHome() {
-    setLiveRunning(false);
-    setLiveSeconds(30);
-    setScreen('home');
+  function resetAllSession() {
+    stopCamera();
+    setCameraOpen(false);
+    setCustomerPhoto('');
+    setOwnGarmentPhoto('');
+    setTryOnResultUrl('');
+    setTryOnError('');
+    setTryOnStatusNote('');
+    setTryOnStage('browse');
+    setVideoPersonPhoto('');
+    setVideoMasterUrl('');
+    setMode('home');
+  }
+
+  function startCatalogueTryOnFor(item: TryFocusProduct) {
+    setSelectedProduct(item);
+    setImageSource('catalogue');
+    setMode('image-tryon');
+    if (customerPhoto) {
+      void runTryOnGeneration(customerPhoto, item.garmentReferenceUrl || item.imageUrl, item);
+    } else {
+      setTryOnStage('camera');
+      void openCameraFor('catalogue-person');
+    }
   }
 
   return (
-    <main className="min-h-[100svh] overflow-hidden bg-[#070608] text-[#fff8ea] selection:bg-[#e6b358] selection:text-black">
-      <div className="relative mx-auto min-h-[100svh] max-w-[1280px] overflow-hidden border-x border-white/10 bg-[#0c080b] shadow-[0_0_120px_rgba(229,179,88,0.1)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_0%,rgba(142,29,64,0.42),transparent_34%),radial-gradient(circle_at_15%_85%,rgba(215,157,67,0.18),transparent_30%)]" />
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-[#e6b358] to-transparent" />
-
-        <header className="relative z-10 flex h-24 items-center justify-between border-b border-white/10 bg-black/20 px-8 backdrop-blur-xl md:px-12">
-          <button onClick={resetToHome} className="flex items-center gap-3 text-left" aria-label="Return to TryFocus home">
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-[#f3cf7a] to-[#aa6b17] text-[#28060d] shadow-[0_0_30px_rgba(236,187,95,0.32)]"><Sparkles className="h-6 w-6" /></span>
-            <span><span className="block text-2xl font-black tracking-tight">TryFocus</span><span className="block text-[10px] font-bold uppercase tracking-[0.26em] text-[#e8bd68]">Maharaja Silk Experience</span></span>
-          </button>
-          <div className="flex items-center gap-3"><span className="hidden rounded-full border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-xs font-bold text-emerald-200 sm:block">All experiences ready</span><span className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/5"><Heart className="h-5 w-5 text-[#e8bd68]" /></span></div>
-        </header>
-
-        {screen === 'home' && <section className="relative z-10 flex min-h-[calc(100svh-6rem)] flex-col px-8 py-12 md:px-12 md:py-16">
-          <div className="max-w-3xl"><p className="text-sm font-black uppercase tracking-[0.28em] text-[#e9bd68]">Welcome to Maharaja</p><h1 className="mt-4 text-5xl font-black leading-[0.96] tracking-[-0.05em] sm:text-6xl lg:text-7xl">See yourself<br /><span className="text-[#e9bd68]">in the celebration.</span></h1><p className="mt-6 max-w-2xl text-lg leading-8 text-white/70">Choose an experience below. Every look is private, and your result can move directly to your phone.</p></div>
-          <div className="mt-auto grid gap-4 pt-14 sm:grid-cols-2 xl:grid-cols-4">
-            {menu.map((item, index) => {
-              const Icon = item.icon;
-              return <button key={item.id} onClick={() => startMenu(item.id as Screen)} className={`group min-h-64 overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br ${item.tone} p-7 text-left shadow-2xl transition duration-300 hover:-translate-y-2 hover:border-[#e6b358]/70 hover:shadow-[0_24px_70px_rgba(0,0,0,0.42)]`}>
-                <div className="flex items-start justify-between"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/10 text-[#f3cf7a] backdrop-blur"><Icon className="h-7 w-7" /></span><span className="text-sm font-black text-white/40">0{index + 1}</span></div>
-                <p className="mt-10 whitespace-pre-line text-3xl font-black leading-[0.94] tracking-tight">{item.title}</p><div className="mt-5 flex items-center justify-between border-t border-white/15 pt-4 text-xs font-bold uppercase tracking-[0.15em] text-white/70"><span>{item.eyebrow}</span><ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" /></div>
-              </button>;
-            })}
+    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+      {/* Top Smart Mirror Kiosk Navigation Header */}
+      <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMode('home')}
+              className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]"
+            >
+              TF
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[#7A1428]">
+                  SMART MIRROR · AI KIOSK
+                </p>
+                <span className="border border-[#D8DCD7] bg-white px-2 py-0.5 font-mono text-[10px] text-[#535A56]">
+                  PC / TV TOUCHSCREEN
+                </span>
+              </div>
+              <h1 className="font-serif text-lg font-semibold tracking-tight text-[#161918]">
+                TryFocus × The Majestic Maharaja
+              </h1>
+            </div>
           </div>
-        </section>}
 
-        {screen === 'image' && <section className="relative z-10 mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-6xl flex-col px-8 py-10 md:px-12">
-          <TvHeading eyebrow="Free TV experience" title="AI Image Try-On" onBack={resetToHome} />
-          {imageStep === 'source' && <div className="grid flex-1 content-center gap-5 lg:grid-cols-[0.9fr_1.1fr]"><div className="rounded-[2rem] border border-[#e6b358]/30 bg-[#e6b358]/10 p-7"><p className="text-sm font-black uppercase tracking-[0.2em] text-[#e6b358]">Step 1 of 4</p><h2 className="mt-4 text-4xl font-black leading-tight">Who are we styling today?</h2><div className="mt-8 grid grid-cols-2 gap-3">{(['Women', 'Men'] as const).map((item) => <button key={item} onClick={() => setAudience(item)} className={`rounded-2xl border p-5 text-left text-xl font-black transition ${audience === item ? 'border-[#e6b358] bg-[#e6b358] text-[#2a0910]' : 'border-white/15 bg-white/5 text-white/80 hover:bg-white/10'}`}>{item}</button>)}</div></div><div className="grid gap-5 sm:grid-cols-2"><ChoiceCard title="Store catalogue" copy="Browse Maharaja's curated styles." icon={<Layers3 className="h-9 w-9" />} onClick={() => { setSource('catalogue'); setImageStep('category'); }} /><ChoiceCard title="Your own garment" copy="Show us a garment from the store." icon={<ScanFace className="h-9 w-9" />} onClick={() => { setSource('own'); setImageStep('capture'); }} /></div></div>}
-          {imageStep === 'category' && <div className="flex flex-1 flex-col"><div className="grid grid-cols-2 gap-4 pt-10 sm:grid-cols-3">{visibleCategories.map((category) => <button key={category.id} onClick={() => { setSelectedCategory(category.id); setImageStep('product'); }} className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 text-left transition hover:-translate-y-1 hover:border-[#e6b358]/70 hover:bg-[#e6b358]/10"><Gem className="h-7 w-7 text-[#e6b358]" /><p className="mt-10 text-2xl font-black">{category.label}</p><p className="mt-2 text-sm leading-5 text-white/60">{category.description}</p></button>)}</div><button onClick={() => setImageStep('source')} className="mt-auto inline-flex w-fit items-center gap-2 pt-10 text-sm font-bold text-[#e6b358]"><ArrowLeft className="h-4 w-4" />Change source</button></div>}
-          {imageStep === 'product' && <div className="flex flex-1 flex-col"><p className="mt-5 text-sm text-white/60">Choose a garment from the sample Maharaja catalogue.</p><div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">{visibleProducts.slice(0, 6).map((product) => <ProductCard key={product.id} product={product} onClick={() => { setSelectedProduct(product); setImageStep('capture'); }} />)}</div><button onClick={() => setImageStep('category')} className="mt-auto inline-flex w-fit items-center gap-2 pt-8 text-sm font-bold text-[#e6b358]"><ArrowLeft className="h-4 w-4" />Back to categories</button></div>}
-          {imageStep === 'capture' && <CapturePanel label={source === 'catalogue' ? `Ready to try ${selectedProduct?.title || 'your selected look'}` : 'Show your garment to the camera'} buttonLabel="Generate my look" onComplete={() => showImageResult()} />}
-        </section>}
+          {/* Kiosk Mode Tabs (matching reference screenshots top bar) */}
+          <nav className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('home');
+                setTryOnStage('browse');
+              }}
+              className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
+                mode === 'home'
+                  ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
+                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
+              }`}
+            >
+              <Home className="h-3.5 w-3.5" />
+              Home
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('image-tryon');
+                setTryOnStage('browse');
+              }}
+              className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
+                mode === 'image-tryon'
+                  ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Image Try-On
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('live-tryon')}
+              className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
+                mode === 'live-tryon'
+                  ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
+              }`}
+            >
+              <Camera className="h-3.5 w-3.5" />
+              30s Live AI Mirror
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('catalogue-video')}
+              className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
+                mode === 'catalogue-video'
+                  ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
+              }`}
+            >
+              <Video className="h-3.5 w-3.5" />
+              AI Catalogue Video
+            </button>
+            <button
+              type="button"
+              onClick={resetAllSession}
+              className="flex items-center gap-1.5 border border-[#D8DCD7] bg-white px-3.5 py-2 text-xs font-semibold text-[#535A56] transition hover:border-[#B42318] hover:text-[#B42318]"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              End Session
+            </button>
+          </nav>
+        </div>
+      </header>
 
-        {screen === 'live' && <section className="relative z-10 mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-6xl flex-col px-8 py-10 md:px-12"><TvHeading eyebrow="TV only · Lucy 2.1 · 30 seconds" title="Live AI Try-On" onBack={resetToHome} /><LucyLiveMirror referenceImageUrl={selectedProduct?.imageUrl || sampleCatalogue[0].imageUrl} garmentName={selectedProduct?.title || 'Selected Maharaja look'} onComplete={() => { setResultTitle('Your Live Try-On is complete'); setResultKind('live'); setScreen('result'); }} /></section>}
+      <div className="mx-auto max-w-7xl px-5 py-6 sm:px-8">
+        {/* =========================================================
+            MODE 0: SMART MIRROR HOME (Storefront Banner + Quick Entry)
+           ========================================================= */}
+        {mode === 'home' && (
+          <div className="space-y-6">
+            {/* Smart Mirror Hero Banner (inspired by Mugdhaa / Ramraj Smart Mirror screenshots) */}
+            <section className="grid gap-6 border border-[#D8DCD7] bg-[#FAFBF8] p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
+              <div className="flex flex-col justify-between">
+                <div>
+                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
+                    The Majestic Maharaja · Smart Mirror Experience
+                  </p>
+                  <h2 className="mt-2 font-serif text-3xl font-semibold tracking-tight text-[#161918] sm:text-5xl">
+                    What would you like to try today?
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#535A56] sm:text-base">
+                    Explore Maharaja styles, see them on yourself, and save your favourite look privately to your phone.
+                  </p>
+                </div>
 
-        {screen === 'video' && <section className="relative z-10 mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-6xl flex-col px-8 py-10 md:px-12"><TvHeading eyebrow="Catalogue only · mobile continuation" title="AI Catalogue Video" onBack={resetToHome} /><div className="flex flex-1 flex-col justify-center"><div className="max-w-2xl rounded-[2rem] border border-[#e6b358]/30 bg-[#e6b358]/10 p-6"><p className="text-sm font-black uppercase tracking-[0.18em] text-[#e6b358]">How it works</p><p className="mt-3 text-lg leading-8 text-white/70">Choose a catalogue garment here. The customer scans the QR and completes the event image and AI video privately on their phone. Download or Go Live is decided on mobile.</p></div><p className="mt-8 text-sm font-black uppercase tracking-[0.18em] text-[#e6b358]">Select an eligible catalogue look</p><div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">{videoProducts.map((product) => <ProductCard key={product.id} product={product} onClick={() => { setSelectedProduct(product); showVideoHandoff(product); }} compact />)}</div></div></section>}
+                {/* Primary Quick CTA Pill Buttons (Catalogue vs Upload My Saree/Garment) */}
+                <div className="hidden mt-6 flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageSource('catalogue');
+                      setTryOnStage('browse');
+                      setMode('image-tryon');
+                    }}
+                    className="flex items-center gap-2 bg-[#7A1428] px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#FAF6EE] transition hover:bg-[#610F20]"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Browse styles
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageSource('own-garment');
+                      setTryOnStage('browse');
+                      setMode('image-tryon');
+                    }}
+                    className="flex items-center gap-2 border border-[#161918] bg-white px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#161918] transition hover:bg-[#161918] hover:text-[#FAF6EE]"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Try my garment
+                  </button>
+                </div>
+              </div>
 
-        {screen === 'discover' && <section className="relative z-10 mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-6xl flex-col px-8 py-10 md:px-12"><TvHeading eyebrow="Maharaja AI stylist" title="Discover Your Look" onBack={resetToHome} /><div className="grid flex-1 items-center gap-8 lg:grid-cols-[0.78fr_1.22fr]"><div className="rounded-[2rem] border border-white/10 bg-black/30 p-7"><p className="text-sm font-black uppercase tracking-[0.18em] text-[#e6b358]">What are you shopping for?</p><div className="mt-5 grid grid-cols-2 gap-3">{['Wedding', 'Diwali', 'Reception', 'Gift'].map((item) => <button key={item} onClick={() => setOccasion(item)} className={`rounded-2xl border p-4 text-left font-bold ${occasion === item ? 'border-[#e6b358] bg-[#e6b358] text-[#2b0910]' : 'border-white/15 bg-white/5 text-white/70'}`}>{item}</button>)}</div><p className="mt-8 text-sm font-black uppercase tracking-[0.18em] text-[#e6b358]">Style direction</p><div className="mt-4 flex flex-wrap gap-2">{['Classic', 'Royal', 'Something new'].map((item) => <span key={item} className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-white/75">{item}</span>)}</div></div><div><p className="text-lg text-white/60">Three recommendations for your {occasion.toLowerCase()} moment.</p><div className="mt-5 grid gap-4 sm:grid-cols-3">{sampleCatalogue.filter((item) => item.audience === audience).slice(0, 3).map((product, index) => <button key={product.id} onClick={() => { setSelectedProduct(product); setScreen('image'); setSource('catalogue'); setSelectedCategory(product.category); setImageStep('capture'); }} className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.06] text-left transition hover:-translate-y-1 hover:border-[#e6b358]"><div className={`relative h-44 bg-gradient-to-br ${product.accent}`}><img src={product.imageUrl} alt="" className="h-full w-full object-cover opacity-80" /><span className="absolute left-3 top-3 rounded-full bg-black/50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#f4d28a]">{index === 0 ? 'Safe choice' : index === 1 ? 'Stylist pick' : 'Something new'}</span></div><div className="p-4"><p className="font-black">{product.title}</p><p className="mt-1 text-sm text-[#e6b358]">{formatINR(product.price)}</p></div></button>)}</div></div></div></section>}
+              {/* Right Preview Collage Card */}
+              <div className="grid grid-cols-3 gap-2.5 border border-[#D8DCD7] bg-white p-3">
+                {sampleCatalogue.slice(0, 3).map((item) => (
+                  <button
+                    key={item.sku}
+                    type="button"
+                    onClick={() => startCatalogueTryOnFor(item)}
+                    className="group relative overflow-hidden border border-[#D8DCD7] text-left"
+                  >
+                    <img
+                      src={item.imageUrl}
+                      alt={item.title}
+                      className="aspect-[3/4] w-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 text-white">
+                      <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[#F3E5AB]">
+                        {formatINR(item.price)}
+                      </p>
+                      <p className="truncate text-xs font-semibold">{item.title}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
 
-        {screen === 'result' && <section className="relative z-10 mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-6xl flex-col px-8 py-10 md:px-12"><TvHeading eyebrow={resultKind === 'video' ? 'Catalogue video · mobile continuation' : 'Your TryFocus result'} title={resultTitle} onBack={resetToHome} /><div className="grid flex-1 items-center gap-9 lg:grid-cols-[1.15fr_0.85fr]"><div className={`relative aspect-[4/3] overflow-hidden rounded-[2.5rem] border border-[#e6b358]/30 bg-gradient-to-br ${selectedProduct?.accent || 'from-[#5d1a2a] via-[#230610] to-[#0a080b]'}`}><img src={selectedProduct?.imageUrl || '/images/hero-tryon.jpg'} alt="Your generated TryFocus look" className="h-full w-full object-cover opacity-80" /><div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" /><div className="absolute bottom-7 left-7 right-7 flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#e6b358]">Maharaja · TryFocus</p><p className="mt-2 text-2xl font-black">{selectedProduct?.title || 'Your selected look'}</p></div><Sparkles className="h-8 w-8 text-[#f2cd79]" /></div></div><div className="rounded-[2.5rem] border border-white/10 bg-black/30 p-8"><QrCode className="h-16 w-16 text-[#f1cb73]" /><h2 className="mt-6 text-3xl font-black">Scan to continue on your phone</h2><p className="mt-4 text-base leading-7 text-white/65">{resultKind === 'video' ? 'Your selected catalogue dress is reserved for this phone journey. Choose the event, generate privately, then download or explicitly Go Live.' : 'Your look is ready to save, download or keep exploring privately.'}</p><HandoffQr kind={resultKind} product={selectedProduct} /><button onClick={resetToHome} className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border border-[#e6b358]/50 text-sm font-black text-[#f1cb73] transition hover:bg-[#e6b358] hover:text-[#2b0910]">Finish experience <Check className="h-5 w-5" /></button></div></div></section>}
+            {/* 3 Core TV Kiosk Modules */}
+            <section className="grid gap-4 md:grid-cols-3">
+              <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+                <div>
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                    01 · AI Image Try-On
+                  </span>
+                  <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
+                    Catalogue or Own Garment
+                  </h3>
+                  <p className="mt-2 text-sm text-[#535A56]">Choose a Maharaja look or bring your own garment to the mirror.</p>
+                </div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageSource('catalogue');
+                      setTryOnStage('browse');
+                      setMode('image-tryon');
+                    }}
+                    className="bg-[#7A1428] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#FAF6EE]"
+                  >
+                    Browse styles
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageSource('own-garment');
+                      setTryOnStage('browse');
+                      setMode('image-tryon');
+                    }}
+                    className="border border-[#161918] bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#161918]"
+                  >
+                    My garment
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+                <div>
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                    02 · 30s Live AI Try-On
+                  </span>
+                  <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
+                    Real-Time Smart Mirror
+                  </h3>
+                  <p className="mt-2 text-sm text-[#535A56]">See a selected look move with you. Each session lasts 30 seconds.</p>
+                </div>
+                <div className="mt-5">
+                  <button
+                    type="button"
+                    onClick={() => setMode('live-tryon')}
+                    className="bg-[#161918] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#FAF6EE]"
+                  >
+                    Start live mirror
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+                <div>
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                    03 · AI Catalogue Video
+                  </span>
+                  <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
+                    Luxury Silk Video Handoff
+                  </h3>
+                  <p className="mt-2 text-sm text-[#535A56]">Choose a featured look here, then create your private fashion video on your phone.</p>
+                </div>
+                <div className="mt-5">
+                  <button
+                    type="button"
+                    onClick={() => setMode('catalogue-video')}
+                    className="bg-[#7A1428] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#FAF6EE]"
+                  >
+                    Create a video
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* Shop by Category Grid (Women & Men — 6 Categories × 5 Models = 30 Items) */}
+            <section className="hidden border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
+                <div>
+                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                    Shop by Category · 30 Curated Models
+                  </p>
+                  <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                    Select a Category to Try On Instantly
+                  </h3>
+                </div>
+                <Link
+                  href="/maharaja/tv"
+                  className="flex items-center gap-1.5 border border-[#D8DCD7] bg-white px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
+                >
+                  Open Showroom Wall Loop (/maharaja/tv)
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+                {catalogueCategories.map((cat) => {
+                  const previewItem = sampleCatalogue.find((item) => item.category === cat.id)!;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setGenderFilter(cat.gender);
+                        setActiveCategory(cat.id);
+                        setImageSource('catalogue');
+                        setTryOnStage('browse');
+                        setMode('image-tryon');
+                      }}
+                      className="group overflow-hidden border border-[#D8DCD7] bg-white text-left transition hover:border-[#7A1428]"
+                    >
+                      <div className="aspect-[3/4] overflow-hidden bg-[#ECEEE9]">
+                        <img
+                          src={previewItem.imageUrl}
+                          alt={cat.label}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                      <div className="p-3">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#7A1428]">
+                          {cat.gender} · 5 Models
+                        </span>
+                        <p className="mt-0.5 font-serif text-base font-semibold text-[#161918]">
+                          {cat.label}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[#535A56]">{cat.subtitle}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* =========================================================
+            MODE 1: AI IMAGE TRY-ON (Catalogue Grid + Camera + Result Slider + Own Garment)
+           ========================================================= */}
+        {mode === 'image-tryon' && (
+          <div className="space-y-6">
+            {/* Top Sub-bar: Switch between Store Catalogue (30 items) & Upload/Capture Own Garment */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageSource('catalogue');
+                    setTryOnStage('browse');
+                  }}
+                  className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] transition ${
+                    imageSource === 'catalogue'
+                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                      : 'border-[#D8DCD7] bg-white text-[#161918]'
+                  }`}
+                >
+                  <Shirt className="h-4 w-4" />
+                  Store styles
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageSource('own-garment');
+                    setTryOnStage('browse');
+                  }}
+                  className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] transition ${
+                    imageSource === 'own-garment'
+                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                      : 'border-[#D8DCD7] bg-white text-[#161918]'
+                  }`}
+                >
+                  <Upload className="h-4 w-4" />
+                  My garment
+                </button>
+              </div>
+
+              <p className="text-xs text-[#535A56]">Your photo stays private and is cleared when you finish.</p>
+            </div>
+
+            {/* ---------------------------------------------------------
+                SUB-MODE A: STORE CATALOGUE TRY-ON
+               --------------------------------------------------------- */}
+            {imageSource === 'catalogue' && tryOnStage === 'browse' && (
+              <div className="space-y-5">
+                {/* Gender + Category Filter Bar (matching Smart Mirror screenshots 2, 6, 8) */}
+                <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-[#535A56]">
+                      Shop for
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenderFilter('women');
+                        setActiveCategory('sarees');
+                      }}
+                      className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+                        genderFilter === 'women'
+                          ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
+                          : 'border-[#D8DCD7] bg-[#F4F5F2] text-[#161918]'
+                      }`}
+                    >
+                      Women
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenderFilter('men');
+                        setActiveCategory('kurta');
+                      }}
+                      className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+                        genderFilter === 'men'
+                          ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
+                          : 'border-[#D8DCD7] bg-[#F4F5F2] text-[#161918]'
+                      }`}
+                    >
+                      Men
+                    </button>
+                  </div>
+
+                  {/* Category Pill Tabs */}
+                  <div className="flex flex-wrap gap-2">
+                    {filteredCategories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setActiveCategory(cat.id)}
+                        className={`rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.16em] transition ${
+                          activeCategory === cat.id
+                            ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                            : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
+                        }`}
+                      >
+                        {cat.label} (5)
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3-Column Smart Mirror Product Grid (matching screenshots 2 & 6 with badge + floating "Try It On" pill) */}
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {categoryProducts.map((item) => (
+                    <div
+                      key={item.sku}
+                      className="group flex flex-col justify-between overflow-hidden border border-[#D8DCD7] bg-white transition hover:border-[#7A1428]"
+                    >
+                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9]">
+                        <img
+                          src={item.imageUrl}
+                          alt={item.title}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        />
+                        {/* Top Badges */}
+                        <div className="absolute inset-x-3 top-3 flex items-center justify-between">
+                          <span className="bg-white/95 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#161918] shadow-sm">
+                            {item.badge || 'MAHARAJA EDIT'}
+                          </span>
+                          <span className="bg-[#7A1428] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#FAF6EE] shadow-sm">
+                            ✨ TRY ON
+                          </span>
+                        </div>
+
+                        {/* Floating Bottom-Center "Try It On" Pill Button (matching screenshot 2) */}
+                        <div className="absolute inset-x-0 bottom-4 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => startCatalogueTryOnFor(item)}
+                            className="flex items-center gap-2 rounded-full border border-[#161918]/15 bg-white/95 px-5 py-2.5 text-xs font-bold text-[#161918] shadow-lg backdrop-blur-sm transition hover:bg-[#7A1428] hover:text-white"
+                          >
+                            <Sparkles className="h-3.5 w-3.5 text-[#7A1428] group-hover:text-current" />
+                            Try It On
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-1 flex-col justify-between p-4">
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-[11px] text-[#535A56]">{item.sku}</span>
+                            <span className="font-mono text-base font-bold text-[#161918]">
+                              {formatINR(item.price)}
+                            </span>
+                          </div>
+                          <h4 className="mt-1 font-serif text-lg font-semibold text-[#161918]">
+                            {item.title}
+                          </h4>
+                          <p className="mt-1 text-xs text-[#535A56]">{item.fabricNote}</p>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between border-t border-[#D8DCD7] pt-3">
+                          <span className="text-[11px] text-[#535A56]">Model face ignored · Dress only</span>
+                          <button
+                            type="button"
+                            onClick={() => startCatalogueTryOnFor(item)}
+                            className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428] hover:underline"
+                          >
+                            Try Now →
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ---------------------------------------------------------
+                CATALOGUE TRY-ON: GENERATING STATE
+               --------------------------------------------------------- */}
+            {tryOnStage === 'generating' && (
+              <div className="flex min-h-[520px] flex-col items-center justify-center border border-[#D8DCD7] bg-white p-10 text-center">
+                <LoaderCircle className="h-12 w-12 animate-spin text-[#7A1428]" />
+                <p className="mt-4 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
+                  Smart Mirror AI Drape in Progress
+                </p>
+                <h3 className="mt-2 font-serif text-3xl font-semibold text-[#161918]">
+                  Draping {selectedProduct.title} ({formatINR(selectedProduct.price)})
+                </h3>
+                <p className="mt-2 max-w-lg text-sm text-[#535A56]">
+                  Locking your identity from <strong>Image 1 (Customer Photo)</strong> and transferring the exact weave, border, and colour from <strong>Image 2 (Garment Reference)</strong>.
+                </p>
+              </div>
+            )}
+
+            {/* ---------------------------------------------------------
+                CATALOGUE / OWN-GARMENT TRY-ON: RESULT STAGE
+                (Matches screenshot 4 & 10 + QR + BeforeAfterSlider below!)
+               --------------------------------------------------------- */}
+            {tryOnStage === 'result' && (
+              <div className="space-y-6">
+                {/* Top Result Section: Left Wardrobe Switcher + Center Full-Body Look + Right QR & Actions */}
+                <div className="grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-[290px_1fr_320px]">
+                  {/* Left: Floating Wardrobe Dock (matching screenshot 10 "The wardrobe") */}
+                  <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-4">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-serif text-xl font-semibold text-[#161918]">
+                          The wardrobe
+                        </h3>
+                        <span className="font-mono text-xs text-[#535A56]">30 pieces</span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-[#535A56]">
+                        Select another piece to try on your captured photo immediately.
+                      </p>
+
+                      <div className="mt-3 flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGenderFilter('women');
+                            setActiveCategory('sarees');
+                          }}
+                          className={`flex-1 py-1.5 text-xs font-semibold ${
+                            genderFilter === 'women'
+                              ? 'bg-[#7A1428] text-white'
+                              : 'border border-[#D8DCD7] bg-white text-[#535A56]'
+                          }`}
+                        >
+                          Women
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGenderFilter('men');
+                            setActiveCategory('kurta');
+                          }}
+                          className={`flex-1 py-1.5 text-xs font-semibold ${
+                            genderFilter === 'men'
+                              ? 'bg-[#7A1428] text-white'
+                              : 'border border-[#D8DCD7] bg-white text-[#535A56]'
+                          }`}
+                        >
+                          Men
+                        </button>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {filteredCategories.map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setActiveCategory(cat.id)}
+                            className={`px-2.5 py-1 text-[11px] font-semibold ${
+                              activeCategory === cat.id
+                                ? 'bg-[#161918] text-white'
+                                : 'border border-[#D8DCD7] bg-white text-[#535A56]'
+                            }`}
+                          >
+                            {cat.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="mt-3 grid max-h-[380px] gap-2 overflow-y-auto pr-1">
+                        {categoryProducts.map((item) => (
+                          <button
+                            key={item.sku}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProduct(item);
+                              if (customerPhoto) {
+                                void runTryOnGeneration(
+                                  customerPhoto,
+                                  item.garmentReferenceUrl || item.imageUrl,
+                                  item
+                                );
+                              }
+                            }}
+                            className={`flex items-center gap-2.5 border p-2 text-left transition ${
+                              selectedProduct.sku === item.sku
+                                ? 'border-[#7A1428] bg-[#7A1428]/5'
+                                : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
+                            }`}
+                          >
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="h-14 w-11 shrink-0 object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-mono text-xs font-bold text-[#161918]">
+                                {formatINR(item.price)}
+                              </p>
+                              <p className="truncate text-xs font-medium text-[#535A56]">
+                                {item.title}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setTryOnStage('browse')}
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 border border-[#161918] bg-white py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      Back to Full Catalogue
+                    </button>
+                  </div>
+
+                  {/* Center: Full-Screen Smart Mirror Result Portrait (matching screenshot 4) */}
+                  <div className="relative overflow-hidden border border-[#D8DCD7] bg-[#161918]">
+                    <img
+                      src={tryOnResultUrl || selectedProduct.imageUrl}
+                      alt={selectedProduct.title}
+                      className="mx-auto max-h-[620px] w-full object-contain"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-5 text-white">
+                      <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#F3E5AB]">
+                            A NEW LOOK · ENTIRELY YOU
+                          </p>
+                          <h3 className="mt-1 font-serif text-2xl font-semibold">
+                            {imageSource === 'own-garment'
+                              ? 'Custom Customer Garment Try-On'
+                              : `${selectedProduct.title} (${selectedProduct.sku})`}
+                          </h3>
+                          <p className="mt-1 text-xs text-white/80">
+                            {imageSource === 'own-garment'
+                              ? 'Image 1: Customer Photo · Image 2: Uploaded Customer Garment'
+                              : selectedProduct.fabricNote}
+                          </p>
+                        </div>
+                        {imageSource === 'catalogue' && (
+                          <span className="rounded-full bg-white/20 px-4 py-1.5 font-mono text-sm font-bold text-white backdrop-blur-sm">
+                            {formatINR(selectedProduct.price)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Mobile QR Download + Retake Controls */}
+                  <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-5">
+                    <div>
+                      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                        Mobile Handoff · Private Download
+                      </p>
+                      <h4 className="mt-1 font-serif text-xl font-semibold text-[#161918]">
+                        Scan QR to Save on Mobile
+                      </h4>
+                      <p className="mt-1 text-xs text-[#535A56]">
+                        Scan with your phone camera to download this Try-On look or continue trying outfits on your mobile.
+                      </p>
+
+                      <div className="mt-4 flex flex-col items-center border border-[#D8DCD7] bg-white p-4">
+                        {tryOnMobileQr ? (
+                          <img
+                            src={tryOnMobileQr}
+                            alt="Mobile Download QR"
+                            className="h-44 w-44 object-contain"
+                          />
+                        ) : (
+                          <div className="flex h-44 w-44 items-center justify-center">
+                            <QrCode className="h-10 w-10 text-[#535A56]" />
+                          </div>
+                        )}
+                        <p className="mt-2 font-mono text-[11px] font-semibold text-[#161918]">
+                          {selectedProduct.sku} · {formatINR(selectedProduct.price)}
+                        </p>
+                      </div>
+
+                      {tryOnStatusNote && (
+                        <p className="mt-3 border border-[#D8DCD7] bg-white p-2.5 text-xs text-[#535A56]">
+                          {tryOnStatusNote}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-5 grid gap-2.5">
+                      <a
+                        href={tryOnResultUrl || selectedProduct.imageUrl}
+                        download={`tryfocus-${selectedProduct.sku.toLowerCase()}.jpg`}
+                        className="flex items-center justify-center gap-2 bg-[#7A1428] px-4 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-[#FAF6EE]"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download Image on Kiosk
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => openCameraFor(imageSource === 'own-garment' ? 'own-person' : 'catalogue-person')}
+                        className="flex items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#161918]"
+                      >
+                        <Camera className="h-4 w-4" />
+                        Retake Customer Photo
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Section: Old vs New Dress Sliding Comparison (BeforeAfterSlider) */}
+                <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                        Interactive Comparison Slider · Old vs. New Dress
+                      </p>
+                      <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                        Slide to Compare Your Current Look vs. AI Try-On Dress
+                      </h3>
+                    </div>
+                    <span className="border border-[#D8DCD7] bg-white px-3 py-1 font-mono text-xs text-[#535A56]">
+                      Drag slider left / right
+                    </span>
+                  </div>
+                  <div className="mx-auto max-w-md">
+                    <BeforeAfterSlider
+                      beforeImage={customerPhoto || selectedProduct.imageUrl}
+                      afterImage={tryOnResultUrl || selectedProduct.imageUrl}
+                      beforeLabel="Old / Current Photo"
+                      afterLabel="New AI Try-On Dress"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ---------------------------------------------------------
+                SUB-MODE B: UPLOAD / CAPTURE MY OWN GARMENT (2 Sets: Person + Dress)
+               --------------------------------------------------------- */}
+            {imageSource === 'own-garment' && tryOnStage === 'browse' && (
+              <div className="grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-2">
+                {/* Set 1: Customer / Person Photo (Image 1 Identity Authority) */}
+                <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-5">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
+                        Image 1 · Customer Identity
+                      </span>
+                      <span className="border border-[#D8DCD7] bg-white px-2.5 py-0.5 font-mono text-[10px] font-semibold">
+                        REQUIRED
+                      </span>
+                    </div>
+                    <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                      Customer / Person Photo
+                    </h3>
+                    <p className="mt-1 text-xs text-[#535A56]">
+                      Capture the customer standing in front of the PC/TV camera or upload a photo from your device. Face, skin tone, and body proportions are locked from this photo.
+                    </p>
+
+                    <div className="mt-4 flex aspect-[3/4] max-h-80 w-full items-center justify-center overflow-hidden border border-dashed border-[#D8DCD7] bg-white">
+                      {customerPhoto ? (
+                        <img
+                          src={customerPhoto}
+                          alt="Customer Identity"
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <div className="p-6 text-center text-[#535A56]">
+                          <User className="mx-auto h-10 w-10 text-[#7A1428]" />
+                          <p className="mt-2 text-sm font-semibold text-[#161918]">
+                            No Customer Photo Yet
+                          </p>
+                          <p className="mt-1 text-xs">
+                            Use the PC/TV camera or upload a person photo below.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => openCameraFor('own-person')}
+                      className="flex items-center justify-center gap-2 bg-[#161918] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE]"
+                    >
+                      <Camera className="h-4 w-4" />
+                      Capture Person via Camera
+                    </button>
+                    <label className="flex cursor-pointer items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]">
+                      <Upload className="h-4 w-4" />
+                      Upload Person Photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleFileUpload('own-person', e.target.files?.[0])}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Set 2: Own Garment / Dress Photo (Image 2 Garment Reference) */}
+                <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-5">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
+                        Image 2 · Garment Reference
+                      </span>
+                      <span className="border border-[#D8DCD7] bg-white px-2.5 py-0.5 font-mono text-[10px] font-semibold">
+                        REQUIRED
+                      </span>
+                    </div>
+                    <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                      Your Own Saree / Dress Photo
+                    </h3>
+                    <p className="mt-1 text-xs text-[#535A56]">
+                      Hold the garment up to the camera or upload a photo of any saree, salwar, lehenga, kurta, veshti, or shirt (even if worn by a catalogue model — only the dress is extracted).
+                    </p>
+
+                    <div className="mt-4 flex aspect-[3/4] max-h-80 w-full items-center justify-center overflow-hidden border border-dashed border-[#D8DCD7] bg-white">
+                      {ownGarmentPhoto ? (
+                        <img
+                          src={ownGarmentPhoto}
+                          alt="Own Garment Reference"
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <div className="p-6 text-center text-[#535A56]">
+                          <Shirt className="mx-auto h-10 w-10 text-[#7A1428]" />
+                          <p className="mt-2 text-sm font-semibold text-[#161918]">
+                            No Garment Photo Yet
+                          </p>
+                          <p className="mt-1 text-xs">
+                            Capture the dress with camera or upload a garment photo below.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => openCameraFor('own-garment')}
+                      className="flex items-center justify-center gap-2 bg-[#161918] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE]"
+                    >
+                      <Camera className="h-4 w-4" />
+                      Capture Dress via Camera
+                    </button>
+                    <label className="flex cursor-pointer items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]">
+                      <Upload className="h-4 w-4" />
+                      Upload Dress Photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleFileUpload('own-garment', e.target.files?.[0])}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Generate Button Across Both Columns */}
+                <div className=" flex flex-wrap items-center justify-between gap-4 border-t border-[#D8DCD7] pt-4 lg:col-span-2">
+                  <div>
+                    {tryOnError && (
+                      <p className="text-xs font-semibold text-[#B42318]">{tryOnError}</p>
+                    )}
+                    <p className="text-xs text-[#535A56]">
+                      Once generated, you will get a mobile QR code to download and the Old vs. New Dress comparison slider below.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!customerPhoto || !ownGarmentPhoto}
+                    onClick={() => runTryOnGeneration(customerPhoto, ownGarmentPhoto)}
+                    className="flex items-center gap-2 bg-[#7A1428] px-8 py-4 text-xs font-bold uppercase tracking-[0.18em] text-[#FAF6EE] transition hover:bg-[#610F20] disabled:opacity-40"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Generate Own-Garment AI Try-On
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =========================================================
+            MODE 2: 30s LIVE AI TRY-ON (Step 1 Dress -> Step 2 Camera -> Step 3 30s Live)
+           ========================================================= */}
+        {mode === 'live-tryon' && (
+          <LucyLiveMirror
+            garmentPrompt={`Person wearing ${selectedProduct.title}, ${selectedProduct.fabricNote}`}
+            garmentTitle={selectedProduct.title}
+            selectedProduct={selectedProduct}
+            onSelectProduct={setSelectedProduct}
+          />
+        )}
+
+        {/* =========================================================
+            MODE 3: AI CATALOGUE VIDEO (Catalogue-Only on TV -> QR Handoff -> Mobile Video + Go Live)
+           ========================================================= */}
+        {mode === 'catalogue-video' && (
+          <div className="space-y-6">
+            {/* Policy Banner: Catalogue-Only on TV */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-5">
+              <div>
+                <p className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
+                  TV AI Catalogue Video · Luxury Showroom Collection
+                </p>
+                <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                  Select a Costly Catalogue Outfit → Capture / Scan QR → Generate AI Video on Mobile
+                </h2>
+                <p className="mt-1 text-xs text-[#535A56]">
+                  TV AI Video is strictly <strong>Catalogue-Only</strong> (no loose garment upload on TV). Select any luxury outfit with price in Rs below, optionally capture your photo on TV, and scan the 1-day QR on mobile to render your video and choose <strong>Download</strong> or <strong>Go Live</strong> (which plays on the Maharaja TV screen).
+                </p>
+              </div>
+              <span className="border border-[#7A1428] bg-[#7A1428]/10 px-3.5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">
+                Catalogue-Only · 1-Day Mobile QR
+              </span>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+              {/* Left: Costly Dress Catalogue Selector + Event Selector */}
+              <div className="space-y-4 border border-[#D8DCD7] bg-white p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-3">
+                  <div>
+                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                      Step 1 · Select Costly Catalogue Dress (With Price in Rs)
+                    </p>
+                    <h3 className="mt-0.5 font-serif text-xl font-semibold text-[#161918]">
+                      Women & Men Luxury Catalogue
+                    </h3>
+                  </div>
+                  <div className="flex border border-[#D8DCD7] bg-[#F4F5F2] p-0.5 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenderFilter('women');
+                        setActiveCategory('sarees');
+                      }}
+                      className={`px-3 py-1.5 ${
+                        genderFilter === 'women' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
+                      }`}
+                    >
+                      Women
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenderFilter('men');
+                        setActiveCategory('kurta');
+                      }}
+                      className={`px-3 py-1.5 ${
+                        genderFilter === 'men' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
+                      }`}
+                    >
+                      Men
+                    </button>
+                  </div>
+                </div>
+
+                {/* Category Tabs */}
+                <div className="flex flex-wrap gap-1.5">
+                  {filteredCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setActiveCategory(cat.id)}
+                      className={`border px-3.5 py-1.5 text-xs font-semibold ${
+                        activeCategory === cat.id
+                          ? 'border-[#161918] bg-[#161918] text-white'
+                          : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 5 Catalogue Items with Rs Price */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {categoryProducts.map((item) => {
+                    const isSelected = selectedProduct.sku === item.sku;
+                    return (
+                      <button
+                        key={item.sku}
+                        type="button"
+                        onClick={() => {
+                          setSelectedProduct(item);
+                          setVideoMasterUrl('');
+                        }}
+                        className={`flex gap-3 border p-3 text-left transition ${
+                          isSelected
+                            ? 'border-[#7A1428] bg-[#7A1428]/5 ring-1 ring-[#7A1428]'
+                            : 'border-[#D8DCD7] bg-[#FAFBF8] hover:border-[#161918]'
+                        }`}
+                      >
+                        <img
+                          src={item.imageUrl}
+                          alt={item.title}
+                          className="h-24 w-20 shrink-0 border border-[#D8DCD7] object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-mono text-[10px] font-bold uppercase text-[#7A1428]">
+                              {item.sku}
+                            </span>
+                            <span className="bg-[#161918] px-2 py-0.5 font-mono text-xs font-bold text-[#FAF6EE]">
+                              {formatINR(item.price)}
+                            </span>
+                          </div>
+                          <p className="mt-1 line-clamp-2 font-serif text-sm font-semibold text-[#161918]">
+                            {item.title}
+                          </p>
+                          <p className="mt-0.5 truncate text-[11px] text-[#535A56]">
+                            {item.fabricNote}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Festival Event Selector */}
+                <div className="border-t border-[#D8DCD7] pt-4">
+                  <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                    Step 2 · Choose Festival / Celebration Scene
+                  </p>
+                  <div className="mt-2.5 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                    {events.map((ev) => (
+                      <button
+                        key={ev.id}
+                        type="button"
+                        onClick={() => setSelectedEventId(ev.id)}
+                        className={`border px-2.5 py-2 text-center text-xs font-semibold transition ${
+                          selectedEventId === ev.id
+                            ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                            : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+                        }`}
+                      >
+                        {ev.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Optional TV Portrait Capture + Mobile QR Code Handoff */}
+              <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+                <div>
+                  <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-3">
+                    <div>
+                      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+                        Step 3 · TV Photo & Mobile QR Handoff
+                      </p>
+                      <h3 className="mt-0.5 font-serif text-xl font-semibold text-[#161918]">
+                        {selectedProduct.title} · {formatINR(selectedProduct.price)}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* Optional TV Customer Photo + Festival Master Generation */}
+                  <div className="mt-4 border border-[#D8DCD7] bg-white p-4">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#535A56]">
+                      Option A: Capture Photo on TV First (Or Scan QR Directly Below)
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => openCameraFor('video-person')}
+                        className="flex items-center gap-1.5 bg-[#161918] px-3.5 py-2 text-xs font-semibold text-white"
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                        Capture on TV
+                      </button>
+                      <label className="flex cursor-pointer items-center gap-1.5 border border-[#161918] bg-white px-3.5 py-2 text-xs font-semibold text-[#161918]">
+                        <Upload className="h-3.5 w-3.5" />
+                        Upload Photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleFileUpload('video-person', e.target.files?.[0])}
+                        />
+                      </label>
+                      {videoPersonPhoto && (
+                        <button
+                          type="button"
+                          disabled={videoGeneratingMaster}
+                          onClick={generateCatalogueVideoMasterOnTv}
+                          className="flex items-center gap-1.5 bg-[#7A1428] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          {videoGeneratingMaster ? (
+                            <>
+                              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                              Generating Master...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-3.5 w-3.5" />
+                              Generate Festival Image on TV
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    {(videoMasterUrl || videoPersonPhoto) && (
+                      <div className="mt-3 flex items-center gap-3 border-t border-[#D8DCD7] pt-3">
+                        <img
+                          src={videoMasterUrl || videoPersonPhoto}
+                          alt="TV Preview"
+                          className="h-20 w-16 border border-[#D8DCD7] object-cover"
+                        />
+                        <div className="text-xs text-[#535A56]">
+                          <p className="font-semibold text-[#161918]">
+                            {videoMasterUrl ? 'Festival Master Image Ready' : 'Customer Photo Captured'}
+                          </p>
+                          <p className="mt-0.5">
+                            {videoStatusNote || 'Click "Generate Festival Image on TV" or scan the QR below to continue on your phone.'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* QR Code Card for Mobile Continuation (Download + Go Live) */}
+                  <div className="mt-4 flex flex-col items-center border border-[#D8DCD7] bg-white p-5 text-center">
+                    <span className="bg-[#EBF5EE] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#256B45]">
+                      1-Day Valid Mobile QR · Download + Go Live Enabled
+                    </span>
+                    <h4 className="mt-2 font-serif text-xl font-semibold text-[#161918]">
+                      Scan on Mobile to Generate AI Video
+                    </h4>
+                    <p className="mt-1 max-w-sm text-xs text-[#535A56]">
+                      Opens this exact dress (<strong>{selectedProduct.title} · {formatINR(selectedProduct.price)}</strong>) on the customer’s phone to generate the AI Video and choose <strong>Download</strong> or <strong>Go Live on Maharaja TV</strong>.
+                    </p>
+
+                    <div className="my-4 border border-[#D8DCD7] bg-[#FAFBF8] p-3">
+                      {videoPassCreating ? (
+                        <div className="flex h-48 w-48 items-center justify-center">
+                          <LoaderCircle className="h-8 w-8 animate-spin text-[#7A1428]" />
+                        </div>
+                      ) : videoPassQr ? (
+                        <img
+                          src={videoPassQr}
+                          alt="Catalogue Video Mobile QR"
+                          className="h-48 w-48 object-contain"
+                        />
+                      ) : (
+                        <div className="flex h-48 w-48 items-center justify-center">
+                          <QrCode className="h-10 w-10 text-[#535A56]" />
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="font-mono text-[11px] text-[#535A56]">
+                      Pass Code: <strong className="text-[#161918]">{videoPassCode}</strong> · Valid 24 Hours
+                    </p>
+
+                    {videoPassUrl && (
+                      <a
+                        href={videoPassUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex items-center gap-1.5 border border-[#161918] bg-[#FAFBF8] px-4 py-2 text-xs font-semibold text-[#161918] hover:bg-[#161918] hover:text-white"
+                      >
+                        Open Mobile Continuation Link Directly (Laptop Test)
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* =========================================================
+          SMART MIRROR FULL-SCREEN CAMERA CAPTURE MODAL
+          (Matches screenshot 3: "FULL BODY SHOT", "Move Back and Strike a Pose!",
+           countdown, bottom circular X / CAPTURE / Retake buttons + Upload Photo)
+         ========================================================= */}
+      {cameraOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-between bg-black/95 p-4 text-white sm:p-6">
+          {/* Top Kiosk Camera Bar */}
+          <div className="mx-auto flex w-full max-w-4xl items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="bg-[#7A1428] px-3 py-1 font-mono text-xs font-bold uppercase tracking-widest">
+                TryFocus Smart Mirror
+              </span>
+              <span className="font-mono text-xs text-white/80">
+                {cameraTarget === 'own-garment'
+                  ? 'IMAGE 2 · CAPTURE GARMENT'
+                  : `IMAGE 1 · CUSTOMER PHOTO (${selectedProduct.title})`}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                stopCamera();
+                setCameraOpen(false);
+                if (tryOnStage === 'camera') setTryOnStage('browse');
+              }}
+              className="flex items-center gap-1.5 border border-white/30 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-white/20"
+            >
+              <X className="h-4 w-4" />
+              Close Camera
+            </button>
+          </div>
+
+          {/* Center Tall Mirror Camera Feed */}
+          <div className="relative mx-auto my-3 flex h-[72vh] w-full max-w-xl items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-[#161918]">
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              autoPlay
+              className="h-full w-full object-cover"
+            />
+
+            {/* Top Pill: FULL BODY SHOT (matching screenshot 3) */}
+            <div className="pointer-events-none absolute inset-x-0 top-5 flex justify-center">
+              <div className="rounded-full bg-black/70 px-6 py-2 text-center backdrop-blur-md">
+                <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-white">
+                  {cameraTarget === 'own-garment' ? 'GARMENT REFERENCE SHOT' : 'FULL BODY SHOT'}
+                </p>
+                <p className="text-[11px] text-white/80">
+                  Ensure good lighting for better results
+                </p>
+              </div>
+            </div>
+
+            {/* Center Prompt + Countdown (matching screenshot 3 "Move Back and Strike a Pose!" + "1") */}
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+              <p className="rounded-md bg-black/45 px-4 py-1.5 font-serif text-2xl font-semibold text-sky-200 drop-shadow">
+                {cameraTarget === 'own-garment'
+                  ? 'Hold Dress Clearly in Frame'
+                  : 'Move Back and Strike a Pose!'}
+              </p>
+              {countdown !== null && (
+                <span className="mt-2 font-mono text-8xl font-extrabold text-sky-300 drop-shadow-lg">
+                  {countdown}
+                </span>
+              )}
+            </div>
+
+            {cameraError && (
+              <div className="absolute inset-x-6 bottom-28 rounded-lg border border-amber-400/40 bg-black/85 p-4 text-center text-xs text-amber-200">
+                <p>{cameraError}</p>
+                <p className="mt-1 text-white/80">
+                  You can upload a photo directly from your laptop using the button below.
+                </p>
+              </div>
+            )}
+
+            {/* Bottom Circular Smart Mirror Camera Controls (matching screenshot 3: X, big blue/cyan CAPTURE, Retake) */}
+            <div className="absolute inset-x-0 bottom-5 flex items-center justify-center gap-8">
+              <button
+                type="button"
+                onClick={() => {
+                  stopCamera();
+                  setCameraOpen(false);
+                  if (tryOnStage === 'camera') setTryOnStage('browse');
+                }}
+                className="flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-black/70 text-white transition hover:bg-black"
+                title="Cancel"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={triggerCountdownCapture}
+                className="flex flex-col items-center"
+              >
+                <span className="flex h-18 w-18 items-center justify-center rounded-full border-4 border-white bg-sky-400 shadow-lg transition hover:scale-105" />
+                <span className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-white">
+                  CAPTURE
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openCameraFor(cameraTarget)}
+                className="flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-black/70 text-white transition hover:bg-black"
+                title="Restart Camera"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom Laptop File Upload Alternative */}
+          <div className="mx-auto flex w-full max-w-xl flex-wrap items-center justify-between gap-3 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-xs">
+            <span className="text-white/80">
+              Testing on a laptop? Upload a photo directly instead of using the webcam:
+            </span>
+            <label className="flex cursor-pointer items-center gap-1.5 bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-[#161918] hover:bg-[#F4F5F2]">
+              <Upload className="h-3.5 w-3.5" />
+              Upload Photo from Laptop
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleFileUpload(cameraTarget, e.target.files?.[0])}
+              />
+            </label>
+          </div>
+        </div>
+      )}
     </main>
   );
-}
-
-function HandoffQr({ kind, product }: { kind: 'image' | 'video' | 'live'; product: TryFocusProduct | null }) {
-  const [src, setSrc] = useState('');
-  useEffect(() => {
-    const query = new URLSearchParams(kind === 'video'
-      ? { demo: 'video', source: 'catalogue', sku: product?.sku || '' }
-      : { demo: 'image', sku: product?.sku || '' });
-    const url = `${window.location.origin}/maharaja/mobile/experience?${query.toString()}`;
-    void QRCodeLib.toDataURL(url, { width: 360, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#2b0910', light: '#ffffff' } }).then(setSrc);
-  }, [kind, product?.sku]);
-  return src ? <img src={src} alt="Scan to continue on mobile" className="mt-7 h-36 w-36 rounded-xl bg-white p-2" /> : <div className="mt-7 h-36 w-36 animate-pulse rounded-xl bg-white/10" />;
-}
-
-function TvHeading({ eyebrow, title, onBack }: { eyebrow: string; title: string; onBack: () => void }) {
-  return <div className="flex items-end justify-between gap-6"><div><p className="text-sm font-black uppercase tracking-[0.25em] text-[#e6b358]">{eyebrow}</p><h1 className="mt-2 text-4xl font-black tracking-[-0.04em] sm:text-5xl">{title}</h1></div><button onClick={onBack} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-[#f1cb73] transition hover:bg-white/10" aria-label="Back to home"><ArrowLeft className="h-6 w-6" /></button></div>;
-}
-
-function ChoiceCard({ title, copy, icon, onClick }: { title: string; copy: string; icon: ReactNode; onClick: () => void }) {
-  return <button onClick={onClick} className="group min-h-72 rounded-[2rem] border border-white/10 bg-white/[0.06] p-7 text-left transition hover:-translate-y-1 hover:border-[#e6b358]/70 hover:bg-[#e6b358]/10"><span className="text-[#e6b358]">{icon}</span><h3 className="mt-14 text-3xl font-black">{title}</h3><p className="mt-3 max-w-xs text-base leading-7 text-white/60">{copy}</p><span className="mt-8 inline-flex items-center gap-2 text-sm font-black text-[#e6b358]">Choose <ChevronRight className="h-5 w-5" /></span></button>;
-}
-
-function ProductCard({ product, onClick, compact = false }: { product: TryFocusProduct; onClick: () => void; compact?: boolean }) {
-  return <button onClick={onClick} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.06] text-left transition hover:-translate-y-1 hover:border-[#e6b358]/70"><div className={`relative ${compact ? 'h-32' : 'h-44'} bg-gradient-to-br ${product.accent}`}><img src={product.imageUrl} alt={product.title} className="h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-105" /><div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent" /></div><div className={compact ? 'p-3' : 'p-4'}><p className={`${compact ? 'text-sm' : 'text-base'} font-black leading-tight`}>{product.title}</p><p className="mt-2 text-sm font-bold text-[#e6b358]">{formatINR(product.price)}</p></div></button>;
-}
-
-function CapturePanel({ label, buttonLabel, onComplete }: { label: string; buttonLabel: string; onComplete: () => void }) {
-  const [countdown, setCountdown] = useState(0);
-  const [cameraError, setCameraError] = useState('');
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  async function beginCapture() {
-    setCameraError('');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-      streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
-      setCountdown(5);
-    } catch { setCameraError('Camera permission is needed to take the customer photo.'); }
-  }
-  useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = window.setTimeout(() => {
-      if (countdown === 1) {
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-        setCountdown(0);
-        onComplete();
-      } else setCountdown((value) => value - 1);
-    }, 1000);
-    return () => window.clearTimeout(timer);
-  }, [countdown, onComplete]);
-  useEffect(() => () => { streamRef.current?.getTracks().forEach((track) => track.stop()); }, []);
-  return <div className="grid flex-1 items-center gap-8 lg:grid-cols-[1.2fr_0.8fr]"><div className="relative aspect-[4/3] overflow-hidden rounded-[2.5rem] border border-dashed border-[#e6b358]/50 bg-black/25"><video ref={videoRef} muted playsInline className="h-full w-full object-cover" /><div className="pointer-events-none absolute inset-10 rounded-[2rem] border border-[#e6b358]/30" />{countdown > 0 ? <div className="absolute inset-0 grid place-items-center bg-black/25"><div className="text-center"><p className="text-8xl font-black text-[#f6d892]">{countdown}</p><p className="mt-3 text-sm font-black uppercase tracking-[.18em]">Hold still</p></div></div> : !streamRef.current && <div className="absolute inset-0 grid place-items-center text-center"><div><ImageIcon className="mx-auto h-20 w-20 text-[#e6b358]" /><p className="mt-5 text-2xl font-black">Camera capture area</p><p className="mt-2 text-sm text-white/60">A five-second countdown starts before the photo.</p></div></div>}</div><div className="rounded-[2.5rem] border border-white/10 bg-black/30 p-8"><p className="text-sm font-black uppercase tracking-[0.2em] text-[#e6b358]">Ready when you are</p><h2 className="mt-4 text-3xl font-black leading-tight">{label}</h2><p className="mt-4 text-base leading-7 text-white/60">Take a clear, full-body customer photo. The countdown gives them time to get ready.</p>{cameraError && <p className="mt-4 text-sm font-bold text-rose-200">{cameraError}</p>}<button onClick={() => void beginCapture()} disabled={countdown > 0} className="mt-8 flex min-h-16 w-full items-center justify-center gap-3 rounded-2xl bg-[#e6b358] text-base font-black text-[#2b0910] transition hover:bg-[#f6d892] disabled:opacity-50"><Stars className="h-5 w-5" />{countdown > 0 ? `Capturing in ${countdown}` : buttonLabel}</button></div></div>;
 }

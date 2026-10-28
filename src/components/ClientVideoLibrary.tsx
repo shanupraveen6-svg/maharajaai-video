@@ -1,33 +1,289 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, CheckCircle2, Download, Film, LockKeyhole, Play, Search, ShieldCheck, Smartphone, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  LoaderCircle,
+  Play,
+  Search,
+  Tv,
+  Video,
+} from 'lucide-react';
+import type { GoLiveAuditItem } from '@/components/MaharajaAdminDashboard';
 
-type VideoItem = { id: number; customer: string; campaign: string; created: string; status: 'Available' | 'Expired'; consent: 'Private only' | 'Go Live approved'; gradient: string };
-
-const videos: VideoItem[] = [
-  { id: 1, customer: 'Customer 2104', campaign: 'Royal Diwali', created: 'Today · 2:18 PM', status: 'Available', consent: 'Go Live approved', gradient: 'from-[#753216] via-[#461321] to-[#16050b]' },
-  { id: 2, customer: 'Customer 2103', campaign: 'Wedding Story', created: 'Today · 1:42 PM', status: 'Available', consent: 'Private only', gradient: 'from-[#61363b] via-[#27101d] to-[#10070b]' },
-  { id: 3, customer: 'Customer 2102', campaign: 'Maharaja Moment', created: 'Today · 12:26 PM', status: 'Available', consent: 'Private only', gradient: 'from-[#644717] via-[#2d1e12] to-[#130a0a]' },
-  { id: 4, customer: 'Customer 2101', campaign: 'Royal Diwali', created: 'Yesterday · 7:14 PM', status: 'Expired', consent: 'Private only', gradient: 'from-[#2f355d] via-[#17162f] to-[#0a0a12]' },
-  { id: 5, customer: 'Customer 2099', campaign: 'New Arrival', created: 'Yesterday · 4:36 PM', status: 'Expired', consent: 'Go Live approved', gradient: 'from-[#215346] via-[#0d241f] to-[#08100e]' },
-  { id: 6, customer: 'Customer 2097', campaign: 'Wedding Story', created: '26 Oct · 5:05 PM', status: 'Expired', consent: 'Private only', gradient: 'from-[#743020] via-[#35100e] to-[#130606]' },
+const DEMO_FALLBACK_VIDEOS: GoLiveAuditItem[] = [
+  {
+    id: 'demo-golive-1',
+    sessionId: 'maharaja_live_101',
+    customerName: 'Ananya R. · Kanchivaram Purple Peacock Saree',
+    customerLocality: 'Thanjavur Showroom',
+    eventId: 'diwali',
+    queueNumber: 1,
+    status: 'ready',
+    liveConsent: true,
+    loopConsent: true,
+    promotionConsent: true,
+    createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    videoUrl: '/videos/maharaja-demo-sample.mp4',
+  },
+  {
+    id: 'demo-golive-2',
+    sessionId: 'maharaja_live_102',
+    customerName: 'Karthik S. · Royal Maroon Zari Kurta & Angavastram',
+    customerLocality: 'Thanjavur Showroom',
+    eventId: 'pongal',
+    queueNumber: 2,
+    status: 'ready',
+    liveConsent: true,
+    loopConsent: true,
+    promotionConsent: true,
+    createdAt: new Date(Date.now() - 75 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    videoUrl: '/videos/maharaja-demo-sample.mp4',
+  },
+  {
+    id: 'demo-golive-3',
+    sessionId: 'maharaja_live_103',
+    customerName: 'Meenakshi V. · Bridal Velvet Zardozi Lehenga',
+    customerLocality: 'Thanjavur Showroom',
+    eventId: 'diwali',
+    queueNumber: 3,
+    status: 'ready',
+    liveConsent: true,
+    loopConsent: true,
+    promotionConsent: false,
+    createdAt: new Date(Date.now() - 140 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    videoUrl: '/videos/maharaja-demo-sample.mp4',
+  },
 ];
 
-export default function ClientVideoLibrary() {
+export default function ClientVideoLibrary({
+  backHref = '/maharaja/workspace',
+  backLabel = 'Back to Client Workspace',
+}: {
+  backHref?: string;
+  backLabel?: string;
+}) {
+  const [videos, setVideos] = useState<GoLiveAuditItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [query, setQuery] = useState('');
-  const [view, setView] = useState<'all' | 'available' | 'approved'>('all');
-  const [selected, setSelected] = useState<VideoItem | null>(null);
-  const filtered = useMemo(() => videos.filter((item) => (view === 'all' || (view === 'available' && item.status === 'Available') || (view === 'approved' && item.consent === 'Go Live approved')) && `${item.customer} ${item.campaign}`.toLowerCase().includes(query.toLowerCase())), [query, view]);
+  const [filter, setFilter] = useState<'all' | 'promo'>('all');
+  const [downloadingId, setDownloadingId] = useState('');
 
-  return <main className="min-h-screen bg-[#f7f4ee] px-5 py-7 text-[#2b1d1c] lg:px-8"><div className="mx-auto max-w-7xl">
-    <header className="flex flex-wrap items-center justify-between gap-4"><div><Link href="/maharaja/client-admin" className="inline-flex items-center gap-2 text-sm font-bold text-[#70211a]"><ArrowLeft className="h-4 w-4" />Back to workspace</Link><p className="mt-5 text-xs font-black uppercase tracking-[.2em] text-[#94651c]">Maharaja Silks · customer content</p><h1 className="mt-2 font-serif text-4xl font-black">Explore All Videos</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c5b51]">Customer video records are visible only to authorised store staff. Media stays available for the active 24-hour period unless separately retained with consent.</p></div><div className="flex items-center gap-2 rounded-2xl border border-[#ded1bd] bg-white px-4 py-3 text-sm text-[#6b594f]"><LockKeyhole className="h-4 w-4 text-[#89561c]" />Private content library</div></header>
-    <section className="mt-8 rounded-[2rem] border border-[#ded1bd] bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-4"><div className="relative min-w-64 flex-1"><Search className="absolute left-4 top-3.5 h-4 w-4 text-[#8e786b]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search customer or campaign" className="h-11 w-full rounded-xl border border-[#ded1bd] bg-[#fcfaf6] pl-10 pr-4 text-sm outline-none focus:border-[#9b6124]" /></div><div className="flex rounded-xl bg-[#f5efe5] p-1">{([['all', 'All'], ['available', 'Available'], ['approved', 'Go Live approved']] as const).map(([key, label]) => <button key={key} onClick={() => setView(key)} className={`rounded-lg px-3 py-2 text-xs font-bold ${view === key ? 'bg-white text-[#6e0d1f] shadow-sm' : 'text-[#77655b]'}`}>{label}</button>)}</div></div></section>
-    <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map((item) => <article key={item.id} className="overflow-hidden rounded-3xl border border-[#ded1bd] bg-white"><button onClick={() => setSelected(item)} className={`group relative aspect-[16/10] w-full bg-gradient-to-br ${item.gradient} text-left`}><div className="absolute inset-0 bg-[radial-gradient(circle_at_66%_25%,rgba(255,217,140,.42),transparent_12%),linear-gradient(120deg,transparent,rgba(0,0,0,.38))]" /><span className="absolute left-4 top-4 rounded-full bg-black/35 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#fff1ca]">{item.campaign}</span><span className="absolute inset-0 grid place-items-center"><span className="grid h-14 w-14 place-items-center rounded-full bg-[#f0c36b] text-[#310a11] transition group-hover:scale-110"><Play className="h-6 w-6 fill-current" /></span></span>{item.status === 'Expired' && <span className="absolute bottom-4 left-4 rounded-full bg-black/45 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white/70">Expired preview</span>}</button><div className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="font-black">{item.customer}</p><p className="mt-1 flex items-center gap-1 text-xs text-[#79685e]"><CalendarDays className="h-3.5 w-3.5" />{item.created}</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${item.status === 'Available' ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f3ede5] text-[#75685f]'}`}>{item.status}</span></div><div className="mt-4 flex items-center justify-between border-t border-[#eee6da] pt-4"><span className="flex items-center gap-1.5 text-xs font-bold text-[#735f53]">{item.consent === 'Go Live approved' ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <ShieldCheck className="h-4 w-4 text-[#9b6d32]" />}{item.consent}</span><button onClick={() => setSelected(item)} className="text-xs font-black text-[#6e0d1f]">Details</button></div></div></article>)}</section>
-    {filtered.length === 0 && <div className="mt-6 rounded-3xl border border-dashed border-[#d4c5b1] bg-white p-14 text-center text-sm text-[#79685e]">No videos match this view.</div>}
-    <section className="mt-7 rounded-[2rem] bg-[#2b070d] p-6 text-[#fff0d0]"><div className="flex flex-wrap gap-4"><span className="grid h-12 w-12 place-items-center rounded-xl bg-[#d9a94f] text-[#360b11]"><Smartphone className="h-5 w-5" /></span><div><p className="font-black">How Go Live works</p><p className="mt-1 max-w-3xl text-sm leading-6 text-[#fff0d0]/75">The customer chooses Go Live privately on their phone after previewing their video. Consent is stored before a video can enter a wall playlist. The customer can withdraw consent; then future playback stops.</p></div></div></section>
-    </div>
-    {selected && <div className="fixed inset-0 z-40 grid place-items-center bg-black/70 p-5"><div className="w-full max-w-md rounded-[2rem] bg-[#fffdf8] p-6 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-xs font-black uppercase tracking-[.18em] text-[#94651c]">Video record</p><h2 className="mt-2 text-2xl font-black">{selected.customer}</h2></div><button onClick={() => setSelected(null)} className="grid h-10 w-10 place-items-center rounded-xl bg-[#f3ede5]"><X className="h-5 w-5" /></button></div><div className={`mt-5 grid aspect-video place-items-center rounded-2xl bg-gradient-to-br ${selected.gradient}`}><Play className="h-9 w-9 fill-[#efc56f] text-[#efc56f]" /></div><dl className="mt-5 grid grid-cols-2 gap-3 text-sm"><div className="rounded-xl bg-[#f7f1e6] p-3"><dt className="text-xs text-[#7b695d]">Campaign</dt><dd className="mt-1 font-bold">{selected.campaign}</dd></div><div className="rounded-xl bg-[#f7f1e6] p-3"><dt className="text-xs text-[#7b695d]">Consent</dt><dd className="mt-1 font-bold">{selected.consent}</dd></div></dl>{selected.status === 'Available' ? <button className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#6e0d1f] text-sm font-black text-[#fff0d0]"><Download className="h-4 w-4" />Download available video</button> : <p className="mt-5 rounded-xl bg-[#f3ede5] p-3 text-sm leading-6 text-[#74665c]">This customer’s private delivery window has expired. No permanent file is retained by default.</p>}</div></div>}
-  </main>;
+  useEffect(() => {
+    fetch('/api/maharaja/workspace', { cache: 'no-store' })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.workspace?.goLiveAudit?.length > 0) {
+          setVideos(data.workspace.goLiveAudit);
+        } else {
+          setVideos(DEMO_FALLBACK_VIDEOS);
+        }
+      })
+      .catch(() => {
+        setVideos(DEMO_FALLBACK_VIDEOS);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filteredVideos = useMemo(() => {
+    return videos.filter((item) => {
+      if (filter === 'promo' && !item.promotionConsent) return false;
+      if (!query.trim()) return true;
+      const hay = `${item.customerName} ${item.customerLocality} ${item.eventId} ${item.sessionId}`.toLowerCase();
+      return hay.includes(query.toLowerCase());
+    });
+  }, [videos, filter, query]);
+
+  async function handleDownload(item: GoLiveAuditItem) {
+    if (!item.promotionConsent) return;
+    setDownloadingId(item.id);
+    setError('');
+    try {
+      if (item.videoUrl.startsWith('/')) {
+        const anchor = document.createElement('a');
+        anchor.href = item.videoUrl;
+        anchor.download = `Maharaja-GoLive-${item.sessionId || item.id}.mp4`;
+        anchor.click();
+        return;
+      }
+      const response = await fetch('/api/download/asset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: item.videoUrl }),
+      });
+      if (!response.ok) throw new Error('Unable to download this video.');
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = `Maharaja-GoLive-${item.sessionId || item.id}.mp4`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to download video.');
+    } finally {
+      setDownloadingId('');
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+      <header className="border-b border-[#D8DCD7] bg-[#F4F5F2]/95">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <div>
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-[#7A1428] hover:underline"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {backLabel}
+            </Link>
+            <h1 className="mt-1 font-serif text-3xl font-semibold text-[#161918]">
+              Go Live Video Library (List & Play)
+            </h1>
+            <p className="mt-0.5 text-sm text-[#535A56]">
+              All customer AI videos submitted via <strong>Go Live</strong> (both purchased-garment and giveaway/catalogue passes) are listed and playable here and queued on the Maharaja TV screen.
+            </p>
+          </div>
+
+          <Link
+            href="/maharaja/tv"
+            target="_blank"
+            className="inline-flex items-center gap-2 bg-[#161918] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.15em] text-[#FAF6EE]"
+          >
+            <Tv className="h-4 w-4" />
+            Open Maharaja TV Screen (/maharaja/tv)
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
+        {error && (
+          <div className="border border-[#B42318] bg-[#FEF3F2] p-4 text-sm font-medium text-[#B42318]">
+            {error}
+          </div>
+        )}
+
+        {/* Filter & Search Bar */}
+        <section className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-4">
+          <div className="relative min-w-64 flex-1">
+            <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#535A56]" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search customer, dress, or festival..."
+              className="h-10 w-full border border-[#D8DCD7] bg-white pl-10 pr-4 text-sm text-[#161918] outline-none focus:border-[#7A1428]"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${
+                filter === 'all'
+                  ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                  : 'border-[#D8DCD7] bg-white text-[#161918]'
+              }`}
+            >
+              All Go Live Videos ({videos.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('promo')}
+              className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${
+                filter === 'promo'
+                  ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                  : 'border-[#D8DCD7] bg-white text-[#161918]'
+              }`}
+            >
+              Social Promotion Approved
+            </button>
+          </div>
+        </section>
+
+        {/* Video List & Inline Players */}
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <LoaderCircle className="h-8 w-8 animate-spin text-[#7A1428]" />
+          </div>
+        ) : filteredVideos.length > 0 ? (
+          <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredVideos.map((item) => (
+              <article
+                key={item.id}
+                className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-4"
+              >
+                <div>
+                  <div className="relative aspect-[9/16] max-h-[440px] w-full overflow-hidden border border-[#D8DCD7] bg-[#161918]">
+                    <video
+                      src={item.videoUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-contain"
+                    />
+                    <span className="absolute left-3 top-3 bg-black/75 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[#FAF6EE]">
+                      Queue #{item.queueNumber || 1} · {item.eventId}
+                    </span>
+                  </div>
+
+                  <div className="mt-3">
+                    <p className="font-serif text-lg font-semibold text-[#161918]">
+                      {item.customerName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#535A56]">
+                      {item.customerLocality} · {new Date(item.createdAt).toLocaleString('en-IN')}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="border border-[#256B45] bg-[#EBF5EE] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#256B45]">
+                        Showroom Wall Approved
+                      </span>
+                      <span
+                        className={`border px-2 py-0.5 font-mono text-[10px] font-semibold ${
+                          item.promotionConsent
+                            ? 'border-[#7A1428] bg-[#7A1428]/10 text-[#7A1428]'
+                            : 'border-[#D8DCD7] bg-[#F4F5F2] text-[#535A56]'
+                        }`}
+                      >
+                        {item.promotionConsent ? 'Promo Download Allowed' : 'Showroom Loop Only'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!item.promotionConsent || downloadingId === item.id}
+                  onClick={() => handleDownload(item)}
+                  className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 bg-[#7A1428] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE] disabled:cursor-not-allowed disabled:bg-[#ECEEE9] disabled:text-[#535A56]"
+                >
+                  <Download className="h-4 w-4" />
+                  {downloadingId === item.id
+                    ? 'Preparing Download...'
+                    : item.promotionConsent
+                    ? 'Download Go Live Video'
+                    : 'Showroom Playback Only'}
+                </button>
+              </article>
+            ))}
+          </section>
+        ) : (
+          <div className="border border-[#D8DCD7] bg-white p-14 text-center">
+            <Video className="mx-auto h-10 w-10 text-[#7A1428]" />
+            <p className="mt-3 font-serif text-xl font-semibold text-[#161918]">
+              No matching Go Live videos found.
+            </p>
+          </div>
+        )}
+      </div>
+    </main>
+  );
 }

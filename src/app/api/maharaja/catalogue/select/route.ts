@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/firebase/admin';
+import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
@@ -15,7 +15,24 @@ export async function POST(req: NextRequest) {
     const product = await getCatalogueProduct(sku);
     if (!product) return NextResponse.json({ success: false, error: 'That catalogue product is unavailable.' }, { status: 404 });
     const db = getDb();
-    if (!db) return NextResponse.json({ success: false, error: 'Catalogue storage is unavailable.' }, { status: 503 });
+    if (!db) {
+      const store = getMockStore();
+      const existing = store.customerPasses.get(access.pass.code) as Record<string, any> | undefined;
+      if (!existing || existing.experienceType !== 'catalogue-gift') {
+        return NextResponse.json({ success: false, error: 'Gift link is invalid.' }, { status: 403 });
+      }
+      if (!existing.videoMasterDone && !existing.videoGenerating && !existing.videoDone) {
+        store.customerPasses.set(access.pass.code, {
+          ...existing,
+          catalogueSku: product.sku,
+          catalogueTitle: product.title,
+          cataloguePrice: product.price,
+          catalogueStoragePath: product.storagePath,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      return NextResponse.json({ success: true, product: { sku: product.sku, title: product.title, price: product.price } });
+    }
     const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(access.pass.code);
     await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);

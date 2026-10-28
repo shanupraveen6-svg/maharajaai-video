@@ -154,6 +154,14 @@ class MockStorageFile {
     return [{ contentType: item?.contentType || 'application/octet-stream' }];
   }
   async getSignedUrl(_options?: any): Promise<[string]> {
+    if (this.path.startsWith('/') || this.path.startsWith('http://') || this.path.startsWith('https://') || this.path.startsWith('data:')) {
+      return [this.path];
+    }
+    const store = getMockStore();
+    const item = store.sessions.get(`mock_blob_${this.path}`);
+    if (item?.buffer && typeof item?.contentType === 'string' && item.contentType.startsWith('image/')) {
+      return [`data:${item.contentType};base64,${item.buffer.toString('base64')}`];
+    }
     return [`https://storage.googleapis.com/maharaja-mock/${this.path}`];
   }
   async download(): Promise<[Buffer]> {

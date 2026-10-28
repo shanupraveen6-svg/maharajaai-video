@@ -1,8 +1,10 @@
+import fs from 'fs/promises';
+import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
+import { type CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, TRY_ON_MIN_PURCHASE, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
@@ -48,25 +50,35 @@ function formatGeminiImageError(error: any) {
 async function resolveImageBase64(input: unknown, bucket: any, sessionId: string, allowedCataloguePath = ''): Promise<string> {
   if (typeof input !== 'string' || !input.trim()) return '';
   const trimmed = input.trim();
-  if (!bucket && trimmed.startsWith('data:image/')) {
+  if (trimmed.startsWith('data:image/')) {
     return trimmed.split(',')[1] || trimmed;
+  }
+  if (trimmed.startsWith('/images/catalogue-demo/')) {
+    const safeRelative = path.normalize(trimmed).replace(/^(\.\.(\/|\\|$))+/, '');
+    const publicFilePath = path.join(process.cwd(), 'public', safeRelative);
+    const buffer = await fs.readFile(publicFilePath);
+    if (buffer.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Catalogue photo exceeds the 8 MB processing limit.');
+    return buffer.toString('base64');
   }
   const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/`;
   if (!trimmed.startsWith(expectedPrefix) && trimmed !== allowedCataloguePath) throw new Error('Photo source does not belong to this customer session.');
+  const mockStore = getMockStore();
+  const mockBlob = mockStore.sessions?.get(`mock_blob_${trimmed}`);
+  if (mockBlob?.buffer) {
+    return mockBlob.buffer.toString('base64');
+  }
   if (bucket) {
     try {
       const file = bucket.file(trimmed);
       const [buffer] = await file.download();
       if (buffer.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Uploaded photo exceeds the 8 MB processing limit.');
-      return buffer.toString('base64');
+      const textCheck = buffer.toString('utf8', 0, 32);
+      if (textCheck !== 'mock_file_content') {
+        return buffer.toString('base64');
+      }
     } catch (err) {
       console.warn('Storage file download warning:', err);
     }
-  }
-  const mockStore = getMockStore();
-  const mockBlob = mockStore.sessions?.get(`mock_blob_${trimmed}`);
-  if (mockBlob?.buffer) {
-    return mockBlob.buffer.toString('base64');
   }
   throw new Error('Customer photo could not be read from secure storage.');
 }
@@ -180,13 +192,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (service === 'try-on' && !access.pass) {
-      if (!validTryOnDeviceId(body.deviceId) || typeof body.tryOnGrant !== 'string') {
-        return NextResponse.json({ success: false, error: 'Scan and verify the Maharaja price tag before generating.' }, { status: 403 });
+      if (TRY_ON_MIN_PURCHASE > 0 || typeof body.tryOnGrant === 'string') {
+        if (!validTryOnDeviceId(body.deviceId) || typeof body.tryOnGrant !== 'string') {
+          return NextResponse.json({ success: false, error: 'Scan and verify the Maharaja price tag before generating.' }, { status: 403 });
+        }
+        const reservation = await reserveTryOnGrant(body.deviceId, body.tryOnGrant, sessionId);
+        if (!reservation.allowed) return NextResponse.json({ success: false, error: reservation.error }, { status: 409 });
+        reservedDeviceId = body.deviceId;
+        reservedSessionId = sessionId;
       }
-      const reservation = await reserveTryOnGrant(body.deviceId, body.tryOnGrant, sessionId);
-      if (!reservation.allowed) return NextResponse.json({ success: false, error: reservation.error }, { status: 409 });
-      reservedDeviceId = body.deviceId;
-      reservedSessionId = sessionId;
     }
 
     const nowIso = new Date().toISOString();
@@ -209,9 +223,6 @@ export async function POST(req: NextRequest) {
 
     let masterImageUrl = '';
     const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
-    if (access.pass?.experienceType === 'catalogue-gift' && customerCategory !== 'women' && customerCategory !== 'girl') {
-      return NextResponse.json({ success: false, error: 'AI Video Gift is available only for Women or Girl categories.' }, { status: 400 });
-    }
     if (body.garmentTypeConfirmed !== true) {
       return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
     }
