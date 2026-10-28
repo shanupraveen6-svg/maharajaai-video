@@ -112,6 +112,19 @@ export async function POST(req: NextRequest) {
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
+    if (service === 'try-on') {
+      const imageLimit = Number(access.workspace.limits?.image ?? 4000);
+      const imageUsed = Number(access.workspace.usage?.tryOnGenerated || 0);
+      if (imageLimit <= 0 || imageUsed >= imageLimit) {
+        return NextResponse.json({ success: false, error: 'AI Image Try-On credits are exhausted for this store.' }, { status: 403 });
+      }
+    } else {
+      const videoLimit = Number(access.workspace.limits?.video ?? 500);
+      const videoUsed = Number(access.workspace.usage?.videosGenerated || 0);
+      if (videoLimit <= 0 || videoUsed >= videoLimit) {
+        return NextResponse.json({ success: false, error: 'AI Video reward credits are exhausted for this store.' }, { status: 403 });
+      }
+    }
     const rateIdentity = access.pass?.code || (typeof body.deviceId === 'string' ? body.deviceId : sessionId);
     const rate = await enforceRateLimit(req, `master-image:${service}`, 4, 10 * 60 * 1000, rateIdentity);
     if (!rate.allowed) {
@@ -192,9 +205,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (service === 'try-on' && !access.pass) {
-      if (TRY_ON_MIN_PURCHASE > 0 || typeof body.tryOnGrant === 'string') {
+      const requirePriceTag = TRY_ON_MIN_PURCHASE > 0 || access.workspace.minPurchaseTryOnDisabled === false;
+      if (requirePriceTag || typeof body.tryOnGrant === 'string') {
         if (!validTryOnDeviceId(body.deviceId) || typeof body.tryOnGrant !== 'string') {
-          return NextResponse.json({ success: false, error: 'Scan and verify the Maharaja price tag before generating.' }, { status: 403 });
+          return NextResponse.json({ success: false, error: 'Scan and verify the Maharaja ₹500+ price tag before generating.' }, { status: 403 });
         }
         const reservation = await reserveTryOnGrant(body.deviceId, body.tryOnGrant, sessionId);
         if (!reservation.allowed) return NextResponse.json({ success: false, error: reservation.error }, { status: 409 });

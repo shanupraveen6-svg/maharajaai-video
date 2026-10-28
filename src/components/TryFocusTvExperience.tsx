@@ -40,6 +40,7 @@ type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-p
 
 export default function TryFocusTvExperience() {
   const [mode, setMode] = useState<TvMode>('home');
+  const [catalogueItems, setCatalogueItems] = useState<TryFocusProduct[]>(sampleCatalogue);
 
   // Catalogue filtering
   const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
@@ -48,6 +49,37 @@ export default function TryFocusTvExperience() {
   const [cataloguePage, setCataloguePage] = useState(0);
   const catalogueTopRef = useRef<HTMLDivElement | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/maharaja/catalogue?limit=100', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!active || !data?.success || !Array.isArray(data.products) || !data.products.length) return;
+        const mapped: TryFocusProduct[] = data.products.map((item: any) => ({
+          id: item.id || item.sku.toLowerCase(),
+          sku: item.sku,
+          title: item.title,
+          price: Number(item.price || 0),
+          category: item.category || 'sarees',
+          audience: item.audience || (item.gender === 'men' ? 'Men' : 'Women'),
+          gender: item.gender === 'men' ? 'men' : 'women',
+          imageUrl: item.imageUrl,
+          garmentReferenceUrl: item.garmentReferenceUrl || item.imageUrl,
+          fabricNote: item.fabricNote || 'Maharaja Collection',
+          badge: item.newArrival ? 'NEW ARRIVAL' : item.badge,
+          accent: item.accent || 'from-[#FAF6F0] to-[#EFE8DC]',
+          eligibleForVideo: item.eligibleForVideo !== false,
+          garmentType: item.garmentType || 'saree',
+        }));
+        setCatalogueItems(mapped);
+        setSelectedProduct((prev) => mapped.find((p) => p.sku === prev.sku) || mapped[0]);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // AI Image Try-On state
   const [imageSource, setImageSource] = useState<ImageTryOnSource>('catalogue');
@@ -90,11 +122,15 @@ export default function TryFocusTvExperience() {
   const [videoStatusNote, setVideoStatusNote] = useState<string>('');
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
-  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory);
-  const browseProducts = sampleCatalogue.filter((item) => item.gender === genderFilter &&
+  const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory);
+  const browseProducts = catalogueItems.filter((item) => item.gender === genderFilter &&
     (showNewArrivals ? item.badge === 'NEW ARRIVAL' : item.category === activeCategory));
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / 4));
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * 4, cataloguePage * 4 + 4);
+  const videoBrowseProducts = browseProducts.filter((item) => item.eligibleForVideo !== false);
+  const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / 4));
+  const safeVideoPage = Math.min(cataloguePage, videoPageCount - 1);
+  const visibleVideoProducts = videoBrowseProducts.slice(safeVideoPage * 4, safeVideoPage * 4 + 4);
 
   function selectGender(gender: 'women' | 'men') {
     if (gender === genderFilter) return;
@@ -431,9 +467,9 @@ export default function TryFocusTvExperience() {
   async function generateCatalogueVideoMasterOnTv() {
     if (!videoPersonPhoto) return;
     setVideoGeneratingMaster(true);
-    setVideoStatusNote('');
+    setVideoStatusNote('Creating your Diwali portrait with the selected Maharaja garment...');
     const sessionId = `tv_vidmaster_${Date.now()}`;
-    const conceptId = selectedProduct.gender === 'men' ? 'men_festive_1' : 'women_saree_1';
+    const conceptId = selectedProduct.gender === 'men' ? 'men-heritage-passage' : 'women-golden-courtyard';
 
     try {
       const res = await fetch('/api/ai/master-image', {
@@ -1438,6 +1474,7 @@ export default function TryFocusTvExperience() {
            ========================================================= */}
         {mode === 'live-tryon' && (
           <LucyLiveMirror
+            catalogue={catalogueItems}
             garmentPrompt={`Person wearing ${selectedProduct.title}, ${selectedProduct.fabricNote}`}
             garmentTitle={selectedProduct.title}
             selectedProduct={selectedProduct}
@@ -1446,293 +1483,388 @@ export default function TryFocusTvExperience() {
         )}
 
         {/* =========================================================
-            MODE 3: AI CATALOGUE VIDEO (Catalogue-Only on TV -> QR Handoff -> Mobile Video + Go Live)
+            MODE 3: AI CATALOGUE VIDEO (Portrait Kiosk Sequence -> Diwali Master Image -> 1-Day Mobile QR)
            ========================================================= */}
         {mode === 'catalogue-video' && (
-          <div className="space-y-6">
-            {/* Policy Banner: Catalogue-Only on TV */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-5">
+          <div className="space-y-5">
+            {/* Step Banner */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border-2 border-[#D8DCD7] bg-white p-5">
               <div>
-                <p className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                  TV AI Catalogue Video · Luxury Showroom Collection
+                <p className="font-mono text-xs font-bold uppercase tracking-[0.22em] text-[#7A1428]">
+                  TV AI Catalogue Video · 1080 × 1920 Portrait Sequence
                 </p>
-                <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                  Select a catalogue look → Capture your photo → Create Diwali image
+                <h2 className="mt-1 font-serif text-3xl font-semibold text-[#161918]">
+                  1. Pick Outfit → 2. Capture Photo → 3. Create Diwali Image → 4. Scan 1-Day Mobile QR
                 </h2>
-                <p className="mt-1 text-xs text-[#535A56]">
-                  Choose a catalogue garment and capture your photo. Once the Diwali image is ready, scan its QR to create your video privately on your phone.
+                <p className="mt-1 text-sm text-[#535A56]">
+                  Generate your Diwali opening portrait on the standee, then scan the 24-hour QR to render your 6-second AI Video privately on your phone (Download or Go Live).
                 </p>
               </div>
-              <span className="border border-[#7A1428] bg-[#7A1428]/10 px-3.5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">
-                Diwali Available · 1-Day Mobile QR
+              <span className="border-2 border-[#7A1428] bg-[#7A1428]/10 px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">
+                Diwali Active · Other Events Soon
               </span>
             </div>
 
-            <div className="tv-video-layout grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-              {/* Left: Costly Dress Catalogue Selector + Event Selector */}
-              <div className="space-y-4 border border-[#D8DCD7] bg-white p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-3">
-                  <div>
-                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                      Step 1 · Select Costly Catalogue Dress (With Price in Rs)
-                    </p>
-                    <h3 className="mt-0.5 font-serif text-xl font-semibold text-[#161918]">
-                      Women & Men Luxury Catalogue
-                    </h3>
-                  </div>
-                  <div className="flex border border-[#D8DCD7] bg-[#F4F5F2] p-0.5 text-xs font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGenderFilter('women');
-                        setActiveCategory('sarees');
-                      }}
-                      className={`px-3 py-1.5 ${
-                        genderFilter === 'women' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
-                      }`}
-                    >
-                      Women
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGenderFilter('men');
-                        setActiveCategory('kurta');
-                      }}
-                      className={`px-3 py-1.5 ${
-                        genderFilter === 'men' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
-                      }`}
-                    >
-                      Men
-                    </button>
-                  </div>
+            {/* Step 1: Paged 4-Card Video-Eligible Catalogue Selector */}
+            <section className="border-2 border-[#D8DCD7] bg-white p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
+                <div>
+                  <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+                    Step 1 · Select Video-Eligible Catalogue Garment
+                  </p>
+                  <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                    Selected: {selectedProduct.title} ({formatINR(selectedProduct.price)})
+                  </h3>
                 </div>
 
-                {/* Category Tabs */}
-                <div className="flex flex-wrap gap-1.5">
-                  {filteredCategories.map((cat) => (
+                {/* Gender Switch */}
+                <div className="grid grid-cols-2 gap-2">
+                  {(['women', 'men'] as const).map((g) => (
                     <button
-                      key={cat.id}
+                      key={g}
                       type="button"
-                      onClick={() => setActiveCategory(cat.id)}
-                      className={`border px-3.5 py-1.5 text-xs font-semibold ${
-                        activeCategory === cat.id
-                          ? 'border-[#161918] bg-[#161918] text-white'
+                      onClick={() => {
+                        setGenderFilter(g);
+                        setActiveCategory(g === 'women' ? 'sarees' : 'kurta');
+                        setShowNewArrivals(false);
+                        setCataloguePage(0);
+                      }}
+                      className={`min-h-[56px] min-w-[130px] border-2 px-5 py-2.5 font-serif text-lg font-semibold capitalize ${
+                        genderFilter === g
+                          ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
                           : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
                       }`}
                     >
-                      {cat.label}
+                      {g === 'women' ? 'Women' : 'Men'}
                     </button>
                   ))}
                 </div>
+              </div>
 
-                {/* 5 Catalogue Items with Rs Price */}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {categoryProducts.map((item) => {
-                    const isSelected = selectedProduct.sku === item.sku;
-                    return (
-                      <button
-                        key={item.sku}
-                        type="button"
-                        onClick={() => {
-                          setSelectedProduct(item);
-                          setVideoMasterUrl('');
-                          setVideoPassQr('');
-                          setVideoPassUrl('');
-                        }}
-                        className={`flex gap-3 border p-3 text-left transition ${
-                          isSelected
-                            ? 'border-[#7A1428] bg-[#7A1428]/5 ring-1 ring-[#7A1428]'
-                            : 'border-[#D8DCD7] bg-[#FAFBF8] hover:border-[#161918]'
-                        }`}
-                      >
+              {/* New Arrivals + Category Pills */}
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewArrivals(true);
+                    setCataloguePage(0);
+                  }}
+                  className={`min-h-[56px] border-2 px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] ${
+                    showNewArrivals
+                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                      : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+                  }`}
+                >
+                  New Arrivals
+                </button>
+                {filteredCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setShowNewArrivals(false);
+                      setActiveCategory(cat.id);
+                      setCataloguePage(0);
+                    }}
+                    className={`min-h-[56px] border-2 px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] ${
+                      !showNewArrivals && activeCategory === cat.id
+                        ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                        : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 4-Card Paged Grid (No Nested Scrollbar) */}
+              <div className="mt-4 grid grid-cols-4 gap-3">
+                {visibleVideoProducts.map((item) => {
+                  const isSelected = selectedProduct.sku === item.sku;
+                  return (
+                    <button
+                      key={item.sku}
+                      type="button"
+                      onClick={() => {
+                        setSelectedProduct(item);
+                        setVideoMasterUrl('');
+                        setVideoPassQr('');
+                        setVideoPassUrl('');
+                        setVideoPassCode('');
+                      }}
+                      className={`flex flex-col overflow-hidden border-2 text-left transition ${
+                        isSelected
+                          ? 'border-[#7A1428] bg-[#7A1428]/5 ring-2 ring-[#7A1428]'
+                          : 'border-[#D8DCD7] bg-[#FAFBF8] hover:border-[#161918]'
+                      }`}
+                    >
+                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9]">
                         <img
                           src={item.imageUrl}
                           alt={item.title}
-                          className="h-24 w-20 shrink-0 border border-[#D8DCD7] object-cover"
+                          className="h-full w-full object-cover object-top"
                         />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-mono text-[10px] font-bold uppercase text-[#7A1428]">
-                              {item.sku}
-                            </span>
-                            <span className="bg-[#161918] px-2 py-0.5 font-mono text-xs font-bold text-[#FAF6EE]">
-                              {formatINR(item.price)}
+                        <span className="absolute right-2 top-2 bg-[#161918] px-2.5 py-1 font-mono text-xs font-bold text-[#FAF6EE]">
+                          {formatINR(item.price)}
+                        </span>
+                        {isSelected && (
+                          <span className="absolute left-2 top-2 bg-[#7A1428] px-2.5 py-1 font-mono text-[10px] font-bold uppercase text-white">
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <p className="font-mono text-[10px] font-bold uppercase text-[#7A1428]">
+                          {item.sku}
+                        </p>
+                        <p className="mt-0.5 line-clamp-1 font-serif text-base font-semibold text-[#161918]">
+                          {item.title}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Pager Row + Festival Event Pills */}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-[#D8DCD7] pt-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={safeVideoPage <= 0}
+                    onClick={() => setCataloguePage(Math.max(0, safeVideoPage - 1))}
+                    className="min-h-[52px] border-2 border-[#161918] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
+                  >
+                    Prev 4
+                  </button>
+                  <span className="px-2 font-mono text-xs font-bold text-[#535A56]">
+                    Page {safeVideoPage + 1} / {videoPageCount}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={safeVideoPage >= videoPageCount - 1}
+                    onClick={() => setCataloguePage(Math.min(videoPageCount - 1, safeVideoPage + 1))}
+                    className="min-h-[52px] border-2 border-[#161918] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
+                  >
+                    Next 4
+                  </button>
+                </div>
+
+                {/* Festival Scene Selector (Diwali Active, Others Disabled / Soon) */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {events.map((ev) => (
+                    <button
+                      key={ev.id}
+                      type="button"
+                      disabled={ev.id !== 'diwali'}
+                      onClick={() => setSelectedEventId(ev.id)}
+                      className={`min-h-[48px] border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] ${
+                        selectedEventId === ev.id
+                          ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                          : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#535A56] opacity-45'
+                      }`}
+                    >
+                      {ev.label}
+                      {ev.id !== 'diwali' ? ' · Soon' : ' · Active'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* Step 2 & 3: Portrait Two-Slot Input + Diwali Master Preview & 1-Day Mobile QR */}
+            <section className="grid gap-5 grid-cols-2">
+              {/* Left Card: Two Image Slots (01 Your Photo + 02 Selected Garment) & Generate CTA */}
+              <div className="flex flex-col justify-between border-2 border-[#D8DCD7] bg-white p-5">
+                <div>
+                  <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+                    Step 2 · Two Images for Your Diwali Look
+                  </p>
+                  <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                    Capture Your Photo & Confirm Garment
+                  </h3>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3.5">
+                    {/* Slot 01: Customer Photo */}
+                    <div className="border-2 border-[#D8DCD7] bg-[#FAFBF8] p-3">
+                      <div className="flex aspect-[3/4] items-center justify-center overflow-hidden bg-[#ECEEE9]">
+                        {videoPersonPhoto ? (
+                          <img
+                            src={videoPersonPhoto}
+                            alt="Customer photo for Diwali image"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="p-4 text-center text-[#535A56]">
+                            <User className="mx-auto h-12 w-12" />
+                            <span className="mt-2 block text-sm font-bold">
+                              Tap Capture Below
                             </span>
                           </div>
-                          <p className="mt-1 line-clamp-2 font-serif text-sm font-semibold text-[#161918]">
-                            {item.title}
-                          </p>
-                          <p className="mt-0.5 truncate text-[11px] text-[#535A56]">
-                            {item.fabricNote}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Festival Event Selector */}
-                <div className="border-t border-[#D8DCD7] pt-4">
-                  <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    Step 2 · Choose Festival / Celebration Scene
-                  </p>
-                  <div className="mt-2.5 grid grid-cols-3 gap-2 sm:grid-cols-6">
-                    {events.map((ev) => (
-                      <button
-                        key={ev.id}
-                        type="button"
-                        disabled={ev.id !== 'diwali'}
-                        onClick={() => setSelectedEventId(ev.id)}
-                        className={`border px-2.5 py-2 text-center text-xs font-semibold transition ${
-                          selectedEventId === ev.id
-                            ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                            : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] opacity-40'
-                        }`}
-                      >
-                        {ev.label}{ev.id !== 'diwali' ? ' · Soon' : ''}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Optional TV Portrait Capture + Mobile QR Code Handoff */}
-              <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-                <div>
-                  <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-3">
-                    <div>
-                      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                        Step 3 · TV Photo & Mobile QR Handoff
+                        )}
+                      </div>
+                      <p className="mt-2.5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#161918]">
+                        01 · Your Photo
                       </p>
-                      <h3 className="mt-0.5 font-serif text-xl font-semibold text-[#161918]">
-                        {selectedProduct.title} · {formatINR(selectedProduct.price)}
-                      </h3>
-                    </div>
-                  </div>
-
-                  {/* Optional TV Customer Photo + Festival Master Generation */}
-                  <div className="mt-4 border border-[#D8DCD7] bg-white p-4">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#535A56]">
-                      Two images for your Diwali look
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      <div className="border border-dashed border-[#BFC6BE] bg-[#FAFBF8] p-3">
-                        <div className="flex aspect-[3/4] items-center justify-center overflow-hidden bg-[#ECEEE9]">
-                          {videoPersonPhoto ? <img src={videoPersonPhoto} alt="Your photo for the Diwali image" className="h-full w-full object-cover" /> : <div className="text-center text-[#535A56]"><User className="mx-auto h-10 w-10" /><span className="mt-2 block text-sm font-semibold">Your photo</span></div>}
-                        </div>
-                        <p className="mt-2 text-sm font-semibold">01 · Your photo</p>
-                      </div>
-                      <div className="border border-dashed border-[#BFC6BE] bg-[#FAFBF8] p-3">
-                        <div className="aspect-[3/4] overflow-hidden bg-[#ECEEE9]"><img src={selectedProduct.imageUrl} alt={`Selected garment: ${selectedProduct.title}`} className="h-full w-full object-cover" /></div>
-                        <p className="mt-2 truncate text-sm font-semibold">02 · {selectedProduct.title}</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => openCameraFor('video-person')}
-                        className="flex items-center gap-1.5 bg-[#161918] px-3.5 py-2 text-xs font-semibold text-white"
-                      >
-                        <Camera className="h-3.5 w-3.5" />
-                        Capture on TV
-                      </button>
-                      <label className="flex cursor-pointer items-center gap-1.5 border border-[#161918] bg-white px-3.5 py-2 text-xs font-semibold text-[#161918]">
-                        <Upload className="h-3.5 w-3.5" />
-                        Upload Photo
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleFileUpload('video-person', e.target.files?.[0])}
-                        />
-                      </label>
-                      {videoPersonPhoto && (
-                        <button
-                          type="button"
-                          disabled={videoGeneratingMaster}
-                          onClick={generateCatalogueVideoMasterOnTv}
-                          className="flex items-center gap-1.5 bg-[#7A1428] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                        >
-                          {videoGeneratingMaster ? (
-                            <>
-                              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                              Generating Master...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="h-3.5 w-3.5" />
-                              Generate Festival Image on TV
-                            </>
-                          )}
-                        </button>
-                      )}
                     </div>
 
-                    {(videoMasterUrl || videoStatusNote) && (
-                      <div className="mt-3 flex items-center gap-3 border-t border-[#D8DCD7] pt-3">
-                        {videoMasterUrl && <img src={videoMasterUrl} alt="Generated Diwali image" className="h-28 w-20 border border-[#D8DCD7] object-cover" />}
-                        <div className="text-xs text-[#535A56]">
-                          <p className="font-semibold text-[#161918]">
-                            {videoMasterUrl ? 'Your Diwali image is ready' : 'Image not ready'}
-                          </p>
-                          <p className="mt-0.5">
-                            {videoStatusNote}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* The QR is issued only after the Diwali image succeeds. */}
-                  {videoMasterUrl && <div className="mt-4 flex flex-col items-center border border-[#D8DCD7] bg-white p-5 text-center">
-                    <span className="bg-[#EBF5EE] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#256B45]">
-                      1-Day Valid Mobile QR · Download + Go Live Enabled
-                    </span>
-                    <h4 className="mt-2 font-serif text-xl font-semibold text-[#161918]">
-                      Scan on Mobile to Generate AI Video
-                    </h4>
-                    <p className="mt-1 max-w-sm text-xs text-[#535A56]">
-                      Opens this exact dress (<strong>{selectedProduct.title} · {formatINR(selectedProduct.price)}</strong>) on the customer’s phone to generate the AI Video and choose <strong>Download</strong> or <strong>Go Live on Maharaja TV</strong>.
-                    </p>
-
-                    <div className="my-4 border border-[#D8DCD7] bg-[#FAFBF8] p-3">
-                      {videoPassCreating ? (
-                        <div className="flex h-48 w-48 items-center justify-center">
-                          <LoaderCircle className="h-8 w-8 animate-spin text-[#7A1428]" />
-                        </div>
-                      ) : videoPassQr ? (
+                    {/* Slot 02: Selected Catalogue Garment */}
+                    <div className="border-2 border-[#D8DCD7] bg-[#FAFBF8] p-3">
+                      <div className="aspect-[3/4] overflow-hidden bg-[#ECEEE9]">
                         <img
-                          src={videoPassQr}
-                          alt="Catalogue Video Mobile QR"
-                          className="h-48 w-48 object-contain"
+                          src={selectedProduct.imageUrl}
+                          alt={`Selected garment: ${selectedProduct.title}`}
+                          className="h-full w-full object-cover object-top"
                         />
-                      ) : (
-                        <div className="flex h-48 w-48 items-center justify-center">
-                          <QrCode className="h-10 w-10 text-[#535A56]" />
-                        </div>
-                      )}
+                      </div>
+                      <p className="mt-2.5 truncate font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">
+                        02 · {selectedProduct.sku} ({formatINR(selectedProduct.price)})
+                      </p>
                     </div>
+                  </div>
+                </div>
 
-                    <p className="font-mono text-[11px] text-[#535A56]">
-                      Pass Code: <strong className="text-[#161918]">{videoPassCode}</strong> · Valid 24 Hours
-                    </p>
+                <div className="mt-5 space-y-3 border-t border-[#D8DCD7] pt-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openCameraFor('video-person')}
+                      className="flex min-h-[64px] items-center justify-center gap-2 bg-[#161918] px-4 py-3.5 text-xs font-bold uppercase tracking-[0.14em] text-white"
+                    >
+                      <Camera className="h-5 w-5" />
+                      {videoPersonPhoto ? 'Retake Photo (5s)' : 'Capture Photo (5s)'}
+                    </button>
+                    <label className="flex min-h-[64px] cursor-pointer items-center justify-center gap-2 border-2 border-[#161918] bg-white px-4 py-3.5 text-xs font-bold uppercase tracking-[0.14em] text-[#161918]">
+                      <Upload className="h-5 w-5" />
+                      Upload Photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleFileUpload('video-person', e.target.files?.[0])}
+                      />
+                    </label>
+                  </div>
 
-                    {videoPassUrl && (
-                      <a
-                        href={videoPassUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-3 inline-flex items-center gap-1.5 border border-[#161918] bg-[#FAFBF8] px-4 py-2 text-xs font-semibold text-[#161918] hover:bg-[#161918] hover:text-white"
-                      >
-                        Open Mobile Continuation Link Directly (Laptop Test)
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
+                  <button
+                    type="button"
+                    disabled={!videoPersonPhoto || videoGeneratingMaster}
+                    onClick={generateCatalogueVideoMasterOnTv}
+                    className="flex min-h-[68px] w-full items-center justify-center gap-2.5 bg-[#7A1428] px-5 py-4 text-sm font-bold uppercase tracking-[0.16em] text-[#FAF6EE] disabled:opacity-45"
+                  >
+                    {videoGeneratingMaster ? (
+                      <>
+                        <LoaderCircle className="h-5 w-5 animate-spin" />
+                        Creating Diwali Portrait on Standee...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-5 w-5" />
+                        Step 3: Create Diwali Portrait & Issue QR
+                      </>
                     )}
-                  </div>}
+                  </button>
                 </div>
               </div>
-            </div>
+
+              {/* Right Card: Generation Waiting State OR Diwali Portrait + 1-Day Mobile QR */}
+              <div className="flex flex-col justify-between border-2 border-[#D8DCD7] bg-[#FAFBF8] p-5">
+                {videoGeneratingMaster ? (
+                  <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                    <LoaderCircle className="h-16 w-16 animate-spin text-[#7A1428]" />
+                    <p className="mt-4 font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+                      Generating Diwali Master Portrait
+                    </p>
+                    <h3 className="mt-2 font-serif text-3xl font-semibold text-[#161918]">
+                      Dressing You in {selectedProduct.title}
+                    </h3>
+                    <p className="mt-3 max-w-sm text-sm leading-relaxed text-[#535A56]">
+                      Preserving your exact face and natural skin tone while draping{' '}
+                      <strong>{selectedProduct.title}</strong> in the Maharaja Diwali courtyard. Your 1-day mobile QR will appear automatically once ready.
+                    </p>
+                  </div>
+                ) : videoMasterUrl ? (
+                  <div className="flex h-full flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-3">
+                        <span className="bg-[#EBF5EE] px-3 py-1 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#256B45]">
+                          Step 4 · Diwali Portrait Ready
+                        </span>
+                        <span className="font-mono text-xs font-bold text-[#7A1428]">
+                          Valid 24 Hours
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-[1fr_210px] gap-4 items-center">
+                        <div className="aspect-[9/16] max-h-[380px] overflow-hidden border-2 border-[#161918] bg-[#161918]">
+                          <img
+                            src={videoMasterUrl}
+                            alt="Generated Diwali portrait"
+                            className="h-full w-full object-cover object-top"
+                          />
+                        </div>
+
+                        <div className="flex flex-col items-center border-2 border-[#161918] bg-white p-3 text-center">
+                          {videoPassCreating ? (
+                            <div className="flex h-44 w-44 items-center justify-center">
+                              <LoaderCircle className="h-8 w-8 animate-spin text-[#7A1428]" />
+                            </div>
+                          ) : videoPassQr ? (
+                            <img
+                              src={videoPassQr}
+                              alt="Catalogue Video Mobile QR"
+                              className="h-44 w-44 object-contain"
+                            />
+                          ) : (
+                            <div className="flex h-44 w-44 items-center justify-center">
+                              <QrCode className="h-10 w-10 text-[#535A56]" />
+                            </div>
+                          )}
+                          <p className="mt-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#7A1428]">
+                            Scan for 1-Day Video Pass
+                          </p>
+                          <p className="mt-1 text-[11px] leading-snug text-[#535A56]">
+                            Continue on phone to render your 6s AI Video & choose{' '}
+                            <strong>Download</strong> or <strong>Go Live</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#D8DCD7] pt-3">
+                      <span className="font-mono text-xs text-[#535A56]">
+                        Pass: <strong className="text-[#161918]">{videoPassCode}</strong>
+                      </span>
+                      {videoPassUrl && (
+                        <a
+                          href={videoPassUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex min-h-[48px] items-center gap-1.5 border border-[#161918] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#161918]"
+                        >
+                          Open Mobile Pass
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                    <QrCode className="h-14 w-14 text-[#535A56]" />
+                    <p className="mt-4 font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+                      Step 4 · 1-Day Mobile QR Unlocks After Portrait
+                    </p>
+                    <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
+                      Capture Your Photo & Generate Diwali Image First
+                    </h3>
+                    <p className="mt-2 max-w-sm text-sm leading-relaxed text-[#535A56]">
+                      {videoStatusNote ||
+                        'Once your Diwali portrait is created on the standee, your private 24-hour mobile QR will appear here so you can render the AI Video and Download or Go Live.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
           </div>
         )}
       </div>

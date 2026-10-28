@@ -20,10 +20,25 @@ import {
 import { type VideoConceptId } from './video-concepts';
 
 export type MaharajaWorkspace = {
-  clientId: typeof MAHARAJA_CLIENT_ID;
+  clientId: string;
   clientName: string;
+  branch?: string;
   workspaceCode: string;
   campaignEnabled: boolean;
+  minPurchaseTryOnDisabled?: boolean;
+  deliveryMode?: 'whatsapp' | 'qr';
+  whatsappConnected?: boolean;
+  devices?: {
+    tv: boolean;
+    tablet: boolean;
+    mobile: boolean;
+    led: boolean;
+  };
+  limits?: {
+    image: number;
+    live: number;
+    video: number;
+  };
   activeEvents: EventId[];
   defaultEvent: EventId;
   tryOnCode: string;
@@ -35,6 +50,7 @@ export type MaharajaWorkspace = {
   usage: {
     tryOnScans: number;
     tryOnGenerated: number;
+    liveSessions?: number;
     videoPasses: number;
     videosGenerated: number;
     goLive: number;
@@ -439,31 +455,40 @@ export async function finishTryOnGrant(deviceId: string, sessionId: string, comp
   }
 }
 
-function stableCode(label: string, length = 20) {
-  const secret = process.env.OPERATOR_AUTH_SECRET;
-  if (!secret) {
-    throw new Error('OPERATOR_AUTH_SECRET must be configured.');
-  }
-  return crypto.createHmac('sha256', secret).update(`${MAHARAJA_CLIENT_ID}:${label}`).digest('base64url').slice(0, length);
+function stableCode(label: string, length = 20, clientId = MAHARAJA_CLIENT_ID) {
+  const secret = process.env.OPERATOR_AUTH_SECRET || 'tryfocus-maharaja-local-dev-secret';
+  return crypto.createHmac('sha256', secret).update(`${clientId}:${label}`).digest('base64url').slice(0, length);
 }
 
-function defaultWorkspace(): MaharajaWorkspace {
+function defaultWorkspace(clientId = MAHARAJA_CLIENT_ID): MaharajaWorkspace {
   const now = new Date().toISOString();
+  const isMaharaja = clientId === MAHARAJA_CLIENT_ID;
   return {
-    clientId: MAHARAJA_CLIENT_ID,
-    clientName: 'Maharaja',
-    workspaceCode: process.env.MAHARAJA_WORKSPACE_CODE || MAHARAJA_WORKSPACE_CODE,
-    campaignEnabled: true,
+    clientId,
+    clientName: isMaharaja ? 'The Majestic Maharaja' : clientId === 'anand' ? 'Anand Textiles' : clientId,
+    branch: isMaharaja ? 'Thanjavur · Main Showroom' : clientId === 'anand' ? 'Coimbatore · RS Puram' : 'Main Showroom',
+    workspaceCode: isMaharaja ? (process.env.MAHARAJA_WORKSPACE_CODE || MAHARAJA_WORKSPACE_CODE) : `${clientId}-workspace`,
+    campaignEnabled: isMaharaja,
+    minPurchaseTryOnDisabled: true,
+    deliveryMode: 'qr',
+    whatsappConnected: false,
+    devices: isMaharaja
+      ? { tv: true, tablet: true, mobile: true, led: true }
+      : { tv: false, tablet: true, mobile: true, led: false },
+    limits: isMaharaja
+      ? { image: 4000, live: 500, video: 500 }
+      : { image: 4000, live: 0, video: 500 },
     activeEvents: ['diwali'],
     defaultEvent: 'diwali',
-    tryOnCode: stableCode('permanent-try-on'),
-    billingCode: stableCode('billing-counter'),
-    openVideoCode: stableCode('temporary-open-video'),
+    tryOnCode: stableCode('permanent-try-on', 20, clientId),
+    billingCode: stableCode('billing-counter', 20, clientId),
+    openVideoCode: stableCode('temporary-open-video', 20, clientId),
     createdAt: now,
     updatedAt: now,
     usage: {
       tryOnScans: 0,
       tryOnGenerated: 0,
+      liveSessions: 0,
       videoPasses: 0,
       videosGenerated: 0,
       goLive: 0,
@@ -474,7 +499,34 @@ function defaultWorkspace(): MaharajaWorkspace {
 }
 
 function normalizeWorkspace(data: Partial<MaharajaWorkspace>, fallback: MaharajaWorkspace): MaharajaWorkspace {
-  const merged = { ...fallback, ...data, usage: { ...fallback.usage, ...data.usage } };
+  const merged = {
+    ...fallback,
+    ...data,
+    devices: {
+      tv: true,
+      tablet: true,
+      mobile: true,
+      led: true,
+      ...(fallback.devices || {}),
+      ...(data.devices || {}),
+    },
+    limits: {
+      image: 4000,
+      live: 500,
+      video: 500,
+      ...(fallback.limits || {}),
+      ...(data.limits || {}),
+    },
+    minPurchaseTryOnDisabled: typeof data.minPurchaseTryOnDisabled === 'boolean'
+      ? data.minPurchaseTryOnDisabled
+      : (fallback.minPurchaseTryOnDisabled ?? true),
+    deliveryMode: data.deliveryMode === 'whatsapp' ? ('whatsapp' as const) : ('qr' as const),
+    usage: {
+      ...fallback.usage,
+      ...data.usage,
+      liveSessions: Number(data.usage?.liveSessions ?? fallback.usage.liveSessions ?? 0),
+    },
+  };
   return {
     ...merged,
     activeEvents: ['diwali'],
@@ -483,7 +535,7 @@ function normalizeWorkspace(data: Partial<MaharajaWorkspace>, fallback: Maharaja
 }
 
 export async function getMaharajaWorkspace(): Promise<MaharajaWorkspace> {
-  const fallback = defaultWorkspace();
+  const fallback = defaultWorkspace(MAHARAJA_CLIENT_ID);
   const db = getDb();
 
   if (db) {
@@ -511,21 +563,166 @@ export async function getMaharajaWorkspace(): Promise<MaharajaWorkspace> {
   return fallback;
 }
 
-export async function updateMaharajaSettings(settings: Partial<Pick<MaharajaWorkspace, 'campaignEnabled' | 'activeEvents' | 'defaultEvent'>>) {
-  const workspace = await getMaharajaWorkspace();
-  const productionSettings = { ...settings, activeEvents: ['diwali'] as EventId[], defaultEvent: 'diwali' as EventId };
-  const updated = { ...workspace, ...productionSettings, updatedAt: new Date().toISOString() };
+export async function updateMaharajaSettings(
+  settings: Partial<
+    Pick<
+      MaharajaWorkspace,
+      | 'clientName'
+      | 'branch'
+      | 'campaignEnabled'
+      | 'minPurchaseTryOnDisabled'
+      | 'deliveryMode'
+      | 'whatsappConnected'
+      | 'devices'
+      | 'limits'
+      | 'activeEvents'
+      | 'defaultEvent'
+      | 'openVideoCode'
+    >
+  > & { regenerateOpenVideoCode?: boolean },
+  clientId = MAHARAJA_CLIENT_ID
+) {
+  const workspace = clientId === MAHARAJA_CLIENT_ID
+    ? await getMaharajaWorkspace()
+    : await getClientWorkspaceById(clientId);
+  const { regenerateOpenVideoCode, ...rest } = settings;
+  const nextOpenVideoCode = regenerateOpenVideoCode
+    ? crypto.randomBytes(15).toString('base64url')
+    : rest.openVideoCode || workspace.openVideoCode;
+
+  const productionSettings: Partial<MaharajaWorkspace> = {
+    ...rest,
+    openVideoCode: nextOpenVideoCode,
+    activeEvents: ['diwali'] as EventId[],
+    defaultEvent: 'diwali' as EventId,
+    ...(rest.devices ? { devices: { ...(workspace.devices || { tv: true, tablet: true, mobile: true, led: true }), ...rest.devices } } : {}),
+    ...(rest.limits ? { limits: { ...(workspace.limits || { image: 4000, live: 500, video: 500 }), ...rest.limits } } : {}),
+  };
+  const updated = normalizeWorkspace(
+    { ...workspace, ...productionSettings, updatedAt: new Date().toISOString() },
+    defaultWorkspace(clientId)
+  );
   const db = getDb();
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).set({
+    await db.collection('clientWorkspaces').doc(clientId).set({
       ...productionSettings,
       updatedAt: updated.updatedAt,
       updatedAtTimestamp: Timestamp.now(),
     }, { merge: true });
   } else {
-    getMockStore().clientWorkspaces.set(MAHARAJA_CLIENT_ID, updated);
+    getMockStore().clientWorkspaces.set(clientId, updated);
   }
   return updated;
+}
+
+export async function getClientWorkspaceById(clientId: string): Promise<MaharajaWorkspace> {
+  const cleanId = String(clientId || '').trim().toLowerCase() || MAHARAJA_CLIENT_ID;
+  if (cleanId === MAHARAJA_CLIENT_ID) return getMaharajaWorkspace();
+  const fallback = defaultWorkspace(cleanId);
+  const db = getDb();
+  if (db) {
+    const snap = await db.collection('clientWorkspaces').doc(cleanId).get();
+    if (snap.exists) {
+      return normalizeWorkspace(snap.data() as Partial<MaharajaWorkspace>, fallback);
+    }
+    return fallback;
+  }
+  const existing = getMockStore().clientWorkspaces.get(cleanId) as Partial<MaharajaWorkspace> | undefined;
+  if (existing) return normalizeWorkspace(existing, fallback);
+  getMockStore().clientWorkspaces.set(cleanId, fallback);
+  return fallback;
+}
+
+export async function listClientWorkspaces(): Promise<MaharajaWorkspace[]> {
+  const maharaja = await getMaharajaWorkspace();
+  const anandFallback = await getClientWorkspaceById('anand');
+  const byId = new Map<string, MaharajaWorkspace>([
+    [maharaja.clientId, maharaja],
+    [anandFallback.clientId, anandFallback],
+  ]);
+
+  const db = getDb();
+  if (db) {
+    const snap = await db.collection('clientWorkspaces').get();
+    snap.docs.forEach((doc) => {
+      const id = doc.id;
+      const normalized = normalizeWorkspace(doc.data() as Partial<MaharajaWorkspace>, defaultWorkspace(id));
+      byId.set(id, normalized);
+    });
+  } else {
+    for (const [id, raw] of getMockStore().clientWorkspaces.entries()) {
+      const normalized = normalizeWorkspace(raw as Partial<MaharajaWorkspace>, defaultWorkspace(id));
+      byId.set(id, normalized);
+    }
+  }
+  return Array.from(byId.values());
+}
+
+export async function upsertClientWorkspace(input: {
+  id?: string;
+  clientId?: string;
+  name?: string;
+  clientName?: string;
+  branch?: string;
+  status?: 'Active' | 'Paused';
+  campaignEnabled?: boolean;
+  minPurchaseTryOnDisabled?: boolean;
+  deliveryMode?: 'whatsapp' | 'qr';
+  whatsappConnected?: boolean;
+  devices?: Partial<{ tv: boolean; tablet: boolean; mobile: boolean; led: boolean }>;
+  limits?: Partial<{ image: number; live: number; video: number }>;
+}): Promise<MaharajaWorkspace> {
+  const rawId = input.id || input.clientId || input.name || input.clientName || '';
+  const cleanId = String(rawId)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  if (!cleanId) {
+    throw new Error('Client workspace ID or store name is required.');
+  }
+  const existing = await getClientWorkspaceById(cleanId);
+  const campaignEnabled = typeof input.campaignEnabled === 'boolean'
+    ? input.campaignEnabled
+    : input.status
+      ? input.status === 'Active'
+      : existing.campaignEnabled;
+
+  return updateMaharajaSettings(
+    {
+      clientName: input.clientName || input.name || existing.clientName,
+      branch: input.branch || existing.branch || 'Main Showroom',
+      campaignEnabled,
+      ...(typeof input.minPurchaseTryOnDisabled === 'boolean'
+        ? { minPurchaseTryOnDisabled: input.minPurchaseTryOnDisabled }
+        : {}),
+      ...(input.deliveryMode ? { deliveryMode: input.deliveryMode } : {}),
+      ...(typeof input.whatsappConnected === 'boolean'
+        ? { whatsappConnected: input.whatsappConnected }
+        : {}),
+      ...(input.devices
+        ? {
+            devices: {
+              tv: input.devices.tv ?? existing.devices?.tv ?? true,
+              tablet: input.devices.tablet ?? existing.devices?.tablet ?? true,
+              mobile: input.devices.mobile ?? existing.devices?.mobile ?? true,
+              led: input.devices.led ?? existing.devices?.led ?? true,
+            },
+          }
+        : {}),
+      ...(input.limits
+        ? {
+            limits: {
+              image: Math.max(0, Number(input.limits.image ?? existing.limits?.image ?? 4000)),
+              live: Math.max(0, Number(input.limits.live ?? existing.limits?.live ?? 500)),
+              video: Math.max(0, Number(input.limits.video ?? existing.limits?.video ?? 500)),
+            },
+          }
+        : {}),
+    },
+    cleanId
+  );
 }
 
 export async function logMaharajaActivity(
@@ -567,11 +764,23 @@ export function getPublicAppUrl(pathname: string) {
 }
 
 export function getWorkspaceLinks(workspace: MaharajaWorkspace) {
+  const adminUrl = getPublicAppUrl(`/maharaja/${workspace.workspaceCode}`);
+  const tryOnUrl = getPublicAppUrl(`/maharaja/try-on?access=${workspace.tryOnCode}`);
+  const billingUrl = getPublicAppUrl(`/maharaja/billing/${workspace.billingCode}`);
+  const openVideoUrl = getPublicAppUrl(`/maharaja/video/${workspace.openVideoCode}`);
+  const tvUrl = getPublicAppUrl('/maharaja/tv');
   return {
-    adminUrl: getPublicAppUrl(`/maharaja/${workspace.workspaceCode}`),
-    tryOnUrl: getPublicAppUrl(`/maharaja/try-on?access=${workspace.tryOnCode}`),
-    billingUrl: getPublicAppUrl(`/maharaja/billing/${workspace.billingCode}`),
-    openVideoUrl: getPublicAppUrl(`/maharaja/video/${workspace.openVideoCode}`),
+    adminUrl,
+    tryOnUrl,
+    billingUrl,
+    openVideoUrl,
+    links: {
+      workspace: adminUrl,
+      tryOn: tryOnUrl,
+      billing: billingUrl,
+      openVideo: openVideoUrl,
+      tv: tvUrl,
+    },
   };
 }
 

@@ -1,16 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Check,
   ChevronDown,
-  CircleDollarSign,
   ExternalLink,
-  KeyRound,
+  LoaderCircle,
   Monitor,
-  QrCode,
-  ShieldCheck,
+  Plus,
+  RefreshCw,
   Smartphone,
   Tablet,
   Tv,
@@ -22,12 +21,21 @@ type Client = {
   id: string;
   name: string;
   branch: string;
+  workspaceCode?: string;
   status: 'Active' | 'Paused';
   minPurchaseTryOnDisabled: boolean;
+  deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected: boolean;
   devices: { tv: boolean; tablet: boolean; mobile: boolean; led: boolean };
   usage: { image: number; live: number; video: number };
   limits: { image: number; live: number; video: number };
+  links?: {
+    workspace: string;
+    tryOn: string;
+    billing: string;
+    openVideo: string;
+    tv: string;
+  };
 };
 
 const initialClients: Client[] = [
@@ -35,22 +43,26 @@ const initialClients: Client[] = [
     id: 'maharaja',
     name: 'The Majestic Maharaja',
     branch: 'Thanjavur · Main Showroom',
+    workspaceCode: 'workspace',
     status: 'Active',
     minPurchaseTryOnDisabled: true,
+    deliveryMode: 'qr',
     whatsappConnected: false,
     devices: { tv: true, tablet: true, mobile: true, led: true },
-    usage: { image: 1180, live: 72, video: 41 },
+    usage: { image: 0, live: 0, video: 0 },
     limits: { image: 4000, live: 500, video: 500 },
   },
   {
     id: 'anand',
     name: 'Anand Textiles',
     branch: 'Coimbatore · RS Puram',
+    workspaceCode: 'anand-workspace',
     status: 'Paused',
     minPurchaseTryOnDisabled: true,
+    deliveryMode: 'qr',
     whatsappConnected: false,
     devices: { tv: false, tablet: true, mobile: true, led: false },
-    usage: { image: 320, live: 0, video: 12 },
+    usage: { image: 0, live: 0, video: 0 },
     limits: { image: 4000, live: 0, video: 500 },
   },
 ];
@@ -61,10 +73,6 @@ const plans = [
     label: 'AI Image Try-On',
     standard: '4,000 generations',
     pro: '6,000 generations',
-    oldStandard: '₹50,000',
-    oldPro: '₹99,999',
-    offerStandard: '₹40,000',
-    offerPro: '₹80,000',
     icon: Smartphone,
   },
   {
@@ -72,10 +80,6 @@ const plans = [
     label: 'Live AI Try-On (TV Only)',
     standard: '500 × 30-second sessions',
     pro: '1,000 × 30-second sessions',
-    oldStandard: '₹50,000',
-    oldPro: '₹99,999',
-    offerStandard: '₹40,000',
-    offerPro: '₹80,000',
     icon: Monitor,
   },
   {
@@ -83,38 +87,169 @@ const plans = [
     label: 'AI Video (1-Day Pass)',
     standard: '500 video rewards',
     pro: '1,000 video rewards',
-    oldStandard: '₹50,000',
-    oldPro: '₹99,999',
-    offerStandard: '₹40,000',
-    offerPro: '₹80,000',
     icon: Video,
   },
 ] as const;
 
 export default function TryFocusAdmin() {
-  const [clients, setClients] = useState(initialClients);
-  const [clientId, setClientId] = useState(initialClients[0].id);
-  const [savedNotice, setSavedNotice] = useState(false);
-  const [pairCode, setPairCode] = useState('TF-MAH-8421');
+  const [clients, setClients] = useState<Client[]>(initialClients);
+  const [clientId, setClientId] = useState<string>(initialClients[0].id);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [savedNotice, setSavedNotice] = useState<string>('');
+  const [errorNotice, setErrorNotice] = useState<string>('');
+
+  // New retailer creation form
+  const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
+  const [newStoreName, setNewStoreName] = useState<string>('');
+  const [newStoreBranch, setNewStoreBranch] = useState<string>('');
+  const [creatingClient, setCreatingClient] = useState<boolean>(false);
+
+  const loadClients = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/clients', { cache: 'no-store' });
+      const data = await res.json();
+      if (res.ok && data?.success && Array.isArray(data.clients) && data.clients.length > 0) {
+        setClients(data.clients);
+      }
+    } catch {
+      // keep fallback state if network is offline
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadClients();
+  }, [loadClients]);
 
   const client = useMemo(
     () => clients.find((item) => item.id === clientId) || clients[0],
     [clients, clientId]
   );
 
-  function updateClient(next: Partial<Client>) {
+  async function persistClientPatch(nextPatch: Partial<Client>) {
+    const mergedClient: Client = {
+      ...client,
+      ...nextPatch,
+      devices: nextPatch.devices ? { ...client.devices, ...nextPatch.devices } : client.devices,
+      limits: nextPatch.limits ? { ...client.limits, ...nextPatch.limits } : client.limits,
+    };
+
     setClients((items) =>
-      items.map((item) => (item.id === client.id ? { ...item, ...next } : item))
+      items.map((item) => (item.id === client.id ? mergedClient : item))
     );
-    setSavedNotice(false);
+    setSavedNotice('');
+    setErrorNotice('');
+    setSaving(true);
+
+    try {
+      const res = await fetch('/api/admin/clients', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: mergedClient.id,
+          name: mergedClient.name,
+          branch: mergedClient.branch,
+          status: mergedClient.status,
+          campaignEnabled: mergedClient.status === 'Active',
+          minPurchaseTryOnDisabled: mergedClient.minPurchaseTryOnDisabled,
+          deliveryMode: mergedClient.deliveryMode || 'qr',
+          whatsappConnected: mergedClient.whatsappConnected,
+          devices: mergedClient.devices,
+          limits: mergedClient.limits,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Could not save client configuration.');
+      }
+      if (Array.isArray(data.clients)) {
+        setClients(data.clients);
+      }
+      setSavedNotice(`Saved ${mergedClient.name} configuration to backend.`);
+      window.setTimeout(() => setSavedNotice(''), 3000);
+    } catch (err) {
+      setErrorNotice(
+        err instanceof Error ? err.message : 'Unable to save client configuration.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function updateClient(next: Partial<Client>) {
+    void persistClientPatch(next);
   }
 
   function toggleDevice(key: keyof Client['devices']) {
-    updateClient({ devices: { ...client.devices, [key]: !client.devices[key] } });
+    void persistClientPatch({
+      devices: { ...client.devices, [key]: !client.devices[key] },
+    });
   }
 
   function setLimit(key: keyof Client['limits'], value: number) {
-    updateClient({ limits: { ...client.limits, [key]: Math.max(0, value) } });
+    const nextLimits = { ...client.limits, [key]: Math.max(0, value) };
+    setClients((items) =>
+      items.map((item) =>
+        item.id === client.id ? { ...item, limits: nextLimits } : item
+      )
+    );
+  }
+
+  async function saveCurrentConfiguration() {
+    await persistClientPatch({});
+  }
+
+  async function createNewRetailer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newStoreName.trim()) {
+      setErrorNotice('Enter a retailer store name.');
+      return;
+    }
+    setCreatingClient(true);
+    setErrorNotice('');
+    try {
+      const slug = newStoreName
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+      const res = await fetch('/api/admin/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: slug,
+          name: newStoreName.trim(),
+          branch: newStoreBranch.trim() || 'Main Showroom',
+          status: 'Active',
+          minPurchaseTryOnDisabled: true,
+          deliveryMode: 'qr',
+          devices: { tv: true, tablet: true, mobile: true, led: true },
+          limits: { image: 4000, live: 500, video: 500 },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Could not create retailer workspace.');
+      }
+      if (Array.isArray(data.clients)) {
+        setClients(data.clients);
+      }
+      if (data.client?.id) {
+        setClientId(data.client.id);
+      }
+      setNewStoreName('');
+      setNewStoreBranch('');
+      setShowCreateForm(false);
+      setSavedNotice(`Created isolated workspace for ${data.client?.name || newStoreName}.`);
+    } catch (err) {
+      setErrorNotice(
+        err instanceof Error ? err.message : 'Unable to create retailer workspace.'
+      );
+    } finally {
+      setCreatingClient(false);
+    }
   }
 
   return (
@@ -128,15 +263,23 @@ export default function TryFocusAdmin() {
             </span>
             <div>
               <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                TryFocus admin
+                TryFocus Super Admin · Multi-Store Control Plane
               </p>
               <h1 className="font-serif text-xl font-semibold text-[#161918]">
-                Store management
+                Store Management & Surface Provisioning
               </h1>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setShowCreateForm((v) => !v)}
+              className="inline-flex items-center gap-1.5 border border-[#161918] bg-white px-3.5 py-2 text-xs font-semibold text-[#161918] hover:bg-[#161918] hover:text-white"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Retailer Workspace
+            </button>
             <Link
               href="/maharaja/workspace"
               className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
@@ -151,24 +294,96 @@ export default function TryFocusAdmin() {
             </Link>
             <button
               type="button"
-              onClick={() => {
-                setSavedNotice(true);
-                window.setTimeout(() => setSavedNotice(false), 2500);
-              }}
-              className="bg-[#7A1428] px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#FAF6EE]"
+              disabled={saving}
+              onClick={saveCurrentConfiguration}
+              className="inline-flex items-center gap-1.5 bg-[#7A1428] px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#FAF6EE] disabled:opacity-50"
             >
-              {savedNotice ? 'Configuration Saved' : 'Save Configuration'}
+              {saving ? (
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              {saving ? 'Saving...' : 'Save Configuration'}
             </button>
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
+        {(savedNotice || errorNotice) && (
+          <div
+            className={`border p-4 text-sm font-semibold ${
+              errorNotice
+                ? 'border-[#B42318] bg-[#FEF3F2] text-[#B42318]'
+                : 'border-[#256B45] bg-[#EBF5EE] text-[#256B45]'
+            }`}
+          >
+            {errorNotice || savedNotice}
+          </div>
+        )}
+
+        {/* Create New Retailer Workspace Drawer */}
+        {showCreateForm && (
+          <form
+            onSubmit={createNewRetailer}
+            className="border-2 border-[#161918] bg-white p-6 shadow-sm"
+          >
+            <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-4">
+              <div>
+                <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+                  Provision New Client Store
+                </p>
+                <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                  Create Isolated Retailer Workspace
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateForm(false)}
+                className="text-xs font-semibold text-[#535A56] underline"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
+                Retailer Store Name
+                <input
+                  value={newStoreName}
+                  onChange={(e) => setNewStoreName(e.target.value)}
+                  placeholder="e.g. Pothys Silk Palace"
+                  className="mt-1.5 h-11 w-full border border-[#D8DCD7] bg-[#FAFBF8] px-3 text-sm font-semibold text-[#161918] outline-none focus:border-[#7A1428]"
+                  required
+                />
+              </label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
+                Branch / City
+                <input
+                  value={newStoreBranch}
+                  onChange={(e) => setNewStoreBranch(e.target.value)}
+                  placeholder="e.g. Chennai · T. Nagar"
+                  className="mt-1.5 h-11 w-full border border-[#D8DCD7] bg-[#FAFBF8] px-3 text-sm font-semibold text-[#161918] outline-none focus:border-[#7A1428]"
+                />
+              </label>
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  disabled={creatingClient}
+                  className="h-11 w-full bg-[#7A1428] px-5 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] disabled:opacity-50"
+                >
+                  {creatingClient ? 'Creating Workspace...' : 'Create Store Workspace'}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+
         {/* Client Selector & Status */}
         <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-6">
             <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-              Store setup
+              Store Setup · {loading ? 'Syncing...' : `${clients.length} Retailers Connected`}
             </p>
             <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -176,7 +391,7 @@ export default function TryFocusAdmin() {
                   Set up each store from one place.
                 </h2>
                 <p className="mt-2 max-w-xl text-sm text-[#535A56]">
-                  Turn store experiences on or off, set credits, and choose how customers continue on mobile.
+                  Turn store experiences on or off, set hard generation credit ceilings, and control how customers continue on mobile. Every change persists to the backend and is enforced in the APIs.
                 </p>
               </div>
               <div className="relative min-w-64">
@@ -184,12 +399,15 @@ export default function TryFocusAdmin() {
                   Selected Retailer
                 </label>
                 <select
-                  value={clientId}
+                  value={client.id}
                   onChange={(e) => setClientId(e.target.value)}
                   className="h-11 w-full appearance-none border border-[#D8DCD7] bg-white px-3.5 text-sm font-semibold text-[#161918] outline-none focus:border-[#7A1428]"
                 >
-                  <option value="maharaja">The Majestic Maharaja (Thanjavur)</option>
-                  <option value="anand">Anand Textiles (Coimbatore)</option>
+                  {clients.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} ({item.branch})
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-[#535A56]" />
               </div>
@@ -230,16 +448,29 @@ export default function TryFocusAdmin() {
                   onClick={() =>
                     updateClient({ minPurchaseTryOnDisabled: !client.minPurchaseTryOnDisabled })
                   }
-                  className="font-mono font-bold text-[#256B45]"
+                  className="font-mono font-bold text-[#256B45] underline"
                 >
-                  {client.minPurchaseTryOnDisabled ? 'DISABLED (Direct Scan Active)' : 'ENABLED (₹500 Tag)'}
+                  {client.minPurchaseTryOnDisabled
+                    ? 'DISABLED (Direct Scan Active)'
+                    : 'ENABLED (₹500 Tag Required)'}
                 </button>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#535A56]">AI Video Delivery Mode:</span>
-                <span className="font-mono font-bold text-[#7A1428]">
-                  {client.whatsappConnected ? 'WhatsApp 1-Day Link' : 'Direct QR (1-Day Validity)'}
-                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateClient({
+                      deliveryMode: client.deliveryMode === 'whatsapp' ? 'qr' : 'whatsapp',
+                      whatsappConnected: client.deliveryMode !== 'whatsapp',
+                    })
+                  }
+                  className="font-mono font-bold text-[#7A1428] underline"
+                >
+                  {client.deliveryMode === 'whatsapp' || client.whatsappConnected
+                    ? 'WhatsApp 1-Day Link'
+                    : 'Direct QR (1-Day Validity)'}
+                </button>
               </div>
             </div>
           </aside>
@@ -263,10 +494,30 @@ export default function TryFocusAdmin() {
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {(
                 [
-                  ['tv', 'Interactive TV / Smart Mirror', 'AI Image Try-On, 30s Live Mirror & Catalogue Video', Tv],
-                  ['tablet', 'Counter Tablet & Billing', 'Staff-assisted 1-day Direct QR & giveaway passes', Tablet],
-                  ['mobile', 'Customer Mobile QR', 'Direct image scan, 1-day video pass, Download + Go Live', Smartphone],
-                  ['led', 'Showroom TV Wall (/maharaja/tv)', 'Plays approved customer Go Live videos & idle loop', Monitor],
+                  [
+                    'tv',
+                    'Interactive TV / Smart Mirror',
+                    'AI Image Try-On, 30s Live Mirror & Catalogue Video',
+                    Tv,
+                  ],
+                  [
+                    'tablet',
+                    'Counter Tablet & Billing',
+                    'Staff-assisted 1-day Direct QR & giveaway passes',
+                    Tablet,
+                  ],
+                  [
+                    'mobile',
+                    'Customer Mobile QR',
+                    'Direct image scan, 1-day video pass, Download + Go Live',
+                    Smartphone,
+                  ],
+                  [
+                    'led',
+                    'Showroom TV Wall (/maharaja/tv)',
+                    'Plays approved customer Go Live videos & idle loop',
+                    Monitor,
+                  ],
                 ] as const
               ).map(([key, title, description, Icon]) => (
                 <button
@@ -298,7 +549,7 @@ export default function TryFocusAdmin() {
                           : 'bg-[#ECEEE9] text-[#535A56]'
                       }`}
                     >
-                      {client.devices[key] ? 'Enabled' : 'Disabled'}
+                      {client.devices[key] ? 'Subscribed · Enabled' : 'Disabled'}
                     </span>
                   </div>
                 </button>
@@ -311,25 +562,33 @@ export default function TryFocusAdmin() {
               Experience settings
             </p>
             <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-              Customer routing
+              Customer routing & active rules
             </h2>
             <div className="mt-4 space-y-3">
               {[
                 [
                   'Mobile try-on',
-                  'Free QR access is active for this store.',
+                  client.minPurchaseTryOnDisabled
+                    ? 'Free QR access is active for this store (₹500 tag gate disabled).'
+                    : '₹500 minimum price-tag verification is required before Try-On.',
                 ],
                 [
                   'Video delivery',
-                  'Customer QR is active for 24 hours.',
+                  client.deliveryMode === 'whatsapp' || client.whatsappConnected
+                    ? 'WhatsApp 1-day link + QR fallback is active for 24 hours.'
+                    : 'Direct customer QR is active for 24 hours.',
                 ],
                 [
                   'TV video',
-                  'Featured catalogue looks continue to mobile.',
+                  client.devices.tv
+                    ? 'Featured catalogue looks generate Diwali portrait on TV and continue to mobile.'
+                    : 'TV kiosk surface is currently disabled for this store.',
                 ],
                 [
                   'Customer choices',
-                  'Customers can download or approve a Go Live video.',
+                  client.devices.led
+                    ? 'Customers can privately download or approve a Go Live video for the Showroom TV Wall.'
+                    : 'Customers can privately download their AI outputs.',
                 ],
               ].map(([title, desc]) => (
                 <div key={title} className="flex gap-3 border border-[#D8DCD7] bg-white p-3.5">
@@ -349,15 +608,19 @@ export default function TryFocusAdmin() {
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#D8DCD7] pb-4">
             <div>
               <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                Usage & Credit Ceilings
+                Usage & Credit Ceilings (Enforced in APIs)
               </p>
               <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
                 Generation Credits for {client.name}
               </h2>
             </div>
-            <span className="font-mono text-xs text-[#535A56]">
-              Image / Video / 30s Live Caps
-            </span>
+            <button
+              type="button"
+              onClick={saveCurrentConfiguration}
+              className="border border-[#161918] bg-[#FAFBF8] px-3.5 py-1.5 font-mono text-xs font-bold uppercase text-[#161918] hover:bg-[#161918] hover:text-white"
+            >
+              Apply Credit Limits
+            </button>
           </div>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-3">
@@ -386,6 +649,7 @@ export default function TryFocusAdmin() {
                       type="number"
                       value={limit}
                       onChange={(e) => setLimit(key, Number(e.target.value))}
+                      onBlur={() => void saveCurrentConfiguration()}
                       className="h-10 w-32 border border-[#D8DCD7] bg-white px-3 font-mono text-sm font-bold text-[#161918] outline-none focus:border-[#7A1428]"
                     />
                     <span className="text-xs text-[#535A56]">hard limit</span>
@@ -402,25 +666,22 @@ export default function TryFocusAdmin() {
           </div>
         </section>
 
-        {/* 30-Product South Indian Catalogue Inventory (6 Categories × 5 Models) */}
-        <section className="hidden border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+        {/* Store Catalogue Summary */}
+        <section className="border border-[#D8DCD7] bg-[#FAFBF8] p-6">
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#D8DCD7] pb-4">
             <div>
               <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                Active Store Catalogue · {sampleCatalogue.length} Outfits (5 Per Category)
+                Active Store Catalogue · {sampleCatalogue.length} Default Outfits (Managed in Client Workspace)
               </p>
               <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
                 Women & Men South Indian Collection
               </h2>
-              <p className="mt-1 text-xs text-[#535A56]">
-                Every category has 5 models with INR prices. In all AI calls, <strong>Image 1</strong> is the customer photo and <strong>Image 2</strong> is the garment reference (catalogue model faces are ignored).
-              </p>
             </div>
             <Link
-              href="/maharaja/tv/experience"
+              href="/maharaja/workspace"
               className="inline-flex items-center gap-1.5 bg-[#7A1428] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
             >
-              Test in Smart Mirror
+              Manage Store Catalogue
               <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -435,24 +696,14 @@ export default function TryFocusAdmin() {
                       {cat.gender} · {items.length} Models
                     </span>
                     <span className="font-mono text-xs text-[#535A56]">
-                      {formatINR(items[0]?.price || 0)} – {formatINR(items[items.length - 1]?.price || 0)}
+                      {formatINR(items[0]?.price || 0)} –{' '}
+                      {formatINR(items[items.length - 1]?.price || 0)}
                     </span>
                   </div>
                   <h3 className="mt-1 font-serif text-lg font-semibold text-[#161918]">
                     {cat.label}
                   </h3>
                   <p className="text-xs text-[#535A56]">{cat.description}</p>
-                  <div className="mt-3 grid grid-cols-5 gap-1.5">
-                    {items.map((item) => (
-                      <img
-                        key={item.sku}
-                        src={item.imageUrl}
-                        alt={item.title}
-                        title={`${item.title} (${formatINR(item.price)})`}
-                        className="aspect-[3/4] w-full border border-[#D8DCD7] object-cover"
-                      />
-                    ))}
-                  </div>
                 </div>
               );
             })}

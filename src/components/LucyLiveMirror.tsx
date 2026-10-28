@@ -1,8 +1,23 @@
 'use client';
 
-import { fal } from '@fal-ai/client';
-import { useEffect, useRef, useState } from 'react';
-import { Camera, CheckCircle2, LoaderCircle, Play, RefreshCw, Square, Video } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import QRCode from 'qrcode';
+import {
+  Camera,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  LoaderCircle,
+  QrCode,
+  RefreshCw,
+  ShieldAlert,
+  Sparkles,
+  Square,
+  Tv,
+  Video,
+  X,
+} from 'lucide-react';
 import {
   catalogueCategories,
   formatINR,
@@ -12,585 +27,925 @@ import {
 } from '@/lib/tryfocus/sample-data';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
-type Signal = { type?: string; sdp?: string; candidate?: RTCIceCandidateInit; iceServers?: RTCIceServer[] };
-type RealtimeConnection = { send(input: Record<string, unknown>): void; close(): void };
+const SESSION_SECONDS = 30;
+const READY_COUNTDOWN_SECONDS = 3;
+const CARDS_PER_PAGE = 4;
 
-type Props = {
+type LiveState =
+  | 'idle'
+  | 'camera_ready'
+  | 'ready_countdown'
+  | 'connecting'
+  | 'live'
+  | 'complete'
+  | 'error';
+
+export default function LucyLiveMirror({
+  catalogue: propCatalogue,
+  selectedProduct: externalProduct,
+  onSelectProduct,
+}: {
+  catalogue?: TryFocusProduct[];
   garmentPrompt?: string;
   garmentTitle?: string;
   selectedProduct?: TryFocusProduct;
   onSelectProduct?: (product: TryFocusProduct) => void;
-};
+} = {}) {
+  const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
 
-type MirrorState = 'select_dress' | 'camera_ready' | 'connecting' | 'live' | 'completed' | 'error';
+  const [gender, setGender] = useState<'women' | 'men'>(externalProduct?.gender || 'women');
+  const [category, setCategory] = useState<'new-arrivals' | CatalogueCategoryId>(
+    externalProduct?.category || 'sarees'
+  );
+  const [pageIndex, setPageIndex] = useState(0);
+  const [selectedGarment, setSelectedGarment] = useState<TryFocusProduct>(
+    externalProduct || activeCatalogue[0]
+  );
+  const [state, setState] = useState<LiveState>('idle');
+  const [readyCountdown, setReadyCountdown] = useState<number | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(SESSION_SECONDS);
+  const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState(
+    'Step 1: Open the mirror camera, choose a catalogue outfit, and tap Start 30s Live Try-On.'
+  );
+  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
 
-const LIVE_DURATION_SECONDS = 30;
-
-export default function LucyLiveMirror({
-  garmentPrompt,
-  garmentTitle,
-  selectedProduct,
-  onSelectProduct,
-}: Props) {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const peerRef = useRef<RTCPeerConnection | null>(null);
-  const connectionRef = useRef<RealtimeConnection | null>(null);
-  const liveDeadlineRef = useRef(0);
-  const connectionTimeoutRef = useRef<number | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const countdownTimerRef = useRef<number | null>(null);
+  const selectedGarmentRef = useRef<TryFocusProduct>(activeCatalogue[0]);
+  const paidTimerStartedRef = useRef(false);
 
-  const [genderFilter, setGenderFilter] = useState<'women' | 'men'>(selectedProduct?.gender || 'women');
-  const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>(selectedProduct?.category || 'sarees');
-  const [internalProduct, setInternalProduct] = useState<TryFocusProduct>(
-    selectedProduct || sampleCatalogue[0]
+  const visibleCategories = useMemo(
+    () => catalogueCategories.filter((cat) => cat.gender === gender),
+    [gender]
   );
 
-  const currentProduct = selectedProduct || internalProduct;
+  const categoryProducts = useMemo(() => {
+    const byGender = activeCatalogue.filter((item) => item.gender === gender);
+    if (category === 'new-arrivals') {
+      const arrivals = byGender.filter(
+        (item) => (item as any).newArrival === true || item.badge === 'NEW ARRIVAL'
+      );
+      return arrivals.length > 0 ? arrivals : byGender;
+    }
+    return byGender.filter((item) => item.category === category);
+  }, [activeCatalogue, gender, category]);
 
-  const [state, setState] = useState<MirrorState>('select_dress');
-  const [secondsLeft, setSecondsLeft] = useState(LIVE_DURATION_SECONDS);
-  const [error, setError] = useState('');
-  const [liveModeNote, setLiveModeNote] = useState('');
+  const totalPages = Math.max(1, Math.ceil(categoryProducts.length / CARDS_PER_PAGE));
+  const safePageIndex = Math.min(pageIndex, totalPages - 1);
+  const pagedProducts = useMemo(
+    () =>
+      categoryProducts.slice(
+        safePageIndex * CARDS_PER_PAGE,
+        (safePageIndex + 1) * CARDS_PER_PAGE
+      ),
+    [categoryProducts, safePageIndex]
+  );
 
   useEffect(() => {
-    if (selectedProduct) {
-      setInternalProduct(selectedProduct);
-      setGenderFilter(selectedProduct.gender);
-      setActiveCategory(selectedProduct.category);
-    }
-  }, [selectedProduct]);
+    selectedGarmentRef.current = selectedGarment;
+  }, [selectedGarment]);
+
+  // Generate QR for selected garment on completion
+  useEffect(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tryfocus.in';
+    const url = `${origin}/maharaja/try-on?sku=${encodeURIComponent(selectedGarment.sku)}&source=live-mirror`;
+    QRCode.toDataURL(url, {
+      width: 240,
+      margin: 1,
+      color: { dark: '#161918', light: '#FAFBF8' },
+    })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(''));
+  }, [selectedGarment]);
 
   useEffect(() => {
-    if (state !== 'live') return;
-    const timer = window.setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((liveDeadlineRef.current - Date.now()) / 1000));
-      setSecondsLeft(remaining);
-      if (remaining === 0) stopLiveSession('completed');
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [state]);
+    return () => {
+      stopEverything();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => { void turnOnCamera(); }, []);
-  useEffect(() => () => stopAllMedia(), []);
+  function clearSessionTimer() {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }
 
-  function stopAllMedia() {
-    if (connectionTimeoutRef.current !== null) window.clearTimeout(connectionTimeoutRef.current);
-    connectionTimeoutRef.current = null;
-    try {
-      connectionRef.current?.close();
-    } catch {
-      // Ignore close race
+  function clearCountdownTimer() {
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
     }
-    connectionRef.current = null;
-    try {
-      peerRef.current?.close();
-    } catch {
-      // Ignore peer close race
+    setReadyCountdown(null);
+  }
+
+  function closeRealtimeConnections() {
+    clearSessionTimer();
+    clearCountdownTimer();
+    paidTimerStartedRef.current = false;
+    if (pcRef.current) {
+      try {
+        pcRef.current.close();
+      } catch {
+        // ignore close errors
+      }
+      pcRef.current = null;
     }
-    peerRef.current = null;
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch {
+        // ignore close errors
+      }
+      wsRef.current = null;
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+  }
+
+  function stopEverything() {
+    closeRealtimeConnections();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
   }
 
-  function stopLiveSession(nextState: MirrorState = 'camera_ready') {
-    if (connectionTimeoutRef.current !== null) window.clearTimeout(connectionTimeoutRef.current);
-    connectionTimeoutRef.current = null;
-    liveDeadlineRef.current = 0;
-    try {
-      connectionRef.current?.close();
-    } catch {
-      // Ignore close error
-    }
-    connectionRef.current = null;
-    try {
-      peerRef.current?.close();
-    } catch {
-      // Ignore peer error
-    }
-    peerRef.current = null;
-    setState(nextState);
-  }
-
-  async function ensurePeer(iceServers?: RTCIceServer[]) {
-    if (peerRef.current) return peerRef.current;
-    const pc = new RTCPeerConnection(iceServers?.length ? { iceServers } : undefined);
-    const stream = streamRef.current;
-    stream?.getTracks().forEach((track) => pc.addTrack(track, stream));
-    pc.ontrack = async (event) => {
-      if (liveDeadlineRef.current > 0) return;
-      const output = event.streams[0];
-      if (!remoteVideoRef.current || !output?.getVideoTracks().length) return;
-      remoteVideoRef.current.srcObject = output;
-      try {
-        await remoteVideoRef.current.play();
-        if (connectionTimeoutRef.current !== null) window.clearTimeout(connectionTimeoutRef.current);
-        connectionTimeoutRef.current = null;
-        liveDeadlineRef.current = Date.now() + LIVE_DURATION_SECONDS * 1000;
-        setSecondsLeft(LIVE_DURATION_SECONDS);
-        setState('live');
-        setLiveModeNote('Lucy Live AI output active. Your 30-second session has started.');
-      } catch {
-        stopLiveSession('error');
-        setError('The AI stream connected but could not play. Please retry.');
-      }
-    };
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-        stopLiveSession('error');
-        setError('The AI mirror stream disconnected. No further live time is running.');
-      }
-    };
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        connectionRef.current?.send({ type: 'candidate', candidate: event.candidate.toJSON() });
-      }
-    };
-    peerRef.current = pc;
-    return pc;
-  }
-
-  async function handleSignal(signal: Signal) {
-    const pc = await ensurePeer(signal.iceServers);
-    if (signal.type === 'offer' && signal.sdp) {
-      await pc.setRemoteDescription({ type: 'offer', sdp: signal.sdp });
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      connectionRef.current?.send({ type: 'answer', sdp: answer.sdp });
-    } else if (signal.type === 'candidate' && signal.candidate) {
-      await pc.addIceCandidate(signal.candidate);
-    }
-  }
-
-  async function turnOnCamera() {
+  async function enableCameraPreview() {
     setError('');
-    setLiveModeNote('');
-    stopAllMedia();
-
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Camera access requires HTTPS or localhost on a camera-enabled PC/TV.');
+      if (!streamRef.current) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
+            frameRate: { ideal: 24, max: 30 },
+          },
+          audio: false,
+        });
+        streamRef.current = stream;
       }
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 25 },
-        },
-      });
-      streamRef.current = mediaStream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = mediaStream;
+      if (localVideoRef.current && streamRef.current) {
+        localVideoRef.current.srcObject = streamRef.current;
         await localVideoRef.current.play().catch(() => undefined);
       }
-      setLiveModeNote('Step 2 complete: Camera preview is active. Click Step 3 to start the 30s Live AI Try-On.');
       setState('camera_ready');
-    } catch (err: unknown) {
-      stopAllMedia();
-      setError(err instanceof Error ? err.message : 'Unable to turn on PC/TV camera.');
+      setStatusMessage(
+        'Camera preview is active. Select any outfit on the right, then tap Start 30s Live Try-On.'
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Camera permission is required for the Live AI Mirror.'
+      );
       setState('error');
     }
   }
 
-  async function start30sLiveTryOn() {
-    if (state === 'connecting' || state === 'live') return;
-    setError('');
-    setLiveModeNote('');
-    setSecondsLeft(LIVE_DURATION_SECONDS);
+  async function garmentUrlToDataUri(imageUrl: string): Promise<string> {
+    const response = await fetch(imageUrl, { cache: 'force-cache' });
+    if (!response.ok) throw new Error('Unable to load selected garment reference image.');
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () =>
+        typeof reader.result === 'string'
+          ? resolve(reader.result)
+          : reject(new Error('Could not encode garment image.'));
+      reader.onerror = () => reject(new Error('Could not read garment image.'));
+      reader.readAsDataURL(blob);
+    });
+  }
 
-    if (!streamRef.current) {
-      await turnOnCamera();
+  async function sendGarmentReference(ws: WebSocket, garment: TryFocusProduct) {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    const referenceSource = garment.garmentReferenceUrl || garment.imageUrl;
+    const imageDataUri = await garmentUrlToDataUri(referenceSource);
+    const prompt = `Wear the exact ${garment.title} (${garment.fabricNote || garment.category}). Preserve exact garment color, border, zari and drape while keeping the customer's real face and skin tone natural.`;
+
+    ws.send(
+      JSON.stringify({
+        type: 'set_image',
+        image: imageDataUri,
+        prompt,
+        enhance_prompt: true,
+      })
+    );
+  }
+
+  function startPaidThirtySecondWindow() {
+    if (paidTimerStartedRef.current) return;
+    paidTimerStartedRef.current = true;
+    setState('live');
+    setSecondsLeft(SESSION_SECONDS);
+    setStatusMessage(
+      'AI Live Mirror is active! Move naturally or tap another outfit to switch instantly during your 30-second session.'
+    );
+    clearSessionTimer();
+    timerRef.current = window.setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          stopSession('complete');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  async function beginLiveCountdownAndConnect() {
+    if (
+      state === 'ready_countdown' ||
+      state === 'connecting' ||
+      state === 'live'
+    ) {
+      return;
     }
-    const activeStream = streamRef.current;
-    if (!activeStream) return;
+    setError('');
+    setCompletionModalOpen(false);
 
+    // Ensure camera preview is running first
+    if (!streamRef.current) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
+            frameRate: { ideal: 24, max: 30 },
+          },
+          audio: false,
+        });
+        streamRef.current = stream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          await localVideoRef.current.play().catch(() => undefined);
+        }
+      } catch (caught) {
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : 'Camera permission is required for the Live AI Mirror.'
+        );
+        setState('error');
+        return;
+      }
+    }
+
+    // 3-2-1 Ready Countdown before initiating connection so customer can step back
+    clearCountdownTimer();
+    setState('ready_countdown');
+    setReadyCountdown(READY_COUNTDOWN_SECONDS);
+    setStatusMessage('Step back into full view. Connecting Live AI Mirror after 3-second pose countdown...');
+
+    let remaining = READY_COUNTDOWN_SECONDS;
+    countdownTimerRef.current = window.setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearCountdownTimer();
+        void startLucyLiveSession();
+      } else {
+        setReadyCountdown(remaining);
+      }
+    }, 1000);
+  }
+
+  async function startLucyLiveSession() {
+    setError('');
+    setCompletionModalOpen(false);
+    closeRealtimeConnections();
     setState('connecting');
+    setSecondsLeft(SESSION_SECONDS);
+    setStatusMessage('Connecting to Live AI Mirror... Your 30s timer starts ONLY after AI video appears.');
 
     try {
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
-      const refImageUrl = currentProduct.imageUrl.startsWith('http')
-        ? currentProduct.imageUrl
-        : `${origin}${currentProduct.imageUrl}`;
+      if (!streamRef.current) {
+        await enableCameraPreview();
+      }
+      const stream = streamRef.current;
+      if (!stream) {
+        throw new Error('Camera feed is not ready.');
+      }
 
-      const realtime = fal.realtime.connect<Record<string, unknown>, Signal>(LUCY_VTON_APP, {
-        clientOnly: true,
-        connectionKey: 'tryfocus-lucy-live-mirror',
-        tokenExpirationSeconds: 60,
-        tokenProvider: async (app) => {
-          const response = await fetch('/api/fal/realtime-token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ app }),
-          });
-          if (!response.ok) throw new Error(await response.text());
-          return response.text();
-        },
-        onResult: (result) => {
-          void handleSignal(result);
-        },
-        onError: () => {
-          if (!connectionRef.current) return;
-          stopLiveSession('error');
-          setError('Lucy AI mirror is unavailable. Camera preview is still separate from the AI result.');
-        },
+      const tokenRes = await fetch('/api/fal/realtime-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app: LUCY_VTON_APP }),
       });
 
-      connectionRef.current = realtime;
-      realtime.send({
-        prompt:
-          garmentPrompt ||
-          `Replace the customer’s visible outfit with the garment in the reference image: ${currentProduct.title} (${currentProduct.fabricNote}). Preserve the customer’s identity, body proportions, natural motion, hands, background and lighting.`,
-        reference_image_url: refImageUrl,
-      });
+      if (!tokenRes.ok) {
+        const msg = await tokenRes.text().catch(() => '');
+        throw new Error(msg || 'Live AI Mirror token service is unavailable.');
+      }
 
-      connectionTimeoutRef.current = window.setTimeout(() => {
-        if (liveDeadlineRef.current === 0) {
-          stopLiveSession('error');
-          setError('AI output did not arrive in time. Please retry. No live session started.');
+      const token = (await tokenRes.text()).trim();
+      const wsUrl = `wss://fal.run/${LUCY_VTON_APP}?fal_jwt_token=${encodeURIComponent(token)}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      });
+      pcRef.current = pc;
+
+      // Start the paid 30-second countdown ONLY when the remote AI video track is confirmed playing!
+      pc.ontrack = (event) => {
+        const [remoteStream] = event.streams;
+        if (remoteStream && remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+          remoteVideoRef.current.onplaying = () => {
+            startPaidThirtySecondWindow();
+          };
+          remoteVideoRef.current
+            .play()
+            .then(() => {
+              startPaidThirtySecondWindow();
+            })
+            .catch(() => undefined);
         }
-      }, 20_000);
-      setLiveModeNote('Connecting to Lucy AI. The 30-second timer starts when the AI image appears.');
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ice-candidate', candidate: event.candidate }));
+        }
+      };
+
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      ws.onopen = async () => {
+        try {
+          await sendGarmentReference(ws, selectedGarmentRef.current);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
+        } catch (err) {
+          setError(
+            err instanceof Error ? err.message : 'Unable to initialize Live AI Mirror stream.'
+          );
+          closeRealtimeConnections();
+          setState('error');
+        }
+      };
+
+      ws.onmessage = async (event) => {
+        try {
+          const message = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
+          if ((message.type === 'answer' || message.sdp) && pc.signalingState !== 'stable') {
+            await pc.setRemoteDescription(
+              new RTCSessionDescription({
+                type: 'answer',
+                sdp: message.sdp || message.answer?.sdp,
+              })
+            );
+          } else if (message.type === 'ice-candidate' && message.candidate) {
+            await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+          } else if (message.type === 'error' || message.error) {
+            throw new Error(message.error || message.message || 'Live AI Mirror reported an error.');
+          }
+        } catch {
+          // non-JSON or signaling status frame
+        }
+      };
+
+      ws.onerror = () => {
+        closeRealtimeConnections();
+        setState('error');
+        setError(
+          'Live AI Mirror stream could not connect. Camera preview remains available, or switch to AI Image Try-On.'
+        );
+      };
+
+      ws.onclose = () => {
+        if (!paidTimerStartedRef.current) {
+          setState((current) => (current === 'connecting' ? 'error' : current));
+          setError((prev) =>
+            prev || 'Live AI Mirror connection closed before AI video output started.'
+          );
+        }
+      };
     } catch (caught) {
-      stopLiveSession('error');
-      setError(caught instanceof Error ? caught.message : 'Unable to start Lucy Live AI Try-On.');
+      closeRealtimeConnections();
+      setError(
+        caught instanceof Error ? caught.message : 'Unable to start 30s Live AI Mirror.'
+      );
+      setState('error');
     }
   }
 
-  const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
-  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory);
+  function stopSession(nextState: LiveState = 'camera_ready') {
+    closeRealtimeConnections();
+    setState(nextState);
+    if (nextState === 'complete') {
+      setCompletionModalOpen(true);
+      setStatusMessage(
+        '30-second Live AI Mirror session complete. Start a new 30s session or scan the QR to continue on mobile.'
+      );
+    } else {
+      setStatusMessage(
+        'Live session stopped. Camera preview is ready whenever you want to start another 30s session.'
+      );
+    }
+  }
 
-  function handleSelectDress(item: TryFocusProduct) {
-    setInternalProduct(item);
+  async function selectGarment(item: TryFocusProduct) {
+    setSelectedGarment(item);
+    selectedGarmentRef.current = item;
     onSelectProduct?.(item);
-    if (state === 'live' && connectionRef.current) {
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
-      const refImageUrl = item.imageUrl.startsWith('http') ? item.imageUrl : `${origin}${item.imageUrl}`;
-      connectionRef.current.send({
-        prompt: `Replace the customer’s visible outfit with the garment in the reference image: ${item.title} (${item.fabricNote}). Preserve the customer’s identity, body proportions, natural motion, hands, background and lighting.`,
-        reference_image_url: refImageUrl,
-      });
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        await sendGarmentReference(wsRef.current, item);
+        setStatusMessage(`Switched live outfit to ${item.title}.`);
+      } catch {
+        // keep current stream alive
+      }
     }
   }
+
+  const progressPercent = Math.max(
+    0,
+    Math.min(100, (secondsLeft / SESSION_SECONDS) * 100)
+  );
 
   return (
-    <div className="tv-live-layout grid gap-6 lg:grid-cols-[420px_1fr]">
-      {/* Left Column: Step 1 - Select Dress from Catalogue */}
-      <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-5">
-        <div>
-          <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-3">
-            <div>
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                Step 1 · Select Outfit
-              </p>
-              <h3 className="mt-1 font-serif text-xl font-semibold text-[#161918]">
-                Smart Mirror Wardrobe
-              </h3>
+    <div className="space-y-4">
+      {/* Top Portrait Step Banner + Prominent 30-Second Progress Bar */}
+      <div className="border-2 border-[#D8DCD7] bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+              Live AI Mirror · 30-Second Interactive Session
+            </p>
+            <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+              {state === 'live'
+                ? `AI Live Stream Active — ${secondsLeft}s Remaining`
+                : state === 'ready_countdown'
+                  ? `Get Ready — Starting in ${readyCountdown}s...`
+                  : state === 'connecting'
+                    ? 'Connecting AI Live Stream (Timer Not Started Yet)...'
+                    : 'Step 1: Open Camera · Step 2: Pick Outfit · Step 3: Start 30s Live Try-On'}
+            </h2>
+            <p className="mt-1 text-sm text-[#535A56]">{statusMessage}</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 border-2 border-[#161918] bg-[#FAFBF8] px-4 py-2.5 font-mono text-base font-bold text-[#161918]">
+              <Clock className="h-5 w-5 text-[#7A1428]" />
+              <span>
+                00:{String(secondsLeft).padStart(2, '0')} / 00:{SESSION_SECONDS}
+              </span>
             </div>
-            <div className="flex border border-[#D8DCD7] bg-white p-0.5 text-xs font-semibold">
+
+            {state === 'idle' ? (
               <button
                 type="button"
-                onClick={() => {
-                  setGenderFilter('women');
-                  setActiveCategory('sarees');
-                }}
-                className={`px-3 py-1.5 transition ${
-                  genderFilter === 'women' ? 'bg-[#7A1428] text-[#FAF6EE]' : 'text-[#535A56]'
-                }`}
+                onClick={enableCameraPreview}
+                className="inline-flex min-h-[60px] items-center gap-2.5 bg-[#161918] px-6 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
               >
-                Women
+                <Camera className="h-5 w-5" />
+                Step 1: Open Camera
               </button>
+            ) : state === 'live' || state === 'connecting' || state === 'ready_countdown' ? (
               <button
                 type="button"
-                onClick={() => {
-                  setGenderFilter('men');
-                  setActiveCategory('kurta');
-                }}
-                className={`px-3 py-1.5 transition ${
-                  genderFilter === 'men' ? 'bg-[#7A1428] text-[#FAF6EE]' : 'text-[#535A56]'
-                }`}
+                onClick={() => stopSession('camera_ready')}
+                className="inline-flex min-h-[60px] items-center gap-2.5 border-2 border-[#B42318] bg-[#FEF3F2] px-6 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-[#B42318]"
               >
-                Men
-              </button>
-            </div>
-          </div>
-
-          {/* Category Pill Tabs */}
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {filteredCategories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setActiveCategory(cat.id)}
-                className={`border px-3 py-1.5 text-xs font-semibold transition ${
-                  activeCategory === cat.id
-                    ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
-                    : 'border-[#D8DCD7] bg-white text-[#535A56] hover:border-[#161918]'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
-          {/* 5 Dresses in Category */}
-          <div className="mt-4 grid max-h-[420px] gap-2.5 overflow-y-auto pr-1">
-            {categoryProducts.map((item) => {
-              const selected = currentProduct.sku === item.sku;
-              return (
-                <button
-                  key={item.sku}
-                  type="button"
-                  onClick={() => handleSelectDress(item)}
-                  className={`flex items-center gap-3 border p-2.5 text-left transition ${
-                    selected
-                      ? 'border-[#7A1428] bg-[#7A1428]/5 ring-1 ring-[#7A1428]'
-                      : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
-                  }`}
-                >
-                  <img
-                    src={item.imageUrl}
-                    alt={item.title}
-                    className="h-16 w-14 shrink-0 border border-[#D8DCD7] object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7A1428]">
-                        {item.badge || item.sku}
-                      </span>
-                      <span className="font-mono text-xs font-semibold text-[#161918]">
-                        {formatINR(item.price)}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 truncate text-sm font-semibold text-[#161918]">{item.title}</p>
-                    <p className="truncate text-xs text-[#535A56]">{item.fabricNote}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Step 2 & Step 3 Action Controls */}
-        <div className="mt-5 border-t border-[#D8DCD7] pt-4">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#535A56]">
-            Step 2 & 3 · Camera & 30s Live Session
-          </p>
-          <div className="mt-3 grid gap-2.5">
-            <button
-              type="button"
-              onClick={turnOnCamera}
-              disabled={state === 'connecting'}
-              className={`flex min-h-12 w-full items-center justify-center gap-2 border px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] transition ${
-                state === 'camera_ready' || state === 'live'
-                  ? 'border-[#256B45] bg-[#EBF5EE] text-[#256B45]'
-                  : 'border-[#161918] bg-[#161918] text-[#FAF6EE] hover:bg-[#2B302E]'
-              }`}
-            >
-              <Camera className="h-4 w-4" />
-              {state === 'camera_ready' || state === 'live' ? 'Step 2: Camera Active (Restart)' : 'Step 2: Turn On Camera'}
-            </button>
-
-            {state !== 'live' ? (
-              <button
-                type="button"
-                onClick={start30sLiveTryOn}
-                disabled={state === 'connecting'}
-                className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#7A1428] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#FAF6EE] transition hover:bg-[#610F20] disabled:opacity-50"
-              >
-                {state === 'connecting' ? (
-                  <>
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                    Connecting Live Mirror...
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4" />
-                    Step 3: Start 30s Live Try-On
-                  </>
-                )}
+                <Square className="h-4 w-4" />
+                Stop Session
               </button>
             ) : (
               <button
                 type="button"
-                onClick={() => stopLiveSession('completed')}
-                className="flex min-h-12 w-full items-center justify-center gap-2 border border-[#B42318] bg-[#FEF3F2] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#B42318]"
+                onClick={beginLiveCountdownAndConnect}
+                className="inline-flex min-h-[60px] items-center gap-2.5 bg-[#7A1428] px-6 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
               >
-                <Square className="h-4 w-4" />
-                Stop Live Session ({secondsLeft}s left)
+                <Sparkles className="h-5 w-5" />
+                Step 3: Start 30s Live Try-On
               </button>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Right Column: Smart Mirror Live Viewport */}
-      <div className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-3">
-          <div>
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-              Smart Mirror · 30s Live AI Try-On
-            </p>
-            <h3 className="mt-0.5 font-serif text-xl font-semibold text-[#161918]">
-              {currentProduct.title} · <span className="text-[#7A1428]">{formatINR(currentProduct.price)}</span>
-            </h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="border border-[#D8DCD7] bg-[#F4F5F2] px-3 py-1.5 font-mono text-xs font-semibold text-[#161918]">
-              {state === 'live' ? `LIVE · 00:${String(secondsLeft).padStart(2, '0')}` : '30s SESSION CAP'}
+        {/* Large Visual 30-Second Progress Bar */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between font-mono text-xs font-bold uppercase tracking-[0.14em]">
+            <span className={state === 'live' ? 'text-[#256B45]' : 'text-[#535A56]'}>
+              {state === 'live'
+                ? '● Paid 30s AI Output Confirmed & Running'
+                : state === 'ready_countdown'
+                  ? `● Pose Countdown (${readyCountdown}s) — Step Back Into Frame`
+                  : state === 'connecting'
+                    ? '● Waiting for AI Output Stream Before Starting 30s Timer'
+                    : '○ 30s Timer Starts Only After AI Stream Connects'}
             </span>
+            <span className="text-[#161918]">{secondsLeft}s left</span>
+          </div>
+          <div className="mt-2 h-4 w-full overflow-hidden border border-[#D8DCD7] bg-[#ECEEE9]">
+            <div
+              className={`h-full transition-all duration-500 ${
+                state === 'live'
+                  ? secondsLeft <= 8
+                    ? 'bg-[#B42318]'
+                    : 'bg-[#256B45]'
+                  : state === 'connecting' || state === 'ready_countdown'
+                    ? 'w-full animate-pulse bg-[#8A6A20]'
+                    : 'bg-[#7A1428]'
+              }`}
+              style={
+                state === 'connecting' || state === 'ready_countdown'
+                  ? undefined
+                  : { width: `${progressPercent}%` }
+              }
+            />
           </div>
         </div>
+      </div>
 
-        {/* Mirror Stage */}
-        <div className="relative mt-4 aspect-[16/10] w-full overflow-hidden border border-[#D8DCD7] bg-[#161918]">
-          {/* Remote / Live Output Stream */}
-          <video
-            ref={remoteVideoRef}
-            playsInline
-            muted
-            autoPlay
-            className={`h-full w-full object-cover ${state === 'live' ? 'block' : 'hidden'}`}
-          />
-
-          {/* Local Camera Preview (shown when camera_ready or as PIP during live) */}
+      {/* Portrait Kiosk Main Area: Left Dominant Mirror Viewport + Right Paged Outfit Selector */}
+      <div className="grid gap-4 grid-cols-[1.15fr_0.85fr]">
+        {/* Mirror Viewport */}
+        <div className="relative aspect-[9/16] w-full overflow-hidden border-2 border-[#D8DCD7] bg-[#161918]">
+          {/* Local Camera Feed (Never labeled as AI output!) */}
           <video
             ref={localVideoRef}
             playsInline
             muted
             autoPlay
-            className={
-              state === 'camera_ready' || state === 'connecting'
-                ? 'h-full w-full object-cover'
-                : state === 'live'
-                ? 'absolute bottom-4 right-4 z-20 h-32 w-24 border-2 border-white/80 bg-black object-cover shadow-lg'
-                : 'hidden'
-            }
+            className={`h-full w-full object-cover [transform:scaleX(-1)] ${
+              state === 'live' ? 'opacity-20' : 'opacity-100'
+            }`}
           />
 
-          {/* Top Smart Mirror Pill Overlay */}
-          {(state === 'camera_ready' || state === 'live') && (
-            <div className="pointer-events-none absolute inset-x-0 top-4 z-20 flex flex-col items-center">
-              <div className="rounded-full bg-black/75 px-5 py-1.5 text-center text-white backdrop-blur-md">
-                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em]">
-                  {state === 'live' ? `LIVE AI TRY-ON · ${secondsLeft}s REMAINING` : 'CAMERA PREVIEW READY'}
-                </p>
-                <p className="text-[11px] text-white/80">
-                  {state === 'live' ? 'Turn slowly to inspect garment drape & border' : 'Step back so your upper/full body is visible, then click Step 3'}
-                </p>
-              </div>
-            </div>
-          )}
-          {state === 'live' && <div className="absolute inset-x-4 bottom-2 z-30 h-3 overflow-hidden rounded-full bg-white/40" role="progressbar" aria-label="Live session progress" aria-valuemin={0} aria-valuemax={30} aria-valuenow={30 - secondsLeft}><div className="h-full bg-[#F3E5AB] transition-all duration-200" style={{ width: `${((30 - secondsLeft) / 30) * 100}%` }} /></div>}
+          {/* Remote AI Try-On Stream */}
+          <video
+            ref={remoteVideoRef}
+            playsInline
+            muted
+            autoPlay
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+              state === 'live' ? 'opacity-100' : 'pointer-events-none opacity-0'
+            }`}
+          />
 
-          {/* Selected Dress Floating Card inside Mirror */}
-          <div className="absolute bottom-4 left-4 z-20 flex items-center gap-3 border border-[#D8DCD7] bg-white/95 p-2.5 shadow-md backdrop-blur-sm">
-            <img
-              src={currentProduct.imageUrl}
-              alt={currentProduct.title}
-              className="h-16 w-12 border border-[#D8DCD7] object-cover"
-            />
-            <div className="pr-2">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7A1428]">
-                Selected Dress
-              </p>
-              <p className="text-xs font-semibold text-[#161918]">{currentProduct.title}</p>
-              <p className="font-mono text-xs font-bold text-[#161918]">{formatINR(currentProduct.price)}</p>
-            </div>
+          {/* Honest Status Badge */}
+          <div className="absolute left-4 top-4 right-4 flex items-center justify-between gap-2">
+            <span
+              className={`px-3.5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] ${
+                state === 'live'
+                  ? 'bg-[#256B45] text-white'
+                  : state === 'connecting' || state === 'ready_countdown'
+                    ? 'bg-[#8A6A20] text-white'
+                    : state === 'error'
+                      ? 'bg-[#B42318] text-white'
+                      : 'bg-[#161918]/90 text-[#FAF6EE]'
+              }`}
+            >
+              {state === 'live'
+                ? `AI LIVE MIRROR · ${secondsLeft}s`
+                : state === 'ready_countdown'
+                  ? `GET READY · ${readyCountdown}s`
+                  : state === 'connecting'
+                    ? 'CONNECTING AI STREAM...'
+                    : state === 'camera_ready'
+                      ? 'CAMERA PREVIEW ONLY (NOT AI YET)'
+                      : state === 'error'
+                        ? 'AI STREAM UNAVAILABLE · CAMERA ONLY'
+                        : 'CAMERA STANDBY'}
+            </span>
+            <span className="bg-white/95 px-3.5 py-2 font-mono text-xs font-bold text-[#161918]">
+              {selectedGarment.sku} · {formatINR(selectedGarment.price)}
+            </span>
           </div>
 
-          {/* Idle / Select Dress State */}
-          {state === 'select_dress' && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/75 p-8 text-center text-[#FAF6EE]">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-white/10">
-                <Video className="h-7 w-7 text-[#FAF6EE]" />
-              </div>
-              <p className="mt-4 font-mono text-xs uppercase tracking-[0.22em] text-white/70">
-                3-Step Live AI Mirror
+          {/* 3-2-1 Ready Countdown Overlay */}
+          {state === 'ready_countdown' && readyCountdown !== null && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#161918]/55 p-6 text-center text-[#FAF6EE]">
+              <p className="font-mono text-sm font-bold uppercase tracking-[0.22em] text-[#F3E5AB]">
+                Move Back & Stand Full-Length
               </p>
-              <h4 className="mt-2 max-w-md font-serif text-2xl font-semibold">
-                1. Pick Dress · 2. Turn On Camera · 3. Start 30s Live Try-On
-              </h4>
-              <p className="mt-2 max-w-lg text-sm text-white/75">
-                Selected outfit: <strong>{currentProduct.title}</strong> ({formatINR(currentProduct.price)}). Click <strong>Step 2: Turn On Camera</strong> to preview your PC/TV camera before starting the 30-second live session.
-              </p>
-              <div className="mt-6 flex flex-wrap justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={turnOnCamera}
-                  className="flex items-center gap-2 bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#161918] transition hover:bg-[#F4F5F2]"
-                >
-                  <Camera className="h-4 w-4" />
-                  Step 2: Turn On Camera
-                </button>
+              <div className="mt-4 flex h-32 w-32 items-center justify-center border-4 border-[#FAF6EE] bg-[#7A1428] font-serif text-7xl font-bold text-[#FAF6EE]">
+                {readyCountdown}
               </div>
-            </div>
-          )}
-
-          {/* Connecting State */}
-          {state === 'connecting' && (
-            <div className="flex h-full flex-col items-center justify-center p-8 text-center text-[#FAF6EE]">
-              <LoaderCircle className="h-10 w-10 animate-spin text-white" />
-              <p className="mt-4 font-serif text-2xl font-semibold">Starting 30s Live AI Mirror...</p>
-              <p className="mt-1 text-sm text-white/75">
-                Applying {currentProduct.title} ({formatINR(currentProduct.price)})
+              <p className="mt-4 max-w-xs text-sm text-[#FAF6EE]/90">
+                Starting your 30-second Live AI Try-On with{' '}
+                <strong>{selectedGarment.title}</strong>...
               </p>
             </div>
           )}
 
-          {/* Completed State */}
-          {state === 'completed' && (
-            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#FAFBF8] p-8 text-center text-[#161918]">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#EBF5EE] text-[#256B45]">
-                <CheckCircle2 className="h-8 w-8" />
-              </div>
-              <p className="mt-3 font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#256B45]">
-                30-Second Session Complete
+          {/* Idle Overlay */}
+          {state === 'idle' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#161918]/85 p-8 text-center text-[#FAF6EE]">
+              <Tv className="h-14 w-14 text-[#FAF6EE]" />
+              <p className="mt-4 font-mono text-xs font-bold uppercase tracking-[0.22em] text-[#D8DCD7]">
+                Step 1 of 3 · Mirror Camera
               </p>
-              <h4 className="mt-1 font-serif text-2xl font-semibold">Ready to try another look?</h4>
-              <p className="mt-2 max-w-md text-sm text-[#535A56]">
-                Switch to any saree, lehenga, salwar, kurta, veshti, or shirt on the left and start another 30s live session.
+              <h3 className="mt-2 font-serif text-3xl font-semibold">
+                Stand in Front of the Standee
+              </h3>
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-[#D8DCD7]">
+                Tap below to open the live camera preview first. Your 30-second AI session only begins when you start Step 3 and the AI stream is confirmed playing.
               </p>
-              <div className="mt-5 flex flex-wrap justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={start30sLiveTryOn}
-                  className="flex items-center gap-2 bg-[#7A1428] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#FAF6EE]"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Run Another 30s Live Try-On
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Error State */}
-          {state === 'error' && (
-            <div className="flex h-full flex-col items-center justify-center bg-[#FEF3F2] p-8 text-center text-[#B42318]">
-              <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em]">Camera / Stream Notice</p>
-              <p className="mt-2 max-w-md text-sm font-medium">{error}</p>
               <button
                 type="button"
-                onClick={turnOnCamera}
-                className="mt-5 border border-[#B42318] bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#B42318]"
+                onClick={enableCameraPreview}
+                className="mt-6 inline-flex min-h-[64px] items-center gap-3 bg-[#7A1428] px-8 py-4 text-sm font-bold uppercase tracking-[0.16em] text-[#FAF6EE]"
               >
-                Retry Camera
+                <Camera className="h-5 w-5" />
+                Open Mirror Camera
               </button>
             </div>
           )}
+
+          {/* Connecting Overlay */}
+          {state === 'connecting' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#161918]/75 p-8 text-center text-[#FAF6EE]">
+              <LoaderCircle className="h-14 w-14 animate-spin text-[#FAF6EE]" />
+              <p className="mt-4 font-serif text-2xl font-semibold">
+                Preparing Your Live AI Garment...
+              </p>
+              <p className="mt-2 max-w-xs text-sm text-[#D8DCD7]">
+                Loading <strong>{selectedGarment.title}</strong>. Your 30-second countdown will begin automatically once the AI video track starts playing.
+              </p>
+            </div>
+          )}
+
+          {/* Honest Error Banner (Never pretends raw camera is AI mirror) */}
+          {state === 'error' && error && (
+            <div className="absolute inset-x-4 bottom-24 border-2 border-[#B42318] bg-[#FEF3F2] p-4 text-[#B42318] shadow-xl">
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="mt-0.5 h-6 w-6 shrink-0" />
+                <div>
+                  <p className="font-mono text-xs font-bold uppercase tracking-[0.14em]">
+                    AI Live Stream Not Active — Showing Ordinary Camera Preview
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-[#161918]">{error}</p>
+                  <button
+                    type="button"
+                    onClick={beginLiveCountdownAndConnect}
+                    className="mt-3 inline-flex min-h-[48px] items-center gap-2 bg-[#7A1428] px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Retry 30s Live AI Stream
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Bottom Bar Inside Mirror */}
+          <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 border border-[#D8DCD7] bg-white/95 p-3.5">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#7A1428]">
+                Selected Outfit ({selectedGarment.audience})
+              </p>
+              <p className="truncate font-serif text-lg font-semibold text-[#161918]">
+                {selectedGarment.title}
+              </p>
+            </div>
+            {state === 'camera_ready' && (
+              <button
+                type="button"
+                onClick={beginLiveCountdownAndConnect}
+                className="shrink-0 min-h-[54px] bg-[#7A1428] px-5 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
+              >
+                Start 30s AI Live
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Footer Status Bar */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#535A56]">
-          <span>
-            {liveModeNote || 'Select any outfit on the left even while the camera is active.'}
-          </span>
-          <span className="font-mono uppercase tracking-[0.14em] text-[#161918]">
-            Identity Locked · {garmentTitle || currentProduct.title}
-          </span>
-        </div>
+        {/* Right Column: Step 2 Outfit Selector (Paged 4 Cards — No Nested Scroll) */}
+        <aside className="flex flex-col justify-between border-2 border-[#D8DCD7] bg-[#FAFBF8] p-4">
+          <div>
+            <div className="border-b border-[#D8DCD7] pb-3">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
+                Step 2 · Instant Outfit Switcher
+              </p>
+              <h3 className="mt-1 font-serif text-xl font-semibold text-[#161918]">
+                Tap Any Outfit Before or During Live Stream
+              </h3>
+            </div>
+
+            {/* Women / Men Switch */}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(['women', 'men'] as const).map((g) => {
+                const active = gender === g;
+                const firstCat =
+                  catalogueCategories.find((c) => c.gender === g)?.id || 'sarees';
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => {
+                      setGender(g);
+                      setCategory(firstCat);
+                      setPageIndex(0);
+                      const firstItem = activeCatalogue.find(
+                        (item) => item.category === firstCat
+                      );
+                      if (firstItem) void selectGarment(firstItem);
+                    }}
+                    className={`min-h-[54px] border-2 px-3 py-2.5 font-serif text-base font-semibold capitalize ${
+                      active
+                        ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
+                        : 'border-[#D8DCD7] bg-white text-[#161918]'
+                    }`}
+                  >
+                    {g === 'women' ? 'Women' : 'Men'}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* New Arrivals + Category Pills */}
+            <div className="mt-2.5 grid grid-cols-4 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setCategory('new-arrivals');
+                  setPageIndex(0);
+                }}
+                className={`min-h-[48px] border px-2 py-2 text-[11px] font-bold uppercase tracking-[0.1em] ${
+                  category === 'new-arrivals'
+                    ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                    : 'border-[#D8DCD7] bg-white text-[#161918]'
+                }`}
+              >
+                New Arrivals
+              </button>
+              {visibleCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setCategory(cat.id);
+                    setPageIndex(0);
+                    const first = activeCatalogue.find((item) => item.category === cat.id);
+                    if (first) void selectGarment(first);
+                  }}
+                  className={`min-h-[48px] border px-2 py-2 text-xs font-bold uppercase tracking-[0.12em] ${
+                    category === cat.id
+                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                      : 'border-[#D8DCD7] bg-white text-[#161918]'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 4-Card Paged Grid (No Nested Scrollbar) */}
+            <div className="mt-3 grid grid-cols-2 gap-2.5">
+              {pagedProducts.map((item) => {
+                const active = selectedGarment.id === item.id || selectedGarment.sku === item.sku;
+                return (
+                  <button
+                    key={item.sku}
+                    type="button"
+                    onClick={() => selectGarment(item)}
+                    className={`flex flex-col overflow-hidden border-2 text-left transition ${
+                      active
+                        ? 'border-[#7A1428] bg-white shadow-sm'
+                        : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
+                    }`}
+                  >
+                    <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9]">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.title}
+                        className="h-full w-full object-cover object-top"
+                      />
+                      {active && (
+                        <span className="absolute left-2 top-2 bg-[#7A1428] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-white">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-2.5">
+                      <p className="line-clamp-1 font-serif text-sm font-semibold text-[#161918]">
+                        {item.title}
+                      </p>
+                      <div className="mt-1 flex items-center justify-between font-mono text-xs">
+                        <span className="font-bold text-[#7A1428]">
+                          {formatINR(item.price)}
+                        </span>
+                        <span className="text-[10px] text-[#535A56]">{item.sku}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Pager Controls */}
+          <div className="mt-3 flex items-center justify-between border-t border-[#D8DCD7] pt-3">
+            <button
+              type="button"
+              disabled={safePageIndex <= 0}
+              onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+              className="inline-flex min-h-[52px] items-center gap-1.5 border border-[#161918] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Prev
+            </button>
+            <span className="font-mono text-xs font-bold text-[#535A56]">
+              Page {safePageIndex + 1} / {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={safePageIndex >= totalPages - 1}
+              onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
+              className="inline-flex min-h-[52px] items-center gap-1.5 border border-[#161918] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </aside>
       </div>
+
+      {/* 30-Second Session Completion Popup Modal */}
+      {completionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#161918]/80 p-6">
+          <div className="w-full max-w-xl border-2 border-[#161918] bg-[#FAFBF8] p-8 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-[#D8DCD7] pb-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-12 w-12 items-center justify-center bg-[#256B45] text-white">
+                  <CheckCircle2 className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#256B45]">
+                    30-Second Live Session Completed
+                  </p>
+                  <h3 className="mt-1 font-serif text-3xl font-semibold text-[#161918]">
+                    Loved How {selectedGarment.title} Looked?
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCompletionModalOpen(false)}
+                className="flex h-12 w-12 items-center justify-center border border-[#D8DCD7] bg-white text-[#161918]"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-6 sm:grid-cols-[200px_1fr] sm:items-center">
+              <div className="flex flex-col items-center border border-[#D8DCD7] bg-white p-3">
+                {qrDataUrl ? (
+                  <img
+                    src={qrDataUrl}
+                    alt="Continue on Mobile QR"
+                    className="h-40 w-40 object-contain"
+                  />
+                ) : (
+                  <QrCode className="h-24 w-24 text-[#161918]" />
+                )}
+                <span className="mt-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#7A1428]">
+                  Scan to Save Outfit
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm leading-relaxed text-[#535A56]">
+                  Your 30-second Live AI Mirror window has finished and the stream has been safely closed. Scan the QR to save{' '}
+                  <strong>{selectedGarment.title}</strong> ({formatINR(selectedGarment.price)}) on your phone, or start another 30-second live session.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={beginLiveCountdownAndConnect}
+                    className="inline-flex min-h-[56px] items-center gap-2 bg-[#7A1428] px-6 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE]"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Start Another 30s Live Session
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCompletionModalOpen(false)}
+                    className="inline-flex min-h-[56px] items-center gap-2 border border-[#161918] bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#161918]"
+                  >
+                    Back to Mirror
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

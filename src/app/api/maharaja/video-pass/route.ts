@@ -59,6 +59,20 @@ export async function POST(req: NextRequest) {
     if (!workspace.campaignEnabled) {
       return NextResponse.json({ success: false, error: 'Maharaja campaign is currently paused.' }, { status: 403 });
     }
+    if (body.source === 'tv-kiosk' && workspace.devices?.tv === false) {
+      return NextResponse.json({ success: false, error: 'TV kiosk surface is currently disabled for this store.' }, { status: 403 });
+    }
+    if ((body.source === 'tablet-kiosk' || hasValidBillingCode) && workspace.devices?.tablet === false) {
+      return NextResponse.json({ success: false, error: 'Counter tablet / billing pass surface is currently disabled for this store.' }, { status: 403 });
+    }
+    if (workspace.devices?.mobile === false) {
+      return NextResponse.json({ success: false, error: 'Mobile QR continuation is currently disabled for this store.' }, { status: 403 });
+    }
+    const videoLimit = Number(workspace.limits?.video ?? 500);
+    const videoUsed = Number(workspace.usage?.videosGenerated || 0);
+    if (videoLimit <= 0 || videoUsed >= videoLimit) {
+      return NextResponse.json({ success: false, error: 'AI Video reward credits are exhausted for this store.' }, { status: 403 });
+    }
     if (!isKioskHandoff && body.billingCode !== workspace.billingCode) {
       return NextResponse.json({ success: false, error: 'Invalid Maharaja billing-counter link.' }, { status: 403 });
     }
