@@ -10,6 +10,7 @@
     "catalogue:upload": "node --env-file=.env.local scripts/upload-maharaja-catalogue.mjs"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.10.1",
     "@google/genai": "^2.24.0",
     "@types/qrcode": "^1.5.6",
     "@zxing/browser": "^0.2.1",

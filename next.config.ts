@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(), payment=()' },
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-          { key: 'Content-Security-Policy', value: "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'; img-src 'self' data: blob: https://storage.googleapis.com https://firebasestorage.googleapis.com; media-src 'self' blob: https://storage.googleapis.com https://firebasestorage.googleapis.com; connect-src 'self' https://storage.googleapis.com https://firebasestorage.googleapis.com https://*.googleapis.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; upgrade-insecure-requests" },
+          { key: 'Content-Security-Policy', value: "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'; img-src 'self' data: blob: https://storage.googleapis.com https://firebasestorage.googleapis.com https://www.pothys.com https://clothsvilla.com https://www.mohifashion.com; media-src 'self' blob: https://storage.googleapis.com https://firebasestorage.googleapis.com; connect-src 'self' https://storage.googleapis.com https://firebasestorage.googleapis.com https://*.googleapis.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; upgrade-insecure-requests" },
         ],
       },
       {

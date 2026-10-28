@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 
-export async function createTryOnPosterDataUrl(targetUrl: string) {
+export async function createTryOnPosterDataUrl(targetUrl: string, options?: { title?: string; subtitle?: string; footer?: string }) {
   const qrDataUrl = await QRCode.toDataURL(targetUrl, {
     width: 920,
     margin: 2,
@@ -30,10 +30,10 @@ export async function createTryOnPosterDataUrl(targetUrl: string) {
 
   context.fillStyle = '#2A060C';
   context.font = '700 92px Georgia, serif';
-  context.fillText('AI TRY-ON', canvas.width / 2, 520);
+  context.fillText(options?.title || 'AI TRY-ON', canvas.width / 2, 520);
   context.fillStyle = '#735B22';
   context.font = '700 35px Arial, sans-serif';
-  context.fillText('SCAN TO SEE YOUR LOOK', canvas.width / 2, 595);
+  context.fillText(options?.subtitle || 'SCAN TO SEE YOUR LOOK', canvas.width / 2, 595);
 
   context.fillStyle = '#FFFFFF';
   context.fillRect(260, 680, 1080, 1080);
@@ -43,7 +43,7 @@ export async function createTryOnPosterDataUrl(targetUrl: string) {
   context.fillRect(220, 1845, 1160, 150);
   context.fillStyle = '#F3E5AB';
   context.font = '700 47px Arial, sans-serif';
-  context.fillText('AVAILABLE ON BILLS OF RS 500+', canvas.width / 2, 1940);
+  context.fillText(options?.footer || 'AVAILABLE ON BILLS OF RS 500+', canvas.width / 2, 1940);
   context.fillStyle = '#5C4B43';
   context.font = '600 28px Arial, sans-serif';
   context.fillText('Ask Maharaja staff for purchase eligibility', canvas.width / 2, 2070);

@@ -59,7 +59,9 @@ export async function POST(req: NextRequest) {
     }
 
     const now = Date.now();
-    const validityMs = experienceType === 'catalogue-gift' ? 4 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
+    // Every customer reward is valid for one day. This matches the WhatsApp/QR
+    // handoff policy and lets a shopper safely continue after leaving the counter.
+    const validityMs = 24 * 60 * 60 * 1000;
     const code = crypto.randomBytes(18).toString('base64url');
     const pass: MaharajaVideoPass = {
       id: code,

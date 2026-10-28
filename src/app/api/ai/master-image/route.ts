@@ -7,6 +7,7 @@ import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERS
 import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
+import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 
 export const maxDuration = 120;
@@ -75,6 +76,8 @@ export async function POST(req: NextRequest) {
   let referencesReadyAt = 0;
   let imageReadyAt = 0;
   let imageProvider = 'gemini';
+  let genlookAttempted = false;
+  let genlookOutcomeUncertain = false;
   let falTryOnAttempted = false;
   let geminiAttempted = false;
   let storageReadyAt = 0;
@@ -286,7 +289,29 @@ ${categoryGarmentLine}
         }
 
         let rawBuffer: Buffer | null = null;
-        if (service === 'try-on' && !tryOnRetry && process.env.FAL_KEY?.trim()) {
+        if (service === 'try-on' && !tryOnRetry && process.env.GENLOOK_API_KEY?.trim()) {
+          genlookAttempted = true;
+          try {
+            rawBuffer = await generateGenlookTryOn(
+              personBase64,
+              garmentBase64s[0],
+              process.env.GENLOOK_API_KEY.trim(),
+              {
+                externalId: typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `maharaja-${garmentType}`,
+                title: typeof body.catalogueProductTitle === 'string' ? body.catalogueProductTitle : `Maharaja ${garmentType.replace(/_/g, ' ')}`,
+                description: `Exact Maharaja ${garmentType.replace(/_/g, ' ')} garment. Preserve its garment structure, fabric, colours and details.`,
+              },
+            );
+            imageProvider = 'genlook-try-on';
+          } catch (error) {
+            if (!canFallbackFromGenlook(error)) {
+              genlookOutcomeUncertain = true;
+              throw error;
+            }
+            console.warn('GenLook Try-On failed explicitly; using configured backup image provider.');
+          }
+        }
+        if (!rawBuffer && service === 'try-on' && !tryOnRetry && process.env.FAL_KEY?.trim()) {
           falTryOnAttempted = true;
           rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], process.env.FAL_KEY.trim());
           imageProvider = 'fal-image-apps-v2-try-on';
@@ -343,6 +368,8 @@ ${categoryGarmentLine}
       return NextResponse.json(
         { success: false, error: geminiAttempted
           ? formatGeminiImageError(genError)
+          : genlookAttempted && genlookOutcomeUncertain
+            ? 'GenLook Try-On outcome is uncertain. Please ask staff to check before retrying; no backup request was sent.'
           : falTryOnAttempted && !imageReadyAt
             ? 'Try-On provider outcome is uncertain. Please ask staff to check before retrying; no second AI request was sent.'
             : falTryOnAttempted

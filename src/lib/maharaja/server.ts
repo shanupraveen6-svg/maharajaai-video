@@ -28,6 +28,8 @@ export type MaharajaWorkspace = {
   defaultEvent: EventId;
   tryOnCode: string;
   billingCode: string;
+  /** Temporary, operator-controlled public QR for evaluating the video flow before WhatsApp is connected. */
+  openVideoCode: string;
   createdAt: string;
   updatedAt: string;
   usage: {
@@ -456,6 +458,7 @@ function defaultWorkspace(): MaharajaWorkspace {
     defaultEvent: 'diwali',
     tryOnCode: stableCode('permanent-try-on'),
     billingCode: stableCode('billing-counter'),
+    openVideoCode: stableCode('temporary-open-video'),
     createdAt: now,
     updatedAt: now,
     usage: {
@@ -568,6 +571,7 @@ export function getWorkspaceLinks(workspace: MaharajaWorkspace) {
     adminUrl: getPublicAppUrl(`/maharaja/${workspace.workspaceCode}`),
     tryOnUrl: getPublicAppUrl(`/maharaja/try-on?access=${workspace.tryOnCode}`),
     billingUrl: getPublicAppUrl(`/maharaja/billing/${workspace.billingCode}`),
+    openVideoUrl: getPublicAppUrl(`/maharaja/video/${workspace.openVideoCode}`),
   };
 }
 
@@ -2153,6 +2157,12 @@ export async function verifyMaharajaAccess(
   }
 
   // service === 'ai-video'
+  // This is intentionally opt-in. A permanent public video QR spends paid model
+  // credits, so it must never become live merely because a deployment is production.
+  if (code === workspace.openVideoCode && process.env.ALLOW_OPEN_VIDEO_QR === 'true') {
+    return { allowed: true as const, clientId: MAHARAJA_CLIENT_ID, pass: null, workspace, entitlement, allowances };
+  }
+
   if (pass && pass.clientId === MAHARAJA_CLIENT_ID) {
     if (pass.expiresAtMs < Date.now()) {
       return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
