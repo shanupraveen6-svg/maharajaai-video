@@ -60,11 +60,12 @@ export default function TryFocusTvExperience() {
   const [tryOnError, setTryOnError] = useState<string>('');
   const [tryOnStatusNote, setTryOnStatusNote] = useState<string>('');
   const [tryOnMobileQr, setTryOnMobileQr] = useState<string>('');
-  const [tryOnMobileUrl, setTryOnMobileUrl] = useState<string>('');
   const [selectedLooks, setSelectedLooks] = useState<TryFocusProduct[]>([]);
   const [generatedLooks, setGeneratedLooks] = useState<Array<{ product: TryFocusProduct; url: string; error?: string }>>([]);
   const [activeLookIndex, setActiveLookIndex] = useState(0);
   const [batchDone, setBatchDone] = useState(0);
+  const [batchProgress, setBatchProgress] = useState<Record<string, 'generating' | 'ready' | 'failed'>>({});
+  const [handoffStatus, setHandoffStatus] = useState('');
   const lastLookTouchRef = useRef<{ sku: string; at: number } | null>(null);
 
   // Camera capture modal / full-screen stage
@@ -182,7 +183,7 @@ export default function TryFocusTvExperience() {
       } else {
         setCountdown(current);
       }
-    }, 900);
+    }, 1000);
   }
 
   function captureFrameNow() {
@@ -216,7 +217,7 @@ export default function TryFocusTvExperience() {
   function applyCapturedPhoto(target: CameraTarget, dataUrl: string) {
     if (target === 'catalogue-person') {
       setCustomerPhoto(dataUrl);
-      void runCatalogueBatch(dataUrl);
+      setTryOnStage('camera');
     } else if (target === 'own-person') {
       setCustomerPhoto(dataUrl);
     } else if (target === 'own-garment') {
@@ -246,6 +247,9 @@ export default function TryFocusTvExperience() {
     setTryOnError('');
     setGeneratedLooks([]);
     setBatchDone(0);
+    setBatchProgress(Object.fromEntries(looks.map((look) => [look.sku, 'generating'])));
+    setTryOnMobileQr('');
+    setHandoffStatus('');
     setTryOnStage('generating');
     const completed = await Promise.allSettled(looks.map(async (product, index) => {
       try {
@@ -268,8 +272,10 @@ export default function TryFocusTvExperience() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.masterImageUrl) throw new Error(data.error || 'Generation failed');
+        setBatchProgress((current) => ({ ...current, [product.sku]: 'ready' }));
         return { product, url: data.masterImageUrl as string };
       } catch (error) {
+        setBatchProgress((current) => ({ ...current, [product.sku]: 'failed' }));
         return { product, url: '', error: error instanceof Error ? error.message : 'Generation failed' };
       } finally {
         setBatchDone((count) => count + 1);
@@ -285,9 +291,29 @@ export default function TryFocusTvExperience() {
       setSelectedProduct(results[firstReady].product);
       setTryOnResultUrl(results[firstReady].url);
       setTryOnStage('result');
+      void createImageHandoff(results.filter((item) => item.url));
     } else {
       setTryOnError('No looks could be created. Please try again.');
       setTryOnStage('browse');
+    }
+  }
+
+  async function createImageHandoff(looks: Array<{ product: TryFocusProduct; url: string }>) {
+    setHandoffStatus('Preparing your private mobile QR…');
+    try {
+      const response = await fetch('/api/tv/tryon-handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ looks: looks.map((look) => ({ sku: look.product.sku, title: look.product.title, image: look.url })) }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.token) throw new Error(data.error || 'Mobile handoff unavailable');
+      const url = `${window.location.origin}/maharaja/looks/${data.token}`;
+      const qr = await QRCode.toDataURL(url, { width: 260, margin: 1, color: { dark: '#161918', light: '#FAFBF8' } });
+      setTryOnMobileQr(qr);
+      setHandoffStatus('Scan to view and download your generated looks. Link expires in 15 minutes.');
+    } catch (error) {
+      setHandoffStatus(error instanceof Error ? error.message : 'Mobile handoff unavailable');
     }
   }
 
@@ -309,20 +335,6 @@ export default function TryFocusTvExperience() {
       }
     }
   }
-
-  // Generate QR for mobile download of try-on result
-  useEffect(() => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
-    const url = `${origin}/maharaja/try-on?sku=${encodeURIComponent(selectedProduct.sku)}&source=tv`;
-    setTryOnMobileUrl(url);
-    QRCode.toDataURL(url, {
-      width: 240,
-      margin: 1,
-      color: { dark: '#161918', light: '#FAFBF8' },
-    })
-      .then(setTryOnMobileQr)
-      .catch(() => setTryOnMobileQr(''));
-  }, [selectedProduct]);
 
   async function createCatalogueVideoPass(
     product: TryFocusProduct,
@@ -405,20 +417,14 @@ export default function TryFocusTvExperience() {
         setTryOnResultUrl(data.masterImageUrl);
         setTryOnStatusNote('AI Virtual Try-On rendered with customer identity lock (Image 1 = Person, Image 2 = Garment).');
         setTryOnStage('result');
+        setTryOnMobileQr('');
+        void createImageHandoff([{ product: targetProduct, url: data.masterImageUrl }]);
         return;
       }
-      // Graceful studio preview fallback if external AI provider quota/key is inactive during demo
-      setTryOnResultUrl(targetProduct.imageUrl);
-      setTryOnStatusNote(
-        data?.error
-          ? `Showing catalogue drape preview (${data.error})`
-          : 'Showing Smart Mirror studio drape preview.'
-      );
-      setTryOnStage('result');
-    } catch {
-      setTryOnResultUrl(targetProduct.imageUrl);
-      setTryOnStatusNote('Showing Smart Mirror studio drape preview.');
-      setTryOnStage('result');
+      throw new Error(data?.error || 'Try-on generation failed.');
+    } catch (error) {
+      setTryOnError(error instanceof Error ? error.message : 'Try-on generation failed.');
+      setTryOnStage('browse');
     }
   }
 
@@ -468,6 +474,8 @@ export default function TryFocusTvExperience() {
     setCustomerPhoto('');
     setOwnGarmentPhoto('');
     setTryOnResultUrl('');
+    setTryOnMobileQr('');
+    setHandoffStatus('');
     setSelectedLooks([]);
     setGeneratedLooks([]);
     setTryOnError('');
@@ -975,11 +983,23 @@ export default function TryFocusTvExperience() {
                   <p className="text-lg font-semibold">{selectedLooks.length} of 5 looks selected</p>
                   <button type="button" disabled={selectedLooks.length === 0} onClick={() => {
                     setSelectedProduct(selectedLooks[0]);
-                    if (customerPhoto) void runCatalogueBatch(customerPhoto);
+                    if (customerPhoto) setTryOnStage('camera');
                     else { setTryOnStage('camera'); void openCameraFor('catalogue-person'); }
                   }} className="min-h-16 bg-[#7A1428] px-8 text-lg font-bold text-white disabled:opacity-40">
                     {customerPhoto ? `Create ${selectedLooks.length} looks` : 'Take photo & create looks'}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {imageSource === 'catalogue' && tryOnStage === 'camera' && customerPhoto && !cameraOpen && (
+              <div className="mx-auto max-w-2xl border border-[#D8DCD7] bg-white p-7 text-center">
+                <p className="font-mono text-sm font-bold uppercase tracking-[0.18em] text-[#7A1428]">Review your photo</p>
+                <img src={customerPhoto} alt="Photo preview before try-on" className="mx-auto mt-5 h-[420px] max-w-full object-contain" />
+                <p className="mt-4 text-lg font-semibold">{selectedLooks.length || 1} selected looks will be created from this photo.</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => void openCameraFor('catalogue-person')} className="min-h-16 border border-[#161918] px-5 text-lg font-bold">Retake photo</button>
+                  <button type="button" onClick={() => void runCatalogueBatch(customerPhoto)} className="min-h-16 bg-[#7A1428] px-5 text-lg font-bold text-white">Confirm & create looks</button>
                 </div>
               </div>
             )}
@@ -997,8 +1017,14 @@ export default function TryFocusTvExperience() {
                   Creating your looks
                 </h3>
                 <p className="mt-2 max-w-lg text-sm text-[#535A56]">
-                    {batchDone} of {selectedLooks.length} generations finished. Keep this screen open.
+                    {batchDone} of {Object.keys(batchProgress).length} generations finished. Keep this screen open.
                 </p>
+                <div className="mt-6 grid w-full max-w-xl gap-2 text-left">
+                  {(selectedLooks.length ? selectedLooks : [selectedProduct]).map((look) => <div key={look.sku} className="flex items-center justify-between border border-[#D8DCD7] bg-[#FAFBF8] px-4 py-3 text-base">
+                    <span className="truncate pr-3 font-semibold">{look.title}</span>
+                    <span className="shrink-0 text-sm font-bold text-[#7A1428]">{batchProgress[look.sku] === 'ready' ? 'Ready' : batchProgress[look.sku] === 'failed' ? 'Failed' : 'Creating…'}</span>
+                  </div>)}
+                </div>
               </div>
             )}
 
@@ -1179,7 +1205,7 @@ export default function TryFocusTvExperience() {
                         Scan QR to Save on Mobile
                       </h4>
                       <p className="mt-1 text-xs text-[#535A56]">
-                        Scan with your phone camera to download this Try-On look or continue trying outfits on your mobile.
+                        Scan with your phone camera to view and download your generated looks.
                       </p>
 
                       <div className="mt-4 flex flex-col items-center border border-[#D8DCD7] bg-white p-4">
@@ -1204,6 +1230,7 @@ export default function TryFocusTvExperience() {
                           {tryOnStatusNote}
                         </p>
                       )}
+                      {handoffStatus && <p className="mt-3 border border-[#D8DCD7] bg-white p-2.5 text-xs text-[#535A56]">{handoffStatus}</p>}
                     </div>
 
                     <div className="mt-5 grid gap-2.5">

@@ -5,6 +5,13 @@ import { MAHARAJA_CLIENT_ID } from './config';
 
 export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
   const nowIso = new Date().toISOString();
+  let expiredTvHandoffs = 0;
+  const handoffs = await db.collection('tvTryOnHandoffs').where('expiresAtMs', '<=', Date.now()).limit(100).get();
+  for (const handoff of handoffs.docs) {
+    await bucket.deleteFiles({ prefix: `clients/${MAHARAJA_CLIENT_ID}/tryon-handoffs/${handoff.id}/`, force: true });
+    await handoff.ref.delete();
+    expiredTvHandoffs += 1;
+  }
   let expiredRateLimits = 0;
   const rateDeadline = Date.now() + 20_000;
   // Also handles old records without Timestamp expiry while Cloud TTL is pending.
@@ -135,6 +142,7 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
 
   return {
     success: failed === 0,
+    expiredTvHandoffs,
     deleted,
     retainedForPromotion,
     preservedLive,

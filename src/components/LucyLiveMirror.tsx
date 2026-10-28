@@ -37,6 +37,8 @@ export default function LucyLiveMirror({
   const streamRef = useRef<MediaStream | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const connectionRef = useRef<RealtimeConnection | null>(null);
+  const liveDeadlineRef = useRef(0);
+  const connectionTimeoutRef = useRef<number | null>(null);
 
   const [genderFilter, setGenderFilter] = useState<'women' | 'men'>(selectedProduct?.gender || 'women');
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>(selectedProduct?.category || 'sarees');
@@ -62,20 +64,19 @@ export default function LucyLiveMirror({
   useEffect(() => {
     if (state !== 'live') return;
     const timer = window.setInterval(() => {
-      setSecondsLeft((current) => {
-        if (current <= 1) {
-          stopLiveSession('completed');
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
+      const remaining = Math.max(0, Math.ceil((liveDeadlineRef.current - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining === 0) stopLiveSession('completed');
+    }, 250);
     return () => window.clearInterval(timer);
   }, [state]);
 
+  useEffect(() => { void turnOnCamera(); }, []);
   useEffect(() => () => stopAllMedia(), []);
 
   function stopAllMedia() {
+    if (connectionTimeoutRef.current !== null) window.clearTimeout(connectionTimeoutRef.current);
+    connectionTimeoutRef.current = null;
     try {
       connectionRef.current?.close();
     } catch {
@@ -93,6 +94,9 @@ export default function LucyLiveMirror({
   }
 
   function stopLiveSession(nextState: MirrorState = 'camera_ready') {
+    if (connectionTimeoutRef.current !== null) window.clearTimeout(connectionTimeoutRef.current);
+    connectionTimeoutRef.current = null;
+    liveDeadlineRef.current = 0;
     try {
       connectionRef.current?.close();
     } catch {
@@ -113,16 +117,28 @@ export default function LucyLiveMirror({
     const pc = new RTCPeerConnection(iceServers?.length ? { iceServers } : undefined);
     const stream = streamRef.current;
     stream?.getTracks().forEach((track) => pc.addTrack(track, stream));
-    pc.ontrack = (event) => {
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-        remoteVideoRef.current.play().catch(() => undefined);
+    pc.ontrack = async (event) => {
+      if (liveDeadlineRef.current > 0) return;
+      const output = event.streams[0];
+      if (!remoteVideoRef.current || !output?.getVideoTracks().length) return;
+      remoteVideoRef.current.srcObject = output;
+      try {
+        await remoteVideoRef.current.play();
+        if (connectionTimeoutRef.current !== null) window.clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+        liveDeadlineRef.current = Date.now() + LIVE_DURATION_SECONDS * 1000;
+        setSecondsLeft(LIVE_DURATION_SECONDS);
+        setState('live');
+        setLiveModeNote('Lucy Live AI output active. Your 30-second session has started.');
+      } catch {
+        stopLiveSession('error');
+        setError('The AI stream connected but could not play. Please retry.');
       }
     };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected') {
-        setState('live');
-        setLiveModeNote('Lucy 2.1 Live AI Mirror active. Move naturally.');
+      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        stopLiveSession('error');
+        setError('The AI mirror stream disconnected. No further live time is running.');
       }
     };
     pc.onicecandidate = (event) => {
@@ -179,6 +195,7 @@ export default function LucyLiveMirror({
   }
 
   async function start30sLiveTryOn() {
+    if (state === 'connecting' || state === 'live') return;
     setError('');
     setLiveModeNote('');
     setSecondsLeft(LIVE_DURATION_SECONDS);
@@ -214,13 +231,9 @@ export default function LucyLiveMirror({
           void handleSignal(result);
         },
         onError: () => {
-          // Graceful fallback to live camera mirror if realtime WebRTC stream closes
-          if (remoteVideoRef.current && streamRef.current) {
-            remoteVideoRef.current.srcObject = streamRef.current;
-            remoteVideoRef.current.play().catch(() => undefined);
-          }
-          setState('live');
-          setLiveModeNote('PC Camera Live Mirror active with selected outfit reference.');
+          if (!connectionRef.current) return;
+          stopLiveSession('error');
+          setError('Lucy AI mirror is unavailable. Camera preview is still separate from the AI result.');
         },
       });
 
@@ -232,23 +245,16 @@ export default function LucyLiveMirror({
         reference_image_url: refImageUrl,
       });
 
-      // Also bind local stream immediately to remoteVideoRef until WebRTC peer track arrives
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = activeStream;
-        await remoteVideoRef.current.play().catch(() => undefined);
-      }
-      setState('live');
-      setLiveModeNote('30s Live AI Try-On session active.');
-    } catch {
-      if (remoteVideoRef.current && streamRef.current) {
-        remoteVideoRef.current.srcObject = streamRef.current;
-        await remoteVideoRef.current.play().catch(() => undefined);
-        setLiveModeNote('PC Camera Live Mirror active.');
-        setState('live');
-        return;
-      }
-      setError('Unable to start 30s Live AI Try-On.');
-      setState('error');
+      connectionTimeoutRef.current = window.setTimeout(() => {
+        if (liveDeadlineRef.current === 0) {
+          stopLiveSession('error');
+          setError('AI output did not arrive in time. Please retry. No live session started.');
+        }
+      }, 20_000);
+      setLiveModeNote('Connecting to Lucy AI. The 30-second timer starts when the AI image appears.');
+    } catch (caught) {
+      stopLiveSession('error');
+      setError(caught instanceof Error ? caught.message : 'Unable to start Lucy Live AI Try-On.');
     }
   }
 
@@ -455,7 +461,7 @@ export default function LucyLiveMirror({
             muted
             autoPlay
             className={
-              state === 'camera_ready'
+              state === 'camera_ready' || state === 'connecting'
                 ? 'h-full w-full object-cover'
                 : state === 'live'
                 ? 'absolute bottom-4 right-4 z-20 h-32 w-24 border-2 border-white/80 bg-black object-cover shadow-lg'
@@ -476,6 +482,7 @@ export default function LucyLiveMirror({
               </div>
             </div>
           )}
+          {state === 'live' && <div className="absolute inset-x-4 bottom-2 z-30 h-3 overflow-hidden rounded-full bg-white/40" role="progressbar" aria-label="Live session progress" aria-valuemin={0} aria-valuemax={30} aria-valuenow={30 - secondsLeft}><div className="h-full bg-[#F3E5AB] transition-all duration-200" style={{ width: `${((30 - secondsLeft) / 30) * 100}%` }} /></div>}
 
           {/* Selected Dress Floating Card inside Mirror */}
           <div className="absolute bottom-4 left-4 z-20 flex items-center gap-3 border border-[#D8DCD7] bg-white/95 p-2.5 shadow-md backdrop-blur-sm">
@@ -495,7 +502,7 @@ export default function LucyLiveMirror({
 
           {/* Idle / Select Dress State */}
           {state === 'select_dress' && (
-            <div className="flex h-full flex-col items-center justify-center p-8 text-center text-[#FAF6EE]">
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/75 p-8 text-center text-[#FAF6EE]">
               <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-white/10">
                 <Video className="h-7 w-7 text-[#FAF6EE]" />
               </div>
@@ -534,7 +541,7 @@ export default function LucyLiveMirror({
 
           {/* Completed State */}
           {state === 'completed' && (
-            <div className="flex h-full flex-col items-center justify-center bg-[#FAFBF8] p-8 text-center text-[#161918]">
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#FAFBF8] p-8 text-center text-[#161918]">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#EBF5EE] text-[#256B45]">
                 <CheckCircle2 className="h-8 w-8" />
               </div>
