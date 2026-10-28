@@ -44,6 +44,9 @@ export default function TryFocusTvExperience() {
   // Catalogue filtering
   const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
+  const [showNewArrivals, setShowNewArrivals] = useState(false);
+  const [cataloguePage, setCataloguePage] = useState(0);
+  const catalogueTopRef = useRef<HTMLDivElement | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
 
   // AI Image Try-On state
@@ -62,6 +65,7 @@ export default function TryFocusTvExperience() {
   const [generatedLooks, setGeneratedLooks] = useState<Array<{ product: TryFocusProduct; url: string; error?: string }>>([]);
   const [activeLookIndex, setActiveLookIndex] = useState(0);
   const [batchDone, setBatchDone] = useState(0);
+  const lastLookTouchRef = useRef<{ sku: string; at: number } | null>(null);
 
   // Camera capture modal / full-screen stage
   const [cameraOpen, setCameraOpen] = useState<boolean>(false);
@@ -86,6 +90,30 @@ export default function TryFocusTvExperience() {
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
   const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory);
+  const browseProducts = sampleCatalogue.filter((item) => item.gender === genderFilter &&
+    (showNewArrivals ? item.badge === 'NEW ARRIVAL' : item.category === activeCategory));
+  const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / 4));
+  const visibleBrowseProducts = browseProducts.slice(cataloguePage * 4, cataloguePage * 4 + 4);
+
+  function selectGender(gender: 'women' | 'men') {
+    if (gender === genderFilter) return;
+    setGenderFilter(gender);
+    setActiveCategory(gender === 'women' ? 'sarees' : 'kurta');
+    setShowNewArrivals(false);
+    setCataloguePage(0);
+    setSelectedLooks([]);
+  }
+
+  function selectCategory(category: CatalogueCategoryId) {
+    setActiveCategory(category);
+    setShowNewArrivals(false);
+    setCataloguePage(0);
+  }
+
+  function turnCataloguePage(nextPage: number) {
+    setCataloguePage(Math.min(Math.max(0, nextPage), cataloguePageCount - 1));
+    window.requestAnimationFrame(() => catalogueTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
 
   // Stop camera helper
   function stopCamera() {
@@ -203,6 +231,9 @@ export default function TryFocusTvExperience() {
   }
 
   function toggleLook(product: TryFocusProduct) {
+    const now = Date.now();
+    if (lastLookTouchRef.current?.sku === product.sku && now - lastLookTouchRef.current.at < 500) return;
+    lastLookTouchRef.current = { sku: product.sku, at: now };
     setSelectedLooks((current) => {
       if (current.some((item) => item.sku === product.sku)) return current.filter((item) => item.sku !== product.sku);
       if (current.length >= 5) return current;
@@ -469,7 +500,7 @@ export default function TryFocusTvExperience() {
     <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-[#161918]">
       {/* Top Smart Mirror Kiosk Navigation Header */}
       <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+        <div className="tv-kiosk-header mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -494,7 +525,7 @@ export default function TryFocusTvExperience() {
           </div>
 
           {/* Kiosk Mode Tabs (matching reference screenshots top bar) */}
-          <nav className="flex flex-wrap items-center gap-1.5">
+          <nav className="tv-kiosk-nav flex flex-wrap items-center gap-1.5" aria-label="Standee experiences">
             <button
               type="button"
               onClick={() => {
@@ -561,7 +592,7 @@ export default function TryFocusTvExperience() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1920px] px-5 py-6 sm:px-8">
+      <div className="tv-kiosk-content mx-auto max-w-[1920px] px-5 py-6 sm:px-8">
         {/* =========================================================
             MODE 0: SMART MIRROR HOME (Storefront Banner + Quick Entry)
            ========================================================= */}
@@ -836,10 +867,9 @@ export default function TryFocusTvExperience() {
                     </span>
                     <button
                       type="button"
+                      aria-pressed={genderFilter === 'women'}
                       onClick={() => {
-                        setGenderFilter('women');
-                        setActiveCategory('sarees');
-                        setSelectedLooks([]);
+                        selectGender('women');
                       }}
                       className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
                         genderFilter === 'women'
@@ -851,10 +881,9 @@ export default function TryFocusTvExperience() {
                     </button>
                     <button
                       type="button"
+                      aria-pressed={genderFilter === 'men'}
                       onClick={() => {
-                        setGenderFilter('men');
-                        setActiveCategory('kurta');
-                        setSelectedLooks([]);
+                        selectGender('men');
                       }}
                       className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
                         genderFilter === 'men'
@@ -866,33 +895,38 @@ export default function TryFocusTvExperience() {
                     </button>
                   </div>
 
-                  {/* Category Pill Tabs */}
-                  <div className="flex flex-wrap gap-2">
+                  {/* Category and New Arrivals remain visible as large touch targets. */}
+                  <div className="tv-kiosk-filters flex flex-wrap gap-2">
+                    <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowNewArrivals(true); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showNewArrivals ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>New Arrivals</button>
                     {filteredCategories.map((cat) => (
                       <button
                         key={cat.id}
                         type="button"
-                        onClick={() => setActiveCategory(cat.id)}
+                        aria-pressed={!showNewArrivals && activeCategory === cat.id}
+                        onClick={() => selectCategory(cat.id)}
                         className={`rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.16em] transition ${
-                          activeCategory === cat.id
+                          !showNewArrivals && activeCategory === cat.id
                             ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
                             : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
                         }`}
                       >
-                        {cat.label} (5)
+                        {cat.label} ({sampleCatalogue.filter((item) => item.category === cat.id).length})
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* 3-Column Smart Mirror Product Grid (matching screenshots 2 & 6 with badge + floating "Try It On" pill) */}
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {categoryProducts.map((item) => (
+                <div ref={catalogueTopRef} className="tv-catalogue-heading flex items-center justify-between gap-4 text-[#161918]">
+                  <p className="font-serif text-2xl font-semibold">{showNewArrivals ? 'New Arrivals' : filteredCategories.find((cat) => cat.id === activeCategory)?.label}</p>
+                  <p className="text-sm font-semibold">{browseProducts.length} garments · Page {cataloguePage + 1} of {cataloguePageCount}</p>
+                </div>
+                <div className="tv-product-grid grid gap-5 sm:grid-cols-2 lg:grid-cols-2">
+                  {visibleBrowseProducts.map((item) => (
                     <div
                       key={item.sku}
-                      className={`group flex flex-col justify-between overflow-hidden border bg-white transition hover:border-[#7A1428] ${selectedLooks.some((look) => look.sku === item.sku) ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'}`}
+                      className={`tv-product-card group flex flex-col justify-between overflow-hidden border bg-white transition hover:border-[#7A1428] ${selectedLooks.some((look) => look.sku === item.sku) ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'}`}
                     >
-                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9]">
+                      <button type="button" aria-pressed={selectedLooks.some((look) => look.sku === item.sku)} aria-label={`${selectedLooks.some((look) => look.sku === item.sku) ? 'Remove' : 'Select'} ${item.title}`} disabled={selectedLooks.length >= 5 && !selectedLooks.some((look) => look.sku === item.sku)} onClick={() => toggleLook(item)} className="tv-product-image relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9] text-left disabled:opacity-60">
                         <img
                           src={item.imageUrl}
                           alt={item.title}
@@ -908,19 +942,10 @@ export default function TryFocusTvExperience() {
                           </span>
                         </div>
 
-                        {/* Floating Bottom-Center "Try It On" Pill Button (matching screenshot 2) */}
-                        <div className="absolute inset-x-0 bottom-4 flex justify-center">
-                          <button
-                            type="button"
-                            disabled={selectedLooks.length >= 5 && !selectedLooks.some((look) => look.sku === item.sku)}
-                            onClick={() => toggleLook(item)}
-                            className="flex items-center gap-2 rounded-full border border-[#161918]/15 bg-white/95 px-5 py-2.5 text-xs font-bold text-[#161918] shadow-lg backdrop-blur-sm transition hover:bg-[#7A1428] hover:text-white disabled:opacity-50"
-                          >
-                            <Sparkles className="h-3.5 w-3.5 text-[#7A1428] group-hover:text-current" />
-                            {selectedLooks.some((look) => look.sku === item.sku) ? 'Remove' : 'Add to looks'}
-                          </button>
-                        </div>
-                      </div>
+                        <span className="absolute inset-x-4 bottom-4 mx-auto w-fit rounded-full border border-[#161918]/15 bg-white/95 px-5 py-3 text-base font-bold text-[#161918] shadow-lg">
+                          {selectedLooks.some((look) => look.sku === item.sku) ? 'Selected · Tap to remove' : 'Tap to select look'}
+                        </span>
+                      </button>
 
                       <div className="flex flex-1 flex-col justify-between p-4">
                         <div>
@@ -936,22 +961,17 @@ export default function TryFocusTvExperience() {
                           <p className="mt-1 text-xs text-[#535A56]">{item.fabricNote}</p>
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between border-t border-[#D8DCD7] pt-3">
-                          <span className="text-[11px] text-[#535A56]">Model face ignored · Dress only</span>
-                          <button
-                            type="button"
-                            disabled={selectedLooks.length >= 5 && !selectedLooks.some((look) => look.sku === item.sku)}
-                            onClick={() => toggleLook(item)}
-                            className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428] hover:underline disabled:opacity-50"
-                          >
-                            {selectedLooks.some((look) => look.sku === item.sku) ? 'Selected ✓' : 'Select look +'}
-                          </button>
-                        </div>
+                        <p className="mt-3 border-t border-[#D8DCD7] pt-3 text-xs text-[#535A56]">Only the garment is used as the reference.</p>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="sticky bottom-4 z-20 mt-5 flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white/95 p-4 shadow-xl backdrop-blur">
+                <div className="tv-catalogue-pagination flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
+                  <button type="button" disabled={cataloguePage === 0} onClick={() => turnCataloguePage(cataloguePage - 1)} className="border border-[#161918] px-6 py-3 text-lg font-semibold disabled:opacity-35">← Previous</button>
+                  <span className="text-lg font-semibold">{cataloguePage + 1} / {cataloguePageCount}</span>
+                  <button type="button" disabled={cataloguePage >= cataloguePageCount - 1} onClick={() => turnCataloguePage(cataloguePage + 1)} className="border border-[#161918] px-6 py-3 text-lg font-semibold disabled:opacity-35">Next →</button>
+                </div>
+                <div className="tv-selection-bar sticky bottom-4 z-20 mt-5 flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white/95 p-4 shadow-xl backdrop-blur">
                   <p className="text-lg font-semibold">{selectedLooks.length} of 5 looks selected</p>
                   <button type="button" disabled={selectedLooks.length === 0} onClick={() => {
                     setSelectedProduct(selectedLooks[0]);
@@ -1000,7 +1020,7 @@ export default function TryFocusTvExperience() {
                   </button>)}
                 </div>}
                 {/* Top Result Section: Left Wardrobe Switcher + Center Full-Body Look + Right QR & Actions */}
-                <div className="grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-[290px_1fr_320px]">
+                <div className="tv-result-layout grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-[290px_1fr_320px]">
                   {/* Left: Floating Wardrobe Dock (matching screenshot 10 "The wardrobe") */}
                   <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-4">
                     <div>
@@ -1421,7 +1441,7 @@ export default function TryFocusTvExperience() {
               </span>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="tv-video-layout grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
               {/* Left: Costly Dress Catalogue Selector + Event Selector */}
               <div className="space-y-4 border border-[#D8DCD7] bg-white p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-3">

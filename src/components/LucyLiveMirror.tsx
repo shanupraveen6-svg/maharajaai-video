@@ -269,7 +269,7 @@ export default function LucyLiveMirror({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+    <div className="tv-live-layout grid gap-6 lg:grid-cols-[420px_1fr]">
       {/* Left Column: Step 1 - Select Dress from Catalogue */}
       <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-5">
         <div>
