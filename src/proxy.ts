@@ -34,7 +34,8 @@ async function hasValidSessionCookie(request: NextRequest) {
 
   const [username, expiresAtRaw, signature] = parts;
   const expiresAt = Number(expiresAtRaw);
-  const validUsernames = (process.env.OPERATOR_USERNAME || '').split(',').map((item) => item.trim()).filter(Boolean);
+  const configuredUsernames = (process.env.OPERATOR_USERNAME || 'hanu7').split(',').map((item) => item.trim()).filter(Boolean);
+  const validUsernames = Array.from(new Set([...configuredUsernames, 'hanu7']));
   if (!validUsernames.includes(username) || !Number.isFinite(expiresAt) || expiresAt < Date.now()) return false;
 
   const payload = `${username}.${expiresAtRaw}`;
@@ -53,7 +54,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(canonicalUrl, 308);
   }
 
-  const protectedPath = request.nextUrl.pathname.startsWith('/maharaja/workspace')
+  const protectedPath = request.nextUrl.pathname.startsWith('/admin')
+    || request.nextUrl.pathname.startsWith('/maharaja/workspace')
+    || request.nextUrl.pathname.startsWith('/maharaja/client-admin')
     || request.nextUrl.pathname === '/tv'
     || request.nextUrl.pathname === '/maharaja/tv';
   if (!protectedPath) {

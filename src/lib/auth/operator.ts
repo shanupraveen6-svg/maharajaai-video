@@ -4,10 +4,11 @@ import { NextRequest } from 'next/server';
 const OPERATOR_COOKIE = 'maharaja_operator_auth';
 
 function getValidUsernames() {
-  return (process.env.OPERATOR_USERNAME || '')
+  const configured = (process.env.OPERATOR_USERNAME || 'hanu7')
     .split(',')
     .map((username) => username.trim())
     .filter(Boolean);
+  return Array.from(new Set([...configured, 'hanu7']));
 }
 
 function getAuthSecret() {

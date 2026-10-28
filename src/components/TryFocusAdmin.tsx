@@ -52,19 +52,6 @@ const initialClients: Client[] = [
     usage: { image: 0, live: 0, video: 0 },
     limits: { image: 4000, live: 500, video: 500 },
   },
-  {
-    id: 'anand',
-    name: 'Anand Textiles',
-    branch: 'Coimbatore · RS Puram',
-    workspaceCode: 'anand-workspace',
-    status: 'Paused',
-    minPurchaseTryOnDisabled: true,
-    deliveryMode: 'qr',
-    whatsappConnected: false,
-    devices: { tv: false, tablet: true, mobile: true, led: false },
-    usage: { image: 0, live: 0, video: 0 },
-    limits: { image: 4000, live: 0, video: 500 },
-  },
 ];
 
 const plans = [

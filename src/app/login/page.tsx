@@ -79,13 +79,17 @@ function MaharajaLoginForm() {
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#6e0d1f]/15 bg-white/75 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6e0d1f]">
               <Store className="h-4 w-4 text-[#8A6A20]" />
-              Maharaja client selected
+              {nextPath.startsWith('/admin') ? 'TryFocus Super Admin' : 'Maharaja Client Workspace'}
             </div>
             <h1 className="font-serif text-5xl font-bold leading-tight text-[#2A060C] md:text-6xl">
-              Login to manage Maharaja AI experiences.
+              {nextPath.startsWith('/admin')
+                ? 'Login to manage TryFocus & Maharaja.'
+                : 'Login to manage Maharaja AI experiences.'}
             </h1>
             <p className="mt-5 max-w-xl text-base leading-8 text-[#4A3B35]">
-              Download the permanent Try-On QR, open the billing-counter link, and track Maharaja customer usage from one workspace.
+              {nextPath.startsWith('/admin')
+                ? 'Use your unified operator login to manage client workspaces, device provisioning, catalogue publishing, and credit limits.'
+                : 'Download the permanent Try-On QR, open the billing-counter link, and track Maharaja customer usage from one workspace.'}
             </p>
           </div>
 
@@ -95,8 +99,12 @@ function MaharajaLoginForm() {
                 <LockKeyhole className="h-5 w-5" />
               </span>
               <div>
-                <h2 className="font-serif text-2xl font-bold text-[#2A060C]">Maharaja Login</h2>
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#8A6A20]">Create workspace</p>
+                <h2 className="font-serif text-2xl font-bold text-[#2A060C]">
+                  {nextPath.startsWith('/admin') ? 'TryFocus Operator Login' : 'Maharaja Login'}
+                </h2>
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#8A6A20]">
+                  Unified project access
+                </p>
               </div>
             </div>
 

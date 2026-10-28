@@ -465,8 +465,8 @@ function defaultWorkspace(clientId = MAHARAJA_CLIENT_ID): MaharajaWorkspace {
   const isMaharaja = clientId === MAHARAJA_CLIENT_ID;
   return {
     clientId,
-    clientName: isMaharaja ? 'The Majestic Maharaja' : clientId === 'anand' ? 'Anand Textiles' : clientId,
-    branch: isMaharaja ? 'Thanjavur · Main Showroom' : clientId === 'anand' ? 'Coimbatore · RS Puram' : 'Main Showroom',
+    clientName: isMaharaja ? 'The Majestic Maharaja' : clientId,
+    branch: isMaharaja ? 'Thanjavur · Main Showroom' : 'Main Showroom',
     workspaceCode: isMaharaja ? (process.env.MAHARAJA_WORKSPACE_CODE || MAHARAJA_WORKSPACE_CODE) : `${clientId}-workspace`,
     campaignEnabled: isMaharaja,
     minPurchaseTryOnDisabled: true,
@@ -635,10 +635,8 @@ export async function getClientWorkspaceById(clientId: string): Promise<Maharaja
 
 export async function listClientWorkspaces(): Promise<MaharajaWorkspace[]> {
   const maharaja = await getMaharajaWorkspace();
-  const anandFallback = await getClientWorkspaceById('anand');
   const byId = new Map<string, MaharajaWorkspace>([
     [maharaja.clientId, maharaja],
-    [anandFallback.clientId, anandFallback],
   ]);
 
   const db = getDb();
