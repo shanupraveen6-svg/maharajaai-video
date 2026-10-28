@@ -95,6 +95,7 @@ export default function TryFocusAdmin() {
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [clientId, setClientId] = useState<string>(initialClients[0].id);
   const [loading, setLoading] = useState<boolean>(true);
+  const [authRequired, setAuthRequired] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [savedNotice, setSavedNotice] = useState<string>('');
   const [errorNotice, setErrorNotice] = useState<string>('');
@@ -108,6 +109,11 @@ export default function TryFocusAdmin() {
   const loadClients = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/clients', { cache: 'no-store' });
+      if (res.status === 401) {
+        setAuthRequired(true);
+        return;
+      }
+      setAuthRequired(false);
       const data = await res.json();
       if (res.ok && data?.success && Array.isArray(data.clients) && data.clients.length > 0) {
         setClients(data.clients);
@@ -160,6 +166,10 @@ export default function TryFocusAdmin() {
           limits: mergedClient.limits,
         }),
       });
+      if (res.status === 401) {
+        setAuthRequired(true);
+        return;
+      }
       const data = await res.json();
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || 'Could not save client configuration.');
@@ -229,6 +239,10 @@ export default function TryFocusAdmin() {
           limits: { image: 4000, live: 500, video: 500 },
         }),
       });
+      if (res.status === 401) {
+        setAuthRequired(true);
+        return;
+      }
       const data = await res.json();
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || 'Could not create retailer workspace.');
@@ -250,6 +264,30 @@ export default function TryFocusAdmin() {
     } finally {
       setCreatingClient(false);
     }
+  }
+
+  if (authRequired) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-[#161918]">
+        <div className="w-full max-w-md border border-[#D8DCD7] bg-[#FFFFFF] p-8 shadow-sm">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
+            TryFocus Super Admin · Protected Control Plane
+          </p>
+          <h1 className="mt-3 font-serif text-2xl font-semibold text-[#161918]">
+            Operator authentication required
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-[#555E5A]">
+            Sign in with your TryFocus operator credentials to view or modify multi-store client workspaces, device provisioning, and credit limits.
+          </p>
+          <Link
+            href="/login?next=/admin"
+            className="mt-6 flex w-full items-center justify-center border border-[#7A1428] bg-[#7A1428] px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] transition hover:bg-[#5E0E1E]"
+          >
+            Sign In to TryFocus Admin
+          </Link>
+        </div>
+      </main>
+    );
   }
 
   return (

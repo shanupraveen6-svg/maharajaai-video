@@ -10,21 +10,18 @@ import { logMaharajaActivity } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
 
-function canManageCatalogue(req: NextRequest) {
-  if (verifyOperatorRequest(req)) return true;
-  if (process.env.ALLOW_MOCK_BACKEND === 'true' || process.env.NODE_ENV !== 'production') return true;
-  return false;
-}
-
 export async function GET(req: NextRequest) {
   try {
     const offset = Number(req.nextUrl.searchParams.get('offset') || '0');
     const limit = Number(req.nextUrl.searchParams.get('limit') || '60');
-    const includeInactive = req.nextUrl.searchParams.get('includeInactive') === 'true' && canManageCatalogue(req);
+    const requestedInactive = req.nextUrl.searchParams.get('includeInactive') === 'true';
+    if (requestedInactive && !verifyOperatorRequest(req)) {
+      return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
+    }
     const catalogue = await listCatalogueProducts(
       Number.isFinite(offset) ? offset : 0,
       Number.isFinite(limit) ? limit : 60,
-      { includeInactive }
+      { includeInactive: requestedInactive }
     );
     return NextResponse.json(
       { success: true, ...catalogue },
@@ -43,7 +40,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!canManageCatalogue(req)) {
+  if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
   }
   try {
@@ -64,7 +61,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!canManageCatalogue(req)) {
+  if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
   }
   try {
@@ -90,7 +87,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!canManageCatalogue(req)) {
+  if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
   }
   try {

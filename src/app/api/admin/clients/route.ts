@@ -12,12 +12,6 @@ import { getWhatsAppStatus } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
-function canManageClients(req: NextRequest) {
-  if (verifyOperatorRequest(req)) return true;
-  if (process.env.ALLOW_MOCK_BACKEND === 'true' || process.env.NODE_ENV !== 'production') return true;
-  return false;
-}
-
 function formatClientRecord(ws: MaharajaWorkspace) {
   const whatsappStatus = getWhatsAppStatus();
   const links = getWorkspaceLinks(ws);
@@ -54,6 +48,9 @@ function formatClientRecord(ws: MaharajaWorkspace) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!verifyOperatorRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
+  }
   try {
     const clientId = req.nextUrl.searchParams.get('clientId');
     if (clientId) {
@@ -78,7 +75,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!canManageClients(req)) {
+  if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
   }
   try {
@@ -104,7 +101,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!canManageClients(req)) {
+  if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
   }
   try {

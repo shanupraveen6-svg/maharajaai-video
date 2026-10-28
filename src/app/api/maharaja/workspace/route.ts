@@ -14,12 +14,6 @@ import { getWhatsAppStatus } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
-function canAccessWorkspace(req: NextRequest) {
-  if (verifyOperatorRequest(req)) return true;
-  if (process.env.ALLOW_MOCK_BACKEND === 'true' || process.env.NODE_ENV !== 'production') return true;
-  return false;
-}
-
 function publicPass(pass: Awaited<ReturnType<typeof listRecentVideoPasses>>[number]) {
   return {
     code: pass.code,
@@ -334,7 +328,7 @@ async function buildHydratedWorkspacePayload() {
 }
 
 export async function GET(req: NextRequest) {
-  if (!canAccessWorkspace(req)) {
+  if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja session.' }, { status: 401 });
   }
 
@@ -351,7 +345,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!canAccessWorkspace(req)) {
+  if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja session.' }, { status: 401 });
   }
 
