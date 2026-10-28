@@ -73,3 +73,97 @@
 .animate-diya {
   animation: diyaFlicker 2s ease-in-out infinite;
 }
+
+/* The interactive standee uses large touch and focus targets at its native size. */
+.tv-kiosk {
+  --tv-ink: #161918;
+  --tv-accent: #7a1428;
+  font-family: var(--font-sans);
+}
+
+.tv-kiosk button,
+.tv-kiosk a {
+  touch-action: manipulation;
+}
+
+.tv-kiosk button:focus-visible,
+.tv-kiosk a:focus-visible {
+  outline: 4px solid #c18a28;
+  outline-offset: 4px;
+  position: relative;
+  z-index: 2;
+}
+
+.tv-kiosk nav button,
+.tv-kiosk nav a {
+  min-height: 56px;
+  font-size: clamp(0.9rem, 1.3vw, 1.2rem);
+}
+
+.tv-home-hero {
+  min-height: clamp(320px, 40vh, 660px);
+}
+
+.tv-home-hero h2 {
+  font-size: clamp(2.6rem, 4.8vw, 6rem);
+  line-height: 1.05;
+}
+
+.tv-home-hero p:not(.font-mono) {
+  font-size: clamp(1.05rem, 1.7vw, 1.65rem);
+  line-height: 1.5;
+}
+
+.tv-home-feature img {
+  height: 100%;
+  min-height: 240px;
+  object-fit: cover;
+  object-position: top;
+}
+
+.tv-experience-card {
+  min-height: 350px;
+}
+
+.tv-experience-card h3 {
+  font-size: clamp(1.8rem, 2.7vw, 3rem);
+  line-height: 1.1;
+}
+
+.tv-experience-card p {
+  font-size: clamp(1rem, 1.35vw, 1.4rem);
+  line-height: 1.4;
+}
+
+.tv-experience-card button {
+  min-height: 56px;
+  font-size: clamp(0.9rem, 1.15vw, 1.1rem);
+}
+
+.tv-experience-image {
+  height: clamp(140px, 19vh, 300px);
+}
+
+@media (min-width: 1000px) and (max-height: 850px) {
+  .tv-home-hero { min-height: 220px; }
+  .tv-home-feature img { min-height: 180px; }
+  .tv-experience-card { min-height: 245px; padding: 18px; }
+  .tv-experience-image { height: 105px; margin-bottom: 10px; }
+  .tv-experience-card h3 { font-size: clamp(1.6rem, 2vw, 2.3rem); }
+  .tv-experience-card p { font-size: 1rem; }
+}
+
+@media (orientation: portrait) and (min-width: 700px) {
+  .tv-home-hero { min-height: 34vh; }
+  .tv-experience-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tv-experience-card { min-height: 35vh; }
+  .tv-experience-image { height: 17vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-kiosk *, .tv-kiosk *::before, .tv-kiosk *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

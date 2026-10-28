@@ -58,6 +58,10 @@ export default function TryFocusTvExperience() {
   const [tryOnStatusNote, setTryOnStatusNote] = useState<string>('');
   const [tryOnMobileQr, setTryOnMobileQr] = useState<string>('');
   const [tryOnMobileUrl, setTryOnMobileUrl] = useState<string>('');
+  const [selectedLooks, setSelectedLooks] = useState<TryFocusProduct[]>([]);
+  const [generatedLooks, setGeneratedLooks] = useState<Array<{ product: TryFocusProduct; url: string; error?: string }>>([]);
+  const [activeLookIndex, setActiveLookIndex] = useState(0);
+  const [batchDone, setBatchDone] = useState(0);
 
   // Camera capture modal / full-screen stage
   const [cameraOpen, setCameraOpen] = useState<boolean>(false);
@@ -66,6 +70,8 @@ export default function TryFocusTvExperience() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const captureTimerRef = useRef<number | null>(null);
+  const swipeStartX = useRef<number | null>(null);
 
   // AI Catalogue Video state
   const [selectedEventId, setSelectedEventId] = useState<string>(events[0].id);
@@ -83,12 +89,21 @@ export default function TryFocusTvExperience() {
 
   // Stop camera helper
   function stopCamera() {
+    if (captureTimerRef.current !== null) window.clearInterval(captureTimerRef.current);
+    captureTimerRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setCountdown(null);
   }
 
   useEffect(() => () => stopCamera(), []);
+
+  function navigateTo(next: TvMode) {
+    stopCamera();
+    setCameraOpen(false);
+    setCameraError('');
+    setMode(next);
+  }
 
   async function openCameraFor(target: CameraTarget) {
     setCameraTarget(target);
@@ -127,12 +142,13 @@ export default function TryFocusTvExperience() {
       setCameraError('Camera stream is not active. Please upload a photo or retry camera.');
       return;
     }
-    setCountdown(3);
-    let current = 3;
-    const interval = window.setInterval(() => {
+    setCountdown(5);
+    let current = 5;
+    captureTimerRef.current = window.setInterval(() => {
       current -= 1;
       if (current <= 0) {
-        window.clearInterval(interval);
+        if (captureTimerRef.current !== null) window.clearInterval(captureTimerRef.current);
+        captureTimerRef.current = null;
         setCountdown(null);
         captureFrameNow();
       } else {
@@ -172,13 +188,94 @@ export default function TryFocusTvExperience() {
   function applyCapturedPhoto(target: CameraTarget, dataUrl: string) {
     if (target === 'catalogue-person') {
       setCustomerPhoto(dataUrl);
-      void runTryOnGeneration(dataUrl, selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl, selectedProduct);
+      void runCatalogueBatch(dataUrl);
     } else if (target === 'own-person') {
       setCustomerPhoto(dataUrl);
     } else if (target === 'own-garment') {
       setOwnGarmentPhoto(dataUrl);
     } else if (target === 'video-person') {
       setVideoPersonPhoto(dataUrl);
+      setVideoMasterUrl('');
+      setVideoPassQr('');
+      setVideoPassUrl('');
+      setVideoStatusNote('');
+    }
+  }
+
+  function toggleLook(product: TryFocusProduct) {
+    setSelectedLooks((current) => {
+      if (current.some((item) => item.sku === product.sku)) return current.filter((item) => item.sku !== product.sku);
+      if (current.length >= 5) return current;
+      return [...current, product];
+    });
+  }
+
+  async function runCatalogueBatch(personImg: string) {
+    const looks = selectedLooks.length ? selectedLooks : [selectedProduct];
+    setTryOnError('');
+    setGeneratedLooks([]);
+    setBatchDone(0);
+    setTryOnStage('generating');
+    const completed = await Promise.allSettled(looks.map(async (product, index) => {
+      try {
+        const res = await fetch('/api/ai/master-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: `tv_batch_${Date.now()}_${index}`,
+            service: 'try-on',
+            templateId: product.gender,
+            garmentType: product.garmentType,
+            garmentTypeConfirmed: true,
+            processingConsent: true,
+            consentVersion: '2026-10-privacy-v2',
+            personPhoto: personImg,
+            garmentPhotos: [product.garmentReferenceUrl || product.imageUrl],
+            garmentRoles: ['Primary Garment Reference'],
+            garmentAnalysis: `${product.title} (${product.fabricNote || ''})`,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.masterImageUrl) throw new Error(data.error || 'Generation failed');
+        return { product, url: data.masterImageUrl as string };
+      } catch (error) {
+        return { product, url: '', error: error instanceof Error ? error.message : 'Generation failed' };
+      } finally {
+        setBatchDone((count) => count + 1);
+      }
+    }));
+    const results = completed.map((entry, index) => entry.status === 'fulfilled'
+      ? entry.value
+      : { product: looks[index], url: '', error: 'Generation failed' });
+    setGeneratedLooks(results);
+    const firstReady = results.findIndex((item) => item.url);
+    if (firstReady >= 0) {
+      setActiveLookIndex(firstReady);
+      setSelectedProduct(results[firstReady].product);
+      setTryOnResultUrl(results[firstReady].url);
+      setTryOnStage('result');
+    } else {
+      setTryOnError('No looks could be created. Please try again.');
+      setTryOnStage('browse');
+    }
+  }
+
+  function showGeneratedLook(index: number) {
+    const look = generatedLooks[index];
+    if (!look?.url) return;
+    setActiveLookIndex(index);
+    setSelectedProduct(look.product);
+    setTryOnResultUrl(look.url);
+  }
+
+  function moveGeneratedLook(direction: -1 | 1) {
+    if (generatedLooks.length < 2) return;
+    for (let step = 1; step <= generatedLooks.length; step += 1) {
+      const index = (activeLookIndex + direction * step + generatedLooks.length * 2) % generatedLooks.length;
+      if (generatedLooks[index]?.url) {
+        showGeneratedLook(index);
+        return;
+      }
     }
   }
 
@@ -196,20 +293,12 @@ export default function TryFocusTvExperience() {
       .catch(() => setTryOnMobileQr(''));
   }, [selectedProduct]);
 
-  // Create or refresh 1-day Catalogue Video QR Pass when product or event changes in catalogue-video mode
-  useEffect(() => {
-    if (mode !== 'catalogue-video') return;
-    void createCatalogueVideoPass(selectedProduct, selectedEventId, videoMasterUrl);
-  }, [mode, selectedProduct, selectedEventId]);
-
   async function createCatalogueVideoPass(
     product: TryFocusProduct,
     eventId: string,
     masterUrl = ''
   ) {
     setVideoPassCreating(true);
-    setVideoStatusNote('');
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
     try {
       const res = await fetch('/api/maharaja/video-pass', {
         method: 'POST',
@@ -225,9 +314,8 @@ export default function TryFocusTvExperience() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      const passLink =
-        data?.pass?.link ||
-        `${origin}/maharaja/catalogue/demo-pass?sku=${encodeURIComponent(product.sku)}&event=${encodeURIComponent(eventId)}`;
+      if (!res.ok || !data?.pass?.link) throw new Error(data?.error || 'Unable to create mobile video pass.');
+      const passLink = data.pass.link;
       setVideoPassUrl(passLink);
       setVideoPassCode(data?.pass?.code || 'TV-CATALOGUE-PASS');
       const qr = await QRCode.toDataURL(passLink, {
@@ -236,15 +324,11 @@ export default function TryFocusTvExperience() {
         color: { dark: '#161918', light: '#FAFBF8' },
       });
       setVideoPassQr(qr);
-    } catch {
-      const fallbackUrl = `${origin}/maharaja/try-on?mode=catalogue-video&sku=${encodeURIComponent(product.sku)}&event=${encodeURIComponent(eventId)}`;
-      setVideoPassUrl(fallbackUrl);
-      const qr = await QRCode.toDataURL(fallbackUrl, {
-        width: 280,
-        margin: 1,
-        color: { dark: '#161918', light: '#FAFBF8' },
-      }).catch(() => '');
-      setVideoPassQr(qr);
+    } catch (error) {
+      setVideoPassUrl('');
+      setVideoPassQr('');
+      setVideoPassCode('');
+      setVideoStatusNote(error instanceof Error ? error.message : 'Unable to create mobile video pass.');
     } finally {
       setVideoPassCreating(false);
     }
@@ -335,17 +419,13 @@ export default function TryFocusTvExperience() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      const generatedUrl = data?.masterImageUrl || selectedProduct.imageUrl;
+      if (!res.ok || !data?.masterImageUrl) throw new Error(data?.error || 'Festival image generation failed.');
+      const generatedUrl = data.masterImageUrl;
       setVideoMasterUrl(generatedUrl);
-      setVideoStatusNote(
-        res.ok && data?.masterImageUrl
-          ? 'Festival master image generated! Scan the QR below on mobile to render your AI video and Download or Go Live.'
-          : 'Catalogue dress locked to mobile pass! Scan the QR below on mobile to complete your AI video.'
-      );
+      setVideoStatusNote('Diwali image ready. Scan the QR on your phone to generate the video.');
       await createCatalogueVideoPass(selectedProduct, selectedEventId, generatedUrl);
-    } catch {
-      setVideoMasterUrl(selectedProduct.imageUrl);
-      await createCatalogueVideoPass(selectedProduct, selectedEventId, selectedProduct.imageUrl);
+    } catch (error) {
+      setVideoStatusNote(error instanceof Error ? error.message : 'Festival image generation failed.');
     } finally {
       setVideoGeneratingMaster(false);
     }
@@ -357,20 +437,28 @@ export default function TryFocusTvExperience() {
     setCustomerPhoto('');
     setOwnGarmentPhoto('');
     setTryOnResultUrl('');
+    setSelectedLooks([]);
+    setGeneratedLooks([]);
     setTryOnError('');
     setTryOnStatusNote('');
     setTryOnStage('browse');
     setVideoPersonPhoto('');
     setVideoMasterUrl('');
+    setVideoPassQr('');
+    setVideoPassUrl('');
+    setVideoPassCode('');
+    setVideoStatusNote('');
     setMode('home');
   }
 
   function startCatalogueTryOnFor(item: TryFocusProduct) {
     setSelectedProduct(item);
+    setSelectedLooks([item]);
     setImageSource('catalogue');
     setMode('image-tryon');
     if (customerPhoto) {
-      void runTryOnGeneration(customerPhoto, item.garmentReferenceUrl || item.imageUrl, item);
+      // The chosen product must be in state before the batch reads it.
+      setTryOnStage('browse');
     } else {
       setTryOnStage('camera');
       void openCameraFor('catalogue-person');
@@ -378,14 +466,14 @@ export default function TryFocusTvExperience() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+    <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-[#161918]">
       {/* Top Smart Mirror Kiosk Navigation Header */}
       <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setMode('home')}
+              onClick={() => navigateTo('home')}
               className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]"
             >
               TF
@@ -410,7 +498,7 @@ export default function TryFocusTvExperience() {
             <button
               type="button"
               onClick={() => {
-                setMode('home');
+                navigateTo('home');
                 setTryOnStage('browse');
               }}
               className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
@@ -425,7 +513,7 @@ export default function TryFocusTvExperience() {
             <button
               type="button"
               onClick={() => {
-                setMode('image-tryon');
+                navigateTo('image-tryon');
                 setTryOnStage('browse');
               }}
               className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
@@ -439,7 +527,7 @@ export default function TryFocusTvExperience() {
             </button>
             <button
               type="button"
-              onClick={() => setMode('live-tryon')}
+              onClick={() => navigateTo('live-tryon')}
               className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
                 mode === 'live-tryon'
                   ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
@@ -451,7 +539,7 @@ export default function TryFocusTvExperience() {
             </button>
             <button
               type="button"
-              onClick={() => setMode('catalogue-video')}
+              onClick={() => navigateTo('catalogue-video')}
               className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
                 mode === 'catalogue-video'
                   ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
@@ -473,14 +561,14 @@ export default function TryFocusTvExperience() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-5 py-6 sm:px-8">
+      <div className="mx-auto max-w-[1920px] px-5 py-6 sm:px-8">
         {/* =========================================================
             MODE 0: SMART MIRROR HOME (Storefront Banner + Quick Entry)
            ========================================================= */}
         {mode === 'home' && (
-          <div className="space-y-6">
+          <div className="tv-home space-y-6">
             {/* Smart Mirror Hero Banner (inspired by Mugdhaa / Ramraj Smart Mirror screenshots) */}
-            <section className="grid gap-6 border border-[#D8DCD7] bg-[#FAFBF8] p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
+            <section className="tv-home-hero grid gap-6 border border-[#D8DCD7] bg-[#FAFBF8] p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
               <div className="flex flex-col justify-between">
                 <div>
                   <p className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
@@ -524,7 +612,7 @@ export default function TryFocusTvExperience() {
               </div>
 
               {/* Right Preview Collage Card */}
-              <div className="grid grid-cols-3 gap-2.5 border border-[#D8DCD7] bg-white p-3">
+              <div className="tv-home-feature grid grid-cols-3 gap-2.5 border border-[#D8DCD7] bg-white p-3">
                 {sampleCatalogue.slice(0, 3).map((item) => (
                   <button
                     key={item.sku}
@@ -549,14 +637,15 @@ export default function TryFocusTvExperience() {
             </section>
 
             {/* 3 Core TV Kiosk Modules */}
-            <section className="grid gap-4 md:grid-cols-3">
-              <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+            <section className="tv-experience-grid grid gap-4 md:grid-cols-3">
+              <div className="tv-experience-card flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
                 <div>
+                  <img src={sampleCatalogue[0].imageUrl} alt="Silk saree try-on preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
                   <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
                     01 · AI Image Try-On
                   </span>
                   <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
-                    Catalogue or Own Garment
+                    AI Image Try-On
                   </h3>
                   <p className="mt-2 text-sm text-[#535A56]">Choose a Maharaja look or bring your own garment to the mirror.</p>
                 </div>
@@ -586,13 +675,14 @@ export default function TryFocusTvExperience() {
                 </div>
               </div>
 
-              <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+              <div className="tv-experience-card flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
                 <div>
+                  <img src={sampleCatalogue[15].imageUrl} alt="Live mirror fashion preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
                   <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
                     02 · 30s Live AI Try-On
                   </span>
                   <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
-                    Real-Time Smart Mirror
+                    Live AI Mirror
                   </h3>
                   <p className="mt-2 text-sm text-[#535A56]">See a selected look move with you. Each session lasts 30 seconds.</p>
                 </div>
@@ -607,13 +697,14 @@ export default function TryFocusTvExperience() {
                 </div>
               </div>
 
-              <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+              <div className="tv-experience-card flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
                 <div>
+                  <img src={sampleCatalogue[10].imageUrl} alt="AI fashion video preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
                   <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
                     03 · AI Catalogue Video
                   </span>
                   <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
-                    Luxury Silk Video Handoff
+                    AI Fashion Video
                   </h3>
                   <p className="mt-2 text-sm text-[#535A56]">Choose a featured look here, then create your private fashion video on your phone.</p>
                 </div>
@@ -748,6 +839,7 @@ export default function TryFocusTvExperience() {
                       onClick={() => {
                         setGenderFilter('women');
                         setActiveCategory('sarees');
+                        setSelectedLooks([]);
                       }}
                       className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
                         genderFilter === 'women'
@@ -762,6 +854,7 @@ export default function TryFocusTvExperience() {
                       onClick={() => {
                         setGenderFilter('men');
                         setActiveCategory('kurta');
+                        setSelectedLooks([]);
                       }}
                       className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
                         genderFilter === 'men'
@@ -797,7 +890,7 @@ export default function TryFocusTvExperience() {
                   {categoryProducts.map((item) => (
                     <div
                       key={item.sku}
-                      className="group flex flex-col justify-between overflow-hidden border border-[#D8DCD7] bg-white transition hover:border-[#7A1428]"
+                      className={`group flex flex-col justify-between overflow-hidden border bg-white transition hover:border-[#7A1428] ${selectedLooks.some((look) => look.sku === item.sku) ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'}`}
                     >
                       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9]">
                         <img
@@ -811,7 +904,7 @@ export default function TryFocusTvExperience() {
                             {item.badge || 'MAHARAJA EDIT'}
                           </span>
                           <span className="bg-[#7A1428] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#FAF6EE] shadow-sm">
-                            ✨ TRY ON
+                            {selectedLooks.some((look) => look.sku === item.sku) ? 'SELECTED' : selectedLooks.length >= 5 ? 'MAX 5' : 'ADD LOOK'}
                           </span>
                         </div>
 
@@ -819,11 +912,12 @@ export default function TryFocusTvExperience() {
                         <div className="absolute inset-x-0 bottom-4 flex justify-center">
                           <button
                             type="button"
-                            onClick={() => startCatalogueTryOnFor(item)}
-                            className="flex items-center gap-2 rounded-full border border-[#161918]/15 bg-white/95 px-5 py-2.5 text-xs font-bold text-[#161918] shadow-lg backdrop-blur-sm transition hover:bg-[#7A1428] hover:text-white"
+                            disabled={selectedLooks.length >= 5 && !selectedLooks.some((look) => look.sku === item.sku)}
+                            onClick={() => toggleLook(item)}
+                            className="flex items-center gap-2 rounded-full border border-[#161918]/15 bg-white/95 px-5 py-2.5 text-xs font-bold text-[#161918] shadow-lg backdrop-blur-sm transition hover:bg-[#7A1428] hover:text-white disabled:opacity-50"
                           >
                             <Sparkles className="h-3.5 w-3.5 text-[#7A1428] group-hover:text-current" />
-                            Try It On
+                            {selectedLooks.some((look) => look.sku === item.sku) ? 'Remove' : 'Add to looks'}
                           </button>
                         </div>
                       </div>
@@ -846,15 +940,26 @@ export default function TryFocusTvExperience() {
                           <span className="text-[11px] text-[#535A56]">Model face ignored · Dress only</span>
                           <button
                             type="button"
-                            onClick={() => startCatalogueTryOnFor(item)}
-                            className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428] hover:underline"
+                            disabled={selectedLooks.length >= 5 && !selectedLooks.some((look) => look.sku === item.sku)}
+                            onClick={() => toggleLook(item)}
+                            className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428] hover:underline disabled:opacity-50"
                           >
-                            Try Now →
+                            {selectedLooks.some((look) => look.sku === item.sku) ? 'Selected ✓' : 'Select look +'}
                           </button>
                         </div>
                       </div>
                     </div>
                   ))}
+                </div>
+                <div className="sticky bottom-4 z-20 mt-5 flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white/95 p-4 shadow-xl backdrop-blur">
+                  <p className="text-lg font-semibold">{selectedLooks.length} of 5 looks selected</p>
+                  <button type="button" disabled={selectedLooks.length === 0} onClick={() => {
+                    setSelectedProduct(selectedLooks[0]);
+                    if (customerPhoto) void runCatalogueBatch(customerPhoto);
+                    else { setTryOnStage('camera'); void openCameraFor('catalogue-person'); }
+                  }} className="min-h-16 bg-[#7A1428] px-8 text-lg font-bold text-white disabled:opacity-40">
+                    {customerPhoto ? `Create ${selectedLooks.length} looks` : 'Take photo & create looks'}
+                  </button>
                 </div>
               </div>
             )}
@@ -869,10 +974,10 @@ export default function TryFocusTvExperience() {
                   Smart Mirror AI Drape in Progress
                 </p>
                 <h3 className="mt-2 font-serif text-3xl font-semibold text-[#161918]">
-                  Draping {selectedProduct.title} ({formatINR(selectedProduct.price)})
+                  Creating your looks
                 </h3>
                 <p className="mt-2 max-w-lg text-sm text-[#535A56]">
-                  Locking your identity from <strong>Image 1 (Customer Photo)</strong> and transferring the exact weave, border, and colour from <strong>Image 2 (Garment Reference)</strong>.
+                    {batchDone} of {selectedLooks.length} generations finished. Keep this screen open.
                 </p>
               </div>
             )}
@@ -883,6 +988,17 @@ export default function TryFocusTvExperience() {
                --------------------------------------------------------- */}
             {tryOnStage === 'result' && (
               <div className="space-y-6">
+                {generatedLooks.length > 0 && <div className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
+                  <button type="button" onClick={() => moveGeneratedLook(-1)} className="min-h-14 border border-[#D8DCD7] px-5 text-lg font-semibold">← Previous</button>
+                  <span className="text-center text-lg font-semibold">Look {activeLookIndex + 1} of {generatedLooks.length}</span>
+                  <button type="button" onClick={() => moveGeneratedLook(1)} className="min-h-14 border border-[#D8DCD7] px-5 text-lg font-semibold">Next →</button>
+                </div>}
+                {generatedLooks.length > 0 && <div className="flex gap-3 overflow-x-auto pb-2" aria-label="Generated looks">
+                  {generatedLooks.map((look, index) => <button key={look.product.sku} type="button" disabled={!look.url} onClick={() => showGeneratedLook(index)} className={`w-28 shrink-0 border p-2 text-left ${activeLookIndex === index ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'} disabled:opacity-50`}>
+                    <img src={look.url || look.product.imageUrl} alt={look.product.title} className="h-32 w-full object-cover object-top" />
+                    <span className="mt-1 block truncate text-xs font-semibold">{look.error ? 'Failed' : look.product.title}</span>
+                  </button>)}
+                </div>}
                 {/* Top Result Section: Left Wardrobe Switcher + Center Full-Body Look + Right QR & Actions */}
                 <div className="grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-[290px_1fr_320px]">
                   {/* Left: Floating Wardrobe Dock (matching screenshot 10 "The wardrobe") */}
@@ -996,7 +1112,12 @@ export default function TryFocusTvExperience() {
                   </div>
 
                   {/* Center: Full-Screen Smart Mirror Result Portrait (matching screenshot 4) */}
-                  <div className="relative overflow-hidden border border-[#D8DCD7] bg-[#161918]">
+                  <div className="relative overflow-hidden border border-[#D8DCD7] bg-[#161918]" onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
+                    if (swipeStartX.current === null) return;
+                    const distance = (event.changedTouches[0]?.clientX ?? swipeStartX.current) - swipeStartX.current;
+                    swipeStartX.current = null;
+                    if (Math.abs(distance) > 60) moveGeneratedLook(distance < 0 ? 1 : -1);
+                  }}>
                     <img
                       src={tryOnResultUrl || selectedProduct.imageUrl}
                       alt={selectedProduct.title}
@@ -1289,14 +1410,14 @@ export default function TryFocusTvExperience() {
                   TV AI Catalogue Video · Luxury Showroom Collection
                 </p>
                 <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                  Select a Costly Catalogue Outfit → Capture / Scan QR → Generate AI Video on Mobile
+                  Select a catalogue look → Capture your photo → Create Diwali image
                 </h2>
                 <p className="mt-1 text-xs text-[#535A56]">
-                  TV AI Video is strictly <strong>Catalogue-Only</strong> (no loose garment upload on TV). Select any luxury outfit with price in Rs below, optionally capture your photo on TV, and scan the 1-day QR on mobile to render your video and choose <strong>Download</strong> or <strong>Go Live</strong> (which plays on the Maharaja TV screen).
+                  Choose a catalogue garment and capture your photo. Once the Diwali image is ready, scan its QR to create your video privately on your phone.
                 </p>
               </div>
               <span className="border border-[#7A1428] bg-[#7A1428]/10 px-3.5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">
-                Catalogue-Only · 1-Day Mobile QR
+                Diwali Available · 1-Day Mobile QR
               </span>
             </div>
 
@@ -1369,6 +1490,8 @@ export default function TryFocusTvExperience() {
                         onClick={() => {
                           setSelectedProduct(item);
                           setVideoMasterUrl('');
+                          setVideoPassQr('');
+                          setVideoPassUrl('');
                         }}
                         className={`flex gap-3 border p-3 text-left transition ${
                           isSelected
@@ -1412,14 +1535,15 @@ export default function TryFocusTvExperience() {
                       <button
                         key={ev.id}
                         type="button"
+                        disabled={ev.id !== 'diwali'}
                         onClick={() => setSelectedEventId(ev.id)}
                         className={`border px-2.5 py-2 text-center text-xs font-semibold transition ${
                           selectedEventId === ev.id
                             ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                            : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
+                            : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] opacity-40'
                         }`}
                       >
-                        {ev.label}
+                        {ev.label}{ev.id !== 'diwali' ? ' · Soon' : ''}
                       </button>
                     ))}
                   </div>
@@ -1443,8 +1567,20 @@ export default function TryFocusTvExperience() {
                   {/* Optional TV Customer Photo + Festival Master Generation */}
                   <div className="mt-4 border border-[#D8DCD7] bg-white p-4">
                     <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#535A56]">
-                      Option A: Capture Photo on TV First (Or Scan QR Directly Below)
+                      Two images for your Diwali look
                     </p>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div className="border border-dashed border-[#BFC6BE] bg-[#FAFBF8] p-3">
+                        <div className="flex aspect-[3/4] items-center justify-center overflow-hidden bg-[#ECEEE9]">
+                          {videoPersonPhoto ? <img src={videoPersonPhoto} alt="Your photo for the Diwali image" className="h-full w-full object-cover" /> : <div className="text-center text-[#535A56]"><User className="mx-auto h-10 w-10" /><span className="mt-2 block text-sm font-semibold">Your photo</span></div>}
+                        </div>
+                        <p className="mt-2 text-sm font-semibold">01 · Your photo</p>
+                      </div>
+                      <div className="border border-dashed border-[#BFC6BE] bg-[#FAFBF8] p-3">
+                        <div className="aspect-[3/4] overflow-hidden bg-[#ECEEE9]"><img src={selectedProduct.imageUrl} alt={`Selected garment: ${selectedProduct.title}`} className="h-full w-full object-cover" /></div>
+                        <p className="mt-2 truncate text-sm font-semibold">02 · {selectedProduct.title}</p>
+                      </div>
+                    </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       <button
                         type="button"
@@ -1486,27 +1622,23 @@ export default function TryFocusTvExperience() {
                       )}
                     </div>
 
-                    {(videoMasterUrl || videoPersonPhoto) && (
+                    {(videoMasterUrl || videoStatusNote) && (
                       <div className="mt-3 flex items-center gap-3 border-t border-[#D8DCD7] pt-3">
-                        <img
-                          src={videoMasterUrl || videoPersonPhoto}
-                          alt="TV Preview"
-                          className="h-20 w-16 border border-[#D8DCD7] object-cover"
-                        />
+                        {videoMasterUrl && <img src={videoMasterUrl} alt="Generated Diwali image" className="h-28 w-20 border border-[#D8DCD7] object-cover" />}
                         <div className="text-xs text-[#535A56]">
                           <p className="font-semibold text-[#161918]">
-                            {videoMasterUrl ? 'Festival Master Image Ready' : 'Customer Photo Captured'}
+                            {videoMasterUrl ? 'Your Diwali image is ready' : 'Image not ready'}
                           </p>
                           <p className="mt-0.5">
-                            {videoStatusNote || 'Click "Generate Festival Image on TV" or scan the QR below to continue on your phone.'}
+                            {videoStatusNote}
                           </p>
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* QR Code Card for Mobile Continuation (Download + Go Live) */}
-                  <div className="mt-4 flex flex-col items-center border border-[#D8DCD7] bg-white p-5 text-center">
+                  {/* The QR is issued only after the Diwali image succeeds. */}
+                  {videoMasterUrl && <div className="mt-4 flex flex-col items-center border border-[#D8DCD7] bg-white p-5 text-center">
                     <span className="bg-[#EBF5EE] px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#256B45]">
                       1-Day Valid Mobile QR · Download + Go Live Enabled
                     </span>
@@ -1550,7 +1682,7 @@ export default function TryFocusTvExperience() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     )}
-                  </div>
+                  </div>}
                 </div>
               </div>
             </div>

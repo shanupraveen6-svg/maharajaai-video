@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     }
     const rawPhone = cleanPhone(body.phone);
     const phone = rawPhone.length === 10 ? rawPhone : (isKioskHandoff ? '9876543210' : '');
+    const whatsappOptIn = rawPhone.length === 10 && (body.whatsappOptIn === true || (body.experienceType === 'catalogue-gift' && !isKioskHandoff));
     const experienceType = body.experienceType === 'catalogue-gift' ? 'catalogue-gift' : 'purchased-garment';
     if (phone.length !== 10) {
       return NextResponse.json({ success: false, error: 'Enter a valid 10 digit phone number.' }, { status: 400 });
@@ -112,12 +113,12 @@ export async function POST(req: NextRequest) {
       videoGenerating: false,
       videoDone: false,
       retryUsed: false,
-      whatsappOptIn: experienceType === 'catalogue-gift' || body.whatsappOptIn === true,
-      ...(experienceType === 'catalogue-gift' || body.whatsappOptIn === true ? { whatsappDeliveryStatus: 'pending' as const } : {}),
+      whatsappOptIn,
+      ...(whatsappOptIn ? { whatsappDeliveryStatus: 'pending' as const } : {}),
       usage: { scans: 0, imagesGenerated: pregeneratedMasterUrl ? 1 : 0, videosGenerated: 0, goLive: 0 },
     };
 
-    if (ENFORCE_REPEAT_LIMITS) {
+    if (ENFORCE_REPEAT_LIMITS && rawPhone.length === 10) {
       const expiredCount = await expireActivePassesForPhone(phone, undefined, experienceType);
       if (expiredCount > 0) {
         await incrementMaharajaUsage('retries');
