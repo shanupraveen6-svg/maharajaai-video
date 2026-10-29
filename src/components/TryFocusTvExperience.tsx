@@ -30,6 +30,7 @@ import {
   formatINR,
   sampleCatalogue,
   type CatalogueCategoryId,
+  type CatalogueAudience,
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
 
@@ -43,7 +44,7 @@ export default function TryFocusTvExperience() {
   const [catalogueItems, setCatalogueItems] = useState<TryFocusProduct[]>(sampleCatalogue);
 
   // Catalogue filtering
-  const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
+  const [genderFilter, setGenderFilter] = useState<CatalogueAudience>('women');
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [showNewArrivals, setShowNewArrivals] = useState(false);
   const [cataloguePage, setCataloguePage] = useState(0);
@@ -62,14 +63,16 @@ export default function TryFocusTvExperience() {
           title: item.title,
           price: Number(item.price || 0),
           category: item.category || 'sarees',
-          audience: item.audience || (item.gender === 'men' ? 'Men' : 'Women'),
-          gender: item.gender === 'men' ? 'men' : 'women',
+          audience: item.audience || (item.gender === 'men' ? 'Men' : item.gender === 'boys' ? 'Boys' : item.gender === 'girls' ? 'Girls' : 'Women'),
+          gender: item.gender === 'men' || item.gender === 'boys' || item.gender === 'girls' ? item.gender : 'women',
           imageUrl: item.imageUrl,
           garmentReferenceUrl: item.garmentReferenceUrl || item.imageUrl,
           fabricNote: item.fabricNote || 'Maharaja Collection',
           badge: item.newArrival ? 'NEW ARRIVAL' : item.badge,
           accent: item.accent || 'from-[#FAF6F0] to-[#EFE8DC]',
           eligibleForVideo: item.eligibleForVideo !== false,
+          eligibleForLive: item.eligibleForLive === true,
+          newArrivalOnly: item.newArrivalOnly === true,
           garmentType: item.garmentType || 'saree',
         }));
         setCatalogueItems(mapped);
@@ -122,20 +125,20 @@ export default function TryFocusTvExperience() {
   const [videoStatusNote, setVideoStatusNote] = useState<string>('');
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
-  const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory);
+  const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
   const browseProducts = catalogueItems.filter((item) => item.gender === genderFilter &&
-    (showNewArrivals ? item.badge === 'NEW ARRIVAL' : item.category === activeCategory));
+    (showNewArrivals ? (genderFilter === 'women' || genderFilter === 'men') && item.badge === 'NEW ARRIVAL' : item.category === activeCategory && item.newArrivalOnly !== true));
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / 4));
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * 4, cataloguePage * 4 + 4);
-  const videoBrowseProducts = browseProducts.filter((item) => item.eligibleForVideo !== false);
+  const videoBrowseProducts = catalogueItems.filter((item) => item.category === 'sarees' && item.eligibleForVideo === true);
   const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / 4));
   const safeVideoPage = Math.min(cataloguePage, videoPageCount - 1);
   const visibleVideoProducts = videoBrowseProducts.slice(safeVideoPage * 4, safeVideoPage * 4 + 4);
 
-  function selectGender(gender: 'women' | 'men') {
+  function selectGender(gender: CatalogueAudience) {
     if (gender === genderFilter) return;
     setGenderFilter(gender);
-    setActiveCategory(gender === 'women' ? 'sarees' : 'kurta');
+    setActiveCategory(gender === 'women' ? 'sarees' : gender === 'men' ? 'veshti' : gender === 'boys' ? 'boys-veshti' : 'girls-pavadai');
     setShowNewArrivals(false);
     setCataloguePage(0);
     setSelectedLooks([]);
@@ -167,6 +170,11 @@ export default function TryFocusTvExperience() {
     stopCamera();
     setCameraOpen(false);
     setCameraError('');
+    if (next === 'catalogue-video') {
+      const saree = catalogueItems.find((item) => item.category === 'sarees' && item.eligibleForVideo);
+      if (saree) setSelectedProduct(saree);
+      setCataloguePage(0);
+    }
     setMode(next);
   }
 
@@ -295,7 +303,7 @@ export default function TryFocusTvExperience() {
           body: JSON.stringify({
             sessionId: `tv_batch_${Date.now()}_${index}`,
             service: 'try-on',
-            templateId: product.gender,
+            templateId: product.gender === 'boys' ? 'men' : product.gender === 'girls' ? 'women' : product.gender,
             garmentType: product.garmentType,
             garmentTypeConfirmed: true,
             processingConsent: true,
@@ -337,10 +345,28 @@ export default function TryFocusTvExperience() {
   async function createImageHandoff(looks: Array<{ product: TryFocusProduct; url: string }>) {
     setHandoffStatus('Preparing your private mobile QR…');
     try {
+      const handoffLooks = await Promise.all(looks.map(async (look) => {
+        const image = await new Promise<string>((resolve, reject) => {
+          const source = new Image();
+          source.onload = () => {
+            const scale = Math.min(1, 1400 / Math.max(source.naturalWidth, source.naturalHeight));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(source.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(source.naturalHeight * scale));
+            const context = canvas.getContext('2d');
+            if (!context) return reject(new Error('Could not prepare this look for your phone.'));
+            context.drawImage(source, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          };
+          source.onerror = () => reject(new Error('Could not read a generated look for the mobile QR.'));
+          source.src = look.url;
+        });
+        return { sku: look.product.sku, title: look.product.title, image };
+      }));
       const response = await fetch('/api/tv/tryon-handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ looks: looks.map((look) => ({ sku: look.product.sku, title: look.product.title, image: look.url })) }),
+        body: JSON.stringify({ looks: handoffLooks }),
       });
       const data = await response.json();
       if (!response.ok || !data.token) throw new Error(data.error || 'Mobile handoff unavailable');
@@ -701,9 +727,6 @@ export default function TryFocusTvExperience() {
                       className="aspect-[3/4] w-full object-cover transition duration-300 group-hover:scale-105"
                     />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 text-white">
-                      <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[#F3E5AB]">
-                        {formatINR(item.price)}
-                      </p>
                       <p className="truncate text-xs font-semibold">{item.title}</p>
                     </div>
                   </button>
@@ -752,7 +775,7 @@ export default function TryFocusTvExperience() {
 
               <div className="tv-experience-card flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
                 <div>
-                  <img src={sampleCatalogue[15].imageUrl} alt="Live mirror fashion preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
+                  <img src={sampleCatalogue.find((item) => item.gender === 'men' && item.eligibleForLive)?.imageUrl || sampleCatalogue[0].imageUrl} alt="Live mirror fashion preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
                   <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
                     02 · 30s Live AI Try-On
                   </span>
@@ -774,7 +797,7 @@ export default function TryFocusTvExperience() {
 
               <div className="tv-experience-card flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
                 <div>
-                  <img src={sampleCatalogue[10].imageUrl} alt="AI fashion video preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
+                  <img src={sampleCatalogue[1].imageUrl} alt="AI fashion video preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
                   <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
                     03 · AI Catalogue Video
                   </span>
@@ -905,7 +928,7 @@ export default function TryFocusTvExperience() {
               <div className="space-y-5">
                 {/* Gender + Category Filter Bar (matching Smart Mirror screenshots 2, 6, 8) */}
                 <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-[#535A56]">
                       Shop for
                     </span>
@@ -937,11 +960,16 @@ export default function TryFocusTvExperience() {
                     >
                       Men
                     </button>
+                    {(['boys', 'girls'] as const).map((audience) => (
+                      <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => selectGender(audience)} className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${genderFilter === audience ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]' : 'border-[#D8DCD7] bg-[#F4F5F2] text-[#161918]'}`}>
+                        {audience === 'boys' ? 'Boys' : 'Girls'}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Category and New Arrivals remain visible as large touch targets. */}
                   <div className="tv-kiosk-filters flex flex-wrap gap-2">
-                    <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowNewArrivals(true); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showNewArrivals ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>New Arrivals</button>
+                    {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowNewArrivals(true); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showNewArrivals ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>New Arrivals</button>}
                     {filteredCategories.map((cat) => (
                       <button
                         key={cat.id}
@@ -954,7 +982,7 @@ export default function TryFocusTvExperience() {
                             : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
                         }`}
                       >
-                        {cat.label} ({sampleCatalogue.filter((item) => item.category === cat.id).length})
+                        {cat.label} ({catalogueItems.filter((item) => item.category === cat.id && item.newArrivalOnly !== true).length})
                       </button>
                     ))}
                   </div>
@@ -993,12 +1021,7 @@ export default function TryFocusTvExperience() {
 
                       <div className="flex flex-1 flex-col justify-between p-4">
                         <div>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-[11px] text-[#535A56]">{item.sku}</span>
-                            <span className="font-mono text-base font-bold text-[#161918]">
-                              {formatINR(item.price)}
-                            </span>
-                          </div>
+                          <span className="font-mono text-[11px] text-[#535A56]">{item.sku}</span>
                           <h4 className="mt-1 font-serif text-lg font-semibold text-[#161918]">
                             {item.title}
                           </h4>
@@ -1171,9 +1194,6 @@ export default function TryFocusTvExperience() {
                               className="h-14 w-11 shrink-0 object-cover"
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="font-mono text-xs font-bold text-[#161918]">
-                                {formatINR(item.price)}
-                              </p>
                               <p className="truncate text-xs font-medium text-[#535A56]">
                                 {item.title}
                               </p>
@@ -1222,11 +1242,6 @@ export default function TryFocusTvExperience() {
                               : selectedProduct.fabricNote}
                           </p>
                         </div>
-                        {imageSource === 'catalogue' && (
-                          <span className="rounded-full bg-white/20 px-4 py-1.5 font-mono text-sm font-bold text-white backdrop-blur-sm">
-                            {formatINR(selectedProduct.price)}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -1257,7 +1272,7 @@ export default function TryFocusTvExperience() {
                           </div>
                         )}
                         <p className="mt-2 font-mono text-[11px] font-semibold text-[#161918]">
-                          {selectedProduct.sku} · {formatINR(selectedProduct.price)}
+                          {selectedProduct.sku}
                         </p>
                       </div>
 
@@ -1474,10 +1489,10 @@ export default function TryFocusTvExperience() {
            ========================================================= */}
         {mode === 'live-tryon' && (
           <LucyLiveMirror
-            catalogue={catalogueItems}
+            catalogue={catalogueItems.filter((item) => item.eligibleForLive === true && (item.gender === 'women' || item.gender === 'men'))}
             garmentPrompt={`Person wearing ${selectedProduct.title}, ${selectedProduct.fabricNote}`}
             garmentTitle={selectedProduct.title}
-            selectedProduct={selectedProduct}
+            selectedProduct={selectedProduct.eligibleForLive ? selectedProduct : catalogueItems.find((item) => item.eligibleForLive === true)}
             onSelectProduct={setSelectedProduct}
           />
         )}
@@ -1517,64 +1532,7 @@ export default function TryFocusTvExperience() {
                   </h3>
                 </div>
 
-                {/* Gender Switch */}
-                <div className="grid grid-cols-2 gap-2">
-                  {(['women', 'men'] as const).map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => {
-                        setGenderFilter(g);
-                        setActiveCategory(g === 'women' ? 'sarees' : 'kurta');
-                        setShowNewArrivals(false);
-                        setCataloguePage(0);
-                      }}
-                      className={`min-h-[56px] min-w-[130px] border-2 px-5 py-2.5 font-serif text-lg font-semibold capitalize ${
-                        genderFilter === g
-                          ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
-                          : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
-                      }`}
-                    >
-                      {g === 'women' ? 'Women' : 'Men'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* New Arrivals + Category Pills */}
-              <div className="mt-4 grid grid-cols-4 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNewArrivals(true);
-                    setCataloguePage(0);
-                  }}
-                  className={`min-h-[56px] border-2 px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] ${
-                    showNewArrivals
-                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                      : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
-                  }`}
-                >
-                  New Arrivals
-                </button>
-                {filteredCategories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setShowNewArrivals(false);
-                      setActiveCategory(cat.id);
-                      setCataloguePage(0);
-                    }}
-                    className={`min-h-[56px] border-2 px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] ${
-                      !showNewArrivals && activeCategory === cat.id
-                        ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                        : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
+                <span className="border border-[#D8DCD7] bg-[#FAFBF8] px-4 py-3 text-sm font-bold text-[#161918]">Maharaja Saree Video Collection</span>
               </div>
 
               {/* 4-Card Paged Grid (No Nested Scrollbar) */}

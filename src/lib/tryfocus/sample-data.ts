@@ -1,11 +1,12 @@
-export type CatalogueCategoryId = 'sarees' | 'salwar' | 'lehenga' | 'kurta' | 'veshti' | 'shirts';
+export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'shirts';
+export type CatalogueAudience = 'women' | 'men' | 'boys' | 'girls';
 
 export type TryFocusProduct = {
   id: string;
   title: string;
   category: CatalogueCategoryId;
-  audience: 'Women' | 'Men';
-  gender: 'women' | 'men';
+  audience: 'Women' | 'Men' | 'Boys' | 'Girls';
+  gender: CatalogueAudience;
   price: number;
   sku: string;
   imageUrl: string;
@@ -14,16 +15,24 @@ export type TryFocusProduct = {
   badge?: 'BEST SELLER' | 'NEW ARRIVAL' | 'ROYAL SILK' | 'FESTIVE PICK';
   accent: string;
   eligibleForVideo: boolean;
+  eligibleForLive?: boolean;
+  newArrivalOnly?: boolean;
   garmentType: 'saree' | 'salwar' | 'lehenga' | 'kurta_dhoti' | 'dhoti_veshti' | 'shirt_pant';
 };
 
 export const catalogueCategories = [
   { id: 'sarees', label: 'Sarees', description: 'Kanchivaram silk & bridal drapes', subtitle: 'Kanchivaram silk & bridal drapes', audience: 'Women', gender: 'women', garmentType: 'saree' },
-  { id: 'salwar', label: 'Salwar', description: 'Chanderi, silk & festive churidars', subtitle: 'Chanderi, silk & festive churidars', audience: 'Women', gender: 'women', garmentType: 'salwar' },
-  { id: 'lehenga', label: 'Lehenga', description: 'Zari bridal & celebration sets', subtitle: 'Zari bridal & celebration sets', audience: 'Women', gender: 'women', garmentType: 'lehenga' },
+  { id: 'half-sarees', label: 'Half Sarees', description: 'Langa voni & festive drapes', subtitle: 'Langa voni & festive drapes', audience: 'Women', gender: 'women', garmentType: 'saree' },
+  { id: 'kurtis', label: 'Kurtis', description: 'South Indian silk & cotton kurtis', subtitle: 'South Indian silk & cotton kurtis', audience: 'Women', gender: 'women', garmentType: 'salwar' },
   { id: 'kurta', label: 'Kurta', description: 'Brocade kurtas & wedding wear', subtitle: 'Brocade kurtas & wedding wear', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
   { id: 'veshti', label: 'Veshti', description: 'Kasavu dhoti & angavastram sets', subtitle: 'Kasavu dhoti & angavastram sets', audience: 'Men', gender: 'men', garmentType: 'dhoti_veshti' },
-  { id: 'shirts', label: 'Shirts', description: 'Festive linen shirts & trousers', subtitle: 'Festive linen shirts & trousers', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
+  { id: 'angavastram', label: 'Angavastram Sets', description: 'Wedding silk & draped shawl sets', subtitle: 'Wedding silk & draped shawl sets', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
+  { id: 'boys-veshti', label: 'Pattu Veshti', description: 'Silk veshti for boys', subtitle: 'Silk veshti for boys', audience: 'Boys', gender: 'boys', garmentType: 'dhoti_veshti' },
+  { id: 'boys-kurta', label: 'Ethnic Kurta', description: 'Festive kurtas for boys', subtitle: 'Festive kurtas for boys', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti' },
+  { id: 'boys-silk-shirt', label: 'Silk Shirts', description: 'Silk shirts for boys', subtitle: 'Silk shirts for boys', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' },
+  { id: 'girls-pavadai', label: 'Pattu Pavadai', description: 'Silk skirt sets for girls', subtitle: 'Silk skirt sets for girls', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
+  { id: 'girls-lehenga', label: 'Kids Lehenga', description: 'Festive lehengas for girls', subtitle: 'Festive lehengas for girls', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
+  { id: 'girls-frock', label: 'Silk Frocks', description: 'Silk occasion dresses for girls', subtitle: 'Silk occasion dresses for girls', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
 ] as const;
 
 const rawSampleCatalogue: Array<Omit<TryFocusProduct, 'gender'>> = [
@@ -465,10 +474,63 @@ const rawSampleCatalogue: Array<Omit<TryFocusProduct, 'gender'>> = [
   },
 ];
 
-export const sampleCatalogue: TryFocusProduct[] = rawSampleCatalogue.map((item) => ({
-  ...item,
-  gender: item.audience === 'Men' ? 'men' : 'women',
-}));
+const newCatalogueGroups: Array<{
+  category: CatalogueCategoryId;
+  audience: TryFocusProduct['audience'];
+  gender: CatalogueAudience;
+  garmentType: TryFocusProduct['garmentType'];
+  titles: string[];
+  premium?: boolean;
+  arrivalOnly?: boolean;
+}> = [
+  { category: 'half-sarees', audience: 'Women', gender: 'women', garmentType: 'saree', titles: ['Ruby Silk Langa Voni', 'Peacock Blue Half Saree', 'Emerald Silk Half Saree', 'Antique Gold Langa Voni', 'Violet Zari Half Saree'] },
+  { category: 'kurtis', audience: 'Women', gender: 'women', garmentType: 'salwar', titles: ['Maroon Silk Kurti', 'Teal Festive Kurti', 'Mustard Cotton Silk Kurti', 'Peacock Blue Embroidered Kurti', 'Ivory Temple Border Kurti'] },
+  { category: 'angavastram', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti', premium: true, titles: ['Ivory Gold Wedding Angavastram Set', 'Maroon Silk Angavastram Set', 'Royal Blue Heritage Angavastram Set', 'Emerald Zari Angavastram Set', 'Sandal Gold Wedding Angavastram Set'] },
+  { category: 'boys-veshti', audience: 'Boys', gender: 'boys', garmentType: 'dhoti_veshti', titles: ['Emerald Shirt Pattu Veshti', 'Maroon Border Pattu Veshti', 'Green Zari Pattu Veshti', 'Royal Blue Shirt Pattu Veshti', 'Copper Border Pattu Veshti'] },
+  { category: 'boys-kurta', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti', titles: ['Saffron Silk Kurta Set', 'Royal Blue Brocade Kurta Set', 'Forest Green Silk Kurta Set', 'Maroon Jacquard Kurta Set', 'Mustard Wedding Kurta Set'] },
+  { category: 'boys-silk-shirt', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant', titles: ['Cream Silk Shirt Set', 'Peacock Blue Silk Shirt Set', 'Burgundy Silk Shirt Set', 'Pale Gold Silk Shirt Set', 'Emerald Silk Shirt Set'] },
+  { category: 'girls-pavadai', audience: 'Girls', gender: 'girls', garmentType: 'lehenga', titles: ['Ruby Pattu Pavadai', 'Emerald Temple Pattu Pavadai', 'Royal Blue Pattu Pavadai', 'Purple Gold Pattu Pavadai', 'Mustard Maroon Pattu Pavadai'] },
+  { category: 'girls-lehenga', audience: 'Girls', gender: 'girls', garmentType: 'lehenga', titles: ['Rose Pink Silk Lehenga', 'Peacock Blue Silk Lehenga', 'Maroon Wedding Lehenga', 'Emerald Festive Lehenga', 'Saffron Gold Lehenga'] },
+  { category: 'girls-frock', audience: 'Girls', gender: 'girls', garmentType: 'salwar', titles: ['Royal Blue Silk Frock', 'Ruby Temple Border Frock', 'Emerald Embroidered Frock', 'Violet Brocade Frock', 'Golden Maroon Silk Frock'] },
+  { category: 'angavastram', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti', arrivalOnly: true, titles: ['New Wedding Silk Set', 'New Royal Maroon Ensemble', 'New Peacock Blue Ceremony Set', 'New Emerald Silk Wedding Set', 'New Gold Zari Festive Set'] },
+];
+
+const generatedCatalogue: TryFocusProduct[] = newCatalogueGroups.flatMap((group) =>
+  group.titles.map((title, index) => ({
+    id: `${group.category}-${group.arrivalOnly ? 'arrival-' : ''}${index + 1}`,
+    sku: `TF-${group.category.toUpperCase()}-${group.arrivalOnly ? 'NEW-' : ''}${String(index + 1).padStart(3, '0')}`,
+    title,
+    category: group.category,
+    audience: group.audience,
+    gender: group.gender,
+    price: group.premium || group.arrivalOnly ? 12900 + index * 1500 : 0,
+    imageUrl: `/images/catalogue-demo/south-indian/${group.arrivalOnly ? 'arrival-men' : group.category}-${index + 1}.png`,
+    fabricNote: 'South Indian festive collection · Demo garment',
+    badge: group.arrivalOnly ? 'NEW ARRIVAL' : 'FESTIVE PICK',
+    accent: 'from-[#FAF6F0] to-[#EFE8DC]',
+    eligibleForVideo: false,
+    eligibleForLive: group.premium === true || group.arrivalOnly === true,
+    newArrivalOnly: group.arrivalOnly === true,
+    garmentType: group.garmentType,
+  }))
+);
+
+export const sampleCatalogue: TryFocusProduct[] = [
+  ...rawSampleCatalogue.map((item): TryFocusProduct => {
+    const arrivalOnly = item.category === 'salwar' || item.category === 'lehenga' || item.category === 'shirts';
+    const category = item.category === 'salwar' ? 'kurtis' : item.category === 'lehenga' ? 'half-sarees' : item.category === 'shirts' ? 'angavastram' : item.category;
+    return {
+      ...item,
+      category,
+      gender: item.audience === 'Men' ? 'men' : 'women',
+      badge: arrivalOnly ? 'NEW ARRIVAL' : item.badge,
+      newArrivalOnly: arrivalOnly,
+      eligibleForVideo: item.category === 'sarees',
+      eligibleForLive: item.category === 'sarees' || (item.audience === 'Men' && item.price >= 10000),
+    };
+  }),
+  ...generatedCatalogue,
+];
 
 export const events = [
   { id: 'diwali', label: 'Diwali', note: 'Warm lamps and golden heritage courtyard', mood: 'Golden Courtyard' },

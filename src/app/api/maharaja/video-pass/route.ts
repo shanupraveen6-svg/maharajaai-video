@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { MAHARAJA_CLIENT_ID, ENFORCE_REPEAT_LIMITS, isEventId } from '@/lib/maharaja/config';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { verifyTvRequest } from '@/lib/auth/display';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import {
@@ -41,13 +42,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const workspace = await resolveWorkspaceByAccessCode(body.billingCode);
 
-    // Public kiosk handoff is permitted only in the local client demo. A production
-    // kiosk must use an authenticated counter request (or an explicitly enabled
-    // kiosk integration) so outsiders cannot mint unlimited video passes.
-    const kioskDemoEnabled = process.env.ALLOW_MOCK_BACKEND === 'true'
-      || process.env.ALLOW_DEMO_KIOSK_HANDOFF === 'true';
-    const isKioskHandoff = kioskDemoEnabled
-      && (body.source === 'tv-kiosk' || body.source === 'tablet-kiosk');
+    const isKioskHandoff = body.source === 'tv-kiosk'
+      ? await verifyTvRequest(req)
+      : body.source === 'tablet-kiosk' && verifyOperatorRequest(req);
     const hasValidBillingCode = body.billingCode === workspace.billingCode;
     if (!verifyOperatorRequest(req) && !hasValidBillingCode && !isKioskHandoff) {
       return NextResponse.json(

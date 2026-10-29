@@ -53,7 +53,7 @@ export default function LucyLiveMirror({
 } = {}) {
   const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
 
-  const [gender, setGender] = useState<'women' | 'men'>(externalProduct?.gender || 'women');
+  const [gender, setGender] = useState<'women' | 'men'>(externalProduct?.gender === 'men' ? 'men' : 'women');
   const [category, setCategory] = useState<'new-arrivals' | CatalogueCategoryId>(
     externalProduct?.category || 'sarees'
   );
@@ -82,8 +82,8 @@ export default function LucyLiveMirror({
   const paidTimerStartedRef = useRef(false);
 
   const visibleCategories = useMemo(
-    () => catalogueCategories.filter((cat) => cat.gender === gender),
-    [gender]
+    () => catalogueCategories.filter((cat) => cat.gender === gender && activeCatalogue.some((item) => item.category === cat.id)),
+    [gender, activeCatalogue]
   );
 
   const categoryProducts = useMemo(() => {

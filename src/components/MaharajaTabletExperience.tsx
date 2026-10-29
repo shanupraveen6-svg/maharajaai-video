@@ -61,7 +61,7 @@ export default function MaharajaTabletExperience() {
   const [tryOnMobileQr, setTryOnMobileQr] = useState<string>('');
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
-  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory);
+  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
 
   useEffect(() => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
@@ -621,9 +621,7 @@ export default function MaharajaTabletExperience() {
                             alt={item.title}
                             className="aspect-[3/4] w-full object-cover"
                           />
-                          <p className="mt-1 truncate font-mono text-[10px] font-bold">
-                            {formatINR(item.price)}
-                          </p>
+                          <p className="mt-1 truncate font-mono text-[10px] font-bold">{item.title}</p>
                         </button>
                       ))}
                     </div>

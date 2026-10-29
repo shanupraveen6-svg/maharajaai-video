@@ -28,6 +28,7 @@ import {
   catalogueCategories,
   formatINR,
   type CatalogueCategoryId,
+  type CatalogueAudience,
 } from '@/lib/tryfocus/sample-data';
 
 type WorkspaceData = {
@@ -108,8 +109,8 @@ type ManagedCatalogueItem = {
   sku: string;
   title: string;
   price: number;
-  gender: 'women' | 'men';
-  audience: 'Women' | 'Men';
+  gender: CatalogueAudience;
+  audience: 'Women' | 'Men' | 'Boys' | 'Girls';
   category: CatalogueCategoryId;
   garmentType: string;
   imageUrl: string;
@@ -149,7 +150,7 @@ export default function MaharajaAdminDashboard({
   // Managed Catalogue state (Task 8 & Task 10)
   const [catalogue, setCatalogue] = useState<ManagedCatalogueItem[]>([]);
   const [catalogueLoading, setCatalogueLoading] = useState<boolean>(true);
-  const [catGender, setCatGender] = useState<'women' | 'men'>('women');
+  const [catGender, setCatGender] = useState<CatalogueAudience>('women');
   const [catFilter, setCatFilter] = useState<'all' | 'new-arrivals' | CatalogueCategoryId>('sarees');
   const [showAddGarment, setShowAddGarment] = useState<boolean>(false);
   const [savingGarment, setSavingGarment] = useState<boolean>(false);
@@ -1052,13 +1053,13 @@ export default function MaharajaAdminDashboard({
           {/* Filter Bar: Women / Men + New Arrivals + Category */}
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              {(['women', 'men'] as const).map((g) => (
+              {(['women', 'men', 'boys', 'girls'] as const).map((g) => (
                 <button
                   key={g}
                   type="button"
                   onClick={() => {
                     setCatGender(g);
-                    setCatFilter(g === 'women' ? 'sarees' : 'kurta');
+                    setCatFilter(g === 'women' ? 'sarees' : g === 'men' ? 'veshti' : g === 'boys' ? 'boys-veshti' : 'girls-pavadai');
                   }}
                   className={`border px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] ${
                     catGender === g
@@ -1066,7 +1067,7 @@ export default function MaharajaAdminDashboard({
                       : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
                   }`}
                 >
-                  {g === 'women' ? 'Women' : 'Men'}
+                  {g === 'women' ? 'Women' : g === 'men' ? 'Men' : g === 'boys' ? 'Boys' : 'Girls'}
                 </button>
               ))}
             </div>

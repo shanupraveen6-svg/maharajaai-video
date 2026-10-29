@@ -22,6 +22,8 @@ const LOCAL_DEMO_CATALOGUE: MaharajaCatalogueProduct[] = sampleCatalogue.map((it
   badge: item.badge,
   newArrival: item.badge === 'NEW ARRIVAL',
   eligibleForVideo: item.eligibleForVideo !== false,
+  eligibleForLive: item.eligibleForLive === true,
+  newArrivalOnly: item.newArrivalOnly === true,
   productUrl: '',
   active: true,
   sortOrder: index + 1,
@@ -83,20 +85,20 @@ const COMBINED_FALLBACK_CATALOGUE: MaharajaCatalogueProduct[] = [
 function getMockCatalogueMap(): Map<string, MaharajaCatalogueProduct> {
   const store = getMockStore() as any;
   if (!store.catalogueProducts) {
-    const seeded = new Map<string, MaharajaCatalogueProduct>();
-    for (const item of LOCAL_DEMO_CATALOGUE) {
-      seeded.set(item.sku, { ...item });
-    }
-    store.catalogueProducts = seeded;
+    store.catalogueProducts = new Map<string, MaharajaCatalogueProduct>();
   }
-  return store.catalogueProducts as Map<string, MaharajaCatalogueProduct>;
+  const catalogue = store.catalogueProducts as Map<string, MaharajaCatalogueProduct>;
+  for (const item of LOCAL_DEMO_CATALOGUE) {
+    if (!catalogue.has(item.sku)) catalogue.set(item.sku, { ...item });
+  }
+  return catalogue;
 }
 
 function normalizeCatalogueProduct(raw: Partial<MaharajaCatalogueProduct>, index = 1): MaharajaCatalogueProduct {
   const category = (catalogueCategories.some((c) => c.id === raw.category) ? raw.category : 'sarees') as CatalogueCategoryId;
   const catMeta = catalogueCategories.find((c) => c.id === category) || catalogueCategories[0];
-  const gender = raw.gender === 'men' || raw.audience === 'Men' || catMeta.gender === 'men' ? 'men' : 'women';
-  const audience = gender === 'men' ? 'Men' : 'Women';
+  const gender = raw.gender === 'men' || raw.gender === 'boys' || raw.gender === 'girls' ? raw.gender : catMeta.gender;
+  const audience = gender === 'men' ? 'Men' : gender === 'boys' ? 'Boys' : gender === 'girls' ? 'Girls' : 'Women';
   const garmentType = raw.garmentType || catMeta.garmentType;
   const sku = String(raw.sku || `TF-${category.toUpperCase().slice(0, 3)}-${index}`).trim();
   const newArrival = typeof raw.newArrival === 'boolean' ? raw.newArrival : raw.badge === 'NEW ARRIVAL';
@@ -119,6 +121,8 @@ function normalizeCatalogueProduct(raw: Partial<MaharajaCatalogueProduct>, index
     badge,
     newArrival,
     eligibleForVideo: raw.eligibleForVideo !== false,
+    eligibleForLive: raw.eligibleForLive === true,
+    newArrivalOnly: raw.newArrivalOnly === true,
     productUrl: String(raw.productUrl || ''),
     active: raw.active !== false,
     sortOrder: Number.isFinite(Number(raw.sortOrder)) ? Number(raw.sortOrder) : index,

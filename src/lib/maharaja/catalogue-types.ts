@@ -1,12 +1,12 @@
-import type { CatalogueCategoryId, TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import type { CatalogueCategoryId, CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/sample-data';
 
 export type MaharajaCatalogueProduct = {
   id?: string;
   sku: string;
   title: string;
   price: number;
-  gender: 'women' | 'men';
-  audience: 'Women' | 'Men';
+  gender: CatalogueAudience;
+  audience: TryFocusProduct['audience'];
   category: CatalogueCategoryId;
   garmentType: TryFocusProduct['garmentType'];
   storagePath: string;
@@ -15,6 +15,8 @@ export type MaharajaCatalogueProduct = {
   badge?: TryFocusProduct['badge'];
   newArrival: boolean;
   eligibleForVideo: boolean;
+  eligibleForLive?: boolean;
+  newArrivalOnly?: boolean;
   productUrl: string;
   active: boolean;
   sortOrder: number;

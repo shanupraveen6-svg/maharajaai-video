@@ -521,7 +521,7 @@ export default function ResultClient({
               onChange={(event) => setLiveConsent(event.target.checked)}
               className="mt-0.5 h-5 w-5 shrink-0 accent-[#D4AF37]"
             />
-            <span>I agree that this video may play on the Maharaja showroom TV and remain in its approved loop for up to three days.</span>
+            <span>I agree that this video may play on the Maharaja showroom TV and remain in its approved loop for up to one day.</span>
           </label>
 
           <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-[11px] leading-5 text-[#F3E5AB]/80">
@@ -576,7 +576,7 @@ export default function ResultClient({
           </>}
 
           <p className="px-2 text-[11px] leading-5 text-[#F3E5AB]/65">
-            AI Video media is retained temporarily for delivery and removed within 3 days unless an adult separately permits promotional use. Anonymous usage totals may be retained.{' '}
+            AI Video media is retained temporarily for delivery, expires after one day, and is cleared by scheduled cleanup unless an adult separately permits promotional use. Anonymous usage totals may be retained.{' '}
             <Link href="/privacy" className="font-semibold text-[#D4AF37] underline underline-offset-2">Privacy &amp; Data Use</Link>
           </p>
 

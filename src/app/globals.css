@@ -197,9 +197,28 @@
   .tv-live-main > * { min-width: 0; }
 }
 
+@media (orientation: portrait) and (min-width: 900px) and (min-height: 1600px) {
+  .tv-home { min-height: calc(100dvh - 342px); }
+  .tv-home-hero { min-height: clamp(520px, 35vh, 660px); }
+  .tv-experience-grid { flex: 1; }
+  .tv-experience-card { min-height: 0; }
+  .tv-experience-image { height: clamp(300px, 24vh, 440px); }
+}
+
 @media (orientation: portrait) and (min-width: 600px) and (max-width: 899px) {
+  .tv-kiosk-content { padding-bottom: 32px; }
+  .tv-home { min-height: calc(100dvh - 330px); }
+  .tv-home-hero { padding: 22px; gap: 0; }
+  .tv-home-hero h2 { font-size: clamp(2.3rem, 5vw, 3.2rem); }
+  .tv-home-hero p:not(.font-mono) { font-size: 1rem; }
+  .tv-home-feature { display: none; }
   .tv-live-main { grid-template-columns: minmax(0, 1fr); }
-  .tv-experience-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv-experience-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tv-experience-card { min-height: 0; padding: 12px; }
+  .tv-experience-card h3 { font-size: 22px; }
+  .tv-experience-card p { font-size: 14px; }
+  .tv-experience-image { height: clamp(150px, 22vh, 270px); }
+  .tv-experience-card button { width: 100%; font-size: 13px; }
   .tv-generated-looks { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 

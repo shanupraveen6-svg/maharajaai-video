@@ -4,21 +4,16 @@ import Link from 'next/link';
 import { useState } from 'react';
 import {
   Camera,
-  CheckCircle2,
   Download,
-  ExternalLink,
   Film,
   LoaderCircle,
   Shirt,
   Sparkles,
-  Tv,
   Upload,
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import {
   catalogueCategories,
-  events,
-  formatINR,
   sampleCatalogue,
   type CatalogueCategoryId,
   type TryFocusProduct,
@@ -32,7 +27,6 @@ export default function MaharajaMobileExperience() {
   const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
-  const [selectedEventId, setSelectedEventId] = useState<string>(events[0].id);
 
   // Image 1 = Customer Photo, Image 2 = Garment Photo
   const [personPhoto, setPersonPhoto] = useState<string>('');
@@ -44,13 +38,10 @@ export default function MaharajaMobileExperience() {
   const [statusNote, setStatusNote] = useState<string>('');
 
   // Video + Go Live state
-  const [videoReady, setVideoReady] = useState<boolean>(false);
-  const [goLiveConsent, setGoLiveConsent] = useState<boolean>(true);
-  const [loopConsent, setLoopConsent] = useState<boolean>(true);
-  const [goLiveSubmitted, setGoLiveSubmitted] = useState<boolean>(false);
+  const [videoPassCode, setVideoPassCode] = useState('');
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
-  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory);
+  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
 
   function handleFileRead(setter: (val: string) => void, file?: File | null) {
     if (!file) return;
@@ -74,8 +65,6 @@ export default function MaharajaMobileExperience() {
 
     setGeneratingImage(true);
     setStatusNote('');
-    setVideoReady(false);
-    setGoLiveSubmitted(false);
     const sessionId = `mobile_${flow}_${Date.now()}`;
 
     try {
@@ -101,19 +90,12 @@ export default function MaharajaMobileExperience() {
         setResultImageUrl(data.masterImageUrl);
         setStatusNote('Your look is ready.');
       } else {
-        setResultImageUrl(selectedProduct.imageUrl);
-        setStatusNote(
-          data?.error
-            ? 'Your preview is ready. You can try again if you would like another version.'
-            : 'Your preview is ready.'
-        );
-      }
-      if (flow === 'ai-video') {
-        setVideoReady(true);
+        setResultImageUrl('');
+        setStatusNote(data?.error || 'Image generation failed. Please try again.');
       }
     } catch {
-      setResultImageUrl(selectedProduct.imageUrl);
-      if (flow === 'ai-video') setVideoReady(true);
+      setResultImageUrl('');
+      setStatusNote('Image generation could not connect. Please try again.');
     } finally {
       setGeneratingImage(false);
     }
@@ -123,12 +105,12 @@ export default function MaharajaMobileExperience() {
     <main className="mobile-workspace min-h-screen bg-[#F4F5F2] text-[#161918]">
       {/* Unified TryFocus Mobile Header */}
       <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 px-4 py-3.5 backdrop-blur-md">
-        <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
+        <div className="mx-auto flex max-w-xl items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
               TF
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
                 TryFocus × Majestic Maharaja
               </p>
@@ -138,7 +120,7 @@ export default function MaharajaMobileExperience() {
 
           <Link
             href="/maharaja/try-on"
-            className="border border-[#161918] bg-white px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#161918]"
+            className="shrink-0 border border-[#161918] bg-white px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#161918]"
           >
             Help
           </Link>
@@ -152,7 +134,6 @@ export default function MaharajaMobileExperience() {
             type="button"
             onClick={() => {
               setFlow('image-tryon');
-              setVideoReady(false);
             }}
             className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] ${
               flow === 'image-tryon' ? 'bg-[#7A1428] text-white' : 'text-[#161918]'
@@ -178,13 +159,25 @@ export default function MaharajaMobileExperience() {
           {flow === 'image-tryon' ? (
             <p>Choose a garment, add your photo, and keep the finished look on your phone.</p>
           ) : (
-            <p>Your video pass is ready for 24 hours. You decide whether to download it or share it on the showroom screen.</p>
+            <p>Scan the QR from the store or enter your 24-hour video pass code to continue.</p>
           )}
         </div>
 
+        {flow === 'ai-video' && (
+          <section className="space-y-4 border border-[#D8DCD7] bg-white p-4">
+            <h2 className="font-serif text-xl font-semibold">Continue with your video pass</h2>
+            <p className="text-sm text-[#535A56]">Your video is created on your phone after the store issues a QR or link. Download and Go Live appear only when your video is ready.</p>
+            <label className="block text-sm font-semibold" htmlFor="video-pass-code">Video pass code</label>
+            <input id="video-pass-code" value={videoPassCode} onChange={(event) => setVideoPassCode(event.target.value.trim())} className="min-h-12 w-full border border-[#D8DCD7] px-3 text-base" autoComplete="off" />
+            <Link href={videoPassCode ? `/maharaja/video/${encodeURIComponent(videoPassCode)}` : '#'} aria-disabled={!videoPassCode} className={`flex min-h-12 items-center justify-center bg-[#7A1428] px-4 text-sm font-semibold text-white ${!videoPassCode ? 'pointer-events-none opacity-50' : ''}`}>Open my video experience</Link>
+          </section>
+        )}
+
+        {flow === 'image-tryon' && <>
+
         {/* Step 1: Image 1 (Customer Photo) */}
         <section className="border border-[#D8DCD7] bg-white p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
                 Step 1
@@ -215,7 +208,7 @@ export default function MaharajaMobileExperience() {
 
         {/* Step 2: Image 2 (Store Catalogue or Own Garment) */}
         <section className="border border-[#D8DCD7] bg-white p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D8DCD7] pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-3">
             <div>
               <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
                 Step 2
@@ -248,7 +241,7 @@ export default function MaharajaMobileExperience() {
 
           {sourceMode === 'catalogue' ? (
             <div className="mt-3 space-y-3">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex border border-[#D8DCD7] bg-[#FAFBF8] p-0.5 text-xs font-semibold">
                   <button
                     type="button"
@@ -294,7 +287,7 @@ export default function MaharajaMobileExperience() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                 {categoryProducts.map((item) => (
                   <button
                     key={item.sku}
@@ -311,14 +304,12 @@ export default function MaharajaMobileExperience() {
                       alt={item.title}
                       className="aspect-[3/4] w-full object-cover"
                     />
-                    <p className="mt-1 truncate font-mono text-[10px] font-bold">
-                      {formatINR(item.price)}
-                    </p>
+                    <p className="mt-1 truncate font-mono text-[10px] font-bold">{item.title}</p>
                   </button>
                 ))}
               </div>
               <p className="text-xs font-semibold text-[#161918]">
-                Selected: {selectedProduct.title} · <span className="text-[#7A1428]">{formatINR(selectedProduct.price)}</span>
+                Selected: {selectedProduct.title}
               </p>
             </div>
           ) : (
@@ -343,30 +334,6 @@ export default function MaharajaMobileExperience() {
             </div>
           )}
 
-          {flow === 'ai-video' && (
-            <div className="mt-4 border-t border-[#D8DCD7] pt-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#7A1428]">
-                Choose a theme
-              </p>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">
-                {events.map((ev) => (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    onClick={() => setSelectedEventId(ev.id)}
-                    className={`border py-1.5 text-xs font-semibold ${
-                      selectedEventId === ev.id
-                        ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                        : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
-                    }`}
-                  >
-                    {ev.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           <button
             type="button"
             disabled={generatingImage}
@@ -381,7 +348,7 @@ export default function MaharajaMobileExperience() {
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
-                {flow === 'image-tryon' ? 'Create my look' : 'Create my video'}
+                Create my look
               </>
             )}
           </button>
@@ -421,82 +388,8 @@ export default function MaharajaMobileExperience() {
             afterLabel="New AI Try-On Dress"
           />
 
-          {/* AI Video Player + Download & Go Live (shown when flow === 'ai-video') */}
-          {flow === 'ai-video' && videoReady && (
-            <div className="mt-4 space-y-3 border-t border-[#D8DCD7] pt-4">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#7A1428]">
-                  AI Video Ready · Download + Go Live
-                </span>
-                <span className="border border-[#256B45] bg-[#EBF5EE] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[#256B45]">
-                  6s Customer Film
-                </span>
-              </div>
-
-              <div className="aspect-[9/16] max-h-96 w-full overflow-hidden border border-[#D8DCD7] bg-black">
-                <video
-                  src="/videos/maharaja-demo-sample.mp4"
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-
-              <div className="space-y-2 border border-[#D8DCD7] bg-[#FAFBF8] p-3 text-xs">
-                <label className="flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    checked={goLiveConsent}
-                    onChange={(e) => setGoLiveConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-[#7A1428]"
-                  />
-                  <span>
-                    I approve playing my video on the Maharaja showroom screen.
-                  </span>
-                </label>
-                <label className="flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    checked={loopConsent}
-                    onChange={(e) => setLoopConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-[#7A1428]"
-                  />
-                  <span>I consent to 3-day showroom loop retention.</span>
-                </label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <a
-                  href="/videos/maharaja-demo-sample.mp4"
-                  download={`maharaja-video-${selectedProduct.sku.toLowerCase()}.mp4`}
-                  className="flex items-center justify-center gap-1.5 border border-[#161918] bg-white py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#161918]"
-                >
-                  <Download className="h-4 w-4" />
-                  Download Video
-                </a>
-                <button
-                  type="button"
-                  disabled={!goLiveConsent || !loopConsent || goLiveSubmitted}
-                  onClick={() => setGoLiveSubmitted(true)}
-                  className="flex items-center justify-center gap-1.5 bg-[#7A1428] py-3 text-xs font-bold uppercase tracking-[0.14em] text-white disabled:opacity-50"
-                >
-                  <Tv className="h-4 w-4" />
-                  {goLiveSubmitted ? 'Sent to Maharaja TV!' : 'Go Live on TV'}
-                </button>
-              </div>
-
-              {goLiveSubmitted && (
-                <div className="flex items-center justify-between border border-[#256B45] bg-[#EBF5EE] p-3 text-xs font-semibold text-[#256B45]">
-                  <span>Queued on Maharaja TV Screen!</span>
-                  <Link href="/maharaja/tv" className="underline">
-                    View TV Wall →
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
         </section>}
+        </>}
       </div>
     </main>
   );
