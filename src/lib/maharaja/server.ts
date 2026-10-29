@@ -26,6 +26,7 @@ export type MaharajaWorkspace = {
   workspaceCode: string;
   campaignEnabled: boolean;
   minPurchaseTryOnDisabled?: boolean;
+  tvBillSuffixRequired?: boolean;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   devices?: {
@@ -470,6 +471,7 @@ function defaultWorkspace(clientId = MAHARAJA_CLIENT_ID): MaharajaWorkspace {
     workspaceCode: isMaharaja ? (process.env.MAHARAJA_WORKSPACE_CODE || MAHARAJA_WORKSPACE_CODE) : `${clientId}-workspace`,
     campaignEnabled: isMaharaja,
     minPurchaseTryOnDisabled: true,
+    tvBillSuffixRequired: true,
     deliveryMode: 'qr',
     whatsappConnected: false,
     devices: isMaharaja
@@ -520,6 +522,9 @@ function normalizeWorkspace(data: Partial<MaharajaWorkspace>, fallback: Maharaja
     minPurchaseTryOnDisabled: typeof data.minPurchaseTryOnDisabled === 'boolean'
       ? data.minPurchaseTryOnDisabled
       : (fallback.minPurchaseTryOnDisabled ?? true),
+    tvBillSuffixRequired: typeof data.tvBillSuffixRequired === 'boolean'
+      ? data.tvBillSuffixRequired
+      : (fallback.tvBillSuffixRequired ?? true),
     deliveryMode: data.deliveryMode === 'whatsapp' ? ('whatsapp' as const) : ('qr' as const),
     usage: {
       ...fallback.usage,
@@ -571,6 +576,7 @@ export async function updateMaharajaSettings(
       | 'branch'
       | 'campaignEnabled'
       | 'minPurchaseTryOnDisabled'
+      | 'tvBillSuffixRequired'
       | 'deliveryMode'
       | 'whatsappConnected'
       | 'devices'
@@ -2390,9 +2396,8 @@ export async function verifyMaharajaAccess(
   }
 
   // service === 'ai-video'
-  // This is intentionally opt-in. A permanent public video QR spends paid model
-  // credits, so it must never become live merely because a deployment is production.
-  if (code === workspace.openVideoCode && process.env.ALLOW_OPEN_VIDEO_QR === 'true') {
+  // The permanent store video QR enables mobile AI video continuation directly.
+  if (code === workspace.openVideoCode) {
     return { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances };
   }
 
@@ -2421,6 +2426,7 @@ export function publicWorkspaceView(workspace: MaharajaWorkspace) {
     campaignEnabled: workspace.campaignEnabled,
     tryOnMinimum: TRY_ON_MIN_PURCHASE,
     aiVideoMinimum: AI_VIDEO_MIN_PURCHASE,
+    tvBillSuffixRequired: workspace.tvBillSuffixRequired ?? true,
     activeEvents: workspace.activeEvents,
     defaultEvent: workspace.defaultEvent,
   };

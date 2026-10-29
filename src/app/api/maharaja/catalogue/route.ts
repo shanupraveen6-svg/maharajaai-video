@@ -6,7 +6,7 @@ import {
   updateCatalogueProduct,
   upsertCatalogueProduct,
 } from '@/lib/maharaja/catalogue';
-import { logMaharajaActivity } from '@/lib/maharaja/server';
+import { getMaharajaWorkspace, logMaharajaActivity } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,8 +23,9 @@ export async function GET(req: NextRequest) {
       Number.isFinite(limit) ? limit : 60,
       { includeInactive: requestedInactive }
     );
+    const workspace = await getMaharajaWorkspace();
     return NextResponse.json(
-      { success: true, ...catalogue },
+      { success: true, ...catalogue, tvBillSuffixRequired: workspace.tvBillSuffixRequired !== false },
       {
         headers: {
           'Cache-Control': 'no-store',

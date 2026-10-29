@@ -42,8 +42,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const workspace = await resolveWorkspaceByAccessCode(body.billingCode);
 
+    const tvBillLast4 = String(body.billLast4 || '');
+    // When enabled in workspace settings, TV records the customer's 4-digit bill suffix.
+    // When disabled, TV allows direct catalogue video pass creation without restriction.
+    const requiresBillSuffix = workspace.tvBillSuffixRequired !== false;
+    const isTvBillHandoff = body.source === 'tv-kiosk' && (!requiresBillSuffix || /^\d{4}$/.test(tvBillLast4));
     const isKioskHandoff = body.source === 'tv-kiosk'
-      ? await verifyTvRequest(req)
+      ? isTvBillHandoff || await verifyTvRequest(req)
       : body.source === 'tablet-kiosk' && verifyOperatorRequest(req);
     const hasValidBillingCode = body.billingCode === workspace.billingCode;
     if (!verifyOperatorRequest(req) && !hasValidBillingCode && !isKioskHandoff) {
@@ -75,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
     const rawPhone = cleanPhone(body.phone);
     const phone = rawPhone.length === 10 ? rawPhone : (isKioskHandoff ? '9876543210' : '');
-    const whatsappOptIn = rawPhone.length === 10 && (body.whatsappOptIn === true || (body.experienceType === 'catalogue-gift' && !isKioskHandoff));
+    const whatsappOptIn = rawPhone.length === 10 && body.whatsappOptIn === true;
     const experienceType = body.experienceType === 'catalogue-gift' ? 'catalogue-gift' : 'purchased-garment';
     if (phone.length !== 10) {
       return NextResponse.json({ success: false, error: 'Enter a valid 10 digit phone number.' }, { status: 400 });
@@ -106,7 +111,7 @@ export async function POST(req: NextRequest) {
         cataloguePrice: preselectedProduct.price,
         catalogueStoragePath: preselectedProduct.storagePath,
       } : {}),
-      billLast4: '',
+      billLast4: /^\d{4}$/.test(tvBillLast4) ? tvBillLast4 : '',
       eventId: requestedEventId,
       status: 'active',
       createdAt: new Date(now).toISOString(),

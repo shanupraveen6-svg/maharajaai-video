@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
+import CatalogueBulkImport from '@/components/CatalogueBulkImport';
+import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
   CheckCircle2,
   Copy,
@@ -38,6 +40,7 @@ type WorkspaceData = {
   workspaceCode: string;
   campaignEnabled: boolean;
   minPurchaseTryOnDisabled?: boolean;
+  tvBillSuffixRequired?: boolean;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   devices?: {
@@ -152,6 +155,7 @@ export default function MaharajaAdminDashboard({
   const [catalogueLoading, setCatalogueLoading] = useState<boolean>(true);
   const [catGender, setCatGender] = useState<CatalogueAudience>('women');
   const [catFilter, setCatFilter] = useState<'all' | 'new-arrivals' | CatalogueCategoryId>('sarees');
+  const [cataloguePage, setCataloguePage] = useState(0);
   const [showAddGarment, setShowAddGarment] = useState<boolean>(false);
   const [savingGarment, setSavingGarment] = useState<boolean>(false);
 
@@ -196,13 +200,7 @@ export default function MaharajaAdminDashboard({
 
   const loadCatalogue = useCallback(async () => {
     try {
-      const res = await fetch('/api/maharaja/catalogue?limit=100&includeInactive=true', {
-        cache: 'no-store',
-      });
-      const data = await res.json();
-      if (res.ok && data?.success && Array.isArray(data.products)) {
-        setCatalogue(data.products);
-      }
+      setCatalogue(await fetchCompleteCatalogue(true));
     } catch {
       // non-blocking
     } finally {
@@ -249,6 +247,7 @@ export default function MaharajaAdminDashboard({
         | 'activeEvents'
         | 'defaultEvent'
         | 'minPurchaseTryOnDisabled'
+        | 'tvBillSuffixRequired'
         | 'deliveryMode'
       >
     >
@@ -507,6 +506,8 @@ export default function MaharajaAdminDashboard({
     }
     return byGender.filter((item) => item.category === catFilter);
   }, [catalogue, catGender, catFilter]);
+
+  useEffect(() => setCataloguePage(0), [catGender, catFilter]);
 
   if (loading && !workspace) {
     return (
@@ -785,6 +786,23 @@ export default function MaharajaAdminDashboard({
                 </button>
               </div>
               <div className="flex items-center justify-between">
+                <span className="text-[#535A56]">TV Kiosk Bill Suffix:</span>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() =>
+                    savePatch({
+                      tvBillSuffixRequired: workspace?.tvBillSuffixRequired === false,
+                    })
+                  }
+                  className="font-mono font-bold text-[#7A1428] underline"
+                >
+                  {workspace?.tvBillSuffixRequired === false
+                    ? 'DISABLED (Open TV Access)'
+                    : 'ENABLED (Requires Last 4 Digits)'}
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-[#535A56]">Counter Delivery Preference:</span>
                 <button
                   type="button"
@@ -875,7 +893,7 @@ export default function MaharajaAdminDashboard({
                 Store Catalogue Management · Syncs Immediately With 43&quot; TV Standee
               </p>
               <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                Manage Women & Men Garments ({catalogue.filter((i) => i.active).length} Published / {catalogue.length} Total)
+                Manage Garments ({catalogue.filter((i) => i.active).length} Published / {catalogue.length} Total)
               </h2>
             </div>
 
@@ -899,6 +917,8 @@ export default function MaharajaAdminDashboard({
             </div>
           </div>
 
+          <CatalogueBulkImport onPublished={loadCatalogue} />
+
           {/* Add / Upload New Garment Form */}
           {showAddGarment && (
             <form
@@ -916,7 +936,7 @@ export default function MaharajaAdminDashboard({
 
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                  Category (Women / Men)
+                  Category (Women / Men / Boys / Girls)
                   <select
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value as CatalogueCategoryId)}
@@ -1103,99 +1123,25 @@ export default function MaharajaAdminDashboard({
             </div>
           </div>
 
-          {/* Garment Cards Grid */}
-          {catalogueLoading ? (
-            <div className="py-10 text-center text-sm text-[#535A56]">
-              Loading store catalogue...
+          {/* Compact catalogue list: no image previews, even for large imports. */}
+          {catalogueLoading ? <p className="py-8 text-sm text-[#535A56]">Loading catalogue…</p> : <>
+            <div className="mt-4 overflow-x-auto border border-[#D8DCD7]">
+              <table className="w-full min-w-[680px] text-left text-xs">
+                <thead className="bg-[#FAFBF8]"><tr><th className="p-3">SKU / garment</th><th className="p-3">Category</th><th className="p-3">Price</th><th className="p-3">Controls</th></tr></thead>
+                <tbody>{filteredCatalogue.slice(cataloguePage * 25, (cataloguePage + 1) * 25).map((item) => <tr key={item.sku} className="border-t border-[#D8DCD7]">
+                  <td className="p-3"><span className="block font-mono font-bold">{item.sku}</span><span>{item.title}</span></td>
+                  <td className="p-3">{item.audience} · {catalogueCategories.find((cat) => cat.id === item.category)?.label || item.category}</td>
+                  <td className="p-3">{item.price > 0 ? formatINR(item.price) : 'No display price'}</td>
+                  <td className="p-3"><div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => void toggleCatalogueField(item, { active: !item.active })} className="border border-[#D8DCD7] px-2 py-1">{item.active ? 'Published' : 'Hidden'}</button>
+                    <button type="button" onClick={() => void toggleCatalogueField(item, { newArrival: !item.newArrival })} className="border border-[#D8DCD7] px-2 py-1">{item.newArrival ? 'New arrival ✓' : 'Mark new'}</button>
+                    <button type="button" onClick={() => void toggleCatalogueField(item, { eligibleForVideo: !item.eligibleForVideo })} className="border border-[#D8DCD7] px-2 py-1">{item.eligibleForVideo ? 'Video ✓' : 'Video off'}</button>
+                  </div></td>
+                </tr>)}</tbody>
+              </table>
             </div>
-          ) : (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {filteredCatalogue.map((item) => (
-                <div
-                  key={item.sku}
-                  className={`flex flex-col justify-between border p-3 ${
-                    item.active
-                      ? 'border-[#D8DCD7] bg-[#FAFBF8]'
-                      : 'border-dashed border-[#D8DCD7] bg-[#F4F5F2] opacity-65'
-                  }`}
-                >
-                  <div>
-                    <div className="relative aspect-[3/4] w-full overflow-hidden border border-[#D8DCD7] bg-[#ECEEE9]">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.title}
-                        className="h-full w-full object-cover object-top"
-                      />
-                      <span className="absolute right-1.5 top-1.5 bg-[#161918] px-2 py-0.5 font-mono text-[10px] font-bold text-[#FAF6EE]">
-                        {formatINR(item.price)}
-                      </span>
-                      {(item.newArrival || item.badge === 'NEW ARRIVAL') && (
-                        <span className="absolute left-1.5 top-1.5 bg-[#7A1428] px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-white">
-                          New Arrival
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-2 font-mono text-[10px] font-bold uppercase text-[#7A1428]">
-                      {item.sku} · #{item.sortOrder}
-                    </p>
-                    <p className="mt-0.5 line-clamp-2 font-serif text-sm font-semibold text-[#161918]">
-                      {item.title}
-                    </p>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-1 border-t border-[#D8DCD7] pt-2.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleCatalogueField(item, { active: !item.active })}
-                      className={`inline-flex items-center gap-1 border px-2 py-1 font-mono text-[10px] font-bold uppercase ${
-                        item.active
-                          ? 'border-[#256B45] bg-[#EBF5EE] text-[#256B45]'
-                          : 'border-[#D8DCD7] bg-white text-[#535A56]'
-                      }`}
-                    >
-                      {item.active ? (
-                        <>
-                          <Eye className="h-3 w-3" /> Published
-                        </>
-                      ) : (
-                        <>
-                          <EyeOff className="h-3 w-3" /> Hidden
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        toggleCatalogueField(item, { newArrival: !item.newArrival })
-                      }
-                      className={`border px-2 py-1 font-mono text-[10px] font-bold uppercase ${
-                        item.newArrival || item.badge === 'NEW ARRIVAL'
-                          ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                          : 'border-[#D8DCD7] bg-white text-[#535A56]'
-                      }`}
-                    >
-                      New
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        toggleCatalogueField(item, {
-                          eligibleForVideo: !item.eligibleForVideo,
-                        })
-                      }
-                      className={`border px-2 py-1 font-mono text-[10px] font-bold uppercase ${
-                        item.eligibleForVideo !== false
-                          ? 'border-[#161918] bg-[#161918] text-white'
-                          : 'border-[#D8DCD7] bg-white text-[#535A56]'
-                      }`}
-                    >
-                      Video
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+            <div className="mt-3 flex items-center justify-between text-sm"><button type="button" disabled={cataloguePage === 0} onClick={() => setCataloguePage((value) => value - 1)} className="disabled:opacity-40">← Previous</button><span>{filteredCatalogue.length} garments · Page {cataloguePage + 1} of {Math.max(1, Math.ceil(filteredCatalogue.length / 25))}</span><button type="button" disabled={(cataloguePage + 1) * 25 >= filteredCatalogue.length} onClick={() => setCataloguePage((value) => value + 1)} className="disabled:opacity-40">Next →</button></div>
+          </>}
         </section>
 
         {/* =========================================================
@@ -1350,13 +1296,13 @@ export default function MaharajaAdminDashboard({
               </div>
             </div>
 
-            <div className="mt-5 grid gap-2.5 sm:grid-cols-4">
+            <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() =>
                   downloadBrandedQr(
-                    'Maharaja-AI-Video-Direct-QR.png',
-                    'AI VIDEO PASS (1-DAY)',
+                    'Maharaja-AI-Video-Poster-QR.png',
+                    'AI VIDEO POSTER QR (1-DAY)',
                     'Scan to create your festive AI video & Go Live',
                     workspace.links.openVideo
                   )
@@ -1364,16 +1310,15 @@ export default function MaharajaAdminDashboard({
                 className="flex items-center justify-center gap-1.5 bg-[#7A1428] px-3 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#FAF6EE]"
               >
                 <Download className="h-4 w-4" />
-                Download QR
+                Download Poster QR
               </button>
               <button
                 type="button"
-                disabled={regeneratingQr}
-                onClick={regenerateOpenVideoQr}
+                onClick={() => copyText('openVideo', workspace.links.openVideo)}
                 className="flex items-center justify-center gap-1.5 border border-[#161918] bg-white px-3 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#161918]"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${regeneratingQr ? 'animate-spin' : ''}`} />
-                Fresh QR
+                <Copy className="h-4 w-4" />
+                {copiedKey === 'openVideo' ? 'Copied' : 'Copy Link'}
               </button>
               <Link
                 href={workspace.links.billing}

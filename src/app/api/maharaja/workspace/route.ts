@@ -371,6 +371,9 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.minPurchaseTryOnDisabled === 'boolean') {
       settings.minPurchaseTryOnDisabled = body.minPurchaseTryOnDisabled;
     }
+    if (typeof body.tvBillSuffixRequired === 'boolean') {
+      settings.tvBillSuffixRequired = body.tvBillSuffixRequired;
+    }
     if (body.deliveryMode === 'whatsapp' || body.deliveryMode === 'qr') {
       settings.deliveryMode = body.deliveryMode;
     }

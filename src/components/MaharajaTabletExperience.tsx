@@ -6,9 +6,7 @@ import QRCode from 'qrcode';
 import {
   Camera,
   CheckCircle2,
-  Copy,
   Download,
-  ExternalLink,
   Gift,
   LoaderCircle,
   Phone,
@@ -49,7 +47,9 @@ export default function MaharajaTabletExperience() {
   const [passLink, setPassLink] = useState<string>('');
   const [passCode, setPassCode] = useState<string>('');
   const [passQr, setPassQr] = useState<string>('');
-  const [copied, setCopied] = useState<boolean>(false);
+  const [whatsappConnected, setWhatsappConnected] = useState(false);
+  const [whatsappOn, setWhatsappOn] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false);
 
   // Tab 2: Staff-Assisted AI Image Try-On state
   const [tryOnSource, setTryOnSource] = useState<'catalogue' | 'own-garment'>('catalogue');
@@ -62,6 +62,15 @@ export default function MaharajaTabletExperience() {
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
   const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
+
+  useEffect(() => {
+    fetch('/api/maharaja/workspace', { cache: 'no-store' }).then((response) => response.json()).then((data) => {
+      if (!data.success) return;
+      const connected = data.workspace?.whatsapp?.configured === true;
+      setWhatsappConnected(connected);
+      setWhatsappOn(connected && data.workspace?.deliveryMode === 'whatsapp');
+    }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
@@ -86,6 +95,10 @@ export default function MaharajaTabletExperience() {
 
   async function handleGenerateVideoPass(e: React.FormEvent) {
     e.preventDefault();
+    if (whatsappOn && phone.length !== 10) {
+      setPassError('Enter the customer’s 10-digit mobile number to send a WhatsApp link, or turn WhatsApp off and show the QR.');
+      return;
+    }
     setPassLoading(true);
     setPassError('');
     try {
@@ -98,7 +111,7 @@ export default function MaharajaTabletExperience() {
           experienceType: passMode,
           catalogueSku: passMode === 'catalogue-gift' ? selectedProduct.sku : undefined,
           eventId: selectedEventId,
-          whatsappOptIn: false,
+          whatsappOptIn: whatsappConnected && whatsappOn,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -108,6 +121,8 @@ export default function MaharajaTabletExperience() {
       const link = data.pass.link;
       setPassLink(link);
       setPassCode(data.pass.code);
+      setWhatsappSent(data.whatsappSent === true);
+      if (whatsappOn && data.whatsappSent !== true) setPassError(data.whatsappError || 'WhatsApp did not send. Show the QR to this customer.');
       const qr = await QRCode.toDataURL(link, {
         width: 300,
         margin: 1,
@@ -159,26 +174,15 @@ export default function MaharajaTabletExperience() {
         setTryOnResultUrl(data.masterImageUrl);
         setTryOnStatusNote('AI Try-On generated (Image 1 = Customer Identity, Image 2 = Garment Reference).');
       } else {
-        setTryOnResultUrl(selectedProduct.imageUrl);
-        setTryOnStatusNote(
-          data?.error
-            ? `Showing studio drape preview (${data.error})`
-            : 'Showing studio drape preview.'
-        );
+        setTryOnResultUrl('');
+        setTryOnStatusNote(data?.error || 'Image generation failed. Please retry.');
       }
     } catch {
-      setTryOnResultUrl(selectedProduct.imageUrl);
-      setTryOnStatusNote('Showing studio drape preview.');
+      setTryOnResultUrl('');
+      setTryOnStatusNote('Image generation could not connect. Please retry.');
     } finally {
       setTryOnGenerating(false);
     }
-  }
-
-  async function copyPassLink() {
-    if (!passLink) return;
-    await navigator.clipboard.writeText(passLink);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
   }
 
   return (
@@ -409,6 +413,11 @@ export default function MaharajaTabletExperience() {
                   </div>
                 </div>
 
+                <label className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-3 text-sm font-semibold">
+                  <span>Send private 24-hour link by WhatsApp {whatsappConnected ? '' : '· API not connected, QR available'}</span>
+                  <input type="checkbox" checked={whatsappOn} disabled={!whatsappConnected} onChange={(event) => setWhatsappOn(event.target.checked)} className="h-5 w-5 accent-[#7A1428]" />
+                </label>
+
                 {passError && (
                   <p className="border border-[#B42318] bg-[#FEF3F2] p-3 text-xs font-semibold text-[#B42318]">
                     {passError}
@@ -428,7 +437,7 @@ export default function MaharajaTabletExperience() {
                   ) : (
                     <>
                       <QrCode className="h-4 w-4" />
-                      Show customer QR
+                      {whatsappOn ? 'Send WhatsApp & show QR' : 'Show customer QR'}
                     </>
                   )}
                 </button>
@@ -451,25 +460,7 @@ export default function MaharajaTabletExperience() {
                     <p className="text-xs text-[#535A56]">
                       The customer can create, download, or choose Go Live privately on their phone.
                     </p>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <button
-                        type="button"
-                        onClick={copyPassLink}
-                        className="flex items-center justify-center gap-1.5 border border-[#161918] bg-white py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]"
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                        {copied ? 'Copied' : 'Copy Link'}
-                      </button>
-                      <a
-                        href={passLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-center gap-1.5 bg-[#161918] py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE]"
-                      >
-                        Open Mobile Flow
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </div>
+                    {whatsappSent && <p className="border border-[#256B45] bg-[#EBF5EE] p-3 text-sm font-semibold text-[#256B45]">WhatsApp link sent. The QR remains available for this customer.</p>}
                   </div>
                 ) : (
                   <div className="max-w-sm space-y-3 py-10">

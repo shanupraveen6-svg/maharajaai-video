@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
+import { fetchCatalogueSettings, fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
   ArrowLeft,
   Camera,
@@ -53,11 +54,10 @@ export default function TryFocusTvExperience() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/maharaja/catalogue?limit=100', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!active || !data?.success || !Array.isArray(data.products) || !data.products.length) return;
-        const mapped: TryFocusProduct[] = data.products.map((item: any) => ({
+    fetchCompleteCatalogue()
+      .then((products) => {
+        if (!active || !products.length) return;
+        const mapped: TryFocusProduct[] = products.map((item) => ({
           id: item.id || item.sku.toLowerCase(),
           sku: item.sku,
           title: item.title,
@@ -77,6 +77,12 @@ export default function TryFocusTvExperience() {
         }));
         setCatalogueItems(mapped);
         setSelectedProduct((prev) => mapped.find((p) => p.sku === prev.sku) || mapped[0]);
+      })
+      .catch(() => undefined);
+    fetchCatalogueSettings()
+      .then((settings) => {
+        if (!active) return;
+        setTvBillSuffixRequired(settings.tvBillSuffixRequired);
       })
       .catch(() => undefined);
     return () => {
@@ -123,6 +129,9 @@ export default function TryFocusTvExperience() {
   const [videoPassQr, setVideoPassQr] = useState<string>('');
   const [videoPassCode, setVideoPassCode] = useState<string>('');
   const [videoStatusNote, setVideoStatusNote] = useState<string>('');
+  const [tvBillSuffixRequired, setTvBillSuffixRequired] = useState(true);
+  const [tvBillLast4, setTvBillLast4] = useState('');
+  const [tvBillEntered, setTvBillEntered] = useState(false);
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
   const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
@@ -405,12 +414,16 @@ export default function TryFocusTvExperience() {
   ) {
     setVideoPassCreating(true);
     try {
+      if (tvBillSuffixRequired && (!tvBillEntered || !/^\d{4}$/.test(tvBillLast4))) {
+        throw new Error('Enter the last four digits of your bill first.');
+      }
       const res = await fetch('/api/maharaja/video-pass', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source: 'tv-kiosk',
           experienceType: 'catalogue-gift',
+          billLast4: tvBillLast4,
           catalogueSku: product.sku,
           eventId,
           videoMasterUrl: masterUrl || undefined,
@@ -419,10 +432,10 @@ export default function TryFocusTvExperience() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.pass?.link) throw new Error(data?.error || 'Unable to create mobile video pass.');
+      if (!res.ok || !data?.pass?.link) throw new Error(data?.error || 'Unable to prepare mobile video pass.');
       const passLink = data.pass.link;
       setVideoPassUrl(passLink);
-      setVideoPassCode(data?.pass?.code || 'TV-CATALOGUE-PASS');
+      setVideoPassCode(data.pass.code);
       const qr = await QRCode.toDataURL(passLink, {
         width: 280,
         margin: 1,
@@ -548,6 +561,8 @@ export default function TryFocusTvExperience() {
     setVideoPassQr('');
     setVideoPassUrl('');
     setVideoPassCode('');
+    setTvBillLast4('');
+    setTvBillEntered(false);
     setVideoStatusNote('');
     setMode('home');
   }
@@ -1500,7 +1515,16 @@ export default function TryFocusTvExperience() {
         {/* =========================================================
             MODE 3: AI CATALOGUE VIDEO (Portrait Kiosk Sequence -> Diwali Master Image -> 1-Day Mobile QR)
            ========================================================= */}
-        {mode === 'catalogue-video' && (
+        {mode === 'catalogue-video' && tvBillSuffixRequired && !tvBillEntered && (
+          <section className="mx-auto max-w-2xl space-y-6 border-2 border-[#D8DCD7] bg-white p-8 text-center">
+            <p className="font-mono text-sm font-bold uppercase tracking-[0.2em] text-[#7A1428]">AI Fashion Video</p>
+            <h2 className="font-serif text-4xl font-semibold">Enter the last four digits of your bill</h2>
+            <p className="text-lg text-[#535A56]">Your biller will tell you which four digits to enter. We save them with this demo experience.</p>
+            <input value={tvBillLast4} onChange={(event) => setTvBillLast4(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="off" maxLength={4} aria-label="Last four digits of bill number" className="mx-auto block min-h-20 w-full max-w-sm border-2 border-[#161918] bg-[#FAFBF8] text-center font-mono text-4xl tracking-[0.25em]" />
+            <button type="button" disabled={tvBillLast4.length !== 4} onClick={() => setTvBillEntered(true)} className="min-h-16 w-full max-w-sm bg-[#7A1428] px-6 text-lg font-bold text-white disabled:opacity-45">Continue to AI Video</button>
+          </section>
+        )}
+        {mode === 'catalogue-video' && (!tvBillSuffixRequired || tvBillEntered) && (
           <div className="space-y-5">
             {/* Step Banner */}
             <div className="flex flex-wrap items-center justify-between gap-4 border-2 border-[#D8DCD7] bg-white p-5">
