@@ -26,7 +26,7 @@ export default function MaharajaMobileExperience() {
   const [sourceMode, setSourceMode] = useState<'catalogue' | 'own-garment'>('catalogue');
   const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
-  const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
+  const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue.find((item) => item.category === 'sarees') || sampleCatalogue[0]);
 
   // Image 1 = Customer Photo, Image 2 = Garment Photo
   const [personPhoto, setPersonPhoto] = useState<string>('');

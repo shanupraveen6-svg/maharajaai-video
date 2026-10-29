@@ -1,4 +1,6 @@
 export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'shirts';
+import { maharajaClientSamples } from './maharaja-client-samples';
+
 export type CatalogueAudience = 'women' | 'men' | 'boys' | 'girls';
 
 export type TryFocusProduct = {
@@ -516,6 +518,7 @@ const generatedCatalogue: TryFocusProduct[] = newCatalogueGroups.flatMap((group)
 );
 
 export const sampleCatalogue: TryFocusProduct[] = [
+  ...maharajaClientSamples,
   ...rawSampleCatalogue.map((item): TryFocusProduct => {
     const arrivalOnly = item.category === 'salwar' || item.category === 'lehenga' || item.category === 'shirts';
     const category = item.category === 'salwar' ? 'kurtis' : item.category === 'lehenga' ? 'half-sarees' : item.category === 'shirts' ? 'angavastram' : item.category;

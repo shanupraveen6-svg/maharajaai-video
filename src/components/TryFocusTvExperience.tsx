@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { fetchCatalogueSettings, fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
@@ -11,11 +10,9 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
-  Home,
   LoaderCircle,
   QrCode,
   RefreshCw,
-  RotateCcw,
   Shirt,
   Sparkles,
   Upload,
@@ -35,19 +32,20 @@ import {
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
 
-type TvMode = 'home' | 'image-tryon' | 'live-tryon' | 'catalogue-video';
+type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
 type CatalogueTryOnStage = 'browse' | 'camera' | 'generating' | 'result';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
 
 export default function TryFocusTvExperience() {
-  const [mode, setMode] = useState<TvMode>('home');
+  const [mode, setMode] = useState<TvMode>('image-tryon');
   const [catalogueItems, setCatalogueItems] = useState<TryFocusProduct[]>(sampleCatalogue);
 
   // Catalogue filtering
   const [genderFilter, setGenderFilter] = useState<CatalogueAudience>('women');
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [showNewArrivals, setShowNewArrivals] = useState(false);
+  const [showClientCollection, setShowClientCollection] = useState(true);
   const [cataloguePage, setCataloguePage] = useState(0);
   const catalogueTopRef = useRef<HTMLDivElement | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
@@ -136,9 +134,11 @@ export default function TryFocusTvExperience() {
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
   const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
   const browseProducts = catalogueItems.filter((item) => item.gender === genderFilter &&
-    (showNewArrivals ? (genderFilter === 'women' || genderFilter === 'men') && item.badge === 'NEW ARRIVAL' : item.category === activeCategory && item.newArrivalOnly !== true));
-  const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / 4));
-  const visibleBrowseProducts = browseProducts.slice(cataloguePage * 4, cataloguePage * 4 + 4);
+    (showClientCollection ? item.sku.startsWith('MAH-')
+      : showNewArrivals ? (genderFilter === 'women' || genderFilter === 'men') && item.badge === 'NEW ARRIVAL'
+        : item.category === activeCategory && item.newArrivalOnly !== true));
+  const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / 6));
+  const visibleBrowseProducts = browseProducts.slice(cataloguePage * 6, cataloguePage * 6 + 6);
   const videoBrowseProducts = catalogueItems.filter((item) => item.category === 'sarees' && item.eligibleForVideo === true && item.price >= 5000);
   const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / 4));
   const safeVideoPage = Math.min(cataloguePage, videoPageCount - 1);
@@ -149,6 +149,7 @@ export default function TryFocusTvExperience() {
     setGenderFilter(gender);
     setActiveCategory(gender === 'women' ? 'sarees' : gender === 'men' ? 'veshti' : gender === 'boys' ? 'boys-veshti' : 'girls-pavadai');
     setShowNewArrivals(false);
+    setShowClientCollection(gender === 'women' || gender === 'men');
     setCataloguePage(0);
     setSelectedLooks([]);
   }
@@ -156,6 +157,7 @@ export default function TryFocusTvExperience() {
   function selectCategory(category: CatalogueCategoryId) {
     setActiveCategory(category);
     setShowNewArrivals(false);
+    setShowClientCollection(false);
     setCataloguePage(0);
   }
 
@@ -546,6 +548,13 @@ export default function TryFocusTvExperience() {
   function resetAllSession() {
     stopCamera();
     setCameraOpen(false);
+    setImageSource('catalogue');
+    setGenderFilter('women');
+    setActiveCategory('sarees');
+    setShowNewArrivals(false);
+    setShowClientCollection(true);
+    setCataloguePage(0);
+    setSelectedProduct(catalogueItems[0] || sampleCatalogue[0]);
     setCustomerPhoto('');
     setOwnGarmentPhoto('');
     setTryOnResultUrl('');
@@ -564,342 +573,51 @@ export default function TryFocusTvExperience() {
     setTvBillLast4('');
     setTvBillEntered(false);
     setVideoStatusNote('');
-    setMode('home');
-  }
-
-  function startCatalogueTryOnFor(item: TryFocusProduct) {
-    setSelectedProduct(item);
-    setSelectedLooks([item]);
-    setImageSource('catalogue');
     setMode('image-tryon');
-    if (customerPhoto) {
-      // The chosen product must be in state before the batch reads it.
-      setTryOnStage('browse');
-    } else {
-      setTryOnStage('camera');
-      void openCameraFor('catalogue-person');
-    }
   }
 
   return (
     <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-[#161918]">
-      {/* Top Smart Mirror Kiosk Navigation Header */}
-      <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 backdrop-blur-md">
-        <div className="tv-kiosk-header mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigateTo('home')}
-              className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]"
-            >
-              TF
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-[#7A1428]">
-                  SMART MIRROR · AI KIOSK
-                </p>
-                <span className="border border-[#D8DCD7] bg-white px-2 py-0.5 font-mono text-[10px] text-[#535A56]">
-                  PC / TV TOUCHSCREEN
-                </span>
-              </div>
-              <h1 className="font-serif text-lg font-semibold tracking-tight text-[#161918]">
-                TryFocus × The Majestic Maharaja
-              </h1>
+      <header className="tv-main-header sticky top-0 z-30 border-b border-[#E5DDD3] bg-[#FCFAF6]/95 backdrop-blur-md">
+        <div className="tv-main-brand mx-auto flex max-w-[1080px] items-center justify-between gap-4 px-7 py-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center bg-[#1E2020] font-mono text-lg font-bold tracking-widest text-white">TF</span>
+            <div className="min-w-0">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#7A1428]">The Majestic Maharaja</p>
+              <h1 className="truncate font-serif text-3xl font-semibold text-[#161918]">Your style, on you</h1>
             </div>
           </div>
-
-          {/* Kiosk Mode Tabs (matching reference screenshots top bar) */}
-          <nav className="tv-kiosk-nav flex flex-wrap items-center gap-1.5" aria-label="Standee experiences">
-            <button
-              type="button"
-              onClick={() => {
-                navigateTo('home');
-                setTryOnStage('browse');
-              }}
-              className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
-                mode === 'home'
-                  ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
-                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
-              }`}
-            >
-              <Home className="h-3.5 w-3.5" />
-              Home
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                navigateTo('image-tryon');
-                setTryOnStage('browse');
-              }}
-              className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
-                mode === 'image-tryon'
-                  ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
-              }`}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              AI Image Try-On
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateTo('live-tryon')}
-              className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
-                mode === 'live-tryon'
-                  ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
-              }`}
-            >
-              <Camera className="h-3.5 w-3.5" />
-              30s Live AI Mirror
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateTo('catalogue-video')}
-              className={`flex items-center gap-1.5 border px-3.5 py-2 text-xs font-semibold transition ${
-                mode === 'catalogue-video'
-                  ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
-              }`}
-            >
-              <Video className="h-3.5 w-3.5" />
-              AI Catalogue Video
-            </button>
-            <button
-              type="button"
-              onClick={resetAllSession}
-              className="flex items-center gap-1.5 border border-[#D8DCD7] bg-white px-3.5 py-2 text-xs font-semibold text-[#535A56] transition hover:border-[#B42318] hover:text-[#B42318]"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              End Session
-            </button>
-          </nav>
+          <button type="button" onClick={resetAllSession} className="tv-end-session shrink-0 border border-[#BFC2BC] bg-white px-5 py-3 text-sm font-bold text-[#7A1428]">End session</button>
         </div>
+        <nav className="tv-mode-nav mx-auto grid max-w-[1080px] grid-cols-3 gap-2 px-7 pb-4" aria-label="Choose an experience">
+          <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => { navigateTo('image-tryon'); setTryOnStage('browse'); }} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
+            <Sparkles className="h-6 w-6" /><span>AI Image Try-On</span>
+          </button>
+          <button type="button" aria-current={mode === 'live-tryon' ? 'page' : undefined} onClick={() => navigateTo('live-tryon')} className={`tv-mode-button ${mode === 'live-tryon' ? 'is-active' : ''}`}>
+            <Camera className="h-6 w-6" /><span>Live Mirror</span>
+          </button>
+          <button type="button" aria-current={mode === 'catalogue-video' ? 'page' : undefined} onClick={() => navigateTo('catalogue-video')} className={`tv-mode-button ${mode === 'catalogue-video' ? 'is-active' : ''}`}>
+            <Video className="h-6 w-6" /><span>AI Video</span>
+          </button>
+        </nav>
       </header>
 
       <div className="tv-kiosk-content mx-auto max-w-[1920px] px-5 py-6 sm:px-8">
-        {/* =========================================================
-            MODE 0: SMART MIRROR HOME (Storefront Banner + Quick Entry)
-           ========================================================= */}
-        {mode === 'home' && (
-          <div className="tv-home space-y-6">
-            {/* Smart Mirror Hero Banner (inspired by Mugdhaa / Ramraj Smart Mirror screenshots) */}
-            <section className="tv-home-hero grid gap-6 border border-[#D8DCD7] bg-[#FAFBF8] p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
-              <div className="flex flex-col justify-between">
-                <div>
-                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                    The Majestic Maharaja · Smart Mirror Experience
-                  </p>
-                  <h2 className="mt-2 font-serif text-3xl font-semibold tracking-tight text-[#161918] sm:text-5xl">
-                    What would you like to try today?
-                  </h2>
-                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#535A56] sm:text-base">
-                    Explore Maharaja styles, see them on yourself, and save your favourite look privately to your phone.
-                  </p>
-                </div>
-
-                {/* Primary Quick CTA Pill Buttons (Catalogue vs Upload My Saree/Garment) */}
-                <div className="hidden mt-6 flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageSource('catalogue');
-                      setTryOnStage('browse');
-                      setMode('image-tryon');
-                    }}
-                    className="flex items-center gap-2 bg-[#7A1428] px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#FAF6EE] transition hover:bg-[#610F20]"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Browse styles
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageSource('own-garment');
-                      setTryOnStage('browse');
-                      setMode('image-tryon');
-                    }}
-                    className="flex items-center gap-2 border border-[#161918] bg-white px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#161918] transition hover:bg-[#161918] hover:text-[#FAF6EE]"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Try my garment
-                  </button>
-                </div>
-              </div>
-
-              {/* Right Preview Collage Card */}
-              <div className="tv-home-feature grid grid-cols-3 gap-2.5 border border-[#D8DCD7] bg-white p-3">
-                {sampleCatalogue.slice(0, 3).map((item) => (
-                  <button
-                    key={item.sku}
-                    type="button"
-                    onClick={() => startCatalogueTryOnFor(item)}
-                    className="group relative overflow-hidden border border-[#D8DCD7] text-left"
-                  >
-                    <img
-                      src={item.imageUrl}
-                      alt={item.title}
-                      className="aspect-[3/4] w-full object-cover transition duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 text-white">
-                      <p className="truncate text-xs font-semibold">{item.title}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {/* 3 Core TV Kiosk Modules */}
-            <section className="tv-experience-grid grid gap-4 md:grid-cols-3">
-              <div className="tv-experience-card flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-                <div>
-                  <img src={sampleCatalogue[0].imageUrl} alt="Silk saree try-on preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
-                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    01 · AI Image Try-On
-                  </span>
-                  <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
-                    AI Image Try-On
-                  </h3>
-                  <p className="mt-2 text-sm text-[#535A56]">Choose a Maharaja look or bring your own garment to the mirror.</p>
-                </div>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageSource('catalogue');
-                      setTryOnStage('browse');
-                      setMode('image-tryon');
-                    }}
-                    className="bg-[#7A1428] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#FAF6EE]"
-                  >
-                    Browse styles
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageSource('own-garment');
-                      setTryOnStage('browse');
-                      setMode('image-tryon');
-                    }}
-                    className="border border-[#161918] bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#161918]"
-                  >
-                    My garment
-                  </button>
-                </div>
-              </div>
-
-              <div className="tv-experience-card flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-                <div>
-                  <img src={sampleCatalogue.find((item) => item.gender === 'men' && item.eligibleForLive)?.imageUrl || sampleCatalogue[0].imageUrl} alt="Live mirror fashion preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
-                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    02 · 30s Live AI Try-On
-                  </span>
-                  <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
-                    Live AI Mirror
-                  </h3>
-                  <p className="mt-2 text-sm text-[#535A56]">See a selected look move with you. Each session lasts 30 seconds.</p>
-                </div>
-                <div className="mt-5">
-                  <button
-                    type="button"
-                    onClick={() => setMode('live-tryon')}
-                    className="bg-[#161918] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#FAF6EE]"
-                  >
-                    Start live mirror
-                  </button>
-                </div>
-              </div>
-
-              <div className="tv-experience-card flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-                <div>
-                  <img src={sampleCatalogue[1].imageUrl} alt="AI fashion video preview" className="tv-experience-image mb-5 h-36 w-full object-cover object-top" />
-                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    03 · AI Catalogue Video
-                  </span>
-                  <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
-                    AI Fashion Video
-                  </h3>
-                  <p className="mt-2 text-sm text-[#535A56]">Choose a featured look here, then create your private fashion video on your phone.</p>
-                </div>
-                <div className="mt-5">
-                  <button
-                    type="button"
-                    onClick={() => setMode('catalogue-video')}
-                    className="bg-[#7A1428] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#FAF6EE]"
-                  >
-                    Create a video
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            {/* Shop by Category Grid (Women & Men — 6 Categories × 5 Models = 30 Items) */}
-            <section className="hidden border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
-                <div>
-                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    Shop by Category · 30 Curated Models
-                  </p>
-                  <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                    Select a Category to Try On Instantly
-                  </h3>
-                </div>
-                <Link
-                  href="/maharaja/tv"
-                  className="flex items-center gap-1.5 border border-[#D8DCD7] bg-white px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
-                >
-                  Open Showroom Wall Loop (/maharaja/tv)
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-                {catalogueCategories.map((cat) => {
-                  const previewItem = sampleCatalogue.find((item) => item.category === cat.id)!;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => {
-                        setGenderFilter(cat.gender);
-                        setActiveCategory(cat.id);
-                        setImageSource('catalogue');
-                        setTryOnStage('browse');
-                        setMode('image-tryon');
-                      }}
-                      className="group overflow-hidden border border-[#D8DCD7] bg-white text-left transition hover:border-[#7A1428]"
-                    >
-                      <div className="aspect-[3/4] overflow-hidden bg-[#ECEEE9]">
-                        <img
-                          src={previewItem.imageUrl}
-                          alt={cat.label}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                        />
-                      </div>
-                      <div className="p-3">
-                        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#7A1428]">
-                          {cat.gender} · 5 Models
-                        </span>
-                        <p className="mt-0.5 font-serif text-base font-semibold text-[#161918]">
-                          {cat.label}
-                        </p>
-                        <p className="mt-0.5 text-xs text-[#535A56]">{cat.subtitle}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          </div>
-        )}
-
         {/* =========================================================
             MODE 1: AI IMAGE TRY-ON (Catalogue Grid + Camera + Result Slider + Own Garment)
            ========================================================= */}
         {mode === 'image-tryon' && (
           <div className="space-y-6">
+            <div className="tv-discovery-intro">
+              <p className="font-mono text-sm font-bold uppercase tracking-[0.2em] text-[#7A1428]">01 · AI Image Try-On</p>
+              <h2 className="mt-1 font-serif text-4xl font-semibold">Choose a look. See it on you.</h2>
+              <p className="mt-2 text-lg text-[#535A56]">Select up to five garments, then take one photo.</p>
+            </div>
+            {tryOnStage === 'browse' && <div className="tv-audience-options grid grid-cols-4 gap-3" aria-label="Choose who is shopping">
+              {(['women', 'men', 'boys', 'girls'] as const).map((audience) => <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => selectGender(audience)} className={`border px-4 py-3 text-lg font-bold uppercase tracking-[0.12em] transition ${genderFilter === audience ? 'border-[#161918] bg-[#161918] text-white' : 'border-[#D8DCD7] bg-white text-[#161918]'}`}>{audience}</button>)}
+            </div>}
             {/* Top Sub-bar: Switch between Store Catalogue (30 items) & Upload/Capture Own Garment */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-4">
+            <div className="tv-source-bar flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -942,57 +660,19 @@ export default function TryFocusTvExperience() {
             {imageSource === 'catalogue' && tryOnStage === 'browse' && (
               <div className="space-y-5">
                 {/* Gender + Category Filter Bar (matching Smart Mirror screenshots 2, 6, 8) */}
-                <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-[#535A56]">
-                      Shop for
-                    </span>
-                    <button
-                      type="button"
-                      aria-pressed={genderFilter === 'women'}
-                      onClick={() => {
-                        selectGender('women');
-                      }}
-                      className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
-                        genderFilter === 'women'
-                          ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
-                          : 'border-[#D8DCD7] bg-[#F4F5F2] text-[#161918]'
-                      }`}
-                    >
-                      Women
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={genderFilter === 'men'}
-                      onClick={() => {
-                        selectGender('men');
-                      }}
-                      className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
-                        genderFilter === 'men'
-                          ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]'
-                          : 'border-[#D8DCD7] bg-[#F4F5F2] text-[#161918]'
-                      }`}
-                    >
-                      Men
-                    </button>
-                    {(['boys', 'girls'] as const).map((audience) => (
-                      <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => selectGender(audience)} className={`border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${genderFilter === audience ? 'border-[#161918] bg-[#161918] text-[#FAF6EE]' : 'border-[#D8DCD7] bg-[#F4F5F2] text-[#161918]'}`}>
-                        {audience === 'boys' ? 'Boys' : 'Girls'}
-                      </button>
-                    ))}
-                  </div>
-
+                <div className="tv-audience-panel flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
                   {/* Category and New Arrivals remain visible as large touch targets. */}
                   <div className="tv-kiosk-filters flex flex-wrap gap-2">
-                    {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowNewArrivals(true); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showNewArrivals ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>New Arrivals</button>}
+                    {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showClientCollection} onClick={() => { setShowClientCollection(true); setShowNewArrivals(false); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showClientCollection ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>Maharaja looks</button>}
+                    {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowClientCollection(false); setShowNewArrivals(true); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showNewArrivals ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>New Arrivals</button>}
                     {filteredCategories.map((cat) => (
                       <button
                         key={cat.id}
                         type="button"
-                        aria-pressed={!showNewArrivals && activeCategory === cat.id}
+                        aria-pressed={!showClientCollection && !showNewArrivals && activeCategory === cat.id}
                         onClick={() => selectCategory(cat.id)}
                         className={`rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.16em] transition ${
-                          !showNewArrivals && activeCategory === cat.id
+                          !showClientCollection && !showNewArrivals && activeCategory === cat.id
                             ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
                             : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
                         }`}
@@ -1004,10 +684,10 @@ export default function TryFocusTvExperience() {
                 </div>
 
                 <div ref={catalogueTopRef} className="tv-catalogue-heading flex items-center justify-between gap-4 text-[#161918]">
-                  <p className="font-serif text-2xl font-semibold">{showNewArrivals ? 'New Arrivals' : filteredCategories.find((cat) => cat.id === activeCategory)?.label}</p>
+                  <p className="font-serif text-2xl font-semibold">{showClientCollection ? 'Maharaja looks' : showNewArrivals ? 'New Arrivals' : filteredCategories.find((cat) => cat.id === activeCategory)?.label}</p>
                   <p className="text-sm font-semibold">{browseProducts.length} garments · Page {cataloguePage + 1} of {cataloguePageCount}</p>
                 </div>
-                <div className="tv-product-grid grid gap-5 sm:grid-cols-2 lg:grid-cols-2">
+                <div className="tv-product-grid grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {visibleBrowseProducts.map((item) => (
                     <div
                       key={item.sku}
@@ -1022,28 +702,18 @@ export default function TryFocusTvExperience() {
                         {/* Top Badges */}
                         <div className="absolute inset-x-3 top-3 flex items-center justify-between">
                           <span className="bg-white/95 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#161918] shadow-sm">
-                            {item.badge || 'MAHARAJA EDIT'}
+                            {item.sku.startsWith('MAH-CLIENT-') ? 'MAHARAJA LOOK' : item.badge || 'MAHARAJA EDIT'}
                           </span>
                           <span className="bg-[#7A1428] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#FAF6EE] shadow-sm">
                             {selectedLooks.some((look) => look.sku === item.sku) ? 'SELECTED' : selectedLooks.length >= 5 ? 'MAX 5' : 'ADD LOOK'}
                           </span>
                         </div>
 
-                        <span className="absolute inset-x-4 bottom-4 mx-auto w-fit rounded-full border border-[#161918]/15 bg-white/95 px-5 py-3 text-base font-bold text-[#161918] shadow-lg">
-                          {selectedLooks.some((look) => look.sku === item.sku) ? 'Selected · Tap to remove' : 'Tap to select look'}
-                        </span>
                       </button>
 
-                      <div className="flex flex-1 flex-col justify-between p-4">
-                        <div>
-                          <span className="font-mono text-[11px] text-[#535A56]">{item.sku}</span>
-                          <h4 className="mt-1 font-serif text-lg font-semibold text-[#161918]">
-                            {item.title}
-                          </h4>
-                          <p className="mt-1 text-xs text-[#535A56]">{item.fabricNote}</p>
-                        </div>
-
-                        <p className="mt-3 border-t border-[#D8DCD7] pt-3 text-xs text-[#535A56]">Only the garment is used as the reference.</p>
+                      <div className="flex flex-1 items-center justify-between gap-3 p-4">
+                        <h4 className="font-serif text-lg font-semibold text-[#161918]">{item.title}</h4>
+                        <span className="shrink-0 font-mono text-sm font-bold text-[#7A1428]">{selectedLooks.some((look) => look.sku === item.sku) ? '✓ Selected' : '+ Select'}</span>
                       </div>
                     </div>
                   ))}
@@ -1053,7 +723,7 @@ export default function TryFocusTvExperience() {
                   <span className="text-lg font-semibold">{cataloguePage + 1} / {cataloguePageCount}</span>
                   <button type="button" disabled={cataloguePage >= cataloguePageCount - 1} onClick={() => turnCataloguePage(cataloguePage + 1)} className="border border-[#161918] px-6 py-3 text-lg font-semibold disabled:opacity-35">Next →</button>
                 </div>
-                <div className="tv-selection-bar sticky bottom-4 z-20 mt-5 flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white/95 p-4 shadow-xl backdrop-blur">
+                <div className="tv-selection-bar fixed bottom-0 left-1/2 z-30 flex w-full max-w-[1080px] -translate-x-1/2 flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white/95 p-4 shadow-xl backdrop-blur">
                   <p className="text-lg font-semibold">{selectedLooks.length} of 5 looks selected</p>
                   <button type="button" disabled={selectedLooks.length === 0} onClick={() => {
                     setSelectedProduct(selectedLooks[0]);

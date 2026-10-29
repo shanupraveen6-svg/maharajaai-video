@@ -31,7 +31,7 @@ export default function MaharajaTabletExperience() {
   // Catalogue state
   const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
-  const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
+  const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue.find((item) => item.category === 'sarees') || sampleCatalogue[0]);
 
   // Tab 2: Staff-Assisted AI Image Try-On state
   const [tryOnSource, setTryOnSource] = useState<'catalogue' | 'own-garment'>('catalogue');
