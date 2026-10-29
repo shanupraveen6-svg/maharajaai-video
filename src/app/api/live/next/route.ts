@@ -28,7 +28,8 @@ function compareQueueItems(a: any, b: any): number {
 
 function isEligibleToPlay(queueData: any, nowMs: number): boolean {
   const playAtMs = getMillis(queueData.playAtMs || queueData.playAt);
-  return !playAtMs || playAtMs <= nowMs;
+  const expiresAtMs = getMillis(queueData.expiresAt);
+  return (!playAtMs || playAtMs <= nowMs) && (!expiresAtMs || expiresAtMs > nowMs);
 }
 
 function cleanDisplayText(value: unknown): string | null {
