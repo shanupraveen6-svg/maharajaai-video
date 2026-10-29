@@ -1075,8 +1075,8 @@ export default function TryFocusTvExperience() {
                   <span className="text-center text-lg font-semibold">Look {activeLookIndex + 1} of {generatedLooks.length}</span>
                   <button type="button" onClick={() => moveGeneratedLook(1)} className="min-h-14 border border-[#D8DCD7] px-5 text-lg font-semibold">Next →</button>
                 </div>}
-                {generatedLooks.length > 0 && <div className="flex gap-3 overflow-x-auto pb-2" aria-label="Generated looks">
-                  {generatedLooks.map((look, index) => <button key={look.product.sku} type="button" disabled={!look.url} onClick={() => showGeneratedLook(index)} className={`w-28 shrink-0 border p-2 text-left ${activeLookIndex === index ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'} disabled:opacity-50`}>
+                {generatedLooks.length > 0 && <div className="tv-generated-looks grid gap-3 pb-2" aria-label="Generated looks">
+                  {generatedLooks.map((look, index) => <button key={look.product.sku} type="button" disabled={!look.url} onClick={() => showGeneratedLook(index)} className={`min-w-0 border p-2 text-left ${activeLookIndex === index ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'} disabled:opacity-50`}>
                     <img src={look.url || look.product.imageUrl} alt={look.product.title} className="h-32 w-full object-cover object-top" />
                     <span className="mt-1 block truncate text-xs font-semibold">{look.error ? 'Failed' : look.product.title}</span>
                   </button>)}
@@ -1144,7 +1144,7 @@ export default function TryFocusTvExperience() {
                         ))}
                       </div>
 
-                      <div className="mt-3 grid max-h-[380px] gap-2 overflow-y-auto pr-1">
+                      <div className="tv-wardrobe-items mt-3 grid gap-2">
                         {categoryProducts.map((item) => (
                           <button
                             key={item.sku}

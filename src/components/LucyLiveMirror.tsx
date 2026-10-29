@@ -572,7 +572,7 @@ export default function LucyLiveMirror({
       </div>
 
       {/* Portrait Kiosk Main Area: Left Dominant Mirror Viewport + Right Paged Outfit Selector */}
-      <div className="grid gap-4 grid-cols-[1.15fr_0.85fr]">
+      <div className="tv-live-main grid min-w-0 gap-4 grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         {/* Mirror Viewport */}
         <div className="relative aspect-[9/16] w-full overflow-hidden border-2 border-[#D8DCD7] bg-[#161918]">
           {/* Local Camera Feed (Never labeled as AI output!) */}

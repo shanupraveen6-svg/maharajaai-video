@@ -182,7 +182,7 @@ export default function MaharajaTabletExperience() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+    <main className="tablet-workspace min-h-screen bg-[#F4F5F2] text-[#161918]">
       {/* Unified TryFocus Header */}
       <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-3.5 sm:px-8">

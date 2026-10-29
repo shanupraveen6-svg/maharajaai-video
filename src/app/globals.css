@@ -79,7 +79,15 @@
   --tv-ink: #161918;
   --tv-accent: #7a1428;
   font-family: var(--font-sans);
+  width: 100%;
+  min-width: 0;
 }
+
+.tv-kiosk *, .tablet-workspace *, .mobile-workspace * { box-sizing: border-box; }
+.tv-kiosk img, .tablet-workspace img, .mobile-workspace img { max-width: 100%; }
+.tv-generated-looks { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.tv-generated-looks button { min-width: 0; }
+.tv-wardrobe-items { grid-template-columns: minmax(0, 1fr); }
 
 .tv-kiosk button,
 .tv-kiosk a {
@@ -153,7 +161,7 @@
   .tv-experience-card p { font-size: 1rem; }
 }
 
-@media (orientation: portrait) and (min-width: 700px) {
+@media (orientation: portrait) and (min-width: 600px) {
   .tv-kiosk { width: 100%; overflow-x: clip; }
   .tv-kiosk-header { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 22px 32px; }
   .tv-kiosk-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; width: 100%; }
@@ -167,7 +175,7 @@
   .tv-home-hero { grid-template-columns: 1fr; min-height: auto; gap: 24px; padding: 28px; }
   .tv-home-feature img { min-height: 260px; max-height: 340px; }
   .tv-experience-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tv-experience-card { min-height: 510px; padding: 18px; }
+  .tv-experience-card { min-height: 380px; padding: 18px; }
   .tv-experience-card h3 { font-size: 29px; }
   .tv-experience-image { height: 300px; }
   .tv-kiosk-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
@@ -185,6 +193,49 @@
   .tv-result-layout > * { min-width: 0; }
   .tv-video-layout, .tv-live-layout { grid-template-columns: minmax(0, 1fr); }
   .tv-live-layout > *, .tv-video-layout > * { min-width: 0; }
+  .tv-live-main { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); }
+  .tv-live-main > * { min-width: 0; }
+}
+
+@media (orientation: portrait) and (min-width: 600px) and (max-width: 899px) {
+  .tv-live-main { grid-template-columns: minmax(0, 1fr); }
+  .tv-experience-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv-generated-looks { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .tablet-workspace { width: 100%; min-width: 0; }
+  .tablet-workspace header > div { gap: 14px; padding-inline: 20px; }
+  .tablet-workspace header > div > div:last-child { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tablet-workspace header button, .tablet-workspace header a { min-width: 0; min-height: 52px; justify-content: center; text-align: center; }
+  .tablet-workspace main, .tablet-workspace section, .tablet-workspace form { min-width: 0; }
+  .tablet-workspace .grid > * { min-width: 0; }
+}
+
+@media (max-width: 600px) {
+  .tv-kiosk-content { padding: 16px 14px 96px; }
+  .tv-kiosk-header { padding: 14px; }
+  .tv-kiosk-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .tv-home-hero, .tv-result-layout, .tv-video-layout, .tv-live-layout, .tv-live-main { grid-template-columns: minmax(0, 1fr); }
+  .tv-experience-grid { grid-template-columns: minmax(0, 1fr); }
+  .tv-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv-generated-looks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv-kiosk-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv-kiosk-filters button { min-width: 0; }
+  .tablet-workspace header > div > div:last-child { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tablet-workspace > div { padding-inline: 14px; }
+  .mobile-workspace { width: 100%; min-width: 0; }
+  .mobile-workspace > div { padding-inline: 14px; }
+  .mobile-workspace .grid > * { min-width: 0; }
+  .mobile-workspace button, .mobile-workspace a { touch-action: manipulation; }
+}
+
+@media (max-width: 380px) {
+  .mobile-workspace header > div { gap: 6px; }
+  .mobile-workspace header h1 { font-size: 14px; }
+  .mobile-workspace header p { font-size: 9px; letter-spacing: .08em; }
+  .mobile-workspace .grid.grid-cols-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mobile-workspace .grid.grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

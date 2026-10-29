@@ -120,7 +120,7 @@ export default function MaharajaMobileExperience() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+    <main className="mobile-workspace min-h-screen bg-[#F4F5F2] text-[#161918]">
       {/* Unified TryFocus Mobile Header */}
       <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 px-4 py-3.5 backdrop-blur-md">
         <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
