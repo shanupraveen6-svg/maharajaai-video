@@ -47,9 +47,10 @@ export async function POST(req: NextRequest) {
     // When disabled, TV allows direct catalogue video pass creation without restriction.
     const requiresBillSuffix = workspace.tvBillSuffixRequired !== false;
     const isTvBillHandoff = body.source === 'tv-kiosk' && (!requiresBillSuffix || /^\d{4}$/.test(tvBillLast4));
+    const isPosterHandoff = body.source === 'video-poster' && body.billingCode === workspace.openVideoCode;
     const isKioskHandoff = body.source === 'tv-kiosk'
       ? isTvBillHandoff || await verifyTvRequest(req)
-      : body.source === 'tablet-kiosk' && verifyOperatorRequest(req);
+      : (body.source === 'tablet-kiosk' && verifyOperatorRequest(req)) || isPosterHandoff;
     const hasValidBillingCode = body.billingCode === workspace.billingCode;
     if (!verifyOperatorRequest(req) && !hasValidBillingCode && !isKioskHandoff) {
       return NextResponse.json(
@@ -79,15 +80,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid Maharaja billing-counter link.' }, { status: 403 });
     }
     const rawPhone = cleanPhone(body.phone);
-    const phone = rawPhone.length === 10 ? rawPhone : (isKioskHandoff ? '9876543210' : '');
+    // QR customers do not share a made-up phone number or campaign entitlement.
+    const phone = rawPhone;
     const whatsappOptIn = rawPhone.length === 10 && body.whatsappOptIn === true;
-    const experienceType = body.experienceType === 'catalogue-gift' ? 'catalogue-gift' : 'purchased-garment';
-    if (phone.length !== 10) {
+    const experienceType = body.source === 'tv-kiosk'
+      ? 'catalogue-gift'
+      : body.source === 'video-poster' || body.source === 'tablet-kiosk'
+        ? 'purchased-garment'
+        : body.experienceType === 'catalogue-gift' ? 'catalogue-gift' : 'purchased-garment';
+    if (body.whatsappOptIn === true && phone.length !== 10) {
       return NextResponse.json({ success: false, error: 'Enter a valid 10 digit phone number.' }, { status: 400 });
     }
 
-    const selectedSku = typeof body.catalogueSku === 'string' ? body.catalogueSku.trim() : '';
+    const selectedSku = experienceType === 'catalogue-gift' && typeof body.catalogueSku === 'string' ? body.catalogueSku.trim() : '';
     const preselectedProduct = selectedSku ? await getCatalogueProduct(selectedSku) : null;
+    if (body.source === 'tv-kiosk' && (!preselectedProduct || !preselectedProduct.eligibleForVideo || preselectedProduct.price < 5000)) {
+      return NextResponse.json({ success: false, error: 'Select an eligible priced garment from the TV video catalogue.' }, { status: 400 });
+    }
     const requestedEventId = isEventId(body.eventId) ? body.eventId : workspace.defaultEvent;
     const pregeneratedMasterUrl = typeof body.videoMasterUrl === 'string' && body.videoMasterUrl.trim()
       ? body.videoMasterUrl.trim()
@@ -103,7 +112,7 @@ export async function POST(req: NextRequest) {
       code,
       clientId: MAHARAJA_CLIENT_ID,
       phone,
-      phoneMasked: maskPhone(phone),
+      phoneMasked: phone ? maskPhone(phone) : '',
       experienceType,
       ...(preselectedProduct ? {
         catalogueSku: preselectedProduct.sku,

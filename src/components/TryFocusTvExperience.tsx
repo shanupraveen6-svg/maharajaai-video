@@ -139,7 +139,7 @@ export default function TryFocusTvExperience() {
     (showNewArrivals ? (genderFilter === 'women' || genderFilter === 'men') && item.badge === 'NEW ARRIVAL' : item.category === activeCategory && item.newArrivalOnly !== true));
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / 4));
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * 4, cataloguePage * 4 + 4);
-  const videoBrowseProducts = catalogueItems.filter((item) => item.category === 'sarees' && item.eligibleForVideo === true);
+  const videoBrowseProducts = catalogueItems.filter((item) => item.category === 'sarees' && item.eligibleForVideo === true && item.price >= 5000);
   const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / 4));
   const safeVideoPage = Math.min(cataloguePage, videoPageCount - 1);
   const visibleVideoProducts = videoBrowseProducts.slice(safeVideoPage * 4, safeVideoPage * 4 + 4);
@@ -180,7 +180,7 @@ export default function TryFocusTvExperience() {
     setCameraOpen(false);
     setCameraError('');
     if (next === 'catalogue-video') {
-      const saree = catalogueItems.find((item) => item.category === 'sarees' && item.eligibleForVideo);
+      const saree = catalogueItems.find((item) => item.category === 'sarees' && item.eligibleForVideo && item.price >= 5000);
       if (saree) setSelectedProduct(saree);
       setCataloguePage(0);
     }

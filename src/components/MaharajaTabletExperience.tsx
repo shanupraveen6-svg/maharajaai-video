@@ -5,22 +5,18 @@ import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import {
   Camera,
-  CheckCircle2,
   Download,
-  Gift,
   LoaderCircle,
-  Phone,
   QrCode,
-  ShoppingBag,
   Sparkles,
   Tablet,
   Upload,
   Video,
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
+import TabletVideoHandoff from '@/components/TabletVideoHandoff';
 import {
   catalogueCategories,
-  events,
   formatINR,
   sampleCatalogue,
   type CatalogueCategoryId,
@@ -28,7 +24,6 @@ import {
 } from '@/lib/tryfocus/sample-data';
 
 type TabletTab = 'video-pass' | 'image-tryon';
-type VideoPassMode = 'purchased-garment' | 'catalogue-gift';
 
 export default function MaharajaTabletExperience() {
   const [tab, setTab] = useState<TabletTab>('video-pass');
@@ -37,19 +32,6 @@ export default function MaharajaTabletExperience() {
   const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
-  const [selectedEventId, setSelectedEventId] = useState<string>(events[0].id);
-
-  // Tab 1: AI Video Pass / Giveaway state
-  const [passMode, setPassMode] = useState<VideoPassMode>('catalogue-gift');
-  const [phone, setPhone] = useState<string>('');
-  const [passLoading, setPassLoading] = useState<boolean>(false);
-  const [passError, setPassError] = useState<string>('');
-  const [passLink, setPassLink] = useState<string>('');
-  const [passCode, setPassCode] = useState<string>('');
-  const [passQr, setPassQr] = useState<string>('');
-  const [whatsappConnected, setWhatsappConnected] = useState(false);
-  const [whatsappOn, setWhatsappOn] = useState(false);
-  const [whatsappSent, setWhatsappSent] = useState(false);
 
   // Tab 2: Staff-Assisted AI Image Try-On state
   const [tryOnSource, setTryOnSource] = useState<'catalogue' | 'own-garment'>('catalogue');
@@ -62,15 +44,6 @@ export default function MaharajaTabletExperience() {
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
   const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
-
-  useEffect(() => {
-    fetch('/api/maharaja/workspace', { cache: 'no-store' }).then((response) => response.json()).then((data) => {
-      if (!data.success) return;
-      const connected = data.workspace?.whatsapp?.configured === true;
-      setWhatsappConnected(connected);
-      setWhatsappOn(connected && data.workspace?.deliveryMode === 'whatsapp');
-    }).catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
@@ -91,49 +64,6 @@ export default function MaharajaTabletExperience() {
       if (typeof reader.result === 'string') setter(reader.result);
     };
     reader.readAsDataURL(file);
-  }
-
-  async function handleGenerateVideoPass(e: React.FormEvent) {
-    e.preventDefault();
-    if (whatsappOn && phone.length !== 10) {
-      setPassError('Enter the customer’s 10-digit mobile number to send a WhatsApp link, or turn WhatsApp off and show the QR.');
-      return;
-    }
-    setPassLoading(true);
-    setPassError('');
-    try {
-      const res = await fetch('/api/maharaja/video-pass', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source: 'tablet-kiosk',
-          phone: phone || '9876543210',
-          experienceType: passMode,
-          catalogueSku: passMode === 'catalogue-gift' ? selectedProduct.sku : undefined,
-          eventId: selectedEventId,
-          whatsappOptIn: whatsappConnected && whatsappOn,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Unable to generate 1-day AI Video QR.');
-      }
-      const link = data.pass.link;
-      setPassLink(link);
-      setPassCode(data.pass.code);
-      setWhatsappSent(data.whatsappSent === true);
-      if (whatsappOn && data.whatsappSent !== true) setPassError(data.whatsappError || 'WhatsApp did not send. Show the QR to this customer.');
-      const qr = await QRCode.toDataURL(link, {
-        width: 300,
-        margin: 1,
-        color: { dark: '#161918', light: '#FAFBF8' },
-      });
-      setPassQr(qr);
-    } catch (err: unknown) {
-      setPassError(err instanceof Error ? err.message : 'Unable to generate QR.');
-    } finally {
-      setPassLoading(false);
-    }
   }
 
   async function handleGenerateImageTryOn() {
@@ -241,242 +171,7 @@ export default function MaharajaTabletExperience() {
         {/* =========================================================
             TAB 1: AI VIDEO PASS & GIVEAWAY (Direct QR when WhatsApp not connected)
            ========================================================= */}
-        {tab === 'video-pass' && (
-          <div className="space-y-6">
-            {/* Delivery Status Banner */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-5">
-              <div>
-                <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">Customer handoff</p>
-                <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">Create a video pass</h2>
-                <p className="mt-1 max-w-3xl text-xs leading-relaxed text-[#535A56]">Select the experience, then let the customer continue privately by scanning the QR.</p>
-              </div>
-              <span className="border border-[#7A1428] bg-[#7A1428]/10 px-3.5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">
-                QR valid 24 hours
-              </span>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-              {/* Left: Pass Type + Optional Catalogue Selection + Customer Phone */}
-              <form
-                onSubmit={handleGenerateVideoPass}
-                className="space-y-5 border border-[#D8DCD7] bg-white p-6"
-              >
-                <div>
-                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[#7A1428]">
-                    Choose experience
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setPassMode('catalogue-gift')}
-                      className={`flex flex-col items-start border p-4 text-left transition ${
-                        passMode === 'catalogue-gift'
-                          ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                          : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
-                      }`}
-                    >
-                      <Gift className="h-5 w-5" />
-                      <span className="mt-2 font-serif text-base font-semibold">
-                        Catalogue video
-                      </span>
-                      <span className="mt-1 text-[11px] opacity-85">
-                        Select a store look for the customer.
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setPassMode('purchased-garment')}
-                      className={`flex flex-col items-start border p-4 text-left transition ${
-                        passMode === 'purchased-garment'
-                          ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                          : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
-                      }`}
-                    >
-                      <ShoppingBag className="h-5 w-5" />
-                      <span className="mt-2 font-serif text-base font-semibold">
-                        Purchased garment
-                      </span>
-                      <span className="mt-1 text-[11px] opacity-85">
-                        Customer uses their own selected garment.
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Catalogue Dress Picker when in Catalogue/Giveaway mode */}
-                {passMode === 'catalogue-gift' && (
-                  <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A1428]">
-                        Optional: Pre-Select Catalogue Outfit ({selectedProduct.sku} · {formatINR(selectedProduct.price)})
-                      </span>
-                      <div className="flex border border-[#D8DCD7] bg-white p-0.5 text-xs font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGenderFilter('women');
-                            setActiveCategory('sarees');
-                          }}
-                          className={`px-2.5 py-1 ${
-                            genderFilter === 'women' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
-                          }`}
-                        >
-                          Women
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGenderFilter('men');
-                            setActiveCategory('kurta');
-                          }}
-                          className={`px-2.5 py-1 ${
-                            genderFilter === 'men' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
-                          }`}
-                        >
-                          Men
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {filteredCategories.map((cat) => (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setActiveCategory(cat.id)}
-                          className={`border px-3 py-1 text-xs font-semibold ${
-                            activeCategory === cat.id
-                              ? 'border-[#161918] bg-[#161918] text-white'
-                              : 'border-[#D8DCD7] bg-white text-[#161918]'
-                          }`}
-                        >
-                          {cat.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-5 gap-2">
-                      {categoryProducts.map((item) => (
-                        <button
-                          key={item.sku}
-                          type="button"
-                          onClick={() => setSelectedProduct(item)}
-                          className={`overflow-hidden border p-1 text-left ${
-                            selectedProduct.sku === item.sku
-                              ? 'border-[#7A1428] bg-[#7A1428]/10 ring-1 ring-[#7A1428]'
-                              : 'border-[#D8DCD7] bg-white'
-                          }`}
-                        >
-                          <img
-                            src={item.imageUrl}
-                            alt={item.title}
-                            className="aspect-[3/4] w-full object-cover"
-                          />
-                          <p className="mt-1 truncate font-mono text-[10px] font-bold text-[#161918]">
-                            {formatINR(item.price)}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Customer Phone Input */}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="block font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#161918]">
-                      Customer mobile
-                    </label>
-                    <input
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="9876543210"
-                      className="mt-1.5 h-11 w-full border border-[#D8DCD7] bg-[#FAFBF8] px-3 font-mono text-base font-bold text-[#161918] outline-none focus:border-[#7A1428]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#161918]">
-                      Video theme
-                    </label>
-                    <select
-                      value={selectedEventId}
-                      onChange={(e) => setSelectedEventId(e.target.value)}
-                      className="mt-1.5 h-11 w-full border border-[#D8DCD7] bg-[#FAFBF8] px-3 text-sm font-semibold text-[#161918] outline-none focus:border-[#7A1428]"
-                    >
-                      {events.map((ev) => (
-                        <option key={ev.id} value={ev.id}>
-                          {ev.label} ({ev.mood})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <label className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-3 text-sm font-semibold">
-                  <span>Send private 24-hour link by WhatsApp {whatsappConnected ? '' : '· API not connected, QR available'}</span>
-                  <input type="checkbox" checked={whatsappOn} disabled={!whatsappConnected} onChange={(event) => setWhatsappOn(event.target.checked)} className="h-5 w-5 accent-[#7A1428]" />
-                </label>
-
-                {passError && (
-                  <p className="border border-[#B42318] bg-[#FEF3F2] p-3 text-xs font-semibold text-[#B42318]">
-                    {passError}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={passLoading}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#7A1428] px-5 py-3.5 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] transition hover:bg-[#610F20] disabled:opacity-50"
-                >
-                  {passLoading ? (
-                    <>
-                      <LoaderCircle className="h-4 w-4 animate-spin" />
-                      Preparing QR...
-                    </>
-                  ) : (
-                    <>
-                      <QrCode className="h-4 w-4" />
-                      {whatsappOn ? 'Send WhatsApp & show QR' : 'Show customer QR'}
-                    </>
-                  )}
-                </button>
-              </form>
-
-              {/* Right: Scannable 1-Day Direct QR */}
-              <div className="flex flex-col items-center justify-center border border-[#D8DCD7] bg-[#FAFBF8] p-6 text-center">
-                {passQr && passLink ? (
-                  <div className="w-full max-w-md space-y-4">
-                    <span className="inline-flex items-center gap-1.5 border border-[#256B45] bg-[#EBF5EE] px-3 py-1 font-mono text-[11px] font-bold uppercase text-[#256B45]">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      1-Day Direct QR Active · Code: {passCode}
-                    </span>
-                    <h3 className="font-serif text-2xl font-semibold text-[#161918]">
-                      Scan to continue
-                    </h3>
-                    <div className="mx-auto inline-block border border-[#D8DCD7] bg-white p-4">
-                      <img src={passQr} alt="1-Day Video Pass QR" className="h-60 w-60 object-contain" />
-                    </div>
-                    <p className="text-xs text-[#535A56]">
-                      The customer can create, download, or choose Go Live privately on their phone.
-                    </p>
-                    {whatsappSent && <p className="border border-[#256B45] bg-[#EBF5EE] p-3 text-sm font-semibold text-[#256B45]">WhatsApp link sent. The QR remains available for this customer.</p>}
-                  </div>
-                ) : (
-                  <div className="max-w-sm space-y-3 py-10">
-                    <QrCode className="mx-auto h-12 w-12 text-[#7A1428]" />
-                    <h3 className="font-serif text-2xl font-semibold text-[#161918]">
-                      Customer QR
-                    </h3>
-                    <p className="text-xs text-[#535A56]">
-                      Choose an experience and show a private QR to the customer.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        {tab === 'video-pass' && <TabletVideoHandoff />}
 
         {/* =========================================================
             TAB 2: STAFF-ASSISTED AI IMAGE TRY-ON (Catalogue + Own Garment + Slider)

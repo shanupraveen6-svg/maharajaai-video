@@ -703,26 +703,6 @@ export default function LucyLiveMirror({
             </div>
           )}
 
-          {/* Bottom Bar Inside Mirror */}
-          <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 border border-[#D8DCD7] bg-white/95 p-3.5">
-            <div className="min-w-0">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#7A1428]">
-                Selected Outfit ({selectedGarment.audience})
-              </p>
-              <p className="truncate font-serif text-lg font-semibold text-[#161918]">
-                {selectedGarment.title}
-              </p>
-            </div>
-            {state === 'camera_ready' && (
-              <button
-                type="button"
-                onClick={beginLiveCountdownAndConnect}
-                className="shrink-0 min-h-[54px] bg-[#7A1428] px-5 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
-              >
-                Start 30s AI Live
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Right Column: Step 2 Outfit Selector (Paged 4 Cards — No Nested Scroll) */}

@@ -600,6 +600,8 @@ export default function MaharajaAdminDashboard({
             {devices.tv && (
               <Link
                 href="/maharaja/tv/experience"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
               >
                 Interactive TV Kiosk
@@ -608,6 +610,8 @@ export default function MaharajaAdminDashboard({
             {devices.tablet && (
               <Link
                 href="/maharaja/tablet/experience"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
               >
                 Staff Tablet
@@ -617,6 +621,7 @@ export default function MaharajaAdminDashboard({
               <Link
                 href={workspace.links.tv}
                 target="_blank"
+                rel="noopener noreferrer"
                 className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
               >
                 Showroom TV Wall
@@ -1207,7 +1212,7 @@ export default function MaharajaAdminDashboard({
               </div>
             </div>
 
-            <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
+            <div className="mt-5">
               <button
                 type="button"
                 onClick={() =>
@@ -1223,22 +1228,6 @@ export default function MaharajaAdminDashboard({
                 <Download className="h-4 w-4" />
                 Download QR
               </button>
-              <button
-                type="button"
-                onClick={() => copyText('tryOn', workspace.links.tryOn)}
-                className="flex items-center justify-center gap-1.5 border border-[#161918] bg-white px-3 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]"
-              >
-                <Copy className="h-4 w-4" />
-                {copiedKey === 'tryOn' ? 'Copied' : 'Copy Link'}
-              </button>
-              <Link
-                href={workspace.links.tryOn}
-                target="_blank"
-                className="flex items-center justify-center gap-1.5 border border-[#D8DCD7] bg-[#FAFBF8] px-3 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]"
-              >
-                Open Flow
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
             </div>
           </div>
 
@@ -1257,7 +1246,7 @@ export default function MaharajaAdminDashboard({
                 <span className="border border-[#7A1428] bg-[#7A1428]/10 px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A1428]">
                   {whatsappConnected && deliveryMode === 'whatsapp'
                     ? 'WhatsApp API Connected (1-Day Link)'
-                    : 'Direct QR Active (1-Day Validity)'}
+                    : 'Permanent Poster QR · Private 1-Day Sessions'}
                 </span>
               </div>
 
@@ -1281,7 +1270,7 @@ export default function MaharajaAdminDashboard({
 
                 <div className="space-y-3 text-sm text-[#535A56]">
                   <p className="leading-relaxed">
-                    This QR gives the customer 24 hours to complete their private video experience.
+                    This poster QR stays the same. Each scan starts a separate private session valid for 24 hours.
                   </p>
                   <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-3 text-xs">
                     <p className="font-semibold text-[#161918]">
@@ -1296,13 +1285,13 @@ export default function MaharajaAdminDashboard({
               </div>
             </div>
 
-            <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
+            <div className="mt-5">
               <button
                 type="button"
                 onClick={() =>
                   downloadBrandedQr(
                     'Maharaja-AI-Video-Poster-QR.png',
-                    'AI VIDEO POSTER QR (1-DAY)',
+                    'AI VIDEO POSTER QR',
                     'Scan to create your festive AI video & Go Live',
                     workspace.links.openVideo
                   )
@@ -1312,30 +1301,6 @@ export default function MaharajaAdminDashboard({
                 <Download className="h-4 w-4" />
                 Download Poster QR
               </button>
-              <button
-                type="button"
-                onClick={() => copyText('openVideo', workspace.links.openVideo)}
-                className="flex items-center justify-center gap-1.5 border border-[#161918] bg-white px-3 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#161918]"
-              >
-                <Copy className="h-4 w-4" />
-                {copiedKey === 'openVideo' ? 'Copied' : 'Copy Link'}
-              </button>
-              <Link
-                href={workspace.links.billing}
-                target="_blank"
-                className="flex items-center justify-center gap-1.5 border border-[#161918] bg-[#161918] px-3 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#FAF6EE]"
-              >
-                Bill Counter
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
-              <Link
-                href={workspace.links.openVideo}
-                target="_blank"
-                className="flex items-center justify-center gap-1.5 border border-[#D8DCD7] bg-[#FAFBF8] px-3 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#161918]"
-              >
-                Test Pass
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
             </div>
           </div>
         </section>

@@ -44,7 +44,7 @@ export type MaharajaWorkspace = {
   defaultEvent: EventId;
   tryOnCode: string;
   billingCode: string;
-  /** Temporary, operator-controlled public QR for evaluating the video flow before WhatsApp is connected. */
+  /** Permanent poster capability exchanged for a private, expiring customer pass. */
   openVideoCode: string;
   createdAt: string;
   updatedAt: string;
@@ -796,7 +796,8 @@ export function getWorkspaceLinks(workspace: MaharajaWorkspace) {
   const adminUrl = getPublicAppUrl(`/maharaja/${workspace.workspaceCode}`);
   const tryOnUrl = getPublicAppUrl(`/maharaja/try-on?access=${workspace.tryOnCode}`);
   const billingUrl = getPublicAppUrl(`/maharaja/billing/${workspace.billingCode}`);
-  const openVideoUrl = getPublicAppUrl(`/maharaja/video/${workspace.openVideoCode}`);
+  // A poster is permanent; every scan must mint a separate, expiring customer pass.
+  const openVideoUrl = getPublicAppUrl(`/maharaja/video-poster?code=${encodeURIComponent(workspace.openVideoCode)}`);
   const tvUrl = getPublicAppUrl('/maharaja/tv');
   return {
     adminUrl,
@@ -2396,10 +2397,8 @@ export async function verifyMaharajaAccess(
   }
 
   // service === 'ai-video'
-  // The permanent store video QR enables mobile AI video continuation directly.
-  if (code === workspace.openVideoCode) {
-    return { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances };
-  }
+  // The shared poster code is never a customer pass. It is exchanged for a
+  // distinct 24-hour pass by the poster entry endpoint.
 
   if (pass) {
     if (pass.expiresAtMs < Date.now()) {
