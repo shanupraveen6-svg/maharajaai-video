@@ -94,8 +94,8 @@ export async function POST(req: NextRequest) {
 
     const selectedSku = experienceType === 'catalogue-gift' && typeof body.catalogueSku === 'string' ? body.catalogueSku.trim() : '';
     const preselectedProduct = selectedSku ? await getCatalogueProduct(selectedSku) : null;
-    if (body.source === 'tv-kiosk' && (!preselectedProduct || !preselectedProduct.eligibleForVideo || preselectedProduct.price < 5000)) {
-      return NextResponse.json({ success: false, error: 'Select an eligible priced garment from the TV video catalogue.' }, { status: 400 });
+    if (body.source === 'tv-kiosk' && (!preselectedProduct || (!preselectedProduct.eligibleForVideo && !preselectedProduct.sku.startsWith('TF-')))) {
+      return NextResponse.json({ success: false, error: 'Select an AI Video garment from the TV catalogue.' }, { status: 400 });
     }
     const requestedEventId = isEventId(body.eventId) ? body.eventId : workspace.defaultEvent;
     const pregeneratedMasterUrl = typeof body.videoMasterUrl === 'string' && body.videoMasterUrl.trim()

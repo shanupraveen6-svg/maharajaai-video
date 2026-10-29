@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const nowIso = now.toISOString();
   const queueId = `live_${sessionId}`;
   const videoId = `video_${sessionId}`;
-  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString();
   const db = getDb();
 
   try {

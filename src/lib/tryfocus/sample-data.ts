@@ -510,7 +510,7 @@ const generatedCatalogue: TryFocusProduct[] = newCatalogueGroups.flatMap((group)
     fabricNote: 'South Indian festive collection · Demo garment',
     badge: group.arrivalOnly ? 'NEW ARRIVAL' : 'FESTIVE PICK',
     accent: 'from-[#FAF6F0] to-[#EFE8DC]',
-    eligibleForVideo: false,
+    eligibleForVideo: true,
     eligibleForLive: group.premium === true || group.arrivalOnly === true,
     newArrivalOnly: group.arrivalOnly === true,
     garmentType: group.garmentType,
@@ -528,7 +528,7 @@ export const sampleCatalogue: TryFocusProduct[] = [
       gender: item.audience === 'Men' ? 'men' : 'women',
       badge: arrivalOnly ? 'NEW ARRIVAL' : item.badge,
       newArrivalOnly: arrivalOnly,
-      eligibleForVideo: item.category === 'sarees',
+      eligibleForVideo: true,
       eligibleForLive: item.category === 'sarees' || (item.audience === 'Men' && item.price >= 10000),
     };
   }),

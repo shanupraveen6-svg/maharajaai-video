@@ -315,3 +315,30 @@
   .tv-product-image { height: 340px; }
   .tv-selection-bar { flex-direction: column; align-items: stretch; }
 }
+
+/* Live mirror: garment menu, mirror, and controls each have one job. */
+.tv-kiosk .tv-live-main { grid-template-columns: minmax(0, 250px) minmax(0, 1fr) minmax(0, 250px); align-items: start; }
+.tv-live-menu { grid-column: 1; grid-row: 1; }
+.tv-live-camera { grid-column: 2; grid-row: 1; min-width: 0; }
+.tv-live-controls { grid-column: 3; grid-row: 1; }
+.tv-live-category-list { grid-template-columns: minmax(0, 1fr); }
+.tv-live-garments { grid-template-columns: minmax(0, 1fr); }
+.tv-live-action { display: flex; min-height: 72px; width: 100%; align-items: center; justify-content: center; gap: 10px; padding: 12px; font-size: 17px; font-weight: 700; line-height: 1.15; text-align: center; }
+.tv-live-heading h2 { font-size: clamp(30px, 3.3vw, 42px); line-height: 1.1; }
+.tv-video-catalogue { grid-template-columns: minmax(0, 240px) minmax(0, 1fr); align-items: start; }
+.tv-video-garments { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 899px) {
+  .tv-video-catalogue { grid-template-columns: minmax(0, 1fr); }
+  .tv-video-garments { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv-kiosk .tv-live-main { grid-template-columns: minmax(0, 1fr); }
+  .tv-live-camera { grid-column: 1; grid-row: 1; max-height: 70vh; aspect-ratio: auto; }
+  .tv-live-menu { grid-column: 1; grid-row: 2; }
+  .tv-live-controls { grid-column: 1; grid-row: 3; }
+  .tv-live-category-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv-live-garments { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 599px) {
+  .tv-video-audience button { min-height: 56px; padding: 8px; font-size: 15px; }
+  .tv-live-heading h2 { font-size: 28px; }
+  .tv-live-audience button { min-height: 56px; font-size: 16px; }
+}

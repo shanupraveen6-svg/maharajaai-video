@@ -36,6 +36,27 @@ type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
 type CatalogueTryOnStage = 'browse' | 'camera' | 'generating' | 'result';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
+type VideoAudience = 'women' | 'men' | 'kids';
+const VIDEO_COLLECTIONS: Record<VideoAudience, Array<{ id: string; label: string; categories: CatalogueCategoryId[]; genders: CatalogueAudience[] }>> = {
+  women: [
+    { id: 'sarees', label: 'Wedding Sarees', categories: ['sarees'], genders: ['women'] },
+    { id: 'half-sarees', label: 'Half Sarees', categories: ['half-sarees'], genders: ['women'] },
+    { id: 'kurtis', label: 'Kurtis & Salwar', categories: ['kurtis'], genders: ['women'] },
+    { id: 'bridal', label: 'Bridal Looks', categories: ['sarees', 'half-sarees'], genders: ['women'] },
+  ],
+  men: [
+    { id: 'kurta', label: 'Wedding Kurtas', categories: ['kurta'], genders: ['men'] },
+    { id: 'veshti', label: 'Veshti Sets', categories: ['veshti'], genders: ['men'] },
+    { id: 'angavastram', label: 'Angavastram', categories: ['angavastram'], genders: ['men'] },
+    { id: 'heritage', label: 'Heritage Looks', categories: ['kurta', 'veshti', 'angavastram'], genders: ['men'] },
+  ],
+  kids: [
+    { id: 'boys-kurta', label: 'Boys Kurta', categories: ['boys-kurta'], genders: ['boys'] },
+    { id: 'boys-veshti', label: 'Boys Veshti', categories: ['boys-veshti'], genders: ['boys'] },
+    { id: 'girls-pavadai', label: 'Girls Pavadai', categories: ['girls-pavadai'], genders: ['girls'] },
+    { id: 'girls-lehenga', label: 'Girls Lehenga', categories: ['girls-lehenga'], genders: ['girls'] },
+  ],
+};
 
 export default function TryFocusTvExperience() {
   const [mode, setMode] = useState<TvMode>('image-tryon');
@@ -47,6 +68,9 @@ export default function TryFocusTvExperience() {
   const [showNewArrivals, setShowNewArrivals] = useState(false);
   const [showClientCollection, setShowClientCollection] = useState(true);
   const [cataloguePage, setCataloguePage] = useState(0);
+  const [videoAudience, setVideoAudience] = useState<VideoAudience>('women');
+  const [videoCollection, setVideoCollection] = useState('sarees');
+  const [videoGuardianConsent, setVideoGuardianConsent] = useState(false);
   const catalogueTopRef = useRef<HTMLDivElement | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
 
@@ -139,10 +163,11 @@ export default function TryFocusTvExperience() {
         : item.category === activeCategory && item.newArrivalOnly !== true));
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / 6));
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * 6, cataloguePage * 6 + 6);
-  const videoBrowseProducts = catalogueItems.filter((item) => item.category === 'sarees' && item.eligibleForVideo === true && item.price >= 5000);
-  const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / 4));
+  const activeVideoCollection = VIDEO_COLLECTIONS[videoAudience].find((item) => item.id === videoCollection) || VIDEO_COLLECTIONS[videoAudience][0];
+  const videoBrowseProducts = catalogueItems.filter((item) => (item.eligibleForVideo === true || item.sku.startsWith('TF-')) && activeVideoCollection.genders.includes(item.gender) && activeVideoCollection.categories.includes(item.category));
+  const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / 6));
   const safeVideoPage = Math.min(cataloguePage, videoPageCount - 1);
-  const visibleVideoProducts = videoBrowseProducts.slice(safeVideoPage * 4, safeVideoPage * 4 + 4);
+  const visibleVideoProducts = videoBrowseProducts.slice(safeVideoPage * 6, safeVideoPage * 6 + 6);
 
   function selectGender(gender: CatalogueAudience) {
     if (gender === genderFilter) return;
@@ -430,7 +455,8 @@ export default function TryFocusTvExperience() {
           eventId,
           videoMasterUrl: masterUrl || undefined,
           videoMasterApproved: Boolean(masterUrl),
-          videoMasterCategory: product.gender,
+          videoMasterCategory: product.gender === 'boys' ? 'boy' : product.gender === 'girls' ? 'girl' : product.gender,
+          videoMasterConceptId: product.gender === 'boys' ? 'boy-heritage-entrance' : product.gender === 'girls' ? 'girl-garden-lights' : product.gender === 'men' ? 'men-heritage-passage' : 'women-golden-courtyard',
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -507,10 +533,14 @@ export default function TryFocusTvExperience() {
 
   async function generateCatalogueVideoMasterOnTv() {
     if (!videoPersonPhoto) return;
+    if ((selectedProduct.gender === 'boys' || selectedProduct.gender === 'girls') && !videoGuardianConsent) {
+      setVideoStatusNote('Parent or legal guardian consent is required for a child photo.');
+      return;
+    }
     setVideoGeneratingMaster(true);
     setVideoStatusNote('Creating your Diwali portrait with the selected Maharaja garment...');
     const sessionId = `tv_vidmaster_${Date.now()}`;
-    const conceptId = selectedProduct.gender === 'men' ? 'men-heritage-passage' : 'women-golden-courtyard';
+    const conceptId = selectedProduct.gender === 'men' ? 'men-heritage-passage' : selectedProduct.gender === 'boys' ? 'boy-heritage-entrance' : selectedProduct.gender === 'girls' ? 'girl-garden-lights' : 'women-golden-courtyard';
 
     try {
       const res = await fetch('/api/ai/master-image', {
@@ -520,7 +550,8 @@ export default function TryFocusTvExperience() {
           sessionId,
           service: 'ai-video',
           eventId: selectedEventId,
-          templateId: selectedProduct.gender,
+          templateId: selectedProduct.gender === 'boys' ? 'boy' : selectedProduct.gender === 'girls' ? 'girl' : selectedProduct.gender,
+          guardianProcessingConsent: selectedProduct.gender === 'boys' || selectedProduct.gender === 'girls' ? videoGuardianConsent : undefined,
           conceptId,
           garmentType: selectedProduct.garmentType,
           garmentTypeConfirmed: true,
@@ -570,6 +601,9 @@ export default function TryFocusTvExperience() {
     setVideoPassQr('');
     setVideoPassUrl('');
     setVideoPassCode('');
+    setVideoAudience('women');
+    setVideoCollection('sarees');
+    setVideoGuardianConsent(false);
     setTvBillLast4('');
     setTvBillEntered(false);
     setVideoStatusNote('');
@@ -596,7 +630,7 @@ export default function TryFocusTvExperience() {
           <button type="button" aria-current={mode === 'live-tryon' ? 'page' : undefined} onClick={() => navigateTo('live-tryon')} className={`tv-mode-button ${mode === 'live-tryon' ? 'is-active' : ''}`}>
             <Camera className="h-6 w-6" /><span>Live Mirror</span>
           </button>
-          <button type="button" aria-current={mode === 'catalogue-video' ? 'page' : undefined} onClick={() => navigateTo('catalogue-video')} className={`tv-mode-button ${mode === 'catalogue-video' ? 'is-active' : ''}`}>
+          <button type="button" aria-current={mode === 'catalogue-video' ? 'page' : undefined} onClick={() => { navigateTo('catalogue-video'); const first = catalogueItems.find((item) => (item.eligibleForVideo || item.sku.startsWith('TF-')) && item.gender === 'women' && item.category === 'sarees'); if (first) setSelectedProduct(first); }} className={`tv-mode-button ${mode === 'catalogue-video' ? 'is-active' : ''}`}>
             <Video className="h-6 w-6" /><span>AI Video</span>
           </button>
         </nav>
@@ -1174,10 +1208,10 @@ export default function TryFocusTvExperience() {
            ========================================================= */}
         {mode === 'live-tryon' && (
           <LucyLiveMirror
-            catalogue={catalogueItems.filter((item) => item.eligibleForLive === true && (item.gender === 'women' || item.gender === 'men'))}
+            catalogue={catalogueItems.filter((item) => item.price > 0 && (item.gender === 'women' || item.gender === 'men') && (item.eligibleForLive === true || item.sku.startsWith('TF-')))}
             garmentPrompt={`Person wearing ${selectedProduct.title}, ${selectedProduct.fabricNote}`}
             garmentTitle={selectedProduct.title}
-            selectedProduct={selectedProduct.eligibleForLive ? selectedProduct : catalogueItems.find((item) => item.eligibleForLive === true)}
+            selectedProduct={selectedProduct.price > 0 && (selectedProduct.eligibleForLive || selectedProduct.sku.startsWith('TF-')) ? selectedProduct : catalogueItems.find((item) => item.eligibleForLive === true)}
             onSelectProduct={setSelectedProduct}
           />
         )}
@@ -1196,133 +1230,56 @@ export default function TryFocusTvExperience() {
         )}
         {mode === 'catalogue-video' && (!tvBillSuffixRequired || tvBillEntered) && (
           <div className="space-y-5">
-            {/* Step Banner */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border-2 border-[#D8DCD7] bg-white p-5">
-              <div>
-                <p className="font-mono text-xs font-bold uppercase tracking-[0.22em] text-[#7A1428]">
-                  TV AI Catalogue Video · 1080 × 1920 Portrait Sequence
-                </p>
-                <h2 className="mt-1 font-serif text-3xl font-semibold text-[#161918]">
-                  1. Pick Outfit → 2. Capture Photo → 3. Create Diwali Image → 4. Scan 1-Day Mobile QR
-                </h2>
-                <p className="mt-1 text-sm text-[#535A56]">
-                  Generate your Diwali opening portrait on the standee, then scan the 24-hour QR to render your 6-second AI Video privately on your phone (Download or Go Live).
-                </p>
-              </div>
-              <span className="border-2 border-[#7A1428] bg-[#7A1428]/10 px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">
-                Diwali Active · Other Events Soon
-              </span>
+            <div className="border-2 border-[#D8DCD7] bg-white p-5">
+              <p className="font-mono text-sm font-bold uppercase tracking-[0.16em] text-[#7A1428]">AI fashion video · Diwali collection</p>
+              <h2 className="mt-1 font-serif text-4xl font-semibold">Choose a garment for your film</h2>
+              <p className="mt-2 text-lg text-[#535A56]">We create your portrait here. Scan the QR to make your video privately on your phone.</p>
             </div>
-
-            {/* Step 1: Paged 4-Card Video-Eligible Catalogue Selector */}
-            <section className="border-2 border-[#D8DCD7] bg-white p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
-                <div>
-                  <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
-                    Step 1 · Select Video-Eligible Catalogue Garment
-                  </p>
-                  <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                    Selected: {selectedProduct.title} ({formatINR(selectedProduct.price)})
-                  </h3>
+            <div className="tv-video-audience grid grid-cols-3 gap-3" aria-label="AI Video audience">
+              {(['women', 'men', 'kids'] as const).map((audience) => <button key={audience} type="button" aria-pressed={videoAudience === audience} onClick={() => {
+                setVideoAudience(audience);
+                const firstCollection = VIDEO_COLLECTIONS[audience][0];
+                setVideoCollection(firstCollection.id);
+                setCataloguePage(0);
+                setVideoPersonPhoto(''); setVideoMasterUrl(''); setVideoPassQr(''); setVideoPassUrl(''); setVideoPassCode(''); setVideoGuardianConsent(false);
+                const first = catalogueItems.find((item) => (item.eligibleForVideo || item.sku.startsWith('TF-')) && firstCollection.genders.includes(item.gender) && firstCollection.categories.includes(item.category));
+                if (first) setSelectedProduct(first);
+              }} className={`min-h-16 border-2 px-4 text-xl font-bold capitalize ${videoAudience === audience ? 'border-[#161918] bg-[#161918] text-white' : 'border-[#D8DCD7] bg-white text-[#161918]'}`}>{audience}</button>)}
+            </div>
+            <div className="tv-video-catalogue grid gap-4">
+              <aside className="min-w-0 border-2 border-[#D8DCD7] bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">Collections</p>
+                <h3 className="mt-1 font-serif text-2xl font-semibold">Find your look</h3>
+                <div className="mt-4 grid gap-2">
+                  {VIDEO_COLLECTIONS[videoAudience].map((collection) => <button key={collection.id} type="button" aria-pressed={videoCollection === collection.id} onClick={() => {
+                    setVideoCollection(collection.id); setCataloguePage(0); setVideoMasterUrl(''); setVideoPassQr(''); setVideoPassUrl(''); setVideoPassCode('');
+                    const first = catalogueItems.find((item) => (item.eligibleForVideo || item.sku.startsWith('TF-')) && collection.genders.includes(item.gender) && collection.categories.includes(item.category));
+                    if (first) setSelectedProduct(first);
+                  }} className={`min-h-16 border px-3 py-2 text-left text-base font-bold ${videoCollection === collection.id ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>{collection.label}</button>)}
                 </div>
-
-                <span className="border border-[#D8DCD7] bg-[#FAFBF8] px-4 py-3 text-sm font-bold text-[#161918]">Maharaja Saree Video Collection</span>
-              </div>
-
-              {/* 4-Card Paged Grid (No Nested Scrollbar) */}
-              <div className="mt-4 grid grid-cols-4 gap-3">
-                {visibleVideoProducts.map((item) => {
-                  const isSelected = selectedProduct.sku === item.sku;
-                  return (
-                    <button
-                      key={item.sku}
-                      type="button"
-                      onClick={() => {
-                        setSelectedProduct(item);
-                        setVideoMasterUrl('');
-                        setVideoPassQr('');
-                        setVideoPassUrl('');
-                        setVideoPassCode('');
-                      }}
-                      className={`flex flex-col overflow-hidden border-2 text-left transition ${
-                        isSelected
-                          ? 'border-[#7A1428] bg-[#7A1428]/5 ring-2 ring-[#7A1428]'
-                          : 'border-[#D8DCD7] bg-[#FAFBF8] hover:border-[#161918]'
-                      }`}
-                    >
-                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9]">
-                        <img
-                          src={item.imageUrl}
-                          alt={item.title}
-                          className="h-full w-full object-cover object-top"
-                        />
-                        <span className="absolute right-2 top-2 bg-[#161918] px-2.5 py-1 font-mono text-xs font-bold text-[#FAF6EE]">
-                          {formatINR(item.price)}
-                        </span>
-                        {isSelected && (
-                          <span className="absolute left-2 top-2 bg-[#7A1428] px-2.5 py-1 font-mono text-[10px] font-bold uppercase text-white">
-                            Selected
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <p className="font-mono text-[10px] font-bold uppercase text-[#7A1428]">
-                          {item.sku}
-                        </p>
-                        <p className="mt-0.5 line-clamp-1 font-serif text-base font-semibold text-[#161918]">
-                          {item.title}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Pager Row + Festival Event Pills */}
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-[#D8DCD7] pt-4">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={safeVideoPage <= 0}
-                    onClick={() => setCataloguePage(Math.max(0, safeVideoPage - 1))}
-                    className="min-h-[52px] border-2 border-[#161918] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
-                  >
-                    Prev 4
-                  </button>
-                  <span className="px-2 font-mono text-xs font-bold text-[#535A56]">
-                    Page {safeVideoPage + 1} / {videoPageCount}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={safeVideoPage >= videoPageCount - 1}
-                    onClick={() => setCataloguePage(Math.min(videoPageCount - 1, safeVideoPage + 1))}
-                    className="min-h-[52px] border-2 border-[#161918] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
-                  >
-                    Next 4
-                  </button>
+                <p className="mt-4 text-sm text-[#535A56]">Diwali is active. More film themes will appear here when launched.</p>
+              </aside>
+              <section className="min-w-0 border-2 border-[#D8DCD7] bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
+                  <h3 className="font-serif text-2xl font-semibold">{activeVideoCollection.label}</h3>
+                  <span className="text-sm font-semibold">{videoBrowseProducts.length} garments · Page {safeVideoPage + 1}/{videoPageCount}</span>
                 </div>
-
-                {/* Festival Scene Selector (Diwali Active, Others Disabled / Soon) */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {events.map((ev) => (
-                    <button
-                      key={ev.id}
-                      type="button"
-                      disabled={ev.id !== 'diwali'}
-                      onClick={() => setSelectedEventId(ev.id)}
-                      className={`min-h-[48px] border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] ${
-                        selectedEventId === ev.id
-                          ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                          : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#535A56] opacity-45'
-                      }`}
-                    >
-                      {ev.label}
-                      {ev.id !== 'diwali' ? ' · Soon' : ' · Active'}
-                    </button>
-                  ))}
+                <div className="tv-video-garments mt-4 grid gap-3">
+                  {visibleVideoProducts.map((item) => <button key={item.sku} type="button" aria-pressed={selectedProduct.sku === item.sku} onClick={() => {
+                    setSelectedProduct(item); setVideoMasterUrl(''); setVideoPassQr(''); setVideoPassUrl(''); setVideoPassCode('');
+                  }} className={`min-w-0 overflow-hidden border-2 text-left ${selectedProduct.sku === item.sku ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'}`}>
+                    <div className="relative aspect-[3/4] overflow-hidden bg-[#ECEEE9]"><img src={item.imageUrl} alt={item.title} className="h-full w-full object-contain" />{selectedProduct.sku === item.sku && <span className="absolute right-2 top-2 bg-[#7A1428] px-3 py-1 text-xs font-bold text-white">Selected</span>}</div>
+                    <div className="p-3"><p className="line-clamp-2 font-serif text-lg font-semibold">{item.title}</p><p className="mt-1 text-sm font-bold text-[#7A1428]">{item.price > 0 ? formatINR(item.price) : 'Price at counter'}</p></div>
+                  </button>)}
                 </div>
-              </div>
-            </section>
+                {videoBrowseProducts.length === 0 && <p className="p-8 text-center text-lg">No garments in this collection yet. Ask the store to add them.</p>}
+                <div className="mt-4 flex items-center justify-between border-t border-[#D8DCD7] pt-4">
+                  <button type="button" disabled={safeVideoPage <= 0} onClick={() => setCataloguePage(safeVideoPage - 1)} className="min-h-14 border border-[#161918] px-5 font-bold disabled:opacity-35">← Previous</button>
+                  <span className="font-semibold">{safeVideoPage + 1} / {videoPageCount}</span>
+                  <button type="button" disabled={safeVideoPage >= videoPageCount - 1} onClick={() => setCataloguePage(safeVideoPage + 1)} className="min-h-14 border border-[#161918] px-5 font-bold disabled:opacity-35">Next →</button>
+                </div>
+              </section>
+            </div>
 
             {/* Step 2 & 3: Portrait Two-Slot Input + Diwali Master Preview & 1-Day Mobile QR */}
             <section className="grid gap-5 grid-cols-2">
@@ -1330,10 +1287,10 @@ export default function TryFocusTvExperience() {
               <div className="flex flex-col justify-between border-2 border-[#D8DCD7] bg-white p-5">
                 <div>
                   <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
-                    Step 2 · Two Images for Your Diwali Look
+                    Your Diwali portrait
                   </p>
                   <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                    Capture Your Photo & Confirm Garment
+                    Add your photo
                   </h3>
 
                   <div className="mt-4 grid grid-cols-2 gap-3.5">
@@ -1370,7 +1327,7 @@ export default function TryFocusTvExperience() {
                         />
                       </div>
                       <p className="mt-2.5 truncate font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">
-                        02 · {selectedProduct.sku} ({formatINR(selectedProduct.price)})
+                        02 · {selectedProduct.title}
                       </p>
                     </div>
                   </div>
@@ -1398,9 +1355,10 @@ export default function TryFocusTvExperience() {
                     </label>
                   </div>
 
+                  {(selectedProduct.gender === 'boys' || selectedProduct.gender === 'girls') && <label className="flex items-start gap-3 border border-[#D8DCD7] bg-white p-3 text-sm"><input type="checkbox" checked={videoGuardianConsent} onChange={(event) => setVideoGuardianConsent(event.target.checked)} className="mt-1 h-5 w-5" /><span>I am the parent or legal guardian and consent to processing this child&apos;s photo for this video experience.</span></label>}
                   <button
                     type="button"
-                    disabled={!videoPersonPhoto || videoGeneratingMaster}
+                    disabled={!videoPersonPhoto || videoGeneratingMaster || !videoBrowseProducts.some((item) => item.sku === selectedProduct.sku) || ((selectedProduct.gender === 'boys' || selectedProduct.gender === 'girls') && !videoGuardianConsent)}
                     onClick={generateCatalogueVideoMasterOnTv}
                     className="flex min-h-[68px] w-full items-center justify-center gap-2.5 bg-[#7A1428] px-5 py-4 text-sm font-bold uppercase tracking-[0.16em] text-[#FAF6EE] disabled:opacity-45"
                   >
@@ -1517,6 +1475,10 @@ export default function TryFocusTvExperience() {
                 )}
               </div>
             </section>
+            <div className="border border-[#D8DCD7] bg-white p-5 text-sm leading-relaxed text-[#535A56]">
+              <p className="font-bold text-[#161918]">Your photo, your choice</p>
+              <p className="mt-1">We use your photo only to create this experience and deliver it to your phone. The private QR pass expires after 24 hours. Public Go Live playback needs a separate approval on your phone; an approved video can remain in the store loop for up to 2 days, and you can request removal. We do not create a permanent customer photo profile.</p>
+            </div>
           </div>
         )}
       </div>

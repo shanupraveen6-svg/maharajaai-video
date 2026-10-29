@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
-import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
   CheckCircle2,
@@ -922,7 +921,7 @@ export default function MaharajaAdminDashboard({
             </div>
           </div>
 
-          <CatalogueBulkImport onPublished={loadCatalogue} />
+          <Link href="/maharaja/client-admin/catalogue/upload" className="mt-5 inline-flex min-h-14 items-center bg-[#161918] px-6 text-sm font-bold text-white">Upload a collection by category →</Link>
 
           {/* Add / Upload New Garment Form */}
           {showAddGarment && (

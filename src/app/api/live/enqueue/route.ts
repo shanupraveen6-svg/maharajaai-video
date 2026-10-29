@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const queueId = `live_${sessionId}`;
   const videoId = `video_${sessionId}`;
   const eventId = isEventId(access.pass.eventId) ? access.pass.eventId : 'diwali';
-  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString();
   const customerName = cleanDisplayText(body?.customerName) || cleanDisplayText(access.pass.customerName);
   const customerLocality = cleanDisplayText(body?.customerLocality) || cleanDisplayText(access.pass.customerLocality) || 'தஞ்சாவூர்';
   const liveAudioUrl = getLiveAudioTrack(queueId, eventId);
