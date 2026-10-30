@@ -36,27 +36,7 @@ type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
 type CatalogueTryOnStage = 'browse' | 'camera' | 'generating' | 'result';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
-type VideoAudience = 'women' | 'men' | 'kids';
-const VIDEO_COLLECTIONS: Record<VideoAudience, Array<{ id: string; label: string; categories: CatalogueCategoryId[]; genders: CatalogueAudience[] }>> = {
-  women: [
-    { id: 'sarees', label: 'Wedding Sarees', categories: ['sarees'], genders: ['women'] },
-    { id: 'half-sarees', label: 'Half Sarees', categories: ['half-sarees'], genders: ['women'] },
-    { id: 'kurtis', label: 'Kurtis & Salwar', categories: ['kurtis'], genders: ['women'] },
-    { id: 'bridal', label: 'Bridal Looks', categories: ['sarees', 'half-sarees'], genders: ['women'] },
-  ],
-  men: [
-    { id: 'kurta', label: 'Wedding Kurtas', categories: ['kurta'], genders: ['men'] },
-    { id: 'veshti', label: 'Veshti Sets', categories: ['veshti'], genders: ['men'] },
-    { id: 'angavastram', label: 'Angavastram', categories: ['angavastram'], genders: ['men'] },
-    { id: 'heritage', label: 'Heritage Looks', categories: ['kurta', 'veshti', 'angavastram'], genders: ['men'] },
-  ],
-  kids: [
-    { id: 'boys-kurta', label: 'Boys Kurta', categories: ['boys-kurta'], genders: ['boys'] },
-    { id: 'boys-veshti', label: 'Boys Veshti', categories: ['boys-veshti'], genders: ['boys'] },
-    { id: 'girls-pavadai', label: 'Girls Pavadai', categories: ['girls-pavadai'], genders: ['girls'] },
-    { id: 'girls-lehenga', label: 'Girls Lehenga', categories: ['girls-lehenga'], genders: ['girls'] },
-  ],
-};
+type VideoAudience = CatalogueAudience;
 
 export default function TryFocusTvExperience() {
   const [mode, setMode] = useState<TvMode>('image-tryon');
@@ -69,7 +49,6 @@ export default function TryFocusTvExperience() {
   const [showClientCollection, setShowClientCollection] = useState(true);
   const [cataloguePage, setCataloguePage] = useState(0);
   const [videoAudience, setVideoAudience] = useState<VideoAudience>('women');
-  const [videoCollection, setVideoCollection] = useState('sarees');
   const [videoGuardianConsent, setVideoGuardianConsent] = useState(false);
   const catalogueTopRef = useRef<HTMLDivElement | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
@@ -130,6 +109,9 @@ export default function TryFocusTvExperience() {
   const [batchProgress, setBatchProgress] = useState<Record<string, 'generating' | 'ready' | 'failed'>>({});
   const [handoffStatus, setHandoffStatus] = useState('');
   const lastLookTouchRef = useRef<{ sku: string; at: number } | null>(null);
+  const batchRunRef = useRef(0);
+  const firstReadyRunRef = useRef(0);
+  const idleResetRef = useRef<number | null>(null);
 
   // Camera capture modal / full-screen stage
   const [cameraOpen, setCameraOpen] = useState<boolean>(false);
@@ -163,8 +145,7 @@ export default function TryFocusTvExperience() {
         : item.category === activeCategory && item.newArrivalOnly !== true));
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / 6));
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * 6, cataloguePage * 6 + 6);
-  const activeVideoCollection = VIDEO_COLLECTIONS[videoAudience].find((item) => item.id === videoCollection) || VIDEO_COLLECTIONS[videoAudience][0];
-  const videoBrowseProducts = catalogueItems.filter((item) => (item.eligibleForVideo === true || item.sku.startsWith('TF-')) && activeVideoCollection.genders.includes(item.gender) && activeVideoCollection.categories.includes(item.category));
+  const videoBrowseProducts = catalogueItems.filter((item) => (item.eligibleForVideo === true || item.sku.startsWith('TF-')) && item.gender === videoAudience && (videoAudience !== 'women' || item.category === 'sarees'));
   const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / 6));
   const safeVideoPage = Math.min(cataloguePage, videoPageCount - 1);
   const visibleVideoProducts = videoBrowseProducts.slice(safeVideoPage * 6, safeVideoPage * 6 + 6);
@@ -203,6 +184,7 @@ export default function TryFocusTvExperience() {
   useEffect(() => () => stopCamera(), []);
 
   function navigateTo(next: TvMode) {
+    batchRunRef.current += 1;
     stopCamera();
     setCameraOpen(false);
     setCameraError('');
@@ -317,13 +299,14 @@ export default function TryFocusTvExperience() {
     lastLookTouchRef.current = { sku: product.sku, at: now };
     setSelectedLooks((current) => {
       if (current.some((item) => item.sku === product.sku)) return current.filter((item) => item.sku !== product.sku);
-      if (current.length >= 5) return current;
+      if (current.length >= 5 || (current.length > 0 && current[0].category !== product.category)) return current;
       return [...current, product];
     });
   }
 
   async function runCatalogueBatch(personImg: string) {
     const looks = selectedLooks.length ? selectedLooks : [selectedProduct];
+    const runId = ++batchRunRef.current;
     setTryOnError('');
     setGeneratedLooks([]);
     setBatchDone(0);
@@ -352,24 +335,36 @@ export default function TryFocusTvExperience() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.masterImageUrl) throw new Error(data.error || 'Generation failed');
-        setBatchProgress((current) => ({ ...current, [product.sku]: 'ready' }));
+        if (runId === batchRunRef.current) {
+          setBatchProgress((current) => ({ ...current, [product.sku]: 'ready' }));
+          setGeneratedLooks((current) => {
+            const next = [...current];
+            next[index] = { product, url: data.masterImageUrl as string };
+            return next;
+          });
+          setTryOnStage('result');
+          if (!firstReadyRunRef.current || firstReadyRunRef.current !== runId) {
+            firstReadyRunRef.current = runId;
+            setActiveLookIndex(index);
+            setSelectedProduct(product);
+            setTryOnResultUrl(data.masterImageUrl as string);
+          }
+        }
         return { product, url: data.masterImageUrl as string };
       } catch (error) {
-        setBatchProgress((current) => ({ ...current, [product.sku]: 'failed' }));
+        if (runId === batchRunRef.current) setBatchProgress((current) => ({ ...current, [product.sku]: 'failed' }));
         return { product, url: '', error: error instanceof Error ? error.message : 'Generation failed' };
       } finally {
-        setBatchDone((count) => count + 1);
+        if (runId === batchRunRef.current) setBatchDone((count) => count + 1);
       }
     }));
+    if (runId !== batchRunRef.current) return;
     const results = completed.map((entry, index) => entry.status === 'fulfilled'
       ? entry.value
       : { product: looks[index], url: '', error: 'Generation failed' });
     setGeneratedLooks(results);
     const firstReady = results.findIndex((item) => item.url);
     if (firstReady >= 0) {
-      setActiveLookIndex(firstReady);
-      setSelectedProduct(results[firstReady].product);
-      setTryOnResultUrl(results[firstReady].url);
       setTryOnStage('result');
       void createImageHandoff(results.filter((item) => item.url));
     } else {
@@ -486,7 +481,7 @@ export default function TryFocusTvExperience() {
     product?: TryFocusProduct
   ) {
     if (!personImg || !garmentImg) {
-      setTryOnError('Both Image 1 (Customer Photo) and Image 2 (Garment Photo) are required.');
+      setTryOnError('Add your photo and your garment photo first.');
       return;
     }
     setTryOnError('');
@@ -518,7 +513,7 @@ export default function TryFocusTvExperience() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.masterImageUrl) {
         setTryOnResultUrl(data.masterImageUrl);
-        setTryOnStatusNote('AI Virtual Try-On rendered with customer identity lock (Image 1 = Person, Image 2 = Garment).');
+        setTryOnStatusNote('Your look is ready.');
         setTryOnStage('result');
         setTryOnMobileQr('');
         void createImageHandoff([{ product: targetProduct, url: data.masterImageUrl }]);
@@ -577,6 +572,8 @@ export default function TryFocusTvExperience() {
   }
 
   function resetAllSession() {
+    batchRunRef.current += 1;
+    firstReadyRunRef.current = 0;
     stopCamera();
     setCameraOpen(false);
     setImageSource('catalogue');
@@ -602,13 +599,27 @@ export default function TryFocusTvExperience() {
     setVideoPassUrl('');
     setVideoPassCode('');
     setVideoAudience('women');
-    setVideoCollection('sarees');
     setVideoGuardianConsent(false);
     setTvBillLast4('');
     setTvBillEntered(false);
     setVideoStatusNote('');
     setMode('image-tryon');
   }
+
+  useEffect(() => {
+    const restart = () => {
+      if (idleResetRef.current !== null) window.clearTimeout(idleResetRef.current);
+      idleResetRef.current = window.setTimeout(() => resetAllSession(), 3 * 60 * 1000);
+    };
+    for (const event of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(event, restart, { passive: true });
+    restart();
+    return () => {
+      for (const event of ['pointerdown', 'keydown', 'touchstart']) window.removeEventListener(event, restart);
+      if (idleResetRef.current !== null) window.clearTimeout(idleResetRef.current);
+    };
+  // The kiosk owns one reset timer for its lifetime.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-[#161918]">
@@ -655,6 +666,7 @@ export default function TryFocusTvExperience() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  aria-pressed={imageSource === 'catalogue'}
                   onClick={() => {
                     setImageSource('catalogue');
                     setTryOnStage('browse');
@@ -670,6 +682,7 @@ export default function TryFocusTvExperience() {
                 </button>
                 <button
                   type="button"
+                  aria-pressed={imageSource === 'own-garment'}
                   onClick={() => {
                     setImageSource('own-garment');
                     setTryOnStage('browse');
@@ -692,11 +705,10 @@ export default function TryFocusTvExperience() {
                 SUB-MODE A: STORE CATALOGUE TRY-ON
                --------------------------------------------------------- */}
             {imageSource === 'catalogue' && tryOnStage === 'browse' && (
-              <div className="space-y-5">
-                {/* Gender + Category Filter Bar (matching Smart Mirror screenshots 2, 6, 8) */}
-                <div className="tv-audience-panel flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
-                  {/* Category and New Arrivals remain visible as large touch targets. */}
-                  <div className="tv-kiosk-filters flex flex-wrap gap-2">
+              <div className="tv-catalogue-shell grid gap-5">
+                <aside className="tv-category-sidebar border border-[#D8DCD7] bg-white p-4" aria-label="Garment categories">
+                  <p className="mb-3 font-serif text-xl font-semibold">Browse styles</p>
+                  <div className="tv-kiosk-filters flex flex-col gap-2">
                     {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showClientCollection} onClick={() => { setShowClientCollection(true); setShowNewArrivals(false); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showClientCollection ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>Maharaja looks</button>}
                     {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowClientCollection(false); setShowNewArrivals(true); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showNewArrivals ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>New Arrivals</button>}
                     {filteredCategories.map((cat) => (
@@ -705,17 +717,19 @@ export default function TryFocusTvExperience() {
                         type="button"
                         aria-pressed={!showClientCollection && !showNewArrivals && activeCategory === cat.id}
                         onClick={() => selectCategory(cat.id)}
-                        className={`rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.16em] transition ${
+                        className={`min-h-12 border px-4 py-2 text-left text-sm font-bold transition ${
                           !showClientCollection && !showNewArrivals && activeCategory === cat.id
                             ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
                             : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
                         }`}
                       >
-                        {cat.label} ({catalogueItems.filter((item) => item.category === cat.id && item.newArrivalOnly !== true).length})
+                        {cat.label} <span className="opacity-60">({catalogueItems.filter((item) => item.category === cat.id && item.newArrivalOnly !== true).length})</span>
                       </button>
                     ))}
                   </div>
-                </div>
+                </aside>
+
+                <div className="min-w-0 space-y-5">
 
                 <div ref={catalogueTopRef} className="tv-catalogue-heading flex items-center justify-between gap-4 text-[#161918]">
                   <p className="font-serif text-2xl font-semibold">{showClientCollection ? 'Maharaja looks' : showNewArrivals ? 'New Arrivals' : filteredCategories.find((cat) => cat.id === activeCategory)?.label}</p>
@@ -752,13 +766,15 @@ export default function TryFocusTvExperience() {
                     </div>
                   ))}
                 </div>
+                {browseProducts.length === 0 && <div className="border border-[#D8DCD7] bg-white p-10 text-center"><p className="font-serif text-2xl">No garments here yet</p><p className="mt-2 text-[#535A56]">Choose another category or ask our staff for help.</p></div>}
                 <div className="tv-catalogue-pagination flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
                   <button type="button" disabled={cataloguePage === 0} onClick={() => turnCataloguePage(cataloguePage - 1)} className="border border-[#161918] px-6 py-3 text-lg font-semibold disabled:opacity-35">← Previous</button>
                   <span className="text-lg font-semibold">{cataloguePage + 1} / {cataloguePageCount}</span>
                   <button type="button" disabled={cataloguePage >= cataloguePageCount - 1} onClick={() => turnCataloguePage(cataloguePage + 1)} className="border border-[#161918] px-6 py-3 text-lg font-semibold disabled:opacity-35">Next →</button>
                 </div>
+                </div>
                 <div className="tv-selection-bar fixed bottom-0 left-1/2 z-30 flex w-full max-w-[1080px] -translate-x-1/2 flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white/95 p-4 shadow-xl backdrop-blur">
-                  <p className="text-lg font-semibold">{selectedLooks.length} of 5 looks selected</p>
+                  <p className="text-lg font-semibold">{selectedLooks.length} of 5 looks selected{selectedLooks.length > 0 ? ` · ${filteredCategories.find((item) => item.id === selectedLooks[0].category)?.label || 'Same category'}` : ''}</p>
                   <button type="button" disabled={selectedLooks.length === 0} onClick={() => {
                     setSelectedProduct(selectedLooks[0]);
                     if (customerPhoto) setTryOnStage('camera');
@@ -789,7 +805,7 @@ export default function TryFocusTvExperience() {
               <div className="flex min-h-[520px] flex-col items-center justify-center border border-[#D8DCD7] bg-white p-10 text-center">
                 <LoaderCircle className="h-12 w-12 animate-spin text-[#7A1428]" />
                 <p className="mt-4 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                  Smart Mirror AI Drape in Progress
+                  Creating your looks…
                 </p>
                 <h3 className="mt-2 font-serif text-3xl font-semibold text-[#161918]">
                   Creating your looks
@@ -811,244 +827,37 @@ export default function TryFocusTvExperience() {
                 (Matches screenshot 4 & 10 + QR + BeforeAfterSlider below!)
                --------------------------------------------------------- */}
             {tryOnStage === 'result' && (
-              <div className="space-y-6">
-                {generatedLooks.length > 0 && <div className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
-                  <button type="button" onClick={() => moveGeneratedLook(-1)} className="min-h-14 border border-[#D8DCD7] px-5 text-lg font-semibold">← Previous</button>
-                  <span className="text-center text-lg font-semibold">Look {activeLookIndex + 1} of {generatedLooks.length}</span>
-                  <button type="button" onClick={() => moveGeneratedLook(1)} className="min-h-14 border border-[#D8DCD7] px-5 text-lg font-semibold">Next →</button>
-                </div>}
-                {generatedLooks.length > 0 && <div className="tv-generated-looks grid gap-3 pb-2" aria-label="Generated looks">
-                  {generatedLooks.map((look, index) => <button key={look.product.sku} type="button" disabled={!look.url} onClick={() => showGeneratedLook(index)} className={`min-w-0 border p-2 text-left ${activeLookIndex === index ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'} disabled:opacity-50`}>
-                    <img src={look.url || look.product.imageUrl} alt={look.product.title} className="h-32 w-full object-cover object-top" />
-                    <span className="mt-1 block truncate text-xs font-semibold">{look.error ? 'Failed' : look.product.title}</span>
-                  </button>)}
-                </div>}
-                {/* Top Result Section: Left Wardrobe Switcher + Center Full-Body Look + Right QR & Actions */}
-                <div className="tv-result-layout grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-[290px_1fr_320px]">
-                  {/* Left: Floating Wardrobe Dock (matching screenshot 10 "The wardrobe") */}
-                  <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-4">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-serif text-xl font-semibold text-[#161918]">
-                          The wardrobe
-                        </h3>
-                        <span className="font-mono text-xs text-[#535A56]">30 pieces</span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-[#535A56]">
-                        Select another piece to try on your captured photo immediately.
-                      </p>
-
-                      <div className="mt-3 flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGenderFilter('women');
-                            setActiveCategory('sarees');
-                          }}
-                          className={`flex-1 py-1.5 text-xs font-semibold ${
-                            genderFilter === 'women'
-                              ? 'bg-[#7A1428] text-white'
-                              : 'border border-[#D8DCD7] bg-white text-[#535A56]'
-                          }`}
-                        >
-                          Women
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGenderFilter('men');
-                            setActiveCategory('kurta');
-                          }}
-                          className={`flex-1 py-1.5 text-xs font-semibold ${
-                            genderFilter === 'men'
-                              ? 'bg-[#7A1428] text-white'
-                              : 'border border-[#D8DCD7] bg-white text-[#535A56]'
-                          }`}
-                        >
-                          Men
-                        </button>
-                      </div>
-
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {filteredCategories.map((cat) => (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => setActiveCategory(cat.id)}
-                            className={`px-2.5 py-1 text-[11px] font-semibold ${
-                              activeCategory === cat.id
-                                ? 'bg-[#161918] text-white'
-                                : 'border border-[#D8DCD7] bg-white text-[#535A56]'
-                            }`}
-                          >
-                            {cat.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="tv-wardrobe-items mt-3 grid gap-2">
-                        {categoryProducts.map((item) => (
-                          <button
-                            key={item.sku}
-                            type="button"
-                            onClick={() => {
-                              setSelectedProduct(item);
-                              if (customerPhoto) {
-                                void runTryOnGeneration(
-                                  customerPhoto,
-                                  item.garmentReferenceUrl || item.imageUrl,
-                                  item
-                                );
-                              }
-                            }}
-                            className={`flex items-center gap-2.5 border p-2 text-left transition ${
-                              selectedProduct.sku === item.sku
-                                ? 'border-[#7A1428] bg-[#7A1428]/5'
-                                : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
-                            }`}
-                          >
-                            <img
-                              src={item.imageUrl}
-                              alt={item.title}
-                              className="h-14 w-11 shrink-0 object-cover"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-[#535A56]">
-                                {item.title}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setTryOnStage('browse')}
-                      className="mt-4 flex w-full items-center justify-center gap-1.5 border border-[#161918] bg-white py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]"
-                    >
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                      Back to Full Catalogue
-                    </button>
+              <section className="mx-auto max-w-[900px] space-y-4" aria-label="Your looks">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-serif text-3xl font-semibold">Your looks are ready.</h3>
+                    {batchDone < selectedLooks.length && <p className="text-base text-[#535A56]">{batchDone} of {selectedLooks.length} finished. More looks are on their way.</p>}
                   </div>
-
-                  {/* Center: Full-Screen Smart Mirror Result Portrait (matching screenshot 4) */}
-                  <div className="relative overflow-hidden border border-[#D8DCD7] bg-[#161918]" onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
-                    if (swipeStartX.current === null) return;
-                    const distance = (event.changedTouches[0]?.clientX ?? swipeStartX.current) - swipeStartX.current;
-                    swipeStartX.current = null;
-                    if (Math.abs(distance) > 60) moveGeneratedLook(distance < 0 ? 1 : -1);
-                  }}>
-                    <img
-                      src={tryOnResultUrl || selectedProduct.imageUrl}
-                      alt={selectedProduct.title}
-                      className="mx-auto max-h-[620px] w-full object-contain"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-5 text-white">
-                      <div className="flex flex-wrap items-end justify-between gap-3">
-                        <div>
-                          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#F3E5AB]">
-                            A NEW LOOK · ENTIRELY YOU
-                          </p>
-                          <h3 className="mt-1 font-serif text-2xl font-semibold">
-                            {imageSource === 'own-garment'
-                              ? 'Custom Customer Garment Try-On'
-                              : `${selectedProduct.title} (${selectedProduct.sku})`}
-                          </h3>
-                          <p className="mt-1 text-xs text-white/80">
-                            {imageSource === 'own-garment'
-                              ? 'Image 1: Customer Photo · Image 2: Uploaded Customer Garment'
-                              : selectedProduct.fabricNote}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Mobile QR Download + Retake Controls */}
-                  <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-5">
-                    <div>
-                      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                        Mobile Handoff · Private Download
-                      </p>
-                      <h4 className="mt-1 font-serif text-xl font-semibold text-[#161918]">
-                        Scan QR to Save on Mobile
-                      </h4>
-                      <p className="mt-1 text-xs text-[#535A56]">
-                        Scan with your phone camera to view and download your generated looks.
-                      </p>
-
-                      <div className="mt-4 flex flex-col items-center border border-[#D8DCD7] bg-white p-4">
-                        {tryOnMobileQr ? (
-                          <img
-                            src={tryOnMobileQr}
-                            alt="Mobile Download QR"
-                            className="h-44 w-44 object-contain"
-                          />
-                        ) : (
-                          <div className="flex h-44 w-44 items-center justify-center">
-                            <QrCode className="h-10 w-10 text-[#535A56]" />
-                          </div>
-                        )}
-                        <p className="mt-2 font-mono text-[11px] font-semibold text-[#161918]">
-                          {selectedProduct.sku}
-                        </p>
-                      </div>
-
-                      {tryOnStatusNote && (
-                        <p className="mt-3 border border-[#D8DCD7] bg-white p-2.5 text-xs text-[#535A56]">
-                          {tryOnStatusNote}
-                        </p>
-                      )}
-                      {handoffStatus && <p className="mt-3 border border-[#D8DCD7] bg-white p-2.5 text-xs text-[#535A56]">{handoffStatus}</p>}
-                    </div>
-
-                    <div className="mt-5 grid gap-2.5">
-                      <a
-                        href={tryOnResultUrl || selectedProduct.imageUrl}
-                        download={`tryfocus-${selectedProduct.sku.toLowerCase()}.jpg`}
-                        className="flex items-center justify-center gap-2 bg-[#7A1428] px-4 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-[#FAF6EE]"
-                      >
-                        <Download className="h-4 w-4" />
-                        Download Image on Kiosk
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => openCameraFor(imageSource === 'own-garment' ? 'own-person' : 'catalogue-person')}
-                        className="flex items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#161918]"
-                      >
-                        <Camera className="h-4 w-4" />
-                        Retake Customer Photo
-                      </button>
-                    </div>
-                  </div>
+                  {generatedLooks.length > 1 && <span className="text-lg font-semibold">Look {activeLookIndex + 1} of {selectedLooks.length}</span>}
                 </div>
-
-                {/* Bottom Section: Old vs New Dress Sliding Comparison (BeforeAfterSlider) */}
-                <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                        Interactive Comparison Slider · Old vs. New Dress
-                      </p>
-                      <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                        Slide to Compare Your Current Look vs. AI Try-On Dress
-                      </h3>
-                    </div>
-                    <span className="border border-[#D8DCD7] bg-white px-3 py-1 font-mono text-xs text-[#535A56]">
-                      Drag slider left / right
-                    </span>
-                  </div>
-                  <div className="mx-auto max-w-md">
-                    <BeforeAfterSlider
-                      beforeImage={customerPhoto || selectedProduct.imageUrl}
-                      afterImage={tryOnResultUrl || selectedProduct.imageUrl}
-                      beforeLabel="Old / Current Photo"
-                      afterLabel="New AI Try-On Dress"
-                    />
-                  </div>
+                <div className="relative overflow-hidden bg-[#161918]" onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
+                  if (swipeStartX.current === null) return;
+                  const distance = (event.changedTouches[0]?.clientX ?? swipeStartX.current) - swipeStartX.current;
+                  swipeStartX.current = null;
+                  if (Math.abs(distance) > 60) moveGeneratedLook(distance < 0 ? 1 : -1);
+                }}>
+                  <img src={tryOnResultUrl || selectedProduct.imageUrl} alt={selectedProduct.title} className="mx-auto max-h-[900px] w-full object-contain" />
+                  <p className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-6 pt-16 font-serif text-2xl text-white">{imageSource === 'own-garment' ? 'Your garment' : selectedProduct.title}</p>
                 </div>
-              </div>
+                {selectedLooks.length > 1 && <div className="flex items-center justify-between gap-4">
+                  <button type="button" onClick={() => moveGeneratedLook(-1)} className="min-h-14 min-w-40 border border-[#161918] bg-white px-5 text-lg font-semibold">← Previous</button>
+                  <p className="text-center text-sm text-[#535A56]">Swipe the image to see your looks</p>
+                  <button type="button" onClick={() => moveGeneratedLook(1)} className="min-h-14 min-w-40 border border-[#161918] bg-white px-5 text-lg font-semibold">Next →</button>
+                </div>}
+                <div className="flex flex-wrap items-center justify-between gap-5 border border-[#D8DCD7] bg-white p-5">
+                  <div className="flex-1"><h4 className="font-serif text-2xl font-semibold">Save your looks on your phone</h4><p className="mt-1 text-base text-[#535A56]">Scan this private QR. It expires in 15 minutes.</p><p className="mt-2 text-sm text-[#535A56]">{handoffStatus || (batchDone < selectedLooks.length ? 'Your QR will appear when all looks finish.' : 'Preparing your QR…')}</p></div>
+                  {tryOnMobileQr ? <img src={tryOnMobileQr} alt="Scan to save your looks" className="h-44 w-44 object-contain" /> : <div className="flex h-44 w-44 items-center justify-center bg-[#FAFBF8]"><QrCode className="h-12 w-12 text-[#7A1428]" /></div>}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => { setTryOnStage('browse'); setTryOnMobileQr(''); }} className="min-h-16 border border-[#161918] bg-white px-5 text-lg font-bold">Try another</button>
+                  <button type="button" onClick={resetAllSession} className="min-h-16 bg-[#161918] px-5 text-lg font-bold text-white">Finish</button>
+                </div>
+              </section>
             )}
 
             {/* ---------------------------------------------------------
@@ -1056,22 +865,22 @@ export default function TryFocusTvExperience() {
                --------------------------------------------------------- */}
             {imageSource === 'own-garment' && tryOnStage === 'browse' && (
               <div className="grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-2">
-                {/* Set 1: Customer / Person Photo (Image 1 Identity Authority) */}
+                {/* Set 1: Your Photo (Image 1 Identity Authority) */}
                 <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-5">
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                        Image 1 · Customer Identity
+                        Your Photo
                       </span>
                       <span className="border border-[#D8DCD7] bg-white px-2.5 py-0.5 font-mono text-[10px] font-semibold">
                         REQUIRED
                       </span>
                     </div>
                     <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                      Customer / Person Photo
+                      Your Photo
                     </h3>
                     <p className="mt-1 text-xs text-[#535A56]">
-                      Capture the customer standing in front of the PC/TV camera or upload a photo from your device. Face, skin tone, and body proportions are locked from this photo.
+                      Stand in front of the camera for a clear, full-length photo.
                     </p>
 
                     <div className="mt-4 flex aspect-[3/4] max-h-80 w-full items-center justify-center overflow-hidden border border-dashed border-[#D8DCD7] bg-white">
@@ -1085,10 +894,10 @@ export default function TryFocusTvExperience() {
                         <div className="p-6 text-center text-[#535A56]">
                           <User className="mx-auto h-10 w-10 text-[#7A1428]" />
                           <p className="mt-2 text-sm font-semibold text-[#161918]">
-                            No Customer Photo Yet
+                            Add your photo
                           </p>
                           <p className="mt-1 text-xs">
-                            Use the PC/TV camera or upload a person photo below.
+                            Use the camera or choose a photo.
                           </p>
                         </div>
                       )}
@@ -1102,11 +911,11 @@ export default function TryFocusTvExperience() {
                       className="flex items-center justify-center gap-2 bg-[#161918] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE]"
                     >
                       <Camera className="h-4 w-4" />
-                      Capture Person via Camera
+                      Take photo
                     </button>
                     <label className="flex cursor-pointer items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]">
                       <Upload className="h-4 w-4" />
-                      Upload Person Photo
+                      Choose photo
                       <input
                         type="file"
                         accept="image/*"
@@ -1122,17 +931,17 @@ export default function TryFocusTvExperience() {
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                        Image 2 · Garment Reference
+                        Your Garment
                       </span>
                       <span className="border border-[#D8DCD7] bg-white px-2.5 py-0.5 font-mono text-[10px] font-semibold">
                         REQUIRED
                       </span>
                     </div>
                     <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                      Your Own Saree / Dress Photo
+                      Your Garment
                     </h3>
                     <p className="mt-1 text-xs text-[#535A56]">
-                      Hold the garment up to the camera or upload a photo of any saree, salwar, lehenga, kurta, veshti, or shirt (even if worn by a catalogue model — only the dress is extracted).
+                      Take a clear photo of the garment you want to try, or choose one from your phone.
                     </p>
 
                     <div className="mt-4 flex aspect-[3/4] max-h-80 w-full items-center justify-center overflow-hidden border border-dashed border-[#D8DCD7] bg-white">
@@ -1146,10 +955,10 @@ export default function TryFocusTvExperience() {
                         <div className="p-6 text-center text-[#535A56]">
                           <Shirt className="mx-auto h-10 w-10 text-[#7A1428]" />
                           <p className="mt-2 text-sm font-semibold text-[#161918]">
-                            No Garment Photo Yet
+                            Add your garment
                           </p>
                           <p className="mt-1 text-xs">
-                            Capture the dress with camera or upload a garment photo below.
+                            Use the camera or choose a garment photo.
                           </p>
                         </div>
                       )}
@@ -1163,11 +972,11 @@ export default function TryFocusTvExperience() {
                       className="flex items-center justify-center gap-2 bg-[#161918] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE]"
                     >
                       <Camera className="h-4 w-4" />
-                      Capture Dress via Camera
+                      Photograph garment
                     </button>
                     <label className="flex cursor-pointer items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]">
                       <Upload className="h-4 w-4" />
-                      Upload Dress Photo
+                      Choose garment photo
                       <input
                         type="file"
                         accept="image/*"
@@ -1235,33 +1044,19 @@ export default function TryFocusTvExperience() {
               <h2 className="mt-1 font-serif text-4xl font-semibold">Choose a garment for your film</h2>
               <p className="mt-2 text-lg text-[#535A56]">We create your portrait here. Scan the QR to make your video privately on your phone.</p>
             </div>
-            <div className="tv-video-audience grid grid-cols-3 gap-3" aria-label="AI Video audience">
-              {(['women', 'men', 'kids'] as const).map((audience) => <button key={audience} type="button" aria-pressed={videoAudience === audience} onClick={() => {
+            <div className="tv-video-audience grid grid-cols-4 gap-3" aria-label="AI Video audience">
+              {(['women', 'men', 'boys', 'girls'] as const).map((audience) => <button key={audience} type="button" aria-pressed={videoAudience === audience} onClick={() => {
                 setVideoAudience(audience);
-                const firstCollection = VIDEO_COLLECTIONS[audience][0];
-                setVideoCollection(firstCollection.id);
                 setCataloguePage(0);
                 setVideoPersonPhoto(''); setVideoMasterUrl(''); setVideoPassQr(''); setVideoPassUrl(''); setVideoPassCode(''); setVideoGuardianConsent(false);
-                const first = catalogueItems.find((item) => (item.eligibleForVideo || item.sku.startsWith('TF-')) && firstCollection.genders.includes(item.gender) && firstCollection.categories.includes(item.category));
+                const first = catalogueItems.find((item) => (item.eligibleForVideo || item.sku.startsWith('TF-')) && item.gender === audience && (audience !== 'women' || item.category === 'sarees'));
                 if (first) setSelectedProduct(first);
               }} className={`min-h-16 border-2 px-4 text-xl font-bold capitalize ${videoAudience === audience ? 'border-[#161918] bg-[#161918] text-white' : 'border-[#D8DCD7] bg-white text-[#161918]'}`}>{audience}</button>)}
             </div>
-            <div className="tv-video-catalogue grid gap-4">
-              <aside className="min-w-0 border-2 border-[#D8DCD7] bg-white p-4">
-                <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">Collections</p>
-                <h3 className="mt-1 font-serif text-2xl font-semibold">Find your look</h3>
-                <div className="mt-4 grid gap-2">
-                  {VIDEO_COLLECTIONS[videoAudience].map((collection) => <button key={collection.id} type="button" aria-pressed={videoCollection === collection.id} onClick={() => {
-                    setVideoCollection(collection.id); setCataloguePage(0); setVideoMasterUrl(''); setVideoPassQr(''); setVideoPassUrl(''); setVideoPassCode('');
-                    const first = catalogueItems.find((item) => (item.eligibleForVideo || item.sku.startsWith('TF-')) && collection.genders.includes(item.gender) && collection.categories.includes(item.category));
-                    if (first) setSelectedProduct(first);
-                  }} className={`min-h-16 border px-3 py-2 text-left text-base font-bold ${videoCollection === collection.id ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>{collection.label}</button>)}
-                </div>
-                <p className="mt-4 text-sm text-[#535A56]">Diwali is active. More film themes will appear here when launched.</p>
-              </aside>
+            <div className="grid gap-4">
               <section className="min-w-0 border-2 border-[#D8DCD7] bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
-                  <h3 className="font-serif text-2xl font-semibold">{activeVideoCollection.label}</h3>
+                  <h3 className="font-serif text-2xl font-semibold capitalize">{videoAudience} looks</h3>
                   <span className="text-sm font-semibold">{videoBrowseProducts.length} garments · Page {safeVideoPage + 1}/{videoPageCount}</span>
                 </div>
                 <div className="tv-video-garments mt-4 grid gap-3">

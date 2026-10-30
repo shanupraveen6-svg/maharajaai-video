@@ -88,6 +88,12 @@
 .tv-generated-looks { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .tv-generated-looks button { min-width: 0; }
 .tv-wardrobe-items { grid-template-columns: minmax(0, 1fr); }
+.tv-catalogue-shell { grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); align-items: start; }
+.tv-category-sidebar { max-height: calc(100vh - 230px); overflow-y: auto; }
+@media (max-width: 720px) {
+  .tv-catalogue-shell { grid-template-columns: minmax(0, 1fr); }
+  .tv-category-sidebar { max-height: none; }
+}
 
 .tv-kiosk button,
 .tv-kiosk a {
@@ -284,6 +290,8 @@
 .tv-audience-options button { min-width: 0; min-height: 68px; font-size: clamp(16px, 1.7vw, 20px); }
 .tv-kiosk .tv-kiosk-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
 .tv-kiosk-filters button { min-width: 0; min-height: 62px; border-radius: 0; padding: 8px; font-size: clamp(14px, 1.5vw, 17px); line-height: 1.15; letter-spacing: .03em; }
+.tv-kiosk .tv-category-sidebar .tv-kiosk-filters { display: flex; flex-direction: column; gap: 8px; }
+.tv-kiosk .tv-category-sidebar .tv-kiosk-filters button { width: 100%; min-height: 54px; padding: 10px 14px; text-align: left; font-size: clamp(14px, 1.35vw, 18px); }
 .tv-kiosk .tv-product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .tv-product-card { min-width: 0; border-width: 2px; }
 .tv-product-image { height: clamp(300px, 33vh, 520px); aspect-ratio: auto; }
@@ -292,6 +300,28 @@
 .tv-product-card .font-mono { font-size: 12px; }
 .tv-selection-bar { bottom: 0; border: 2px solid #7a1428; background: #fffdfa; padding: 14px 20px; box-shadow: 0 -8px 24px rgb(0 0 0 / .12); }
 .tv-selection-bar button { min-height: 76px; font-size: clamp(17px, 1.8vw, 22px); }
+
+/* One visual priority per step: burgundy is reserved for the action that moves the shopper forward. */
+.tv-kiosk .tv-mode-button.is-active { border-color: #202825; background: #202825; color: #fff; }
+.tv-kiosk .tv-audience-options button[aria-pressed="true"],
+.tv-kiosk .tv-source-bar button[aria-pressed="true"],
+.tv-kiosk .tv-category-sidebar button[aria-pressed="true"],
+.tv-kiosk .tv-live-audience button[aria-pressed="true"],
+.tv-kiosk .tv-live-category-list button[aria-pressed="true"],
+.tv-kiosk .tv-video-audience button[aria-pressed="true"],
+.tv-kiosk .tv-video-catalogue aside button[aria-pressed="true"] { border-color: #394b42; background: #e6eee8; color: #20352b; box-shadow: inset 5px 0 0 #394b42; }
+.tv-kiosk .tv-audience-options button[aria-pressed="false"],
+.tv-kiosk .tv-source-bar button[aria-pressed="false"],
+.tv-kiosk .tv-category-sidebar button[aria-pressed="false"] { border-color: #d6d9d2; background: #fff; color: #303b34; }
+.tv-kiosk .tv-category-sidebar button:hover,
+.tv-kiosk .tv-source-bar button:hover,
+.tv-kiosk .tv-audience-options button:hover { border-color: #394b42; }
+.tv-kiosk .tv-end-session,
+.tv-kiosk .tv-catalogue-pagination button { border-color: #bdc4bb; background: transparent; color: #35433a; }
+.tv-kiosk .tv-end-session:hover,
+.tv-kiosk .tv-catalogue-pagination button:hover { background: #e9ede6; }
+.tv-kiosk button:focus-visible { outline: 4px solid #d2a74c; outline-offset: 3px; }
+.tv-kiosk button:disabled { opacity: .48; cursor: not-allowed; }
 
 @media (orientation: portrait) and (min-width: 600px) and (max-width: 899px) {
   .tv-kiosk-content { padding: 18px 20px 110px; }

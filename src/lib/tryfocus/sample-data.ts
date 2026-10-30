@@ -1,4 +1,4 @@
-export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'shirts';
+export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'salwar-suits' | 'lehengas' | 'gowns' | 'blouses' | 'western-tops' | 'women-bottoms' | 'women-occasion' | 'formal-shirts' | 'casual-shirts' | 'tshirts' | 'trousers' | 'sherwanis' | 'blazers' | 'men-occasion' | 'boys-sherwani' | 'boys-jacket' | 'boys-shirt-trouser' | 'boys-festive' | 'boys-casual' | 'boys-dhoti' | 'boys-party' | 'girls-half-saree' | 'girls-kurti' | 'girls-salwar' | 'girls-gown' | 'girls-festive' | 'girls-party' | 'girls-anarkali' | 'shirts';
 import { maharajaClientSamples } from './maharaja-client-samples';
 
 export type CatalogueAudience = 'women' | 'men' | 'boys' | 'girls';
@@ -26,15 +26,43 @@ export const catalogueCategories = [
   { id: 'sarees', label: 'Sarees', description: 'Kanchivaram silk & bridal drapes', subtitle: 'Kanchivaram silk & bridal drapes', audience: 'Women', gender: 'women', garmentType: 'saree' },
   { id: 'half-sarees', label: 'Half Sarees', description: 'Langa voni & festive drapes', subtitle: 'Langa voni & festive drapes', audience: 'Women', gender: 'women', garmentType: 'saree' },
   { id: 'kurtis', label: 'Kurtis', description: 'South Indian silk & cotton kurtis', subtitle: 'South Indian silk & cotton kurtis', audience: 'Women', gender: 'women', garmentType: 'salwar' },
+  { id: 'salwar-suits', label: 'Salwar Suits', description: 'Salwar Suits', subtitle: 'Salwar Suits', audience: 'Women', gender: 'women', garmentType: 'salwar' },
+  { id: 'lehengas', label: 'Lehengas', description: 'Lehengas', subtitle: 'Lehengas', audience: 'Women', gender: 'women', garmentType: 'lehenga' },
+  { id: 'gowns', label: 'Gowns & Dresses', description: 'Gowns & Dresses', subtitle: 'Gowns & Dresses', audience: 'Women', gender: 'women', garmentType: 'lehenga' },
+  { id: 'blouses', label: 'Blouses', description: 'Blouses', subtitle: 'Blouses', audience: 'Women', gender: 'women', garmentType: 'salwar' },
+  { id: 'western-tops', label: 'Tops & Shirts', description: 'Tops & Shirts', subtitle: 'Tops & Shirts', audience: 'Women', gender: 'women', garmentType: 'shirt_pant' },
+  { id: 'women-bottoms', label: 'Jeans & Bottoms', description: 'Jeans & Bottoms', subtitle: 'Jeans & Bottoms', audience: 'Women', gender: 'women', garmentType: 'shirt_pant' },
+  { id: 'women-occasion', label: 'Occasion Sets', description: 'Occasion Sets', subtitle: 'Occasion Sets', audience: 'Women', gender: 'women', garmentType: 'lehenga' },
   { id: 'kurta', label: 'Kurta', description: 'Brocade kurtas & wedding wear', subtitle: 'Brocade kurtas & wedding wear', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
   { id: 'veshti', label: 'Veshti', description: 'Kasavu dhoti & angavastram sets', subtitle: 'Kasavu dhoti & angavastram sets', audience: 'Men', gender: 'men', garmentType: 'dhoti_veshti' },
   { id: 'angavastram', label: 'Angavastram Sets', description: 'Wedding silk & draped shawl sets', subtitle: 'Wedding silk & draped shawl sets', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
+  { id: 'formal-shirts', label: 'Formal Shirts', description: 'Formal Shirts', subtitle: 'Formal Shirts', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
+  { id: 'casual-shirts', label: 'Casual Shirts', description: 'Casual Shirts', subtitle: 'Casual Shirts', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
+  { id: 'tshirts', label: 'T-Shirts', description: 'T-Shirts', subtitle: 'T-Shirts', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
+  { id: 'trousers', label: 'Trousers & Jeans', description: 'Trousers & Jeans', subtitle: 'Trousers & Jeans', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
+  { id: 'sherwanis', label: 'Sherwanis', description: 'Sherwanis', subtitle: 'Sherwanis', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
+  { id: 'blazers', label: 'Suits & Blazers', description: 'Suits & Blazers', subtitle: 'Suits & Blazers', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
+  { id: 'men-occasion', label: 'Occasion Sets', description: 'Occasion Sets', subtitle: 'Occasion Sets', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
   { id: 'boys-veshti', label: 'Pattu Veshti', description: 'Silk veshti for boys', subtitle: 'Silk veshti for boys', audience: 'Boys', gender: 'boys', garmentType: 'dhoti_veshti' },
   { id: 'boys-kurta', label: 'Ethnic Kurta', description: 'Festive kurtas for boys', subtitle: 'Festive kurtas for boys', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti' },
   { id: 'boys-silk-shirt', label: 'Silk Shirts', description: 'Silk shirts for boys', subtitle: 'Silk shirts for boys', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' },
+  { id: 'boys-sherwani', label: 'Sherwanis', description: 'Sherwanis', subtitle: 'Sherwanis', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti' },
+  { id: 'boys-jacket', label: 'Jackets & Waistcoats', description: 'Jackets & Waistcoats', subtitle: 'Jackets & Waistcoats', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' },
+  { id: 'boys-shirt-trouser', label: 'Shirts & Trousers', description: 'Shirts & Trousers', subtitle: 'Shirts & Trousers', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' },
+  { id: 'boys-festive', label: 'Festive Sets', description: 'Festive Sets', subtitle: 'Festive Sets', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti' },
+  { id: 'boys-casual', label: 'Casual Wear', description: 'Casual Wear', subtitle: 'Casual Wear', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' },
+  { id: 'boys-dhoti', label: 'Dhoti Sets', description: 'Dhoti Sets', subtitle: 'Dhoti Sets', audience: 'Boys', gender: 'boys', garmentType: 'dhoti_veshti' },
+  { id: 'boys-party', label: 'Party Wear', description: 'Party Wear', subtitle: 'Party Wear', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' },
   { id: 'girls-pavadai', label: 'Pattu Pavadai', description: 'Silk skirt sets for girls', subtitle: 'Silk skirt sets for girls', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
   { id: 'girls-lehenga', label: 'Kids Lehenga', description: 'Festive lehengas for girls', subtitle: 'Festive lehengas for girls', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
   { id: 'girls-frock', label: 'Silk Frocks', description: 'Silk occasion dresses for girls', subtitle: 'Silk occasion dresses for girls', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
+  { id: 'girls-half-saree', label: 'Half Sarees', description: 'Half Sarees', subtitle: 'Half Sarees', audience: 'Girls', gender: 'girls', garmentType: 'saree' },
+  { id: 'girls-kurti', label: 'Kurti Sets', description: 'Kurti Sets', subtitle: 'Kurti Sets', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
+  { id: 'girls-salwar', label: 'Salwar Suits', description: 'Salwar Suits', subtitle: 'Salwar Suits', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
+  { id: 'girls-gown', label: 'Gowns', description: 'Gowns', subtitle: 'Gowns', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
+  { id: 'girls-festive', label: 'Festive Sets', description: 'Festive Sets', subtitle: 'Festive Sets', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
+  { id: 'girls-party', label: 'Party Dresses', description: 'Party Dresses', subtitle: 'Party Dresses', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
+  { id: 'girls-anarkali', label: 'Anarkali Sets', description: 'Anarkali Sets', subtitle: 'Anarkali Sets', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
 ] as const;
 
 const rawSampleCatalogue: Array<Omit<TryFocusProduct, 'gender'>> = [

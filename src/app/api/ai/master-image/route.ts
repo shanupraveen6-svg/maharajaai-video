@@ -53,9 +53,10 @@ async function resolveImageBase64(input: unknown, bucket: any, sessionId: string
   if (trimmed.startsWith('data:image/')) {
     return trimmed.split(',')[1] || trimmed;
   }
-  if (trimmed.startsWith('/images/catalogue-demo/')) {
-    const safeRelative = path.normalize(trimmed).replace(/^(\.\.(\/|\\|$))+/, '');
-    const publicFilePath = path.join(process.cwd(), 'public', safeRelative);
+  if (trimmed.startsWith('/images/catalogue-demo/') || trimmed.startsWith('/images/maharaja-client/')) {
+    const publicRoot = path.resolve(process.cwd(), 'public');
+    const publicFilePath = path.resolve(publicRoot, `.${trimmed}`);
+    if (!publicFilePath.startsWith(`${publicRoot}${path.sep}`)) throw new Error('Invalid catalogue photo path.');
     const buffer = await fs.readFile(publicFilePath);
     if (buffer.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Catalogue photo exceeds the 8 MB processing limit.');
     return buffer.toString('base64');
@@ -219,7 +220,7 @@ export async function POST(req: NextRequest) {
 
     const nowIso = new Date().toISOString();
     const ai = getGenAIClient();
-    if (!ai && (service === 'ai-video' || tryOnRetry || !process.env.FAL_KEY?.trim())) {
+    if (!ai && (service === 'ai-video' || tryOnRetry || (!process.env.GENLOOK_API_KEY?.trim() && !process.env.FAL_KEY?.trim()))) {
       if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(
         { success: false, error: 'Gemini image generation is not configured.' },
