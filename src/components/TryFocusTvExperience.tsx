@@ -132,6 +132,10 @@ export default function TryFocusTvExperience() {
   const [videoGeneratingMaster, setVideoGeneratingMaster] = useState<boolean>(false);
   const [videoPassCreating, setVideoPassCreating] = useState<boolean>(false);
   const [videoPassUrl, setVideoPassUrl] = useState<string>('');
+  const generationBusyRef = useRef(false);
+  useEffect(() => {
+    generationBusyRef.current = tryOnStage === 'generating' || videoGeneratingMaster || videoPassCreating || Object.values(batchProgress).includes('generating');
+  }, [tryOnStage, videoGeneratingMaster, videoPassCreating, batchProgress]);
   const [videoPassQr, setVideoPassQr] = useState<string>('');
   const [videoPassCode, setVideoPassCode] = useState<string>('');
   const [videoStatusNote, setVideoStatusNote] = useState<string>('');
@@ -448,6 +452,7 @@ export default function TryFocusTvExperience() {
     referenceSessionId = ''
   ) {
     setVideoPassCreating(true);
+    const runId = batchRunRef.current;
     try {
       if (tvBillSuffixRequired && (!tvBillEntered || !/^\d{4}$/.test(tvBillLast4))) {
         throw new Error('Enter the last four digits of your bill first.');
@@ -468,6 +473,7 @@ export default function TryFocusTvExperience() {
         }),
       });
       const data = await res.json().catch(() => ({}));
+      if (runId !== batchRunRef.current) return;
       if (!res.ok || !data?.pass?.link) throw new Error(data?.error || 'Unable to prepare mobile video pass.');
       const passLink = data.pass.link;
       setVideoPassUrl(passLink);
@@ -477,14 +483,16 @@ export default function TryFocusTvExperience() {
         margin: 1,
         color: { dark: '#161918', light: '#FAFBF8' },
       });
+      if (runId !== batchRunRef.current) return;
       setVideoPassQr(qr);
     } catch (error) {
+      if (runId !== batchRunRef.current) return;
       setVideoPassUrl('');
       setVideoPassQr('');
       setVideoPassCode('');
       setVideoStatusNote(error instanceof Error ? error.message : 'Unable to create mobile video pass.');
     } finally {
-      setVideoPassCreating(false);
+      if (runId === batchRunRef.current) setVideoPassCreating(false);
     }
   }
 
@@ -628,13 +636,18 @@ export default function TryFocusTvExperience() {
     setTvBillLast4('');
     setTvBillEntered(false);
     setVideoStatusNote('');
+    setVideoGeneratingMaster(false);
+    setVideoPassCreating(false);
     setMode('image-tryon');
   }
 
   useEffect(() => {
     const restart = () => {
       if (idleResetRef.current !== null) window.clearTimeout(idleResetRef.current);
-      idleResetRef.current = window.setTimeout(() => resetAllSession(), 3 * 60 * 1000);
+      idleResetRef.current = window.setTimeout(() => {
+        if (generationBusyRef.current) restart();
+        else resetAllSession();
+      }, 3 * 60 * 1000);
     };
     for (const event of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(event, restart, { passive: true });
     restart();
