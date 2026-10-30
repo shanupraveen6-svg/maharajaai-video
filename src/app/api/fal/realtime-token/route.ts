@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     });
   }
   try {
-    const response = await fetch('https://rest.fal.ai/v1/tokens/', {
+    const response = await fetch('https://rest.fal.ai/tokens/', {
       method: 'POST',
       headers: {
         Authorization: `Key ${falKey}`,
