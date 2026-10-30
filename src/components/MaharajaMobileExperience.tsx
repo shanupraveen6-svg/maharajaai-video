@@ -13,6 +13,7 @@ import {
   Upload,
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
+import { compressImage } from '@/lib/utils/image';
 import {
   catalogueCategories,
   sampleCatalogue,
@@ -22,7 +23,7 @@ import {
 
 type MobileFlow = 'image-tryon' | 'ai-video';
 
-export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: { accessCode: string; videoEntryUrl: string }) {
+export default function MaharajaMobileExperience({ accessCode, videoEntryUrl, clientName = 'The Majestic Maharaja' }: { accessCode: string; videoEntryUrl: string; clientName?: string }) {
   const [flow, setFlow] = useState<MobileFlow>('image-tryon');
   const [sourceMode, setSourceMode] = useState<'catalogue' | 'own-garment'>('catalogue');
   const [genderFilter, setGenderFilter] = useState<TryFocusProduct['gender']>('women');
@@ -42,7 +43,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
   const [deviceId, setDeviceId] = useState('');
   useEffect(() => { const key = 'tryfocus:maharaja:device-id'; const value = localStorage.getItem(key) || crypto.randomUUID().replace(/-/g, ''); localStorage.setItem(key, value); setDeviceId(value); }, []);
 
-  const catalogueItems = useStoreCatalogue();
+  const catalogueItems = useStoreCatalogue(accessCode);
   const [guardianConsent, setGuardianConsent] = useState(false);
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
   const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory);
@@ -53,17 +54,20 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
     setGuardianConsent(false);
   }, [activeCategory, genderFilter, catalogueItems]);
 
+  // Phone photos are often 4-8 MB; resizing keeps requests under the 4.5 MB serverless body limit.
   function handleFileRead(setter: (val: string) => void, file?: File | null) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') setter(reader.result);
-    };
-    reader.readAsDataURL(file);
+    compressImage(file, 1280, 0.85)
+      .then(({ dataUrl }) => setter(dataUrl))
+      .catch((error) => setStatusNote(error instanceof Error ? error.message : 'This photo could not be read. Choose another photo.'));
   }
 
   async function runMobileGeneration() {
     if ((genderFilter === 'boys' || genderFilter === 'girls') && !guardianConsent) { setStatusNote('A parent or guardian must approve the child’s photo first.'); return; }
+    if (sourceMode === 'catalogue' && !catalogueItems.some((item) => item.sku === selectedProduct.sku)) {
+      setStatusNote('Choose a garment from this store’s catalogue.');
+      return;
+    }
     const garmentImg =
       sourceMode === 'own-garment'
         ? ownGarmentPhoto
@@ -128,7 +132,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
             </span>
             <div className="min-w-0">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                TryFocus × Majestic Maharaja
+                TryFocus × {clientName}
               </p>
               <h1 className="font-serif text-base font-semibold text-[#161918]">Your private style room</h1>
             </div>
@@ -136,7 +140,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
 
           <Link
             href="/maharaja/try-on"
-            className="shrink-0 border border-[#161918] bg-white px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[#161918]"
+            className="flex min-h-11 shrink-0 items-center border border-[#161918] bg-white px-3 font-mono text-[10px] font-bold uppercase tracking-wider text-[#161918]"
           >
             Help
           </Link>
@@ -151,7 +155,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
             onClick={() => {
               setFlow('image-tryon');
             }}
-            className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] ${
+            className={`flex min-h-11 items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] ${
               flow === 'image-tryon' ? 'bg-[#7A1428] text-white' : 'text-[#161918]'
             }`}
           >
@@ -161,7 +165,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
           <button
             type="button"
             onClick={() => setFlow('ai-video')}
-            className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] ${
+            className={`flex min-h-11 items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] ${
               flow === 'ai-video' ? 'bg-[#7A1428] text-white' : 'text-[#161918]'
             }`}
           >
@@ -201,7 +205,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
                 Add your photo
               </h2>
             </div>
-            <label className="flex cursor-pointer items-center gap-1.5 bg-[#161918] px-3.5 py-2 text-xs font-semibold text-white">
+            <label className="flex min-h-11 cursor-pointer items-center gap-1.5 bg-[#161918] px-3.5 text-xs font-semibold text-white">
               <Camera className="h-3.5 w-3.5" />
               {personPhoto ? 'Change Photo' : 'Upload / Camera'}
               <input
@@ -236,7 +240,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
               <button
                 type="button"
                 onClick={() => setSourceMode('catalogue')}
-                className={`px-2.5 py-1 ${
+                className={`min-h-11 px-3 ${
                   sourceMode === 'catalogue' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
                 }`}
               >
@@ -245,7 +249,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
               <button
                 type="button"
                 onClick={() => setSourceMode('own-garment')}
-                className={`px-2.5 py-1 ${
+                className={`min-h-11 px-3 ${
                   sourceMode === 'own-garment' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
                 }`}
               >
@@ -259,13 +263,13 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="grid w-full grid-cols-4 gap-2 text-xs font-semibold">{(['women', 'men', 'boys', 'girls'] as const).map((audience) => <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => { setGenderFilter(audience); setActiveCategory(catalogueCategories.find((cat) => cat.gender === audience)!.id); }} className={`min-h-12 px-2 capitalize ${genderFilter === audience ? 'bg-[#e6eee8] text-[#20352b]' : 'bg-white'}`}>{audience}</button>)}</div>
 
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {filteredCategories.map((cat) => (
                     <button
                       key={cat.id}
                       type="button"
                       onClick={() => setActiveCategory(cat.id)}
-                      className={`border px-2.5 py-1 text-xs font-semibold ${
+                      className={`min-h-11 border px-3 text-xs font-semibold ${
                         activeCategory === cat.id
                           ? 'border-[#7A1428] bg-[#7A1428] text-white'
                           : 'border-[#D8DCD7] bg-white text-[#161918]'
@@ -364,7 +368,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: 
             <a
               href={resultImageUrl || selectedProduct.imageUrl}
               download={`maharaja-tryon-${selectedProduct.sku.toLowerCase()}.jpg`}
-              className="flex items-center gap-1.5 bg-[#161918] px-3 py-2 font-mono text-[10px] font-bold uppercase text-white"
+              className="flex min-h-11 items-center gap-1.5 bg-[#161918] px-3 font-mono text-[10px] font-bold uppercase text-white"
             >
               <Download className="h-3.5 w-3.5" />
               Download Image

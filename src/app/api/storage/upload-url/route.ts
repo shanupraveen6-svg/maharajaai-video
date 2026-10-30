@@ -1,10 +1,10 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
-import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { getOperatorSession, verifyOperatorRequest } from '@/lib/auth/operator';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
       const accessTryOn = await verifyMaharajaAccess(req, accessCode, 'try-on');
       const accessVideo = await verifyMaharajaAccess(req, accessCode, 'ai-video');
       isAllowed = accessTryOn.allowed || accessVideo.allowed;
+      bindClient(accessTryOn.allowed ? accessTryOn.clientId : accessVideo.allowed ? accessVideo.clientId : null);
+    } else if (isOperator) {
+      bindClient(getOperatorSession(req)?.clientId);
     }
 
     if (!isAllowed) {
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
         }
         transaction.set(sessionRef, {
           sessionId,
-          clientId: MAHARAJA_CLIENT_ID,
+          clientId: activeClientId(),
           accessCode: normalizedAccessCode || null,
           expiresAt: existing?.expiresAt || expiresAt,
           updatedAt: now.toISOString(),
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest) {
       mockStore.sessions.set(sessionId, {
         ...(existing || {}),
         sessionId,
-        clientId: MAHARAJA_CLIENT_ID,
+        clientId: activeClientId(),
         accessCode: normalizedAccessCode || null,
         expiresAt: existing?.expiresAt || expiresAt,
         updatedAt: now.toISOString(),
@@ -85,7 +88,7 @@ export async function POST(req: NextRequest) {
     const ext = contentType.includes('png') ? 'png' : 'jpg';
     const filename = `${crypto.randomUUID()}.${ext}`;
     const safeFolder = ['person', 'garment', 'uploads'].includes(folder) ? folder : 'uploads';
-    const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/${safeFolder}/${filename}`;
+    const storagePath = `clients/${activeClientId()}/sessions/${sessionId}/${safeFolder}/${filename}`;
 
     const bucket = getStorageBucket();
     if (bucket) {

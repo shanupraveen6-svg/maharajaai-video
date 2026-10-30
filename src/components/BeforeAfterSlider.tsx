@@ -9,6 +9,10 @@ type BeforeAfterSliderProps = {
   afterImage?: string;
   beforeLabel?: string;
   afterLabel?: string;
+  /** Sizing for the comparison frame; defaults to a 3:4 frame filling the width. */
+  frameClassName?: string;
+  /** Light labels for dark backgrounds such as the TV result screen. */
+  dark?: boolean;
 };
 
 export default function BeforeAfterSlider({
@@ -18,6 +22,8 @@ export default function BeforeAfterSlider({
   afterImage,
   beforeLabel = 'Current look',
   afterLabel = 'AI Try-On',
+  frameClassName = 'aspect-[3/4] w-full',
+  dark = false,
 }: BeforeAfterSliderProps) {
   const [position, setPosition] = useState(50);
   const resolvedBefore = before || beforeImage || '';
@@ -25,11 +31,11 @@ export default function BeforeAfterSlider({
 
   return (
     <section aria-label="Compare your current photo with your AI Try-On" className="mt-2 text-left">
-      <div className="mb-2 flex items-center justify-between font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#161918]">
+      <div className={`mb-2 flex items-center justify-between font-mono text-[11px] font-bold uppercase tracking-[0.14em] ${dark ? 'text-white' : 'text-[#161918]'}`}>
         <span>{beforeLabel}</span>
-        <span className="text-[#7A1428]">{afterLabel}</span>
+        <span className={dark ? 'text-[#EDC26C]' : 'text-[#7A1428]'}>{afterLabel}</span>
       </div>
-      <div className="relative aspect-[3/4] w-full overflow-hidden border border-[#D8DCD7] bg-[#161918]">
+      <div className={`relative overflow-hidden border border-[#D8DCD7] bg-[#161918] ${frameClassName}`}>
         <img
           src={resolvedBefore}
           alt={beforeLabel}

@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
+import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -32,6 +34,7 @@ function decodeImage(image: string) {
 }
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   try {
     const rate = await enforceRateLimit(req, 'tv-tryon-handoff', 6, 10 * 60 * 1000);
     if (!rate.allowed) return NextResponse.json({ error: 'Too many handoffs. Please wait before trying again.' }, { status: 429 });
@@ -61,6 +64,7 @@ export async function POST(req: NextRequest) {
           metadata: { cacheControl: 'private, no-store' },
         })));
         await db.collection('tvTryOnHandoffs').doc(token).set({
+          clientId: activeClientId(),
           expiresAtMs,
           expiresAt: new Date(expiresAtMs).toISOString(),
           looks: looks.map((look, index) => ({
@@ -79,7 +83,7 @@ export async function POST(req: NextRequest) {
         throw error;
       }
     } else if (!db) {
-      getMockStore().sessions.set(`tv_handoff_${token}`, { expiresAtMs, looks });
+      getMockStore().sessions.set(`tv_handoff_${token}`, { clientId: activeClientId(), expiresAtMs, looks });
     } else {
       return NextResponse.json({ error: 'Private handoff storage is unavailable.' }, { status: 503 });
     }

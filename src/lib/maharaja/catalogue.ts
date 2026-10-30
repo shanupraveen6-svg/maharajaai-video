@@ -2,10 +2,12 @@ import 'server-only';
 
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
 import { catalogueCategories, sampleCatalogue, type CatalogueCategoryId, type TryFocusProduct } from '@/lib/tryfocus/sample-data';
-import { MAHARAJA_CLIENT_ID } from './config';
 import type { MaharajaCatalogueProduct, PublicCatalogueProduct } from './catalogue-types';
+import { activeClientId } from './client-context';
+import { MAHARAJA_CLIENT_ID } from './config';
 
-const collectionPath = `clientWorkspaces/${MAHARAJA_CLIENT_ID}/catalogueProducts`;
+// Evaluated per call: each request reads the catalogue of the client it is bound to.
+const collectionPath = () => `clientWorkspaces/${activeClientId()}/catalogueProducts`;
 
 const LOCAL_DEMO_CATALOGUE: MaharajaCatalogueProduct[] = sampleCatalogue.map((item, index) => ({
   id: item.id,
@@ -85,11 +87,14 @@ const COMBINED_FALLBACK_CATALOGUE: MaharajaCatalogueProduct[] = [
 
 function getMockCatalogueMap(): Map<string, MaharajaCatalogueProduct> {
   const store = getMockStore() as any;
-  if (!store.catalogueProducts) {
-    store.catalogueProducts = new Map<string, MaharajaCatalogueProduct>();
+  if (!store.catalogueProductsByClient) {
+    store.catalogueProductsByClient = new Map<string, Map<string, MaharajaCatalogueProduct>>();
   }
-  const catalogue = store.catalogueProducts as Map<string, MaharajaCatalogueProduct>;
-  for (const item of LOCAL_DEMO_CATALOGUE) {
+  const clientId = activeClientId();
+  if (!store.catalogueProductsByClient.has(clientId)) store.catalogueProductsByClient.set(clientId, new Map());
+  const catalogue = store.catalogueProductsByClient.get(clientId) as Map<string, MaharajaCatalogueProduct>;
+  // Only Maharaja starts with its silk saree collection; other clients begin with an empty catalogue.
+  for (const item of clientId === MAHARAJA_CLIENT_ID ? LOCAL_DEMO_CATALOGUE : []) {
     if (!catalogue.has(item.sku)) catalogue.set(item.sku, { ...item });
   }
   return catalogue;
@@ -211,7 +216,7 @@ async function persistDataUrlIfNeeded(sku: string, slot: 'model' | 'reference', 
     const buffer = Buffer.from(match[2], 'base64');
     const ext = contentType.includes('png') ? 'png' : 'jpg';
     const safeSku = sku.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const path = `clients/${MAHARAJA_CLIENT_ID}/catalogue/${safeSku}/${slot}_${Date.now()}.${ext}`;
+    const path = `clients/${activeClientId()}/catalogue/${safeSku}/${slot}_${Date.now()}.${ext}`;
     const file = bucket.file(path);
     await file.save(buffer, { contentType, public: false });
     return path;
@@ -230,10 +235,12 @@ export async function listCatalogueProducts(
   let allProducts: MaharajaCatalogueProduct[] = [];
 
   if (db) {
-    const snapshot = await db.collection(collectionPath).get();
+    const snapshot = await db.collection(collectionPath()).get();
+    // Maharaja's built-in silk saree collection never appears in another client's catalogue.
+    const builtIn = activeClientId() === MAHARAJA_CLIENT_ID ? LOCAL_DEMO_CATALOGUE : [];
     if (!snapshot.empty) {
       const bySku = new Map<string, MaharajaCatalogueProduct>();
-      for (const item of LOCAL_DEMO_CATALOGUE) {
+      for (const item of builtIn) {
         bySku.set(item.sku, item);
       }
       snapshot.docs.forEach((doc, idx) => {
@@ -244,7 +251,7 @@ export async function listCatalogueProducts(
       });
       allProducts = Array.from(bySku.values()).filter((item) => !isDeprecatedDemoProduct(item.sku, item.storagePath));
     } else {
-      allProducts = [...LOCAL_DEMO_CATALOGUE];
+      allProducts = [...builtIn];
     }
   } else {
     const map = getMockCatalogueMap();
@@ -284,7 +291,7 @@ export async function getCatalogueProduct(sku: string): Promise<MaharajaCatalogu
   if (!cleanSku) return null;
   const db = getDb();
   if (db) {
-    const snapshot = await db.collection(collectionPath).doc(cleanSku).get();
+    const snapshot = await db.collection(collectionPath()).doc(cleanSku).get();
     if (snapshot.exists) {
       const product = normalizeCatalogueProduct(snapshot.data() as Partial<MaharajaCatalogueProduct>);
       return product.active ? product : null;
@@ -296,6 +303,7 @@ export async function getCatalogueProduct(sku: string): Promise<MaharajaCatalogu
       return mockItem.active ? mockItem : null;
     }
   }
+  if (activeClientId() !== MAHARAJA_CLIENT_ID) return null;
   const fallback = COMBINED_FALLBACK_CATALOGUE.find((product) => product.sku === cleanSku);
   return fallback && fallback.active ? fallback : null;
 }
@@ -329,7 +337,7 @@ export async function upsertCatalogueProduct(input: Partial<MaharajaCataloguePro
 
   const db = getDb();
   if (db) {
-    await db.collection(collectionPath).doc(sku).set(record, { merge: true });
+    await db.collection(collectionPath()).doc(sku).set(record, { merge: true });
   } else {
     const map = getMockCatalogueMap();
     map.set(sku, record);
@@ -361,7 +369,7 @@ export async function updateCatalogueProduct(
   let existing: MaharajaCatalogueProduct | undefined;
 
   if (db) {
-    const snap = await db.collection(collectionPath).doc(cleanSku).get();
+    const snap = await db.collection(collectionPath()).doc(cleanSku).get();
     if (snap.exists) {
       existing = normalizeCatalogueProduct(snap.data() as Partial<MaharajaCatalogueProduct>);
     }
@@ -370,7 +378,7 @@ export async function updateCatalogueProduct(
   }
 
   if (!existing) {
-    existing = COMBINED_FALLBACK_CATALOGUE.find((item) => item.sku === cleanSku);
+    existing = activeClientId() === MAHARAJA_CLIENT_ID ? COMBINED_FALLBACK_CATALOGUE.find((item) => item.sku === cleanSku) : undefined;
   }
   if (!existing) {
     throw new Error(`Catalogue item ${cleanSku} not found.`);
@@ -389,7 +397,7 @@ export async function deleteCatalogueProduct(sku: string): Promise<void> {
   if (!cleanSku) throw new Error('SKU is required.');
   const db = getDb();
   if (db) {
-    await db.collection(collectionPath).doc(cleanSku).delete();
+    await db.collection(collectionPath()).doc(cleanSku).delete();
   } else {
     getMockCatalogueMap().delete(cleanSku);
   }

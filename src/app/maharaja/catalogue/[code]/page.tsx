@@ -26,7 +26,7 @@ export default function MaharajaCatalogueGiftPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/maharaja/catalogue?offset=0&limit=30', { cache: 'no-store' }).then(readJson),
+      fetch(`/api/maharaja/catalogue?offset=0&limit=30&access=${encodeURIComponent(code)}`, { cache: 'no-store' }).then(readJson),
       fetch(`/api/maharaja/access/${encodeURIComponent(code)}?service=ai-video`, { cache: 'no-store' }).then(readJson),
     ])
       .then(([catalogue, access]) => {
@@ -71,7 +71,7 @@ export default function MaharajaCatalogueGiftPage() {
     setLoadingMore(true);
     try {
       const catalogue = await readJson(
-        await fetch(`/api/maharaja/catalogue?offset=${products.length}&limit=12`, {
+        await fetch(`/api/maharaja/catalogue?offset=${products.length}&limit=12&access=${encodeURIComponent(code)}`, {
           cache: 'no-store',
         })
       );
@@ -95,7 +95,7 @@ export default function MaharajaCatalogueGiftPage() {
           </span>
           <div>
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#7A1428]">
-              TryFocus × The Majestic Maharaja · 1-Day Video Pass
+              TryFocus · 1-Day Video Pass
             </p>
             <h1 className="font-serif text-2xl font-semibold text-[#161918]">
               Choose Your Store Catalogue Outfit (Women & Men)

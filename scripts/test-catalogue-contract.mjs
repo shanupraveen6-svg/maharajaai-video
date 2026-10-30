@@ -33,17 +33,13 @@ store.customerPasses.set(`maharaja:${pass.code}`, { ...pass, usage: { ...pass.us
 const thirdVideo = await server.acquireServiceGenerationLock(pass.code, 'video');
 assert.equal(thirdVideo.ok, false, 'Third Catalogue Gift video must be blocked.');
 
-const enqueueSource = fs.readFileSync(new URL('../src/app/api/live/enqueue/route.ts', import.meta.url), 'utf8');
-assert.match(enqueueSource, /experienceType === 'catalogue-gift'/);
-assert.match(enqueueSource, /cannot be sent to the showroom TV/);
 const resultSource = fs.readFileSync(new URL('../src/app/result/[sessionId]/ResultClient.tsx', import.meta.url), 'utf8');
 assert.match(resultSource, /allowGoLive/);
 const passSource = fs.readFileSync(new URL('../src/app/api/maharaja/video-pass/route.ts', import.meta.url), 'utf8');
 assert.doesNotMatch(passSource, /\[5000, 7000, 10000\]/);
-const masterImageSource = fs.readFileSync(new URL('../src/app/api/ai/master-image/route.ts', import.meta.url), 'utf8');
-assert.match(masterImageSource, /experienceType === 'catalogue-gift' && customerCategory !== 'women' && customerCategory !== 'girl'/);
+// Catalogue gifts cover every audience (women, men, girl, boy) and may Go Live with consent.
 const experienceSource = fs.readFileSync(new URL('../src/components/MaharajaExperience.tsx', import.meta.url), 'utf8');
-assert.match(experienceSource, /isCatalogueGift\s*\?\s*\['women', 'girl'\]/);
+assert.match(experienceSource, /selectableCategories: CustomerCategory\[\] = \['women', 'men', 'girl', 'boy'\]/);
 assert.match(experienceSource, /Choose your Diwali visual set/);
 
-console.log('Catalogue contract passed: isolated quota, one retry, Women/Girl visual sets, phone-only issue, and no Go Live.');
+console.log('Catalogue contract passed: isolated quota, one retry, all four audiences, and phone-only issue.');

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
-import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { isEventId } from '@/lib/maharaja/config';
 import { incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { activeClientId, bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 const LIVE_PLAY_COUNT = 2;
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest) {
   const promotionConsent = body?.promotionConsent === true;
 
   const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+
+  bindClient(access.allowed ? access.clientId : null);
   if (!access.allowed || !access.pass) {
     return NextResponse.json({ success: false, error: access.error || 'A valid AI Video pass is required.' }, { status: 401 });
   }
@@ -56,7 +59,7 @@ export async function POST(req: NextRequest) {
       const jobRef = db.collection('videoTestJobs').doc(jobId);
       const queueRef = db.collection('liveQueue').doc(queueId);
       const videoRef = db.collection('videos').doc(videoId);
-      const screenRef = db.collection('screens').doc('maharaja-main');
+      const screenRef = db.collection('screens').doc(liveScreenId());
       const [sessionDoc, jobDoc, queueDoc, screenDoc, videoDoc] = await Promise.all([
         transaction.get(sessionRef),
         transaction.get(jobRef),
@@ -83,7 +86,7 @@ export async function POST(req: NextRequest) {
       const hasFinalLiveAsset = Boolean(liveStoragePath);
       const media = {
         id: videoId,
-        clientId: MAHARAJA_CLIENT_ID,
+        clientId: activeClientId(),
         sessionId,
         accessCode,
         approvedJobId: jobId,
@@ -108,7 +111,7 @@ export async function POST(req: NextRequest) {
       transaction.set(videoRef, media, { merge: true });
       transaction.set(queueRef, {
         id: queueId,
-        screenId: 'maharaja-main',
+        screenId: liveScreenId(),
         videoId,
         videoJobId: jobId,
         videoUrl: liveStoragePath || job.videoStoragePath,
@@ -173,7 +176,7 @@ export async function POST(req: NextRequest) {
         hasEmbeddedAudio: hasFinalLiveAsset, customerName, customerLocality, createdAt: nowIso, expiresAt,
       });
       store.liveQueue.push({
-        id: queueId, screenId: 'maharaja-main', videoId, sessionId, queueNumber,
+        id: queueId, screenId: liveScreenId(), videoId, sessionId, queueNumber,
         status: 'queued', priority: 100, repeatCount: LIVE_PLAY_COUNT, timesPlayed: 0, createdAt: nowIso,
         playAtMs: now.getTime(), accessCode, videoJobId: jobId, eventId, customerName,
         customerLocality, videoUrl: liveStoragePath || job.videoStoragePath, ...(hasFinalLiveAsset ? {} : { liveAudioUrl }), liveConsent: true, loopConsent: true, promotionConsent,

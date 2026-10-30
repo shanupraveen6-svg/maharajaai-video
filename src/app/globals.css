@@ -204,6 +204,8 @@
 }
 
 @media (orientation: portrait) and (min-width: 900px) and (min-height: 1600px) {
+  /* The photo step fills the 43-inch portrait screen instead of leaving its lower half empty. */
+  .tv-kiosk button.tv-photo-action { min-height: 560px; }
   .tv-home { min-height: calc(100dvh - 342px); }
   .tv-home-hero { min-height: clamp(520px, 35vh, 660px); }
   .tv-experience-grid { flex: 1; }

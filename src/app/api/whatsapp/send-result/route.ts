@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { claimPassWhatsAppDelivery, getPublicAppUrl, getVideoPass, markPassWhatsAppDelivery, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { getWhatsAppStatus, sendWhatsAppResult } from '@/lib/whatsapp';
+import { bindClient } from '@/lib/maharaja/client-context';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
     const access = await verifyMaharajaAccess(req, body.accessCode, 'ai-video');
+    bindClient(access.allowed ? access.clientId : null);
     if (!access.allowed || !access.pass) return NextResponse.json({ success: false, fallback: 'qr', error: access.allowed ? 'Customer pass is required.' : access.error }, { status: 401 });
     const pass = await getVideoPass(access.pass.code);
     if (!pass?.whatsappOptIn) return NextResponse.json({ success: true, sent: false, fallback: 'qr' });

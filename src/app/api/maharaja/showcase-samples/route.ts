@@ -2,6 +2,8 @@ import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
+import { bindClient } from '@/lib/maharaja/client-context';
+import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +16,7 @@ function cleanName(value: FormDataEntryValue | null) {
 }
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   try {
     if (!verifyOperatorRequest(req)) {
       return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });

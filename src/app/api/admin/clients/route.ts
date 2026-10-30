@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { verifyAdminRequest } from '@/lib/auth/operator';
+import { listClientLoginUsernames, setClientAccount } from '@/lib/auth/client-accounts';
 import {
   getClientWorkspaceById,
   getWorkspaceLinks,
@@ -12,7 +13,7 @@ import { getWhatsAppStatus } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
-function formatClientRecord(ws: MaharajaWorkspace) {
+function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = []) {
   const whatsappStatus = getWhatsAppStatus();
   const links = getWorkspaceLinks(ws);
   return {
@@ -25,7 +26,9 @@ function formatClientRecord(ws: MaharajaWorkspace) {
     campaignEnabled: ws.campaignEnabled,
     minPurchaseTryOnDisabled: ws.minPurchaseTryOnDisabled ?? true,
     deliveryMode: ws.deliveryMode || 'qr',
-    whatsappConnected: Boolean(ws.whatsappConnected ?? whatsappStatus.configured),
+    whatsappConnected: ws.whatsappConnected === true,
+    whatsappApiReady: whatsappStatus.configured,
+    videoMinPurchase: ws.videoMinPurchase ?? 5000,
     devices: {
       tv: ws.devices?.tv ?? true,
       tablet: ws.devices?.tablet ?? true,
@@ -43,12 +46,24 @@ function formatClientRecord(ws: MaharajaWorkspace) {
       video: Number(ws.limits?.video ?? 500),
     },
     links: links.links,
+    logins,
     updatedAt: ws.updatedAt,
   };
 }
 
+/** Client records with the staff login usernames TryFocus created for each client. */
+async function withLogins(workspaces: MaharajaWorkspace[]) {
+  return Promise.all(workspaces.map(async (ws) => formatClientRecord(ws, await listClientLoginUsernames(ws.clientId).catch(() => []))));
+}
+
+/** Creates or resets a client's own staff login when TryFocus admin supplies one. */
+async function applyLogin(clientId: string, body: { loginUsername?: unknown; loginPassword?: unknown }) {
+  if (body.loginUsername === undefined && body.loginPassword === undefined) return;
+  await setClientAccount(clientId, body.loginUsername, body.loginPassword);
+}
+
 export async function GET(req: NextRequest) {
-  if (!verifyOperatorRequest(req)) {
+  if (!verifyAdminRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
   }
   try {
@@ -57,14 +72,14 @@ export async function GET(req: NextRequest) {
       const ws = await getClientWorkspaceById(clientId);
       return NextResponse.json({
         success: true,
-        client: formatClientRecord(ws),
+        client: (await withLogins([ws]))[0],
       });
     }
 
     const workspaces = await listClientWorkspaces();
     return NextResponse.json({
       success: true,
-      clients: workspaces.map(formatClientRecord),
+      clients: await withLogins(workspaces),
     });
   } catch (error) {
     return NextResponse.json(
@@ -75,12 +90,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!verifyOperatorRequest(req)) {
+  if (!verifyAdminRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
   }
   try {
     const body = await req.json();
     const saved = await upsertClientWorkspace(body);
+    await applyLogin(saved.clientId, body);
     await logMaharajaActivity('campaign', `TryFocus admin created/updated client workspace: ${saved.clientId}`, {
       clientId: saved.clientId,
       campaignEnabled: saved.campaignEnabled,
@@ -89,8 +105,8 @@ export async function POST(req: NextRequest) {
     const all = await listClientWorkspaces();
     return NextResponse.json({
       success: true,
-      client: formatClientRecord(saved),
-      clients: all.map(formatClientRecord),
+      client: (await withLogins([saved]))[0],
+      clients: await withLogins(all),
     });
   } catch (error) {
     return NextResponse.json(
@@ -101,7 +117,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!verifyOperatorRequest(req)) {
+  if (!verifyAdminRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
   }
   try {
@@ -113,11 +129,12 @@ export async function PATCH(req: NextRequest) {
       const all = await listClientWorkspaces();
       return NextResponse.json({
         success: true,
-        clients: all.map(formatClientRecord),
+        clients: await withLogins(all),
       });
     }
 
     const saved = await upsertClientWorkspace(body);
+    await applyLogin(saved.clientId, body);
     await logMaharajaActivity('campaign', `TryFocus admin updated client configuration: ${saved.clientId}`, {
       clientId: saved.clientId,
       campaignEnabled: saved.campaignEnabled,
@@ -126,8 +143,8 @@ export async function PATCH(req: NextRequest) {
     const all = await listClientWorkspaces();
     return NextResponse.json({
       success: true,
-      client: formatClientRecord(saved),
-      clients: all.map(formatClientRecord),
+      client: (await withLogins([saved]))[0],
+      clients: await withLogins(all),
     });
   } catch (error) {
     return NextResponse.json(

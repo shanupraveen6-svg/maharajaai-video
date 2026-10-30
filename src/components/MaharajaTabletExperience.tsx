@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useStoreCatalogue } from '@/lib/maharaja/use-store-catalogue';
+import { fetchCatalogueSettings } from '@/lib/maharaja/catalogue-client';
 import { createImageHandoff } from '@/lib/maharaja/image-handoff-client';
+import { compressImage } from '@/lib/utils/image';
 import {
   Camera,
   CheckCircle2,
@@ -68,6 +70,11 @@ export default function MaharajaTabletExperience() {
   // Audience & Catalogue state
   const [genderFilter, setGenderFilter] = useState<TryFocusProduct['gender']>('women');
   const catalogueItems = useStoreCatalogue();
+  // The counter runs on the signed-in client's laptop or tablet; show that client's name.
+  const [clientName, setClientName] = useState('');
+  useEffect(() => {
+    void fetchCatalogueSettings().then((settings) => setClientName(settings.clientName));
+  }, []);
   const [guardianConsent, setGuardianConsent] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(
@@ -96,7 +103,14 @@ export default function MaharajaTabletExperience() {
     if (options[0]) setOwnGarmentType(options[0].id);
   }, [activeCategory, genderFilter, catalogueItems]);
 
-  // Crop uploaded or tablet-captured photos to vertical 9:16 format
+  function handleGarmentFileRead(file?: File | null) {
+    if (!file) return;
+    compressImage(file, 1280, 0.85)
+      .then(({ dataUrl }) => setOwnGarmentPhoto(dataUrl))
+      .catch((error) => setTryOnStatusNote(error instanceof Error ? error.message : 'This garment photo could not be read.'));
+  }
+
+  // Crop uploaded or tablet-captured person photos to vertical 9:16 format
   function handleFileRead(setter: (val: string) => void, file?: File | null) {
     if (!file) return;
     const reader = new FileReader();
@@ -168,6 +182,10 @@ export default function MaharajaTabletExperience() {
       return;
     }
 
+    if (modeType === 'catalogue' && !catalogueItems.some((item) => item.sku === selectedProduct.sku)) {
+      setTryOnStatusNote('Choose a garment from this store’s catalogue.');
+      return;
+    }
     const garmentImg =
       modeType === 'own-garment'
         ? ownGarmentPhoto
@@ -206,6 +224,7 @@ export default function MaharajaTabletExperience() {
         body: JSON.stringify({
           sessionId,
           service: 'try-on',
+          surface: 'tablet',
           templateId: genderFilter === 'boys' ? 'boy' : genderFilter === 'girls' ? 'girl' : genderFilter,
           guardianProcessingConsent: guardianConsent,
           catalogueProductId: modeType === 'catalogue' ? selectedProduct.sku : resolvedSku,
@@ -270,14 +289,13 @@ export default function MaharajaTabletExperience() {
             </span>
             <div>
               <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                TryFocus × The Majestic Maharaja · Counter Tablet
+                TryFocus × {clientName} · Counter
               </p>
               <h1 className="font-serif text-lg font-semibold text-[#161918]">Counter assistant</h1>
             </div>
           </div>
 
-          {/* 3 Main Modes Navigation: 1 Own Garment, 2 Store Catalogue, 3 AI Video Pass */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={resetCustomerSession}
@@ -285,6 +303,16 @@ export default function MaharajaTabletExperience() {
             >
               New customer
             </button>
+            <Link
+              href="/maharaja/workspace"
+              className="flex min-h-11 items-center border border-[#D8DCD7] bg-white px-3.5 text-xs font-semibold text-[#161918] hover:border-[#161918]"
+            >
+              Workspace
+            </Link>
+          </div>
+
+          {/* 3 Main Modes Navigation: 1 Own Garment, 2 Store Catalogue, 3 AI Video Pass */}
+          <nav className="grid w-full grid-cols-3 gap-2" aria-label="Counter modes">
 
             {/* Mode 1: Own Garment Try-On (Default) */}
             <button
@@ -292,7 +320,7 @@ export default function MaharajaTabletExperience() {
               onClick={() => {
                 setTab('own-garment');
               }}
-              className={`flex min-h-11 items-center gap-1.5 border px-3.5 py-2 text-xs font-bold uppercase tracking-[0.12em] transition ${
+              className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] transition ${
                 tab === 'own-garment'
                   ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
                   : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
@@ -308,7 +336,7 @@ export default function MaharajaTabletExperience() {
               onClick={() => {
                 setTab('catalogue');
               }}
-              className={`flex min-h-11 items-center gap-1.5 border px-3.5 py-2 text-xs font-bold uppercase tracking-[0.12em] transition ${
+              className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] transition ${
                 tab === 'catalogue'
                   ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
                   : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
@@ -322,7 +350,7 @@ export default function MaharajaTabletExperience() {
             <button
               type="button"
               onClick={() => setTab('video-pass')}
-              className={`flex min-h-11 items-center gap-1.5 border px-3.5 py-2 text-xs font-bold uppercase tracking-[0.12em] transition ${
+              className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] transition ${
                 tab === 'video-pass'
                   ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
                   : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
@@ -332,13 +360,7 @@ export default function MaharajaTabletExperience() {
               3. AI Video Pass (QR)
             </button>
 
-            <Link
-              href="/maharaja/workspace"
-              className="border border-[#D8DCD7] bg-white px-3 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
-            >
-              Workspace
-            </Link>
-          </div>
+          </nav>
         </div>
       </header>
 
@@ -354,7 +376,7 @@ export default function MaharajaTabletExperience() {
                 <button
                   type="button"
                   onClick={() => setTabletStep('photo')}
-                  className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition ${
+                  className={`flex min-h-12 items-center gap-2 border px-4 text-xs font-bold uppercase tracking-wider transition ${
                     tabletStep === 'photo'
                       ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
                       : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#7A1428]'
@@ -370,7 +392,7 @@ export default function MaharajaTabletExperience() {
                   type="button"
                   disabled={!personPhoto}
                   onClick={() => setTabletStep('garment')}
-                  className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition ${
+                  className={`flex min-h-12 items-center gap-2 border px-4 text-xs font-bold uppercase tracking-wider transition ${
                     tabletStep === 'garment'
                       ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
                       : personPhoto
@@ -653,7 +675,7 @@ export default function MaharajaTabletExperience() {
                                 accept="image/*"
                                 capture="environment"
                                 className="hidden"
-                                onChange={(e) => handleFileRead(setOwnGarmentPhoto, e.target.files?.[0])}
+                                onChange={(e) => handleGarmentFileRead(e.target.files?.[0])}
                               />
                             </label>
                             <PhonePhotoTransfer
@@ -748,14 +770,14 @@ export default function MaharajaTabletExperience() {
                         Compare and save to phone
                       </h3>
 
-                      <div className="relative aspect-[9/16] max-h-[500px] w-full overflow-hidden border-2 border-[#161918] bg-[#161918]">
-                        <BeforeAfterSlider
-                          beforeImage={personPhoto || '/maharaja-logo.png'}
-                          afterImage={tryOnResultUrl || ownGarmentPhoto || '/maharaja-logo.png'}
-                          beforeLabel="Customer Original"
-                          afterLabel="New AI Try-On"
-                        />
-                      </div>
+                      <BeforeAfterSlider
+                        key={tryOnResultUrl.slice(-24)}
+                        beforeImage={personPhoto || '/maharaja-logo.png'}
+                        afterImage={tryOnResultUrl || ownGarmentPhoto || '/maharaja-logo.png'}
+                        beforeLabel="Customer Original"
+                        afterLabel="New AI Try-On"
+                        frameClassName="mx-auto aspect-[9/16] w-full max-w-[282px]"
+                      />
 
                       {tryOnMobileQr && (
                         <div className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
@@ -908,14 +930,14 @@ export default function MaharajaTabletExperience() {
                         Compare and save to phone
                       </h3>
 
-                      <div className="relative aspect-[9/16] max-h-[500px] w-full overflow-hidden border-2 border-[#161918] bg-[#161918]">
-                        <BeforeAfterSlider
-                          beforeImage={personPhoto || '/maharaja-logo.png'}
-                          afterImage={tryOnResultUrl || selectedProduct.imageUrl}
-                          beforeLabel="Customer Original"
-                          afterLabel="New AI Try-On"
-                        />
-                      </div>
+                      <BeforeAfterSlider
+                        key={tryOnResultUrl.slice(-24)}
+                        beforeImage={personPhoto || '/maharaja-logo.png'}
+                        afterImage={tryOnResultUrl || selectedProduct.imageUrl}
+                        beforeLabel="Customer Original"
+                        afterLabel="New AI Try-On"
+                        frameClassName="mx-auto aspect-[9/16] w-full max-w-[282px]"
+                      />
 
                       {tryOnMobileQr && (
                         <div className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">

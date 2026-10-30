@@ -1,34 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
+import { getStorageBucket } from '@/lib/firebase/admin';
+
+import { readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
 
 export const dynamic = 'force-dynamic';
 
-type StoredLook = {
-  sku: string;
-  title: string;
-  contentType: string;
-  path?: string;
-  bytes?: Buffer;
-  category?: string;
-  garmentType?: string;
-  gender?: string;
-  garmentReferenceUrl?: string;
-};
-type StoredHandoff = { expiresAtMs: number; looks: StoredLook[] };
-
-async function readHandoff(token: string): Promise<StoredHandoff | null> {
-  if (!/^[A-Za-z0-9_-]{32}$/.test(token)) return null;
-  const db = getDb();
-  const record = db
-    ? (await db.collection('tvTryOnHandoffs').doc(token).get()).data()
-    : getMockStore().sessions.get(`tv_handoff_${token}`);
-  if (!record || Number(record.expiresAtMs) <= Date.now() || !Array.isArray(record.looks)) return null;
-  return record as StoredHandoff;
-}
 
 export async function GET(req: NextRequest, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
-  const handoff = await readHandoff(token);
+  const handoff = await readTryOnHandoff(token);
   if (!handoff) return NextResponse.json({ error: 'This private look link has expired.' }, { status: 404 });
 
   const imageIndex = req.nextUrl.searchParams.get('image');

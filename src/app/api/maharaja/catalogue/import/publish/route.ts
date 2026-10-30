@@ -3,10 +3,13 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getStorageBucket } from '@/lib/firebase/admin';
 import { getCatalogueProduct, upsertCatalogueProduct } from '@/lib/maharaja/catalogue';
 import { catalogueCategories } from '@/lib/tryfocus/sample-data';
+import { bindClient } from '@/lib/maharaja/client-context';
+import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) return NextResponse.json({ error: 'Operator sign-in required.' }, { status: 401 });
   try {
     const body = await req.json();

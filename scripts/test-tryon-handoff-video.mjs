@@ -13,7 +13,8 @@ const { NextRequest } = await import('next/server.js');
 const { getMockStore } = await import('../src/lib/firebase/admin.ts');
 const { POST: createHandoff } = await import('../src/app/api/tv/tryon-handoff/route.ts');
 const { GET: getHandoff } = await import('../src/app/api/tv/tryon-handoff/[token]/route.ts');
-const { POST: startVideo, GET: getVideoStatus } = await import('../src/app/api/tv/tryon-handoff/[token]/video/route.ts');
+const { POST: createLookPass } = await import('../src/app/api/tv/tryon-handoff/[token]/pass/route.ts');
+const { getVideoPass, updateMaharajaSettings } = await import('../src/lib/maharaja/server.ts');
 
 console.log('--- TESTING TRY-ON HANDOFF & AI VIDEO ROUTE ---');
 
@@ -55,126 +56,70 @@ assert.equal(getData.looks[0].category, 'sarees');
 assert.equal(getData.looks[0].garmentReferenceUrl, sampleGarmentUrl);
 console.log('✓ Handoff look retrieved with authentic garment reference:', getData.looks[0].garmentReferenceUrl);
 
-// 3. Test video generation without Go-Live consent -> MUST FAIL with 400
-const noConsentReq = new NextRequest(`http://localhost/api/tv/tryon-handoff/${token}/video`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    imageIndex: 0,
-    consentGoLive: false,
-  }),
-});
-const noConsentRes = await startVideo(noConsentReq, { params: Promise.resolve({ token }) });
-assert.equal(noConsentRes.status, 400, 'Must reject video generation without Go-Live consent');
-console.log('✓ Video generation correctly rejected when Go-Live consent is missing');
-
-// 4. Test production honesty: when in production without FAL_KEY, MUST FAIL with 503 (no fake stock video!)
-{
-  const oldNodeEnv = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'production';
-  const prodReq = new NextRequest(`http://localhost/api/tv/tryon-handoff/${token}/video`, {
+async function requestPass(handoffToken, imageIndex) {
+  const req = new NextRequest(`http://localhost/api/tv/tryon-handoff/${handoffToken}/pass`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      imageIndex: 0,
-      consentGoLive: true,
-    }),
+    body: JSON.stringify({ imageIndex }),
   });
-  const prodRes = await startVideo(prodReq, { params: Promise.resolve({ token }) });
-  assert.equal(prodRes.status, 503, 'Must return 503 in production when video provider is unconfigured');
-  const prodData = await prodRes.json();
-  assert.match(prodData.error, /temporarily unavailable/);
-  console.log('✓ Production mode honestly rejects with 503 when FAL_KEY is missing (no fake demo video)');
-  process.env.NODE_ENV = oldNodeEnv;
+  const res = await createLookPass(req, { params: Promise.resolve({ token: handoffToken }) });
+  return { status: res.status, data: await res.json() };
 }
 
-// 5. Test video generation in test environment -> creates persistent job with durable consent
-const videoReq = new NextRequest(`http://localhost/api/tv/tryon-handoff/${token}/video`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-forwarded-for': '203.0.113.195',
-    'user-agent': 'MaharajaMobile/1.0',
-  },
-  body: JSON.stringify({
-    imageIndex: 0,
-    consentGoLive: true,
-    useFailProofPrompt: false,
-  }),
-});
-const videoRes = await startVideo(videoReq, { params: Promise.resolve({ token }) });
-assert.equal(videoRes.status, 200, 'Video start failed');
-const videoData = await videoRes.json();
-assert.ok(videoData.success, 'Video start response must be successful');
-assert.ok(videoData.jobId, 'jobId must be present');
-console.log('✓ Video generation started with jobId:', videoData.jobId, 'status:', videoData.status);
+async function newHandoffToken(sku = 'OWN-123456') {
+  const res = await createHandoff(new NextRequest('http://localhost/api/tv/tryon-handoff', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ looks: [{ sku, title: 'Customer Saree', image: testBase64Png, category: 'saree', garmentType: 'saree', gender: 'women', garmentReferenceUrl: testBase64Png }] }),
+  }));
+  return (await res.json()).token;
+}
 
-// Verify durable consent was stored on the job record
-const storedJob = getMockStore().sessions.get(`video_test_${videoData.jobId}`);
-assert.ok(storedJob, 'Job must be persisted in database');
-assert.equal(storedJob.consentRecord.granted, true);
-assert.equal(storedJob.consentRecord.clientIp, '203.0.113.195');
-assert.equal(storedJob.consentRecord.purpose, 'showroom-tv-golive-preview');
-console.log('✓ Durable consent record verified with client IP and purpose');
+// 3. A look becomes a private 24-hour festival video pass (no Go Live condition, no direct render)
+const first = await requestPass(token, 0);
+assert.equal(first.status, 200, first.data.error);
+assert.ok(first.data.pass.code, 'Pass code must be returned');
+assert.equal(first.data.pass.path.endsWith(first.data.pass.code), true);
+assert.equal(
+  first.data.pass.path.startsWith('/maharaja/catalogue/'),
+  first.data.pass.experienceType === 'catalogue-gift',
+  'Catalogue looks open the catalogue pass page; own garments open the video page'
+);
+const stored = await getVideoPass(first.data.pass.code);
+assert.ok(stored, 'Pass must be persisted');
+assert.equal(stored.videoMasterDone, false, 'Gemini event portrait is created on the phone, not reused from the Try-On image');
+assert.ok(Math.abs(stored.expiresAtMs - Date.now() - 24 * 60 * 60 * 1000) < 60_000, 'Pass is valid for 24 hours');
+console.log('✓ Look converted into a 24-hour AI Video pass:', first.data.pass.experienceType);
 
-// 6. Test Idempotency: generating again for the same ready look returns existing result without new cost
-const repeatReq = new NextRequest(`http://localhost/api/tv/tryon-handoff/${token}/video`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    imageIndex: 0,
-    consentGoLive: true,
-    isRetry: false,
-  }),
-});
-const repeatRes = await startVideo(repeatReq, { params: Promise.resolve({ token }) });
-assert.equal(repeatRes.status, 200);
-const repeatData = await repeatRes.json();
-assert.equal(repeatData.jobId, videoData.jobId, 'Must return existing ready job ID');
-assert.equal(repeatData.status, 'ready');
-console.log('✓ Idempotent request returned existing video without generating duplicate job');
+// 4. Tapping again returns the same pass
+const repeat = await requestPass(token, 0);
+assert.equal(repeat.status, 200);
+assert.equal(repeat.data.pass.code, first.data.pass.code);
+console.log('✓ Repeat tap reuses the same pass');
 
-// 7. Test Retry: explicit retry allowed once with fail-proof prompt
-const retryReq1 = new NextRequest(`http://localhost/api/tv/tv-handoff/video`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    imageIndex: 0,
-    consentGoLive: true,
-    isRetry: true,
-    useFailProofPrompt: true,
-  }),
-});
-const retryRes1 = await startVideo(retryReq1, { params: Promise.resolve({ token }) });
-assert.equal(retryRes1.status, 200);
-const retryData1 = await retryRes1.json();
-assert.ok(retryData1.jobId);
-console.log('✓ First video retry allowed and tracked (retryCount = 1)');
+// 5. Own garment looks become purchased-garment passes
+const ownToken = await newHandoffToken();
+const own = await requestPass(ownToken, 0);
+assert.equal(own.status, 200, own.data.error);
+assert.equal(own.data.pass.experienceType, 'purchased-garment');
+assert.match(own.data.pass.path, /^\/maharaja\/video\//);
+console.log('✓ Own garment look opens the own-garment video flow');
 
-// 8. Test Retry Limit: 2nd retry must be rejected with limit reached
-const retryReq2 = new NextRequest(`http://localhost/api/tv/tv-handoff/video`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    imageIndex: 0,
-    consentGoLive: true,
-    isRetry: true,
-  }),
-});
-const retryRes2 = await startVideo(retryReq2, { params: Promise.resolve({ token }) });
-assert.equal(retryRes2.status, 400);
-const retryData2 = await retryRes2.json();
-assert.match(retryData2.error, /retry limit reached/i);
-console.log('✓ Second video retry correctly blocked by server-side retry limit protection');
+// 6. Unknown look index is rejected
+const missing = await requestPass(ownToken, 4);
+assert.equal(missing.status, 404);
+console.log('✓ Unknown look rejected');
 
-// 9. Query status of video job
-const statusReq = new NextRequest(`http://localhost/api/tv/tryon-handoff/${token}/video?jobId=${videoData.jobId}`);
-const statusRes = await getVideoStatus(statusReq, { params: Promise.resolve({ token }) });
-assert.equal(statusRes.status, 200, 'Video status check failed');
-const statusData = await statusRes.json();
-assert.ok(statusData.success);
-assert.equal(statusData.status, 'ready');
-assert.ok(statusData.videoUrl, 'Video URL must be returned');
-console.log('✓ Video status ready with videoUrl:', statusData.videoUrl);
+// 7. Store video credits and the mobile switch are enforced
+await updateMaharajaSettings({ limits: { video: 0 } });
+const noCredit = await requestPass(await newHandoffToken('OWN-222222'), 0);
+assert.equal(noCredit.status, 403);
+assert.match(noCredit.data.error, /paused/i);
+await updateMaharajaSettings({ limits: { video: 500 }, devices: { mobile: false } });
+const mobileOff = await requestPass(await newHandoffToken('OWN-333333'), 0);
+assert.equal(mobileOff.status, 403);
+assert.match(mobileOff.data.error, /turned off/i);
+await updateMaharajaSettings({ devices: { mobile: true } });
+console.log('✓ Video credits and mobile switch enforced before a pass is issued');
 
-console.log('ALL TRY-ON HANDOFF VIDEO AUDIT TESTS PASSED SUCCESSFULLY!');
+console.log('ALL TRY-ON HANDOFF VIDEO PASS TESTS PASSED SUCCESSFULLY!');

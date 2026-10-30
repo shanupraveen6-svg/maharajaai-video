@@ -201,12 +201,12 @@ export default function LandingPage() {
           <div className="mx-auto mt-12 grid max-w-5xl gap-6 lg:grid-cols-2">
             <PricingPlan title="Standard" label="For a focused store launch" items={[
               ['AI Image Try-On', '4,000 generations', '₹50,000', '₹40,000'],
-              ['Live AI Try-On', '500 × 30-second sessions', '₹50,000', '₹40,000'],
+              ['Live AI Try-On', '500 × 60-second sessions', '₹50,000', '₹40,000'],
               ['AI Video', '500 video journeys', '₹50,000', '₹40,000'],
             ]} />
             <PricingPlan featured title="Pro" label="For a complete flagship experience" items={[
               ['AI Image Try-On', '6,000 generations', '₹99,999', '₹80,000'],
-              ['Live AI Try-On', '1,000 × 30-second sessions', '₹99,999', '₹80,000'],
+              ['Live AI Try-On', '1,000 × 60-second sessions', '₹99,999', '₹80,000'],
               ['AI Video', '1,000 video journeys', '₹99,999', '₹80,000'],
             ]} />
           </div>

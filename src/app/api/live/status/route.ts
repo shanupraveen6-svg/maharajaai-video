@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -22,7 +23,7 @@ function compareQueueItems(a: any, b: any): number {
 
 async function getQueuePosition(db: any, queueId: string): Promise<number | null> {
   const snapshot = await db.collection('liveQueue')
-    .where('screenId', '==', 'maharaja-main')
+    .where('screenId', '==', liveScreenId())
     .where('status', '==', 'queued')
     .get();
 
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
     const queueId = searchParams.get('queueId');
     const accessCode = searchParams.get('accessCode');
     const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+    bindClient(access.allowed ? access.clientId : null);
     if (!access.allowed && access.error !== 'This AI Video has been completed.') {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
@@ -103,7 +105,7 @@ export async function GET(req: NextRequest) {
       }
 
       const queuedItems = mockStore.liveQueue
-        .filter((q: any) => q.screenId === 'maharaja-main' && q.status === 'queued')
+        .filter((q: any) => q.screenId === liveScreenId() && q.status === 'queued')
         .sort(compareQueueItems);
       const queueIndex = queuedItems.findIndex((q: any) => q.id === queueId);
       const queuePosition = item.status === 'queued' && queueIndex >= 0 ? queueIndex + 1 : null;

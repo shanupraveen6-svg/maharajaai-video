@@ -13,6 +13,8 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { resolveStoredVideoPaths } from '@/lib/maharaja/storage-video';
 import { isApprovedDemoVideoPath } from '@/lib/maharaja/tv-pool';
+import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
+import { goLiveClientId, resolveRequestClientId } from '@/lib/maharaja/server';
 
 const FALLBACK_NAME = 'Maharaja Guest';
 const MAX_PAGE_ITEMS = 200;
@@ -75,8 +77,9 @@ function stableSessionId(storagePath: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  if (!await verifyTvRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Authenticated Maharaja TV required.' }, { status: 401 });
+  bindClient(await resolveRequestClientId(req));
+  if (!(await goLiveClientId(req)) && !await verifyTvRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Open this screen from the workspace Go Live link.' }, { status: 401 });
   }
   try {
     const limit = cleanLimit(req.nextUrl.searchParams.get('limit'));
@@ -90,7 +93,7 @@ export async function GET(req: NextRequest) {
     if (db) {
       const [videosSnapshot, queueSnapshot, catalogSnapshot] = await Promise.all([
         db.collection('videos').get(),
-        db.collection('liveQueue').where('screenId', '==', 'maharaja-main').limit(1000).get(),
+        db.collection('liveQueue').where('screenId', '==', liveScreenId()).limit(1000).get(),
         db.collection('videoCatalog').get(),
       ]);
 
@@ -391,6 +394,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   try {
     if (!verifyOperatorRequest(req)) {
       return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
@@ -417,6 +421,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   try {
     const body = await req.json().catch(() => ({}));
     const targetSessionIds: string[] = Array.isArray(body.sessionIds) && body.sessionIds.length > 0

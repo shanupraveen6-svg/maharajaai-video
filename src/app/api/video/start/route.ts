@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { isEventId, MAHARAJA_CLIENT_ID, type EventId, type GarmentType } from '@/lib/maharaja/config';
+import { isEventId, type EventId, type GarmentType } from '@/lib/maharaja/config';
 import { getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import {
   acquirePassVideoLock,
@@ -11,13 +11,14 @@ import {
   verifyMaharajaAccess,
 } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 const MAX_VIDEO_REFERENCE_BYTES = 12 * 1024 * 1024;
 
 async function downloadValidatedReference(sourcePath: string, label: string, allowedCataloguePath = '') {
-  const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/`;
+  const expectedPrefix = `clients/${activeClientId()}/sessions/`;
   if (!sourcePath.startsWith(expectedPrefix) && sourcePath !== allowedCataloguePath) throw new Error(`${label} path is outside this Maharaja session.`);
   const bucket = getStorageBucket();
   if (!bucket) throw new Error('Firebase Storage is unavailable.');
@@ -103,6 +104,8 @@ export async function POST(req: NextRequest) {
   if (!falKey) return NextResponse.json({ success: false, error: 'Video provider is temporarily unavailable.' }, { status: 503 });
 
   const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+
+  bindClient(access.allowed ? access.clientId : null);
   if (!access.allowed || !access.pass) {
     return NextResponse.json({ success: false, error: access.allowed ? 'A customer AI Video pass is required.' : access.error }, { status: 401 });
   }
@@ -127,7 +130,7 @@ export async function POST(req: NextRequest) {
   const session = db
     ? (await db.collection('sessions').doc(sessionId).get()).data()
     : getMockStore().sessions.get(sessionId);
-  if (!session || session.accessCode !== accessCode || session.masterStoragePath !== `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`) {
+  if (!session || session.accessCode !== accessCode || session.masterStoragePath !== `clients/${activeClientId()}/sessions/${sessionId}/master/master.jpg`) {
     return NextResponse.json({ success: false, error: 'The approved master image session could not be verified.' }, { status: 403 });
   }
 
@@ -135,9 +138,9 @@ export async function POST(req: NextRequest) {
   const webhookToken = crypto.randomBytes(32).toString('hex');
   const webhookTokenHash = crypto.createHash('sha256').update(webhookToken).digest('hex');
   const createdAt = new Date().toISOString();
-  const basePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/video-tests/${jobId}`;
+  const basePath = `clients/${activeClientId()}/sessions/${sessionId}/video-tests/${jobId}`;
   const jobBase = {
-    jobId, sessionId, accessCode, passCode, modelId: model.id, model: model.model,
+    jobId, sessionId, accessCode, passCode, clientId: activeClientId(), modelId: model.id, model: model.model,
     status: 'preparing', createdAt, updatedAt: createdAt,
     estimatedUsd: model.estimatedUsd, duration: model.seconds,
     attempt: 1, providerName,

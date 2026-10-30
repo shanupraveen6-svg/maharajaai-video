@@ -21,8 +21,10 @@ import {
   X,
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
+import { LOOK_PREFILL_KEY, type LookPrefill } from '@/lib/maharaja/look-prefill';
 import {
   EVENT_OPTIONS,
+  GARMENT_TYPE_VALUES,
   getEventOption,
   type CustomerCategory,
   type EventId,
@@ -295,6 +297,35 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     setDeviceId(next);
   }, []);
 
+  // A pass started from a TV or tablet Try-On look arrives with that look (and the customer's own
+  // garment photo) in session storage, so the customer goes straight to the festival portrait.
+  function applyLookPrefill(catalogueGift: boolean) {
+    let prefill: LookPrefill | null = null;
+    try {
+      const key = LOOK_PREFILL_KEY(accessCode);
+      const raw = window.sessionStorage.getItem(key);
+      window.sessionStorage.removeItem(key);
+      prefill = raw ? JSON.parse(raw) as LookPrefill : null;
+    } catch {
+      prefill = null;
+    }
+    if (!prefill?.personPhoto?.startsWith('data:image/')) return;
+    setPersonPhoto(prefill.personPhoto);
+    setPersonAnalysis({ valid: true, additionalPhotoRequired: false, operatorMessage: 'Photo from your Try-On look.' });
+    const garments = (prefill.garmentPhotos || []).filter((item) => item.startsWith('data:image/'));
+    if (!catalogueGift && garments.length) {
+      setGarmentPhotos(garments.slice(0, 2));
+      const lookType = GARMENT_TYPE_VALUES.find((item) => item === prefill?.garmentType && item !== 'unset');
+      if (lookType) {
+        setGarmentType(lookType);
+        setGarmentTypeConfirmed(true);
+        setGarmentRoles(rolesForGarment(lookType));
+      }
+      setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: lookType || 'unset', primaryColor: 'Original color' });
+    }
+    setMessage('Your Try-On look is added. Choose your festival scene and create your portrait.');
+  }
+
   useEffect(() => {
     if (!deviceId) return;
     let active = true;
@@ -361,6 +392,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           return;
         }
         if (!used) window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
+        if (service === 'ai-video' && !data.access.videoMasterUrl) applyLookPrefill(data.access.experienceType === 'catalogue-gift');
         setStage('ready');
       } catch (caught) {
         if (!active) return;
@@ -875,7 +907,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             </span>
             <div>
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#7A1428]">
-                TryFocus × The Majestic Maharaja
+                TryFocus × {access?.workspace.clientName || 'TryFocus'}
               </p>
               <h1 className="font-serif text-xl font-semibold text-[#161918]">
                 {activeService === 'try-on' ? 'AI Image Try-On (Direct Scan · ₹500 Min Disabled)' : '1-Day AI Video Pass'}
@@ -1291,9 +1323,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         {activeService === 'try-on'
           ? 'Your photos are temporarily processed to create this Try-On and are removed from Maharaja storage after generation. The downloaded result remains on your device.'
           : 'AI Video media is temporarily retained for delivery, expires after one day, and is cleared by scheduled cleanup unless an adult separately permits promotional use. Anonymous usage totals may be retained.'}{' '}
-        <Link href="/privacy" className="font-bold text-[#6E0D1F] underline underline-offset-2">Privacy &amp; Data Use</Link>
+        <Link href="/privacy" className="inline-block py-3 font-bold text-[#6E0D1F] underline underline-offset-2">Privacy &amp; Data Use</Link>
         <span className="px-1.5">·</span>
-        <Link href="/terms" className="font-bold text-[#6E0D1F] underline underline-offset-2">Terms</Link>
+        <Link href="/terms" className="inline-block py-3 font-bold text-[#6E0D1F] underline underline-offset-2">Terms</Link>
       </div>
     </main>
   );

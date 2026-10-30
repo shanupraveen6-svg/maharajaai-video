@@ -1,7 +1,9 @@
 import type { PublicCatalogueProduct } from './catalogue-types';
 
-export async function fetchCompleteCatalogue(includeInactive = false): Promise<PublicCatalogueProduct[]> {
-  const query = (offset: number) => `/api/maharaja/catalogue?offset=${offset}&limit=100${includeInactive ? '&includeInactive=true' : ''}`;
+/** `accessCode` (a customer QR or pass code) selects the client's catalogue on pages without a staff login. */
+export async function fetchCompleteCatalogue(includeInactive = false, accessCode = ''): Promise<PublicCatalogueProduct[]> {
+  const access = accessCode ? `&access=${encodeURIComponent(accessCode)}` : '';
+  const query = (offset: number) => `/api/maharaja/catalogue?offset=${offset}&limit=100${includeInactive ? '&includeInactive=true' : ''}${access}`;
   const first = await fetch(query(0), { cache: 'no-store' });
   const initial = await first.json();
   if (!first.ok || !initial.success || !Array.isArray(initial.products)) throw new Error(initial.error || 'Could not load catalogue.');
@@ -16,12 +18,12 @@ export async function fetchCompleteCatalogue(includeInactive = false): Promise<P
   return [...initial.products, ...pages.flat()];
 }
 
-export async function fetchCatalogueSettings(): Promise<{ tvBillSuffixRequired: boolean }> {
+export async function fetchCatalogueSettings(): Promise<{ tvBillSuffixRequired: boolean; clientName: string }> {
   try {
     const res = await fetch('/api/maharaja/catalogue?offset=0&limit=1', { cache: 'no-store' });
     const data = await res.json();
-    return { tvBillSuffixRequired: data?.tvBillSuffixRequired !== false };
+    return { tvBillSuffixRequired: data?.tvBillSuffixRequired !== false, clientName: typeof data?.clientName === 'string' ? data.clientName : '' };
   } catch {
-    return { tvBillSuffixRequired: true };
+    return { tvBillSuffixRequired: true, clientName: '' };
   }
 }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
-import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { finalizeCompletedVideo, logMaharajaActivity, markPassVideoFailed, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { extractVideoUrl, publicFalQueueUrl } from '@/lib/maharaja/video-test';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -38,6 +38,8 @@ export async function GET(req: NextRequest) {
   if (!jobId || !accessCode) return NextResponse.json({ success: false, error: 'jobId and accessCode are required.' }, { status: 400 });
 
   const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+
+  bindClient(access.allowed ? access.clientId : null);
   if (!access.allowed) return NextResponse.json({ success: false, error: access.error }, { status: 401 });
   const db = getDb();
   const job = db
@@ -144,7 +146,7 @@ export async function GET(req: NextRequest) {
       videoBuffer: providerBytes,
       provider: job.modelId || 'minimax/h3-max/reference-to-video',
       accessCode: String(job.passCode || access.pass?.code || accessCode),
-      clientId: MAHARAJA_CLIENT_ID,
+      clientId: activeClientId(),
       eventId: job.eventId || 'diwali',
     });
     if (!finalized.success) throw new Error(finalized.error);

@@ -33,6 +33,62 @@ export function getEventOption(eventId: EventId) {
 export type CustomerCategory = 'men' | 'women' | 'boy' | 'girl';
 
 /** Production virtual try-on prompt. Festival styling belongs only to the AI Video master flow. */
+/** Garment types that make sense for each customer category; anything else is treated as generic. */
+const GARMENT_TYPES_BY_CATEGORY: Record<CustomerCategory, readonly GarmentType[]> = {
+  women: ['saree', 'lehenga', 'salwar', 'one_piece', 'two_piece', 'three_piece', 'shirt_pant', 'tshirt_bottom', 'generic'],
+  men: ['kurta_dhoti', 'dhoti_veshti', 'shirt_pant', 'tshirt_bottom', 'two_piece', 'three_piece', 'generic'],
+  girl: ['pattu_pavadai', 'lehenga', 'salwar', 'one_piece', 'two_piece', 'three_piece', 'tshirt_bottom', 'generic'],
+  boy: ['boy_ethnic', 'kurta_dhoti', 'dhoti_veshti', 'shirt_pant', 'tshirt_bottom', 'two_piece', 'three_piece', 'generic'],
+};
+
+/**
+ * A garment type the customer category cannot wear (for example a pattu pavadai for a boy) would steer
+ * the model toward the wrong garment, so it falls back to copying the references exactly.
+ */
+export function compatibleGarmentType(category: CustomerCategory, garmentType: GarmentType): GarmentType {
+  if (garmentType === 'unset') return 'generic';
+  return GARMENT_TYPES_BY_CATEGORY[category].includes(garmentType) ? garmentType : 'generic';
+}
+
+/** One rule per garment type, shared by the Try-On and festival master image prompts. */
+export const GARMENT_TYPE_RULES: Record<GarmentType, string> = {
+  saree: 'SAREE: an authentic Indian saree. Preserve the exact saree body, pallu, border finish, motif geometry and blouse construction, with neat front waist pleats, a clean diagonal body wrap and the pallu falling naturally from the shoulder. Never convert it into a salwar, churidar, lehenga or one-piece garment.',
+  lehenga: 'LEHENGA CHOLI: preserve the exact flared skirt and kalis, embroidered hem border, choli neckline and sleeves, and the dupatta drape as shown. No saree pleats or pallu.',
+  salwar: 'SALWAR / ANARKALI: preserve the exact tunic length and flare, neckline, side slits, salwar or churidar bottom and dupatta drape. No saree pleats or pallu.',
+  one_piece: 'ONE-PIECE (gown, dress or frock): preserve the exact single-garment silhouette, neckline, sleeves, waistline, flare and hem length. Do not add a dupatta, jacket, second piece or saree drape.',
+  two_piece: 'TWO-PIECE SET: preserve the supplied top and bottom as two separate pieces with their exact lengths, fit and prints. Do not add a third layer, dupatta or saree drape.',
+  three_piece: 'THREE-PIECE SET: preserve the exact inner top, outer layer (jacket, shrug, waistcoat or dupatta) and bottom, layered in the order shown. Do not remove or invent a layer.',
+  shirt_pant: 'SHIRT AND TROUSERS: preserve the exact shirt collar, placket, buttons, sleeves and print, and the supplied trousers with waistband and hem resting above the footwear. Never convert either piece to a kurta, dhoti or ethnic wear.',
+  tshirt_bottom: 'T-SHIRT / CASUAL TOP AND BOTTOM: preserve the exact knit or casual top with its neckline, print and sleeve length (no collar or buttons unless shown) and the supplied bottom (jeans, trousers, shorts or skirt). Never add a jacket or convert it to formal or ethnic wear.',
+  dhoti_veshti: 'VESHTI / DHOTI WITH SHIRT: preserve the supplied shirt or kurta and the veshti wrapped with front pleats, the gold or zari border along the hem and front edge, and crisp natural folds; add an angavastram only if shown. Never convert it to trousers or a saree.',
+  kurta_dhoti: 'KURTA WITH DHOTI OR PYJAMA: preserve the exact kurta length, collar, placket, buttons, sleeves and fabric weave, and the dhoti, veshti or pyjama drape shown. If the reference is a modern shirt and trousers, keep them as shirt and trousers.',
+  pattu_pavadai: 'PATTU PAVADAI: a girl\'s traditional silk skirt with matching blouse. Preserve the full flared silk skirt, the zari border and the blouse sleeves and neckline in modest child styling. No adult saree drape.',
+  boy_ethnic: 'BOY\'S ETHNIC SET: preserve the exact kurta-pyjama, sherwani or shirt-and-dhoti set as shown, with child proportions and comfortable fit. If the reference is a modern shirt or T-shirt with trousers, keep it modern.',
+  generic: 'GARMENT AS SHOWN: copy only the supplied garment references exactly; do not reinterpret them as a different traditional, western, formal or casual garment.',
+  unset: 'GARMENT AS SHOWN: copy only the supplied garment references exactly; do not reinterpret them as a different traditional, western, formal or casual garment.',
+};
+
+/** Finer detail for named styles within a garment type, matched from the catalogue category or title. */
+const GARMENT_STYLE_DETAILS: Array<{ match: RegExp; types: readonly GarmentType[]; detail: string }> = [
+  { match: /kanchi|kanjiv|silk saree|pattu saree|bridal/, types: ['saree'], detail: 'Silk saree detail: keep the heavy silk lustre, the contrast zari border and the woven pallu motifs crisp and unbroken.' },
+  { match: /anarkali/, types: ['salwar'], detail: 'Anarkali detail: fitted bodice with a floor- or calf-length flare of kalis and a matching churidar.' },
+  { match: /gown/, types: ['one_piece'], detail: 'Gown detail: structured bodice, flared skirt and a floor-grazing hem.' },
+  { match: /frock/, types: ['one_piece'], detail: 'Frock detail: modest neckline, gathered waist and comfortable knee-length flare.' },
+  { match: /sherwani/, types: ['three_piece', 'boy_ethnic', 'kurta_dhoti', 'generic'], detail: 'Sherwani detail: structured long coat with stand collar and front buttons over the matching bottom.' },
+  { match: /blazer|suit/, types: ['three_piece', 'shirt_pant', 'generic'], detail: 'Tailored detail: keep the lapels, shoulder line and button stance of the jacket exactly.' },
+];
+
+const GARMENT_KEYWORD_TYPES: Array<{ match: RegExp; type: GarmentType }> = [
+  { match: /saree|sari\b/, type: 'saree' },
+  { match: /lehenga|ghagra/, type: 'lehenga' },
+  { match: /pavadai|langa/, type: 'pattu_pavadai' },
+  { match: /salwar|anarkali|kurti|churidar/, type: 'salwar' },
+  { match: /veshti|dhoti/, type: 'dhoti_veshti' },
+  { match: /t-?shirt|tee\b/, type: 'tshirt_bottom' },
+  { match: /shirt|trouser|pant/, type: 'shirt_pant' },
+  { match: /gown|frock|dress/, type: 'one_piece' },
+];
+
 export function buildTryOnPrompt(
   category: CustomerCategory,
   details?: {
@@ -49,92 +105,28 @@ export function buildTryOnPrompt(
       : category === 'boy'
         ? 'young boy'
         : 'young girl';
-  const safety = category === 'boy' || category === 'girl'
-    ? 'Use child-safe, age-appropriate, natural modest styling with no adult glamour.'
+  const isChild = category === 'boy' || category === 'girl';
+  const safety = isChild
+    ? 'Use child-safe, age-appropriate, natural modest styling with no adult glamour, makeup or mature posing.'
     : 'Use modest, family-friendly, natural styling.';
 
-  const gType = (details?.garmentType || '').toLowerCase();
-  const cId = (details?.categoryId || '').toLowerCase();
-  const title = (details?.productTitle || '').toLowerCase();
-  const audience = (details?.audience || '').toLowerCase();
-
-  const audienceDirective = audience
-    ? `AUDIENCE AND FIT TARGET:
-- Customer audience group: ${details?.audience}.
-- Enforce anatomical proportions, appropriate ease, modest cut, and silhouette tailoring tailored for this audience.`
-    : '';
-
-  let categoryDirective = '';
-  if (gType.includes('shirt') || cId.includes('shirt') || title.includes('shirt')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - SHIRT / FORMAL SHIRT:
-- Target garment is a tailored shirt.
-- Maintain a crisp, structured collar, button placket, buttons, sleeve cuffs, and clean shoulder seams.
-- Fabric must display realistic woven cotton, linen, or silk texture with natural drape and subtle creases.
-- Do NOT convert this shirt into a kurta, sherwani, robe, tunic, or saree.
-- If customer's original photo has pants/trousers, retain them cleanly beneath the shirt.`;
-  } else if (gType.includes('pant') || cId.includes('pant') || gType.includes('trouser') || cId.includes('trouser') || title.includes('pant') || title.includes('trouser')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - PANTS / TROUSERS:
-- Target garment is tailored formal or casual pants/trousers.
-- Preserve clean waistband, belt loops, fly/button closure, straight leg crease, and natural trouser hem resting naturally above shoes.
-- Do NOT convert into a dhoti, veshti, lungi, or pyjama.`;
-  } else if (gType === 'saree' || cId.includes('saree') || title.includes('saree')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - SAREE:
-- Target garment is an authentic Indian saree (e.g. Kanchivaram silk / bridal saree).
-- Preserve the authentic saree drape: neat waist pleats (patli), elegant diagonal body wrap, and richly detailed shoulder pallu cascading naturally over the shoulder.
-- Render matching fitted blouse with authentic neckline and sleeve embroidery from references.`;
-  } else if (gType === 'lehenga' || cId.includes('lehenga') || title.includes('lehenga')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - LEHENGA CHOLI:
-- Target garment is a festive Lehenga Choli.
-- Preserve full flared skirt with authentic waist kalis, richly embroidered hem border, fitted choli blouse, and gracefully draped dupatta.`;
-  } else if (gType === 'dhoti_veshti' || gType === 'kurta_dhoti' || cId.includes('dhoti') || cId.includes('veshti')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - DHOTI / VESHTI:
-- Target garment is a traditional veshti/dhoti or kurta-dhoti set.
-- Maintain authentic traditional pleating, gold/zari border along the edges, and natural crisp silk/cotton fold structure.`;
-  } else if (gType === 'pattu_pavadai' || cId.includes('pavadai') || title.includes('pattu')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - PATTU PAVADAI:
-- Target garment is a traditional girl's Pattu Pavadai.
-- Preserve the silk flared skirt with zari border, matching traditional top, and authentic modest South Indian festive styling.`;
-  } else if (cId.includes('anarkali') || title.includes('anarkali')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - ANARKALI SUIT:
-- Target garment is an Anarkali suit set with fitted empire bodice and flared kalis.
-- Preserve graceful floor or calf-length flare, authentic embroidery around the neckline, matching churidar bottoms, and coordinated dupatta drape.`;
-  } else if (gType === 'salwar' || cId.includes('salwar') || cId.includes('kurti') || title.includes('salwar') || title.includes('kurti')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - SALWAR SUIT / KURTI SET:
-- Target garment is a tailored Indian Salwar Kameez or Kurti set.
-- Maintain clean side slits (chaak), modest tailored neckline, matching salwar or churidar trousers, and coordinated dupatta drape.`;
-  } else if (cId.includes('gown') || title.includes('gown')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - FESTIVE GOWN:
-- Target garment is an elegant floor-length evening or festive ethnic gown.
-- Preserve structured bodice fit, flared lower skirt, authentic surface embroidery, and clean floor-grazing hem.`;
-  } else if (cId.includes('frock') || title.includes('frock')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - KIDS FROCK:
-- Target garment is an age-appropriate modest party or silk frock for children.
-- Preserve authentic waist pleats, comfortable flare, modest neckline, and festive silk/satin luster.`;
-  } else if (cId.includes('sherwani') || cId.includes('blazer') || title.includes('sherwani') || title.includes('blazer')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - SHERWANI / FORMAL BLAZER:
-- Target garment is a structured formal jacket or wedding sherwani.
-- Maintain crisp stand collar (Mandarin/Nehru) or blazer lapel, front button placket, padded shoulder lines, and structured fabric drape.`;
-  } else if (cId.includes('western') || cId.includes('tshirt') || title.includes('t-shirt') || title.includes('top')) {
-    categoryDirective = `
-EXACT CATEGORY PRECISION - WESTERN TOP / CASUAL WEAR:
-- Target garment is a tailored Western top, blouse, or casual T-shirt.
-- Maintain natural collar/neckline, authentic jersey or woven fabric texture, and clean sleeve hems.`;
-  }
+  const text = `${details?.categoryId || ''} ${details?.productTitle || ''}`.toLowerCase();
+  const explicitType = GARMENT_TYPE_VALUES.includes(details?.garmentType as GarmentType) ? details?.garmentType as GarmentType : 'generic';
+  // The garment type chosen by staff or the catalogue wins; keywords only help when none was chosen.
+  const inferredType = explicitType === 'generic' || explicitType === 'unset'
+    ? GARMENT_KEYWORD_TYPES.find((item) => item.match.test(text))?.type || 'generic'
+    : explicitType;
+  const garmentType = compatibleGarmentType(category, inferredType);
+  const styleDetails = GARMENT_STYLE_DETAILS
+    .filter((item) => item.types.includes(garmentType) && item.match.test(text))
+    .map((item) => `- ${item.detail}`)
+    .join('\n');
 
   return `Create a photorealistic vertical 9:16 full-body virtual try-on photograph of the real ${subject}.
-${audienceDirective}
-${categoryDirective}
+
+GARMENT TYPE:
+- ${GARMENT_TYPE_RULES[garmentType]}${styleDetails ? `\n${styleDetails}` : ''}
+- Fit the garment to this ${subject}'s real body with natural ease${isChild ? ' and comfortable child proportions' : ''}; never change the body to fit the garment.
 
 REFERENCE AUTHORITY:
 - Image 1 is the authoritative customer identity reference.
@@ -148,7 +140,8 @@ IDENTITY AND NATURAL-SKIN LOCK:
 GARMENT LOCK:
 - Dress the customer in the exact garment from the supplied garment references; combine their details into one outfit.
 - Preserve its exact colours, colour transitions, fabric, weave, prints, embroidery, borders, neckline, sleeves, drape, pieces and silhouette.
-- Ignore the garment photo's mannequin, hanger, rack, stand and background. Transfer only the garment.
+- Ignore the garment photo's mannequin, hanger, rack, stand, model and background. Transfer only the garment.
+- Keep the customer's own footwear unless the references show footwear as part of the outfit.
 - Use realistic cloth gravity, folds and contact shadows without changing the customer's body.
 
 FRAMING AND LIGHT:

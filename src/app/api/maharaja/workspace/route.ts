@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { getOperatorSession, verifyAdminRequest, verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import {
+  getClientWorkspaceById,
   getClientWorkspaceByWorkspaceCode,
   getMaharajaWorkspace,
   getWorkspaceLinks,
@@ -13,6 +14,7 @@ import {
 } from '@/lib/maharaja/server';
 import { EVENT_IDS, FESTIVE_TIER_MIN, LUXURY_TIER_MIN, isEventId } from '@/lib/maharaja/config';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
+import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -166,7 +168,7 @@ async function buildHydratedWorkspacePayload(targetWorkspace?: MaharajaWorkspace
     try {
       const snap = await db
         .collection('liveQueue')
-        .where('screenId', '==', 'maharaja-main')
+        .where('screenId', '==', liveScreenId())
         .limit(50)
         .get();
       snap.docs.forEach((doc) => liveQueueItems.push({ id: doc.id, ...doc.data() }));
@@ -291,7 +293,8 @@ async function buildHydratedWorkspacePayload(targetWorkspace?: MaharajaWorkspace
     ...workspace,
     ...getWorkspaceLinks(workspace),
     whatsapp: whatsappStatus,
-    whatsappConnected: workspace.whatsappConnected ?? whatsappStatus.configured,
+    whatsappConnected: workspace.whatsappConnected === true,
+    whatsappEnabled: workspace.whatsappConnected === true && whatsappStatus.configured,
     showcaseSamples,
     recentPasses: recentPasses.map(publicPass),
     activity: allActivity.slice(0, 30),
@@ -329,6 +332,16 @@ async function buildHydratedWorkspacePayload(targetWorkspace?: MaharajaWorkspace
   };
 }
 
+/** A client's own login always gets its own workspace; TryFocus admin may open any client by code. */
+async function workspaceForSession(req: NextRequest, requestedCode: string | null) {
+  const session = getOperatorSession(req);
+  const workspace = session?.role === 'client' && session.clientId
+    ? await getClientWorkspaceById(session.clientId)
+    : await getClientWorkspaceByWorkspaceCode(requestedCode);
+  if (workspace) bindClient(workspace.clientId);
+  return workspace;
+}
+
 export async function GET(req: NextRequest) {
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja session.' }, { status: 401 });
@@ -336,7 +349,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const requestedCode = req.nextUrl.searchParams.get('workspaceCode') || req.nextUrl.searchParams.get('clientId');
-    const targetWorkspace = await getClientWorkspaceByWorkspaceCode(requestedCode);
+    const targetWorkspace = await workspaceForSession(req, requestedCode);
     if (!targetWorkspace) {
       return NextResponse.json({ success: false, error: 'Client workspace not found.' }, { status: 404 });
     }
@@ -359,9 +372,13 @@ export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
     const requestedCode = body.workspaceCode || body.clientId || req.nextUrl.searchParams.get('workspaceCode');
-    const targetWorkspace = await getClientWorkspaceByWorkspaceCode(requestedCode);
+    const targetWorkspace = await workspaceForSession(req, requestedCode);
     if (!targetWorkspace) {
       return NextResponse.json({ success: false, error: 'Client workspace not found.' }, { status: 404 });
+    }
+    // Credits, purchased devices and the WhatsApp connection are set by TryFocus, not by the client.
+    if (!verifyAdminRequest(req) && ['limits', 'devices', 'whatsappConnected', 'deliveryMode'].some((key) => body[key] !== undefined)) {
+      return NextResponse.json({ success: false, error: 'Only TryFocus can change credits, devices or WhatsApp.' }, { status: 403 });
     }
     const settings: Parameters<typeof updateMaharajaSettings>[0] = {};
 
@@ -373,6 +390,12 @@ export async function PATCH(req: NextRequest) {
     }
     if (typeof body.tvBillSuffixRequired === 'boolean') {
       settings.tvBillSuffixRequired = body.tvBillSuffixRequired;
+    }
+    if (typeof body.videoMinPurchase === 'number' && Number.isFinite(body.videoMinPurchase)) {
+      if (body.videoMinPurchase < 0 || body.videoMinPurchase > 10_000_000) {
+        return NextResponse.json({ success: false, error: 'Enter a bill amount between ₹0 and ₹1,00,00,000.' }, { status: 400 });
+      }
+      settings.videoMinPurchase = Math.round(body.videoMinPurchase);
     }
     if (body.deliveryMode === 'whatsapp' || body.deliveryMode === 'qr') {
       settings.deliveryMode = body.deliveryMode;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { getDb } from '@/lib/firebase/admin';
 import { getEventOption, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import {
+  activateVideoPassOnFirstScan,
   getTryOnDeviceStatus,
   incrementMaharajaUsage,
   incrementPassUsage,
@@ -9,6 +10,7 @@ import {
   verifyMaharajaAccess,
   validTryOnDeviceId,
 } from '@/lib/maharaja/server';
+import { bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,11 +19,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
     const { code } = await ctx.params;
     const service = req.nextUrl.searchParams.get('service') === 'try-on' ? 'try-on' : 'ai-video';
     const access = await verifyMaharajaAccess(req, code, service);
+    bindClient(access.allowed ? access.clientId : null);
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 403 });
     }
 
     const workspace = access.workspace;
+    if (service === 'ai-video' && access.pass?.activateOnScan && !access.pass.activatedAt) {
+      access.pass = (await activateVideoPassOnFirstScan(access.pass.code)) || access.pass;
+    }
     const deviceId = req.nextUrl.searchParams.get('deviceId');
     const deviceStatus = validTryOnDeviceId(deviceId) ? await getTryOnDeviceStatus(deviceId) : null;
     let recoveryJob: { id: string; sessionId: string } | null = null;

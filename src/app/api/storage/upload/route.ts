@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorageBucket } from '@/lib/firebase/admin';
-import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { getOperatorSession, verifyOperatorRequest } from '@/lib/auth/operator';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -26,7 +26,8 @@ export async function POST(req: NextRequest) {
     const deviceId = typeof body?.deviceId === 'string' ? body.deviceId : '';
     const folder = body?.folder === 'person' || body?.folder === 'garment' ? body.folder : '';
     const storagePath = typeof body?.storagePath === 'string' ? body.storagePath : '';
-    const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/${folder}/`;
+    // The client segment is checked again once the request is bound to its client below.
+    const expectedPrefix = `clients/${storagePath.split('/')[1] || ''}/sessions/${sessionId}/${folder}/`;
 
     if (!sessionId || !folder || !storagePath.startsWith(expectedPrefix) || !storagePath.endsWith('.jpg')) {
       return NextResponse.json({ success: false, error: 'Invalid secure photo destination.' }, { status: 400 });
@@ -41,6 +42,10 @@ export async function POST(req: NextRequest) {
       : null;
     if (!isOperator && !accessTryOn?.allowed && !accessVideo?.allowed) {
       return NextResponse.json({ success: false, error: 'Unauthorized media upload request.' }, { status: 401 });
+    }
+    bindClient(accessTryOn?.allowed ? accessTryOn.clientId : accessVideo?.allowed ? accessVideo.clientId : getOperatorSession(req)?.clientId);
+    if (!storagePath.startsWith(`clients/${activeClientId()}/`)) {
+      return NextResponse.json({ success: false, error: 'Invalid secure photo destination.' }, { status: 400 });
     }
 
     const bucket = getStorageBucket();

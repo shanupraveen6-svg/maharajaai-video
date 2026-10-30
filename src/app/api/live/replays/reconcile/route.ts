@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getStorageBucket } from '@/lib/firebase/admin';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
-import { logMaharajaActivity } from '@/lib/maharaja/server';
+import { resolveRequestClientId, logMaharajaActivity } from '@/lib/maharaja/server';
 import { createHash } from 'crypto';
+import { bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -14,6 +15,7 @@ function isCandidate(path: string, contentType: string) {
 }
 
 export async function GET(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Operator access is required.' }, { status: 401 });
   }
@@ -41,6 +43,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Operator access is required.' }, { status: 401 });
   }

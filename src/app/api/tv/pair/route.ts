@@ -6,8 +6,11 @@ import {
   issueDisplayToken,
   revokeDisplayTokens,
 } from '@/lib/auth/display';
+import { bindClient } from '@/lib/maharaja/client-context';
+import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req))
     return NextResponse.json(
       {
@@ -28,6 +31,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req))
     return NextResponse.json(
       { success: false, error: 'Staff login is required.' },

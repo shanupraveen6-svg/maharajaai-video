@@ -5,14 +5,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, TRY_ON_MIN_PURCHASE, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
+import { type CustomerCategory, GARMENT_TYPE_RULES, compatibleGarmentType, isEventId, TRY_ON_MIN_PURCHASE, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
-import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementMaharajaUsage, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
 export const maxDuration = 300;
 const MAX_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -73,7 +74,7 @@ async function resolveImageBase64(input: unknown, bucket: any, sessionId: string
     if (buffer.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Catalogue photo exceeds the 8 MB processing limit.');
     return buffer.toString('base64');
   }
-  const expectedPrefix = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/`;
+  const expectedPrefix = `clients/${activeClientId()}/sessions/${sessionId}/`;
   if (!trimmed.startsWith(expectedPrefix) && trimmed !== allowedCataloguePath) throw new Error('Photo source does not belong to this customer session.');
   const mockStore = getMockStore();
   const mockBlob = mockStore.sessions?.get(`mock_blob_${trimmed}`);
@@ -111,6 +112,7 @@ export async function POST(req: NextRequest) {
   let lockedPassCode = '';
   let boundGenerationId: string | undefined;
   let imageCompleted = false;
+  let reservedTryOnCredit = false;
   try {
     const body = await req.json();
     const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, garmentRoles, conceptPrompt, templateId, accessCode } = body;
@@ -125,20 +127,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Parent or legal guardian permission is required for child photo processing.' }, { status: 400 });
     }
     const access = await verifyMaharajaAccess(req, accessCode, service);
+    bindClient(access.allowed ? access.clientId : null);
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
+    // Customer QR codes and passes are phone sessions; kiosk sessions say whether they are the TV or the tablet.
+    const codeAccess = Boolean(access.pass) || (typeof accessCode === 'string' && accessCode.trim() !== '' && accessCode.trim() === access.workspace.tryOnCode);
+    const surface = codeAccess ? 'mobile' : body.surface === 'tablet' ? 'tablet' : 'tv';
+    if (access.workspace.devices?.[surface] === false) {
+      const surfaceLabel = surface === 'mobile' ? 'Mobile' : surface === 'tablet' ? 'Counter tablet' : 'Interactive TV';
+      return NextResponse.json({ success: false, error: `${surfaceLabel} experience is currently turned off for this store.` }, { status: 403 });
+    }
     if (service === 'try-on') {
-      const imageLimit = Number(access.workspace.limits?.image ?? 4000);
-      const imageUsed = Number(access.workspace.usage?.tryOnGenerated || 0);
-      if (imageLimit <= 0 || imageUsed >= imageLimit) {
-        return NextResponse.json({ success: false, error: 'AI Image Try-On credits are exhausted for this store.' }, { status: 403 });
+      // Reserved now and returned in finally if this request does not deliver an image.
+      if (!await reserveMaharajaUsage('tryOnGenerated', Number(access.workspace.limits?.image ?? 4000))) {
+        return NextResponse.json({ success: false, error: 'AI Try-On is paused right now. Please ask our staff for help.' }, { status: 403 });
       }
+      reservedTryOnCredit = true;
     } else {
       const videoLimit = Number(access.workspace.limits?.video ?? 500);
       const videoUsed = Number(access.workspace.usage?.videosGenerated || 0);
       if (videoLimit <= 0 || videoUsed >= videoLimit) {
-        return NextResponse.json({ success: false, error: 'AI Video reward credits are exhausted for this store.' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'AI Video is paused right now. Please ask our staff for help.' }, { status: 403 });
       }
     }
     const rateIdentity = access.pass?.code || (typeof body.deviceId === 'string' ? body.deviceId : sessionId);
@@ -260,7 +270,7 @@ export async function POST(req: NextRequest) {
     if (body.garmentTypeConfirmed !== true) {
       return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
     }
-    const garmentType = resolveGarmentType(customerCategory, body.garmentType, garmentAnalysis, garmentRoles);
+    const garmentType = compatibleGarmentType(customerCategory, resolveGarmentType(customerCategory, body.garmentType, garmentAnalysis, garmentRoles));
     const concept = service === 'ai-video' ? getVideoConcept(body.conceptId) : null;
     if (service === 'ai-video' && (!concept || concept.category !== customerCategory)) {
       return NextResponse.json({ success: false, error: 'Select one film concept for the chosen customer category before generating.' }, { status: 400 });
@@ -300,8 +310,8 @@ export async function POST(req: NextRequest) {
         );
         const [personBase64, ...garmentBase64s] = preparedReferences.map((image) => image.toString('base64'));
         if (service === 'ai-video') {
-          videoPersonPath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/person/reference.jpg`;
-          videoGarmentPaths = garmentBase64s.map((_, index) => `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/garment/reference-${index}.jpg`);
+          videoPersonPath = `clients/${activeClientId()}/sessions/${sessionId}/person/reference.jpg`;
+          videoGarmentPaths = garmentBase64s.map((_, index) => `clients/${activeClientId()}/sessions/${sessionId}/garment/reference-${index}.jpg`);
           await Promise.all([videoPersonPath, ...videoGarmentPaths].map((referencePath, index) => bucket.file(referencePath).save(preparedReferences[index], { contentType: 'image/jpeg', public: false, metadata: { cacheControl: 'private, no-store' } })));
         }
         if (personBase64) contents.push({ inlineData: { mimeType: 'image/jpeg', data: personBase64 } });
@@ -314,37 +324,13 @@ export async function POST(req: NextRequest) {
           ? sanitizedGarmentRoles.map((role: string, idx: number) => `- Garment Image ${idx + 1} = ${role.toUpperCase()}`).join('\n')
           : '- Garment Image 1 is the exact uploaded garment reference.';
 
-        const categoryGarmentLine = garmentType === 'saree'
-          ? '- For traditional Indian sarees: preserve the exact saree body, pallu, border finish, motif geometry, blouse construction and drape shown in the supplied references. Never convert it into salwar, churidar, lehenga or a one-piece garment.'
-          : garmentType === 'lehenga'
-            ? '- For lehengas: preserve exact flared skirt/kalis silhouette, choli neckline, embroidery motifs, and dupatta drape. Strictly no saree pleats or pallu.'
-            : garmentType === 'salwar'
-              ? '- For salwar/anarkali: preserve exact tunic flare, neckline, churidar fit, and dupatta drape. Strictly no saree pleats or pallu.'
-              : garmentType === 'kurta_dhoti'
-                ? '- If the uploaded reference is traditional wear: preserve exact kurta silhouette, collar construction, placket buttons, fabric weave, and dhoti/veshti/pyjama drape. If the reference is a modern shirt/trousers: preserve exact shirt collar, placket, sleeves, and trousers without converting to ethnic wear.'
-              : garmentType === 'boy_ethnic'
-                  ? '- If the uploaded reference is traditional ethnic wear: preserve exact kurta-pyjama or dhoti-shirt silhouette. If the reference is a modern shirt/t-shirt/trousers: preserve exact shirt, print/ombre pattern, collar, and pants without converting to a kurta.'
-                : garmentType === 'pattu_pavadai'
-                  ? '- For girls\' traditional wear: preserve exact pattu pavadai (silk skirt and blouse/choli) or anarkali silhouette and border details. Strictly no adult saree drape.'
-                  : garmentType === 'one_piece'
-                    ? '- For a one-piece garment: preserve the exact single-garment silhouette, neckline, sleeves, hem, print, and fabric details. Do not invent a second piece or layer.'
-                    : garmentType === 'two_piece'
-                      ? '- For a two-piece set: preserve the supplied top and bottom as separate pieces. Do not add a third layer, dupatta, saree drape, or replacement garment.'
-                      : garmentType === 'three_piece'
-                        ? '- For a three-piece set: preserve the exact outer layer, inner layer, and bottom in their supplied order. Do not remove or invent a layer.'
-                        : garmentType === 'shirt_pant'
-                          ? '- For shirt and pant: preserve the exact shirt collar, sleeves, placket, print or color treatment, and the supplied trousers. Never convert it to kurta or ethnic wear.'
-                          : garmentType === 'tshirt_bottom'
-                            ? '- For T-shirt and bottom: preserve the exact casual top, print, neckline, and supplied bottom. Never add a jacket or convert it to formal or ethnic wear.'
-                            : garmentType === 'dhoti_veshti'
-                              ? '- For dhoti or veshti: preserve the supplied shirt or kurta, dhoti/veshti pleats, border, drape, and any angavastram detail. Never convert it to trousers or a saree.'
-                  : '- Garment type is intentionally unspecified. Copy only the uploaded garment references; do not infer a traditional, ethnic, western, formal, or casual replacement.';
+        // The Try-On prompt states the garment rule itself; the festival master prompt adds it here.
+        const categoryGarmentLine = service === 'try-on' ? '' : `- ${GARMENT_TYPE_RULES[garmentType]}`;
 
         const garmentFidelityRules = `EXACT GARMENT ROLE & COLOR INSTRUCTIONS:
 ${roleInstructions}
 - Preserve every garment colour, dye hue, and colour transition exactly as shown in the uploaded garment references without color shift. Do not introduce, remove, shift, warm, cool, desaturate, or reinterpret any garment colour.
-- Never shift colors or alter clothing into unrequested garments or added embroidery.
-${categoryGarmentLine}
+- Never shift colors or alter clothing into unrequested garments or added embroidery.${categoryGarmentLine ? `\n${categoryGarmentLine}` : ''}
 - Professional model lighting must enhance clarity, contrast, and depth without altering the true dye color of any garment.`;
 
         let prompt = '';
@@ -377,7 +363,7 @@ ${categoryGarmentLine}
               {
                 externalId: typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `maharaja-${garmentType}`,
                 title: typeof body.catalogueProductTitle === 'string' ? body.catalogueProductTitle : `Maharaja ${garmentType.replace(/_/g, ' ')}`,
-                description: `Exact Maharaja ${garmentType.replace(/_/g, ' ')} garment. Preserve its garment structure, fabric, colours and details.`,
+                description: `${GARMENT_TYPE_RULES[garmentType]} Preserve its exact structure, fabric, colours, borders and details.`.slice(0, 500),
               },
             );
             imageProvider = 'genlook-try-on';
@@ -404,6 +390,7 @@ ${categoryGarmentLine}
             config: {
               responseModalities: ['TEXT', 'IMAGE'],
               imageConfig: { aspectRatio: '9:16' },
+              abortSignal: AbortSignal.timeout(150_000),
             },
           });
           const part = genResponse.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
@@ -421,7 +408,7 @@ ${categoryGarmentLine}
               // Try-On is returned directly to the browser and is not retained as a cloud result.
               masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
             } else {
-              const storagePath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`;
+              const storagePath = `clients/${activeClientId()}/sessions/${sessionId}/master/master.jpg`;
               const file = bucket.file(storagePath);
               await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
               const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
@@ -468,7 +455,7 @@ ${categoryGarmentLine}
       }
       : {
         masterImageUrl,
-        masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
+        masterStoragePath: `clients/${activeClientId()}/sessions/${sessionId}/master/master.jpg`,
         personPhotoStoragePath: videoPersonPath || null,
         garmentPhotoStoragePaths: videoGarmentPaths,
         masterImageApproved: false,
@@ -488,7 +475,7 @@ ${categoryGarmentLine}
     if (db) {
       persistenceTasks.push(db.collection('sessions').doc(sessionId).set({
         sessionId,
-        clientId: MAHARAJA_CLIENT_ID,
+        clientId: activeClientId(),
         accessCode: typeof accessCode === 'string' ? accessCode : null,
         service,
         eventId,
@@ -512,7 +499,7 @@ ${categoryGarmentLine}
       mockStore.sessions.set(sessionId, {
         ...(mockStore.sessions.get(sessionId) || {}),
         sessionId,
-        clientId: MAHARAJA_CLIENT_ID,
+        clientId: activeClientId(),
         accessCode: typeof accessCode === 'string' ? accessCode : null,
         service,
         eventId,
@@ -533,7 +520,6 @@ ${categoryGarmentLine}
       });
     }
 
-    if (service === 'try-on') persistenceTasks.push(incrementMaharajaUsage('tryOnGenerated'));
     if (access.pass) {
       const passImageUrl = (db && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000)
         ? masterImageUrl.slice(0, 500) + '...[truncated-data-url]'
@@ -563,7 +549,7 @@ ${categoryGarmentLine}
 
     if (service === 'try-on' && bucket) {
       const sourcePaths = [body.personPhotoStoragePath, ...(Array.isArray(body.garmentPhotoStoragePaths) ? body.garmentPhotoStoragePaths : [])]
-        .filter((value): value is string => typeof value === 'string' && value.startsWith(`clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/`));
+        .filter((value): value is string => typeof value === 'string' && value.startsWith(`clients/${activeClientId()}/sessions/${sessionId}/`));
       await Promise.all(sourcePaths.map((path) => bucket.file(path).delete({ ignoreNotFound: true })))
         .catch((cleanupError) => console.error('Try-On source cleanup failed:', cleanupError));
     }
@@ -602,6 +588,9 @@ ${categoryGarmentLine}
       { status: 500 }
     );
   } finally {
+    if (reservedTryOnCredit && !imageCompleted) {
+      await releaseMaharajaUsage('tryOnGenerated').catch((err) => console.error('Try-On credit release failed:', err));
+    }
     if (lockedPassCode && !imageCompleted) {
       await releasePassImageLock(lockedPassCode, boundGenerationId).catch((err) => console.error('Image lock release failed:', err));
     }

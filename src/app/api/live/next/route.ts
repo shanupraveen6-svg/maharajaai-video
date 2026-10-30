@@ -4,6 +4,8 @@ import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getVideoPlaybackProfile } from '@/lib/maharaja/video-playback';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { inspectStoredVideo } from '@/lib/maharaja/storage-video';
+import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
+import { goLiveClientId, resolveRequestClientId } from '@/lib/maharaja/server';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -46,12 +48,12 @@ async function cleanupExpiredReservations(db: any) {
     const expiredCutoff = Timestamp.fromMillis(Date.now() - 30000); // 30s lease timeout
     const [expiredSnapshot, playingSnapshot] = await Promise.all([
       db.collection('liveQueue')
-        .where('screenId', '==', 'maharaja-main')
+        .where('screenId', '==', liveScreenId())
         .where('status', '==', 'reserved')
         .where('reservedAt', '<', expiredCutoff)
         .get(),
       db.collection('liveQueue')
-        .where('screenId', '==', 'maharaja-main')
+        .where('screenId', '==', liveScreenId())
         .where('status', '==', 'playing')
         .get(),
     ]);
@@ -91,8 +93,9 @@ async function cleanupExpiredReservations(db: any) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!await verifyTvRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Authenticated Maharaja TV required.' }, { status: 401 });
+  bindClient(await resolveRequestClientId(req));
+  if (!(await goLiveClientId(req)) && !await verifyTvRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Open this screen from the workspace Go Live link.' }, { status: 401 });
   }
   try {
     const db = getDb();
@@ -104,7 +107,7 @@ export async function GET(req: NextRequest) {
 
       const result = await db.runTransaction(async (transaction: any) => {
         const queueQuery = db.collection('liveQueue')
-          .where('screenId', '==', 'maharaja-main')
+          .where('screenId', '==', liveScreenId())
           .where('status', '==', 'queued');
 
         const queueSnapshot = await transaction.get(queueQuery);
@@ -144,7 +147,7 @@ export async function GET(req: NextRequest) {
         transaction.update(queueDoc.ref, {
           status: 'reserved',
           reservedAt: FieldValue.serverTimestamp(),
-          reservedByScreenId: 'maharaja-main',
+          reservedByScreenId: liveScreenId(),
           reservationId
         });
 
@@ -239,7 +242,7 @@ export async function GET(req: NextRequest) {
 
       // Find first queued item where playAt <= nowMs
       const nextItem = mockStore.liveQueue
-        .filter((item: MockQueueItem) => item.screenId === 'maharaja-main' && item.status === 'queued')
+        .filter((item: MockQueueItem) => item.screenId === liveScreenId() && item.status === 'queued')
         .map((item: MockQueueItem) => ({ data: item }))
         .sort(compareQueueItems)
         .find((item: { data: MockQueueItem }) => isEligibleToPlay(item.data, nowMs))
@@ -264,7 +267,7 @@ export async function GET(req: NextRequest) {
 
       nextItem.status = 'reserved';
       nextItem.reservedAt = nowIso;
-      nextItem.reservedByScreenId = 'maharaja-main';
+      nextItem.reservedByScreenId = liveScreenId();
       nextItem.reservationId = reservationId;
 
       const signedUrl = await getSignedPlaybackUrl(storagePath);

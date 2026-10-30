@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { bindClient } from '@/lib/maharaja/client-context';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import {
   deleteCatalogueProduct,
@@ -6,12 +7,14 @@ import {
   updateCatalogueProduct,
   upsertCatalogueProduct,
 } from '@/lib/maharaja/catalogue';
-import { getMaharajaWorkspace, logMaharajaActivity } from '@/lib/maharaja/server';
+import { resolveRequestClientId, getMaharajaWorkspace, logMaharajaActivity } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    // Customer pages pass their QR or pass code; staff pages are bound by their login.
+    bindClient(await resolveRequestClientId(req, req.nextUrl.searchParams.get('access')));
     const offset = Number(req.nextUrl.searchParams.get('offset') || '0');
     const limit = Number(req.nextUrl.searchParams.get('limit') || '60');
     const requestedInactive = req.nextUrl.searchParams.get('includeInactive') === 'true';
@@ -25,7 +28,7 @@ export async function GET(req: NextRequest) {
     );
     const workspace = await getMaharajaWorkspace();
     return NextResponse.json(
-      { success: true, ...catalogue, tvBillSuffixRequired: workspace.tvBillSuffixRequired !== false },
+      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: workspace.tvBillSuffixRequired !== false },
       {
         headers: {
           'Cache-Control': 'no-store',
@@ -41,6 +44,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
   }
@@ -62,6 +66,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
   }
@@ -88,6 +93,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
   }

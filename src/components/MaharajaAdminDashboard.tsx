@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
+import { CREDIT_BAR_COLOURS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
+import GoLivePromoManager from '@/components/GoLivePromoManager';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
   CheckCircle2,
@@ -41,8 +43,10 @@ type WorkspaceData = {
   campaignEnabled: boolean;
   minPurchaseTryOnDisabled?: boolean;
   tvBillSuffixRequired?: boolean;
+  videoMinPurchase?: number;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
+  whatsappEnabled?: boolean;
   devices?: {
     tv: boolean;
     tablet: boolean;
@@ -65,6 +69,8 @@ type WorkspaceData = {
     billing: string;
     openVideo: string;
     tv: string;
+    /** Permanent Go Live TV link for this workspace. */
+    goLive: string;
   };
   whatsapp?: {
     configured: boolean;
@@ -248,7 +254,7 @@ export default function MaharajaAdminDashboard({
         | 'defaultEvent'
         | 'minPurchaseTryOnDisabled'
         | 'tvBillSuffixRequired'
-        | 'deliveryMode'
+        | 'videoMinPurchase'
       >
     >
   ) {
@@ -391,7 +397,7 @@ export default function MaharajaAdminDashboard({
       }
       if (sampleInputRef.current) sampleInputRef.current.value = '';
       setSampleName('');
-      setNotice('Showcase video added to the Maharaja TV loop.');
+      setNotice('Showcase video added to the Go Live TV loop.');
       await loadWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to upload showcase video.');
@@ -546,7 +552,8 @@ export default function MaharajaAdminDashboard({
     Boolean(workspace) &&
     (activeWorkspaceCode === workspace?.workspaceCode ||
       activeWorkspaceCode === workspace?.clientId ||
-      (workspace?.clientId === 'maharaja' && activeWorkspaceCode === 'workspace'));
+      // "workspace" means the signed-in login's own workspace; the server decides which one that is.
+      activeWorkspaceCode === 'workspace');
 
   if (!workspace || !isValidWorkspace) {
     return (
@@ -556,7 +563,7 @@ export default function MaharajaAdminDashboard({
             Invalid Link
           </p>
           <h1 className="mt-2 font-serif text-3xl font-semibold">
-            Maharaja Workspace Not Found
+            Workspace Not Found
           </h1>
           <p className="mt-3 text-sm text-[#535A56]">
             Check the workspace URL with your TryFocus administrator.
@@ -569,16 +576,26 @@ export default function MaharajaAdminDashboard({
   const devices = workspace.devices || { tv: true, tablet: true, mobile: true, led: true };
   const limits = workspace.limits || { image: 4000, live: 500, video: 500 };
   const minGateDisabled = workspace.minPurchaseTryOnDisabled !== false;
-  const deliveryMode = workspace.deliveryMode || 'qr';
   const totalScans = (workspace.usage.tryOnScans || 0) + (workspace.usage.videoPasses || 0);
   const currentEvent =
     EVENT_OPTIONS.find((item) => item.id === workspace.defaultEvent) || EVENT_OPTIONS[0];
-  const whatsappConnected = Boolean(workspace.whatsappConnected ?? workspace.whatsapp?.configured);
+  // WhatsApp is connected per client by TryFocus admin; the client workspace only shows its status.
+  const whatsappConnected = workspace.whatsappEnabled === true;
   const goLiveList = Array.isArray(workspace.goLiveAudit) ? workspace.goLiveAudit : [];
   const showcaseList = Array.isArray(workspace.showcaseSamples) ? workspace.showcaseSamples : [];
+  const credits = creditStatuses(workspace.usage, limits);
+  const creditAlerts = credits.filter((item) => item.level !== 'ok' && item.level !== 'none');
 
   return (
     <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+      {creditAlerts.length > 0 && (
+        <div role="alert" className="border-b border-[#B42318]/40 bg-[#FEF3F2] px-5 py-3 text-sm text-[#7A271A] sm:px-8">
+          <div className="mx-auto max-w-7xl space-y-0.5">
+            {creditAlerts.map((item) => <p key={item.label} className="font-semibold">{creditWarningText(item)}</p>)}
+            <p className="text-xs">Contact TryFocus to add credits.</p>
+          </div>
+        </div>
+      )}
       {/* Unified TryFocus Top Header — Shows ONLY Subscribed Surfaces */}
       <header className="border-b border-[#D8DCD7] bg-[#F4F5F2]/95">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
@@ -680,7 +697,7 @@ export default function MaharajaAdminDashboard({
                     'tv',
                     '43" Portrait TV Kiosk',
                     '/maharaja/tv/experience',
-                    'AI Image Try-On, 30s Live Mirror & Diwali Catalogue Video',
+                    'AI Image Try-On, 60s Live Mirror & Diwali Catalogue Video',
                     Tv,
                   ],
                   [
@@ -752,29 +769,19 @@ export default function MaharajaAdminDashboard({
               </h2>
 
               <div className="mt-4 space-y-3">
-                {[
-                  ['AI Image Try-On', workspace.usage.tryOnGenerated || 0, limits.image],
-                  ['30s Live AI Mirror', workspace.usage.liveSessions || 0, limits.live],
-                  ['AI Video Rewards', workspace.usage.videosGenerated || 0, limits.video],
-                ].map(([label, used, max]) => {
-                  const pct = Number(max)
-                    ? Math.min(100, Math.round((Number(used) / Number(max)) * 100))
-                    : 0;
-                  return (
-                    <div key={String(label)} className="border border-[#D8DCD7] bg-white p-3">
-                      <div className="flex items-center justify-between text-xs font-semibold">
-                        <span>{label}</span>
-                        <span className="font-mono text-[#535A56]">
-                          {Number(used).toLocaleString('en-IN')} /{' '}
-                          {Number(max).toLocaleString('en-IN')} ({pct}%)
-                        </span>
-                      </div>
-                      <div className="mt-1.5 h-1.5 overflow-hidden bg-[#ECEEE9]">
-                        <div className="h-full bg-[#7A1428]" style={{ width: `${pct}%` }} />
-                      </div>
+                {credits.filter((item) => item.level !== 'none').map(({ label, used, limit, pct, level }) => (
+                  <div key={label} className="border border-[#D8DCD7] bg-white p-3">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span>{label}</span>
+                      <span className="font-mono text-[#535A56]">
+                        {used.toLocaleString('en-IN')} / {limit.toLocaleString('en-IN')} ({pct}%)
+                      </span>
                     </div>
-                  );
-                })}
+                    <div className="mt-1.5 h-1.5 overflow-hidden bg-[#ECEEE9]">
+                      <div className={`h-full ${CREDIT_BAR_COLOURS[level]}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -785,12 +792,12 @@ export default function MaharajaAdminDashboard({
                   type="button"
                   disabled={saving}
                   onClick={() => savePatch({ minPurchaseTryOnDisabled: !minGateDisabled })}
-                  className="font-mono font-bold text-[#7A1428] underline"
+                  className="min-h-10 py-2 text-right font-mono font-bold text-[#7A1428] underline"
                 >
                   {minGateDisabled ? 'DISABLED (Free Scan Active)' : 'ENABLED (₹500 Tag Required)'}
                 </button>
               </div>
-              <div className="flex items-center justify-between">
+              {devices.tv && <div className="flex items-center justify-between">
                 <span className="text-[#535A56]">TV Kiosk Bill Suffix:</span>
                 <button
                   type="button"
@@ -800,27 +807,38 @@ export default function MaharajaAdminDashboard({
                       tvBillSuffixRequired: workspace?.tvBillSuffixRequired === false,
                     })
                   }
-                  className="font-mono font-bold text-[#7A1428] underline"
+                  className="min-h-10 py-2 text-right font-mono font-bold text-[#7A1428] underline"
                 >
                   {workspace?.tvBillSuffixRequired === false
                     ? 'DISABLED (Open TV Access)'
                     : 'ENABLED (Requires Last 4 Digits)'}
                 </button>
+              </div>}
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="video-min-purchase" className="text-[#535A56]">
+                  AI Video QR from bill (₹) <span className="text-[#8A918D]">· 0 = every bill</span>
+                </label>
+                <input
+                  key={workspace.videoMinPurchase ?? 5000}
+                  id="video-min-purchase"
+                  type="number"
+                  min={0}
+                  step={500}
+                  inputMode="numeric"
+                  disabled={saving}
+                  defaultValue={workspace.videoMinPurchase ?? 5000}
+                  onBlur={(event) => {
+                    const value = Math.max(0, Math.round(Number(event.target.value) || 0));
+                    if (value !== (workspace.videoMinPurchase ?? 5000)) void savePatch({ videoMinPurchase: value });
+                  }}
+                  className="w-28 border border-[#D8DCD7] bg-white px-2 py-1 text-right font-mono font-bold text-[#7A1428] outline-none focus:border-[#7A1428]"
+                />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#535A56]">Counter Delivery Preference:</span>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() =>
-                    savePatch({ deliveryMode: deliveryMode === 'whatsapp' ? 'qr' : 'whatsapp' })
-                  }
-                  className="font-mono font-bold text-[#7A1428] underline"
-                >
-                  {deliveryMode === 'whatsapp'
-                    ? 'WhatsApp 1-Day Link + QR'
-                    : 'Direct 1-Day QR Only'}
-                </button>
+                <span className="text-[#535A56]">WhatsApp Link Delivery:</span>
+                <span className="font-mono font-bold text-[#161918]">
+                  {whatsappConnected ? 'CONNECTED BY TRYFOCUS' : 'QR ONLY · Ask TryFocus to connect'}
+                </span>
               </div>
             </div>
           </div>
@@ -1081,7 +1099,7 @@ export default function MaharajaAdminDashboard({
             DIRECT QR CARDS:
             Image Try-On QR · Video Pass QR · Counter access
            ========================================================= */}
-        <section className="grid gap-6 lg:grid-cols-2">
+        <section className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
           {/* Card 1: Permanent Direct QR for AI Image Try-On */}
           <div className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
             <div>
@@ -1172,7 +1190,7 @@ export default function MaharajaAdminDashboard({
                   </h2>
                 </div>
                 <span className="border border-[#7A1428] bg-[#7A1428]/10 px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A1428]">
-                  {whatsappConnected && deliveryMode === 'whatsapp'
+                  {whatsappConnected
                     ? 'WhatsApp API Connected (1-Day Link)'
                     : 'Permanent Poster QR · Private 1-Day Sessions'}
                 </span>
@@ -1206,7 +1224,7 @@ export default function MaharajaAdminDashboard({
                     </p>
                     <p className="mt-0.5 text-[#535A56]">
                       Customers can take any garment (or select from the catalogue), generate their AI Video on mobile, and click{' '}
-                      <strong>Download</strong> or <strong>Go Live</strong> (which plays on the Maharaja TV screen).
+                      <strong>Download</strong> or <strong>Go Live</strong> (which plays on your Go Live TV).
                     </p>
                   </div>
                 </div>
@@ -1237,10 +1255,10 @@ export default function MaharajaAdminDashboard({
             GO LIVE VIDEOS CARD (NO VIDEO PLAYER ON DASHBOARD — ONLY BUTTON TO DEDICATED PAGE)
             & TV WALL / SHOWCASE SAMPLE UPLOAD
            ========================================================= */}
-        <section className="grid gap-6 lg:grid-cols-2">
+        <section className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
           <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
             <div>
-              <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
                 <div>
                   <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
                     03 · Showroom Go Live Library
@@ -1255,7 +1273,7 @@ export default function MaharajaAdminDashboard({
               </div>
 
               <p className="mt-4 text-sm leading-relaxed text-[#535A56]">
-                When a customer clicks <strong>Go Live</strong> after generating an AI video, their video is queued on the Maharaja TV screen and logged in the dedicated Go Live video library.
+                When a customer clicks <strong>Go Live</strong> after generating an AI video, their video is queued on your Go Live TV and logged in the dedicated Go Live video library.
               </p>
               <p className="mt-2 text-xs text-[#535A56]">
                 Videos are not played inline on this main workspace page — click the button below to open the dedicated video library page to list, play, and download approved Go Live videos.
@@ -1270,41 +1288,45 @@ export default function MaharajaAdminDashboard({
                 <Video className="h-4 w-4" />
                 Explore All Videos (List & Play)
               </Link>
-              {devices.led && (
-                <Link
-                  href={workspace.links.tv}
+              {limits.video > 0 && (
+                <a
+                  href={workspace.links.goLive}
                   target="_blank"
+                  rel="noreferrer"
                   className="inline-flex items-center gap-2 border border-[#161918] bg-white px-5 py-3.5 text-xs font-bold uppercase tracking-[0.16em] text-[#161918]"
                 >
                   <Tv className="h-4 w-4" />
-                  Open Maharaja TV Screen
-                </Link>
+                  Open Go Live TV
+                </a>
               )}
             </div>
           </div>
 
-          {/* Showroom TV Wall & Idle Showcase Upload */}
+          {/* Go Live TV: the workspace link, its promo videos and any older loop clips */}
           <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
             <div>
-              <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
                 <div>
                   <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    04 · Showroom TV Loop (/maharaja/tv)
+                    04 · Go Live TV
                   </p>
                   <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                    TV Wall Queue & Showcase Loop
+                    Customer videos & your promos
                   </h2>
                 </div>
-                <span className="border border-[#D8DCD7] bg-white px-3 py-1 font-mono text-xs font-semibold text-[#161918]">
-                  {showcaseList.length} Showcase Clips
-                </span>
               </div>
 
-              <p className="mt-4 text-sm text-[#535A56]">
-                Upload MP4/MOV promotional clips for the idle showroom loop. Whenever a customer taps{' '}
-                <strong>Go Live</strong> on their mobile, the Maharaja TV screen interrupts the idle loop to play their video.
-              </p>
-
+              {limits.video > 0 ? (
+                <div className="mt-4">
+                  <GoLivePromoManager goLiveUrl={workspace.links.goLive} />
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-[#535A56]">Go Live TV comes with AI Video. Contact TryFocus to add AI Video to your plan.</p>
+              )}
+              {showcaseList.length > 0 && (
+                <details className="mt-5 border-t border-[#D8DCD7] pt-4">
+                  <summary className="cursor-pointer text-xs font-semibold text-[#535A56]">Older loop clips ({showcaseList.length})</summary>
+                  <p className="mt-2 text-xs text-[#535A56]">These clips play inside the customer video loop. New promotional videos belong in Promo videos above.</p>
               <div className="mt-4 grid gap-2.5 sm:grid-cols-[1fr_1fr_auto]">
                 <input
                   value={sampleName}
@@ -1332,17 +1354,12 @@ export default function MaharajaAdminDashboard({
                   Upload
                 </button>
               </div>
+                </details>
+              )}
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-[#D8DCD7] pt-4 text-xs text-[#535A56]">
-              <span>Billing Counter Link: {workspace.links.billing}</span>
-              <button
-                type="button"
-                onClick={() => copyText('tv', workspace.links.tv)}
-                className="font-mono font-bold uppercase tracking-[0.14em] text-[#7A1428]"
-              >
-                {copiedKey === 'tv' ? 'Copied TV URL' : 'Copy TV Wall URL'}
-              </button>
+            <div className="mt-5 border-t border-[#D8DCD7] pt-4 text-xs text-[#535A56]">
+              <span className="min-w-0 break-all">Billing Counter Link: {workspace.links.billing}</span>
             </div>
           </div>
         </section>

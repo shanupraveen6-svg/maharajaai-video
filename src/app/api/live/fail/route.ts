@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { verifyTvRequest } from '@/lib/auth/display';
+import { bindClient } from '@/lib/maharaja/client-context';
+import { goLiveClientId, resolveRequestClientId } from '@/lib/maharaja/server';
 
 export async function POST(req: NextRequest) {
-  if (!await verifyTvRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Authenticated Maharaja TV required.' }, { status: 401 });
+  bindClient(await resolveRequestClientId(req));
+  if (!(await goLiveClientId(req)) && !await verifyTvRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Open this screen from the workspace Go Live link.' }, { status: 401 });
   }
   try {
     const body = await req.json();

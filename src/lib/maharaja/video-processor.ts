@@ -8,7 +8,10 @@ function getFfmpegPath(): string | null {
   if (typeof ffmpegPath === 'string' && fs.existsSync(ffmpegPath)) {
     return ffmpegPath;
   }
-  return null;
+  // In the bundled server ffmpeg-static computes its path from the bundle folder; the binary itself
+  // is traced into node_modules (outputFileTracingIncludes), so look there.
+  const traced = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg');
+  return fs.existsSync(traced) ? traced : null;
 }
 
 async function videoDuration(binary: string, filePath: string): Promise<number> {
@@ -214,4 +217,27 @@ export async function generateLive9sVideo(
 ): Promise<Buffer> {
   const audio = audioRelativeOrFullPath || '/audio/maharaja/live/diwali-hindu-9s.mp3';
   return generateBrandedVideo(input6sBuffer, 9, audio);
+}
+
+/** Duration and frame size of a local file or https URL, read from ffmpeg's stream header. */
+export async function probeVideo(source: string): Promise<{ durationSeconds: number; width: number; height: number }> {
+  const binary = getFfmpegPath();
+  if (!binary) throw new Error('Video checking is unavailable on this server.');
+  const stderr = await new Promise<string>((resolve, reject) => {
+    const proc = spawn(binary, ['-hide_banner', '-i', source]);
+    let output = '';
+    proc.stderr.on('data', (chunk) => { output += chunk.toString(); });
+    proc.on('error', reject);
+    // ffmpeg exits non-zero without an output file; the header it prints is all that is needed.
+    proc.on('close', () => resolve(output));
+  });
+  const durationMatch = stderr.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/);
+  const sizeMatch = stderr.match(/Stream #[^\n]*Video:[^\n]*?\b(\d{2,5})x(\d{2,5})\b/);
+  if (!durationMatch || !sizeMatch) throw new Error('This file is not a readable video.');
+  const durationSeconds = Number(durationMatch[1]) * 3600 + Number(durationMatch[2]) * 60 + Number(durationMatch[3]);
+  let width = Number(sizeMatch[1]);
+  let height = Number(sizeMatch[2]);
+  // Phone videos are often stored landscape with a rotation flag; the TV shows them as recorded.
+  if (/rotate\s*:\s*-?(90|270)|displaymatrix: rotation of -?(90|270)/i.test(stderr)) [width, height] = [height, width];
+  return { durationSeconds, width, height };
 }

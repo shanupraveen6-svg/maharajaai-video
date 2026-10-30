@@ -28,7 +28,7 @@ import {
 } from '@/lib/tryfocus/sample-data';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
-const SESSION_SECONDS = 30;
+const SESSION_SECONDS = 60;
 const READY_COUNTDOWN_SECONDS = 5;
 const CARDS_PER_PAGE = 4;
 const WEDDING_CATEGORIES: Record<TryFocusProduct['gender'], CatalogueCategoryId[]> = {
@@ -72,7 +72,7 @@ export default function LucyLiveMirror({
   const [error, setError] = useState('');
   const [guardianConsent, setGuardianConsent] = useState(false);
   const [statusMessage, setStatusMessage] = useState(
-    'Step 1: Open the mirror camera, choose a catalogue outfit, and tap Start 30s Live Try-On.'
+    'Step 1: Open the mirror camera, choose a catalogue outfit, and tap Start 60s Live Try-On.'
   );
   const [completionModalOpen, setCompletionModalOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -197,7 +197,7 @@ export default function LucyLiveMirror({
       }
       setState('camera_ready');
       setStatusMessage(
-        'Camera preview is active. Select any outfit on the right, then tap Start 30s Live Try-On.'
+        'Camera preview is active. Select any outfit on the right, then tap Start 60s Live Try-On.'
       );
     } catch (caught) {
       setError(
@@ -232,13 +232,14 @@ export default function LucyLiveMirror({
     ws.send({ reference_image_url: imageDataUri, prompt, enhance_prompt: true });
   }
 
-  function startPaidThirtySecondWindow() {
+  function startPaidSessionWindow() {
     if (paidTimerStartedRef.current) return;
     paidTimerStartedRef.current = true;
+    void fetch('/api/fal/realtime-session', { method: 'POST' }).catch(() => undefined);
     setState('live');
     setSecondsLeft(SESSION_SECONDS);
     setStatusMessage(
-      'AI Live Mirror is active! Move naturally or tap another outfit to switch instantly during your 30-second session.'
+      'AI Live Mirror is active! Move naturally or tap another outfit to switch instantly during your 60-second session.'
     );
     clearSessionTimer();
     timerRef.current = window.setInterval(() => {
@@ -324,7 +325,7 @@ export default function LucyLiveMirror({
     closeRealtimeConnections();
     setState('connecting');
     setSecondsLeft(SESSION_SECONDS);
-    setStatusMessage('Connecting to Live AI Mirror... Your 30s timer starts ONLY after AI video appears.');
+    setStatusMessage('Connecting to Live AI Mirror... Your 60s timer starts ONLY after AI video appears.');
 
     try {
       if (!streamRef.current) {
@@ -345,7 +346,7 @@ export default function LucyLiveMirror({
       const connection = fal.realtime.connect<Record<string, unknown>, Record<string, any>>(LUCY_VTON_APP, {
         connectionKey: `maharaja-live-${Date.now()}`,
         throttleInterval: 0,
-        tokenExpirationSeconds: 60,
+        tokenExpirationSeconds: 120,
         tokenProvider: async () => {
           const response = await fetch('/api/fal/realtime-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: LUCY_VTON_APP }) });
           if (!response.ok) throw new Error(await response.text());
@@ -368,7 +369,7 @@ export default function LucyLiveMirror({
                 video.srcObject = output;
                 video.onplaying = () => {
                   if (connectionDeadlineRef.current) clearTimeout(connectionDeadlineRef.current);
-                  startPaidThirtySecondWindow();
+                  startPaidSessionWindow();
                 };
                 void video.play().catch(() => fail('Tap Start again to allow live video playback.'));
               };
@@ -400,7 +401,7 @@ export default function LucyLiveMirror({
     } catch (caught) {
       closeRealtimeConnections();
       setError(
-        caught instanceof Error ? caught.message : 'Unable to start 30s Live AI Mirror.'
+        caught instanceof Error ? caught.message : 'Unable to start 60s Live AI Mirror.'
       );
       setState('error');
     }
@@ -450,11 +451,11 @@ export default function LucyLiveMirror({
     if (nextState === 'complete') {
       setCompletionModalOpen(true);
       setStatusMessage(
-        '30-second Live AI Mirror session complete. Start a new 30s session or scan the QR to continue on mobile.'
+        '60-second Live AI Mirror session complete. Start a new 60s session or scan the QR to continue on mobile.'
       );
     } else {
       setStatusMessage(
-        'Live session stopped. Camera preview is ready whenever you want to start another 30s session.'
+        'Live session stopped. Camera preview is ready whenever you want to start another 60s session.'
       );
     }
   }
@@ -481,9 +482,9 @@ export default function LucyLiveMirror({
   return (
     <div className="space-y-4">
       <div className="tv-live-heading border-2 border-[#D8DCD7] bg-white p-5">
-        <p className="font-mono text-sm font-bold uppercase tracking-[0.16em] text-[#7A1428]">Live AI Mirror · 30 seconds</p>
+        <p className="font-mono text-sm font-bold uppercase tracking-[0.16em] text-[#7A1428]">Live AI Mirror · 60 seconds</p>
         <h2 className="mt-1 font-serif text-4xl font-semibold text-[#161918]">See your wedding look move with you</h2>
-        <p className="mt-2 text-lg text-[#535A56]">Choose a look, open the camera, then start your 30-second session.</p>
+        <p className="mt-2 text-lg text-[#535A56]">Choose a look, open the camera, then start your 60-second session.</p>
       </div>
 
       <div className="tv-live-audience grid grid-cols-4 gap-3" aria-label="Live mirror audience">
@@ -656,7 +657,7 @@ export default function LucyLiveMirror({
                 {readyCountdown}
               </div>
               <p className="mt-4 max-w-xs text-sm text-[#FAF6EE]/90">
-                Starting your 30-second Live AI Try-On with{' '}
+                Starting your 60-second Live AI Try-On with{' '}
                 <strong>{selectedGarment.title}</strong>...
               </p>
             </div>
@@ -673,7 +674,7 @@ export default function LucyLiveMirror({
                 Stand in Front of the Standee
               </h3>
               <p className="mt-3 max-w-sm text-sm leading-relaxed text-[#D8DCD7]">
-                Tap below to open the live camera preview first. Your 30-second AI session only begins when you start Step 3 and the AI stream is confirmed playing.
+                Tap below to open the live camera preview first. Your 60-second AI session only begins when you start Step 3 and the AI stream is confirmed playing.
               </p>
               <button
                 type="button"
@@ -694,7 +695,7 @@ export default function LucyLiveMirror({
                 Preparing Your Live AI Garment...
               </p>
               <p className="mt-2 max-w-xs text-sm text-[#D8DCD7]">
-                Loading <strong>{selectedGarment.title}</strong>. Your 30-second countdown will begin automatically once the AI video track starts playing.
+                Loading <strong>{selectedGarment.title}</strong>. Your 60-second countdown will begin automatically once the AI video track starts playing.
               </p>
             </div>
           )}
@@ -715,7 +716,7 @@ export default function LucyLiveMirror({
                     className="mt-3 inline-flex min-h-[48px] items-center gap-2 bg-[#7A1428] px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
                   >
                     <RefreshCw className="h-4 w-4" />
-                    Retry 30s Live AI Stream
+                    Retry 60s Live AI Stream
                   </button>
                 </div>
               </div>
@@ -799,7 +800,7 @@ export default function LucyLiveMirror({
                 className="tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border-2 border-[#7A1428] bg-[#7A1428] px-10 text-xl font-bold uppercase tracking-wider text-white shadow-lg transition hover:bg-[#600F1F] active:scale-[0.99] sm:min-w-[320px]"
               >
                 <Sparkles className="h-6 w-6 text-[#F3E5AB]" />
-                Start 30s Live Mirror
+                Start 60s Live Mirror
               </button>
             )}
           </div>
@@ -852,7 +853,7 @@ export default function LucyLiveMirror({
               <div className="space-y-4">
                 <p className="text-sm leading-relaxed text-[#535A56]">
                   Your live session has finished. Scan the QR to save{' '}
-                  <strong>{selectedGarment.title}</strong> ({formatINR(selectedGarment.price)}) on your phone, or start another 30-second live session.
+                  <strong>{selectedGarment.title}</strong> ({formatINR(selectedGarment.price)}) on your phone, or start another 60-second live session.
                 </p>
                 <p role="status" className="text-sm">{handoffMessage}</p>
                 <div className="flex flex-wrap gap-3">
@@ -862,7 +863,7 @@ export default function LucyLiveMirror({
                     className="inline-flex min-h-[56px] items-center gap-2 bg-[#7A1428] px-6 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE]"
                   >
                     <RefreshCw className="h-4 w-4" />
-                    Start Another 30s Live Session
+                    Start Another 60s Live Session
                   </button>
                   <button
                     type="button"

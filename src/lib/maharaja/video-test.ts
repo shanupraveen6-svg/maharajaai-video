@@ -57,7 +57,8 @@ export function buildVideoTestInput(
       prompt: motionPrompt,
       image_references: references.map((image_url, index) => ({
         image_url,
-        ref_name: index === 0 ? 'master' : `garment${index}`,
+        // Names match the @customer / @outfit1 / @outfit2 references in the PixVerse prompt.
+        ref_name: index === 0 ? 'customer' : `outfit${index}`,
         type: 'subject' as const,
       })),
       duration: 6,

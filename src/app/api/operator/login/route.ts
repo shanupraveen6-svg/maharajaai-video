@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { clientSessionSubject, signOperatorToken } from '@/lib/auth/operator';
+import { verifyClientLogin } from '@/lib/auth/client-accounts';
 
 const OPERATOR_COOKIE = 'maharaja_operator_auth';
 
@@ -60,15 +62,23 @@ export async function POST(req: NextRequest) {
     const username = typeof body.username === 'string' ? body.username.trim() : '';
     const password = typeof body.password === 'string' ? body.password.trim() : '';
 
-    if (!creds.usernames.includes(username) || !creds.passwords.includes(password)) {
-      return NextResponse.json({ success: false, error: 'Invalid login.' }, { status: 401 });
+    const expiresAt = Date.now() + 60 * 60 * 24 * 1000;
+    let token = '';
+    let clientId: string | null = null;
+    if (creds.usernames.includes(username) && creds.passwords.includes(password)) {
+      const payload = `${username}.${expiresAt}`;
+      token = `${payload}.${signToken(payload, secret)}`;
+    } else {
+      // A client's own login opens only that client's workspace.
+      const clientLogin = await verifyClientLogin(username, password);
+      if (!clientLogin) {
+        return NextResponse.json({ success: false, error: 'Invalid login.' }, { status: 401 });
+      }
+      clientId = clientLogin.clientId;
+      token = signOperatorToken(clientSessionSubject(clientLogin.clientId, clientLogin.username), expiresAt);
     }
 
-    const expiresAt = Date.now() + 60 * 60 * 24 * 1000;
-    const payload = `${username}.${expiresAt}`;
-    const token = `${payload}.${signToken(payload, secret)}`;
-
-    const response = NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true, role: clientId ? 'client' : 'admin', clientId });
     response.cookies.set(OPERATOR_COOKIE, token, {
       httpOnly: true,
       sameSite: 'lax',

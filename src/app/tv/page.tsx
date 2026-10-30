@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Sparkles, Volume2 } from 'lucide-react';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import { getTamilCustomerName } from '@/lib/maharaja/names';
-import { mergeTvPool, nextTvPoolIndex } from '@/lib/maharaja/tv-pool';
+import { isPromoDue, mergeTvPool, nextTvPoolIndex, resumeIndexAfterPromo } from '@/lib/maharaja/tv-pool';
 
 const SOURCE_SECONDS_FOR_LIVE = 6;
 const TV_SECONDS_FOR_LIVE = 9;
@@ -23,7 +23,8 @@ type PlaybackItem = {
   liveAudioUrl?: string | null;
   customerName?: string | null;
   customerLocality?: string | null;
-  source?: 'live' | 'replay';
+  /** live: customer Go Live; replay: stored customer video; promo: the store's own promotional video. */
+  source?: 'live' | 'replay' | 'promo';
   eventId?: string | null;
   playbackMode?: 'embedded' | 'external';
   durationSeconds?: number;
@@ -32,12 +33,57 @@ type PlaybackItem = {
   timesPlayed?: number;
 };
 
+/** Secret code from a workspace's Go Live link (`/tv?screen=...`); empty on a staff-paired TV. */
+function goLiveScreenCode() {
+  if (typeof window === 'undefined') return '';
+  return new URLSearchParams(window.location.search).get('screen') || '';
+}
+
+/** Every playback request names its workspace and bypasses all caches, so the queue is always current. */
+function liveFetch(input: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  const code = goLiveScreenCode();
+  if (code) headers.set('x-golive-screen', code);
+  return fetch(input, { ...init, cache: 'no-store', headers });
+}
+
 export default function TvPlayerPage() {
   useEffect(() => {
-    // Staff login pairs this browser once; subsequent visits use display-only access.
-    void fetch('/api/tv/pair', { method: 'POST' }).catch(() => undefined);
+    // Staff login pairs this browser once; a Go Live link needs no pairing.
+    if (!goLiveScreenCode()) void fetch('/api/tv/pair', { method: 'POST' }).catch(() => undefined);
   }, []);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const promosRef = useRef<PlaybackItem[]>([]);
+  const promoEveryRef = useRef(10);
+  const customerPlaysSincePromoRef = useRef(0);
+  const promoIndexRef = useRef(0);
+  const resumeQueueIdRef = useRef<string | null>(null);
+  // The store's promo videos, re-signed every 10 minutes so playback URLs never go stale.
+  useEffect(() => {
+    let active = true;
+    const loadPromos = () => liveFetch('/api/maharaja/promos?playback=1')
+      .then((response) => response.json())
+      .then((data) => {
+        if (!active || !data?.success) return;
+        if (data.clientId) setScreenBrand({ clientId: data.clientId, clientName: data.clientName || 'Showroom' });
+        promoEveryRef.current = Number(data.everyCustomerVideos) || 10;
+        promosRef.current = (data.promos || []).map((promo: { id: string; videoUrl: string; durationSeconds?: number }) => ({
+          queueId: `promo_${promo.id}`,
+          reservationId: '',
+          videoUrl: promo.videoUrl,
+          source: 'promo' as const,
+          playbackMode: 'embedded' as const,
+          hasEmbeddedAudio: true,
+          durationSeconds: promo.durationSeconds,
+        }));
+      })
+      .catch(() => undefined);
+    void loadPromos();
+    const timer = window.setInterval(loadPromos, 10 * 60 * 1000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+  // Each workspace's Go Live screen shows its own name; the Maharaja logo appears only on Maharaja's.
+  const [screenBrand, setScreenBrand] = useState<{ clientId: string; clientName: string }>({ clientId: '', clientName: 'Showroom' });
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [currentPlayback, setCurrentPlayback] = useState<PlaybackItem | null>(null);
   const [slotItems, setSlotItems] = useState<Record<Slot, PlaybackItem | null>>({ a: null, b: null });
@@ -321,7 +367,7 @@ export default function TvPlayerPage() {
     if (completedQueueIdsRef.current.has(playback.queueId)) return 'completed';
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
-        const response = await fetch('/api/live/complete', {
+        const response = await liveFetch('/api/live/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -445,7 +491,7 @@ export default function TvPlayerPage() {
       do {
         // Start with a small page so the screen begins playing promptly even
         // when the showroom library contains many historical videos.
-        const res = await fetch(`/api/live/replays?limit=24&offset=${offset}`, { cache: 'no-store' });
+        const res = await liveFetch(`/api/live/replays?limit=24&offset=${offset}`, { cache: 'no-store' });
         const data = await res.json();
         if (!data.success || !Array.isArray(data.items)) return;
         data.items.forEach((item: PlaybackItem) => {
@@ -468,7 +514,7 @@ export default function TvPlayerPage() {
     void loadReplayLibrary();
     const replayRefresh = window.setInterval(() => {
       void loadReplayLibrary();
-    }, 30 * 1000);
+    }, 120 * 1000);
 
     const pollNextVideo = async () => {
       if (hasOutstandingLivePlayback()) {
@@ -477,14 +523,18 @@ export default function TvPlayerPage() {
       }
       if (pollInFlightRef.current) return;
       pollInFlightRef.current = true;
+      // An empty queue is checked every 8 s (each check runs several Firestore queries);
+      // right after a video arrives the next check follows in 2 s.
+      let nextPollMs = 8000;
 
       try {
-        const res = await fetch('/api/live/next');
+        const res = await liveFetch('/api/live/next');
         if (!isMounted) return;
 
         const data = await res.json();
 
         if (data.status === 'play' && data.videoUrl) {
+          nextPollMs = 2000;
           insertLivePlaybackNext({
             queueId: data.queueId,
             queueNumber: data.queueNumber || null,
@@ -506,7 +556,7 @@ export default function TvPlayerPage() {
       } finally {
         pollInFlightRef.current = false;
         if (isMounted) {
-          timeoutRef.current = setTimeout(pollNextVideo, 2000);
+          timeoutRef.current = setTimeout(pollNextVideo, nextPollMs);
         }
       }
     };
@@ -551,7 +601,7 @@ export default function TvPlayerPage() {
         }
       }, 12000);
 
-      fetch('/api/tv/playing', {
+      liveFetch('/api/tv/playing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -588,7 +638,7 @@ export default function TvPlayerPage() {
   useEffect(() => {
     if (!isPlayingVideo || !currentPlayback?.reservationId) return;
     const heartbeat = () => {
-      void fetch('/api/tv/playing', {
+      void liveFetch('/api/tv/playing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -697,7 +747,8 @@ export default function TvPlayerPage() {
       window.requestAnimationFrame(() => {
         loopInProgressRef.current = false;
       });
-      void fetch('/api/tv/playing', {
+      // Promos are the store's own files, not customer queue items.
+      if (playback.source !== 'promo') void liveFetch('/api/tv/playing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ queueId: playback.queueId, reservationId: playback.reservationId }),
@@ -730,6 +781,24 @@ export default function TvPlayerPage() {
     const playlist = playlistRef.current;
     if (!playlist.length) {
       scheduleContinuityRecovery(500);
+      return;
+    }
+
+    // After every N customer videos, one of the store's promos plays, rotating through them.
+    const current = currentPlaybackRef.current;
+    const promos = promosRef.current;
+    if (current && isPromoDue(customerPlaysSincePromoRef.current, promoEveryRef.current, promos.length, current.source)) {
+      const promo = promos[promoIndexRef.current % promos.length];
+      promoIndexRef.current += 1;
+      customerPlaysSincePromoRef.current = 0;
+      resumeQueueIdRef.current = current.queueId;
+      preparePlayback(promo);
+      return;
+    }
+    // After a promo, the customer loop resumes right after the video that played before it.
+    if (current?.source === 'promo') {
+      playlistIndexRef.current = resumeIndexAfterPromo(playlist, resumeQueueIdRef.current);
+      preparePlayback(playlist[playlistIndexRef.current]);
       return;
     }
 
@@ -790,7 +859,7 @@ export default function TvPlayerPage() {
     clearPlaybackWatchdog();
     clearStallRecoveryTimer();
 
-    if (playback.source !== 'replay') {
+    if (playback.source === 'live' || playback.source === undefined) {
       const playNumber = Number(playback.timesPlayed || 0) + 1;
 
       // Start completion notification in background so screen continuity is never stalled
@@ -821,6 +890,7 @@ export default function TvPlayerPage() {
       return;
     }
 
+    if (playback.source !== 'promo') customerPlaysSincePromoRef.current += 1;
     resetExternalAudio();
     liveAudioStartedRef.current = false;
     setPlaybackError(null);
@@ -904,8 +974,8 @@ export default function TvPlayerPage() {
     }
 
     try {
-      if (playback.source !== 'replay') {
-        await fetch('/api/live/fail', {
+      if (playback.source === 'live' || playback.source === undefined) {
+        await liveFetch('/api/live/fail', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -981,14 +1051,14 @@ export default function TvPlayerPage() {
     return (
       <main className="min-h-[100dvh] flex items-center justify-center bg-[#2B0506] p-4 sm:p-6 text-center select-none font-sans">
         <div className="max-w-xl w-full rounded-lg border border-[#F6D36A]/45 bg-[#170202]/92 p-6 sm:p-10 shadow-2xl space-y-5 sm:space-y-6">
-          <img
+          {screenBrand.clientId === 'maharaja' && <img
             src="/maharaja-logo.png"
             alt="Majestic Maharaja"
             className="mx-auto h-24 w-24 sm:h-32 sm:w-32 rounded-lg object-cover border border-[#F6D36A]/35"
-          />
+          />}
           <div>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-widest text-[#F8E8A8] uppercase">
-              Majestic Maharaja TV
+              {screenBrand.clientName} TV
             </h1>
             <p className="mt-2 text-xs font-bold uppercase tracking-[0.24em] text-[#F6D36A]/80">
               Diwali Celebration Screen
@@ -1001,9 +1071,9 @@ export default function TvPlayerPage() {
             onClick={() => {
               setAudioUnlocked(true);
             }}
-            className="w-full rounded-lg bg-[#F6D36A] px-6 py-3.5 sm:px-8 sm:py-4 text-sm sm:text-base font-black uppercase tracking-wider text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
+            className="min-h-16 w-full rounded-lg bg-[#F6D36A] px-6 py-3.5 sm:px-8 sm:py-4 text-sm sm:text-base font-black uppercase tracking-wider text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
           >
-            <Volume2 className="h-5 w-5 sm:h-6 sm:w-6" /> Start Maharaja Screen
+            <Volume2 className="h-5 w-5 sm:h-6 sm:w-6" /> Start Showroom Screen
           </button>
         </div>
       </main>
@@ -1032,11 +1102,11 @@ export default function TvPlayerPage() {
       <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1920px] flex-col items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-6 lg:grid lg:h-full lg:grid-cols-[minmax(180px,1fr)_auto_minmax(220px,1fr)] lg:gap-8 lg:px-10 lg:py-8 xl:px-14 xl:py-10">
         {/* Left / Top Brand Section */}
         <section className="flex w-full items-center justify-center gap-3.5 lg:h-full lg:flex-col lg:gap-5">
-          <img
+          {screenBrand.clientId === 'maharaja' ? <img
             src="/maharaja-logo.png"
             alt="Majestic Maharaja"
             className="h-14 w-14 shrink-0 rounded-lg border border-[#F6D36A]/45 object-cover shadow-[0_12px_40px_rgba(0,0,0,0.42)] sm:h-20 sm:w-20 lg:h-auto lg:w-[78%] lg:max-w-[300px]"
-          />
+          /> : <p className="font-serif text-2xl font-black uppercase tracking-[0.12em] text-[#FFF1A8] lg:text-center">{screenBrand.clientName}</p>}
           <div className="text-left lg:text-center">
             <p className="font-serif text-xl font-black uppercase tracking-[0.14em] text-[#FFF1A8] sm:text-2xl lg:text-[clamp(1.65rem,2.4vw,2.5rem)]">
               AI Diwali

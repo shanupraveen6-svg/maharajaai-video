@@ -57,7 +57,7 @@ for (const concept of VIDEO_CONCEPTS) {
     const input = buildVideoTestInput(model.id, references[0], references.slice(1), concept.id, ['front', 'back']);
     assert.equal(input.duration, 6);
     assert.equal(input.aspect_ratio, '9:16');
-    assert.match(input.prompt, /Image 1|@master|<IMAGE_REF_0>/);
+    assert.match(input.prompt, /Image 1|@customer/);
     assert.match(input.prompt, /smile/i);
     if (model.id === 'h3-max') {
       assert.match(input.prompt, /Image 1 is the approved exact opening frame/i);
@@ -72,13 +72,15 @@ for (const concept of VIDEO_CONCEPTS) {
       assert.equal(input.resolution, '768P');
       assert.equal(input.prompt_expansion_mode, 'disabled');
     } else if (model.id === 'pixverse-c1') {
-      assert.match(input.prompt, /@master locks the approved opening identity/i);
+      // Reference-to-video: @customer (approved master) and @outfit references, scene restated, identity locked.
+      assert.match(input.prompt, /^@customer, the same /);
+      assert.match(input.prompt, /LOCKED: face, identity, age, skin tone, hair, body size and proportions exactly as @customer/);
       assert.match(input.prompt, /small warm smile/i);
-      if (isChild) assert.match(input.prompt, /Namaste pose unchanged/i);
-      else assert.match(input.prompt, /hands below waist(?:,| and) away from chest/i);
+      if (isChild) assert.match(input.prompt, /Namaste at mid-chest/i);
+      else assert.match(input.prompt, /Standing beside [^.]+\. [^.]+\. Feet planted[\s\S]*Around 2-3s/);
       assert.match(input.prompt, /CAMERA: 0-1s[\s\S]*(?:track|crane|glide|rise|dolly|reveal|arc|lower|pan|push)/i);
       assert.deepEqual(input.image_references.map((item) => item.image_url), references);
-      assert.deepEqual(input.image_references.map((item) => item.ref_name), ['master', 'garment1', 'garment2']);
+      assert.deepEqual(input.image_references.map((item) => item.ref_name), ['customer', 'outfit1', 'outfit2']);
       assert.equal(input.resolution, '720p');
       assert.equal(input.generate_audio_switch, false);
       assert(Buffer.byteLength(input.prompt, 'utf8') <= 2048, 'PixVerse prompt exceeds 2,048 UTF-8 bytes');
@@ -138,15 +140,16 @@ assert.match(dhotiVideoPrompt, /Thanjavur-inspired|South Indian/i);
 
 assert.equal(new Set(VIDEO_CONCEPTS.map((concept) => buildH3MotionPrompt(concept, []).split('CAMERA: ')[1]?.split(' Keep the customer')[0])).size, 12);
 for (const concept of VIDEO_CONCEPTS) {
-  const h3Prompt = buildH3MotionPrompt(concept, ['front', 'back']);
-  const pixversePrompt = buildH3MotionPrompt(concept, ['front', 'back'], 'diwali', 'pixverse')
-    .replaceAll('@master', 'Image 1').replaceAll('@garment1', 'Image 2').replaceAll('@garment2', 'Image 3');
+  // Compared with a saree so the women's camera plans keep their original garment wording in both models.
+  const h3Prompt = buildH3MotionPrompt(concept, ['front', 'back'], 'diwali', 'h3', 'saree');
+  const pixversePrompt = buildH3MotionPrompt(concept, ['front', 'back'], 'diwali', 'pixverse', 'saree');
   assert.equal(
     pixversePrompt.match(/CAMERA: ([\s\S]*?) Create distinct foreground-to-background parallax/)?.[1],
     h3Prompt.match(/CAMERA: ([\s\S]*?) Create distinct foreground-to-background parallax/)?.[1],
     `${concept.id}: H3 and PixVerse share camera direction`,
   );
-  assert.equal(pixversePrompt.match(/BACKGROUND(?: \+ FX)?: ([^\n]+)/)?.[1], h3Prompt.match(/BACKGROUND(?: \+ FX)?: ([^\n]+)/)?.[1], `${concept.id}: H3 and PixVerse share event animation`);
+  // PixVerse adds its motion-graphics layer on its own line; the event animation itself is shared.
+  assert.equal(pixversePrompt.match(/BACKGROUND(?: \+ FX)?: ([^\n]+)/)?.[1], h3Prompt.match(/BACKGROUND(?: \+ FX)?: ([^\n]+)/)?.[1].split(' MOTION GRAPHICS:')[0], `${concept.id}: H3 and PixVerse share event animation`);
   assert(Buffer.byteLength(pixversePrompt, 'utf8') <= 2048, `${concept.id}: PixVerse prompt exceeds 2,048 UTF-8 bytes`);
 }
 console.log('H3 Max and PixVerse schemas and shared H3 direction passed for all 12 concepts.');

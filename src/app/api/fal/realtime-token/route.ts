@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMaharajaWorkspace, incrementMaharajaUsage } from '@/lib/maharaja/server';
+import { resolveRequestClientId, getMaharajaWorkspace } from '@/lib/maharaja/server';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyTvRequest } from '@/lib/auth/display';
+import { bindClient } from '@/lib/maharaja/client-context';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!await verifyTvRequest(req)) return new NextResponse('Sign in or pair this display first.', { status: 401 });
   const workspace = await getMaharajaWorkspace();
   if (!workspace.campaignEnabled) {
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
   const liveLimit = Number(workspace.limits?.live ?? 500);
   const liveUsed = Number(workspace.usage?.liveSessions || 0);
   if (liveLimit <= 0 || liveUsed >= liveLimit) {
-    return new NextResponse('Live AI Mirror 30-second session credits are exhausted for this store.', { status: 403 });
+    return new NextResponse('Live AI Mirror is paused right now. Please ask our staff for help.', { status: 403 });
   }
 
   const falKey = process.env.FAL_KEY?.trim();
@@ -40,13 +42,13 @@ export async function POST(req: NextRequest) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ allowed_apps: ['lucy2-vton'], token_expiration: 60 }),
+      body: JSON.stringify({ allowed_apps: ['lucy2-vton'], token_expiration: 120 }),
       cache: 'no-store',
       signal: AbortSignal.timeout(10_000),
     });
     const token = await response.text();
     if (!response.ok || !token) return new NextResponse('Could not start Live AI Mirror.', { status: 502 });
-    await incrementMaharajaUsage('liveSessions').catch(() => undefined);
+    // The credit is counted by /api/fal/realtime-session once the AI stream plays, so failed connections are free.
     return new NextResponse(token.replace(/^"|"$/g, ''), {
       status: 200,
       headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' },

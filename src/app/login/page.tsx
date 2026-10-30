@@ -45,12 +45,14 @@ function MaharajaLoginForm() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.error || 'Invalid Maharaja login. Please check username and password.');
+        setError(data?.error || 'Invalid login. Please check username and password.');
         setIsSubmitting(false);
         return;
       }
 
-      window.location.assign(nextPath);
+      const data = await res.json().catch(() => null);
+      // Client logins never open TryFocus admin; they land on their own workspace.
+      window.location.assign(data?.role === 'client' && nextPath.startsWith('/admin') ? '/maharaja/client-admin' : nextPath);
     } catch (caught) {
       setError(caught instanceof DOMException && caught.name === 'AbortError'
         ? 'Login is taking too long. Please check your connection and try again.'

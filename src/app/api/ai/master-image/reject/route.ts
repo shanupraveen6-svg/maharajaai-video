@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
-import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { logMaharajaActivity, rejectPassMasterImage, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { bindClient } from '@/lib/maharaja/client-context';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,6 +14,8 @@ export async function POST(req: NextRequest) {
     }
 
     const access = await verifyMaharajaAccess(req, accessCode, service);
+
+    bindClient(access.allowed ? access.clientId : null);
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }

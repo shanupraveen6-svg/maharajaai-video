@@ -61,6 +61,8 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
     for (const doc of snapshot.docs) {
       const session = doc.data();
       const sessionId = doc.id;
+      // Each session's media lives under the client that created it.
+      const ownerId = typeof session.clientId === 'string' && session.clientId ? session.clientId : MAHARAJA_CLIENT_ID;
       if (Date.now() >= deadline) break;
       try {
         // Keep the existing showroom library intact. New live submissions carry an
@@ -77,7 +79,7 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
           session.retentionPolicyVersion !== 'live-v2'
             ? await bucket
                 .file(
-                  `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/video/live-9s.mp4`,
+                  `clients/${ownerId}/sessions/${sessionId}/video/live-9s.mp4`,
                 )
                 .exists()
             : [false];
@@ -92,19 +94,19 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
         } else if (session.promotionConsent === true) {
           await Promise.all([
             bucket.deleteFiles({
-              prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/person/`,
+              prefix: `clients/${ownerId}/sessions/${sessionId}/person/`,
               force: true,
             }),
             bucket.deleteFiles({
-              prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/garment/`,
+              prefix: `clients/${ownerId}/sessions/${sessionId}/garment/`,
               force: true,
             }),
             bucket.deleteFiles({
-              prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/`,
+              prefix: `clients/${ownerId}/sessions/${sessionId}/master/`,
               force: true,
             }),
             bucket.deleteFiles({
-              prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/video-tests/`,
+              prefix: `clients/${ownerId}/sessions/${sessionId}/video-tests/`,
               force: true,
             }),
           ]);
@@ -124,7 +126,7 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
           retainedForPromotion += 1;
         } else {
           await bucket.deleteFiles({
-            prefix: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/`,
+            prefix: `clients/${ownerId}/sessions/${sessionId}/`,
             force: true,
           });
           const batch = db.batch();

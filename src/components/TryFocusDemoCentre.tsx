@@ -12,21 +12,19 @@ const demos: Demo[] = [
   { title: 'Interactive TV', description: 'Full touch TV/standee demonstration with Image, Live, Video and Discover.', path: '/maharaja/tv/experience', icon: Tv, colour: 'from-[#351452] to-[#07131d]', qr: false },
   { title: 'Counter Tablet', description: 'Staff-assisted image try-on and ₹5,000+ video reward flow.', path: '/maharaja/tablet/experience', icon: Tablet, colour: 'from-[#163d37] to-[#071613]', qr: false },
   { title: 'Client Dashboard', description: 'Retailer usage, mobile rules, video, campaign and privacy controls.', path: '/maharaja/client-admin', icon: Monitor, colour: 'from-[#6e0d1f] to-[#2a0710]', qr: false },
-  { title: 'TryFocus Control', description: 'Internal client access, credits, devices and commercial packs.', path: '/admin', icon: ShieldCheck, colour: 'from-[#5c4218] to-[#18120d]', qr: false },
+  { title: 'TryFocus Control', description: 'Internal client access, credits, devices and WhatsApp connection.', path: '/admin', icon: ShieldCheck, colour: 'from-[#5c4218] to-[#18120d]', qr: false },
 ];
 const testLinks = [
   ['1', 'Interactive TV — Image, Live, Video, Discover', '/maharaja/tv/experience'],
   ['2', 'Counter Tablet — Staff Image + Video Reward', '/maharaja/tablet/experience'],
   ['3', 'Mobile — Image Try-On entry', '/maharaja/mobile/experience?demo=image'],
   ['4', 'Mobile — Video Reward entry', '/maharaja/mobile/experience?demo=video&code=DEMO5000'],
-  ['5', 'Client Dashboard', '/maharaja/client-admin'],
-  ['6', 'Campaign Manager', '/maharaja/client-admin/campaigns'],
-  ['7', 'Video Library / Go Live consent records', '/maharaja/client-admin/videos'],
-  ['8', 'Retail Analytics', '/maharaja/client-admin/analytics'],
-  ['9', 'Store Operations / Privacy Controls', '/maharaja/client-admin/operations'],
-  ['10', 'TryFocus Internal Admin', '/admin'],
-  ['11', 'Internal Device Operations', '/admin/devices'],
-  ['12', 'Existing LED / Wall Player', '/maharaja/tv'],
+  ['5', 'Client Dashboard · campaign, devices, counter QR', '/maharaja/client-admin'],
+  ['6', 'Video Library / Go Live consent records', '/maharaja/client-admin/videos'],
+  ['7', 'Retail Analytics', '/maharaja/client-admin/analytics'],
+  ['8', 'Catalogue Upload', '/maharaja/client-admin/catalogue/upload'],
+  ['9', 'TryFocus Internal Admin · clients, credits, WhatsApp', '/admin'],
+  ['10', 'Existing LED / Wall Player', '/maharaja/tv'],
 ] as const;
 
 export default function TryFocusDemoCentre() {

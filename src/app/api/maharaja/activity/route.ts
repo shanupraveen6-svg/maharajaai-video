@@ -15,6 +15,7 @@ import {
   verifyMaharajaAccess,
   type MaharajaActivity,
 } from '@/lib/maharaja/server';
+import { bindClient } from '@/lib/maharaja/client-context';
 
 const CUSTOMER_TYPES = new Set(['retry', 'download', 'share']);
 
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
       if (!CUSTOMER_TYPES.has(type)) return NextResponse.json({ success: false, error: 'Invalid activity.' }, { status: 400 });
       const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
       let access = await verifyMaharajaAccess(req, body.accessCode, type === 'retry' ? service : 'try-on');
+      bindClient(access.allowed ? access.clientId : null);
       if (!access.allowed) {
         const completedPass = (type === 'share' || type === 'retry') && typeof body.accessCode === 'string'
           ? await getVideoPass(body.accessCode.trim())

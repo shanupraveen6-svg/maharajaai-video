@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
       './public/maharaja-logo.png',
       './public/audio/maharaja/**/*',
     ],
+    // Promo uploads are checked (length, frame size) with ffmpeg before they reach the Go Live TV.
+    '/api/maharaja/promos': [
+      './node_modules/ffmpeg-static/ffmpeg',
+    ],
     '/api/video/webhook': [
       './node_modules/ffmpeg-static/ffmpeg',
       './public/maharaja-logo.png',
@@ -47,6 +51,14 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/api/version',
+        headers: noStoreHeaders,
+      },
+      {
+        source: '/api/tv/:path*',
+        headers: noStoreHeaders,
+      },
+      {
+        source: '/maharaja/tv/:path*',
         headers: noStoreHeaders,
       },
     ];

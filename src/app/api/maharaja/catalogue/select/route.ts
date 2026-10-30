@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
-import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
     const accessCode = typeof body?.accessCode === 'string' ? body.accessCode.trim() : '';
     const sku = typeof body?.sku === 'string' ? body.sku.trim() : '';
     const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+    bindClient(access.allowed ? access.clientId : null);
     if (!access.allowed || !access.pass) return NextResponse.json({ success: false, error: access.error || 'Gift link is invalid.' }, { status: 401 });
     if (access.pass.experienceType !== 'catalogue-gift') return NextResponse.json({ success: false, error: 'This link is not a catalogue gift.' }, { status: 403 });
     const product = await getCatalogueProduct(sku);
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({ success: true, product: { sku: product.sku, title: product.title, price: product.price } });
     }
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(access.pass.code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(access.pass.code);
     await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       const pass = snapshot.data();

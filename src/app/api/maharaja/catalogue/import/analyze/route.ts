@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getStorageBucket } from '@/lib/firebase/admin';
 import { catalogueCategories } from '@/lib/tryfocus/sample-data';
+import { bindClient } from '@/lib/maharaja/client-context';
+import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -18,6 +20,7 @@ function imageType(bytes: Buffer, declared: string) {
 }
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) return NextResponse.json({ error: 'Operator sign-in required.' }, { status: 401 });
   try {
     const bucket = getStorageBucket();

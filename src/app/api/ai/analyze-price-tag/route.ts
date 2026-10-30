@@ -14,6 +14,7 @@ import {
   verifyMaharajaAccess,
 } from '@/lib/maharaja/server';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { bindClient } from '@/lib/maharaja/client-context';
 
 export const maxDuration = 45;
 
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const access = await verifyMaharajaAccess(req, body.accessCode, 'try-on');
+    bindClient(access.allowed ? access.clientId : null);
     if (!access.allowed) return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     if (!validTryOnDeviceId(body.deviceId)) {
       return NextResponse.json({ success: false, error: 'This device could not be verified. Reload the page and try again.' }, { status: 400 });
@@ -79,7 +81,7 @@ Do not use barcode digits, article codes, dates, sizes, quantities, phone number
 The amount may include commas or decimals, for example "Rs. 599.00" means 599.
 Return JSON only: {"amount": number | null, "barcode": string | null}`
               ],
-              config: { responseMimeType: 'application/json' }
+              config: { responseMimeType: 'application/json', abortSignal: AbortSignal.timeout(15_000) }
             });
             const text = resp.text || '';
             const match = text.match(/\{[\s\S]*\}/);

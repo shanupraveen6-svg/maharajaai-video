@@ -22,28 +22,29 @@ async function signPayload(payload: string, secret: string) {
     .join('');
 }
 
-async function hasValidSessionCookie(request: NextRequest) {
+/** Role of a valid operator session cookie: TryFocus admin, a client's own login, or none. */
+async function sessionRole(request: NextRequest): Promise<'admin' | 'client' | null> {
   const secret = getAuthSecret();
-  if (!secret) return false;
+  if (!secret) return null;
 
   const token = request.cookies.get(OPERATOR_COOKIE)?.value;
-  if (!token) return false;
+  if (!token) return null;
 
   const parts = token.split('.');
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return null;
 
-  const [username, expiresAtRaw, signature] = parts;
+  const [subject, expiresAtRaw, signature] = parts;
   const expiresAt = Number(expiresAtRaw);
+  if (!Number.isFinite(expiresAt) || expiresAt < Date.now()) return null;
+  try {
+    if (signature !== await signPayload(`${subject}.${expiresAtRaw}`, secret)) return null;
+  } catch {
+    return null;
+  }
+  if (subject.startsWith('client~')) return 'client';
   const configuredUsernames = (process.env.OPERATOR_USERNAME || 'shanu7').split(',').map((item) => item.trim()).filter(Boolean);
   const validUsernames = Array.from(new Set([...configuredUsernames, 'shanu7', 'hanu7']));
-  if (!validUsernames.includes(username) || !Number.isFinite(expiresAt) || expiresAt < Date.now()) return false;
-
-  const payload = `${username}.${expiresAtRaw}`;
-  try {
-    return signature === await signPayload(payload, secret);
-  } catch {
-    return false;
-  }
+  return validUsernames.includes(subject) ? 'admin' : null;
 }
 
 export async function proxy(request: NextRequest) {
@@ -64,7 +65,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (await hasValidSessionCookie(request)) {
+  // A workspace Go Live link plays without a login; its playback APIs check the screen code.
+  if (request.nextUrl.pathname === '/tv' && /^[A-Za-z0-9_-]{24}$/.test(request.nextUrl.searchParams.get('screen') || '')) {
+    return NextResponse.next();
+  }
+
+  const role = await sessionRole(request);
+  if (role === 'client' && request.nextUrl.pathname.startsWith('/admin')) {
+    return NextResponse.redirect(new URL('/maharaja/client-admin', request.url));
+  }
+  if (role) {
     return NextResponse.next();
   }
 

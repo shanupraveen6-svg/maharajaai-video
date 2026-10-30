@@ -1,9 +1,9 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getStorageBucket } from '@/lib/firebase/admin';
-import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { finalizeCompletedVideo, markPassVideoFailed } from '@/lib/maharaja/server';
 import { extractVideoUrl } from '@/lib/maharaja/video-test';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
   const jobRef = db.collection('videoTestJobs').doc(jobId);
   const snapshot = await jobRef.get();
   const job = snapshot.data();
+  // Fal calls back without a session, so the job record carries the client it belongs to.
+  bindClient(typeof job?.clientId === 'string' ? job.clientId : null);
   const suppliedHash = crypto.createHash('sha256').update(token).digest('hex');
   if (!job || !safeEqual(suppliedHash, String(job.webhookTokenHash || ''))) {
     return NextResponse.json({ success: false, error: 'Invalid webhook.' }, { status: 401 });
@@ -82,7 +84,7 @@ export async function POST(req: NextRequest) {
       videoBuffer: providerBytes,
       provider: job.modelId || 'minimax/h3-max/reference-to-video',
       accessCode: String(job.passCode || job.accessCode || ''),
-      clientId: MAHARAJA_CLIENT_ID,
+      clientId: activeClientId(),
       eventId: job.eventId || 'diwali',
     });
     if (!finalized.success) throw new Error(finalized.error);

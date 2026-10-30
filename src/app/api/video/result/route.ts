@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { isEventId } from '@/lib/maharaja/config';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,8 @@ export async function GET(req: NextRequest) {
   }
 
   const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+
+  bindClient(access.allowed ? access.clientId : null);
   if (!access.allowed || !access.pass) {
     return NextResponse.json({ success: false, error: access.error || 'A valid AI Video pass is required.' }, { status: 401 });
   }

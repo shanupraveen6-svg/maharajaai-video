@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
-import { isEventId, MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { logMaharajaActivity } from '@/lib/maharaja/server';
+import { isEventId } from '@/lib/maharaja/config';
+import { resolveRequestClientId, logMaharajaActivity } from '@/lib/maharaja/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { activeClientId, bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,7 @@ function cleanDisplayText(value: unknown, fallback: string): string {
  * whose customer pass has expired; it never restores or bypasses that pass.
  */
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
   }
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
         const jobRef = db.collection('videoTestJobs').doc(jobId);
         const queueRef = db.collection('liveQueue').doc(queueId);
         const videoRef = db.collection('videos').doc(videoId);
-        const screenRef = db.collection('screens').doc('maharaja-main');
+        const screenRef = db.collection('screens').doc(liveScreenId());
         const [sessionDoc, jobDoc, queueDoc, videoDoc, screenDoc] = await Promise.all([
           transaction.get(sessionRef),
           transaction.get(jobRef),
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
 
         transaction.set(videoRef, {
           id: videoId,
-          clientId: MAHARAJA_CLIENT_ID,
+          clientId: activeClientId(),
           sessionId,
           approvedJobId: jobId,
           storagePath: job.videoStoragePath,
@@ -100,7 +102,7 @@ export async function POST(req: NextRequest) {
         }, { merge: true });
         transaction.set(queueRef, {
           id: queueId,
-          screenId: 'maharaja-main',
+          screenId: liveScreenId(),
           videoId,
           videoJobId: jobId,
           videoUrl: liveStoragePath || job.videoStoragePath,
@@ -152,7 +154,7 @@ export async function POST(req: NextRequest) {
         queueNumber = existing.queueNumber || null;
       } else {
         queueNumber = store.liveQueue.reduce((highest: number, item: any) => Math.max(highest, Number(item.queueNumber || 0)), 0) + 1;
-        store.liveQueue.push({ id: queueId, screenId: 'maharaja-main', videoId, videoJobId: jobId, videoUrl: job.videoStoragePath, sessionId, status: 'queued', priority: 100, repeatCount: LIVE_PLAY_COUNT, timesPlayed: 0, queueNumber, playAtMs: now.getTime(), createdAt: nowIso, expiresAt, operatorRecovery: true, liveConsent: true, loopConsent: true, promotionConsent: false } as any);
+        store.liveQueue.push({ id: queueId, screenId: liveScreenId(), videoId, videoJobId: jobId, videoUrl: job.videoStoragePath, sessionId, status: 'queued', priority: 100, repeatCount: LIVE_PLAY_COUNT, timesPlayed: 0, queueNumber, playAtMs: now.getTime(), createdAt: nowIso, expiresAt, operatorRecovery: true, liveConsent: true, loopConsent: true, promotionConsent: false } as any);
         created = true;
       }
     }

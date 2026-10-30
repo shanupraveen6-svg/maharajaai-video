@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
+import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export async function POST(req: NextRequest) {
+  bindClient(await resolveRequestClientId(req));
   try {
     if (!verifyOperatorRequest(req)) return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
@@ -24,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     if (db) {
       const snapshot = await db.collection('liveQueue')
-        .where('screenId', '==', 'maharaja-main')
+        .where('screenId', '==', liveScreenId())
         .get();
 
       let purgedCount = 0;
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
       const mockStore = getMockStore();
       const initialCount = mockStore.liveQueue.length;
       mockStore.liveQueue = mockStore.liveQueue.filter((item: any) => {
-        if (item.screenId !== 'maharaja-main') return true;
+        if (item.screenId !== liveScreenId()) return true;
         return !isSafeToPurge(item);
       });
       const purged = initialCount - mockStore.liveQueue.length;

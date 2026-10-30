@@ -2,7 +2,7 @@ export type TvPoolItem = {
   queueId: string;
   videoId?: string | null;
   storagePath?: string | null;
-  source?: 'live' | 'replay';
+  source?: 'live' | 'replay' | 'promo';
 };
 
 function identity(item: TvPoolItem): string {
@@ -49,4 +49,16 @@ export function isApprovedDemoVideoPath(storagePath: string): boolean {
   if (!storagePath || /(^|\/)clients\/maharaja\/sessions\//i.test(storagePath)) return false;
   if (!storagePath.includes('/')) return true;
   return /(^|\/)(?:live-testing|showcase|showcases|demo|demos)(?:\/|$)/i.test(storagePath);
+}
+
+/** Whether the Go Live screen plays a store promo next: after `every` customer videos, never twice in a row. */
+export function isPromoDue(customerPlaysSincePromo: number, every: number, promoCount: number, currentSource?: TvPoolItem['source']) {
+  return promoCount > 0 && currentSource !== 'promo' && customerPlaysSincePromo >= Math.max(1, every);
+}
+
+/** Index of the customer video to play after a promo: the one after the video the promo interrupted. */
+export function resumeIndexAfterPromo<T extends TvPoolItem>(items: T[], interruptedQueueId: string | null) {
+  if (!items.length) return -1;
+  const index = items.findIndex((item) => item.queueId === interruptedQueueId);
+  return index >= 0 ? (index + 1) % items.length : 0;
 }

@@ -1,11 +1,11 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { MAHARAJA_CLIENT_ID, ENFORCE_REPEAT_LIMITS, isEventId } from '@/lib/maharaja/config';
+import { ENFORCE_REPEAT_LIMITS, isEventId } from '@/lib/maharaja/config';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
-import {
+import { resolveRequestClientId,
   resolveWorkspaceByAccessCode,
   incrementMaharajaUsage,
   type MaharajaVideoPass,
@@ -15,10 +15,12 @@ import {
   getCampaignEntitlementByPhone,
   getCustomerServiceAllowances,
   getPublicAppUrl,
+  isWhatsAppEnabled,
 } from '@/lib/maharaja/server';
-import { getWhatsAppStatus, sendWhatsAppResult } from '@/lib/whatsapp';
+import { sendWhatsAppResult } from '@/lib/whatsapp';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +44,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    // The billing or poster code decides the client; the counter tablet uses its staff login.
+    bindClient(await resolveRequestClientId(req, body.billingCode));
     const workspace = await resolveWorkspaceByAccessCode(body.billingCode);
 
     const tvBillLast4 = String(body.billLast4 || '');
@@ -53,8 +57,9 @@ export async function POST(req: NextRequest) {
     }
     const isTvBillHandoff = body.source === 'tv-kiosk' && (!requiresBillSuffix || /^\d{4}$/.test(tvBillLast4));
     const isPosterHandoff = body.source === 'video-poster' && body.billingCode === workspace.openVideoCode;
+    // TV passes come only from a paired TV; the bill digits are an extra check, not the credential.
     const isKioskHandoff = body.source === 'tv-kiosk'
-      ? isTvBillHandoff || await verifyTvRequest(req)
+      ? isTvBillHandoff && await verifyTvRequest(req)
       : (body.source === 'tablet-kiosk' && verifyOperatorRequest(req)) || isPosterHandoff;
     const hasValidBillingCode = body.billingCode === workspace.billingCode;
     if (!verifyOperatorRequest(req) && !hasValidBillingCode && !isKioskHandoff) {
@@ -65,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!workspace.campaignEnabled) {
-      return NextResponse.json({ success: false, error: 'Maharaja campaign is currently paused.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: `${workspace.clientName} campaign is currently paused.` }, { status: 403 });
     }
     if (body.source === 'tv-kiosk' && workspace.devices?.tv === false) {
       return NextResponse.json({ success: false, error: 'TV kiosk surface is currently disabled for this store.' }, { status: 403 });
@@ -79,7 +84,7 @@ export async function POST(req: NextRequest) {
     const videoLimit = Number(workspace.limits?.video ?? 500);
     const videoUsed = Number(workspace.usage?.videosGenerated || 0);
     if (videoLimit <= 0 || videoUsed >= videoLimit) {
-      return NextResponse.json({ success: false, error: 'AI Video reward credits are exhausted for this store.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'AI Video is paused right now. Please ask our staff for help.' }, { status: 403 });
     }
     if (!isKioskHandoff && body.billingCode !== workspace.billingCode) {
       return NextResponse.json({ success: false, error: 'Invalid Maharaja billing-counter link.' }, { status: 403 });
@@ -122,11 +127,14 @@ export async function POST(req: NextRequest) {
     // Every customer reward is valid for one day. This matches the WhatsApp/QR
     // handoff policy and lets a shopper safely continue after leaving the counter.
     const validityMs = 24 * 60 * 60 * 1000;
+    // Counter QRs (tablet or billing link) may be printed or shown before the customer scans,
+    // so their 24-hour window starts on first open.
+    const counterPass = body.source === 'tablet-kiosk' || (hasValidBillingCode && body.source !== 'tv-kiosk');
     const code = crypto.randomBytes(18).toString('base64url');
     const pass: MaharajaVideoPass = {
       id: code,
       code,
-      clientId: MAHARAJA_CLIENT_ID,
+      clientId: activeClientId(),
       phone,
       phoneMasked: phone ? maskPhone(phone) : '',
       experienceType,
@@ -142,6 +150,7 @@ export async function POST(req: NextRequest) {
       createdAt: new Date(now).toISOString(),
       expiresAt: new Date(now + validityMs).toISOString(),
       expiresAtMs: now + validityMs,
+      ...(counterPass ? { activateOnScan: true } : {}),
       tryOnImageDone: false,
       tryOnImageUrl: '',
       videoMasterDone: Boolean(pregeneratedMasterUrl),
@@ -185,7 +194,7 @@ export async function POST(req: NextRequest) {
           const fresh = (await transaction.get(ref)).data();
           if (fresh?.accessCode || fresh?.masterImageUrl !== pregeneratedMasterUrl) throw new Error('This portrait was already handed off. Create a new portrait.');
           transaction.set(ref, { accessCode: code, expiresAt: pass.expiresAt }, { merge: true });
-          transaction.set(db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code), pass);
+          transaction.set(db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code), pass);
         });
       } else getMockStore().sessions.set(referenceSessionId, { ...sourceSession, accessCode: code, expiresAt: pass.expiresAt });
     }
@@ -206,7 +215,7 @@ export async function POST(req: NextRequest) {
       : `/maharaja/video/${pass.code}`);
     let whatsappSent = false;
     let whatsappError = '';
-    if (pass.whatsappOptIn && getWhatsAppStatus().configured) {
+    if (pass.whatsappOptIn && isWhatsAppEnabled(workspace)) {
       try {
         await sendWhatsAppResult(phone, link);
         whatsappSent = true;

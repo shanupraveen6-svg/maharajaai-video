@@ -5,6 +5,7 @@ import { applyMaharajaVideoWatermark } from '@/lib/maharaja/video-processor';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
 
     if (typeof sessionId === 'string' && typeof accessCode === 'string' && (kind === 'image' || kind === 'video' || kind === 'bundle')) {
       const access = await verifyMaharajaAccess(req, accessCode, 'ai-video');
+      bindClient(access.allowed ? access.clientId : null);
       if (!access.allowed || !access.pass) {
         return NextResponse.json({ success: false, error: access.error || 'A valid AI Video pass is required.' }, { status: 401 });
       }

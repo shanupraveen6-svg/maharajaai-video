@@ -1,9 +1,11 @@
 import crypto from 'crypto';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { getOperatorSession, verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
+import { getWhatsAppStatus } from '@/lib/whatsapp';
+import { activeClientId } from './client-context';
 import { getLiveAudioTrack, getPreviewAudioTrack } from './audio';
 import { generateCustomer6sVideo, generateLive9sVideo, validateBrandedVideo } from './video-processor';
 import {
@@ -28,6 +30,8 @@ export type MaharajaWorkspace = {
   campaignEnabled: boolean;
   minPurchaseTryOnDisabled?: boolean;
   tvBillSuffixRequired?: boolean;
+  /** Bill amount (INR) from which the counter offers the AI Video QR; 0 offers it on every bill. */
+  videoMinPurchase?: number;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   devices?: {
@@ -90,7 +94,7 @@ export type MaharajaActivity = {
 export type MaharajaVideoPass = {
   id: string;
   code: string;
-  clientId: typeof MAHARAJA_CLIENT_ID;
+  clientId: string;
   phone: string;
   phoneMasked: string;
   experienceType?: 'purchased-garment' | 'catalogue-gift';
@@ -107,6 +111,9 @@ export type MaharajaVideoPass = {
   createdAt: string;
   expiresAt: string;
   expiresAtMs: number;
+  /** Counter QR passes start their 24-hour validity when the customer first opens them. */
+  activateOnScan?: boolean;
+  activatedAt?: string;
   /** Plain, garment-focused Try-On image (never used as a video source). */
   tryOnImageDone?: boolean;
   tryOnImageUrl?: string;
@@ -178,7 +185,7 @@ export type ServiceAllowanceCounter = {
 export type CustomerCampaignEntitlement = {
   phone: string; // normalized 10 digits
   normalizedPhone?: string;
-  clientId: typeof MAHARAJA_CLIENT_ID;
+  clientId: string;
   qualifyingPassCode: string;
   passCodes: string[];
   billAmount: number; // >= 5000
@@ -254,7 +261,7 @@ export function getCustomerServiceAllowances(entitlement: CustomerCampaignEntitl
 }
 
 function deviceHash(deviceId: string) {
-  return crypto.createHash('sha256').update(`${MAHARAJA_CLIENT_ID}:${deviceId}`).digest('hex');
+  return crypto.createHash('sha256').update(`${activeClientId()}:${deviceId}`).digest('hex');
 }
 
 function grantTokenHash(token: string) {
@@ -269,11 +276,11 @@ export async function getTryOnDeviceStatus(deviceId: string) {
   const hash = deviceHash(deviceId);
   const db = getDb();
   if (db) {
-    const snapshot = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const snapshot = await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('tryOnDevices').doc(hash).get();
     return snapshot.exists ? snapshot.data() as MaharajaTryOnGrant : null;
   }
-  return (getMockStore().tryOnGrants.get(`${MAHARAJA_CLIENT_ID}:${hash}`) as MaharajaTryOnGrant | undefined) || null;
+  return (getMockStore().tryOnGrants.get(`${activeClientId()}:${hash}`) as MaharajaTryOnGrant | undefined) || null;
 }
 
 export type TagDuplicateAnalysis = {
@@ -286,14 +293,14 @@ export type TagDuplicateAnalysis = {
 
 export async function analyzeTagDuplicate(deviceId: string, barcodeOrText: string, amount: number): Promise<TagDuplicateAnalysis> {
   const cleanId = (barcodeOrText || '').trim().toLowerCase().slice(0, 128);
-  const tagHash = crypto.createHash('sha256').update(`${MAHARAJA_CLIENT_ID}:tag:${cleanId}`).digest('hex');
+  const tagHash = crypto.createHash('sha256').update(`${activeClientId()}:tag:${cleanId}`).digest('hex');
   const dHash = deviceHash(deviceId);
   const now = new Date().toISOString();
   const db = getDb();
 
   let tagRecord: any = null;
   if (db) {
-    const doc = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('scannedTags').doc(tagHash).get();
+    const doc = await db.collection('clientWorkspaces').doc(activeClientId()).collection('scannedTags').doc(tagHash).get();
     if (doc.exists) tagRecord = doc.data();
   } else {
     tagRecord = getMockStore().scannedTags?.get(tagHash) || null;
@@ -312,7 +319,7 @@ export async function analyzeTagDuplicate(deviceId: string, barcodeOrText: strin
       usedForTryOn: false,
     };
     if (db) {
-      await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('scannedTags').doc(tagHash).set(newRecord);
+      await db.collection('clientWorkspaces').doc(activeClientId()).collection('scannedTags').doc(tagHash).set(newRecord);
     } else {
       if (!getMockStore().scannedTags) getMockStore().scannedTags = new Map();
       getMockStore().scannedTags.set(tagHash, newRecord);
@@ -332,7 +339,7 @@ export async function analyzeTagDuplicate(deviceId: string, barcodeOrText: strin
   };
 
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('scannedTags').doc(tagHash).set(update, { merge: true });
+    await db.collection('clientWorkspaces').doc(activeClientId()).collection('scannedTags').doc(tagHash).set(update, { merge: true });
   } else {
     getMockStore().scannedTags.set(tagHash, { ...tagRecord, ...update });
   }
@@ -368,11 +375,11 @@ export async function analyzeTagDuplicate(deviceId: string, barcodeOrText: strin
 
 export async function markTagUsedForTryOn(barcodeOrText: string, sessionId?: string) {
   const cleanId = (barcodeOrText || '').trim().toLowerCase().slice(0, 128);
-  const tagHash = crypto.createHash('sha256').update(`${MAHARAJA_CLIENT_ID}:tag:${cleanId}`).digest('hex');
+  const tagHash = crypto.createHash('sha256').update(`${activeClientId()}:tag:${cleanId}`).digest('hex');
   const now = new Date().toISOString();
   const db = getDb();
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('scannedTags').doc(tagHash).set({
+    await db.collection('clientWorkspaces').doc(activeClientId()).collection('scannedTags').doc(tagHash).set({
       usedForTryOn: true,
       usedAt: now,
       sessionId: sessionId || null,
@@ -406,10 +413,10 @@ export async function issueTryOnGrant(deviceId: string, amount: number) {
   };
   const db = getDb();
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('tryOnDevices').doc(grant.deviceHash).set(grant);
   } else {
-    getMockStore().tryOnGrants.set(`${MAHARAJA_CLIENT_ID}:${grant.deviceHash}`, grant);
+    getMockStore().tryOnGrants.set(`${activeClientId()}:${grant.deviceHash}`, grant);
   }
   return { allowed: true as const, token, expiresAtMs: grant.expiresAtMs };
 }
@@ -418,7 +425,7 @@ export async function reserveTryOnGrant(deviceId: string, token: string, session
   const hash = deviceHash(deviceId);
   const db = getDb();
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('tryOnDevices').doc(hash);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('tryOnDevices').doc(hash);
     return db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       const grant = snapshot.exists ? snapshot.data() as MaharajaTryOnGrant : null;
@@ -429,7 +436,7 @@ export async function reserveTryOnGrant(deviceId: string, token: string, session
       return { allowed: true as const };
     });
   }
-  const key = `${MAHARAJA_CLIENT_ID}:${hash}`;
+  const key = `${activeClientId()}:${hash}`;
   const grant = getMockStore().tryOnGrants.get(key) as MaharajaTryOnGrant | undefined;
   if (!grant || grant.tokenHash !== grantTokenHash(token) || grant.expiresAtMs < Date.now()) return { allowed: false as const, error: 'Scan the price tag again to start Try-On.' };
   if (ENFORCE_REPEAT_LIMITS && grant.status === 'used') return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
@@ -449,9 +456,9 @@ export async function finishTryOnGrant(deviceId: string, sessionId: string, comp
     : { status: 'active' as const, sessionId: '' };
   const db = getDb();
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('tryOnDevices').doc(hash).set(update, { merge: true });
+    await db.collection('clientWorkspaces').doc(activeClientId()).collection('tryOnDevices').doc(hash).set(update, { merge: true });
   } else {
-    const key = `${MAHARAJA_CLIENT_ID}:${hash}`;
+    const key = `${activeClientId()}:${hash}`;
     const grant = getMockStore().tryOnGrants.get(key) as MaharajaTryOnGrant | undefined;
     if (grant) getMockStore().tryOnGrants.set(key, { ...grant, ...update });
   }
@@ -460,6 +467,23 @@ export async function finishTryOnGrant(deviceId: string, sessionId: string, comp
 function stableCode(label: string, length = 20, clientId = MAHARAJA_CLIENT_ID) {
   const secret = process.env.OPERATOR_AUTH_SECRET || 'tryfocus-maharaja-local-dev-secret';
   return crypto.createHmac('sha256', secret).update(`${clientId}:${label}`).digest('base64url').slice(0, length);
+}
+
+/** Secret code in a workspace's Go Live TV link; derived from the auth secret, so it cannot be guessed. */
+export function goLiveCodeFor(clientId: string) {
+  return stableCode('go-live-screen', 24, clientId);
+}
+
+/**
+ * Client whose Go Live link this request comes from (`?screen=` on the page, `x-golive-screen` on its
+ * API calls). The link plays only while the workspace is active and has AI Video in its plan.
+ */
+export async function goLiveClientId(req: NextRequest): Promise<string | null> {
+  const code = (req.headers?.get('x-golive-screen') || req.nextUrl?.searchParams.get('screen') || '').trim();
+  if (!/^[A-Za-z0-9_-]{24}$/.test(code)) return null;
+  const workspace = (await listClientWorkspaces()).find((ws) => goLiveCodeFor(ws.clientId) === code);
+  if (!workspace?.campaignEnabled || Number(workspace.limits?.video ?? 0) <= 0) return null;
+  return workspace.clientId;
 }
 
 function defaultWorkspace(clientId = MAHARAJA_CLIENT_ID): MaharajaWorkspace {
@@ -473,6 +497,7 @@ function defaultWorkspace(clientId = MAHARAJA_CLIENT_ID): MaharajaWorkspace {
     campaignEnabled: isMaharaja,
     minPurchaseTryOnDisabled: true,
     tvBillSuffixRequired: true,
+    videoMinPurchase: AI_VIDEO_MIN_PURCHASE,
     deliveryMode: 'qr',
     whatsappConnected: false,
     devices: isMaharaja
@@ -526,6 +551,9 @@ function normalizeWorkspace(data: Partial<MaharajaWorkspace>, fallback: Maharaja
     tvBillSuffixRequired: typeof data.tvBillSuffixRequired === 'boolean'
       ? data.tvBillSuffixRequired
       : (fallback.tvBillSuffixRequired ?? true),
+    videoMinPurchase: Number.isFinite(Number(data.videoMinPurchase)) && data.videoMinPurchase !== undefined && data.videoMinPurchase !== null
+      ? Math.max(0, Math.round(Number(data.videoMinPurchase)))
+      : (fallback.videoMinPurchase ?? AI_VIDEO_MIN_PURCHASE),
     deliveryMode: data.deliveryMode === 'whatsapp' ? ('whatsapp' as const) : ('qr' as const),
     usage: {
       ...fallback.usage,
@@ -540,7 +568,7 @@ function normalizeWorkspace(data: Partial<MaharajaWorkspace>, fallback: Maharaja
   };
 }
 
-export async function getMaharajaWorkspace(): Promise<MaharajaWorkspace> {
+async function loadMaharajaWorkspace(): Promise<MaharajaWorkspace> {
   const fallback = defaultWorkspace(MAHARAJA_CLIENT_ID);
   const db = getDb();
 
@@ -569,6 +597,12 @@ export async function getMaharajaWorkspace(): Promise<MaharajaWorkspace> {
   return fallback;
 }
 
+/** Workspace of the client bound to this request (Maharaja when none is bound). */
+export async function getMaharajaWorkspace(): Promise<MaharajaWorkspace> {
+  const clientId = activeClientId();
+  return clientId === MAHARAJA_CLIENT_ID ? loadMaharajaWorkspace() : getClientWorkspaceById(clientId);
+}
+
 export async function updateMaharajaSettings(
   settings: Partial<
     Pick<
@@ -578,6 +612,7 @@ export async function updateMaharajaSettings(
       | 'campaignEnabled'
       | 'minPurchaseTryOnDisabled'
       | 'tvBillSuffixRequired'
+      | 'videoMinPurchase'
       | 'deliveryMode'
       | 'whatsappConnected'
       | 'devices'
@@ -587,9 +622,9 @@ export async function updateMaharajaSettings(
       | 'openVideoCode'
     >
   > & { regenerateOpenVideoCode?: boolean },
-  clientId = MAHARAJA_CLIENT_ID
+  clientId = activeClientId()
 ) {
-  const workspace = clientId === MAHARAJA_CLIENT_ID
+  const workspace = clientId === activeClientId()
     ? await getMaharajaWorkspace()
     : await getClientWorkspaceById(clientId);
   const { regenerateOpenVideoCode, ...rest } = settings;
@@ -624,7 +659,7 @@ export async function updateMaharajaSettings(
 
 export async function getClientWorkspaceById(clientId: string): Promise<MaharajaWorkspace> {
   const cleanId = String(clientId || '').trim().toLowerCase() || MAHARAJA_CLIENT_ID;
-  if (cleanId === MAHARAJA_CLIENT_ID) return getMaharajaWorkspace();
+  if (cleanId === MAHARAJA_CLIENT_ID) return loadMaharajaWorkspace();
   const fallback = defaultWorkspace(cleanId);
   const db = getDb();
   if (db) {
@@ -641,7 +676,7 @@ export async function getClientWorkspaceById(clientId: string): Promise<Maharaja
 }
 
 export async function listClientWorkspaces(): Promise<MaharajaWorkspace[]> {
-  const maharaja = await getMaharajaWorkspace();
+  const maharaja = await loadMaharajaWorkspace();
   const byId = new Map<string, MaharajaWorkspace>([
     [maharaja.clientId, maharaja],
   ]);
@@ -765,10 +800,10 @@ export async function logMaharajaActivity(
   const activity: MaharajaActivity = { id, type, label, createdAt, ...(metadata ? { metadata } : {}) };
   const db = getDb();
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('activityLogs').doc(id).set({ ...activity, createdAtTimestamp: Timestamp.now() });
   } else {
-    getMockStore().activityLogs.set(`${MAHARAJA_CLIENT_ID}:${id}`, activity);
+    getMockStore().activityLogs.set(`${activeClientId()}:${id}`, activity);
   }
   return activity;
 }
@@ -776,12 +811,12 @@ export async function logMaharajaActivity(
 export async function listMaharajaActivity(limit = 30): Promise<MaharajaActivity[]> {
   const db = getDb();
   if (db) {
-    const snapshot = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const snapshot = await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('activityLogs').orderBy('createdAtTimestamp', 'desc').limit(limit).get();
     return snapshot.docs.map((doc) => doc.data() as MaharajaActivity);
   }
   return Array.from(getMockStore().activityLogs.entries())
-    .filter(([key]) => key.startsWith(`${MAHARAJA_CLIENT_ID}:`))
+    .filter(([key]) => key.startsWith(`${activeClientId()}:`))
     .map(([, value]) => value as MaharajaActivity)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, limit);
@@ -789,17 +824,25 @@ export async function listMaharajaActivity(limit = 30): Promise<MaharajaActivity
 
 const PUBLIC_APP_ORIGIN = 'https://www.tryfocus.in';
 
+/** WhatsApp delivery is on only when TryFocus admin connected it for this client and the API is configured. */
+export function isWhatsAppEnabled(workspace: MaharajaWorkspace) {
+  return workspace.whatsappConnected === true && getWhatsAppStatus().configured;
+}
+
 export function getPublicAppUrl(pathname: string) {
   return new URL(pathname, PUBLIC_APP_ORIGIN).toString();
 }
 
 export function getWorkspaceLinks(workspace: MaharajaWorkspace) {
   const adminUrl = getPublicAppUrl(`/maharaja/${workspace.workspaceCode}`);
-  const tryOnUrl = getPublicAppUrl(`/maharaja/try-on?access=${workspace.tryOnCode}`);
+  // Opens the client's own mobile try-on (free or price-tag gated, as the client chose).
+  const tryOnUrl = getPublicAppUrl(`/maharaja/mobile/experience?access=${encodeURIComponent(workspace.tryOnCode)}`);
   const billingUrl = getPublicAppUrl(`/maharaja/billing/${workspace.billingCode}`);
   // A poster is permanent; every scan must mint a separate, expiring customer pass.
   const openVideoUrl = getPublicAppUrl(`/maharaja/video-poster?code=${encodeURIComponent(workspace.openVideoCode)}`);
   const tvUrl = getPublicAppUrl('/maharaja/tv');
+  // Opens this workspace's Go Live wall on any TV browser, without a login.
+  const goLiveUrl = getPublicAppUrl(`/tv?screen=${goLiveCodeFor(workspace.clientId)}`);
   return {
     adminUrl,
     tryOnUrl,
@@ -811,20 +854,31 @@ export function getWorkspaceLinks(workspace: MaharajaWorkspace) {
       billing: billingUrl,
       openVideo: openVideoUrl,
       tv: tvUrl,
+      goLive: goLiveUrl,
     },
   };
 }
 
-export async function getVideoPass(code: string): Promise<MaharajaVideoPass | null> {
+/** Client that issued a pass code; codes are random, so one top-level index serves every client. */
+async function passClientId(code: string): Promise<string | null> {
+  if (!code || code.length > 120) return null;
+  const db = getDb();
+  if (db) return ((await db.collection('customerPassIndex').doc(code).get()).data()?.clientId as string | undefined) || null;
+  return (getMockStore().sessions.get(`pass_index_${code}`) as { clientId?: string } | undefined)?.clientId || null;
+}
+
+export async function getVideoPass(code: string, clientId = activeClientId()): Promise<MaharajaVideoPass | null> {
   const db = getDb();
   if (db) {
-    const snapshot = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const snapshot = await db.collection('clientWorkspaces').doc(clientId)
       .collection('customerPasses').doc(code).get();
     if (snapshot.exists) return snapshot.data() as MaharajaVideoPass;
   } else {
-    const value = getMockStore().customerPasses.get(`${MAHARAJA_CLIENT_ID}:${code}`);
+    const value = getMockStore().customerPasses.get(`${clientId}:${code}`);
     if (value && typeof value === 'object') return value as MaharajaVideoPass;
   }
+  const indexedClient = await passClientId(code);
+  if (indexedClient && indexedClient !== clientId) return getVideoPass(code, indexedClient);
 
   // Fallback: If code is a 10-digit phone number, resolve latest pass for this phone
   const cleanPhone = normalizePhoneNumber(code);
@@ -841,17 +895,54 @@ export async function getVideoPass(code: string): Promise<MaharajaVideoPass | nu
   return null;
 }
 
+/** Starts a counter pass's 24-hour validity on its first open; later opens keep the original window. */
+export async function activateVideoPassOnFirstScan(code: string): Promise<MaharajaVideoPass | null> {
+  const activate = (pass: MaharajaVideoPass): MaharajaVideoPass => {
+    const now = Date.now();
+    const expiresAtMs = now + 24 * 60 * 60 * 1000;
+    return { ...pass, activatedAt: new Date(now).toISOString(), expiresAt: new Date(expiresAtMs).toISOString(), expiresAtMs };
+  };
+  const db = getDb();
+  if (!db) {
+    const key = `${activeClientId()}:${code}`;
+    const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+    if (!pass?.activateOnScan || pass.activatedAt) return pass || null;
+    const next = activate(pass);
+    getMockStore().customerPasses.set(key, next);
+    return next;
+  }
+  const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
+  return db.runTransaction(async (transaction) => {
+    const pass = (await transaction.get(ref)).data() as MaharajaVideoPass | undefined;
+    if (!pass?.activateOnScan || pass.activatedAt) return pass || null;
+    const next = activate(pass);
+    transaction.set(ref, {
+      activatedAt: next.activatedAt,
+      expiresAt: next.expiresAt,
+      expiresAtMs: next.expiresAtMs,
+      expiresAtTimestamp: Timestamp.fromMillis(next.expiresAtMs),
+    }, { merge: true });
+    return next;
+  });
+}
+
 export async function saveVideoPass(pass: MaharajaVideoPass) {
   const db = getDb();
+  const ownerClientId = pass.clientId || activeClientId();
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    await db.collection('customerPassIndex').doc(pass.code).set({ clientId: ownerClientId, expiresAtMs: pass.expiresAtMs });
+  } else {
+    getMockStore().sessions.set(`pass_index_${pass.code}`, { clientId: ownerClientId });
+  }
+  if (db) {
+    await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('customerPasses').doc(pass.code).set({
         ...pass,
         createdAtTimestamp: Timestamp.fromDate(new Date(pass.createdAt)),
         expiresAtTimestamp: Timestamp.fromDate(new Date(pass.expiresAt)),
       }, { merge: true });
   } else {
-    getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${pass.code}`, pass);
+    getMockStore().customerPasses.set(`${activeClientId()}:${pass.code}`, pass);
   }
 
   // Atomically bind pass to customer's normalized mobile campaign entitlement (₹5,000+ qualifying pass)
@@ -886,7 +977,7 @@ export async function getOrCreateCampaignEntitlement(
   const db = getDb();
   const nowIso = new Date().toISOString();
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const ref = db.collection('clientWorkspaces').doc(activeClientId())
       .collection('campaignEntitlements').doc(normalized);
     return db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
@@ -903,7 +994,7 @@ export async function getOrCreateCampaignEntitlement(
       }
       const initial: CustomerCampaignEntitlement = {
         phone: normalized,
-        clientId: MAHARAJA_CLIENT_ID,
+        clientId: activeClientId(),
         qualifyingPassCode,
         passCodes: [qualifyingPassCode].filter(Boolean),
         billAmount: Math.max(5000, billAmount),
@@ -921,7 +1012,7 @@ export async function getOrCreateCampaignEntitlement(
   }
 
   const store = getMockStore();
-  const key = `${MAHARAJA_CLIENT_ID}:${normalized}`;
+  const key = `${activeClientId()}:${normalized}`;
   const existing = store.campaignEntitlements.get(key) as CustomerCampaignEntitlement | undefined;
   if (existing) {
     const passCodes = Array.from(new Set([...(existing.passCodes || []), qualifyingPassCode].filter(Boolean)));
@@ -936,7 +1027,7 @@ export async function getOrCreateCampaignEntitlement(
   const initial: CustomerCampaignEntitlement = {
     phone: normalized,
     normalizedPhone: normalized,
-    clientId: MAHARAJA_CLIENT_ID,
+    clientId: activeClientId(),
     qualifyingPassCode,
     passCodes: [qualifyingPassCode].filter(Boolean),
     billAmount: Math.max(5000, billAmount),
@@ -957,13 +1048,13 @@ export async function getCampaignEntitlementByPhone(phone: string): Promise<Cust
   if (!normalized || normalized.length !== 10) return null;
   const db = getDb();
   if (db) {
-    const snap = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const snap = await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('campaignEntitlements').doc(normalized).get();
     if (!snap.exists) return null;
     const data = snap.data() as CustomerCampaignEntitlement;
     return { ...data, normalizedPhone: data.normalizedPhone || data.phone };
   }
-  const key = `${MAHARAJA_CLIENT_ID}:${normalized}`;
+  const key = `${activeClientId()}:${normalized}`;
   const item = getMockStore().campaignEntitlements.get(key);
   if (!item || typeof item !== 'object') return null;
   const data = item as CustomerCampaignEntitlement;
@@ -1015,7 +1106,7 @@ export async function acquireServiceGenerationLock(
   const serviceLabel = service === 'try-on' ? 'AI Try-On' : (service === 'master-image' ? 'Celebration Gemini Master Image' : 'H3 Cinematic Video');
 
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const ref = db.collection('clientWorkspaces').doc(activeClientId())
       .collection('campaignEntitlements').doc(phone);
     return db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
@@ -1023,7 +1114,7 @@ export async function acquireServiceGenerationLock(
       if (!snap.exists) {
         entitlement = {
           phone,
-          clientId: MAHARAJA_CLIENT_ID,
+          clientId: activeClientId(),
           qualifyingPassCode: phoneOrCode,
           passCodes: [phoneOrCode],
           billAmount: 5000,
@@ -1087,12 +1178,12 @@ export async function acquireServiceGenerationLock(
   }
 
   const store = getMockStore();
-  const key = `${MAHARAJA_CLIENT_ID}:${phone}`;
+  const key = `${activeClientId()}:${phone}`;
   let entitlement = store.campaignEntitlements.get(key) as CustomerCampaignEntitlement | undefined;
   if (!entitlement) {
     entitlement = {
       phone,
-      clientId: MAHARAJA_CLIENT_ID,
+      clientId: activeClientId(),
       qualifyingPassCode: phoneOrCode,
       passCodes: [phoneOrCode],
       billAmount: 5000,
@@ -1167,7 +1258,7 @@ export async function releaseServiceGenerationLock(
   const nowIso = new Date().toISOString();
 
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const ref = db.collection('clientWorkspaces').doc(activeClientId())
       .collection('campaignEntitlements').doc(phone);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
@@ -1187,7 +1278,7 @@ export async function releaseServiceGenerationLock(
   }
 
   const store = getMockStore();
-  const key = `${MAHARAJA_CLIENT_ID}:${phone}`;
+  const key = `${activeClientId()}:${phone}`;
   const entitlement = store.campaignEntitlements.get(key) as CustomerCampaignEntitlement | undefined;
   if (!entitlement) return;
   const counter = entitlement[serviceKey] || { used: 0, max: 2, generating: false };
@@ -1220,7 +1311,7 @@ export async function recordServiceGenerationSuccess(
   const nowIso = new Date().toISOString();
 
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const ref = db.collection('clientWorkspaces').doc(activeClientId())
       .collection('campaignEntitlements').doc(phone);
     return db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
@@ -1228,7 +1319,7 @@ export async function recordServiceGenerationSuccess(
       if (!snap.exists) {
         entitlement = {
           phone,
-          clientId: MAHARAJA_CLIENT_ID,
+          clientId: activeClientId(),
           qualifyingPassCode: phoneOrCode,
           passCodes: [phoneOrCode],
           billAmount: 5000,
@@ -1264,12 +1355,12 @@ export async function recordServiceGenerationSuccess(
   }
 
   const store = getMockStore();
-  const key = `${MAHARAJA_CLIENT_ID}:${phone}`;
+  const key = `${activeClientId()}:${phone}`;
   let entitlement = store.campaignEntitlements.get(key) as CustomerCampaignEntitlement | undefined;
   if (!entitlement) {
     entitlement = {
       phone,
-      clientId: MAHARAJA_CLIENT_ID,
+      clientId: activeClientId(),
       qualifyingPassCode: phoneOrCode,
       passCodes: [phoneOrCode],
       billAmount: 5000,
@@ -1304,7 +1395,7 @@ export async function recordServiceGenerationSuccess(
 export async function expireActivePassesForPhone(phone: string, excludeCode?: string, experienceType?: 'purchased-garment' | 'catalogue-gift'): Promise<number> {
   const db = getDb();
   if (db) {
-    const snapshot = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const snapshot = await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('customerPasses')
       .where('phone', '==', phone)
       .where('status', '==', 'active')
@@ -1337,7 +1428,7 @@ export async function expireActivePassesForPhone(phone: string, excludeCode?: st
   let count = 0;
   const nowIso = new Date().toISOString();
   for (const [key, rawPass] of store.customerPasses.entries()) {
-    if (key.startsWith(`${MAHARAJA_CLIENT_ID}:`)) {
+    if (key.startsWith(`${activeClientId()}:`)) {
       const p = rawPass as MaharajaVideoPass;
       if (p.phone === phone && p.status === 'active' && (!excludeCode || p.code !== excludeCode) && (!experienceType || (p.experienceType || 'purchased-garment') === experienceType)) {
         store.customerPasses.set(key, {
@@ -1355,12 +1446,12 @@ export async function expireActivePassesForPhone(phone: string, excludeCode?: st
 export async function listRecentVideoPasses(limit = 8): Promise<MaharajaVideoPass[]> {
   const db = getDb();
   if (db) {
-    const snapshot = await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    const snapshot = await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('customerPasses').orderBy('createdAtTimestamp', 'desc').limit(limit).get();
     return snapshot.docs.map((doc) => doc.data() as MaharajaVideoPass);
   }
   return Array.from(getMockStore().customerPasses.entries())
-    .filter(([key]) => key.startsWith(`${MAHARAJA_CLIENT_ID}:`))
+    .filter(([key]) => key.startsWith(`${activeClientId()}:`))
     .map(([, value]) => value as MaharajaVideoPass)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, limit);
@@ -1369,32 +1460,75 @@ export async function listRecentVideoPasses(limit = 8): Promise<MaharajaVideoPas
 export async function incrementMaharajaUsage(field: keyof MaharajaWorkspace['usage']) {
   const db = getDb();
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).set({
-      [`usage.${field}`]: FieldValue.increment(1),
+    // set() treats dotted keys as literal field names, so the counter is written as a nested map.
+    await db.collection('clientWorkspaces').doc(activeClientId()).set({
+      usage: { [field]: FieldValue.increment(1) },
       updatedAt: new Date().toISOString(),
       updatedAtTimestamp: Timestamp.now(),
     }, { merge: true });
     return;
   }
   const workspace = await getMaharajaWorkspace();
-  getMockStore().clientWorkspaces.set(MAHARAJA_CLIENT_ID, {
+  getMockStore().clientWorkspaces.set(activeClientId(), {
     ...workspace,
     usage: { ...workspace.usage, [field]: Number(workspace.usage[field] || 0) + 1 },
+  });
+}
+
+/**
+ * Takes one store credit only while usage is below the limit, in a single transaction, so parallel
+ * generations (for example five TV looks at once) cannot exceed what the client bought.
+ */
+export async function reserveMaharajaUsage(field: 'tryOnGenerated' | 'videosGenerated' | 'liveSessions', limit: number) {
+  if (limit <= 0) return false;
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(activeClientId());
+    return db.runTransaction(async (transaction) => {
+      const used = Number((await transaction.get(ref)).data()?.usage?.[field] || 0);
+      if (used >= limit) return false;
+      transaction.set(ref, { usage: { [field]: used + 1 }, updatedAt: new Date().toISOString() }, { merge: true });
+      return true;
+    });
+  }
+  // The mock store is read and written without an await in between, so it is atomic as well.
+  const fallback = defaultWorkspace(activeClientId());
+  const stored = getMockStore().clientWorkspaces.get(activeClientId()) as MaharajaWorkspace | undefined;
+  const workspace = stored ? normalizeWorkspace(stored, fallback) : fallback;
+  const used = Number(workspace.usage[field] || 0);
+  if (used >= limit) return false;
+  getMockStore().clientWorkspaces.set(activeClientId(), { ...workspace, usage: { ...workspace.usage, [field]: used + 1 } });
+  return true;
+}
+
+/** Returns a reserved credit when the generation it was reserved for did not complete. */
+export async function releaseMaharajaUsage(field: 'tryOnGenerated' | 'videosGenerated' | 'liveSessions') {
+  const db = getDb();
+  if (db) {
+    await db.collection('clientWorkspaces').doc(activeClientId()).set({
+      usage: { [field]: FieldValue.increment(-1) },
+    }, { merge: true });
+    return;
+  }
+  const workspace = await getMaharajaWorkspace();
+  getMockStore().clientWorkspaces.set(activeClientId(), {
+    ...workspace,
+    usage: { ...workspace.usage, [field]: Math.max(0, Number(workspace.usage[field] || 0) - 1) },
   });
 }
 
 export async function incrementPassUsage(code: string, field: keyof MaharajaVideoPass['usage']) {
   const db = getDb();
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('customerPasses').doc(code).set({
-        [`usage.${field}`]: FieldValue.increment(1),
+        usage: { [field]: FieldValue.increment(1) },
       }, { merge: true });
     return;
   }
   const pass = await getVideoPass(code);
   if (pass) {
-    getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${code}`, {
+    getMockStore().customerPasses.set(`${activeClientId()}:${code}`, {
       ...pass,
       usage: { ...pass.usage, [field]: Number(pass.usage[field] || 0) + 1 },
     });
@@ -1408,15 +1542,15 @@ export async function markVideoPassUsed(code: string) {
     usedAt: new Date().toISOString(),
   };
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('customerPasses').doc(code).set({
         ...update,
         usedAtTimestamp: Timestamp.now(),
       }, { merge: true });
   } else {
-    const pass = getMockStore().customerPasses.get(`${MAHARAJA_CLIENT_ID}:${code}`) as MaharajaVideoPass | undefined;
+    const pass = getMockStore().customerPasses.get(`${activeClientId()}:${code}`) as MaharajaVideoPass | undefined;
     if (pass) {
-      getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${code}`, {
+      getMockStore().customerPasses.set(`${activeClientId()}:${code}`, {
         ...pass,
         status: 'used',
       });
@@ -1427,12 +1561,12 @@ export async function markVideoPassUsed(code: string) {
 async function mergePassUpdate(code: string, update: Partial<MaharajaVideoPass>) {
   const db = getDb();
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID)
+    await db.collection('clientWorkspaces').doc(activeClientId())
       .collection('customerPasses').doc(code).set(update, { merge: true });
   } else {
-    const pass = getMockStore().customerPasses.get(`${MAHARAJA_CLIENT_ID}:${code}`) as MaharajaVideoPass | undefined;
+    const pass = getMockStore().customerPasses.get(`${activeClientId()}:${code}`) as MaharajaVideoPass | undefined;
     if (pass) {
-      getMockStore().customerPasses.set(`${MAHARAJA_CLIENT_ID}:${code}`, { ...pass, ...update });
+      getMockStore().customerPasses.set(`${activeClientId()}:${code}`, { ...pass, ...update });
     }
   }
 }
@@ -1461,7 +1595,7 @@ export async function markPassVideoMasterDone(
 ) {
   const db = getDb();
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       if (!snap.exists) return;
@@ -1498,7 +1632,7 @@ export async function markPassVideoMasterDone(
     await recordServiceGenerationSuccess(code, 'master-image', { url: videoMasterUrl });
     return;
   }
-  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const key = `${activeClientId()}:${code}`;
   const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
   if (pass) {
     if (pass.activeMasterGenerationId || generationId) {
@@ -1535,7 +1669,7 @@ export async function markPassVideoMasterDone(
 export async function approvePassVideoMaster(code: string, approvedUrl?: string) {
   const db = getDb();
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       if (!snap.exists) throw new Error('Pass not found');
@@ -1553,7 +1687,7 @@ export async function approvePassVideoMaster(code: string, approvedUrl?: string)
       });
     });
   } else {
-    const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+    const key = `${activeClientId()}:${code}`;
     const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
     if (pass) {
       if (!pass.videoMasterDone || !pass.videoMasterUrl) {
@@ -1575,7 +1709,7 @@ export async function approvePassVideoMaster(code: string, approvedUrl?: string)
 export async function rejectPassMasterImage(code: string, service: 'try-on' | 'ai-video' = 'ai-video', reason?: string) {
   const db = getDb();
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       if (!snap.exists) return;
@@ -1610,7 +1744,7 @@ export async function rejectPassMasterImage(code: string, service: 'try-on' | 'a
       tx.update(ref, update);
     });
   } else {
-    const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+    const key = `${activeClientId()}:${code}`;
     const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
     if (pass) {
       if (pass.status === 'used' || pass.videoDone) {
@@ -1660,7 +1794,7 @@ export async function markPassWhatsAppDelivery(code: string, status: 'sent' | 'f
 export async function claimPassWhatsAppDelivery(code: string) {
   const db = getDb();
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     return db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       if (!snapshot.exists) return false;
@@ -1670,7 +1804,7 @@ export async function claimPassWhatsAppDelivery(code: string) {
       return true;
     });
   }
-  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const key = `${activeClientId()}:${code}`;
   const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
   if (!pass || pass.whatsappDeliveryStatus === 'sending' || pass.whatsappDeliveryStatus === 'sent') return false;
   getMockStore().customerPasses.set(key, { ...pass, whatsappDeliveryStatus: 'sending' });
@@ -1693,7 +1827,7 @@ export async function markPassVideoSubmitted(code: string, jobId: string) {
 export async function markPassVideoReady(code: string, jobId?: string) {
   const db = getDb();
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     const markedReady = await db.runTransaction(async (tx) => {
       const snapshot = await tx.get(ref);
       if (!snapshot.exists) return false;
@@ -1717,7 +1851,7 @@ export async function markPassVideoReady(code: string, jobId?: string) {
     await logMaharajaActivity('video-ready', 'Customer AI Video MP4 completed and ready', { code, jobId: jobId || null });
     return;
   }
-  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const key = `${activeClientId()}:${code}`;
   const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
   if (!pass) return;
   if (!jobId || !pass.activeVideoJobId || pass.activeVideoJobId !== jobId) {
@@ -1748,14 +1882,14 @@ export async function markPassVideoDone(code: string, jobId?: string) {
 export async function releasePassVideoLock(code: string) {
   const db = getDb();
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     await ref.update({
       videoGenerating: false,
       providerAccepted: false,
       activeVideoJobId: FieldValue.delete(),
     });
   } else {
-    const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+    const key = `${activeClientId()}:${code}`;
     const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
     if (pass) {
       const copy = { ...pass, videoGenerating: false, providerAccepted: false };
@@ -1774,7 +1908,7 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
   const db = getDb();
   let releasedActiveJob = false;
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     await db.runTransaction(async (tx) => {
       const snapshot = await tx.get(ref);
       if (!snapshot.exists) return;
@@ -1796,7 +1930,7 @@ export async function markPassVideoFailed(code: string, jobId?: string) {
       releasedActiveJob = true;
     });
   } else {
-    const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+    const key = `${activeClientId()}:${code}`;
     const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
     if (pass) {
       if (!jobId || !pass.activeVideoJobId || pass.activeVideoJobId !== jobId) {
@@ -1890,14 +2024,14 @@ export async function enablePassCustomerRetry(
   }
 
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     await ref.update({
       ...updates,
       activeVideoJobId: FieldValue.delete(),
     });
     return;
   }
-  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const key = `${activeClientId()}:${code}`;
   const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
   if (pass) {
     const copy = {
@@ -1916,7 +2050,7 @@ export async function finalizeCompletedVideo({
   videoBuffer,
   provider = 'fal-h3-max',
   accessCode,
-  clientId = MAHARAJA_CLIENT_ID,
+  clientId = activeClientId(),
   eventId = 'diwali',
 }: {
   sessionId: string;
@@ -2006,7 +2140,7 @@ export async function finalizeCompletedVideo({
           contentType: 'video/mp4',
           public: false,
           metadata: {
-            cacheControl: 'private, max-age=3600',
+            cacheControl: 'private, no-store, max-age=0',
             metadata: {
               durationSeconds: '6',
               playbackMode: presentationFallback ? 'external' : 'embedded',
@@ -2018,7 +2152,7 @@ export async function finalizeCompletedVideo({
           contentType: 'video/mp4',
           public: false,
           metadata: {
-            cacheControl: 'private, max-age=3600',
+            cacheControl: 'private, no-store, max-age=0',
             metadata: {
               durationSeconds: '9',
               playbackMode: 'embedded',
@@ -2136,10 +2270,10 @@ export async function enableTryOnDeviceCustomerRetry(deviceId: string) {
     expiresAtMs: Date.now() + 30 * 60 * 1000,
   };
   if (db) {
-    await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('tryOnDevices').doc(hash).set(update, { merge: true });
+    await db.collection('clientWorkspaces').doc(activeClientId()).collection('tryOnDevices').doc(hash).set(update, { merge: true });
     return;
   }
-  const key = `${MAHARAJA_CLIENT_ID}:${hash}`;
+  const key = `${activeClientId()}:${hash}`;
   const grant = getMockStore().tryOnGrants.get(key) as MaharajaTryOnGrant | undefined;
   if (grant) {
     getMockStore().tryOnGrants.set(key, { ...grant, ...update });
@@ -2222,14 +2356,14 @@ export async function acquirePassImageLock(
   }
 
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     await db.runTransaction(async (tx) => {
       tx.update(ref, lockUpdate);
     });
     return { ok: true, generationId: boundGenId };
   }
 
-  const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+  const key = `${activeClientId()}:${code}`;
   const existingPass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
   if (existingPass) {
     getMockStore().customerPasses.set(key, { ...existingPass, ...lockUpdate });
@@ -2240,7 +2374,7 @@ export async function acquirePassImageLock(
 export async function releasePassImageLock(code: string, generationId?: string): Promise<void> {
   const db = getDb();
   if (db) {
-    const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       if (!snap.exists) return;
@@ -2251,7 +2385,7 @@ export async function releasePassImageLock(code: string, generationId?: string):
       tx.update(ref, { imageGenerating: false, activeImageGenerationId: FieldValue.delete(), activeMasterGenerationId: FieldValue.delete() });
     });
   } else {
-    const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+    const key = `${activeClientId()}:${code}`;
     const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
     if (pass) {
       if (!generationId || (pass.activeImageGenerationId || pass.activeMasterGenerationId) === generationId) {
@@ -2323,14 +2457,14 @@ export async function acquirePassVideoLock(code: string, jobId?: string): Promis
 
   try {
     if (db) {
-      const ref = db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code);
+      const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
       await db.runTransaction(async (tx) => {
         tx.update(ref, lockUpdate);
       });
       return { ok: true };
     }
 
-    const key = `${MAHARAJA_CLIENT_ID}:${code}`;
+    const key = `${activeClientId()}:${code}`;
     const existingPass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
     if (existingPass) {
       getMockStore().customerPasses.set(key, { ...existingPass, ...lockUpdate });
@@ -2348,16 +2482,28 @@ export async function verifyMaharajaAccess(
   service: 'try-on' | 'ai-video'
 ) {
   const code = typeof accessCode === 'string' ? accessCode.trim() : '';
-  const workspace = await resolveWorkspaceByAccessCode(code);
+  const sessionClientId = req?.headers ? getOperatorSession(req)?.clientId || null : null;
+  let workspace = await resolveWorkspaceByAccessCode(code);
+  const codeMatchedWorkspace = Boolean(code) && [workspace.tryOnCode, workspace.billingCode, workspace.openVideoCode].includes(code);
+  if (!codeMatchedWorkspace) {
+    const passOwner = code ? await passClientId(code) : null;
+    const ownerId = passOwner || sessionClientId;
+    if (ownerId && ownerId !== workspace.clientId) workspace = await getClientWorkspaceById(ownerId);
+  }
   const resolvedClientId = workspace.clientId || MAHARAJA_CLIENT_ID;
   if (!workspace.campaignEnabled) return { allowed: false as const, error: `${workspace.clientName || 'Maharaja'} campaign is currently paused.` };
 
-  // 1. Resolve entitlement and pass by normalized phone number or QR code
+  // 1. Resolve the pass by its private QR code. A phone number opens a customer's pass only for
+  // signed-in staff, so knowing someone's number never reveals their photos or videos.
   const cleanPhone = normalizePhoneNumber(code);
+  const phoneLookup = cleanPhone.length === 10;
   let entitlement: CustomerCampaignEntitlement | null = null;
   let pass: MaharajaVideoPass | null = null;
 
-  if (cleanPhone.length === 10) {
+  if (phoneLookup) {
+    if (!req?.headers || !verifyOperatorRequest(req)) {
+      return { allowed: false as const, error: 'Open your private link or scan your QR code to continue.' };
+    }
     entitlement = await getCampaignEntitlementByPhone(cleanPhone);
     if (entitlement && entitlement.passCodes.length > 0) {
       const latestCode = entitlement.passCodes[entitlement.passCodes.length - 1];
@@ -2366,7 +2512,7 @@ export async function verifyMaharajaAccess(
   }
 
   if (!pass && code) {
-    pass = await getVideoPass(code);
+    pass = await getVideoPass(code, resolvedClientId);
     if (pass?.phone) {
       entitlement = await getCampaignEntitlementForPass(code);
     }
@@ -2419,13 +2565,34 @@ export async function verifyMaharajaAccess(
     : { allowed: false as const, error: 'This Maharaja AI Video pass is invalid or expired.' };
 }
 
+/**
+ * Client a request belongs to: a customer QR or pass code decides first, then a client's own staff
+ * login. TryFocus admin and paired Maharaja devices fall through to null (Maharaja), unless an admin
+ * names another client with `requestedClientId`. Bind the result with bindClient() in the handler.
+ */
+export async function resolveRequestClientId(req: NextRequest, accessCode?: unknown, requestedClientId?: string | null) {
+  const goLiveClient = await goLiveClientId(req);
+  if (goLiveClient) return goLiveClient;
+  const code = typeof accessCode === 'string' ? accessCode.trim() : '';
+  if (code) {
+    const all = await listClientWorkspaces();
+    const byCode = all.find((ws) => ws.tryOnCode === code || ws.billingCode === code || ws.openVideoCode === code);
+    if (byCode) return byCode.clientId;
+    const passOwner = await passClientId(code);
+    if (passOwner) return passOwner;
+  }
+  const session = getOperatorSession(req);
+  if (session?.role === 'client') return session.clientId;
+  return session?.role === 'admin' && requestedClientId ? requestedClientId : null;
+}
+
 export function publicWorkspaceView(workspace: MaharajaWorkspace) {
   return {
     clientId: workspace.clientId,
     clientName: workspace.clientName,
     campaignEnabled: workspace.campaignEnabled,
     tryOnMinimum: workspace.minPurchaseTryOnDisabled === false ? Math.max(500, TRY_ON_MIN_PURCHASE) : TRY_ON_MIN_PURCHASE,
-    aiVideoMinimum: AI_VIDEO_MIN_PURCHASE,
+    aiVideoMinimum: workspace.videoMinPurchase ?? AI_VIDEO_MIN_PURCHASE,
     tvBillSuffixRequired: workspace.tvBillSuffixRequired ?? true,
     activeEvents: workspace.activeEvents,
     defaultEvent: workspace.defaultEvent,

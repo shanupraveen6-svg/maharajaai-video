@@ -2,209 +2,218 @@
 
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Clock, MessageSquare, QrCode, Sparkles, Smartphone, CheckCircle2 } from 'lucide-react';
+import { Clock, Download, LoaderCircle, MessageSquare, QrCode, RefreshCw, Smartphone } from 'lucide-react';
+import { formatINR } from '@/lib/tryfocus/sample-data';
 
-export default function TabletVideoHandoff() {
-  const [posterQr, setPosterQr] = useState('');
-  const [openVideoUrl, setOpenVideoUrl] = useState('');
-  const [whatsappAvailable, setWhatsappAvailable] = useState(false);
-  const [useWhatsapp, setUseWhatsapp] = useState(false);
+type CounterConfig = {
+  clientName: string;
+  videoMinPurchase: number;
+  whatsappEnabled: boolean;
+  openVideoUrl: string;
+};
+
+type CounterMode = 'per-customer' | 'permanent';
+
+const QR_COLORS = { dark: '#161918', light: '#FFFFFF' };
+
+/**
+ * Billing-counter AI Video QR. Used on the counter tablet (operator session) and on the
+ * billing link (billingCode capability). Each "Next customer" tap issues a fresh private pass
+ * whose 24-hour validity starts when the customer first opens it.
+ */
+export default function TabletVideoHandoff({ billingCode }: { billingCode?: string }) {
+  const [config, setConfig] = useState<CounterConfig | null>(null);
+  const [mode, setMode] = useState<CounterMode>('per-customer');
+  const [passQr, setPassQr] = useState('');
+  const [permanentQr, setPermanentQr] = useState('');
+  const [customerCount, setCustomerCount] = useState(0);
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
-    fetch('/api/maharaja/workspace', { cache: 'no-store' })
-      .then((response) => response.json())
-      .then(async (data) => {
-        if (!active || !data.success) return;
-        const url = data.workspace?.links?.openVideo;
-        if (url) {
-          setOpenVideoUrl(url);
-          setPosterQr(await QRCode.toDataURL(url, { width: 360, margin: 1, color: { dark: '#161918', light: '#FFFFFF' } }));
-        }
-        const available = data.workspace?.whatsapp?.configured === true;
-        setWhatsappAvailable(available);
-        setUseWhatsapp(available && data.workspace?.deliveryMode === 'whatsapp');
+    const source = billingCode
+      ? fetch(`/api/maharaja/billing/${encodeURIComponent(billingCode)}`, { cache: 'no-store' })
+          .then((response) => response.json())
+          .then((data) => data?.success ? {
+            clientName: data.clientName,
+            videoMinPurchase: Number(data.videoMinPurchase ?? 5000),
+            whatsappEnabled: data.whatsappEnabled === true,
+            openVideoUrl: data.openVideoUrl || '',
+          } : Promise.reject(new Error(data?.error || 'Invalid billing-counter link.')))
+      : fetch('/api/maharaja/workspace', { cache: 'no-store' })
+          .then((response) => response.json())
+          .then((data) => data?.success ? {
+            clientName: data.workspace?.clientName,
+            videoMinPurchase: Number(data.workspace?.videoMinPurchase ?? 5000),
+            whatsappEnabled: data.workspace?.whatsappEnabled === true,
+            openVideoUrl: data.workspace?.links?.openVideo || '',
+          } : Promise.reject(new Error(data?.error || 'Sign in again to load the counter QR.')));
+    source
+      .then(async (next: CounterConfig) => {
+        if (!active) return;
+        setConfig(next);
+        if (next.openVideoUrl) setPermanentQr(await QRCode.toDataURL(next.openVideoUrl, { width: 720, margin: 2, color: QR_COLORS }));
       })
-      .catch(() => { if (active) setNotice('Unable to load the store video QR. Reload this page.'); });
+      .catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : 'Unable to load the counter QR. Reload this page.'); });
     return () => { active = false; };
-  }, []);
+  }, [billingCode]);
 
-  async function sendWhatsApp() {
-    if (phone.length !== 10 || busy) return;
+  async function issuePass(whatsappPhone = '') {
+    if (busy) return;
     setBusy(true);
     setNotice('');
+    setError('');
     try {
       const response = await fetch('/api/maharaja/video-pass', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'tablet-kiosk', phone, experienceType: 'purchased-garment', whatsappOptIn: true }),
+        body: JSON.stringify(billingCode
+          ? { billingCode, phone: whatsappPhone, experienceType: 'purchased-garment', whatsappOptIn: Boolean(whatsappPhone) }
+          : { source: 'tablet-kiosk', phone: whatsappPhone, experienceType: 'purchased-garment', whatsappOptIn: Boolean(whatsappPhone) }),
       });
       const data = await response.json();
-      if (!response.ok || !data.success || !data.whatsappSent) {
-        throw new Error(data.whatsappError || data.error || 'WhatsApp could not send. Show the customer QR code below.');
+      if (!response.ok || !data.success || !data.pass?.link) throw new Error(data.error || 'Unable to create the customer QR.');
+      setPassQr(await QRCode.toDataURL(data.pass.link, { width: 560, margin: 2, color: QR_COLORS }));
+      setCustomerCount((count) => count + 1);
+      if (whatsappPhone) {
+        setPhone('');
+        setNotice(data.whatsappSent
+          ? `Link sent on WhatsApp to ${data.pass.phoneMasked}. The QR below works too.`
+          : `WhatsApp could not send${data.whatsappError ? ` (${data.whatsappError})` : ''}. Ask the customer to scan the QR.`);
       }
-      setNotice('Private 24-hour video pass link sent to ' + phone + '. Customer can create their video with their own garment.');
-      setPhone('');
     } catch (caught) {
-      setNotice(caught instanceof Error ? caught.message : 'WhatsApp could not send. Show the customer QR code below.');
+      setError(caught instanceof Error ? caught.message : 'Unable to create the customer QR.');
     } finally {
       setBusy(false);
     }
   }
 
+  function downloadPermanentQr() {
+    if (!permanentQr) return;
+    const link = document.createElement('a');
+    link.href = permanentQr;
+    link.download = `${(config?.clientName || 'store').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-ai-video-counter-qr.png`;
+    link.click();
+  }
+
+  const minimum = config?.videoMinPurchase ?? 5000;
+
   return (
-    <div className="space-y-6">
-      {/* Status Banner when WhatsApp is not connected */}
-      {!whatsappAvailable && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border border-[#D8DCD7] bg-[#FAFBF8] p-4 text-xs">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#161918] text-white">
-              <QrCode className="h-3.5 w-3.5" />
-            </span>
-            <span className="font-semibold text-[#161918]">
-              WhatsApp is not connected · Customer scans the QR code directly with their phone
-            </span>
-          </div>
-          <span className="font-mono font-bold uppercase tracking-wider text-[#7A1428]">
-            Direct QR Mode
-          </span>
-        </div>
-      )}
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border border-[#7A1428]/30 bg-[#7A1428]/5 px-4 py-3">
+        <p className="text-sm font-semibold text-[#161918]">
+          {minimum > 0 ? <>Offer for bills of <strong>{formatINR(minimum)}</strong> and above</> : <>Offer on every bill</>}
+          <span className="font-normal text-[#535A56]"> · Own garment AI video</span>
+        </p>
+        <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-[#7A1428]">
+          <Clock className="h-3.5 w-3.5" />
+          Valid 24 h from first scan
+        </span>
+      </div>
 
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] items-start">
-        {/* Left Card: Customer Instructions & 1-Day Validity */}
-        <div className="border border-[#D8DCD7] bg-white p-6 sm:p-7 shadow-sm space-y-6">
-          <div>
-            <div className="inline-flex items-center gap-2 border border-[#7A1428]/20 bg-[#7A1428]/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#7A1428]">
-              <Clock className="h-3.5 w-3.5" />
-              1 Day Validity (24 Hours)
-            </div>
-            <h2 className="mt-3 font-serif text-3xl font-semibold text-[#161918]">
-              AI Fashion Video Pass
-            </h2>
-            <p className="mt-2 text-sm leading-relaxed text-[#535A56]">
-              Customer can create an AI festival fashion video using their <strong>own garment</strong> and photo on their mobile phone.
-            </p>
-          </div>
+      <div className="grid grid-cols-2 border border-[#161918]" role="tablist" aria-label="Counter QR type">
+        {([
+          ['per-customer', 'New QR per customer'],
+          ['permanent', 'Permanent counter QR'],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={mode === id}
+            onClick={() => setMode(id)}
+            className={`min-h-12 px-3 text-xs font-bold uppercase tracking-wider ${mode === id ? 'bg-[#161918] text-white' : 'bg-white text-[#161918]'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-          {/* 3 Step Guide */}
-          <div className="space-y-3.5 border-t border-[#D8DCD7] pt-5">
-            <h3 className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#7A1428]">
-              How the customer uses this pass
-            </h3>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-3.5">
-                <span className="font-mono text-xs font-bold text-[#7A1428]">Step 1</span>
-                <p className="mt-1 text-xs font-semibold text-[#161918]">Scan with Phone</p>
-                <p className="mt-1 text-[11px] text-[#535A56]">Open camera app and point at the QR code.</p>
-              </div>
-              <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-3.5">
-                <span className="font-mono text-xs font-bold text-[#7A1428]">Step 2</span>
-                <p className="mt-1 text-xs font-semibold text-[#161918]">Upload Own Garment</p>
-                <p className="mt-1 text-[11px] text-[#535A56]">Upload photo of dress/saree and portrait photo.</p>
-              </div>
-              <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-3.5">
-                <span className="font-mono text-xs font-bold text-[#7A1428]">Step 3</span>
-                <p className="mt-1 text-xs font-semibold text-[#161918]">Get 6s Video</p>
-                <p className="mt-1 text-[11px] text-[#535A56]">AI renders fashion film. Link valid for 24 hours.</p>
-              </div>
-            </div>
-          </div>
+      {error && <p role="alert" className="border border-[#B42318] bg-[#FEF3F2] p-3 text-sm font-semibold text-[#B42318]">{error}</p>}
 
-          {/* WhatsApp option if connected */}
-          {whatsappAvailable ? (
-            <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-4 space-y-4">
-              <label className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-[#161918]">
-                <span>Send via WhatsApp</span>
-                <input
-                  type="checkbox"
-                  checked={useWhatsapp}
-                  onChange={(e) => setUseWhatsapp(e.target.checked)}
-                  className="h-5 w-5 accent-[#7A1428]"
-                />
-              </label>
-
-              {useWhatsapp && (
-                <div className="space-y-3 pt-2">
-                  <label htmlFor="counter-phone" className="block text-xs font-semibold text-[#535A56]">
-                    Customer 10-digit mobile number
-                  </label>
-                  <input
-                    id="counter-phone"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))}
-                    inputMode="tel"
-                    placeholder="Enter 10-digit mobile number"
-                    className="min-h-12 w-full border border-[#D8DCD7] bg-white px-3.5 text-sm font-semibold outline-none focus:border-[#7A1428]"
-                  />
-                  <button
-                    type="button"
-                    disabled={phone.length !== 10 || busy}
-                    onClick={sendWhatsApp}
-                    className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#7A1428] px-4 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    {busy ? 'Sending WhatsApp Link…' : 'Send 24-Hour WhatsApp Link'}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="rounded border border-[#D8DCD7] bg-[#FAFBF8] p-4 text-xs text-[#535A56]">
-              <p className="font-semibold text-[#161918]">WhatsApp service not active</p>
-              <p className="mt-1">
-                The customer can scan the QR code directly with any iOS or Android camera app to open their session immediately.
-              </p>
-            </div>
-          )}
-
-          {notice && (
-            <p role="status" className="border border-[#7A1428]/30 bg-[#7A1428]/5 p-3 text-xs font-semibold text-[#7A1428]">
-              {notice}
-            </p>
-          )}
-        </div>
-
-        {/* Right Card: High-Visibility QR Code */}
-        <div className="flex flex-col items-center justify-center border-2 border-[#161918] bg-[#FAFBF8] p-6 text-center shadow-md">
-          <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+      {mode === 'per-customer' ? (
+        <section className="flex flex-col items-center border-2 border-[#161918] bg-[#FAFBF8] p-6 text-center">
+          <p className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
             <Smartphone className="h-4 w-4" />
-            Customer Scan QR
-          </div>
-          <h3 className="mt-2 font-serif text-2xl font-semibold text-[#161918]">
-            Scan to Create AI Video
-          </h3>
-          <p className="mt-1 text-xs text-[#535A56]">
-            Open camera on customer phone · Valid for 1 full day
+            {passQr ? `Customer ${customerCount} · Scan with phone camera` : 'Ready for the next customer'}
           </p>
-
-          <div className="relative mt-5 border-4 border-[#161918] bg-white p-3 shadow-inner">
-            {posterQr ? (
-              <img
-                src={posterQr}
-                alt="Customer AI Video Pass QR"
-                className="aspect-square w-full max-w-[280px] object-contain"
-              />
+          <div className="mt-4 border-4 border-[#161918] bg-white p-3">
+            {passQr ? (
+              <img src={passQr} alt="Customer AI Video QR" className="aspect-square w-full max-w-[300px] object-contain" />
             ) : (
-              <div className="flex aspect-square w-[280px] items-center justify-center bg-gray-50 text-sm text-[#535A56]">
-                Loading QR Code…
+              <div className="flex aspect-square w-[min(300px,70vw)] items-center justify-center text-[#8A918D]">
+                <QrCode className="h-16 w-16" />
               </div>
             )}
           </div>
-
-          <div className="mt-4 flex items-center gap-2 text-xs font-bold text-[#256B45]">
-            <CheckCircle2 className="h-4 w-4" />
-            <span>Own Garment Experience Enabled</span>
-          </div>
-
-          <p className="mt-2 max-w-xs text-[11px] text-[#535A56]">
-            Reusable counter QR · Each customer scan creates an independent private 24-hour session.
+          <button
+            type="button"
+            disabled={busy || !config}
+            onClick={() => void issuePass()}
+            className="mt-5 flex min-h-14 w-full max-w-sm items-center justify-center gap-2 bg-[#7A1428] px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50"
+          >
+            {busy ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
+            {busy ? 'Creating QR…' : passQr ? 'Next customer · New QR' : 'Show QR for this customer'}
+          </button>
+          <p className="mt-3 max-w-sm text-xs text-[#535A56]">
+            Each QR is private to one customer. A QR that is never scanned does not use any video credit.
           </p>
-        </div>
-      </section>
+
+          {config?.whatsappEnabled && (
+            <div className="mt-5 w-full max-w-sm border-t border-[#D8DCD7] pt-4 text-left">
+              <label htmlFor="counter-phone" className="block text-xs font-semibold text-[#535A56]">
+                Or send the link on WhatsApp
+              </label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  id="counter-phone"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))}
+                  inputMode="tel"
+                  placeholder="10-digit mobile number"
+                  className="min-h-12 min-w-0 flex-1 border border-[#D8DCD7] bg-white px-3 text-sm font-semibold outline-none focus:border-[#7A1428]"
+                />
+                <button
+                  type="button"
+                  disabled={phone.length !== 10 || busy}
+                  onClick={() => void issuePass(phone)}
+                  className="flex min-h-12 items-center gap-1.5 bg-[#161918] px-4 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
+          {notice && <p role="status" className="mt-4 max-w-sm text-sm font-semibold text-[#256B45]">{notice}</p>}
+        </section>
+      ) : (
+        <section className="flex flex-col items-center border-2 border-[#161918] bg-[#FAFBF8] p-6 text-center">
+          <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">Print and paste at the counter</p>
+          <div className="mt-4 border-4 border-[#161918] bg-white p-3">
+            {permanentQr ? (
+              <img src={permanentQr} alt="Permanent AI Video counter QR" className="aspect-square w-full max-w-[300px] object-contain" />
+            ) : (
+              <div className="flex aspect-square w-[min(300px,70vw)] items-center justify-center text-sm text-[#535A56]">Loading QR…</div>
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={!permanentQr}
+            onClick={downloadPermanentQr}
+            className="mt-5 flex min-h-12 w-full max-w-sm items-center justify-center gap-2 border border-[#161918] bg-white px-5 text-xs font-bold uppercase tracking-wider text-[#161918] disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            Download QR for printing
+          </button>
+          <p className="mt-3 max-w-sm text-xs text-[#535A56]">
+            Every scan creates a separate private 24-hour session for that customer.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
