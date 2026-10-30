@@ -35,7 +35,7 @@ import {
 
 type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
-type CatalogueTryOnStage = 'browse' | 'camera' | 'generating' | 'result';
+type CatalogueTryOnStage = 'photo' | 'browse' | 'generating' | 'result';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
 type VideoAudience = CatalogueAudience;
 
@@ -94,7 +94,7 @@ export default function TryFocusTvExperience() {
 
   // AI Image Try-On state
   const [imageSource, setImageSource] = useState<ImageTryOnSource>('catalogue');
-  const [tryOnStage, setTryOnStage] = useState<CatalogueTryOnStage>('browse');
+  const [tryOnStage, setTryOnStage] = useState<CatalogueTryOnStage>('photo');
 
   // Photos (Image 1 = Customer identity, Image 2 = Garment reference)
   const [customerPhoto, setCustomerPhoto] = useState<string>('');
@@ -356,11 +356,9 @@ export default function TryFocusTvExperience() {
   }
 
   function applyCapturedPhoto(target: CameraTarget, dataUrl: string) {
-    if (target === 'catalogue-person') {
+    if (target === 'catalogue-person' || target === 'own-person') {
       setCustomerPhoto(dataUrl);
-      setTryOnStage('camera');
-    } else if (target === 'own-person') {
-      setCustomerPhoto(dataUrl);
+      setTryOnStage('photo');
     } else if (target === 'own-garment') {
       setOwnGarmentPhoto(dataUrl);
     } else if (target === 'video-person') {
@@ -698,7 +696,7 @@ export default function TryFocusTvExperience() {
     setGeneratedLooks([]);
     setTryOnError('');
     setTryOnStatusNote('');
-    setTryOnStage('browse');
+    setTryOnStage('photo');
     setVideoPersonPhoto('');
     setVideoMasterUrl('');
     setVideoPassQr('');
@@ -760,166 +758,372 @@ export default function TryFocusTvExperience() {
 
       <div className="tv-kiosk-content mx-auto max-w-[1920px] px-5 py-6 sm:px-8">
         {/* =========================================================
-            MODE 1: AI IMAGE TRY-ON (Catalogue Grid + Camera + Result Slider + Own Garment)
+            MODE 1: AI IMAGE TRY-ON (Strict 2-Step Process: Step 1 Photo -> Step 2 Garments)
            ========================================================= */}
         {mode === 'image-tryon' && (
           <div className="space-y-6">
-            <div className="tv-discovery-intro">
-              <p className="font-mono text-sm font-bold uppercase tracking-[0.2em] text-[#7A1428]">01 · AI Image Try-On</p>
-              <h2 className="mt-1 font-serif text-4xl font-semibold">Choose a look. See it on you.</h2>
-              <p className="mt-2 text-lg text-[#535A56]">Select up to five garments, then take one photo.</p>
-            </div>
-            {tryOnStage === 'browse' && <div className="tv-audience-options grid grid-cols-4 gap-3" aria-label="Choose who is shopping">
-              {(['women', 'men', 'boys', 'girls'] as const).map((audience) => <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => selectGender(audience)} className={`border px-4 py-3 text-lg font-bold uppercase tracking-[0.12em] transition ${genderFilter === audience ? 'border-[#161918] bg-[#161918] text-white' : 'border-[#D8DCD7] bg-white text-[#161918]'}`}>{audience}</button>)}
-            </div>}
-            {(genderFilter === 'boys' || genderFilter === 'girls') && <label className="flex min-h-16 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-lg"><input type="checkbox" checked={tryOnGuardianConsent} onChange={(event) => setTryOnGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve using this child’s photo for this experience.</label>}
-            {/* Top Sub-bar: Switch between Store Catalogue & Own Garment */}
-            <div className="tv-source-bar flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  aria-pressed={imageSource === 'catalogue'}
-                  onClick={() => {
-                    setImageSource('catalogue');
-                    setTryOnStage('browse');
-                  }}
-                  className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] transition ${
-                    imageSource === 'catalogue'
-                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                      : 'border-[#D8DCD7] bg-white text-[#161918]'
+            {/* 2-Step Process Stepper Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-bold uppercase tracking-wider ${
+                    tryOnStage === 'photo'
+                      ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
+                      : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
                   }`}
                 >
-                  <Shirt className="h-4 w-4" />
-                  Store styles
-                </button>
+                  <span>Step 1</span>
+                  <span>· Customer Photo {customerPhoto ? '✓' : ''}</span>
+                </div>
+
+                <span className="text-[#8C938F]">→</span>
+
                 <button
                   type="button"
-                  aria-pressed={imageSource === 'own-garment'}
-                  onClick={() => {
-                    setImageSource('own-garment');
-                    setTryOnStage('browse');
-                  }}
-                  className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] transition ${
-                    imageSource === 'own-garment'
-                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                      : 'border-[#D8DCD7] bg-white text-[#161918]'
+                  disabled={!customerPhoto}
+                  onClick={() => setTryOnStage('browse')}
+                  className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition ${
+                    tryOnStage === 'browse'
+                      ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
+                      : customerPhoto
+                      ? 'border-[#161918] bg-white text-[#161918] hover:border-[#7A1428]'
+                      : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#8C938F] opacity-50'
                   }`}
                 >
-                  <Upload className="h-4 w-4" />
-                  My garment
+                  <span>Step 2</span>
+                  <span>· Select Garments</span>
                 </button>
               </div>
 
-              <p className="text-xs text-[#535A56]">Your photo stays private and is cleared when you finish.</p>
+              <p className="text-xs font-semibold text-[#535A56]">
+                {tryOnStage === 'photo'
+                  ? 'First step: Take or upload customer photo'
+                  : 'Second step: Choose styles & create AI looks'}
+              </p>
             </div>
 
             {/* ---------------------------------------------------------
-                SUB-MODE A: STORE CATALOGUE TRY-ON
+                STEP 1: CUSTOMER PHOTO (Take Photo or Upload Photo via Mobile QR)
                --------------------------------------------------------- */}
-            {imageSource === 'catalogue' && tryOnStage === 'browse' && (
-              <div className="tv-catalogue-shell grid gap-5">
-                <aside className="tv-category-sidebar border border-[#D8DCD7] bg-white p-4" aria-label="Garment categories">
-                  <p className="mb-3 font-serif text-xl font-semibold">Browse styles</p>
-                  <div className="tv-kiosk-filters flex flex-col gap-2">
-                    {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showClientCollection} onClick={() => { setShowClientCollection(true); setShowNewArrivals(false); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showClientCollection ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>Maharaja looks</button>}
-                    {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowClientCollection(false); setShowNewArrivals(true); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showNewArrivals ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>New Arrivals</button>}
-                    {filteredCategories.map((cat) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        aria-pressed={!showClientCollection && !showNewArrivals && activeCategory === cat.id}
-                        onClick={() => selectCategory(cat.id)}
-                        className={`min-h-12 border px-4 py-2 text-left text-sm font-bold transition ${
-                          !showClientCollection && !showNewArrivals && activeCategory === cat.id
-                            ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                            : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
-                        }`}
-                      >
-                        {cat.label} <span className="opacity-60">({catalogueItems.filter((item) => item.category === cat.id).length})</span>
-                      </button>
-                    ))}
-                  </div>
-                </aside>
-
-                <div className="min-w-0 space-y-5">
-
-                <div ref={catalogueTopRef} className="tv-catalogue-heading flex items-center justify-between gap-4 text-[#161918]">
-                  <p className="font-serif text-2xl font-semibold">{showClientCollection ? 'Maharaja looks' : showNewArrivals ? 'New Arrivals' : filteredCategories.find((cat) => cat.id === activeCategory)?.label}</p>
-                  <p className="text-sm font-semibold">{browseProducts.length} garments · Page {cataloguePage + 1} of {cataloguePageCount}</p>
+            {tryOnStage === 'photo' && (
+              <div className="space-y-6">
+                <div className="tv-discovery-intro">
+                  <p className="font-mono text-sm font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+                    01 · Step 1 · Customer Photo
+                  </p>
+                  <h2 className="mt-1 font-serif text-4xl font-semibold">
+                    {customerPhoto ? 'Review your photo' : 'Add customer photo'}
+                  </h2>
+                  <p className="mt-2 text-lg text-[#535A56]">
+                    {customerPhoto
+                      ? 'Make sure the posture and face are clear, then proceed to select garments.'
+                      : 'Take a photo in front of the TV or upload directly from your smartphone.'}
+                  </p>
                 </div>
-                <div className="tv-product-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {visibleBrowseProducts.map((item) => (
-                    <div
-                      key={item.sku}
-                      className={`tv-product-card group flex flex-col justify-between overflow-hidden border bg-white transition hover:border-[#7A1428] ${selectedLooks.some((look) => look.sku === item.sku) ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'}`}
-                    >
-                      <button
-                        type="button"
-                        aria-pressed={selectedLooks.some((look) => look.sku === item.sku)}
-                        aria-label={`${selectedLooks.some((look) => look.sku === item.sku) ? 'Remove' : 'Select'} ${item.title}`}
-                        disabled={selectedLooks.length >= 5 && !selectedLooks.some((look) => look.sku === item.sku)}
-                        onClick={() => toggleLook(item)}
-                        className="tv-product-image relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9] text-left disabled:opacity-60"
-                      >
-                        <img
-                          src={item.imageUrl}
-                          alt={item.title}
-                          className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
-                        />
-                      </button>
 
-                      <div className="flex flex-1 flex-col justify-between gap-2 p-3">
-                        <h4 className="line-clamp-2 font-serif text-base font-semibold leading-snug text-[#161918]">
-                          {item.title}
-                        </h4>
-                        <span
-                          className={`font-mono text-xs font-bold ${
-                            selectedLooks.some((look) => look.sku === item.sku)
-                              ? 'text-[#7A1428]'
-                              : selectedLooks.length >= 5
-                              ? 'text-[#8C938F]'
-                              : 'text-[#7A1428]'
-                          }`}
-                        >
-                          {selectedLooks.some((look) => look.sku === item.sku)
-                            ? '✓ Selected'
-                            : selectedLooks.length >= 5
-                            ? 'Max 5 looks'
-                            : '+ Select'}
-                        </span>
-                      </div>
-                    </div>
+                {/* Audience Selection */}
+                <div className="tv-audience-options grid grid-cols-4 gap-3" aria-label="Choose who is shopping">
+                  {(['women', 'men', 'boys', 'girls'] as const).map((audience) => (
+                    <button
+                      key={audience}
+                      type="button"
+                      aria-pressed={genderFilter === audience}
+                      onClick={() => selectGender(audience)}
+                      className={`border px-4 py-3 text-lg font-bold uppercase tracking-[0.12em] transition ${
+                        genderFilter === audience
+                          ? 'border-[#161918] bg-[#161918] text-white'
+                          : 'border-[#D8DCD7] bg-white text-[#161918]'
+                      }`}
+                    >
+                      {audience}
+                    </button>
                   ))}
                 </div>
-                {browseProducts.length === 0 && <div className="border border-[#D8DCD7] bg-white p-10 text-center"><p className="font-serif text-2xl">No garments here yet</p><p className="mt-2 text-[#535A56]">Choose another category or ask our staff for help.</p></div>}
-                <div className="tv-catalogue-pagination flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
-                  <button type="button" disabled={cataloguePage === 0} onClick={() => turnCataloguePage(cataloguePage - 1)} className="border border-[#161918] px-6 py-3 text-lg font-semibold disabled:opacity-35">← Previous</button>
-                  <span className="text-lg font-semibold">{cataloguePage + 1} / {cataloguePageCount}</span>
-                  <button type="button" disabled={cataloguePage >= cataloguePageCount - 1} onClick={() => turnCataloguePage(cataloguePage + 1)} className="border border-[#161918] px-6 py-3 text-lg font-semibold disabled:opacity-35">Next →</button>
-                </div>
-                </div>
-                <div className="tv-selection-bar fixed bottom-0 left-1/2 z-30 flex w-full max-w-[1080px] -translate-x-1/2 flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white/95 p-4 shadow-xl backdrop-blur">
-                  <p className="text-lg font-semibold">{selectedLooks.length} of 5 looks selected{selectedLooks.length > 0 ? ` · ${filteredCategories.find((item) => item.id === selectedLooks[0].category)?.label || 'Same category'}` : ''}</p>
-                  <button type="button" disabled={selectedLooks.length === 0} onClick={() => {
-                    setSelectedProduct(selectedLooks[0]);
-                    if (customerPhoto) setTryOnStage('camera');
-                    else { setTryOnStage('camera'); void openCameraFor('catalogue-person'); }
-                  }} className="min-h-16 bg-[#7A1428] px-8 text-lg font-bold text-white disabled:opacity-40">
-                    {customerPhoto ? `Create ${selectedLooks.length} looks` : 'Take photo & create looks'}
-                  </button>
-                </div>
+
+                {(genderFilter === 'boys' || genderFilter === 'girls') && (
+                  <label className="flex min-h-16 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-lg">
+                    <input
+                      type="checkbox"
+                      checked={tryOnGuardianConsent}
+                      onChange={(event) => setTryOnGuardianConsent(event.target.checked)}
+                      className="h-6 w-6"
+                    />
+                    I am the parent or guardian and approve using this child’s photo for this experience.
+                  </label>
+                )}
+
+                {/* If NO photo captured yet: Show 2 Large Action Buttons */}
+                {!customerPhoto ? (
+                  <div className="border border-[#D8DCD7] bg-white p-8">
+                    <div className="mx-auto max-w-3xl">
+                      <div className="grid gap-6 md:grid-cols-2">
+                        {/* Button 1: Take Photo */}
+                        <button
+                          type="button"
+                          onClick={() => void openCameraFor('catalogue-person')}
+                          className="group flex min-h-[180px] flex-col items-center justify-center gap-4 border-2 border-[#161918] bg-[#FAFBF8] p-8 text-center transition hover:border-[#7A1428] hover:bg-[#FAF6EE]"
+                        >
+                          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#161918] text-white transition group-hover:scale-110">
+                            <Camera className="h-8 w-8" />
+                          </span>
+                          <div>
+                            <span className="block font-serif text-2xl font-semibold text-[#161918]">
+                              Take Photo
+                            </span>
+                            <span className="mt-1 block text-sm text-[#535A56]">
+                              TV camera with 9:16 vertical view & 5s timer
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Button 2: Upload Photo (via Mobile QR) */}
+                        <PhonePhotoTransfer
+                          onPhoto={(photo) => applyCapturedPhoto('catalogue-person', photo)}
+                          renderTrigger={(open, busy) => (
+                            <button
+                              type="button"
+                              onClick={open}
+                              disabled={busy}
+                              className="group flex min-h-[180px] w-full flex-col items-center justify-center gap-4 border-2 border-[#161918] bg-[#FAFBF8] p-8 text-center transition hover:border-[#7A1428] hover:bg-[#FAF6EE] disabled:opacity-50"
+                            >
+                              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#7A1428] text-white transition group-hover:scale-110">
+                                {busy ? (
+                                  <LoaderCircle className="h-8 w-8 animate-spin" />
+                                ) : (
+                                  <QrCode className="h-8 w-8" />
+                                )}
+                              </span>
+                              <div>
+                                <span className="block font-serif text-2xl font-semibold text-[#161918]">
+                                  {busy ? 'Preparing QR…' : 'Upload Photo'}
+                                </span>
+                                <span className="mt-1 block text-sm text-[#535A56]">
+                                  Scan QR code on smartphone to send photo
+                                </span>
+                              </div>
+                            </button>
+                          )}
+                        />
+                      </div>
+
+                      <div className="mt-6 text-center">
+                        <label className="cursor-pointer font-mono text-xs font-semibold text-[#535A56] hover:text-[#161918] underline">
+                          Or choose photo file from device
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload('catalogue-person', e.target.files?.[0])}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* If photo is present: 9:16 portrait review with Retake & Next buttons */
+                  <div className="mx-auto max-w-2xl border border-[#D8DCD7] bg-white p-7 text-center">
+                    <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Photo Ready
+                    </span>
+                    <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                      Review your photo
+                    </h3>
+                    <img
+                      src={customerPhoto}
+                      alt="Photo preview before try-on"
+                      className="mx-auto mt-5 aspect-[9/16] h-[460px] max-w-full object-cover border-2 border-[#D8DCD7] shadow-md"
+                    />
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setCustomerPhoto('')}
+                        className="flex min-h-16 items-center justify-center gap-2 border-2 border-[#161918] bg-white px-5 text-lg font-bold text-[#161918] hover:bg-[#FAFBF8]"
+                      >
+                        Retake Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTryOnStage('browse')}
+                        className="flex min-h-16 items-center justify-center gap-2 bg-[#7A1428] px-5 text-lg font-bold text-white shadow-md hover:bg-[#601020]"
+                      >
+                        Next: Select Garments →
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {imageSource === 'catalogue' && tryOnStage === 'camera' && customerPhoto && !cameraOpen && (
-              <div className="mx-auto max-w-2xl border border-[#D8DCD7] bg-white p-7 text-center">
-                <p className="font-mono text-sm font-bold uppercase tracking-[0.18em] text-[#7A1428]">Review your photo</p>
-                <img src={customerPhoto} alt="Photo preview before try-on" className="mx-auto mt-5 aspect-[9/16] h-[460px] max-w-full object-cover border-2 border-[#D8DCD7] shadow-md" />
-                <p className="mt-4 text-lg font-semibold">{selectedLooks.length || 1} selected looks will be created from this photo.</p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <button type="button" onClick={() => void openCameraFor('catalogue-person')} className="min-h-16 border border-[#161918] px-5 text-lg font-bold">Retake photo</button>
-                  <button type="button" onClick={() => void runCatalogueBatch(customerPhoto)} className="min-h-16 bg-[#7A1428] px-5 text-lg font-bold text-white">Confirm & create looks</button>
+            {/* ---------------------------------------------------------
+                STEP 2: SELECT GARMENTS & CREATE LOOKS
+               --------------------------------------------------------- */}
+            {tryOnStage === 'browse' && (
+              <div className="space-y-6">
+                {/* Confirmed Customer Photo Card with Change Photo button */}
+                <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
+                  <div className="flex items-center gap-4">
+                    {customerPhoto && (
+                      <img
+                        src={customerPhoto}
+                        alt="Customer photo"
+                        className="aspect-[9/16] h-14 border-2 border-[#161918] object-cover shadow-sm"
+                      />
+                    )}
+                    <div>
+                      <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#7A1428]">
+                        Customer Photo Confirmed
+                      </span>
+                      <p className="font-serif text-lg font-semibold text-[#161918]">
+                        Step 2: Choose garments to try on
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setTryOnStage('photo')}
+                    className="flex min-h-12 items-center gap-2 border-2 border-[#161918] bg-white px-4 text-xs font-bold uppercase tracking-wider hover:bg-[#FAFBF8]"
+                  >
+                    ← Change / Retake Photo
+                  </button>
                 </div>
+
+                {/* Top Sub-bar: Switch between Store Catalogue & Own Garment */}
+                <div className="tv-source-bar flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      aria-pressed={imageSource === 'catalogue'}
+                      onClick={() => setImageSource('catalogue')}
+                      className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] transition ${
+                        imageSource === 'catalogue'
+                          ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                          : 'border-[#D8DCD7] bg-white text-[#161918]'
+                      }`}
+                    >
+                      <Shirt className="h-4 w-4" />
+                      Store styles
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={imageSource === 'own-garment'}
+                      onClick={() => setImageSource('own-garment')}
+                      className={`flex items-center gap-2 border px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] transition ${
+                        imageSource === 'own-garment'
+                          ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                          : 'border-[#D8DCD7] bg-white text-[#161918]'
+                      }`}
+                    >
+                      <Upload className="h-4 w-4" />
+                      My garment
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-[#535A56]">Your photo stays private and is cleared when you finish.</p>
+                </div>
+
+                {/* ---------------------------------------------------------
+                    SUB-MODE A: STORE CATALOGUE TRY-ON
+                   --------------------------------------------------------- */}
+                {imageSource === 'catalogue' && (
+                  <div className="tv-catalogue-shell grid gap-5">
+                    <aside className="tv-category-sidebar border border-[#D8DCD7] bg-white p-4" aria-label="Garment categories">
+                      <p className="mb-3 font-serif text-xl font-semibold">Browse styles</p>
+                      <div className="tv-kiosk-filters flex flex-col gap-2">
+                        {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showClientCollection} onClick={() => { setShowClientCollection(true); setShowNewArrivals(false); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showClientCollection ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>Maharaja looks</button>}
+                        {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowClientCollection(false); setShowNewArrivals(true); setCataloguePage(0); }} className={`border px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] ${showNewArrivals ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'}`}>New Arrivals</button>}
+                        {filteredCategories.map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            aria-pressed={!showClientCollection && !showNewArrivals && activeCategory === cat.id}
+                            onClick={() => selectCategory(cat.id)}
+                            className={`min-h-12 border px-4 py-2 text-left text-sm font-bold transition ${
+                              !showClientCollection && !showNewArrivals && activeCategory === cat.id
+                                ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                                : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
+                            }`}
+                          >
+                            {cat.label} <span className="opacity-60">({catalogueItems.filter((item) => item.category === cat.id).length})</span>
+                          </button>
+                        ))}
+                      </div>
+                    </aside>
+
+                    <div className="min-w-0 space-y-5">
+                      <div ref={catalogueTopRef} className="tv-catalogue-heading flex items-center justify-between gap-4 text-[#161918]">
+                        <p className="font-serif text-2xl font-semibold">{showClientCollection ? 'Maharaja looks' : showNewArrivals ? 'New Arrivals' : filteredCategories.find((cat) => cat.id === activeCategory)?.label}</p>
+                        <p className="text-sm font-semibold">{browseProducts.length} garments · Page {cataloguePage + 1} of {cataloguePageCount}</p>
+                      </div>
+                      <div className="tv-product-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {visibleBrowseProducts.map((item) => (
+                          <div
+                            key={item.sku}
+                            className={`tv-product-card group flex flex-col justify-between overflow-hidden border bg-white transition hover:border-[#7A1428] ${selectedLooks.some((look) => look.sku === item.sku) ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'}`}
+                          >
+                            <button
+                              type="button"
+                              aria-pressed={selectedLooks.some((look) => look.sku === item.sku)}
+                              aria-label={`${selectedLooks.some((look) => look.sku === item.sku) ? 'Remove' : 'Select'} ${item.title}`}
+                              disabled={selectedLooks.length >= 5 && !selectedLooks.some((look) => look.sku === item.sku)}
+                              onClick={() => toggleLook(item)}
+                              className="tv-product-image relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9] text-left disabled:opacity-60"
+                            >
+                              <img
+                                src={item.imageUrl}
+                                alt={item.title}
+                                className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                              />
+                            </button>
+
+                            <div className="flex flex-1 flex-col justify-between gap-2 p-3">
+                              <h4 className="line-clamp-2 font-serif text-base font-semibold leading-snug text-[#161918]">
+                                {item.title}
+                              </h4>
+                              <span
+                                className={`font-mono text-xs font-bold ${
+                                  selectedLooks.some((look) => look.sku === item.sku)
+                                    ? 'text-[#7A1428]'
+                                    : selectedLooks.length >= 5
+                                    ? 'text-[#8C938F]'
+                                    : 'text-[#7A1428]'
+                                }`}
+                              >
+                                {selectedLooks.some((look) => look.sku === item.sku)
+                                  ? '✓ Selected'
+                                  : selectedLooks.length >= 5
+                                  ? 'Max 5 looks'
+                                  : '+ Select'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {browseProducts.length === 0 && <div className="border border-[#D8DCD7] bg-white p-10 text-center"><p className="font-serif text-2xl">No garments here yet</p><p className="mt-2 text-[#535A56]">Choose another category or ask our staff for help.</p></div>}
+                      <div className="tv-catalogue-pagination flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
+                        <button type="button" disabled={cataloguePage === 0} onClick={() => turnCataloguePage(cataloguePage - 1)} className="border border-[#161918] px-6 py-3 text-lg font-semibold disabled:opacity-35">← Previous</button>
+                        <span className="text-lg font-semibold">{cataloguePage + 1} / {cataloguePageCount}</span>
+                        <button type="button" disabled={cataloguePage >= cataloguePageCount - 1} onClick={() => turnCataloguePage(cataloguePage + 1)} className="border border-[#161918] px-6 py-3 text-lg font-semibold disabled:opacity-35">Next →</button>
+                      </div>
+                    </div>
+
+                    <div className="tv-selection-bar fixed bottom-0 left-1/2 z-30 flex w-full max-w-[1080px] -translate-x-1/2 flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white/95 p-4 shadow-xl backdrop-blur">
+                      <p className="text-lg font-semibold">{selectedLooks.length} of 5 looks selected{selectedLooks.length > 0 ? ` · ${filteredCategories.find((item) => item.id === selectedLooks[0].category)?.label || 'Same category'}` : ''}</p>
+                      <button
+                        type="button"
+                        disabled={selectedLooks.length === 0}
+                        onClick={() => {
+                          setSelectedProduct(selectedLooks[0]);
+                          void runCatalogueBatch(customerPhoto);
+                        }}
+                        className="min-h-16 bg-[#7A1428] px-8 text-lg font-bold text-white disabled:opacity-40"
+                      >
+                        Create {selectedLooks.length} looks
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1461,7 +1665,6 @@ export default function TryFocusTvExperience() {
               onClick={() => {
                 stopCamera();
                 setCameraOpen(false);
-                if (tryOnStage === 'camera') setTryOnStage('browse');
               }}
               className="flex min-h-12 items-center gap-2 border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20"
             >
@@ -1534,7 +1737,6 @@ export default function TryFocusTvExperience() {
                 onClick={() => {
                   stopCamera();
                   setCameraOpen(false);
-                  if (tryOnStage === 'camera') setTryOnStage('browse');
                 }}
                 className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/40 bg-black/75 text-white shadow-lg transition hover:bg-black active:scale-95"
                 title="Cancel"
