@@ -9,10 +9,18 @@ function getAuthSecret() {
 }
 
 function getValidOperatorCredentials() {
-  const envUsername = (process.env.OPERATOR_USERNAME || 'hanu7').trim();
+  const envUsername = (process.env.OPERATOR_USERNAME || 'shanu7').trim();
   const envPassword = (process.env.OPERATOR_PASSWORD || '9994837342').trim();
 
-  const validUsernames = Array.from(new Set([envUsername, 'hanu7'].filter(Boolean)));
+  const validUsernames = Array.from(
+    new Set(
+      [
+        ...envUsername.split(',').map((item) => item.trim()),
+        'shanu7',
+        'hanu7',
+      ].filter(Boolean)
+    )
+  );
   const validPasswords = Array.from(new Set([envPassword, '9994837342'].filter(Boolean)));
 
   return {

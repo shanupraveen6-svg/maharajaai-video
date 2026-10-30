@@ -297,6 +297,12 @@ export default function TryFocusAdmin() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/admin"
+              className="border border-[#7A1428] bg-[#7A1428] px-3.5 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#FAF6EE]"
+            >
+              Admin
+            </Link>
             <button
               type="button"
               onClick={() => setShowCreateForm((v) => !v)}
@@ -316,6 +322,12 @@ export default function TryFocusAdmin() {
               className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
             >
               TV Smart Mirror
+            </Link>
+            <Link
+              href="/maharaja/tv"
+              className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
+            >
+              Go Live TV Wall
             </Link>
             <button
               type="button"

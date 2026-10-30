@@ -37,12 +37,19 @@ export default function LandingPage() {
             <a href="#platform" className="transition hover:text-[#7A1428]">Platform</a>
             <a href="#pricing" className="transition hover:text-[#7A1428]">Pricing</a>
             <a href="#operations" className="transition hover:text-[#7A1428]">Operations</a>
+            <Link href="/admin" className="transition hover:text-[#7A1428]">Admin</Link>
             <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="transition hover:text-[#7A1428]">Company</a>
           </nav>
-          <a href="tel:9994837342" className="inline-flex min-h-9 items-center gap-2 bg-[#161918] px-3.5 text-xs font-bold text-white transition hover:bg-[#7A1428] shadow-sm">
-            <Phone className="h-3.5 w-3.5 text-[#E8B878]" />
-            Contact: 9994837342
-          </a>
+          <div className="flex items-center gap-2">
+            <Link href="/admin" className="inline-flex min-h-9 items-center gap-1.5 border border-[#161918] bg-white px-3 text-xs font-bold text-[#161918] transition hover:border-[#7A1428] hover:text-[#7A1428]">
+              <LockKeyhole className="h-3.5 w-3.5 text-[#7A1428]" />
+              Admin
+            </Link>
+            <a href="tel:9994837342" className="inline-flex min-h-9 items-center gap-2 bg-[#161918] px-3.5 text-xs font-bold text-white transition hover:bg-[#7A1428] shadow-sm">
+              <Phone className="h-3.5 w-3.5 text-[#E8B878]" />
+              <span className="hidden sm:inline">Contact:</span> 9994837342
+            </a>
+          </div>
         </div>
       </header>
 
