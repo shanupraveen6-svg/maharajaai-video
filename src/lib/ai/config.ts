@@ -16,4 +16,7 @@ export const AI_CONFIG = {
   get PRIMARY_API_KEY() {
     return process.env.GOOGLE_AI_API_KEY_PRIMARY || '';
   },
+  get GENLOOK_API_KEY() {
+    return process.env.GENLOOK_API_KEY?.trim() || 'gk_qsKrdiv9zMKIhSUIwL3ZwLEOeu92xCYHlD9FwzmReU4';
+  },
 };

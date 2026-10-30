@@ -20,7 +20,7 @@ const MAX_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024;
 export async function GET(req: NextRequest) {
   if (!verifyOperatorRequest(req)) return NextResponse.json({ error: 'Operator sign-in required.' }, { status: 401 });
   return NextResponse.json({
-    genlookConfigured: Boolean(process.env.GENLOOK_API_KEY?.trim()),
+    genlookConfigured: Boolean(AI_CONFIG.GENLOOK_API_KEY?.trim()),
     falBackupConfigured: Boolean(process.env.FAL_KEY?.trim()),
     geminiConfigured: Boolean(AI_CONFIG.PRIMARY_API_KEY?.trim()),
     geminiModel: AI_CONFIG.GEMINI_IMAGE_MODEL,
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
 
     const nowIso = new Date().toISOString();
     const ai = getGenAIClient();
-    if (!ai && (service === 'ai-video' || tryOnRetry || (!process.env.GENLOOK_API_KEY?.trim() && !process.env.FAL_KEY?.trim()))) {
+    if (!ai && (service === 'ai-video' || tryOnRetry || (!AI_CONFIG.GENLOOK_API_KEY?.trim() && !process.env.FAL_KEY?.trim()))) {
       if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(
         { success: false, error: 'Gemini image generation is not configured.' },
@@ -341,13 +341,13 @@ ${categoryGarmentLine}
         }
 
         let rawBuffer: Buffer | null = null;
-        if (service === 'try-on' && !tryOnRetry && process.env.GENLOOK_API_KEY?.trim()) {
+        if (service === 'try-on' && !tryOnRetry && AI_CONFIG.GENLOOK_API_KEY?.trim()) {
           genlookAttempted = true;
           try {
             rawBuffer = await generateGenlookTryOn(
               personBase64,
               garmentBase64s[0],
-              process.env.GENLOOK_API_KEY.trim(),
+              AI_CONFIG.GENLOOK_API_KEY.trim(),
               {
                 externalId: typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `maharaja-${garmentType}`,
                 title: typeof body.catalogueProductTitle === 'string' ? body.catalogueProductTitle : `Maharaja ${garmentType.replace(/_/g, ' ')}`,

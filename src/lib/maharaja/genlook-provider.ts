@@ -6,9 +6,11 @@ const MAX_RESULT_BYTES = 16 * 1024 * 1024;
 type ProductDetails = { externalId: string; title: string; description: string };
 
 class GenlookProviderError extends Error {
-  constructor(message: string, readonly safeToFallback: boolean) {
+  readonly safeToFallback: boolean;
+  constructor(message: string, safeToFallback: boolean) {
     super(message);
     this.name = 'GenlookProviderError';
+    this.safeToFallback = safeToFallback;
   }
 }
 
