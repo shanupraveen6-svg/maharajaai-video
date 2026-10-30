@@ -152,7 +152,7 @@ export default function TryFocusTvExperience() {
   const TV_PAGE_SIZE = 24;
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / TV_PAGE_SIZE));
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * TV_PAGE_SIZE, (cataloguePage + 1) * TV_PAGE_SIZE);
-  const videoBrowseProducts = catalogueItems.filter((item) => (item.eligibleForVideo === true || item.sku.startsWith('TF-') || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === videoAudience && (videoAudience !== 'women' || item.category === 'sarees'));
+  const videoBrowseProducts = catalogueItems.filter((item) => item.price > 0 && (item.eligibleForVideo === true || item.sku.startsWith('TF-') || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === videoAudience && (videoAudience !== 'women' || item.category === 'sarees'));
   const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / TV_PAGE_SIZE));
   const safeVideoPage = Math.min(cataloguePage, Math.max(0, videoPageCount - 1));
   const visibleVideoProducts = videoBrowseProducts.slice(safeVideoPage * TV_PAGE_SIZE, (safeVideoPage + 1) * TV_PAGE_SIZE);
@@ -792,44 +792,29 @@ export default function TryFocusTvExperience() {
                         <img
                           src={item.imageUrl}
                           alt={item.title}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
                         />
                       </button>
 
                       <div className="flex flex-1 flex-col justify-between gap-2 p-3">
-                        <div>
-                          <div className="flex items-center justify-between gap-1.5">
-                            <span className="font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#7A1428]">
-                              {item.sku}
-                            </span>
-                            <span className="rounded bg-[#FAF6F0] px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-[#535A56] border border-[#E8ECE6]">
-                              {item.sku.startsWith('MAH-CLIENT-') ? 'MAHARAJA LOOK' : item.badge || 'MAHARAJA EDIT'}
-                            </span>
-                          </div>
-                          <h4 className="mt-1 line-clamp-2 font-serif text-sm font-semibold leading-snug text-[#161918]">
-                            {item.title}
-                          </h4>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between border-t border-[#F0F2ED] pt-2">
-                          <span className="font-mono text-xs font-bold text-[#161918]">
-                            {item.price > 0 ? formatINR(item.price) : 'Price in store'}
-                          </span>
-                          <span
-                            className={`inline-flex items-center font-mono text-xs font-bold ${
-                              selectedLooks.some((look) => look.sku === item.sku)
-                                ? 'text-[#7A1428]'
-                                : selectedLooks.length >= 5
-                                ? 'text-[#8C938F]'
-                                : 'text-[#7A1428]'
-                            }`}
-                          >
-                            {selectedLooks.some((look) => look.sku === item.sku)
-                              ? '✓ Selected'
+                        <h4 className="line-clamp-2 font-serif text-base font-semibold leading-snug text-[#161918]">
+                          {item.title}
+                        </h4>
+                        <span
+                          className={`font-mono text-xs font-bold ${
+                            selectedLooks.some((look) => look.sku === item.sku)
+                              ? 'text-[#7A1428]'
                               : selectedLooks.length >= 5
-                              ? 'Max 5'
-                              : '+ Add look'}
-                          </span>
-                        </div>
+                              ? 'text-[#8C938F]'
+                              : 'text-[#7A1428]'
+                          }`}
+                        >
+                          {selectedLooks.some((look) => look.sku === item.sku)
+                            ? '✓ Selected'
+                            : selectedLooks.length >= 5
+                            ? 'Max 5 looks'
+                            : '+ Select'}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -903,14 +888,16 @@ export default function TryFocusTvExperience() {
                   </div>
                   {generatedLooks.length > 1 && <span className="text-lg font-semibold">Look {activeLookIndex + 1} of {selectedLooks.length}</span>}
                 </div>
-                <div className="relative overflow-hidden bg-[#161918]" onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
+                <div className="overflow-hidden border border-[#D8DCD7] bg-white" onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
                   if (swipeStartX.current === null) return;
                   const distance = (event.changedTouches[0]?.clientX ?? swipeStartX.current) - swipeStartX.current;
                   swipeStartX.current = null;
                   if (Math.abs(distance) > 60) moveGeneratedLook(distance < 0 ? 1 : -1);
                 }}>
-                  <img src={tryOnResultUrl || selectedProduct.imageUrl} alt={selectedProduct.title} className="mx-auto max-h-[900px] w-full object-contain" />
-                  <p className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-6 pt-16 font-serif text-2xl text-white">{imageSource === 'own-garment' ? 'Your garment' : selectedProduct.title}</p>
+                  <div className="bg-[#161918]">
+                    <img src={tryOnResultUrl || selectedProduct.imageUrl} alt={selectedProduct.title} className="mx-auto max-h-[900px] w-full object-contain" />
+                  </div>
+                  <p className="border-t border-[#D8DCD7] bg-white px-6 py-4 font-serif text-2xl font-semibold text-[#161918]">{imageSource === 'own-garment' ? 'Your garment' : selectedProduct.title}</p>
                 </div>
                 {selectedLooks.length > 1 && <div className="flex items-center justify-between gap-4">
                   <button type="button" onClick={() => moveGeneratedLook(-1)} className="min-h-14 min-w-40 border border-[#161918] bg-white px-5 text-lg font-semibold">← Previous</button>
@@ -1117,7 +1104,7 @@ export default function TryFocusTvExperience() {
                 setVideoAudience(audience);
                 setCataloguePage(0);
                 setVideoPersonPhoto(''); setVideoMasterUrl(''); setVideoPassQr(''); setVideoPassUrl(''); setVideoPassCode(''); setVideoGuardianConsent(false);
-                const first = catalogueItems.find((item) => (item.eligibleForVideo || item.sku.startsWith('TF-') || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === audience && (audience !== 'women' || item.category === 'sarees'));
+                const first = catalogueItems.find((item) => item.price > 0 && (item.eligibleForVideo || item.sku.startsWith('TF-') || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === audience && (audience !== 'women' || item.category === 'sarees'));
                 if (first) setSelectedProduct(first);
               }} className={`min-h-16 border-2 px-4 text-xl font-bold capitalize ${videoAudience === audience ? 'border-[#161918] bg-[#161918] text-white' : 'border-[#D8DCD7] bg-white text-[#161918]'}`}>{audience}</button>)}
             </div>
@@ -1144,31 +1131,24 @@ export default function TryFocusTvExperience() {
                         selectedProduct.sku === item.sku ? 'border-[#7A1428] ring-2 ring-[#7A1428]' : 'border-[#D8DCD7]'
                       }`}
                     >
-                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9]">
+                      <div className="tv-product-image relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9]">
                         <img
                           src={item.imageUrl}
                           alt={item.title}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
                         />
                       </div>
                       <div className="flex flex-1 flex-col justify-between gap-1.5 p-3">
-                        <div className="flex items-center justify-between gap-1.5">
-                          <span className="font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#7A1428]">
-                            {item.sku}
-                          </span>
-                          {selectedProduct.sku === item.sku && (
-                            <span className="rounded bg-[#7A1428] px-2 py-0.5 font-mono text-[10px] font-bold text-white">
-                              Selected
-                            </span>
-                          )}
-                        </div>
                         <p className="line-clamp-2 font-serif text-sm font-semibold leading-tight text-[#161918]">
                           {item.title}
                         </p>
-                        <div className="mt-1 border-t border-[#F0F2ED] pt-1.5">
-                          <p className="font-mono text-sm font-bold text-[#7A1428]">
-                            {item.price > 0 ? formatINR(item.price) : 'Price in store'}
-                          </p>
+                        <div className="mt-1 flex items-center justify-between border-t border-[#F0F2ED] pt-2">
+                          <span className="font-mono text-sm font-bold text-[#7A1428]">
+                            {formatINR(item.price)}
+                          </span>
+                          <span className="font-mono text-xs font-bold text-[#7A1428]">
+                            {selectedProduct.sku === item.sku ? '✓ Selected' : '+ Select'}
+                          </span>
                         </div>
                       </div>
                     </button>

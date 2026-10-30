@@ -650,13 +650,8 @@ export default function LucyLiveMirror({
                       <img
                         src={item.imageUrl}
                         alt={item.title}
-                        className="h-full w-full object-cover object-top"
+                        className="h-full w-full object-contain object-top"
                       />
-                      {active && (
-                        <span className="absolute left-2 top-2 bg-[#7A1428] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-white">
-                          Active
-                        </span>
-                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 font-serif text-sm font-semibold text-[#161918]">
@@ -666,7 +661,9 @@ export default function LucyLiveMirror({
                         <span className="font-bold text-[#7A1428]">
                           {formatINR(item.price)}
                         </span>
-                        <span className="text-[10px] text-[#535A56]">{item.sku}</span>
+                        <span className="text-[10px] font-semibold text-[#535A56]">
+                          {active ? '✓ Active' : item.sku}
+                        </span>
                       </div>
                     </div>
                   </button>

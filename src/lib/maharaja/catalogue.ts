@@ -95,6 +95,36 @@ function getMockCatalogueMap(): Map<string, MaharajaCatalogueProduct> {
   return catalogue;
 }
 
+const DEPRECATED_HUE_SHIFTED_SKUS = new Set([
+  'TF-SAR-001', 'TF-SAR-002', 'TF-SAR-003', 'TF-SAR-004', 'TF-SAR-005',
+  'TF-SAL-002', 'TF-SAL-003', 'TF-SAL-004', 'TF-SAL-005',
+  'TF-LEH-002', 'TF-LEH-003', 'TF-LEH-004', 'TF-LEH-005',
+  'TF-KUR-002', 'TF-KUR-003', 'TF-KUR-004', 'TF-KUR-005',
+  'TF-VES-002', 'TF-VES-003', 'TF-VES-004', 'TF-VES-005',
+  'TF-SHI-002', 'TF-SHI-003', 'TF-SHI-004', 'TF-SHI-005',
+]);
+
+function isDeprecatedDemoProduct(sku?: string, storagePath?: string): boolean {
+  const cleanSku = String(sku || '').trim().toUpperCase();
+  if (DEPRECATED_HUE_SHIFTED_SKUS.has(cleanSku)) return true;
+  const cleanPath = String(storagePath || '').trim();
+  if (/-model-[2345]\b/i.test(cleanPath) || /saree-model-[2345]/i.test(cleanPath)) return true;
+  return false;
+}
+
+function cleanUploadedGarmentTitle(rawTitle: string, sku: string, categoryLabel: string): string {
+  const trimmed = String(rawTitle || '').trim();
+  if (!trimmed) return categoryLabel;
+  const bulkMatch = sku.match(/^MAH-[0-9A-F]{6}-(\d+)$/i);
+  if (
+    bulkMatch &&
+    (trimmed === trimmed.toLowerCase() || /\b(original|ima[fgh][a-z0-9]{4,}|resized)\b/i.test(trimmed))
+  ) {
+    return `${categoryLabel} Look ${parseInt(bulkMatch[1], 10)}`;
+  }
+  return trimmed;
+}
+
 function normalizeCatalogueProduct(raw: Partial<MaharajaCatalogueProduct>, index = 1): MaharajaCatalogueProduct {
   const legacyCategories: Record<string, CatalogueCategoryId> = { shirts: 'casual-shirts', salwar: 'salwar-suits', lehenga: 'lehengas' };
   const requestedCategory = legacyCategories[String(raw.category)] || raw.category;
@@ -108,11 +138,12 @@ function normalizeCatalogueProduct(raw: Partial<MaharajaCatalogueProduct>, index
   const badge = raw.badge || (newArrival ? 'NEW ARRIVAL' : 'ROYAL SILK');
   const storagePath = String(raw.storagePath || '/images/catalogue-demo/kanchivaram-purple-peacock-model.png').trim();
   const garmentReferencePath = String(raw.garmentReferencePath || storagePath).trim();
+  const title = cleanUploadedGarmentTitle(String(raw.title || sku), sku, catMeta.label);
 
   return {
     id: raw.id || sku.toLowerCase().replace(/[^a-z0-9_-]/g, '-'),
     sku,
-    title: String(raw.title || sku).trim(),
+    title,
     price: Math.max(0, Number(raw.price || 0)),
     gender,
     audience,
@@ -206,10 +237,12 @@ export async function listCatalogueProducts(
         bySku.set(item.sku, item);
       }
       snapshot.docs.forEach((doc, idx) => {
-        const normalized = normalizeCatalogueProduct({ ...(bySku.get(doc.id) || {}), ...(doc.data() as Partial<MaharajaCatalogueProduct>), sku: doc.id }, idx + 1);
+        const rawData = doc.data() as Partial<MaharajaCatalogueProduct>;
+        if (isDeprecatedDemoProduct(doc.id, rawData.storagePath)) return;
+        const normalized = normalizeCatalogueProduct({ ...(bySku.get(doc.id) || {}), ...rawData, sku: doc.id }, idx + 1);
         bySku.set(normalized.sku, normalized);
       });
-      allProducts = Array.from(bySku.values());
+      allProducts = Array.from(bySku.values()).filter((item) => !isDeprecatedDemoProduct(item.sku, item.storagePath));
     } else {
       allProducts = [...LOCAL_DEMO_CATALOGUE];
     }
