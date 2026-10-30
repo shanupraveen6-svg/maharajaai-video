@@ -1010,12 +1010,12 @@ export default function TryFocusTvExperience() {
                       Stand in front of the camera for a clear, full-length photo.
                     </p>
 
-                    <div className="mt-4 flex aspect-[3/4] max-h-80 w-full items-center justify-center overflow-hidden border border-dashed border-[#D8DCD7] bg-white">
+                    <div className="mt-4 flex aspect-[9/16] max-h-96 w-full items-center justify-center overflow-hidden border border-dashed border-[#D8DCD7] bg-white">
                       {customerPhoto ? (
                         <img
                           src={customerPhoto}
                           alt="Customer Identity"
-                          className="h-full w-full object-contain"
+                          className="h-full w-full object-cover"
                         />
                       ) : (
                         <div className="p-6 text-center text-[#535A56]">
@@ -1035,12 +1035,12 @@ export default function TryFocusTvExperience() {
                     <button
                       type="button"
                       onClick={() => openCameraFor('own-person')}
-                      className="flex items-center justify-center gap-2 bg-[#161918] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE]"
+                      className="flex min-h-14 items-center justify-center gap-2 bg-[#161918] px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
                     >
                       <Camera className="h-4 w-4" />
                       Take photo
                     </button>
-                    <label className="flex cursor-pointer items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]">
+                    <label className="flex min-h-14 cursor-pointer items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#161918]">
                       <Upload className="h-4 w-4" />
                       Choose photo
                       <input
@@ -1071,12 +1071,12 @@ export default function TryFocusTvExperience() {
                       Take a clear photo of the garment you want to try, or choose one from your phone.
                     </p>
 
-                    <div className="mt-4 flex aspect-[3/4] max-h-80 w-full items-center justify-center overflow-hidden border border-dashed border-[#D8DCD7] bg-white">
+                    <div className="mt-4 flex aspect-[9/16] max-h-96 w-full items-center justify-center overflow-hidden border border-dashed border-[#D8DCD7] bg-white">
                       {ownGarmentPhoto ? (
                         <img
                           src={ownGarmentPhoto}
                           alt="Own Garment Reference"
-                          className="h-full w-full object-contain"
+                          className="h-full w-full object-cover"
                         />
                       ) : (
                         <div className="p-6 text-center text-[#535A56]">
@@ -1096,12 +1096,12 @@ export default function TryFocusTvExperience() {
                     <button
                       type="button"
                       onClick={() => openCameraFor('own-garment')}
-                      className="flex items-center justify-center gap-2 bg-[#161918] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE]"
+                      className="flex min-h-14 items-center justify-center gap-2 bg-[#161918] px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
                     >
                       <Camera className="h-4 w-4" />
                       Photograph garment
                     </button>
-                    <label className="flex cursor-pointer items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#161918]">
+                    <label className="flex min-h-14 cursor-pointer items-center justify-center gap-2 border border-[#161918] bg-white px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#161918]">
                       <Upload className="h-4 w-4" />
                       Choose garment photo
                       <input
@@ -1128,9 +1128,9 @@ export default function TryFocusTvExperience() {
                     type="button"
                     disabled={!customerPhoto || !ownGarmentPhoto}
                     onClick={() => runTryOnGeneration(customerPhoto, ownGarmentPhoto)}
-                    className="flex items-center gap-2 bg-[#7A1428] px-8 py-4 text-xs font-bold uppercase tracking-[0.18em] text-[#FAF6EE] transition hover:bg-[#610F20] disabled:opacity-40"
+                    className="flex min-h-16 items-center gap-2 bg-[#7A1428] px-8 py-4 text-sm font-bold uppercase tracking-[0.18em] text-[#FAF6EE] transition hover:bg-[#610F20] disabled:opacity-40"
                   >
-                    <Sparkles className="h-4 w-4" />
+                    <Sparkles className="h-5 w-5" />
                     Generate Own-Garment AI Try-On
                   </button>
                 </div>
@@ -1463,9 +1463,9 @@ export default function TryFocusTvExperience() {
                 setCameraOpen(false);
                 if (tryOnStage === 'camera') setTryOnStage('browse');
               }}
-              className="flex items-center gap-1.5 border border-white/30 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-white/20"
+              className="flex min-h-12 items-center gap-2 border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
               Close Camera
             </button>
           </div>
@@ -1536,30 +1536,32 @@ export default function TryFocusTvExperience() {
                   setCameraOpen(false);
                   if (tryOnStage === 'camera') setTryOnStage('browse');
                 }}
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-black/70 text-white transition hover:bg-black"
+                className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/40 bg-black/75 text-white shadow-lg transition hover:bg-black active:scale-95"
                 title="Cancel"
               >
-                <X className="h-5 w-5" />
+                <X className="h-7 w-7" />
               </button>
 
               <button
                 type="button"
                 onClick={triggerCountdownCapture}
-                className="flex flex-col items-center"
+                className="flex flex-col items-center active:scale-95"
               >
-                <span className="flex h-18 w-18 items-center justify-center rounded-full border-4 border-white bg-sky-400 shadow-lg transition hover:scale-105" />
-                <span className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-white">
-                  CAPTURE
+                <span className="flex h-[88px] w-[88px] items-center justify-center rounded-full border-4 border-white bg-sky-400 shadow-2xl transition hover:scale-105">
+                  <Camera className="h-9 w-9 text-[#161918]" />
+                </span>
+                <span className="mt-1.5 font-mono text-xs font-extrabold uppercase tracking-[0.22em] text-white drop-shadow">
+                  CAPTURE (5s)
                 </span>
               </button>
 
               <button
                 type="button"
                 onClick={() => openCameraFor(cameraTarget)}
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-black/70 text-white transition hover:bg-black"
+                className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/40 bg-black/75 text-white shadow-lg transition hover:bg-black active:scale-95"
                 title="Restart Camera"
               >
-                <RefreshCw className="h-5 w-5" />
+                <RefreshCw className="h-7 w-7" />
               </button>
             </div>
           </div>

@@ -14,13 +14,26 @@ export default function PhonePhotoUpload({ token }: { token: string }) {
     setMessage('');
     try {
       const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const vWidth = bitmap.width;
+      const vHeight = bitmap.height;
+      const targetAspect = 9 / 16;
+      const currentAspect = vWidth / vHeight;
+      let sx = 0, sy = 0, sWidth = vWidth, sHeight = vHeight;
+      if (currentAspect > targetAspect) {
+        sHeight = vHeight;
+        sWidth = Math.round(vHeight * targetAspect);
+        sx = Math.round((vWidth - sWidth) / 2);
+      } else if (currentAspect < targetAspect) {
+        sWidth = vWidth;
+        sHeight = Math.round(vWidth / targetAspect);
+        sy = Math.round((vHeight - sHeight) / 2);
+      }
       const canvas = document.createElement('canvas');
-      const ratio = Math.min(1, 1400 / Math.max(bitmap.width, bitmap.height));
-      canvas.width = Math.round(bitmap.width * ratio); canvas.height = Math.round(bitmap.height * ratio);
+      canvas.width = 720; canvas.height = 1280;
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Unable to prepare photo.');
       context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
+      context.drawImage(bitmap, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height); bitmap.close();
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', .85));
       if (!blob || blob.size > 2 * 1024 * 1024) throw new Error('Choose a smaller photo.');
       setPhoto(blob); setPreview(URL.createObjectURL(blob));

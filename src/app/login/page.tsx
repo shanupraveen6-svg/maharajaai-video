@@ -71,7 +71,9 @@ function MaharajaLoginForm() {
           </span>
           <span>
             <span className="block font-serif text-2xl font-bold text-[#6e0d1f]">TryFocus</span>
-            <span className="block text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">Maharaja client workspace</span>
+            <span className="block text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">
+              {nextPath.startsWith('/admin') ? 'Universal Admin Control Plane' : 'Maharaja client workspace'}
+            </span>
           </span>
         </Link>
 
@@ -151,7 +153,7 @@ function MaharajaLoginForm() {
                 </>
               ) : (
                 <>
-                  <span>Enter Maharaja Admin</span>
+                  <span>{nextPath.startsWith('/admin') ? 'Enter TryFocus Admin' : 'Enter Maharaja Workspace'}</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
