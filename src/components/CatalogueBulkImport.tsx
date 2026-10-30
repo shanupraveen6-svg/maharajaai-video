@@ -91,6 +91,8 @@ export default function CatalogueBulkImport({
   }, [uploadMode]);
 
   function switchUploadMode(mode: UploadMode) {
+    if (mode === uploadMode) return;
+    if (busy || publishing) return;
     if (rows.length > 0 && !confirm('Switching upload mode will clear current unsubmitted files. Proceed?')) {
       return;
     }
@@ -131,9 +133,14 @@ export default function CatalogueBulkImport({
     );
 
     // Build initial rows with client preview URLs immediately for the mini thumbnail
+    // High-entropy unique SKU: Category code + timestamp + UUID segment + 3-digit sequence
+    const catCode = (selectedCategory || 'GAR').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
+    const batchPrefix = nextBatch.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase();
+    const timeSegment = Date.now().toString(36).toUpperCase().slice(-4);
+
     const initial: CatalogueImportRow[] = chosen.map((file, index) => ({
       id: `${nextBatch}:${index}`,
-      sku: `MAH-${nextBatch.slice(0, 6).toUpperCase()}-${String(index + 1).padStart(4, '0')}`,
+      sku: `MAH-${catCode}-${timeSegment}${batchPrefix}-${String(index + 1).padStart(3, '0')}`,
       filename: file.name,
       title:
         file.name
@@ -263,8 +270,9 @@ export default function CatalogueBulkImport({
       <div className="grid gap-4 sm:grid-cols-2">
         <button
           type="button"
+          disabled={busy || publishing}
           onClick={() => switchUploadMode('image-tryon')}
-          className={`flex min-h-[96px] items-center gap-4 border-2 p-5 text-left transition ${
+          className={`flex min-h-[96px] items-center gap-4 border-2 p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
             uploadMode === 'image-tryon'
               ? 'border-[#7A1428] bg-[#FAF6EE] shadow-md ring-2 ring-[#7A1428]/20'
               : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
@@ -289,8 +297,9 @@ export default function CatalogueBulkImport({
 
         <button
           type="button"
+          disabled={busy || publishing}
           onClick={() => switchUploadMode('ai-video')}
-          className={`flex min-h-[96px] items-center gap-4 border-2 p-5 text-left transition ${
+          className={`flex min-h-[96px] items-center gap-4 border-2 p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
             uploadMode === 'ai-video'
               ? 'border-[#7A1428] bg-[#FAF6EE] shadow-md ring-2 ring-[#7A1428]/20'
               : 'border-[#D8DCD7] bg-white hover:border-[#161918]'

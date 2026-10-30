@@ -24,10 +24,28 @@ export default function PhonePhotoTransfer({
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const onPhotoRef = useRef(onPhoto);
+  const activeTransferRef = useRef<{ token: string; receiver: string } | null>(null);
 
   useEffect(() => {
     onPhotoRef.current = onPhoto;
   }, [onPhoto]);
+
+  useEffect(() => {
+    activeTransferRef.current = transfer ? { token: transfer.token, receiver: transfer.receiver } : null;
+  }, [transfer]);
+
+  // Clean up active transfer upon component unmount to protect customer privacy
+  useEffect(() => {
+    return () => {
+      const current = activeTransferRef.current;
+      if (current?.token && current?.receiver) {
+        void fetch(`/api/tv/photo-transfer/${encodeURIComponent(current.token)}`, {
+          method: 'DELETE',
+          headers: { 'x-transfer-receiver': current.receiver },
+        }).catch(() => undefined);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!transfer) return;
@@ -93,6 +111,12 @@ export default function PhonePhotoTransfer({
   }
 
   function handleClose() {
+    if (transfer?.token && transfer?.receiver) {
+      void fetch(`/api/tv/photo-transfer/${encodeURIComponent(transfer.token)}`, {
+        method: 'DELETE',
+        headers: { 'x-transfer-receiver': transfer.receiver },
+      }).catch(() => undefined);
+    }
     setTransfer(null);
     setQr('');
     setMessage('');

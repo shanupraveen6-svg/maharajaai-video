@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getStorageBucket } from '@/lib/firebase/admin';
-import { upsertCatalogueProduct } from '@/lib/maharaja/catalogue';
+import { getCatalogueProduct, upsertCatalogueProduct } from '@/lib/maharaja/catalogue';
 import { catalogueCategories } from '@/lib/tryfocus/sample-data';
 
 export const maxDuration = 60;
@@ -25,12 +25,28 @@ export async function POST(req: NextRequest) {
         continue;
       }
       try {
+        // Finding 4: Server-side validation of mandatory AI Video pricing
+        const price = Math.max(0, Number(raw.price) || 0);
+        const eligibleForVideo = raw.eligibleForVideo === true;
+        if (eligibleForVideo && price <= 0) {
+          results.push({ sku, success: false, error: 'Garments marked for AI Video require a valid display price greater than ₹0.' });
+          continue;
+        }
+
+        // Finding 3: Server-side duplicate SKU collision check to prevent silent product overwrites
+        const existingProduct = await getCatalogueProduct(sku);
+        if (existingProduct) {
+          results.push({ sku, success: false, error: `SKU ${sku} already exists in the catalogue. Please use a unique SKU.` });
+          continue;
+        }
+
         const [exists] = await bucket.file(path).exists();
         if (!exists) throw new Error('Uploaded garment photo is missing.');
+
         await upsertCatalogueProduct({
           sku,
           title: String(raw.title || sku).trim().slice(0, 120),
-          price: Math.max(0, Number(raw.price) || 0),
+          price,
           category: category.id,
           gender: category.gender,
           audience: category.audience,
@@ -39,7 +55,7 @@ export async function POST(req: NextRequest) {
           garmentReferencePath: path,
           fabricNote: `${category.label} · Store catalogue`,
           newArrival: raw.newArrival === true,
-          eligibleForVideo: raw.eligibleForVideo === true,
+          eligibleForVideo,
           eligibleForLive: raw.eligibleForLive === true,
           active: true,
           sortOrder: Number(raw.sortOrder) || Date.now(),

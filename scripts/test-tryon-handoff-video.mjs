@@ -107,3 +107,4 @@ assert.ok(retryData.jobId);
 console.log('✓ Fail-proof backup video generation started successfully');
 
 console.log('ALL TRY-ON HANDOFF VIDEO TESTS PASSED!');
+

@@ -241,13 +241,16 @@ export default function MaharajaTabletExperience() {
           setTryOnMobileQr(qr);
           setTryOnStatusNote('Scan to save this look on your phone. Private link expires in 15 minutes.');
         } catch (error) {
+          if (runId !== generationRun.current) return;
           setTryOnStatusNote(error instanceof Error ? error.message : 'Phone QR unavailable.');
         }
       } else {
+        if (runId !== generationRun.current) return;
         setTryOnResultUrl('');
         setTryOnStatusNote(data?.error || 'Image generation failed. Please retry.');
       }
     } catch {
+      if (runId !== generationRun.current) return;
       setTryOnResultUrl('');
       setTryOnStatusNote('Image generation could not connect. Please retry.');
     } finally {

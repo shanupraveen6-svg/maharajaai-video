@@ -190,11 +190,20 @@ export default function TryFocusTvExperience() {
 
   useEffect(() => () => stopCamera(), []);
 
+  useEffect(() => {
+    if (mode === 'image-tryon' && tryOnStage === 'browse' && !customerPhoto) {
+      setTryOnStage('photo');
+    }
+  }, [mode, tryOnStage, customerPhoto]);
+
   function navigateTo(next: TvMode) {
     batchRunRef.current += 1;
     stopCamera();
     setCameraOpen(false);
     setCameraError('');
+    if (next === 'image-tryon') {
+      setTryOnStage(customerPhoto ? 'browse' : 'photo');
+    }
     if (next === 'catalogue-video') {
       const saree = catalogueItems.find((item) => item.category === 'sarees' && item.eligibleForVideo && item.price >= 5000);
       if (saree) setSelectedProduct(saree);
@@ -382,6 +391,11 @@ export default function TryFocusTvExperience() {
   }
 
   async function runCatalogueBatch(personImg: string) {
+    if (!personImg) {
+      setTryOnError('Please capture or upload a customer photo in Step 1 first.');
+      setTryOnStage('photo');
+      return;
+    }
     if ((genderFilter === 'boys' || genderFilter === 'girls') && !tryOnGuardianConsent) {
       setTryOnError('A parent or guardian must approve the child’s photo first.');
       return;
@@ -755,7 +769,7 @@ export default function TryFocusTvExperience() {
           <button type="button" onClick={resetAllSession} className="tv-end-session shrink-0 border border-[#BFC2BC] bg-white px-5 py-3 text-sm font-bold text-[#7A1428]">End session</button>
         </div>
         <nav className="tv-mode-nav mx-auto grid max-w-[1080px] grid-cols-3 gap-2 px-7 pb-4" aria-label="Choose an experience">
-          <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => { navigateTo('image-tryon'); setTryOnStage('browse'); }} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
+          <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => navigateTo('image-tryon')} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
             <Sparkles className="h-6 w-6" /><span>AI Image Try-On</span>
           </button>
           <button type="button" aria-current={mode === 'live-tryon' ? 'page' : undefined} onClick={() => navigateTo('live-tryon')} className={`tv-mode-button ${mode === 'live-tryon' ? 'is-active' : ''}`}>

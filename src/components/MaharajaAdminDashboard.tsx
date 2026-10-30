@@ -908,6 +908,173 @@ export default function MaharajaAdminDashboard({
           <div className="mt-6">
             <CatalogueBulkImport onPublished={loadCatalogue} />
           </div>
+
+          {/* Existing Catalogue Items Management Table */}
+          <div className="mt-10 border-t border-[#D8DCD7] pt-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-serif text-xl font-semibold text-[#161918]">
+                  Existing Store Catalogue ({filteredCatalogue.length} matching)
+                </h3>
+                <p className="mt-0.5 text-xs text-[#535A56]">
+                  Toggle active status, new arrival badges, or AI video eligibility for showroom kiosks.
+                </p>
+              </div>
+
+              {/* Gender selector */}
+              <div className="flex flex-wrap gap-1.5">
+                {(['women', 'men', 'boys', 'girls'] as const).map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => {
+                      setCatGender(g);
+                      setCatFilter(g === 'women' ? 'sarees' : g === 'men' ? 'veshti' : g === 'boys' ? 'boys-veshti' : 'girls-pavadai');
+                    }}
+                    className={`border px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider ${
+                      catGender === g
+                        ? 'border-[#161918] bg-[#161918] text-white'
+                        : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:bg-white'
+                    }`}
+                  >
+                    {g === 'women' ? 'Women' : g === 'men' ? 'Men' : g === 'boys' ? 'Boys' : 'Girls'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Category tabs */}
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCatFilter('new-arrivals')}
+                className={`border px-3 py-1 text-xs font-semibold ${
+                  catFilter === 'new-arrivals'
+                    ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                    : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:bg-white'
+                }`}
+              >
+                New Arrivals
+              </button>
+              {catalogueCategories
+                .filter((c) => c.gender === catGender)
+                .map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCatFilter(cat.id)}
+                    className={`border px-3 py-1 text-xs font-semibold ${
+                      catFilter === cat.id
+                        ? 'border-[#7A1428] bg-[#7A1428] text-white'
+                        : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:bg-white'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+            </div>
+
+            {/* Table */}
+            {catalogueLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <LoaderCircle className="h-6 w-6 animate-spin text-[#7A1428]" />
+                <span className="ml-2 text-xs text-[#535A56]">Loading catalogue…</span>
+              </div>
+            ) : filteredCatalogue.length === 0 ? (
+              <p className="py-8 text-center text-xs text-[#535A56]">No garments found in this category.</p>
+            ) : (
+              <>
+                <div className="mt-4 overflow-x-auto border border-[#D8DCD7]">
+                  <table className="w-full min-w-[680px] text-left text-xs">
+                    <thead className="bg-[#FAFBF8] font-mono text-[11px] uppercase tracking-wider text-[#535A56]">
+                      <tr>
+                        <th className="p-3">SKU / Garment</th>
+                        <th className="p-3">Category</th>
+                        <th className="p-3">Price</th>
+                        <th className="p-3">Status & Eligibility</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCatalogue.slice(cataloguePage * 25, (cataloguePage + 1) * 25).map((item) => (
+                        <tr key={item.sku} className="border-t border-[#D8DCD7] hover:bg-[#FAFBF8]">
+                          <td className="p-3">
+                            <span className="block font-mono font-bold text-[#161918]">{item.sku}</span>
+                            <span className="text-[#535A56]">{item.title}</span>
+                          </td>
+                          <td className="p-3 text-[#535A56]">
+                            {item.audience} · {catalogueCategories.find((cat) => cat.id === item.category)?.label || item.category}
+                          </td>
+                          <td className="p-3 font-semibold text-[#161918]">
+                            {item.price > 0 ? formatINR(item.price) : <span className="text-[#8C938F]">No price</span>}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void toggleCatalogueField(item, { active: !item.active })}
+                                className={`border px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
+                                  item.active
+                                    ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
+                                    : 'border-[#D8DCD7] bg-white text-[#8C938F]'
+                                }`}
+                              >
+                                {item.active ? 'Published' : 'Hidden'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void toggleCatalogueField(item, { newArrival: !item.newArrival })}
+                                className={`border px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
+                                  item.newArrival
+                                    ? 'border-amber-700 bg-amber-50 text-amber-800'
+                                    : 'border-[#D8DCD7] bg-white text-[#8C938F]'
+                                }`}
+                              >
+                                {item.newArrival ? 'New arrival ✓' : 'Mark new'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void toggleCatalogueField(item, { eligibleForVideo: !item.eligibleForVideo })}
+                                className={`border px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
+                                  item.eligibleForVideo
+                                    ? 'border-[#7A1428] bg-[#FAF6EE] text-[#7A1428]'
+                                    : 'border-[#D8DCD7] bg-white text-[#8C938F]'
+                                }`}
+                              >
+                                {item.eligibleForVideo ? 'Video ✓' : 'Video off'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="mt-3 flex items-center justify-between text-xs text-[#535A56]">
+                  <button
+                    type="button"
+                    disabled={cataloguePage === 0}
+                    onClick={() => setCataloguePage((v) => v - 1)}
+                    className="border border-[#D8DCD7] bg-white px-3 py-1 font-mono disabled:opacity-40"
+                  >
+                    ← Previous
+                  </button>
+                  <span>
+                    {filteredCatalogue.length} garments · Page {cataloguePage + 1} of {Math.max(1, Math.ceil(filteredCatalogue.length / 25))}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={(cataloguePage + 1) * 25 >= filteredCatalogue.length}
+                    onClick={() => setCataloguePage((v) => v + 1)}
+                    className="border border-[#D8DCD7] bg-white px-3 py-1 font-mono disabled:opacity-40"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </section>
 
         {/* =========================================================
