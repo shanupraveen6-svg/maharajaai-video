@@ -217,8 +217,9 @@ export default function TryFocusTvExperience() {
         audio: false,
         video: {
           facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1080 },
+          height: { ideal: 1920 },
+          aspectRatio: { ideal: 9 / 16 },
         },
       });
       streamRef.current = stream;
@@ -258,16 +259,39 @@ export default function TryFocusTvExperience() {
   function captureFrameNow() {
     const video = videoRef.current;
     if (!video) return;
+
+    const vWidth = video.videoWidth || 720;
+    const vHeight = video.videoHeight || 1280;
+    const targetAspect = 9 / 16;
+    const currentAspect = vWidth / vHeight;
+
+    let sx = 0;
+    let sy = 0;
+    let sWidth = vWidth;
+    let sHeight = vHeight;
+
+    if (currentAspect > targetAspect) {
+      // Source webcam is horizontal/landscape (or wider than 9:16)
+      // Crop sides to center vertical column
+      sHeight = vHeight;
+      sWidth = Math.round(vHeight * targetAspect);
+      sx = Math.round((vWidth - sWidth) / 2);
+      sy = 0;
+    } else if (currentAspect < targetAspect) {
+      // Source is taller/narrower than 9:16
+      sWidth = vWidth;
+      sHeight = Math.round(vWidth / targetAspect);
+      sx = 0;
+      sy = Math.round((vHeight - sHeight) / 2);
+    }
+
+    // Strictly vertical format (9:16 portrait) matching the vertical TV
     const canvas = document.createElement('canvas');
-    const rawW = video.videoWidth || 720;
-    const rawH = video.videoHeight || 960;
-    const maxDim = 1280;
-    const scale = Math.min(1, maxDim / Math.max(rawW, rawH));
-    canvas.width = Math.round(rawW * scale);
-    canvas.height = Math.round(rawH * scale);
+    canvas.width = 720;
+    canvas.height = 1280;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
     stopCamera();
     setCameraOpen(false);
@@ -278,11 +302,55 @@ export default function TryFocusTvExperience() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
-      if (!dataUrl) return;
-      stopCamera();
-      setCameraOpen(false);
-      applyCapturedPhoto(target, dataUrl);
+      const rawDataUrl = typeof reader.result === 'string' ? reader.result : '';
+      if (!rawDataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const vWidth = img.naturalWidth || img.width;
+        const vHeight = img.naturalHeight || img.height;
+        const targetAspect = 9 / 16;
+        const currentAspect = vWidth / vHeight;
+
+        let sx = 0;
+        let sy = 0;
+        let sWidth = vWidth;
+        let sHeight = vHeight;
+
+        if (currentAspect > targetAspect) {
+          sHeight = vHeight;
+          sWidth = Math.round(vHeight * targetAspect);
+          sx = Math.round((vWidth - sWidth) / 2);
+          sy = 0;
+        } else if (currentAspect < targetAspect) {
+          sWidth = vWidth;
+          sHeight = Math.round(vWidth / targetAspect);
+          sx = 0;
+          sy = Math.round((vHeight - sHeight) / 2);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 720;
+        canvas.height = 1280;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+          const verticalDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          stopCamera();
+          setCameraOpen(false);
+          applyCapturedPhoto(target, verticalDataUrl);
+        } else {
+          stopCamera();
+          setCameraOpen(false);
+          applyCapturedPhoto(target, rawDataUrl);
+        }
+      };
+      img.onerror = () => {
+        stopCamera();
+        setCameraOpen(false);
+        applyCapturedPhoto(target, rawDataUrl);
+      };
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   }
@@ -846,7 +914,7 @@ export default function TryFocusTvExperience() {
             {imageSource === 'catalogue' && tryOnStage === 'camera' && customerPhoto && !cameraOpen && (
               <div className="mx-auto max-w-2xl border border-[#D8DCD7] bg-white p-7 text-center">
                 <p className="font-mono text-sm font-bold uppercase tracking-[0.18em] text-[#7A1428]">Review your photo</p>
-                <img src={customerPhoto} alt="Photo preview before try-on" className="mx-auto mt-5 h-[420px] max-w-full object-contain" />
+                <img src={customerPhoto} alt="Photo preview before try-on" className="mx-auto mt-5 aspect-[9/16] h-[460px] max-w-full object-cover border-2 border-[#D8DCD7] shadow-md" />
                 <p className="mt-4 text-lg font-semibold">{selectedLooks.length || 1} selected looks will be created from this photo.</p>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   <button type="button" onClick={() => void openCameraFor('catalogue-person')} className="min-h-16 border border-[#161918] px-5 text-lg font-bold">Retake photo</button>
@@ -1182,7 +1250,7 @@ export default function TryFocusTvExperience() {
                   <div className="mt-4 grid grid-cols-2 gap-3.5">
                     {/* Slot 01: Customer Photo */}
                     <div className="border-2 border-[#D8DCD7] bg-[#FAFBF8] p-3">
-                      <div className="flex aspect-[3/4] items-center justify-center overflow-hidden bg-[#ECEEE9]">
+                      <div className="flex aspect-[9/16] items-center justify-center overflow-hidden bg-[#ECEEE9]">
                         {videoPersonPhoto ? (
                           <img
                             src={videoPersonPhoto}
@@ -1205,7 +1273,7 @@ export default function TryFocusTvExperience() {
 
                     {/* Slot 02: Selected Catalogue Garment */}
                     <div className="border-2 border-[#D8DCD7] bg-[#FAFBF8] p-3">
-                      <div className="aspect-[3/4] overflow-hidden bg-[#ECEEE9]">
+                      <div className="aspect-[9/16] overflow-hidden bg-[#ECEEE9]">
                         <img
                           src={selectedProduct.imageUrl}
                           alt={`Selected garment: ${selectedProduct.title}`}
@@ -1402,15 +1470,27 @@ export default function TryFocusTvExperience() {
             </button>
           </div>
 
-          {/* Center Tall Mirror Camera Feed */}
-          <div className="relative mx-auto my-3 flex h-[72vh] w-full max-w-xl items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-[#161918]">
+          {/* Center Tall Mirror Camera Feed - Locked strictly to 9:16 vertical for 43" TV Kiosk */}
+          <div className="relative mx-auto my-3 flex aspect-[9/16] h-[72vh] max-w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-white/30 bg-[#161918] shadow-2xl">
             <video
               ref={videoRef}
               playsInline
               muted
               autoPlay
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover [transform:scaleX(-1)]"
             />
+
+            {/* Vertical 9:16 Full Body Pose Framing Guide */}
+            <div className="pointer-events-none absolute inset-6 flex flex-col justify-between rounded-xl border border-dashed border-white/40 p-4">
+              <div className="flex justify-between font-mono text-[11px] uppercase tracking-widest text-white/70">
+                <span>┌ Head Level</span>
+                <span>Portrait 9:16 ┐</span>
+              </div>
+              <div className="flex justify-between font-mono text-[11px] uppercase tracking-widest text-white/70">
+                <span>└ Full Standing Pose</span>
+                <span>Ground ┘</span>
+              </div>
+            </div>
 
             {/* Top Pill: FULL BODY SHOT (matching screenshot 3) */}
             <div className="pointer-events-none absolute inset-x-0 top-5 flex justify-center">

@@ -280,13 +280,26 @@ export async function POST(req: NextRequest) {
         const jpegQuality = service === 'try-on' ? 86 : 92;
         const chromaSubsampling = service === 'try-on' ? '4:2:0' : '4:4:4';
         const preparedReferences = await Promise.all(
-          sourceReferences.map(async (source) =>
-            sharp(Buffer.from(source, 'base64'))
-              .rotate()
+          sourceReferences.map(async (source, index) => {
+            let pipeline = sharp(Buffer.from(source, 'base64')).rotate();
+            // Person photo (Image 1) must always be strictly in vertical format (9:16) for TV kiosk and try-on
+            if (index === 0) {
+              const meta = await pipeline.metadata();
+              if (meta.width && meta.height) {
+                const targetAspect = 9 / 16;
+                const currentAspect = meta.width / meta.height;
+                if (currentAspect > targetAspect) {
+                  const cropWidth = Math.round(meta.height * targetAspect);
+                  const cropLeft = Math.round((meta.width - cropWidth) / 2);
+                  pipeline = pipeline.extract({ left: cropLeft, top: 0, width: cropWidth, height: meta.height });
+                }
+              }
+            }
+            return pipeline
               .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
               .jpeg({ quality: jpegQuality, progressive: true, chromaSubsampling })
-              .toBuffer()
-          )
+              .toBuffer();
+          })
         );
         const [personBase64, ...garmentBase64s] = preparedReferences.map((image) => image.toString('base64'));
         if (service === 'ai-video') {

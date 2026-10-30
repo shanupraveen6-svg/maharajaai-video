@@ -182,8 +182,9 @@ export default function LucyLiveMirror({
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user',
-            width: { ideal: 720 },
-            height: { ideal: 1280 },
+            width: { ideal: 1080 },
+            height: { ideal: 1920 },
+            aspectRatio: { ideal: 9 / 16 },
             frameRate: { ideal: 24, max: 30 },
           },
           audio: false,
@@ -276,8 +277,9 @@ export default function LucyLiveMirror({
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user',
-            width: { ideal: 720 },
-            height: { ideal: 1280 },
+            width: { ideal: 1080 },
+            height: { ideal: 1920 },
+            aspectRatio: { ideal: 9 / 16 },
             frameRate: { ideal: 24, max: 30 },
           },
           audio: false,
@@ -407,14 +409,37 @@ export default function LucyLiveMirror({
   function stopSession(nextState: LiveState = 'camera_ready') {
     if (nextState === 'complete') {
       setQrDataUrl(''); setHandoffMessage('Preparing your private phone QR…');
-      const video = remoteVideoRef.current;
+      const video = (remoteVideoRef.current?.videoWidth ? remoteVideoRef.current : localVideoRef.current);
       if (video?.videoWidth && video.videoHeight) {
+        const vWidth = video.videoWidth;
+        const vHeight = video.videoHeight;
+        const targetAspect = 9 / 16;
+        const currentAspect = vWidth / vHeight;
+
+        let sx = 0;
+        let sy = 0;
+        let sWidth = vWidth;
+        let sHeight = vHeight;
+
+        if (currentAspect > targetAspect) {
+          sHeight = vHeight;
+          sWidth = Math.round(vHeight * targetAspect);
+          sx = Math.round((vWidth - sWidth) / 2);
+          sy = 0;
+        } else if (currentAspect < targetAspect) {
+          sWidth = vWidth;
+          sHeight = Math.round(vWidth / targetAspect);
+          sx = 0;
+          sy = Math.round((vHeight - sHeight) / 2);
+        }
+
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.width = 720;
+        canvas.height = 1280;
         const context = canvas.getContext('2d');
         if (context) {
-          context.drawImage(video, 0, 0);
-          void createImageHandoff(canvas.toDataURL('image/jpeg', .85), selectedGarmentRef.current.sku, selectedGarmentRef.current.title)
+          context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+          void createImageHandoff(canvas.toDataURL('image/jpeg', 0.88), selectedGarmentRef.current.sku, selectedGarmentRef.current.title)
             .then((qr) => { setQrDataUrl(qr); setHandoffMessage('Scan to save your live mirror look. Private link valid for 15 minutes.'); })
             .catch(() => setHandoffMessage('The snapshot could not be saved. Ask a store assistant for help.'));
         }
