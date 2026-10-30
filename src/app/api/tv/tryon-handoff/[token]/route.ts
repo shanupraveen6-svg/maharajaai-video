@@ -12,6 +12,7 @@ type StoredLook = {
   category?: string;
   garmentType?: string;
   gender?: string;
+  garmentReferenceUrl?: string;
 };
 type StoredHandoff = { expiresAtMs: number; looks: StoredLook[] };
 
@@ -58,6 +59,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
       category: look.category,
       garmentType: look.garmentType,
       gender: look.gender,
+      garmentReferenceUrl: look.garmentReferenceUrl,
       imageUrl: `/api/tv/tryon-handoff/${token}?image=${index}`,
       downloadUrl: `/api/tv/tryon-handoff/${token}?image=${index}&download=1`,
     })),

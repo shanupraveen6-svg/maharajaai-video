@@ -20,6 +20,7 @@ type StoredLook = {
   category?: string;
   garmentType?: string;
   gender?: string;
+  garmentReferenceUrl?: string;
 };
 
 type StoredHandoff = {
@@ -72,11 +73,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
     }
 
     const body = await req.json().catch(() => ({}));
+    // Finding 1: Explicit opt-in Go-Live consent check
     const consentGoLive = body?.consentGoLive === true;
     if (!consentGoLive) {
       return NextResponse.json({
         success: false,
-        error: 'Consent to preview this festival video on Maharaja showroom TV displays (Go-Live) is required.',
+        error: 'Explicit consent to preview this festival video on Maharaja showroom TV displays (Go-Live) is required.',
       }, { status: 400 });
     }
 
@@ -86,7 +88,57 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
       return NextResponse.json({ success: false, error: 'The selected look is unavailable.' }, { status: 404 });
     }
 
-    const useFailProofPrompt = body?.useFailProofPrompt === true || body?.backupPrompt === true;
+    const isRetry = body?.isRetry === true || body?.useFailProofPrompt === true || body?.backupPrompt === true;
+    const useFailProofPrompt = isRetry;
+    const sessionId = `handoff_${token}_${imageIndex}`;
+
+    const db = getDb();
+
+    // Finding 3: Server-side job lifecycle protection & concurrency lock
+    let existingJob: any = null;
+    if (db) {
+      const snap = await db.collection('videoTestJobs').where('sessionId', '==', sessionId).limit(1).get();
+      if (!snap.empty) {
+        existingJob = snap.docs[0].data();
+      }
+    } else {
+      existingJob = getMockStore().sessions.get(`video_test_${sessionId}`);
+    }
+
+    if (existingJob) {
+      // If a generation is currently in-flight, reject concurrent duplicate requests
+      if (['preparing', 'submitted', 'processing'].includes(existingJob.status)) {
+        return NextResponse.json({
+          success: true,
+          jobId: existingJob.jobId,
+          status: existingJob.status,
+          message: 'Video generation is already in progress.',
+        });
+      }
+
+      // If already ready and customer is not performing an explicit retry, return existing ready video
+      if (existingJob.status === 'ready' && !isRetry) {
+        return NextResponse.json({
+          success: true,
+          jobId: existingJob.jobId,
+          status: 'ready',
+          videoUrl: existingJob.videoUrl,
+          downloadUrl: existingJob.videoUrl,
+          liveDisplayConsented: true,
+        });
+      }
+
+      // If customer is requesting a retry, enforce maximum 1 retry limit per look
+      if (isRetry && Number(existingJob.retryCount || 0) >= 1) {
+        return NextResponse.json({
+          success: false,
+          error: 'Video retry limit reached for this look (maximum 1 regeneration allowed).',
+          jobId: existingJob.jobId,
+        }, { status: 400 });
+      }
+    }
+
+    const retryCount = existingJob ? Number(existingJob.retryCount || 0) + (isRetry ? 1 : 0) : 0;
     const catalogueProduct = await getCatalogueProduct(look.sku);
 
     const category: CustomerCategory =
@@ -116,12 +168,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
       masterImageUrl = `${req.nextUrl.origin}/api/tv/tryon-handoff/${token}?image=${imageIndex}`;
     }
 
-    // Resolve garment reference URL
-    let garmentReferenceUrl = masterImageUrl;
-    if (catalogueProduct?.garmentReferencePath && bucket) {
+    // Finding 6: Correctly source authentic garment reference
+    let garmentReferenceUrl = '';
+    if (look.garmentReferenceUrl) {
+      garmentReferenceUrl = look.garmentReferenceUrl;
+    } else if (catalogueProduct?.garmentReferencePath && bucket) {
       garmentReferenceUrl = await getSignedPlaybackUrl(catalogueProduct.garmentReferencePath);
     } else if (catalogueProduct?.storagePath && bucket) {
       garmentReferenceUrl = await getSignedPlaybackUrl(catalogueProduct.storagePath);
+    } else {
+      garmentReferenceUrl = masterImageUrl;
     }
 
     const model = getVideoTestModel('h3-max');
@@ -130,18 +186,32 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
     }
 
     const jobId = `vtest_handoff_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
-    const sessionId = `handoff_${token}_${imageIndex}`;
     const createdAt = new Date().toISOString();
 
+    // Finding 1: Durable consent record saved with the job
+    const consentRecord = {
+      granted: true,
+      grantedAt: createdAt,
+      purpose: 'showroom-tv-golive-preview',
+      consentVersion: '2026-10-tv-golive-v1',
+      clientIp: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'direct',
+      userAgent: req.headers.get('user-agent') || 'unknown',
+      token,
+      imageIndex,
+    };
+
+    // Finding 2: Create initial job record BEFORE calling external provider
     const jobBase = {
       jobId,
       sessionId,
       token,
       imageIndex,
       consentGoLive: true,
+      consentRecord,
+      retryCount,
       modelId: model.id,
       model: model.model,
-      status: 'submitted',
+      status: 'preparing',
       useFailProofPrompt,
       createdAt,
       updatedAt: createdAt,
@@ -151,20 +221,35 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
     };
 
     const falKey = process.env.FAL_KEY?.trim();
-    const db = getDb();
+    const isMockBackendAllowed = process.env.ALLOW_MOCK_BACKEND === 'true' && process.env.NODE_ENV !== 'production';
 
-    // If FAL_KEY is not configured or in mock dev environment, simulate immediate ready video
-    if (!falKey) {
-      const readyJob = {
+    // Finding 4: In non-mock production, missing provider key MUST fail honestly BEFORE creating any job
+    if (!falKey && !isMockBackendAllowed) {
+      return NextResponse.json({
+        success: false,
+        error: 'AI Video generation service is temporarily unavailable. Please try again shortly.',
+      }, { status: 503 });
+    }
+
+    if (db) {
+      await db.collection('videoTestJobs').doc(jobId).set(jobBase);
+    } else {
+      getMockStore().sessions.set(`video_test_${jobId}`, jobBase);
+      getMockStore().sessions.set(`video_test_${sessionId}`, jobBase);
+    }
+
+    // Mock testing path only (never executed in production)
+    if (!falKey && isMockBackendAllowed) {
+      const mockReady = {
         ...jobBase,
         status: 'ready',
         videoUrl: '/videos/hero-preview.mp4',
         completedAt: createdAt,
       };
-      if (db) {
-        await db.collection('videoTestJobs').doc(jobId).set(readyJob);
-      } else {
-        getMockStore().sessions.set(`video_test_${jobId}`, readyJob);
+      if (db) await db.collection('videoTestJobs').doc(jobId).set(mockReady);
+      else {
+        getMockStore().sessions.set(`video_test_${jobId}`, mockReady);
+        getMockStore().sessions.set(`video_test_${sessionId}`, mockReady);
       }
       return NextResponse.json({
         success: true,
@@ -197,23 +282,34 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
     const queueUrl = new URL(`https://queue.fal.run/${model.model}`);
     queueUrl.searchParams.set('fal_webhook', webhookUrl.toString());
 
-    const response = await fetch(queueUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Key ${falKey}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(input),
-      cache: 'no-store',
-    });
+    let raw = '';
+    let response: Response;
+    try {
+      response = await fetch(queueUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Key ${falKey}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(input),
+        cache: 'no-store',
+      });
+      raw = await response.text();
+    } catch (networkError) {
+      const errorMsg = networkError instanceof Error ? networkError.message : 'Network failure communicating with video provider.';
+      const failureUpdate = { status: 'failed', error: errorMsg, updatedAt: new Date().toISOString() };
+      if (db) await db.collection('videoTestJobs').doc(jobId).set(failureUpdate, { merge: true });
+      else getMockStore().sessions.set(`video_test_${jobId}`, { ...jobBase, ...failureUpdate });
+      return NextResponse.json({ success: false, error: 'Video generation could not be submitted. Please retry.' }, { status: 502 });
+    }
 
-    const raw = await response.text();
     if (!response.ok) {
-      return NextResponse.json({
-        success: false,
-        error: `Video generation service busy (${response.status}). Please retry.`,
-      }, { status: 502 });
+      const errorMsg = `Video generation service busy (${response.status}). Please retry.`;
+      const failureUpdate = { status: 'failed', error: errorMsg, updatedAt: new Date().toISOString() };
+      if (db) await db.collection('videoTestJobs').doc(jobId).set(failureUpdate, { merge: true });
+      else getMockStore().sessions.set(`video_test_${jobId}`, { ...jobBase, ...failureUpdate });
+      return NextResponse.json({ success: false, error: errorMsg }, { status: 502 });
     }
 
     const provider = JSON.parse(raw);
@@ -221,18 +317,22 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
     const statusUrl = provider.status_url || provider.statusUrl;
     const responseUrl = provider.response_url || provider.responseUrl;
 
-    const jobData = {
-      ...jobBase,
+    // Finding 2: Update existing job record with external provider IDs
+    const jobUpdate = {
+      status: 'submitted',
       requestId,
       statusUrl,
       responseUrl,
       providerName: 'fal',
+      updatedAt: new Date().toISOString(),
     };
 
     if (db) {
-      await db.collection('videoTestJobs').doc(jobId).set(jobData);
+      await db.collection('videoTestJobs').doc(jobId).set(jobUpdate, { merge: true });
     } else {
-      getMockStore().sessions.set(`video_test_${jobId}`, jobData);
+      const updated = { ...jobBase, ...jobUpdate };
+      getMockStore().sessions.set(`video_test_${jobId}`, updated);
+      getMockStore().sessions.set(`video_test_${sessionId}`, updated);
     }
 
     return NextResponse.json({
@@ -275,6 +375,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
         videoUrl,
         downloadUrl: videoUrl,
         liveDisplayConsented: true,
+        liveQueueStatus: job.liveQueueStatus || 'queued',
       });
     }
 
@@ -329,11 +430,45 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
       throw new Error(finalized.error);
     }
 
+    // Finding 8: Actual TV Showroom Queue Publishing
+    let liveQueueStatus = 'not_consented';
+    if (job.consentGoLive === true) {
+      liveQueueStatus = 'queued';
+      const queueId = `live_${job.sessionId}`;
+      const now = new Date();
+      const queueData = {
+        id: queueId,
+        screenId: 'maharaja-main',
+        videoId: `video_${job.sessionId}`,
+        videoJobId: jobId,
+        videoUrl: finalized.liveStoragePath || finalized.storagePath,
+        sessionId: job.sessionId,
+        accessCode: 'tryon-mobile',
+        eventId: 'diwali',
+        status: 'queued',
+        priority: 100,
+        repeatCount: 2,
+        timesPlayed: 0,
+        playAtMs: now.getTime(),
+        createdAt: now.toISOString(),
+        consentVersion: '2026-10-tv-golive-v1',
+        liveConsent: true,
+        loopConsent: true,
+      };
+
+      if (db) {
+        await db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('liveQueue').doc(queueId).set(queueData, { merge: true });
+      } else {
+        getMockStore().sessions.set(`live_queue_${queueId}`, queueData);
+      }
+    }
+
     const update = {
       status: 'ready',
       videoStoragePath: finalized.storagePath,
       liveVideoStoragePath: finalized.liveStoragePath || null,
       videoUrl: finalized.videoUrl,
+      liveQueueStatus,
       completedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -341,7 +476,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
     if (db) {
       await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
     } else {
-      getMockStore().sessions.set(`video_test_${jobId}`, { ...job, ...update });
+      const updated = { ...job, ...update };
+      getMockStore().sessions.set(`video_test_${jobId}`, updated);
+      getMockStore().sessions.set(`video_test_${job.sessionId}`, updated);
     }
 
     return NextResponse.json({
@@ -351,6 +488,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
       videoUrl: finalized.videoUrl,
       downloadUrl: finalized.videoUrl,
       liveDisplayConsented: true,
+      liveQueueStatus,
     });
   } catch (error) {
     return NextResponse.json({
@@ -359,4 +497,3 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
     }, { status: 500 });
   }
 }
-

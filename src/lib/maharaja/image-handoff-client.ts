@@ -4,7 +4,7 @@ export async function createImageHandoff(
   imageUrl: string,
   sku: string,
   title: string,
-  metadata?: { category?: string; garmentType?: string; gender?: string }
+  metadata?: { category?: string; garmentType?: string; gender?: string; garmentReferenceUrl?: string }
 ) {
   const image = await new Promise<string>((resolve, reject) => {
     const source = new Image();
@@ -33,6 +33,7 @@ export async function createImageHandoff(
         category: metadata?.category,
         garmentType: metadata?.garmentType,
         gender: metadata?.gender,
+        garmentReferenceUrl: metadata?.garmentReferenceUrl,
       }],
     }),
   });

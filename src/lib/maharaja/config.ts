@@ -56,6 +56,13 @@ export function buildTryOnPrompt(
   const gType = (details?.garmentType || '').toLowerCase();
   const cId = (details?.categoryId || '').toLowerCase();
   const title = (details?.productTitle || '').toLowerCase();
+  const audience = (details?.audience || '').toLowerCase();
+
+  const audienceDirective = audience
+    ? `AUDIENCE AND FIT TARGET:
+- Customer audience group: ${details?.audience}.
+- Enforce anatomical proportions, appropriate ease, modest cut, and silhouette tailoring tailored for this audience.`
+    : '';
 
   let categoryDirective = '';
   if (gType.includes('shirt') || cId.includes('shirt') || title.includes('shirt')) {
@@ -93,9 +100,40 @@ EXACT CATEGORY PRECISION - DHOTI / VESHTI:
 EXACT CATEGORY PRECISION - PATTU PAVADAI:
 - Target garment is a traditional girl's Pattu Pavadai.
 - Preserve the silk flared skirt with zari border, matching traditional top, and authentic modest South Indian festive styling.`;
+  } else if (cId.includes('anarkali') || title.includes('anarkali')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - ANARKALI SUIT:
+- Target garment is an Anarkali suit set with fitted empire bodice and flared kalis.
+- Preserve graceful floor or calf-length flare, authentic embroidery around the neckline, matching churidar bottoms, and coordinated dupatta drape.`;
+  } else if (gType === 'salwar' || cId.includes('salwar') || cId.includes('kurti') || title.includes('salwar') || title.includes('kurti')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - SALWAR SUIT / KURTI SET:
+- Target garment is a tailored Indian Salwar Kameez or Kurti set.
+- Maintain clean side slits (chaak), modest tailored neckline, matching salwar or churidar trousers, and coordinated dupatta drape.`;
+  } else if (cId.includes('gown') || title.includes('gown')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - FESTIVE GOWN:
+- Target garment is an elegant floor-length evening or festive ethnic gown.
+- Preserve structured bodice fit, flared lower skirt, authentic surface embroidery, and clean floor-grazing hem.`;
+  } else if (cId.includes('frock') || title.includes('frock')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - KIDS FROCK:
+- Target garment is an age-appropriate modest party or silk frock for children.
+- Preserve authentic waist pleats, comfortable flare, modest neckline, and festive silk/satin luster.`;
+  } else if (cId.includes('sherwani') || cId.includes('blazer') || title.includes('sherwani') || title.includes('blazer')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - SHERWANI / FORMAL BLAZER:
+- Target garment is a structured formal jacket or wedding sherwani.
+- Maintain crisp stand collar (Mandarin/Nehru) or blazer lapel, front button placket, padded shoulder lines, and structured fabric drape.`;
+  } else if (cId.includes('western') || cId.includes('tshirt') || title.includes('t-shirt') || title.includes('top')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - WESTERN TOP / CASUAL WEAR:
+- Target garment is a tailored Western top, blouse, or casual T-shirt.
+- Maintain natural collar/neckline, authentic jersey or woven fabric texture, and clean sleeve hems.`;
   }
 
   return `Create a photorealistic vertical 9:16 full-body virtual try-on photograph of the real ${subject}.
+${audienceDirective}
 ${categoryDirective}
 
 REFERENCE AUTHORITY:

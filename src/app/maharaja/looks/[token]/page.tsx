@@ -26,6 +26,7 @@ type Look = {
   category?: string;
   garmentType?: string;
   gender?: string;
+  garmentReferenceUrl?: string;
 };
 
 export default function PrivateLooksPage() {
@@ -39,8 +40,8 @@ export default function PrivateLooksPage() {
   // View state: 'image' (try-on photo) or 'video' (preview generated video)
   const [activeView, setActiveView] = useState<'image' | 'video'>('image');
 
-  // Go-Live display consent
-  const [consentGoLive, setConsentGoLive] = useState(true);
+  // Finding 1: Explicit opt-in consent (defaults to false)
+  const [consentGoLive, setConsentGoLive] = useState(false);
 
   // Video generation state
   const [videoGenerating, setVideoGenerating] = useState(false);
@@ -48,10 +49,12 @@ export default function PrivateLooksPage() {
   const [videoError, setVideoError] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [videoJobId, setVideoJobId] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
   // Auto-download tracking (runs once per look / video)
   const downloadedImagesRef = useRef<Record<string, boolean>>({});
   const downloadedVideoRef = useRef(false);
+  const [downloadingManual, setDownloadingManual] = useState(false);
 
   // Header modal state for "Retry Image"
   const [showRetryImageModal, setShowRetryImageModal] = useState(false);
@@ -81,7 +84,28 @@ export default function PrivateLooksPage() {
 
   const current = looks[active];
 
-  // Auto-download try-on image as soon as look opens on customer phone
+  // Reliable manual download helper using blob URLs
+  const downloadAsset = async (url: string, filename: string) => {
+    try {
+      setDownloadingManual(true);
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+    } catch {
+      window.open(url, '_blank');
+    } finally {
+      setDownloadingManual(false);
+    }
+  };
+
+  // Best-effort auto-download attempt on initial view
   useEffect(() => {
     if (!current?.downloadUrl) return;
     const key = `${current.sku || 'look'}_${active}`;
@@ -100,7 +124,7 @@ export default function PrivateLooksPage() {
     }
   }, [current, active]);
 
-  // Auto-download AI Video (.mp4) as soon as video generation completes
+  // Best-effort auto-download attempt once video is ready
   useEffect(() => {
     if (!videoUrl || downloadedVideoRef.current) return;
     downloadedVideoRef.current = true;
@@ -158,9 +182,9 @@ export default function PrivateLooksPage() {
   );
 
   // Generate AI Video
-  const handleGenerateVideo = async (useFailProofPrompt = false) => {
+  const handleGenerateVideo = async (useFailProofPrompt = false, isRetry = false) => {
     if (!consentGoLive) {
-      setVideoError('Please accept the Go-Live display consent to generate your video.');
+      setVideoError('Please check the Go-Live display consent to generate your video.');
       return;
     }
 
@@ -177,6 +201,7 @@ export default function PrivateLooksPage() {
           imageIndex: active,
           consentGoLive: true,
           useFailProofPrompt,
+          isRetry,
         }),
       });
 
@@ -186,8 +211,9 @@ export default function PrivateLooksPage() {
       }
 
       setVideoJobId(data.jobId);
+      if (isRetry) setRetryCount((c) => c + 1);
 
-      // If mock/immediate ready returned
+      // If already ready or mock
       if (data.status === 'ready' && data.videoUrl) {
         setVideoUrl(data.videoUrl);
         setVideoGenerating(false);
@@ -239,12 +265,12 @@ export default function PrivateLooksPage() {
           ) : (
             <button
               type="button"
-              disabled={videoGenerating}
-              onClick={() => handleGenerateVideo(true)}
+              disabled={videoGenerating || retryCount >= 1}
+              onClick={() => handleGenerateVideo(true, true)}
               className="inline-flex min-h-9 items-center gap-1.5 border border-[#7A1428] bg-[#7A1428] px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider text-white shadow-sm transition hover:bg-[#600f1f] active:scale-95 disabled:opacity-50"
             >
               <RotateCcw className="h-3.5 w-3.5 text-white" />
-              Retry Video
+              {retryCount >= 1 ? 'Retry Used' : 'Retry Video'}
             </button>
           )}
         </div>
@@ -279,18 +305,19 @@ export default function PrivateLooksPage() {
             {/* VIEW 1: Image Try-On Look View */}
             {activeView === 'image' && (
               <div>
-                {/* Auto-download notification pill */}
+                {/* Honest download messaging */}
                 <div className="mb-4 flex items-center justify-between border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs text-[#535A56]">
                   <span className="flex items-center gap-1.5 font-medium text-emerald-800">
                     <CheckCircle2 className="h-4 w-4" />
-                    High-res look automatically saved to phone
+                    Auto-download attempted · Tap button below if not saved
                   </span>
-                  <a
-                    href={current.downloadUrl}
+                  <button
+                    type="button"
+                    onClick={() => downloadAsset(current.downloadUrl, `tryfocus-${current.sku || 'look'}.jpg`)}
                     className="font-mono font-bold uppercase tracking-wider text-[#7A1428] underline underline-offset-2"
                   >
-                    Save again
-                  </a>
+                    Save look
+                  </button>
                 </div>
 
                 {/* 9:16 Vertical Try-On Result Card */}
@@ -359,7 +386,7 @@ export default function PrivateLooksPage() {
                       Creating Your 6-Second Festival AI Film
                     </h3>
                     <p className="mt-1 text-xs text-[#535A56]">
-                      Powered by 100% Fail-Proof Motion Engine with grounded festive lighting
+                      Powered by Fail-Proof Motion Engine with grounded festive lighting
                     </p>
 
                     <div className="mt-5 space-y-2 text-left">
@@ -367,7 +394,7 @@ export default function PrivateLooksPage() {
                         'Locking customer identity & garment fabric weave',
                         'Applying fail-proof medium-flat festive motion',
                         'Rendering 9:16 vertical 4K cinematic lighting',
-                        'Preparing MP4 auto-download for your device',
+                        'Queueing for showroom TV displays & auto-download',
                       ].map((stepLabel, idx) => (
                         <div key={idx} className="flex items-center gap-2.5 text-xs">
                           {videoProgressStep > idx ? (
@@ -395,7 +422,7 @@ export default function PrivateLooksPage() {
                   <div className="mt-4 border border-[#B42318] bg-white p-4 text-xs text-[#B42318]">
                     <p className="font-semibold">{videoError}</p>
                     <p className="mt-1 text-[#535A56]">
-                      Tap Retry Video below to recreate with fail-proof backup motion.
+                      Review the error or tap Retry Video below to recreate.
                     </p>
                   </div>
                 )}
@@ -403,7 +430,7 @@ export default function PrivateLooksPage() {
                 {/* Go-Live Consent Checkbox + Generate Video Trigger */}
                 {!videoGenerating && (
                   <div className="mt-5 space-y-3">
-                    {/* Go-Live Consent Box */}
+                    {/* Go-Live Consent Box (Finding 1: Explicit opt-in) */}
                     <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-4 text-left shadow-sm">
                       <label className="flex cursor-pointer items-start gap-3">
                         <input
@@ -417,7 +444,7 @@ export default function PrivateLooksPage() {
                             I consent to preview this festival video on Maharaja showroom TV displays (Go-Live).
                           </span>
                           <p className="mt-1 text-xs text-[#535A56]">
-                            Mandatory consent allows your 6-second video to be celebrated on showroom TV screens.
+                            Explicit customer consent allows your 6-second video to be celebrated on showroom TV screens.
                           </p>
                         </div>
                       </label>
@@ -427,7 +454,7 @@ export default function PrivateLooksPage() {
                     <button
                       type="button"
                       disabled={!consentGoLive}
-                      onClick={() => handleGenerateVideo(false)}
+                      onClick={() => handleGenerateVideo(false, false)}
                       className="flex min-h-16 w-full items-center justify-center gap-2.5 border border-[#7A1428] bg-[#7A1428] px-6 text-center text-lg font-bold text-white shadow-md transition hover:bg-[#600f1f] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Film className="h-5 w-5" />
@@ -435,13 +462,15 @@ export default function PrivateLooksPage() {
                     </button>
 
                     {/* Manual Save Image Button */}
-                    <a
-                      href={current.downloadUrl}
+                    <button
+                      type="button"
+                      disabled={downloadingManual}
+                      onClick={() => downloadAsset(current.downloadUrl, `tryfocus-${(current.sku || 'look').toLowerCase()}.jpg`)}
                       className="flex min-h-12 w-full items-center justify-center gap-2 border border-[#161918] bg-white px-5 text-sm font-semibold text-[#161918] transition hover:bg-[#F4F5F2]"
                     >
                       <Download className="h-4 w-4" />
-                      Save Try-On Image (.jpg)
-                    </a>
+                      {downloadingManual ? 'Saving Image…' : 'Save Try-On Image (.jpg)'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -450,26 +479,26 @@ export default function PrivateLooksPage() {
             {/* VIEW 2: Video Preview & Review Page */}
             {activeView === 'video' && videoUrl && (
               <div>
-                {/* Auto-download Video notification */}
+                {/* Honest video download notification */}
                 <div className="mb-4 flex items-center justify-between border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs text-[#535A56]">
                   <span className="flex items-center gap-1.5 font-medium text-emerald-800">
                     <CheckCircle2 className="h-4 w-4" />
-                    Festival video (.mp4) automatically downloaded
+                    Auto-download attempted · Tap button below to save video
                   </span>
-                  <a
-                    href={videoUrl}
-                    download={`tryfocus-festival-${Date.now()}.mp4`}
+                  <button
+                    type="button"
+                    onClick={() => downloadAsset(videoUrl, `tryfocus-festival-film-${Date.now()}.mp4`)}
                     className="font-mono font-bold uppercase tracking-wider text-[#7A1428] underline underline-offset-2"
                   >
-                    Save again
-                  </a>
+                    Save video
+                  </button>
                 </div>
 
                 {/* Showroom TV Go-Live Badge */}
                 <div className="mb-3 flex items-center justify-center gap-2 border border-[#7A1428]/20 bg-[#FAF6EE] p-2.5 text-center text-xs text-[#7A1428]">
                   <Tv className="h-4 w-4 text-[#7A1428]" />
                   <span className="font-semibold">
-                    Go-Live Active · Featuring on Maharaja Showroom TV Displays
+                    Showroom TV Go-Live Active · Queued for TV display
                   </span>
                 </div>
 
@@ -491,14 +520,15 @@ export default function PrivateLooksPage() {
 
                 {/* Video Action Buttons */}
                 <div className="mt-5 space-y-3">
-                  <a
-                    href={videoUrl}
-                    download={`tryfocus-maharaja-festival-video-${Date.now()}.mp4`}
+                  <button
+                    type="button"
+                    disabled={downloadingManual}
+                    onClick={() => downloadAsset(videoUrl, `tryfocus-festival-film-${Date.now()}.mp4`)}
                     className="flex min-h-16 w-full items-center justify-center gap-2.5 border border-[#7A1428] bg-[#7A1428] px-6 text-center text-lg font-bold text-white shadow-md transition hover:bg-[#600f1f] active:scale-[0.99]"
                   >
                     <Download className="h-5 w-5" />
-                    ⬇ Download 4K Festival Video (.mp4)
-                  </a>
+                    {downloadingManual ? 'Saving Video…' : '⬇ Download 4K Festival Video (.mp4)'}
+                  </button>
 
                   {/* Toggle back to Try-On Image */}
                   <button
@@ -511,15 +541,21 @@ export default function PrivateLooksPage() {
                   </button>
 
                   {/* Retry Video action with fail-proof medium flat backup */}
-                  <button
-                    type="button"
-                    disabled={videoGenerating}
-                    onClick={() => handleGenerateVideo(true)}
-                    className="flex min-h-11 w-full items-center justify-center gap-2 border border-[#D8DCD7] bg-[#FAFBF8] px-4 font-mono text-xs font-bold uppercase tracking-wider text-[#7A1428] transition hover:bg-white active:scale-95"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    Regenerate with Fail-Proof Backup Motion
-                  </button>
+                  {retryCount < 1 ? (
+                    <button
+                      type="button"
+                      disabled={videoGenerating}
+                      onClick={() => handleGenerateVideo(true, true)}
+                      className="flex min-h-11 w-full items-center justify-center gap-2 border border-[#D8DCD7] bg-[#FAFBF8] px-4 font-mono text-xs font-bold uppercase tracking-wider text-[#7A1428] transition hover:bg-white active:scale-95"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Regenerate with Fail-Proof Backup Motion (1 retry allowed)
+                    </button>
+                  ) : (
+                    <p className="text-center font-mono text-xs text-[#8C938F]">
+                      Regeneration limit reached (1 retry used).
+                    </p>
+                  )}
                 </div>
               </div>
             )}

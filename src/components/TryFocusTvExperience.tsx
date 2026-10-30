@@ -498,6 +498,7 @@ export default function TryFocusTvExperience() {
           category: look.product.category,
           garmentType: look.product.garmentType,
           gender: look.product.gender,
+          garmentReferenceUrl: look.product.garmentReferenceUrl || look.product.imageUrl,
           image,
         };
       }));

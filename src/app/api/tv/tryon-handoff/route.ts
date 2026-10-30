@@ -16,6 +16,7 @@ type IncomingLook = {
   category?: string;
   garmentType?: string;
   gender?: string;
+  garmentReferenceUrl?: string;
 };
 
 function decodeImage(image: string) {
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       category: typeof look.category === 'string' ? look.category.slice(0, 60) : undefined,
       garmentType: typeof look.garmentType === 'string' ? look.garmentType.slice(0, 60) : undefined,
       gender: typeof look.gender === 'string' ? look.gender.slice(0, 60) : undefined,
+      garmentReferenceUrl: typeof look.garmentReferenceUrl === 'string' && look.garmentReferenceUrl.length < 2048 ? look.garmentReferenceUrl : undefined,
       ...decodeImage(look.image),
     }));
     const token = crypto.randomBytes(24).toString('base64url');
@@ -69,6 +71,7 @@ export async function POST(req: NextRequest) {
             category: look.category,
             garmentType: look.garmentType,
             gender: look.gender,
+            garmentReferenceUrl: look.garmentReferenceUrl,
           })),
         });
       } catch (error) {

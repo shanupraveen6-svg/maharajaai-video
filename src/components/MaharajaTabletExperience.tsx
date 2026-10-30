@@ -236,6 +236,7 @@ export default function MaharajaTabletExperience() {
             category: modeType === 'catalogue' ? selectedProduct.category : ownGarmentType,
             garmentType: resolvedGarmentType,
             gender: genderFilter,
+            garmentReferenceUrl: modeType === 'catalogue' ? (selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl) : garmentImg,
           });
           if (runId !== generationRun.current) return;
           setTryOnMobileQr(qr);
