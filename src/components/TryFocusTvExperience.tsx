@@ -407,6 +407,7 @@ export default function TryFocusTvExperience() {
             guardianProcessingConsent: tryOnGuardianConsent,
             catalogueProductId: product.sku,
             catalogueProductTitle: product.title,
+            catalogueProductCategory: product.category,
             garmentType: product.garmentType,
             garmentTypeConfirmed: true,
             processingConsent: true,
@@ -477,7 +478,14 @@ export default function TryFocusTvExperience() {
           source.onerror = () => reject(new Error('Could not read a generated look for the mobile QR.'));
           source.src = look.url;
         });
-        return { sku: look.product.sku, title: look.product.title, image };
+        return {
+          sku: look.product.sku,
+          title: look.product.title,
+          category: look.product.category,
+          garmentType: look.product.garmentType,
+          gender: look.product.gender,
+          image,
+        };
       }));
       const response = await fetch('/api/tv/tryon-handoff', {
         method: 'POST',
@@ -597,6 +605,9 @@ export default function TryFocusTvExperience() {
           service: 'try-on',
           templateId: genderFilter === 'boys' ? 'boy' : genderFilter === 'girls' ? 'girl' : genderFilter,
           guardianProcessingConsent: tryOnGuardianConsent,
+          catalogueProductId: targetProduct.sku,
+          catalogueProductTitle: targetProduct.title,
+          catalogueProductCategory: targetProduct.category,
           garmentType: targetProduct.garmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,

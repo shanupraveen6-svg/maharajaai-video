@@ -1,4 +1,9 @@
-import { buildH3MotionPrompt, getVideoConcept, type VideoConceptId } from './video-concepts';
+import {
+  buildH3MotionPrompt,
+  buildFailProofMediumFlatMotionPrompt,
+  getVideoConcept,
+  type VideoConceptId,
+} from './video-concepts';
 import type { EventId, GarmentType } from './config';
 
 export const FAL_VIDEO_MODELS = [
@@ -21,6 +26,7 @@ export function buildVideoTestInput(
   garmentRoles: string[],
   eventId: EventId = 'diwali',
   garmentType: GarmentType = 'generic',
+  useMediumFlatBackup = false,
 ) {
   const concept = getVideoConcept(conceptId);
   if (!concept) throw new Error('The selected film concept is unavailable. Please select a concept again.');
@@ -28,9 +34,13 @@ export function buildVideoTestInput(
   const roles = garmentRoles.slice(0, garments.length);
   const references = [masterImageUrl, ...garments];
 
+  const motionPrompt = useMediumFlatBackup
+    ? buildFailProofMediumFlatMotionPrompt(concept, roles, eventId, modelId === 'pixverse-c1' ? 'pixverse' : 'h3', garmentType)
+    : buildH3MotionPrompt(concept, roles, eventId, modelId === 'pixverse-c1' ? 'pixverse' : 'h3', garmentType);
+
   if (modelId === 'h3-max') {
     return {
-      prompt: buildH3MotionPrompt(concept, roles, eventId, 'h3', garmentType),
+      prompt: motionPrompt,
       image_url: masterImageUrl,
       reference_image_urls: references,
       duration: 6,
@@ -42,10 +52,9 @@ export function buildVideoTestInput(
   }
 
   if (modelId === 'pixverse-c1') {
-    const prompt = buildH3MotionPrompt(concept, roles, eventId, 'pixverse', garmentType);
-    if (Buffer.byteLength(prompt, 'utf8') > 2048) throw new Error('PixVerse prompt exceeds its 2,048-byte limit.');
+    if (Buffer.byteLength(motionPrompt, 'utf8') > 2048) throw new Error('PixVerse prompt exceeds its 2,048-byte limit.');
     return {
-      prompt,
+      prompt: motionPrompt,
       image_references: references.map((image_url, index) => ({
         image_url,
         ref_name: index === 0 ? 'master' : `garment${index}`,

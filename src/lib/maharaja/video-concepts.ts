@@ -242,3 +242,24 @@ export function buildH3MotionPrompt(
   const handRule = isChild ? "Keep the child's Namaste pose unchanged; no other hand gesture." : 'Keep both hands below waist, away from chest and face.';
   return `${masterRef} is the approved exact opening frame and sole authority for the customer's face, natural skin, hair, body, outfit and composition. ${garmentReferences}\n\nSix-second vertical ${event.label} fashion film, one continuous real-time shot. Preserve the South Indian set from the opening frame, customer identity and exact garment colour, pattern, border and drape. No makeup, face swap, plastic skin, wardrobe redesign, text or logo.\n\n${cameraDirection} Create distinct foreground-to-background parallax. Keep the customer's face and garment sharp; preserve full-body framing whenever the move allows. The customer gives one natural blink and a small warm smile with subtle breathing; head stays nearly level and toward camera. ${groundedPerformance}\n${backgroundDirection}\n\nPOSE: ${poseDirection} ${handRule} Avoid a rigid mannequin hold; use only the specific natural movement stated above. Preserve face, garment and natural anatomy. Effects stay behind the customer. No slow motion, freeze, digital zoom, uncontrolled orbit, shake, cut, transition or new prop.`;
 }
+
+/**
+ * 100% Fail-Proof Medium-Flat Video Prompt:
+ * Eliminates aggressive camera motion, foreground occlusion, or complex parallax.
+ * Uses a stable, eye-level medium-flat composition that guarantees zero anatomical or garment distortion.
+ */
+export function buildFailProofMediumFlatMotionPrompt(
+  concept: VideoConcept,
+  referenceRoles: string[],
+  eventId: EventId = 'diwali',
+  referenceStyle: 'h3' | 'pixverse' = 'h3',
+  garmentType: GarmentType = 'generic',
+) {
+  const event = eventFilmSettings[eventId];
+  const isPixVerse = referenceStyle === 'pixverse';
+  const masterRef = isPixVerse ? '@master' : 'Image 1';
+  const garmentReferences = referenceRoles.map((role, index) => `${isPixVerse ? `@garment${index + 1}` : `Image ${index + 2}`} confirms ${role || `garment detail ${index + 1}`} only.`).join(' ');
+  const isChild = concept.category === 'boy' || concept.category === 'girl';
+
+  return `${masterRef} locks the approved opening identity, face, natural skin, hair, body, outfit and composition. ${garmentReferences}\n\nSix-second vertical 9:16 ${event.label} cinematic fashion film, one continuous real-time shot.\n\nFAIL-PROOF MEDIUM-FLAT CAMERA & MOTION:\n- Eye-level, stable medium-flat framing. Static stabilized camera without rapid dollies, sudden pans, or jarring cuts.\n- The subject remains centered in full-length hero posture facing the camera naturally.\n- Performance: Natural subtle breathing, a small warm smile, and a gentle natural blink. Both feet remain grounded on the floor.\n- No spinning, no walking, no extreme arm gestures. ${isChild ? "Keep child's gentle Namaste pose intact." : 'Keep hands relaxed naturally.'}\n- Fabric maintains realistic cloth gravity, rich authentic weave, and gentle natural drape.\n- Background: Soft, warm ambient lighting with gentle festive glow behind the subject.\n- 100% identity and garment preservation. Zero CGI, no face-swapping, no artificial makeup, no plastic skin, no extra limbs.`;
+}

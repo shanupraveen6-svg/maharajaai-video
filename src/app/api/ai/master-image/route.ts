@@ -349,7 +349,12 @@ ${categoryGarmentLine}
 
         let prompt = '';
         if (service === 'try-on') {
-          prompt = `${buildTryOnPrompt(customerCategory)}\n\n${garmentFidelityRules}`;
+          prompt = `${buildTryOnPrompt(customerCategory, {
+            audience: typeof body.templateId === 'string' ? body.templateId : customerCategory,
+            categoryId: typeof body.catalogueProductCategory === 'string' ? body.catalogueProductCategory : (typeof body.category === 'string' ? body.category : undefined),
+            garmentType,
+            productTitle: typeof body.catalogueProductTitle === 'string' ? body.catalogueProductTitle : undefined,
+          })}\n\n${garmentFidelityRules}`;
         } else {
           const referenceHierarchy = `REFERENCE PRIORITY:
 - The first image (original customer photograph) is the authoritative identity reference.

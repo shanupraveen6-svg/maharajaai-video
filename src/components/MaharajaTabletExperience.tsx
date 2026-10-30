@@ -210,6 +210,7 @@ export default function MaharajaTabletExperience() {
           guardianProcessingConsent: guardianConsent,
           catalogueProductId: modeType === 'catalogue' ? selectedProduct.sku : resolvedSku,
           catalogueProductTitle: resolvedTitle,
+          catalogueProductCategory: modeType === 'catalogue' ? selectedProduct.category : (ownGarmentType || 'own'),
           garmentType: resolvedGarmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,
@@ -231,7 +232,11 @@ export default function MaharajaTabletExperience() {
         setTryOnResultUrl(data.masterImageUrl);
         setTryOnStatusNote('Your look is ready. Preparing your private phone QR…');
         try {
-          const qr = await createImageHandoff(data.masterImageUrl, resolvedSku, resolvedTitle);
+          const qr = await createImageHandoff(data.masterImageUrl, resolvedSku, resolvedTitle, {
+            category: modeType === 'catalogue' ? selectedProduct.category : ownGarmentType,
+            garmentType: resolvedGarmentType,
+            gender: genderFilter,
+          });
           if (runId !== generationRun.current) return;
           setTryOnMobileQr(qr);
           setTryOnStatusNote('Scan to save this look on your phone. Private link expires in 15 minutes.');

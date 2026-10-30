@@ -3,7 +3,16 @@ import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
-type StoredLook = { sku: string; title: string; contentType: string; path?: string; bytes?: Buffer };
+type StoredLook = {
+  sku: string;
+  title: string;
+  contentType: string;
+  path?: string;
+  bytes?: Buffer;
+  category?: string;
+  garmentType?: string;
+  gender?: string;
+};
 type StoredHandoff = { expiresAtMs: number; looks: StoredLook[] };
 
 async function readHandoff(token: string): Promise<StoredHandoff | null> {
@@ -43,6 +52,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
 
   return NextResponse.json({
     expiresAt: new Date(handoff.expiresAtMs).toISOString(),
-    looks: handoff.looks.map((look, index) => ({ sku: look.sku, title: look.title, imageUrl: `/api/tv/tryon-handoff/${token}?image=${index}`, downloadUrl: `/api/tv/tryon-handoff/${token}?image=${index}&download=1` })),
+    looks: handoff.looks.map((look, index) => ({
+      sku: look.sku,
+      title: look.title,
+      category: look.category,
+      garmentType: look.garmentType,
+      gender: look.gender,
+      imageUrl: `/api/tv/tryon-handoff/${token}?image=${index}`,
+      downloadUrl: `/api/tv/tryon-handoff/${token}?image=${index}&download=1`,
+    })),
   }, { headers: { 'Cache-Control': 'private, no-store' } });
 }

@@ -9,7 +9,14 @@ export const maxDuration = 60;
 const LIFETIME_MS = 15 * 60 * 1000;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 
-type IncomingLook = { sku: string; title: string; image: string };
+type IncomingLook = {
+  sku: string;
+  title: string;
+  image: string;
+  category?: string;
+  garmentType?: string;
+  gender?: string;
+};
 
 function decodeImage(image: string) {
   const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(image);
@@ -34,6 +41,9 @@ export async function POST(req: NextRequest) {
     const looks = (body.looks as IncomingLook[]).map((look) => ({
       sku: String(look.sku || '').slice(0, 60),
       title: String(look.title || '').slice(0, 120),
+      category: typeof look.category === 'string' ? look.category.slice(0, 60) : undefined,
+      garmentType: typeof look.garmentType === 'string' ? look.garmentType.slice(0, 60) : undefined,
+      gender: typeof look.gender === 'string' ? look.gender.slice(0, 60) : undefined,
       ...decodeImage(look.image),
     }));
     const token = crypto.randomBytes(24).toString('base64url');
@@ -51,7 +61,15 @@ export async function POST(req: NextRequest) {
         await db.collection('tvTryOnHandoffs').doc(token).set({
           expiresAtMs,
           expiresAt: new Date(expiresAtMs).toISOString(),
-          looks: looks.map((look, index) => ({ sku: look.sku, title: look.title, contentType: look.contentType, path: paths[index] })),
+          looks: looks.map((look, index) => ({
+            sku: look.sku,
+            title: look.title,
+            contentType: look.contentType,
+            path: paths[index],
+            category: look.category,
+            garmentType: look.garmentType,
+            gender: look.gender,
+          })),
         });
       } catch (error) {
         await bucket.deleteFiles({ prefix: `clients/maharaja/tryon-handoffs/${token}/`, force: true }).catch(() => undefined);

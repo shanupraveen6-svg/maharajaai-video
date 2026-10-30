@@ -33,7 +33,15 @@ export function getEventOption(eventId: EventId) {
 export type CustomerCategory = 'men' | 'women' | 'boy' | 'girl';
 
 /** Production virtual try-on prompt. Festival styling belongs only to the AI Video master flow. */
-export function buildTryOnPrompt(category: CustomerCategory) {
+export function buildTryOnPrompt(
+  category: CustomerCategory,
+  details?: {
+    audience?: string;
+    categoryId?: string;
+    garmentType?: string;
+    productTitle?: string;
+  }
+) {
   const subject = category === 'men'
     ? 'adult man'
     : category === 'women'
@@ -45,7 +53,50 @@ export function buildTryOnPrompt(category: CustomerCategory) {
     ? 'Use child-safe, age-appropriate, natural modest styling with no adult glamour.'
     : 'Use modest, family-friendly, natural styling.';
 
+  const gType = (details?.garmentType || '').toLowerCase();
+  const cId = (details?.categoryId || '').toLowerCase();
+  const title = (details?.productTitle || '').toLowerCase();
+
+  let categoryDirective = '';
+  if (gType.includes('shirt') || cId.includes('shirt') || title.includes('shirt')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - SHIRT / FORMAL SHIRT:
+- Target garment is a tailored shirt.
+- Maintain a crisp, structured collar, button placket, buttons, sleeve cuffs, and clean shoulder seams.
+- Fabric must display realistic woven cotton, linen, or silk texture with natural drape and subtle creases.
+- Do NOT convert this shirt into a kurta, sherwani, robe, tunic, or saree.
+- If customer's original photo has pants/trousers, retain them cleanly beneath the shirt.`;
+  } else if (gType.includes('pant') || cId.includes('pant') || gType.includes('trouser') || cId.includes('trouser') || title.includes('pant') || title.includes('trouser')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - PANTS / TROUSERS:
+- Target garment is tailored formal or casual pants/trousers.
+- Preserve clean waistband, belt loops, fly/button closure, straight leg crease, and natural trouser hem resting naturally above shoes.
+- Do NOT convert into a dhoti, veshti, lungi, or pyjama.`;
+  } else if (gType === 'saree' || cId.includes('saree') || title.includes('saree')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - SAREE:
+- Target garment is an authentic Indian saree (e.g. Kanchivaram silk / bridal saree).
+- Preserve the authentic saree drape: neat waist pleats (patli), elegant diagonal body wrap, and richly detailed shoulder pallu cascading naturally over the shoulder.
+- Render matching fitted blouse with authentic neckline and sleeve embroidery from references.`;
+  } else if (gType === 'lehenga' || cId.includes('lehenga') || title.includes('lehenga')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - LEHENGA CHOLI:
+- Target garment is a festive Lehenga Choli.
+- Preserve full flared skirt with authentic waist kalis, richly embroidered hem border, fitted choli blouse, and gracefully draped dupatta.`;
+  } else if (gType === 'dhoti_veshti' || gType === 'kurta_dhoti' || cId.includes('dhoti') || cId.includes('veshti')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - DHOTI / VESHTI:
+- Target garment is a traditional veshti/dhoti or kurta-dhoti set.
+- Maintain authentic traditional pleating, gold/zari border along the edges, and natural crisp silk/cotton fold structure.`;
+  } else if (gType === 'pattu_pavadai' || cId.includes('pavadai') || title.includes('pattu')) {
+    categoryDirective = `
+EXACT CATEGORY PRECISION - PATTU PAVADAI:
+- Target garment is a traditional girl's Pattu Pavadai.
+- Preserve the silk flared skirt with zari border, matching traditional top, and authentic modest South Indian festive styling.`;
+  }
+
   return `Create a photorealistic vertical 9:16 full-body virtual try-on photograph of the real ${subject}.
+${categoryDirective}
 
 REFERENCE AUTHORITY:
 - Image 1 is the authoritative customer identity reference.
