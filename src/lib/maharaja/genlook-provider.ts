@@ -14,10 +14,19 @@ function decodeBase64(value: string) {
   return Buffer.from(value.replace(/^data:image\/[a-zA-Z+]+;base64,/, ''), 'base64');
 }
 
+function imageMime(value: string, bytes: Buffer) {
+  const declared = value.match(/^data:(image\/(?:jpeg|png|webp));base64,/)?.[1];
+  if (declared) return declared;
+  if (bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'image/png';
+  if (bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255]))) return 'image/jpeg';
+  if (bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
+  throw new GenlookProviderError('Please use a JPEG, PNG or WebP photo.', true);
+}
+
 async function uploadImage(base64: string, apiKey: string, label: string) {
   const bytes = decodeBase64(base64);
   if (!bytes.length || bytes.length > 10 * 1024 * 1024) throw new GenlookProviderError(`${label} image is invalid or too large for GenLook.`, true);
-  const mime = base64.match(/^data:(image\/(?:jpeg|png|webp));base64,/)?.[1] || 'image/jpeg';
+  const mime = imageMime(base64, bytes);
   const form = new FormData();
   form.set('file', new Blob([new Uint8Array(bytes)], { type: mime }), `${label}.${mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg'}`);
   let response: Response;
@@ -41,7 +50,7 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
   const personImageId = await uploadImage(personBase64, apiKey, 'customer');
   const garmentBytes = decodeBase64(garmentBase64);
   if (!garmentBytes.length || garmentBytes.length > 10 * 1024 * 1024) throw new GenlookProviderError('Garment photo is invalid or too large.', true);
-  const garmentMime = garmentBase64.match(/^data:(image\/(?:jpeg|png|webp));base64,/)?.[1] || 'image/jpeg';
+  const garmentMime = imageMime(garmentBase64, garmentBytes);
   const form = new FormData();
   form.set('data', JSON.stringify({ products: [{ externalId: product.externalId, title: product.title, description: product.description, images: [{ source: { fileKey: 'product' } }] }], person: { image: { source: { id: personImageId } } } }));
   form.set('product', new Blob([new Uint8Array(garmentBytes)], { type: garmentMime }), `garment.${garmentMime === 'image/png' ? 'png' : garmentMime === 'image/webp' ? 'webp' : 'jpg'}`);
@@ -50,7 +59,7 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
     response = await fetch(`${GENLOOK_BASE_URL}/try-on/sync`, {
       method: 'POST', headers: { 'x-api-key': apiKey, Accept: 'application/json' },
       body: form,
-      signal: AbortSignal.timeout(100_000), cache: 'no-store',
+      signal: AbortSignal.timeout(92_000), cache: 'no-store',
     });
   } catch { throw new GenlookProviderError('GenLook generation outcome is uncertain.', false); }
   let payload = await response.json().catch(() => ({}));
@@ -58,7 +67,7 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
   // The sync endpoint may return 202 after 90 seconds while generation continues.
   if (response.status === 202 && typeof payload?.generationId === 'string') {
     const generationId = encodeURIComponent(payload.generationId);
-    for (let attempt = 0; attempt < 30; attempt += 1) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       let poll: Response;
       try {
