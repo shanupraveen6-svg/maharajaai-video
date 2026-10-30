@@ -466,10 +466,109 @@ export default function LucyLiveMirror({
       </div>
 
       {(gender === 'boys' || gender === 'girls') && <label className="flex min-h-16 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-lg"><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve this child’s live mirror session.</label>}
-      {/* Portrait Kiosk Main Area: Left Dominant Mirror Viewport + Right Paged Outfit Selector */}
-      <div className="tv-live-main grid min-w-0 gap-4">
-        {/* Mirror Viewport */}
-        <div className="tv-live-camera relative aspect-[9/16] w-full overflow-hidden border-2 border-[#D8DCD7] bg-[#161918]">
+
+      {/* Main 2-Column Row: Left Outfit Selector + Right Mirror Viewport */}
+      <div className="tv-live-row grid min-w-0 gap-5 lg:grid-cols-[minmax(340px,400px)_1fr] items-start">
+        {/* Left Column: Step 2 Outfit Selector */}
+        <aside className="tv-live-menu flex min-w-0 flex-col justify-between border-2 border-[#D8DCD7] bg-[#FAFBF8] p-4 sm:p-5 shadow-sm">
+          <div>
+            <div className="border-b border-[#D8DCD7] pb-3">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">Wedding collection</p>
+              <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">Choose your look</h3>
+            </div>
+            <div className="tv-live-category-list mt-3.5 grid gap-2">
+              <button type="button" aria-pressed={category === 'wedding-picks'} onClick={() => { setCategory('wedding-picks'); setPageIndex(0); }} className={`min-h-14 border px-4 py-2.5 text-left text-base font-bold ${category === 'wedding-picks' ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-white text-[#161918] hover:border-[#161918]'}`}>Wedding Picks</button>
+              {visibleCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  aria-pressed={category === cat.id}
+                  onClick={() => {
+                    setCategory(cat.id);
+                    setPageIndex(0);
+                    const first = activeCatalogue.find((item) => item.category === cat.id);
+                    if (first) void selectGarment(first);
+                  }}
+                  className={`min-h-14 border px-4 py-2.5 text-left text-base font-bold ${
+                    category === cat.id
+                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
+                      : 'border-[#D8DCD7] bg-white text-[#161918] hover:border-[#161918]'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="tv-live-garments mt-4 grid gap-2.5">
+              {pagedProducts.length === 0 && <p className="p-3 text-sm text-[#535A56]">This collection is being prepared. Choose another wedding style.</p>}
+              {pagedProducts.map((item) => {
+                const active = selectedGarment.id === item.id || selectedGarment.sku === item.sku;
+                return (
+                  <button
+                    key={item.sku}
+                    type="button"
+                    onClick={() => selectGarment(item)}
+                    className={`flex min-w-0 items-center gap-3 overflow-hidden border-2 p-2.5 text-left transition ${
+                      active
+                        ? 'border-[#7A1428] bg-white shadow-md ring-2 ring-[#7A1428]'
+                        : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
+                    }`}
+                  >
+                    <div className="relative h-20 w-16 shrink-0 overflow-hidden bg-[#ECEEE9]">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.title}
+                        className="h-full w-full object-contain object-top"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 font-serif text-sm font-semibold text-[#161918]">
+                        {item.title}
+                      </p>
+                      <div className="mt-1 flex items-center justify-between font-mono text-xs">
+                        <span className="font-bold text-[#7A1428]">
+                          {formatINR(item.price)}
+                        </span>
+                        <span className="text-xs font-bold text-[#7A1428]">
+                          {active ? '✓ Selected' : item.sku}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Pager Controls */}
+          <div className="mt-4 flex items-center justify-between border-t border-[#D8DCD7] pt-4">
+            <button
+              type="button"
+              disabled={safePageIndex <= 0}
+              onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+              className="inline-flex min-h-[56px] items-center gap-2 border border-[#161918] bg-white px-5 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Prev
+            </button>
+            <span className="font-mono text-sm font-bold text-[#535A56]">
+              Page {safePageIndex + 1} / {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={safePageIndex >= totalPages - 1}
+              onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
+              className="inline-flex min-h-[56px] items-center gap-2 border border-[#161918] bg-white px-5 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </aside>
+
+        {/* Right Column: Mirror Viewport */}
+        <div className="tv-live-camera relative aspect-[9/16] w-full min-w-0 overflow-hidden border-2 border-[#D8DCD7] bg-[#161918] shadow-sm">
           {/* Local Camera Feed (Never labeled as AI output!) */}
           <video
             ref={localVideoRef}
@@ -597,124 +696,90 @@ export default function LucyLiveMirror({
               </div>
             </div>
           )}
-
         </div>
-
-        {/* Right Column: Step 2 Outfit Selector (Paged 4 Cards — No Nested Scroll) */}
-        <aside className="tv-live-menu flex min-w-0 flex-col justify-between border-2 border-[#D8DCD7] bg-[#FAFBF8] p-4">
-          <div>
-            <div className="border-b border-[#D8DCD7] pb-3">
-              <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">Wedding collection</p>
-              <h3 className="mt-1 font-serif text-xl font-semibold text-[#161918]">Choose your look</h3>
-            </div>
-            <div className="tv-live-category-list mt-3 grid gap-2">
-              <button type="button" aria-pressed={category === 'wedding-picks'} onClick={() => { setCategory('wedding-picks'); setPageIndex(0); }} className={`min-h-14 border px-3 py-2 text-left text-sm font-bold ${category === 'wedding-picks' ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-white'}`}>Wedding Picks</button>
-              {visibleCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  aria-pressed={category === cat.id}
-                  onClick={() => {
-                    setCategory(cat.id);
-                    setPageIndex(0);
-                    const first = activeCatalogue.find((item) => item.category === cat.id);
-                    if (first) void selectGarment(first);
-                  }}
-                  className={`min-h-14 border px-3 py-2 text-left text-sm font-bold ${
-                    category === cat.id
-                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                      : 'border-[#D8DCD7] bg-white text-[#161918]'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="tv-live-garments mt-3 grid gap-2">
-              {pagedProducts.length === 0 && <p className="p-3 text-sm text-[#535A56]">This collection is being prepared. Choose another wedding style.</p>}
-              {pagedProducts.map((item) => {
-                const active = selectedGarment.id === item.id || selectedGarment.sku === item.sku;
-                return (
-                  <button
-                    key={item.sku}
-                    type="button"
-                    onClick={() => selectGarment(item)}
-                    className={`flex min-w-0 items-center gap-2 overflow-hidden border-2 p-1.5 text-left transition ${
-                      active
-                        ? 'border-[#7A1428] bg-white shadow-sm'
-                        : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
-                    }`}
-                  >
-                    <div className="relative h-16 w-14 shrink-0 overflow-hidden bg-[#ECEEE9]">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.title}
-                        className="h-full w-full object-contain object-top"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 font-serif text-sm font-semibold text-[#161918]">
-                        {item.title}
-                      </p>
-                      <div className="mt-1 flex items-center justify-between font-mono text-xs">
-                        <span className="font-bold text-[#7A1428]">
-                          {formatINR(item.price)}
-                        </span>
-                        <span className="text-[10px] font-semibold text-[#535A56]">
-                          {active ? '✓ Active' : item.sku}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Pager Controls */}
-          <div className="mt-3 flex items-center justify-between border-t border-[#D8DCD7] pt-3">
-            <button
-              type="button"
-              disabled={safePageIndex <= 0}
-              onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-              className="inline-flex min-h-[52px] items-center gap-1.5 border border-[#161918] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Prev
-            </button>
-            <span className="font-mono text-xs font-bold text-[#535A56]">
-              Page {safePageIndex + 1} / {totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={safePageIndex >= totalPages - 1}
-              onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
-              className="inline-flex min-h-[52px] items-center gap-1.5 border border-[#161918] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </aside>
-        <section className="tv-live-controls flex min-w-0 flex-col gap-4 border-2 border-[#D8DCD7] bg-white p-4" aria-label="Live session controls">
-          <div>
-            <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#7A1428]">Your session</p>
-            <h3 className="mt-1 font-serif text-2xl font-semibold">30 seconds to see it live</h3>
-            <p className="mt-2 text-sm text-[#535A56]">{statusMessage}</p>
-          </div>
-          <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-3">
-            <div className="flex items-center justify-between gap-2 font-mono text-lg font-bold"><span>Time left</span><span>{secondsLeft}s</span></div>
-            <div className="mt-3 h-3 overflow-hidden bg-[#D8DCD7]"><div className={`h-full transition-all duration-500 ${state === 'live' ? 'bg-[#256B45]' : 'bg-[#7A1428]'}`} style={{ width: `${progressPercent}%` }} /></div>
-            <p className="mt-2 text-xs text-[#535A56]">Timer starts when the AI stream connects.</p>
-          </div>
-          {state === 'idle' ? <button type="button" onClick={enableCameraPreview} className="tv-live-action bg-[#161918] text-white"><Camera className="h-5 w-5" />Open camera</button>
-            : state === 'live' || state === 'connecting' || state === 'ready_countdown' ? <button type="button" onClick={() => stopSession('camera_ready')} className="tv-live-action border-2 border-[#B42318] bg-[#FEF3F2] text-[#B42318]"><Square className="h-5 w-5" />Stop session</button>
-            : <button type="button" onClick={beginLiveCountdownAndConnect} className="tv-live-action bg-[#7A1428] text-white"><Sparkles className="h-5 w-5" />Start live mirror</button>}
-          <p className="text-xs leading-relaxed text-[#535A56]">Select garments from the left menu. You can change looks during the session.</p>
-          {error && <p role="alert" className="border border-[#B42318] bg-[#FEF3F2] p-3 text-sm text-[#B42318]">{error}</p>}
-        </section>
       </div>
+
+      {/* Row 2: Bottom Full-Width 30-Second Controls with Big Touch Area */}
+      <section className="tv-live-controls border-2 border-[#D8DCD7] bg-white p-5 sm:p-6 shadow-sm" aria-label="Live session controls">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          {/* Left: 30-Second Status & Timer Progress */}
+          <div className="flex-1 space-y-2.5">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <div>
+                <span className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#7A1428]">
+                  Your Session · 30 Seconds Live
+                </span>
+                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#161918]">
+                  {state === 'live'
+                    ? 'AI Live Mirror Active'
+                    : state === 'ready_countdown'
+                    ? 'Step Back & Get Ready...'
+                    : state === 'connecting'
+                    ? 'Connecting Live AI Stream...'
+                    : '30 Seconds to See It Live'}
+                </h3>
+              </div>
+              <div className="flex items-center gap-2.5 rounded border border-[#D8DCD7] bg-[#FAFBF8] px-4 py-2 font-mono text-lg font-bold text-[#161918]">
+                <span className="text-xs uppercase text-[#535A56]">Time left</span>
+                <span className="text-2xl font-black text-[#7A1428]">{secondsLeft}s</span>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-3.5 w-full overflow-hidden rounded bg-[#ECEEE9] border border-[#D8DCD7]">
+              <div
+                className={`h-full transition-all duration-500 ${
+                  state === 'live' ? 'bg-[#256B45]' : 'bg-[#7A1428]'
+                }`}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#535A56]">
+              <p className="font-medium">{statusMessage}</p>
+              <p>You can change looks on the left during your live session.</p>
+            </div>
+
+            {error && (
+              <p role="alert" className="border-2 border-[#B42318] bg-[#FEF3F2] p-3 text-sm font-semibold text-[#B42318]">
+                {error}
+              </p>
+            )}
+          </div>
+
+          {/* Right: Big Touch Action Button for 43-inch TV */}
+          <div className="shrink-0 lg:pl-6">
+            {state === 'idle' ? (
+              <button
+                type="button"
+                onClick={enableCameraPreview}
+                className="tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border-2 border-[#161918] bg-[#161918] px-8 text-xl font-bold uppercase tracking-wider text-white shadow-md transition hover:bg-[#2C3330] active:scale-[0.99] sm:min-w-[280px]"
+              >
+                <Camera className="h-6 w-6" />
+                Open Camera
+              </button>
+            ) : state === 'live' || state === 'connecting' || state === 'ready_countdown' ? (
+              <button
+                type="button"
+                onClick={() => stopSession('camera_ready')}
+                className="tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border-2 border-[#B42318] bg-[#FEF3F2] px-8 text-xl font-bold uppercase tracking-wider text-[#B42318] shadow-md transition hover:bg-[#FEE4E2] active:scale-[0.99] sm:min-w-[280px]"
+              >
+                <Square className="h-6 w-6 fill-current" />
+                Stop Session
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={beginLiveCountdownAndConnect}
+                className="tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border-2 border-[#7A1428] bg-[#7A1428] px-10 text-xl font-bold uppercase tracking-wider text-white shadow-lg transition hover:bg-[#600F1F] active:scale-[0.99] sm:min-w-[320px]"
+              >
+                <Sparkles className="h-6 w-6 text-[#F3E5AB]" />
+                Start 30s Live Mirror
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* 30-Second Session Completion Popup Modal */}
       {completionModalOpen && (

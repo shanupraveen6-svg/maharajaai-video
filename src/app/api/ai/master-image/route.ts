@@ -276,7 +276,18 @@ export async function POST(req: NextRequest) {
           resolveImageBase64(personInput, bucket, sessionId),
           ...garmentInputs.map((input) => resolveImageBase64(input, bucket, sessionId, cataloguePath)),
         ]);
-        const preparedReferences = await Promise.all(sourceReferences.map(async (source) => sharp(Buffer.from(source, 'base64')).rotate().resize(2048, 2048, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 94, chromaSubsampling: '4:4:4' }).toBuffer()));
+        const maxDim = service === 'try-on' ? 1280 : 1792;
+        const jpegQuality = service === 'try-on' ? 86 : 92;
+        const chromaSubsampling = service === 'try-on' ? '4:2:0' : '4:4:4';
+        const preparedReferences = await Promise.all(
+          sourceReferences.map(async (source) =>
+            sharp(Buffer.from(source, 'base64'))
+              .rotate()
+              .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+              .jpeg({ quality: jpegQuality, progressive: true, chromaSubsampling })
+              .toBuffer()
+          )
+        );
         const [personBase64, ...garmentBase64s] = preparedReferences.map((image) => image.toString('base64'));
         if (service === 'ai-video') {
           videoPersonPath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/person/reference.jpg`;
