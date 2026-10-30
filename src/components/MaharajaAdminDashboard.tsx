@@ -596,12 +596,6 @@ export default function MaharajaAdminDashboard({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/admin"
-              className="border border-[#161918] bg-white px-3.5 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#161918] hover:border-[#7A1428] hover:text-[#7A1428]"
-            >
-              Admin
-            </Link>
             {devices.tv && (
               <Link
                 href="/maharaja/tv/experience"

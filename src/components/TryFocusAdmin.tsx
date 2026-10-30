@@ -288,7 +288,7 @@ export default function TryFocusAdmin() {
             </span>
             <div>
               <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                TryFocus Super Admin · Multi-Store Control Plane
+                TryFocus Super Admin · Universal Client Control Plane
               </p>
               <h1 className="font-serif text-xl font-semibold text-[#161918]">
                 Store Management & Surface Provisioning
@@ -297,12 +297,6 @@ export default function TryFocusAdmin() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <Link
-              href="/admin"
-              className="border border-[#7A1428] bg-[#7A1428] px-3.5 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#FAF6EE]"
-            >
-              Admin
-            </Link>
             <button
               type="button"
               onClick={() => setShowCreateForm((v) => !v)}
@@ -312,22 +306,28 @@ export default function TryFocusAdmin() {
               New Retailer Workspace
             </button>
             <Link
-              href="/maharaja/workspace"
+              href={client.links?.workspace || (client.id === 'maharaja' ? '/maharaja/workspace' : `/${client.id}/workspace`)}
+              target="_blank"
+              rel="noopener noreferrer"
               className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
             >
-              Client Workspace
+              {client.name} Workspace ↗
             </Link>
             <Link
-              href="/maharaja/tv/experience"
+              href={client.id === 'maharaja' ? '/maharaja/tv/experience' : `/${client.id}/tv/experience`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
             >
-              TV Smart Mirror
+              TV Smart Mirror ↗
             </Link>
             <Link
-              href="/maharaja/tv"
+              href={client.links?.tv || (client.id === 'maharaja' ? '/maharaja/tv' : `/${client.id}/tv`)}
+              target="_blank"
+              rel="noopener noreferrer"
               className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
             >
-              Go Live TV Wall
+              TV Wall ↗
             </Link>
             <button
               type="button"
