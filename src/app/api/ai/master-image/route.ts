@@ -12,9 +12,20 @@ import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { verifyOperatorRequest } from '@/lib/auth/operator';
 
 export const maxDuration = 300;
 const MAX_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024;
+
+export async function GET(req: NextRequest) {
+  if (!verifyOperatorRequest(req)) return NextResponse.json({ error: 'Operator sign-in required.' }, { status: 401 });
+  return NextResponse.json({
+    genlookConfigured: Boolean(process.env.GENLOOK_API_KEY?.trim()),
+    falBackupConfigured: Boolean(process.env.FAL_KEY?.trim()),
+    geminiConfigured: Boolean(AI_CONFIG.PRIMARY_API_KEY?.trim()),
+    geminiModel: AI_CONFIG.GEMINI_IMAGE_MODEL,
+  }, { headers: { 'Cache-Control': 'private, no-store' } });
+}
 
 function getGenAIClient() {
   const apiKey = AI_CONFIG.PRIMARY_API_KEY;
