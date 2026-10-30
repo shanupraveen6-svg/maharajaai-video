@@ -533,13 +533,13 @@ const generatedCatalogue: TryFocusProduct[] = newCatalogueGroups.flatMap((group)
     category: group.category,
     audience: group.audience,
     gender: group.gender,
-    price: group.premium || group.arrivalOnly ? 12900 + index * 1500 : 0,
+    price: group.premium || group.arrivalOnly || group.gender === 'boys' || group.gender === 'girls' ? 12900 + index * 1500 : 0,
     imageUrl: `/images/catalogue-demo/south-indian/${group.arrivalOnly ? 'arrival-men' : group.category}-${index + 1}.png`,
     fabricNote: 'South Indian festive collection · Demo garment',
     badge: group.arrivalOnly ? 'NEW ARRIVAL' : 'FESTIVE PICK',
     accent: 'from-[#FAF6F0] to-[#EFE8DC]',
     eligibleForVideo: true,
-    eligibleForLive: group.premium === true || group.arrivalOnly === true,
+    eligibleForLive: group.premium === true || group.arrivalOnly === true || group.gender === 'boys' || group.gender === 'girls',
     newArrivalOnly: group.arrivalOnly === true,
     garmentType: group.garmentType,
   }))
@@ -549,13 +549,13 @@ export const sampleCatalogue: TryFocusProduct[] = [
   ...maharajaClientSamples,
   ...rawSampleCatalogue.map((item): TryFocusProduct => {
     const arrivalOnly = item.category === 'salwar' || item.category === 'lehenga' || item.category === 'shirts';
-    const category = item.category === 'salwar' ? 'kurtis' : item.category === 'lehenga' ? 'half-sarees' : item.category === 'shirts' ? 'angavastram' : item.category;
+    const category = item.category === 'salwar' ? 'salwar-suits' : item.category === 'lehenga' ? 'lehengas' : item.category === 'shirts' ? 'casual-shirts' : item.category;
     return {
       ...item,
       category,
       gender: item.audience === 'Men' ? 'men' : 'women',
       badge: arrivalOnly ? 'NEW ARRIVAL' : item.badge,
-      newArrivalOnly: arrivalOnly,
+      newArrivalOnly: false,
       eligibleForVideo: true,
       eligibleForLive: item.category === 'sarees' || (item.audience === 'Men' && item.price >= 10000),
     };

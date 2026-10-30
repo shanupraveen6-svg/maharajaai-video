@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useStoreCatalogue } from '@/lib/maharaja/use-store-catalogue';
 import {
   Camera,
   Download,
@@ -21,10 +22,10 @@ import {
 
 type MobileFlow = 'image-tryon' | 'ai-video';
 
-export default function MaharajaMobileExperience() {
+export default function MaharajaMobileExperience({ accessCode, videoEntryUrl }: { accessCode: string; videoEntryUrl: string }) {
   const [flow, setFlow] = useState<MobileFlow>('image-tryon');
   const [sourceMode, setSourceMode] = useState<'catalogue' | 'own-garment'>('catalogue');
-  const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
+  const [genderFilter, setGenderFilter] = useState<TryFocusProduct['gender']>('women');
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue.find((item) => item.category === 'sarees') || sampleCatalogue[0]);
 
@@ -38,10 +39,19 @@ export default function MaharajaMobileExperience() {
   const [statusNote, setStatusNote] = useState<string>('');
 
   // Video + Go Live state
-  const [videoPassCode, setVideoPassCode] = useState('');
+  const [deviceId, setDeviceId] = useState('');
+  useEffect(() => { const key = 'tryfocus:maharaja:device-id'; const value = localStorage.getItem(key) || crypto.randomUUID().replace(/-/g, ''); localStorage.setItem(key, value); setDeviceId(value); }, []);
 
+  const catalogueItems = useStoreCatalogue();
+  const [guardianConsent, setGuardianConsent] = useState(false);
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
-  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
+  const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory);
+
+  useEffect(() => {
+    const first = catalogueItems.find((item) => item.category === activeCategory && item.gender === genderFilter);
+    if (first) setSelectedProduct(first);
+    setGuardianConsent(false);
+  }, [activeCategory, genderFilter, catalogueItems]);
 
   function handleFileRead(setter: (val: string) => void, file?: File | null) {
     if (!file) return;
@@ -53,6 +63,7 @@ export default function MaharajaMobileExperience() {
   }
 
   async function runMobileGeneration() {
+    if ((genderFilter === 'boys' || genderFilter === 'girls') && !guardianConsent) { setStatusNote('A parent or guardian must approve the child’s photo first.'); return; }
     const garmentImg =
       sourceMode === 'own-garment'
         ? ownGarmentPhoto
@@ -73,8 +84,13 @@ export default function MaharajaMobileExperience() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
+          accessCode,
+          deviceId,
           service: 'try-on',
-          templateId: selectedProduct.gender,
+          templateId: genderFilter === 'boys' ? 'boy' : genderFilter === 'girls' ? 'girl' : genderFilter,
+          guardianProcessingConsent: guardianConsent,
+          catalogueProductId: sourceMode === 'catalogue' ? selectedProduct.sku : undefined,
+          catalogueProductTitle: sourceMode === 'catalogue' ? selectedProduct.title : undefined,
           garmentType: selectedProduct.garmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,
@@ -159,22 +175,21 @@ export default function MaharajaMobileExperience() {
           {flow === 'image-tryon' ? (
             <p>Choose a garment, add your photo, and keep the finished look on your phone.</p>
           ) : (
-            <p>Scan the QR from the store or enter your 24-hour video pass code to continue.</p>
+            <p>Start a private 24-hour session with your photo and garment.</p>
           )}
         </div>
 
         {flow === 'ai-video' && (
           <section className="space-y-4 border border-[#D8DCD7] bg-white p-4">
-            <h2 className="font-serif text-xl font-semibold">Continue with your video pass</h2>
-            <p className="text-sm text-[#535A56]">Your video is created on your phone after the store issues a QR or link. Download and Go Live appear only when your video is ready.</p>
-            <label className="block text-sm font-semibold" htmlFor="video-pass-code">Video pass code</label>
-            <input id="video-pass-code" value={videoPassCode} onChange={(event) => setVideoPassCode(event.target.value.trim())} className="min-h-12 w-full border border-[#D8DCD7] px-3 text-base" autoComplete="off" />
-            <Link href={videoPassCode ? `/maharaja/video/${encodeURIComponent(videoPassCode)}` : '#'} aria-disabled={!videoPassCode} className={`flex min-h-12 items-center justify-center bg-[#7A1428] px-4 text-sm font-semibold text-white ${!videoPassCode ? 'pointer-events-none opacity-50' : ''}`}>Open my video experience</Link>
+            <h2 className="font-serif text-xl font-semibold">Create your Diwali video</h2>
+            <p className="text-sm text-[#535A56]">Use your own garment and photo. Your private session lasts 24 hours. Download your finished film or choose Go Live for the store screen.</p>
+            <Link href={videoEntryUrl} className="flex min-h-14 items-center justify-center bg-[#7A1428] px-4 text-sm font-semibold text-white">Start my video</Link>
           </section>
         )}
 
         {flow === 'image-tryon' && <>
 
+        <div>{(genderFilter === 'boys' || genderFilter === 'girls') && <label className="my-4 flex min-h-14 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-sm"><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve using this child’s photo for this experience.</label>}</div>
         {/* Step 1: Image 1 (Customer Photo) */}
         <section className="border border-[#D8DCD7] bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -242,32 +257,7 @@ export default function MaharajaMobileExperience() {
           {sourceMode === 'catalogue' ? (
             <div className="mt-3 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex border border-[#D8DCD7] bg-[#FAFBF8] p-0.5 text-xs font-semibold">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGenderFilter('women');
-                      setActiveCategory('sarees');
-                    }}
-                    className={`px-3 py-1 ${
-                      genderFilter === 'women' ? 'bg-[#161918] text-white' : 'text-[#535A56]'
-                    }`}
-                  >
-                    Women
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGenderFilter('men');
-                      setActiveCategory('kurta');
-                    }}
-                    className={`px-3 py-1 ${
-                      genderFilter === 'men' ? 'bg-[#161918] text-white' : 'text-[#535A56]'
-                    }`}
-                  >
-                    Men
-                  </button>
-                </div>
+                <div className="grid w-full grid-cols-4 gap-2 text-xs font-semibold">{(['women', 'men', 'boys', 'girls'] as const).map((audience) => <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => { setGenderFilter(audience); setActiveCategory(catalogueCategories.find((cat) => cat.gender === audience)!.id); }} className={`min-h-12 px-2 capitalize ${genderFilter === audience ? 'bg-[#e6eee8] text-[#20352b]' : 'bg-white'}`}>{audience}</button>)}</div>
 
                 <div className="flex flex-wrap gap-1">
                   {filteredCategories.map((cat) => (

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
+import PhonePhotoTransfer from '@/components/PhonePhotoTransfer';
 import {
   catalogueCategories,
   events,
@@ -112,6 +113,7 @@ export default function TryFocusTvExperience() {
   const batchRunRef = useRef(0);
   const firstReadyRunRef = useRef(0);
   const idleResetRef = useRef<number | null>(null);
+  const [tryOnGuardianConsent, setTryOnGuardianConsent] = useState(false);
 
   // Camera capture modal / full-screen stage
   const [cameraOpen, setCameraOpen] = useState<boolean>(false);
@@ -138,11 +140,11 @@ export default function TryFocusTvExperience() {
   const [tvBillEntered, setTvBillEntered] = useState(false);
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
-  const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
+  const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory);
   const browseProducts = catalogueItems.filter((item) => item.gender === genderFilter &&
     (showClientCollection ? item.sku.startsWith('MAH-')
       : showNewArrivals ? (genderFilter === 'women' || genderFilter === 'men') && item.badge === 'NEW ARRIVAL'
-        : item.category === activeCategory && item.newArrivalOnly !== true));
+        : item.category === activeCategory));
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / 6));
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * 6, cataloguePage * 6 + 6);
   const videoBrowseProducts = catalogueItems.filter((item) => (item.eligibleForVideo === true || item.sku.startsWith('TF-')) && item.gender === videoAudience && (videoAudience !== 'women' || item.category === 'sarees'));
@@ -305,6 +307,10 @@ export default function TryFocusTvExperience() {
   }
 
   async function runCatalogueBatch(personImg: string) {
+    if ((genderFilter === 'boys' || genderFilter === 'girls') && !tryOnGuardianConsent) {
+      setTryOnError('A parent or guardian must approve the child’s photo first.');
+      return;
+    }
     const looks = selectedLooks.length ? selectedLooks : [selectedProduct];
     const runId = ++batchRunRef.current;
     setTryOnError('');
@@ -322,7 +328,10 @@ export default function TryFocusTvExperience() {
           body: JSON.stringify({
             sessionId: `tv_batch_${Date.now()}_${index}`,
             service: 'try-on',
-            templateId: product.gender === 'boys' ? 'men' : product.gender === 'girls' ? 'women' : product.gender,
+            templateId: product.gender === 'boys' ? 'boy' : product.gender === 'girls' ? 'girl' : product.gender,
+            guardianProcessingConsent: tryOnGuardianConsent,
+            catalogueProductId: product.sku,
+            catalogueProductTitle: product.title,
             garmentType: product.garmentType,
             garmentTypeConfirmed: true,
             processingConsent: true,
@@ -374,6 +383,7 @@ export default function TryFocusTvExperience() {
   }
 
   async function createImageHandoff(looks: Array<{ product: TryFocusProduct; url: string }>) {
+    const runId = batchRunRef.current;
     setHandoffStatus('Preparing your private mobile QR…');
     try {
       const handoffLooks = await Promise.all(looks.map(async (look) => {
@@ -403,9 +413,11 @@ export default function TryFocusTvExperience() {
       if (!response.ok || !data.token) throw new Error(data.error || 'Mobile handoff unavailable');
       const url = `${window.location.origin}/maharaja/looks/${data.token}`;
       const qr = await QRCode.toDataURL(url, { width: 260, margin: 1, color: { dark: '#161918', light: '#FAFBF8' } });
+      if (runId !== batchRunRef.current) return;
       setTryOnMobileQr(qr);
       setHandoffStatus('Scan to view and download your generated looks. Link expires in 15 minutes.');
     } catch (error) {
+      if (runId !== batchRunRef.current) return;
       setHandoffStatus(error instanceof Error ? error.message : 'Mobile handoff unavailable');
     }
   }
@@ -432,7 +444,8 @@ export default function TryFocusTvExperience() {
   async function createCatalogueVideoPass(
     product: TryFocusProduct,
     eventId: string,
-    masterUrl = ''
+    masterUrl = '',
+    referenceSessionId = ''
   ) {
     setVideoPassCreating(true);
     try {
@@ -449,7 +462,7 @@ export default function TryFocusTvExperience() {
           catalogueSku: product.sku,
           eventId,
           videoMasterUrl: masterUrl || undefined,
-          videoMasterApproved: Boolean(masterUrl),
+          videoReferenceSessionId: referenceSessionId || undefined,
           videoMasterCategory: product.gender === 'boys' ? 'boy' : product.gender === 'girls' ? 'girl' : product.gender,
           videoMasterConceptId: product.gender === 'boys' ? 'boy-heritage-entrance' : product.gender === 'girls' ? 'girl-garden-lights' : product.gender === 'men' ? 'men-heritage-passage' : 'women-golden-courtyard',
         }),
@@ -480,6 +493,10 @@ export default function TryFocusTvExperience() {
     garmentImg: string,
     product?: TryFocusProduct
   ) {
+    if ((genderFilter === 'boys' || genderFilter === 'girls') && !tryOnGuardianConsent) {
+      setTryOnError('A parent or guardian must approve the child’s photo first.');
+      return;
+    }
     if (!personImg || !garmentImg) {
       setTryOnError('Add your photo and your garment photo first.');
       return;
@@ -489,6 +506,7 @@ export default function TryFocusTvExperience() {
     setTryOnStage('generating');
 
     const sessionId = `tv_tryon_${Date.now()}`;
+    const runId = ++batchRunRef.current;
     const targetProduct = product || selectedProduct;
 
     try {
@@ -498,7 +516,8 @@ export default function TryFocusTvExperience() {
         body: JSON.stringify({
           sessionId,
           service: 'try-on',
-          templateId: targetProduct.gender,
+          templateId: genderFilter === 'boys' ? 'boy' : genderFilter === 'girls' ? 'girl' : genderFilter,
+          guardianProcessingConsent: tryOnGuardianConsent,
           garmentType: targetProduct.garmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,
@@ -511,6 +530,7 @@ export default function TryFocusTvExperience() {
         }),
       });
       const data = await res.json().catch(() => ({}));
+      if (runId !== batchRunRef.current) return;
       if (res.ok && data?.masterImageUrl) {
         setTryOnResultUrl(data.masterImageUrl);
         setTryOnStatusNote('Your look is ready.');
@@ -521,6 +541,7 @@ export default function TryFocusTvExperience() {
       }
       throw new Error(data?.error || 'Try-on generation failed.');
     } catch (error) {
+      if (runId !== batchRunRef.current) return;
       setTryOnError(error instanceof Error ? error.message : 'Try-on generation failed.');
       setTryOnStage('browse');
     }
@@ -533,6 +554,7 @@ export default function TryFocusTvExperience() {
       return;
     }
     setVideoGeneratingMaster(true);
+    const runId = ++batchRunRef.current;
     setVideoStatusNote('Creating your Diwali portrait with the selected Maharaja garment...');
     const sessionId = `tv_vidmaster_${Date.now()}`;
     const conceptId = selectedProduct.gender === 'men' ? 'men-heritage-passage' : selectedProduct.gender === 'boys' ? 'boy-heritage-entrance' : selectedProduct.gender === 'girls' ? 'girl-garden-lights' : 'women-golden-courtyard';
@@ -559,15 +581,17 @@ export default function TryFocusTvExperience() {
         }),
       });
       const data = await res.json().catch(() => ({}));
+      if (runId !== batchRunRef.current) return;
       if (!res.ok || !data?.masterImageUrl) throw new Error(data?.error || 'Festival image generation failed.');
       const generatedUrl = data.masterImageUrl;
       setVideoMasterUrl(generatedUrl);
       setVideoStatusNote('Diwali image ready. Scan the QR on your phone to generate the video.');
-      await createCatalogueVideoPass(selectedProduct, selectedEventId, generatedUrl);
+      await createCatalogueVideoPass(selectedProduct, selectedEventId, generatedUrl, data.sessionId);
     } catch (error) {
+      if (runId !== batchRunRef.current) return;
       setVideoStatusNote(error instanceof Error ? error.message : 'Festival image generation failed.');
     } finally {
-      setVideoGeneratingMaster(false);
+      if (runId === batchRunRef.current) setVideoGeneratingMaster(false);
     }
   }
 
@@ -587,6 +611,7 @@ export default function TryFocusTvExperience() {
     setOwnGarmentPhoto('');
     setTryOnResultUrl('');
     setTryOnMobileQr('');
+    setTryOnGuardianConsent(false);
     setHandoffStatus('');
     setSelectedLooks([]);
     setGeneratedLooks([]);
@@ -661,7 +686,8 @@ export default function TryFocusTvExperience() {
             {tryOnStage === 'browse' && <div className="tv-audience-options grid grid-cols-4 gap-3" aria-label="Choose who is shopping">
               {(['women', 'men', 'boys', 'girls'] as const).map((audience) => <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => selectGender(audience)} className={`border px-4 py-3 text-lg font-bold uppercase tracking-[0.12em] transition ${genderFilter === audience ? 'border-[#161918] bg-[#161918] text-white' : 'border-[#D8DCD7] bg-white text-[#161918]'}`}>{audience}</button>)}
             </div>}
-            {/* Top Sub-bar: Switch between Store Catalogue (30 items) & Upload/Capture Own Garment */}
+            {(genderFilter === 'boys' || genderFilter === 'girls') && <label className="flex min-h-16 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-lg"><input type="checkbox" checked={tryOnGuardianConsent} onChange={(event) => setTryOnGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve using this child’s photo for this experience.</label>}
+            {/* Top Sub-bar: Switch between Store Catalogue & Own Garment */}
             <div className="tv-source-bar flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-[#FAFBF8] p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -723,7 +749,7 @@ export default function TryFocusTvExperience() {
                             : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
                         }`}
                       >
-                        {cat.label} <span className="opacity-60">({catalogueItems.filter((item) => item.category === cat.id && item.newArrivalOnly !== true).length})</span>
+                        {cat.label} <span className="opacity-60">({catalogueItems.filter((item) => item.category === cat.id).length})</span>
                       </button>
                     ))}
                   </div>
@@ -1017,7 +1043,7 @@ export default function TryFocusTvExperience() {
            ========================================================= */}
         {mode === 'live-tryon' && (
           <LucyLiveMirror
-            catalogue={catalogueItems.filter((item) => item.price > 0 && (item.gender === 'women' || item.gender === 'men') && (item.eligibleForLive === true || item.sku.startsWith('TF-')))}
+            catalogue={catalogueItems.filter((item) => item.price > 10000 && (item.eligibleForLive === true || item.sku.startsWith('TF-')))}
             garmentPrompt={`Person wearing ${selectedProduct.title}, ${selectedProduct.fabricNote}`}
             garmentTitle={selectedProduct.title}
             selectedProduct={selectedProduct.price > 0 && (selectedProduct.eligibleForLive || selectedProduct.sku.startsWith('TF-')) ? selectedProduct : catalogueItems.find((item) => item.eligibleForLive === true)}
@@ -1293,8 +1319,8 @@ export default function TryFocusTvExperience() {
               </span>
               <span className="font-mono text-xs text-white/80">
                 {cameraTarget === 'own-garment'
-                  ? 'IMAGE 2 · CAPTURE GARMENT'
-                  : `IMAGE 1 · CUSTOMER PHOTO (${selectedProduct.title})`}
+                  ? 'YOUR GARMENT'
+                  : 'YOUR PHOTO'}
               </span>
             </div>
             <button
@@ -1396,11 +1422,11 @@ export default function TryFocusTvExperience() {
           {/* Bottom Laptop File Upload Alternative */}
           <div className="mx-auto flex w-full max-w-xl flex-wrap items-center justify-between gap-3 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-xs">
             <span className="text-white/80">
-              Testing on a laptop? Upload a photo directly instead of using the webcam:
+              Use the camera, choose a photo, or send one from your phone.
             </span>
             <label className="flex cursor-pointer items-center gap-1.5 bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-[#161918] hover:bg-[#F4F5F2]">
               <Upload className="h-3.5 w-3.5" />
-              Upload Photo from Laptop
+              Choose photo
               <input
                 type="file"
                 accept="image/*"
@@ -1408,6 +1434,7 @@ export default function TryFocusTvExperience() {
                 onChange={(e) => handleFileUpload(cameraTarget, e.target.files?.[0])}
               />
             </label>
+            <PhonePhotoTransfer onPhoto={(photo) => { stopCamera(); setCameraOpen(false); applyCapturedPhoto(cameraTarget, photo); }} />
           </div>
         </div>
       )}

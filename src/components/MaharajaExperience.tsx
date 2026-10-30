@@ -308,13 +308,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         }
         setEventId(data.access.eventId);
         // ₹500 minimum is disabled by default in admin, so keep purchaseConfirmed true.
-        setPurchaseConfirmed(true);
+        setPurchaseConfirmed(service !== 'try-on' || !!data.access.phoneMasked || Number(data.workspace?.tryOnMinimum || 0) === 0);
         if (data.access.experienceType === 'catalogue-gift') {
           setActiveService('ai-video');
           const giftCategory = (data.access.videoMasterCategory as CustomerCategory) || 'women';
           setCategory(giftCategory);
           setConceptId(conceptsForCategory(giftCategory)[0].id);
-          setGarmentType(giftCategory === 'men' ? 'kurta_dhoti' : 'saree');
+          setGarmentType(data.access.videoMasterGarmentType || (giftCategory === 'men' ? 'kurta_dhoti' : giftCategory === 'boy' ? 'boy_ethnic' : giftCategory === 'girl' ? 'girl_ethnic' : 'saree'));
           setGarmentTypeConfirmed(true);
           setGarmentRoles(['Catalogue Garment Reference']);
           setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: giftCategory === 'men' ? 'kurta_dhoti' : 'saree', primaryColor: 'Original color' });
@@ -340,6 +340,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         }
         const recoveryJobId = data.access.activeVideoJobId;
         const recoverySessionId = data.access.videoReferenceSessionId;
+        if (recoverySessionId) setSessionId(recoverySessionId);
         if (
           data.access.service === 'ai-video'
           && recoveryJobId
@@ -391,7 +392,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const canGenerateImage = !isImageExhausted
     && processingConsent
     && purchaseConfirmed
-    && (activeService === 'ai-video' || !!access?.access.phoneMasked || !!tryOnGrant)
+    && (activeService === 'ai-video' || !!access?.access.phoneMasked || !!tryOnGrant || Number(access?.workspace.tryOnMinimum || 0) === 0)
     && !!personPhoto
     && (isCatalogueGift || garmentPhotos.length > 0)
     && garmentTypeConfirmed

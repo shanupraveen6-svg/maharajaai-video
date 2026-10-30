@@ -6,6 +6,11 @@ import { MAHARAJA_CLIENT_ID } from './config';
 export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
   const nowIso = new Date().toISOString();
   let expiredTvHandoffs = 0;
+  const photoTransfers = await db.collection('tvPhotoTransfers').where('expiresAtMs', '<=', Date.now()).limit(100).get();
+  for (const transfer of photoTransfers.docs) {
+    await bucket.deleteFiles({ prefix: `clients/${MAHARAJA_CLIENT_ID}/photo-transfers/${transfer.id}/`, force: true });
+    await transfer.ref.delete();
+  }
   const handoffs = await db.collection('tvTryOnHandoffs').where('expiresAtMs', '<=', Date.now()).limit(100).get();
   for (const handoff of handoffs.docs) {
     await bucket.deleteFiles({ prefix: `clients/${MAHARAJA_CLIENT_ID}/tryon-handoffs/${handoff.id}/`, force: true });

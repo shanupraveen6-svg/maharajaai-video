@@ -58,7 +58,7 @@ export async function proxy(request: NextRequest) {
     || request.nextUrl.pathname.startsWith('/maharaja/workspace')
     || request.nextUrl.pathname.startsWith('/maharaja/client-admin')
     || request.nextUrl.pathname === '/tv'
-    || request.nextUrl.pathname === '/maharaja/tv'
+    || request.nextUrl.pathname.startsWith('/maharaja/tv')
     || request.nextUrl.pathname.startsWith('/maharaja/tablet/experience');
   if (!protectedPath) {
     return NextResponse.next();

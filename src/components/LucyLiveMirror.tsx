@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import QRCode from 'qrcode';
+import { fal } from '@fal-ai/client';
+import { createImageHandoff } from '@/lib/maharaja/image-handoff-client';
 import {
   Camera,
   CheckCircle2,
@@ -28,8 +29,14 @@ import {
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
 const SESSION_SECONDS = 30;
-const READY_COUNTDOWN_SECONDS = 3;
+const READY_COUNTDOWN_SECONDS = 5;
 const CARDS_PER_PAGE = 4;
+const WEDDING_CATEGORIES: Record<TryFocusProduct['gender'], CatalogueCategoryId[]> = {
+  women: ['sarees', 'half-sarees', 'lehengas', 'gowns', 'salwar-suits'],
+  men: ['veshti', 'kurta', 'angavastram', 'sherwanis', 'blazers'],
+  boys: ['boys-veshti', 'boys-kurta', 'boys-sherwani', 'boys-jacket', 'boys-festive'],
+  girls: ['girls-pavadai', 'girls-lehenga', 'girls-half-saree', 'girls-gown', 'girls-anarkali'],
+};
 
 type LiveState =
   | 'idle'
@@ -53,7 +60,7 @@ export default function LucyLiveMirror({
 } = {}) {
   const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
 
-  const [gender, setGender] = useState<'women' | 'men'>(externalProduct?.gender === 'men' ? 'men' : 'women');
+  const [gender, setGender] = useState<TryFocusProduct['gender']>(externalProduct?.gender || 'women');
   const [category, setCategory] = useState<'wedding-picks' | CatalogueCategoryId>('wedding-picks');
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedGarment, setSelectedGarment] = useState<TryFocusProduct>(
@@ -63,16 +70,19 @@ export default function LucyLiveMirror({
   const [readyCountdown, setReadyCountdown] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(SESSION_SECONDS);
   const [error, setError] = useState('');
+  const [guardianConsent, setGuardianConsent] = useState(false);
   const [statusMessage, setStatusMessage] = useState(
     'Step 1: Open the mirror camera, choose a catalogue outfit, and tap Start 30s Live Try-On.'
   );
   const [completionModalOpen, setCompletionModalOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
+  const [handoffMessage, setHandoffMessage] = useState('');
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const wsRef = useRef<{ send: (input: Record<string, unknown>) => void; close: () => void } | null>(null);
+  const connectionDeadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const timerRef = useRef<number | null>(null);
   const countdownTimerRef = useRef<number | null>(null);
@@ -80,8 +90,8 @@ export default function LucyLiveMirror({
   const paidTimerStartedRef = useRef(false);
 
   const visibleCategories = useMemo(
-    () => catalogueCategories.filter((cat) => cat.gender === gender && activeCatalogue.some((item) => item.category === cat.id)),
-    [gender, activeCatalogue]
+    () => WEDDING_CATEGORIES[gender].map((id) => catalogueCategories.find((cat) => cat.id === id)!).filter(Boolean),
+    [gender]
   );
 
   const categoryProducts = useMemo(() => {
@@ -105,21 +115,13 @@ export default function LucyLiveMirror({
     selectedGarmentRef.current = selectedGarment;
   }, [selectedGarment]);
 
-  // Generate QR for selected garment on completion
-  useEffect(() => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tryfocus.in';
-    const url = `${origin}/maharaja/try-on?sku=${encodeURIComponent(selectedGarment.sku)}&source=live-mirror`;
-    QRCode.toDataURL(url, {
-      width: 240,
-      margin: 1,
-      color: { dark: '#161918', light: '#FAFBF8' },
-    })
-      .then(setQrDataUrl)
-      .catch(() => setQrDataUrl(''));
-  }, [selectedGarment]);
 
   useEffect(() => {
+    void enableCameraPreview();
+    const pause = () => { if (document.hidden) stopSession('camera_ready'); };
+    document.addEventListener('visibilitychange', pause);
     return () => {
+      document.removeEventListener('visibilitychange', pause);
       stopEverything();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,6 +143,8 @@ export default function LucyLiveMirror({
   }
 
   function closeRealtimeConnections() {
+    if (connectionDeadlineRef.current) clearTimeout(connectionDeadlineRef.current);
+    connectionDeadlineRef.current = null;
     clearSessionTimer();
     clearCountdownTimer();
     paidTimerStartedRef.current = false;
@@ -219,20 +223,12 @@ export default function LucyLiveMirror({
     });
   }
 
-  async function sendGarmentReference(ws: WebSocket, garment: TryFocusProduct) {
-    if (ws.readyState !== WebSocket.OPEN) return;
+  async function sendGarmentReference(ws: { send: (input: Record<string, unknown>) => void }, garment: TryFocusProduct) {
     const referenceSource = garment.garmentReferenceUrl || garment.imageUrl;
     const imageDataUri = await garmentUrlToDataUri(referenceSource);
     const prompt = `Wear the exact ${garment.title} (${garment.fabricNote || garment.category}). Preserve exact garment color, border, zari and drape while keeping the customer's real face and skin tone natural.`;
 
-    ws.send(
-      JSON.stringify({
-        type: 'set_image',
-        image: imageDataUri,
-        prompt,
-        enhance_prompt: true,
-      })
-    );
+    ws.send({ reference_image_url: imageDataUri, prompt, enhance_prompt: true });
   }
 
   function startPaidThirtySecondWindow() {
@@ -256,6 +252,14 @@ export default function LucyLiveMirror({
   }
 
   async function beginLiveCountdownAndConnect() {
+    if ((gender === 'boys' || gender === 'girls') && !guardianConsent) {
+      setError('A parent or guardian must approve the child’s photo first.');
+      return;
+    }
+    if (selectedGarment.gender !== gender || !activeCatalogue.some((item) => item.sku === selectedGarment.sku)) {
+      setError('Choose an available garment from this collection first.');
+      return;
+    }
     if (
       state === 'ready_countdown' ||
       state === 'connecting' ||
@@ -329,103 +333,68 @@ export default function LucyLiveMirror({
         throw new Error('Camera feed is not ready.');
       }
 
-      const tokenRes = await fetch('/api/fal/realtime-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ app: LUCY_VTON_APP }),
+      let stopped = false;
+      const pendingCandidates: RTCIceCandidateInit[] = [];
+      const fail = (message: string) => {
+        if (stopped) return;
+        stopped = true;
+        closeRealtimeConnections(); setState('error'); setError(message);
+      };
+      const connection = fal.realtime.connect<Record<string, unknown>, Record<string, any>>(LUCY_VTON_APP, {
+        connectionKey: `maharaja-live-${Date.now()}`,
+        throttleInterval: 0,
+        tokenExpirationSeconds: 60,
+        tokenProvider: async () => {
+          const response = await fetch('/api/fal/realtime-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: LUCY_VTON_APP }) });
+          if (!response.ok) throw new Error(await response.text());
+          return (await response.text()).trim();
+        },
+        onError: (error) => fail(error.message || 'The live mirror could not connect. Please ask staff for help.'),
+        onResult: async (message) => {
+          if (stopped || wsRef.current !== connection) return;
+          try {
+            if (message.type === 'iceservers' || message.type === 'iceServers') {
+              if (pcRef.current) return;
+              const servers = message.iceservers || message.iceServers || message.ice_servers || [];
+              const pc = new RTCPeerConnection({ iceServers: servers.map((server: RTCIceServer) => ({ urls: server.urls, username: server.username, credential: server.credential })) });
+              pcRef.current = pc;
+              stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+              pc.ontrack = (event) => {
+                const output = event.streams[0] || new MediaStream([event.track]);
+                const video = remoteVideoRef.current;
+                if (!video) return;
+                video.srcObject = output;
+                video.onplaying = () => {
+                  if (connectionDeadlineRef.current) clearTimeout(connectionDeadlineRef.current);
+                  startPaidThirtySecondWindow();
+                };
+                void video.play().catch(() => fail('Tap Start again to allow live video playback.'));
+              };
+              pc.onicecandidate = (event) => {
+                if (event.candidate && wsRef.current === connection) connection.send({ type: 'icecandidate', candidate: event.candidate.toJSON() });
+              };
+              pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') fail('The live connection was interrupted. Please try again.'); };
+              const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+              connection.send({ type: 'offer', sdp: offer.sdp });
+            } else if (message.type === 'answer' && pcRef.current) {
+              await pcRef.current.setRemoteDescription({ type: 'answer', sdp: message.sdp });
+              for (const candidate of pendingCandidates.splice(0)) await pcRef.current.addIceCandidate(candidate);
+            } else if (message.type === 'icecandidate' && message.candidate) {
+              if (pcRef.current?.remoteDescription) await pcRef.current.addIceCandidate(message.candidate);
+              else pendingCandidates.push(message.candidate);
+            } else if (message.type === 'ice-restart' && pcRef.current && message.turn_config) {
+              pcRef.current.setConfiguration({ iceServers: [{ urls: message.turn_config.server_url, username: message.turn_config.username, credential: message.turn_config.credential }] });
+              const offer = await pcRef.current.createOffer({ iceRestart: true }); await pcRef.current.setLocalDescription(offer);
+              connection.send({ type: 'offer', sdp: offer.sdp });
+            } else if (message.type === 'error' || ((message.type === 'set_image_ack' || message.type === 'prompt_ack') && message.success === false)) {
+              fail(String(message.error || 'This garment could not be loaded. Choose another look.'));
+            }
+          } catch (error) { fail(error instanceof Error ? error.message : 'The live mirror could not connect.'); }
+        },
       });
-
-      if (!tokenRes.ok) {
-        const msg = await tokenRes.text().catch(() => '');
-        throw new Error(msg || 'Live AI Mirror token service is unavailable.');
-      }
-
-      const token = (await tokenRes.text()).trim();
-      const wsUrl = `wss://fal.run/${LUCY_VTON_APP}?fal_jwt_token=${encodeURIComponent(token)}`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-      });
-      pcRef.current = pc;
-
-      // Start the paid 30-second countdown ONLY when the remote AI video track is confirmed playing!
-      pc.ontrack = (event) => {
-        const [remoteStream] = event.streams;
-        if (remoteStream && remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream;
-          remoteVideoRef.current.onplaying = () => {
-            startPaidThirtySecondWindow();
-          };
-          remoteVideoRef.current
-            .play()
-            .then(() => {
-              startPaidThirtySecondWindow();
-            })
-            .catch(() => undefined);
-        }
-      };
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ice-candidate', candidate: event.candidate }));
-        }
-      };
-
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-      ws.onopen = async () => {
-        try {
-          await sendGarmentReference(ws, selectedGarmentRef.current);
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
-        } catch (err) {
-          setError(
-            err instanceof Error ? err.message : 'Unable to initialize Live AI Mirror stream.'
-          );
-          closeRealtimeConnections();
-          setState('error');
-        }
-      };
-
-      ws.onmessage = async (event) => {
-        try {
-          const message = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
-          if ((message.type === 'answer' || message.sdp) && pc.signalingState !== 'stable') {
-            await pc.setRemoteDescription(
-              new RTCSessionDescription({
-                type: 'answer',
-                sdp: message.sdp || message.answer?.sdp,
-              })
-            );
-          } else if (message.type === 'ice-candidate' && message.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-          } else if (message.type === 'error' || message.error) {
-            throw new Error(message.error || message.message || 'Live AI Mirror reported an error.');
-          }
-        } catch {
-          // non-JSON or signaling status frame
-        }
-      };
-
-      ws.onerror = () => {
-        closeRealtimeConnections();
-        setState('error');
-        setError(
-          'Live AI Mirror stream could not connect. Camera preview remains available, or switch to AI Image Try-On.'
-        );
-      };
-
-      ws.onclose = () => {
-        if (!paidTimerStartedRef.current) {
-          setState((current) => (current === 'connecting' ? 'error' : current));
-          setError((prev) =>
-            prev || 'Live AI Mirror connection closed before AI video output started.'
-          );
-        }
-      };
+      wsRef.current = connection;
+      connectionDeadlineRef.current = setTimeout(() => fail('The live mirror took too long to connect. Your session has stopped.'), 30_000);
+      await sendGarmentReference(connection, selectedGarmentRef.current);
     } catch (caught) {
       closeRealtimeConnections();
       setError(
@@ -436,6 +405,21 @@ export default function LucyLiveMirror({
   }
 
   function stopSession(nextState: LiveState = 'camera_ready') {
+    if (nextState === 'complete') {
+      setQrDataUrl(''); setHandoffMessage('Preparing your private phone QR…');
+      const video = remoteVideoRef.current;
+      if (video?.videoWidth && video.videoHeight) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        const context = canvas.getContext('2d');
+        if (context) {
+          context.drawImage(video, 0, 0);
+          void createImageHandoff(canvas.toDataURL('image/jpeg', .85), selectedGarmentRef.current.sku, selectedGarmentRef.current.title)
+            .then((qr) => { setQrDataUrl(qr); setHandoffMessage('Scan to save your live mirror look. Private link valid for 15 minutes.'); })
+            .catch(() => setHandoffMessage('The snapshot could not be saved. Ask a store assistant for help.'));
+        }
+      } else setHandoffMessage('A live mirror snapshot is not available for this session.');
+    }
     closeRealtimeConnections();
     setState(nextState);
     if (nextState === 'complete') {
@@ -454,7 +438,7 @@ export default function LucyLiveMirror({
     setSelectedGarment(item);
     selectedGarmentRef.current = item;
     onSelectProduct?.(item);
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (wsRef.current) {
       try {
         await sendGarmentReference(wsRef.current, item);
         setStatusMessage(`Switched live outfit to ${item.title}.`);
@@ -477,10 +461,11 @@ export default function LucyLiveMirror({
         <p className="mt-2 text-lg text-[#535A56]">Choose a look, open the camera, then start your 30-second session.</p>
       </div>
 
-      <div className="tv-live-audience grid grid-cols-2 gap-3" aria-label="Live mirror audience">
-        {(['women', 'men'] as const).map((g) => <button key={g} type="button" aria-pressed={gender === g} onClick={() => { setGender(g); setCategory('wedding-picks'); setPageIndex(0); const first = activeCatalogue.find((item) => item.gender === g); if (first) void selectGarment(first); }} className={`min-h-16 border-2 px-4 text-xl font-bold ${gender === g ? 'border-[#161918] bg-[#161918] text-white' : 'border-[#D8DCD7] bg-white text-[#161918]'}`}>{g === 'women' ? 'Women' : 'Men'}</button>)}
+      <div className="tv-live-audience grid grid-cols-4 gap-3" aria-label="Live mirror audience">
+        {(['women', 'men', 'boys', 'girls'] as const).map((g) => <button key={g} type="button" aria-pressed={gender === g} onClick={() => { setGender(g); setCategory('wedding-picks'); setPageIndex(0); const first = activeCatalogue.find((item) => item.gender === g); if (first) void selectGarment(first); }} className={`min-h-16 border-2 px-4 text-xl font-bold ${gender === g ? 'border-[#161918] bg-[#161918] text-white' : 'border-[#D8DCD7] bg-white text-[#161918]'}`}>{g.charAt(0).toUpperCase() + g.slice(1)}</button>)}
       </div>
 
+      {(gender === 'boys' || gender === 'girls') && <label className="flex min-h-16 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-lg"><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve this child’s live mirror session.</label>}
       {/* Portrait Kiosk Main Area: Left Dominant Mirror Viewport + Right Paged Outfit Selector */}
       <div className="tv-live-main grid min-w-0 gap-4">
         {/* Mirror Viewport */}
@@ -628,6 +613,7 @@ export default function LucyLiveMirror({
                 <button
                   key={cat.id}
                   type="button"
+                  aria-pressed={category === cat.id}
                   onClick={() => {
                     setCategory(cat.id);
                     setPageIndex(0);
@@ -646,6 +632,7 @@ export default function LucyLiveMirror({
             </div>
 
             <div className="tv-live-garments mt-3 grid gap-2">
+              {pagedProducts.length === 0 && <p className="p-3 text-sm text-[#535A56]">This collection is being prepared. Choose another wedding style.</p>}
               {pagedProducts.map((item) => {
                 const active = selectedGarment.id === item.id || selectedGarment.sku === item.sku;
                 return (
@@ -777,9 +764,10 @@ export default function LucyLiveMirror({
 
               <div className="space-y-4">
                 <p className="text-sm leading-relaxed text-[#535A56]">
-                  Your 30-second Live AI Mirror window has finished and the stream has been safely closed. Scan the QR to save{' '}
+                  Your live session has finished. Scan the QR to save{' '}
                   <strong>{selectedGarment.title}</strong> ({formatINR(selectedGarment.price)}) on your phone, or start another 30-second live session.
                 </p>
+                <p role="status" className="text-sm">{handoffMessage}</p>
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"

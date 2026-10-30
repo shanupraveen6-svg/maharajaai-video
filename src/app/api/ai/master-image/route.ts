@@ -1,18 +1,19 @@
 import fs from 'fs/promises';
 import path from 'path';
+import sharp from 'sharp';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
 import { type CustomerCategory, isEventId, MAHARAJA_CLIENT_ID, TRY_ON_MIN_PURCHASE, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
-import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementMaharajaUsage, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releasePassImageLock, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 const MAX_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024;
 
 function getGenAIClient() {
@@ -103,6 +104,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, garmentRoles, conceptPrompt, templateId, accessCode } = body;
     const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
+    if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{8,120}$/.test(sessionId)) {
+      return NextResponse.json({ success: false, error: 'Reload the page to start a valid photo session.' }, { status: 400 });
+    }
     if (body.processingConsent !== true || body.consentVersion !== '2026-10-privacy-v2') {
       return NextResponse.json({ success: false, error: 'Photo processing permission is required before generation.' }, { status: 400 });
     }
@@ -187,7 +191,7 @@ export async function POST(req: NextRequest) {
 
     if (!Array.isArray(garmentInputs) || garmentInputs.length === 0) {
       return NextResponse.json(
-        { success: false, error: access.pass?.experienceType === 'catalogue-gift' ? 'Select a Maharaja catalogue saree before generating.' : 'Garment photo is missing. Upload at least one garment photo before generating the AI image.' },
+        { success: false, error: access.pass?.experienceType === 'catalogue-gift' ? 'Select a catalogue garment before creating your portrait.' : 'Add a garment photo before creating your look.' },
         { status: 400 }
       );
     }
@@ -205,17 +209,19 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    if (service === 'try-on' && !access.pass) {
+    if (service === 'try-on' && !access.pass && accessCode === access.workspace.tryOnCode) {
       const requirePriceTag = TRY_ON_MIN_PURCHASE > 0 || access.workspace.minPurchaseTryOnDisabled === false;
-      if (requirePriceTag || typeof body.tryOnGrant === 'string') {
-        if (!validTryOnDeviceId(body.deviceId) || typeof body.tryOnGrant !== 'string') {
-          return NextResponse.json({ success: false, error: 'Scan and verify the Maharaja ₹500+ price tag before generating.' }, { status: 403 });
-        }
-        const reservation = await reserveTryOnGrant(body.deviceId, body.tryOnGrant, sessionId);
-        if (!reservation.allowed) return NextResponse.json({ success: false, error: reservation.error }, { status: 409 });
-        reservedDeviceId = body.deviceId;
-        reservedSessionId = sessionId;
+      if (!validTryOnDeviceId(body.deviceId)) return NextResponse.json({ success: false, error: 'Reload this page to prepare your private session.' }, { status: 400 });
+      let token = typeof body.tryOnGrant === 'string' ? body.tryOnGrant : '';
+      if (!requirePriceTag && !token) {
+        const grant = await issueTryOnGrant(body.deviceId, 0);
+        if (!grant.allowed) return NextResponse.json({ success: false, error: grant.error }, { status: 409 });
+        token = grant.token;
       }
+      if (!token) return NextResponse.json({ success: false, error: 'Scan and verify a garment price tag of ₹500 or above first.' }, { status: 403 });
+      const reservation = await reserveTryOnGrant(body.deviceId, token, sessionId);
+      if (!reservation.allowed) return NextResponse.json({ success: false, error: reservation.error }, { status: 409 });
+      reservedDeviceId = body.deviceId; reservedSessionId = sessionId;
     }
 
     const nowIso = new Date().toISOString();
@@ -237,6 +243,8 @@ export async function POST(req: NextRequest) {
     }
 
     let masterImageUrl = '';
+    let videoPersonPath: string | undefined;
+    let videoGarmentPaths: string[] = [];
     const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
     if (body.garmentTypeConfirmed !== true) {
       return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
@@ -253,10 +261,17 @@ export async function POST(req: NextRequest) {
     try {
         const contents: any[] = [];
 
-        const [personBase64, ...garmentBase64s] = await Promise.all([
+        const sourceReferences = await Promise.all([
           resolveImageBase64(personInput, bucket, sessionId),
           ...garmentInputs.map((input) => resolveImageBase64(input, bucket, sessionId, cataloguePath)),
         ]);
+        const preparedReferences = await Promise.all(sourceReferences.map(async (source) => sharp(Buffer.from(source, 'base64')).rotate().resize(2048, 2048, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 94, chromaSubsampling: '4:4:4' }).toBuffer()));
+        const [personBase64, ...garmentBase64s] = preparedReferences.map((image) => image.toString('base64'));
+        if (service === 'ai-video') {
+          videoPersonPath = `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/person/reference.jpg`;
+          videoGarmentPaths = garmentBase64s.map((_, index) => `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/garment/reference-${index}.jpg`);
+          await Promise.all([videoPersonPath, ...videoGarmentPaths].map((referencePath, index) => bucket.file(referencePath).save(preparedReferences[index], { contentType: 'image/jpeg', public: false, metadata: { cacheControl: 'private, no-store' } })));
+        }
         if (personBase64) contents.push({ inlineData: { mimeType: 'image/jpeg', data: personBase64 } });
         garmentBase64s.forEach((garmentBase64) => {
           if (garmentBase64) contents.push({ inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } });
@@ -361,7 +376,7 @@ ${categoryGarmentLine}
         if (rawBuffer) {
           const finalBuffer = service === 'try-on'
             ? await applyMaharajaWatermark(rawBuffer)
-            : rawBuffer;
+            : await sharp(rawBuffer).rotate().jpeg({ quality: 95, chromaSubsampling: '4:4:4' }).toBuffer();
           masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
 
           try {
@@ -417,8 +432,8 @@ ${categoryGarmentLine}
       : {
         masterImageUrl,
         masterStoragePath: `clients/${MAHARAJA_CLIENT_ID}/sessions/${sessionId}/master/master.jpg`,
-        personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : null,
-        garmentPhotoStoragePaths: garmentInputs.slice(0, 2),
+        personPhotoStoragePath: videoPersonPath || null,
+        garmentPhotoStoragePaths: videoGarmentPaths,
         masterImageApproved: false,
         masterImageApprovedAt: null,
         masterImageApprovedUrl: null,
@@ -426,6 +441,7 @@ ${categoryGarmentLine}
 
     // Protect Firestore against 1MB document size limit if Storage was bypassed
     const safeImageFields: Record<string, unknown> = { ...imageFields };
+    safeImageFields.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     if (db && service === 'ai-video' && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000) {
       console.warn('Image data URI exceeds 700KB; truncating Firestore document cache to avoid 1MB document size limit.');
       safeImageFields.masterImageUrl = masterImageUrl.slice(0, 500) + '...[truncated-data-url-use-storage]';
@@ -497,8 +513,8 @@ ${categoryGarmentLine}
             garmentType,
             garmentRoles: sanitizedGarmentRoles.slice(0, 2),
             referenceSessionId: sessionId,
-            personPhotoStoragePath: typeof body.personPhotoStoragePath === 'string' ? body.personPhotoStoragePath : undefined,
-            garmentPhotoStoragePaths: garmentInputs.slice(0, 2),
+            personPhotoStoragePath: videoPersonPath,
+            garmentPhotoStoragePaths: videoGarmentPaths,
           }, boundGenerationId);
         }
       })());
@@ -533,6 +549,7 @@ ${categoryGarmentLine}
       sessionId,
       masterImageUrl,
       approved: service === 'try-on',
+      provider: imageProvider,
       conceptId: concept?.id || null,
       timing,
       allowances: updatedAllowances,

@@ -12,6 +12,7 @@ sessions.set('private-expired', { expiresAt: expiry });
 let progress;
 let pages = 0;
 const deletions = [];
+const handoffs = new Map([['expired-phone-handoff', {}]]);
 const ref = (id) => ({ id, set: async (patch) => {
   const session = sessions.get(id);
   Object.assign(session, patch);
@@ -26,6 +27,8 @@ const db = {
       where: () => query, orderBy: () => query, limit: () => query,
       startAfter: (_expiry, id) => { cursor = id; return query; },
       get: async () => {
+        if (name === 'tvPhotoTransfers') return { docs: [] };
+        if (name === 'tvTryOnHandoffs') return { docs: [...handoffs.keys()].map((id) => ({ id, ref: { delete: async () => handoffs.delete(id) } })) };
         if (name === 'liveQueue') return { empty: true, docs: [] };
         if (name === 'securityRateLimits') {
           const docs = [...rateLimits.keys()].slice(0, 200).map((id) => ({ ref: { id } }));
@@ -53,6 +56,8 @@ assert.equal(result.deleted, 1);
 assert.equal(result.retainedForPromotion, 505);
 assert.equal(result.preservedLive, 2);
 assert.equal(result.failed, 0);
+assert.equal(handoffs.size, 0, 'Expired phone handoff records are deleted.');
+assert.ok(deletions.includes('clients/maharaja/tryon-handoffs/expired-phone-handoff/'), 'Expired phone images are deleted with their handoff.');
 assert.equal(result.expiredRateLimits, 250, 'Numeric expiry also removes old rate-limit records across pages.');
 assert.ok(pages >= 6, 'Cleanup must cross the old 500-record ceiling.');
 assert.ok(sessions.has('legacy-live') && sessions.has('orphan-live'));

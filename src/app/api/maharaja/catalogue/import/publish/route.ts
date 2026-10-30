@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
           garmentReferencePath: path,
           fabricNote: `${category.label} · Store catalogue`,
           newArrival: raw.newArrival === true,
-          eligibleForVideo: false,
-          eligibleForLive: false,
+          eligibleForVideo: raw.eligibleForVideo === true,
+          eligibleForLive: raw.eligibleForLive === true,
           active: true,
           sortOrder: Number(raw.sortOrder) || Date.now(),
         });

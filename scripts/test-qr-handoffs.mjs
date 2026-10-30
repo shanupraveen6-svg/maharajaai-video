@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import sharp from 'sharp';
+import nextEnv from '@next/env';
+const { loadEnvConfig } = nextEnv;
+loadEnvConfig(process.cwd());
+
+const base = process.env.BASE_URL || 'http://localhost:3000';
+const image = await sharp('public/images/catalogue-demo/navy-kurta-model.png').resize(400, 600, { fit: 'inside' }).jpeg().toBuffer();
+const login = await fetch(`${base}/api/operator/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: process.env.OPERATOR_USERNAME, password: process.env.OPERATOR_PASSWORD }) });
+assert.equal(login.status, 200, 'Operator can sign in.');
+const cookie = login.headers.get('set-cookie')?.split(';')[0];
+assert.ok(cookie);
+const request = (path, body, authenticated = false) => fetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authenticated ? { cookie } : {}) }, body: JSON.stringify(body) });
+
+const privatePage = await fetch(`${base}/maharaja/tv/experience`, { redirect: 'manual' });
+assert.ok([307, 308].includes(privatePage.status), 'TV setup requires staff sign-in or display pairing.');
+const workspaceResponse = await fetch(`${base}/api/maharaja/workspace`, { headers: { cookie } });
+const { workspace } = await workspaceResponse.json();
+assert.ok(workspace?.openVideoCode);
+const posterOne = await request('/api/maharaja/video-pass', { source: 'video-poster', billingCode: workspace.openVideoCode });
+const posterData = await posterOne.json();
+assert.equal(posterOne.status, 200, JSON.stringify(posterData));
+assert.ok(posterData.pass?.code && posterData.pass?.link);
+const access = await (await fetch(`${base}/api/maharaja/access/${posterData.pass.code}?service=ai-video`)).json();
+assert.equal(access.access.experienceType, 'purchased-garment');
+const expiry = new Date(access.access.expiresAt).getTime();
+assert.ok(expiry > Date.now() + 23 * 60 * 60 * 1000 && expiry <= Date.now() + 24 * 60 * 60 * 1000, 'Poster creates a private 24-hour session.');
+const posterTwo = await (await request('/api/maharaja/video-pass', { source: 'video-poster', billingCode: workspace.openVideoCode })).json();
+assert.notEqual(posterTwo.pass.code, posterData.pass.code, 'Two scans of the same poster create separate customer sessions.');
+console.log('PASS: permanent video QR creates independent 24-hour sessions.');
+
+const handoff = await request('/api/tv/tryon-handoff', { looks: [{ sku: 'QA-SAMPLE', title: 'Private sample look', image: `data:image/jpeg;base64,${image.toString('base64')}` }] }, true);
+const handoffData = await handoff.json();
+assert.equal(handoff.status, 200, JSON.stringify(handoffData));
+const lookResponse = await fetch(`${base}/api/tv/tryon-handoff/${handoffData.token}`);
+const lookData = await lookResponse.json();
+assert.equal(lookData.looks.length, 1);
+const download = await fetch(`${base}${lookData.looks[0].downloadUrl}`);
+assert.equal(download.status, 200);
+assert.match(download.headers.get('content-disposition'), /^attachment/);
+assert.deepEqual(Buffer.from(await download.arrayBuffer()), image, 'Phone receives the exact generated result bytes.');
+assert.equal((await fetch(`${base}/api/tv/tryon-handoff/not-a-token`)).status, 404);
+console.log('PASS: TV-to-phone QR returns the exact result, with private downloadable image.');
+
+assert.equal((await request('/api/tv/photo-transfer', {})).status, 401);
+const transferResponse = await request('/api/tv/photo-transfer', {}, true);
+const transfer = await transferResponse.json();
+assert.equal(transferResponse.status, 200, JSON.stringify(transfer));
+const form = new FormData(); form.set('photo', new Blob([image], { type: 'image/jpeg' }), 'sample.jpg');
+const upload = await fetch(`${base}/api/tv/photo-transfer/${transfer.token}`, { method: 'PATCH', body: form });
+assert.equal(upload.status, 200, await upload.text());
+const publicStatus = await (await fetch(`${base}/api/tv/photo-transfer/${transfer.token}`)).json();
+assert.equal(publicStatus.status, 'ready'); assert.equal(publicStatus.image, undefined, 'Upload token cannot read the customer photo.');
+const receiverHeaders = { 'x-transfer-receiver': transfer.receiver };
+const received = await (await fetch(`${base}/api/tv/photo-transfer/${transfer.token}`, { headers: receiverHeaders })).json();
+assert.equal(received.image, `data:image/jpeg;base64,${image.toString('base64')}`);
+const consume = await fetch(`${base}/api/tv/photo-transfer/${transfer.token}`, { method: 'DELETE', headers: receiverHeaders });
+assert.equal(consume.status, 200);
+assert.equal((await fetch(`${base}/api/tv/photo-transfer/${transfer.token}`)).status, 404);
+console.log('PASS: phone-to-TV confirmation transfer, receiver-only access and deletion after receipt.');
+
+const noConsent = await request('/api/ai/master-image', { service: 'try-on' }, true);
+assert.equal(noConsent.status, 400);
+assert.equal((await request('/api/fal/realtime-token', { app: 'decart/lucy2-vton/realtime' })).status, 401);
+console.log('PASS: generation consent and live-token authentication are enforced without paid generation.');

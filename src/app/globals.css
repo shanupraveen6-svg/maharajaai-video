@@ -297,6 +297,12 @@
 .tv-product-image { height: clamp(300px, 33vh, 520px); aspect-ratio: auto; }
 .tv-product-image img { width: 100%; height: 100%; object-fit: contain; object-position: center; background: #eee9e0; }
 .tv-product-card h4 { font-size: clamp(19px, 2.1vw, 26px); line-height: 1.14; }
+.tv-product-card > div:last-child { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 8px; padding: 12px; }
+.tv-product-card h4 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: clamp(17px, 1.85vw, 22px); line-height: 1.2; }
+.tv-product-card > div:last-child > span { font-size: 13px; }
+.tv-product-card .tv-product-image { height: clamp(180px, 20dvh, 360px); }
+.tv-product-image > div > span:last-child { background: #e6eee8; color: #20352b; }
+.tv-product-image[aria-pressed="true"] > div > span:last-child { background: #394b42; color: white; }
 .tv-product-card .font-mono { font-size: 12px; }
 .tv-selection-bar { bottom: 0; border: 2px solid #7a1428; background: #fffdfa; padding: 14px 20px; box-shadow: 0 -8px 24px rgb(0 0 0 / .12); }
 .tv-selection-bar button { min-height: 76px; font-size: clamp(17px, 1.8vw, 22px); }
@@ -325,9 +331,30 @@
 
 @media (orientation: portrait) and (min-width: 600px) and (max-width: 899px) {
   .tv-kiosk-content { padding: 18px 20px 110px; }
-  .tv-kiosk .tv-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv-kiosk .tv-product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tv-product-image { height: clamp(280px, 31vh, 400px); }
   .tv-mode-button { min-height: 70px; }
+}
+
+@media (orientation: portrait) and (min-width: 600px) and (max-height: 1400px) {
+  .tv-kiosk-content > .space-y-6 { display: flex; flex-direction: column; gap: 12px; }
+  .tv-kiosk-content > .space-y-6 > * { margin-block: 0; }
+  .tv-main-brand { padding-block: 10px; }
+  .tv-mode-button, .tv-audience-options button, .tv-source-bar button { min-height: 56px; }
+  .tv-discovery-intro > p:first-child { display: none; }
+  .tv-discovery-intro h2 { font-size: 30px; }
+  .tv-source-bar { padding: 10px; }
+  .tv-catalogue-shell { grid-template-columns: 180px minmax(0, 1fr); gap: 12px; }
+  .tv-kiosk .tv-category-sidebar .tv-kiosk-filters { gap: 4px; }
+  .tv-kiosk .tv-category-sidebar .tv-kiosk-filters button { min-height: 38px; padding: 7px 10px; font-size: 13px; }
+  .tv-kiosk .tv-source-bar button, .tv-kiosk .tv-audience-options button { min-height: 48px; }
+  .tv-source-bar p { display: none; }
+  .tv-discovery-intro p { margin-top: 4px; font-size: 15px; }
+  .tv-product-card .tv-product-image { height: clamp(160px, 16dvh, 220px); }
+  .tv-kiosk .tv-category-sidebar { padding: 10px; }
+  .tv-kiosk .tv-product-grid { gap: 10px; }
+  .tv-catalogue-pagination { padding: 8px; }
+  .tv-kiosk .tv-catalogue-pagination button { min-width: 0; min-height: 48px; padding: 8px 12px; font-size: 15px; }
 }
 
 @media (max-width: 599px) {

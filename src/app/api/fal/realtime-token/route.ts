@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMaharajaWorkspace, incrementMaharajaUsage } from '@/lib/maharaja/server';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { verifyTvRequest } from '@/lib/auth/display';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
 
 export async function POST(req: NextRequest) {
+  if (!await verifyTvRequest(req)) return new NextResponse('Sign in or pair this display first.', { status: 401 });
   const workspace = await getMaharajaWorkspace();
   if (!workspace.campaignEnabled) {
     return new NextResponse('Store campaign is currently paused by the administrator.', { status: 403 });
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ allowed_apps: [LUCY_VTON_APP], token_expiration: 60 }),
+      body: JSON.stringify({ allowed_apps: ['lucy2-vton'], token_expiration: 60 }),
       cache: 'no-store',
       signal: AbortSignal.timeout(10_000),
     });

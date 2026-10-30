@@ -95,7 +95,9 @@ function getMockCatalogueMap(): Map<string, MaharajaCatalogueProduct> {
 }
 
 function normalizeCatalogueProduct(raw: Partial<MaharajaCatalogueProduct>, index = 1): MaharajaCatalogueProduct {
-  const category = (catalogueCategories.some((c) => c.id === raw.category) ? raw.category : 'sarees') as CatalogueCategoryId;
+  const legacyCategories: Record<string, CatalogueCategoryId> = { shirts: 'casual-shirts', salwar: 'salwar-suits', lehenga: 'lehengas' };
+  const requestedCategory = legacyCategories[String(raw.category)] || raw.category;
+  const category = (catalogueCategories.some((c) => c.id === requestedCategory) ? requestedCategory : 'sarees') as CatalogueCategoryId;
   const catMeta = catalogueCategories.find((c) => c.id === category) || catalogueCategories[0];
   const gender = raw.gender === 'men' || raw.gender === 'boys' || raw.gender === 'girls' ? raw.gender : catMeta.gender;
   const audience = gender === 'men' ? 'Men' : gender === 'boys' ? 'Boys' : gender === 'girls' ? 'Girls' : 'Women';

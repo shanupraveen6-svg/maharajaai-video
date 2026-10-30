@@ -148,10 +148,13 @@ class MockStorageFile {
     const store = getMockStore();
     return [store.sessions.has(`mock_blob_${this.path}`)];
   }
+  async delete(_options?: unknown): Promise<void> {
+    getMockStore().sessions.delete(`mock_blob_${this.path}`);
+  }
   async getMetadata(): Promise<[Record<string, unknown>]> {
     const store = getMockStore();
     const item = store.sessions.get(`mock_blob_${this.path}`);
-    return [{ contentType: item?.contentType || 'application/octet-stream' }];
+    return [{ contentType: item?.contentType || 'application/octet-stream', size: item?.buffer?.length || 0 }];
   }
   async getSignedUrl(_options?: any): Promise<[string]> {
     if (this.path.startsWith('/') || this.path.startsWith('http://') || this.path.startsWith('https://') || this.path.startsWith('data:')) {
@@ -173,6 +176,9 @@ class MockStorageFile {
 }
 
 class MockStorageBucket {
+  async deleteFiles({ prefix }: { prefix: string; force?: boolean }) {
+    for (const key of getMockStore().sessions.keys()) if (key.startsWith(`mock_blob_${prefix}`)) getMockStore().sessions.delete(key);
+  }
   file(path: string) {
     return new MockStorageFile(path);
   }

@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { verifyTvRequest } from '@/lib/auth/display';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { getLiveAudioTrack, getPreviewAudioTrack } from './audio';
 import { generateCustomer6sVideo, generateLive9sVideo, validateBrandedVideo } from './video-processor';
@@ -2391,7 +2392,7 @@ export async function verifyMaharajaAccess(
       }
       return { allowed: true as const, clientId: resolvedClientId, pass, workspace, entitlement, allowances };
     }
-    return (req?.headers && verifyOperatorRequest(req))
+    return (req?.headers && await verifyTvRequest(req))
       ? { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances }
       : { allowed: false as const, error: 'This Maharaja Try-On QR is invalid or expired. Please scan the Maharaja QR again.' };
   }
@@ -2413,7 +2414,7 @@ export async function verifyMaharajaAccess(
     return { allowed: true as const, clientId: resolvedClientId, pass, workspace, entitlement, allowances };
   }
 
-  return (req?.headers && verifyOperatorRequest(req))
+  return (req?.headers && await verifyTvRequest(req))
     ? { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances }
     : { allowed: false as const, error: 'This Maharaja AI Video pass is invalid or expired.' };
 }
@@ -2423,7 +2424,7 @@ export function publicWorkspaceView(workspace: MaharajaWorkspace) {
     clientId: workspace.clientId,
     clientName: workspace.clientName,
     campaignEnabled: workspace.campaignEnabled,
-    tryOnMinimum: TRY_ON_MIN_PURCHASE,
+    tryOnMinimum: workspace.minPurchaseTryOnDisabled === false ? Math.max(500, TRY_ON_MIN_PURCHASE) : TRY_ON_MIN_PURCHASE,
     aiVideoMinimum: AI_VIDEO_MIN_PURCHASE,
     tvBillSuffixRequired: workspace.tvBillSuffixRequired ?? true,
     activeEvents: workspace.activeEvents,

@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import QRCode from 'qrcode';
+import { useEffect, useRef, useState } from 'react';
+import { useStoreCatalogue } from '@/lib/maharaja/use-store-catalogue';
+import { createImageHandoff } from '@/lib/maharaja/image-handoff-client';
 import {
   Camera,
   Download,
@@ -26,10 +27,13 @@ import {
 type TabletTab = 'video-pass' | 'image-tryon';
 
 export default function MaharajaTabletExperience() {
+  const generationRun = useRef(0);
   const [tab, setTab] = useState<TabletTab>('video-pass');
 
   // Catalogue state
-  const [genderFilter, setGenderFilter] = useState<'women' | 'men'>('women');
+  const [genderFilter, setGenderFilter] = useState<TryFocusProduct['gender']>('women');
+  const catalogueItems = useStoreCatalogue();
+  const [guardianConsent, setGuardianConsent] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue.find((item) => item.category === 'sarees') || sampleCatalogue[0]);
 
@@ -43,19 +47,14 @@ export default function MaharajaTabletExperience() {
   const [tryOnMobileQr, setTryOnMobileQr] = useState<string>('');
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
-  const categoryProducts = sampleCatalogue.filter((item) => item.category === activeCategory && item.newArrivalOnly !== true);
+  const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory);
+
 
   useEffect(() => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tryfocus.in';
-    const url = `${origin}/maharaja/try-on?sku=${encodeURIComponent(selectedProduct.sku)}&source=tablet`;
-    QRCode.toDataURL(url, {
-      width: 220,
-      margin: 1,
-      color: { dark: '#161918', light: '#FAFBF8' },
-    })
-      .then(setTryOnMobileQr)
-      .catch(() => setTryOnMobileQr(''));
-  }, [selectedProduct]);
+    const first = catalogueItems.find((item) => item.category === activeCategory && item.gender === genderFilter);
+    if (first) setSelectedProduct(first);
+    setGuardianConsent(false);
+  }, [activeCategory, genderFilter, catalogueItems]);
 
   function handleFileRead(setter: (val: string) => void, file?: File | null) {
     if (!file) return;
@@ -67,17 +66,20 @@ export default function MaharajaTabletExperience() {
   }
 
   async function handleGenerateImageTryOn() {
+    if ((genderFilter === 'boys' || genderFilter === 'girls') && !guardianConsent) { setTryOnStatusNote('A parent or guardian must approve the child’s photo first.'); return; }
     const garmentImg =
       tryOnSource === 'own-garment'
         ? ownGarmentPhoto
         : selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl;
 
     if (!personPhoto || !garmentImg) {
-      setTryOnStatusNote('Please upload/capture Image 1 (Customer Photo) and Image 2 (Garment Photo).');
+      setTryOnStatusNote('Add the customer photo and choose or photograph the garment.');
       return;
     }
 
+    const runId = ++generationRun.current;
     setTryOnGenerating(true);
+    setTryOnMobileQr('');
     setTryOnStatusNote('');
     const sessionId = `tablet_tryon_${Date.now()}`;
 
@@ -88,7 +90,10 @@ export default function MaharajaTabletExperience() {
         body: JSON.stringify({
           sessionId,
           service: 'try-on',
-          templateId: selectedProduct.gender,
+          templateId: genderFilter === 'boys' ? 'boy' : genderFilter === 'girls' ? 'girl' : genderFilter,
+          guardianProcessingConsent: guardianConsent,
+          catalogueProductId: tryOnSource === 'catalogue' ? selectedProduct.sku : undefined,
+          catalogueProductTitle: tryOnSource === 'catalogue' ? selectedProduct.title : undefined,
           garmentType: selectedProduct.garmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,
@@ -100,9 +105,16 @@ export default function MaharajaTabletExperience() {
         }),
       });
       const data = await res.json().catch(() => ({}));
+      if (runId !== generationRun.current) return;
       if (res.ok && data?.masterImageUrl) {
         setTryOnResultUrl(data.masterImageUrl);
-        setTryOnStatusNote('AI Try-On generated (Image 1 = Customer Identity, Image 2 = Garment Reference).');
+        setTryOnStatusNote('Your look is ready. Preparing your private phone QR…');
+        try {
+          const qr = await createImageHandoff(data.masterImageUrl, selectedProduct.sku, selectedProduct.title);
+          if (runId !== generationRun.current) return;
+          setTryOnMobileQr(qr);
+          setTryOnStatusNote('Scan to save this look on your phone. The private link expires in 15 minutes.');
+        } catch (error) { setTryOnStatusNote(error instanceof Error ? error.message : 'Phone QR unavailable.'); }
       } else {
         setTryOnResultUrl('');
         setTryOnStatusNote(data?.error || 'Image generation failed. Please retry.');
@@ -111,7 +123,7 @@ export default function MaharajaTabletExperience() {
       setTryOnResultUrl('');
       setTryOnStatusNote('Image generation could not connect. Please retry.');
     } finally {
-      setTryOnGenerating(false);
+      if (runId === generationRun.current) setTryOnGenerating(false);
     }
   }
 
@@ -133,6 +145,7 @@ export default function MaharajaTabletExperience() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => { generationRun.current += 1; setPersonPhoto(''); setOwnGarmentPhoto(''); setTryOnResultUrl(''); setTryOnMobileQr(''); setTryOnStatusNote(''); setGuardianConsent(false); setTryOnGenerating(false); }} className="min-h-12 border border-[#D8DCD7] px-4 text-sm font-semibold">New customer</button>
             <button
               type="button"
               onClick={() => setTab('video-pass')}
@@ -179,6 +192,7 @@ export default function MaharajaTabletExperience() {
         {tab === 'image-tryon' && (
           <div className="space-y-6">
             <div className="grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-2">
+              <div className="col-span-full">{(genderFilter === 'boys' || genderFilter === 'girls') && <label className="my-4 flex min-h-14 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-sm"><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve using this child’s photo for this experience.</label>}</div>
               {/* Left: Image 1 (Customer) + Image 2 (Catalogue or Own Garment) */}
               <div className="space-y-5">
                 <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-3">
@@ -198,7 +212,7 @@ export default function MaharajaTabletExperience() {
                         tryOnSource === 'catalogue' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
                       }`}
                     >
-                      Catalogue (30)
+                      Store catalogue
                     </button>
                     <button
                       type="button"
@@ -245,32 +259,7 @@ export default function MaharajaTabletExperience() {
                       <span className="font-mono text-xs font-bold uppercase text-[#7A1428]">
                         Select store outfit
                       </span>
-                      <div className="flex gap-1 text-xs font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGenderFilter('women');
-                            setActiveCategory('sarees');
-                          }}
-                          className={`px-2.5 py-1 ${
-                            genderFilter === 'women' ? 'bg-[#161918] text-white' : 'bg-white'
-                          }`}
-                        >
-                          Women
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGenderFilter('men');
-                            setActiveCategory('kurta');
-                          }}
-                          className={`px-2.5 py-1 ${
-                            genderFilter === 'men' ? 'bg-[#161918] text-white' : 'bg-white'
-                          }`}
-                        >
-                          Men
-                        </button>
-                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-xs font-semibold">{(['women', 'men', 'boys', 'girls'] as const).map((audience) => <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => { setGenderFilter(audience); setActiveCategory(catalogueCategories.find((cat) => cat.gender === audience)!.id); }} className={`min-h-12 px-2 capitalize ${genderFilter === audience ? 'bg-[#e6eee8] text-[#20352b]' : 'bg-white'}`}>{audience}</button>)}</div>
                     </div>
 
                     <div className="mt-2 flex flex-wrap gap-1.5">

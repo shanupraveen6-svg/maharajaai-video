@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 const GENLOOK_BASE_URL = 'https://api.genlook.app/tryon/v1';
 const MAX_RESULT_BYTES = 16 * 1024 * 1024;
 
@@ -47,12 +49,14 @@ function safeResultUrl(value: unknown) {
 }
 
 export async function generateGenlookTryOn(personBase64: string, garmentBase64: string, apiKey: string, product: ProductDetails): Promise<Buffer> {
+  const deadline = Date.now() + 220_000;
   const personImageId = await uploadImage(personBase64, apiKey, 'customer');
   const garmentBytes = decodeBase64(garmentBase64);
   if (!garmentBytes.length || garmentBytes.length > 10 * 1024 * 1024) throw new GenlookProviderError('Garment photo is invalid or too large.', true);
   const garmentMime = imageMime(garmentBase64, garmentBytes);
   const form = new FormData();
-  form.set('data', JSON.stringify({ products: [{ externalId: product.externalId, title: product.title, description: product.description, images: [{ source: { fileKey: 'product' } }] }], person: { image: { source: { id: personImageId } } } }));
+  const garmentId = `${product.externalId.slice(0, 60)}-${createHash('sha256').update(garmentBytes).digest('hex').slice(0, 20)}`;
+  form.set('data', JSON.stringify({ products: [{ externalId: garmentId, title: product.title, description: product.description, images: [{ source: { fileKey: 'product' } }] }], person: { image: { source: { id: personImageId } } } }));
   form.set('product', new Blob([new Uint8Array(garmentBytes)], { type: garmentMime }), `garment.${garmentMime === 'image/png' ? 'png' : garmentMime === 'image/webp' ? 'webp' : 'jpg'}`);
   let response: Response;
   try {
@@ -67,7 +71,7 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
   // The sync endpoint may return 202 after 90 seconds while generation continues.
   if (response.status === 202 && typeof payload?.generationId === 'string') {
     const generationId = encodeURIComponent(payload.generationId);
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    while (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       let poll: Response;
       try {
@@ -78,6 +82,7 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
       if (payload?.status === 'FAILED') throw new GenlookProviderError('GenLook could not create this look.', true);
       if (payload?.status === 'COMPLETED' && payload?.resultImageUrl) break;
     }
+    if (!payload?.resultImageUrl) throw new GenlookProviderError('Your look is still processing. Ask staff to check before starting another generation.', false);
   }
   const resultUrl = safeResultUrl(payload?.resultImageUrl);
   const imageResponse = await fetch(resultUrl, { signal: AbortSignal.timeout(20_000), cache: 'no-store' });

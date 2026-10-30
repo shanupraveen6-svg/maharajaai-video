@@ -108,8 +108,9 @@ Return JSON only: {"amount": number | null, "barcode": string | null}`
     }
     const amount = parsed.amount;
 
-    if (amount < TRY_ON_MIN_PURCHASE) {
-      return reject(`₹${amount} — AI Try-On is for garments ₹${TRY_ON_MIN_PURCHASE} and above.`, amount);
+    const minimum = access.workspace.minPurchaseTryOnDisabled === false ? Math.max(500, TRY_ON_MIN_PURCHASE) : TRY_ON_MIN_PURCHASE;
+    if (amount < minimum) {
+      return reject(`₹${amount} — AI Try-On is for garments ₹${minimum} and above.`, amount);
     }
 
     if (body.confirmed !== true) {

@@ -17,6 +17,8 @@ import {
   getPublicAppUrl,
 } from '@/lib/maharaja/server';
 import { getWhatsAppStatus, sendWhatsAppResult } from '@/lib/whatsapp';
+import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +48,9 @@ export async function POST(req: NextRequest) {
     // When enabled in workspace settings, TV records the customer's 4-digit bill suffix.
     // When disabled, TV allows direct catalogue video pass creation without restriction.
     const requiresBillSuffix = workspace.tvBillSuffixRequired !== false;
+    if (body.source === 'tv-kiosk' && requiresBillSuffix && !/^\d{4}$/.test(tvBillLast4)) {
+      return NextResponse.json({ success: false, error: 'Enter the last four digits of your bill.' }, { status: 400 });
+    }
     const isTvBillHandoff = body.source === 'tv-kiosk' && (!requiresBillSuffix || /^\d{4}$/.test(tvBillLast4));
     const isPosterHandoff = body.source === 'video-poster' && body.billingCode === workspace.openVideoCode;
     const isKioskHandoff = body.source === 'tv-kiosk'
@@ -101,6 +106,17 @@ export async function POST(req: NextRequest) {
     const pregeneratedMasterUrl = typeof body.videoMasterUrl === 'string' && body.videoMasterUrl.trim()
       ? body.videoMasterUrl.trim()
       : '';
+    const referenceSessionId = typeof body.videoReferenceSessionId === 'string' ? body.videoReferenceSessionId : '';
+    let sourceSession: Record<string, any> | null = null;
+    if (pregeneratedMasterUrl) {
+      if (!await verifyTvRequest(req)) return NextResponse.json({ success: false, error: 'Pair this display before handing off a portrait.' }, { status: 401 });
+      if (!/^[A-Za-z0-9_-]{8,120}$/.test(referenceSessionId)) return NextResponse.json({ success: false, error: 'The portrait session is missing. Create the portrait again.' }, { status: 400 });
+      const db = getDb();
+      sourceSession = (db ? (await db.collection('sessions').doc(referenceSessionId).get()).data() : getMockStore().sessions.get(referenceSessionId)) || null;
+      if (!sourceSession || sourceSession.accessCode || sourceSession.masterImageUrl !== pregeneratedMasterUrl || sourceSession.promptArchitectureVersion !== VIDEO_PROMPT_ARCHITECTURE_VERSION || !sourceSession.personPhotoStoragePath || !sourceSession.garmentPhotoStoragePaths?.length) {
+        return NextResponse.json({ success: false, error: 'This portrait could not be handed off safely. Create a new portrait.' }, { status: 409 });
+      }
+    }
 
     const now = Date.now();
     // Every customer reward is valid for one day. This matches the WhatsApp/QR
@@ -130,11 +146,17 @@ export async function POST(req: NextRequest) {
       tryOnImageUrl: '',
       videoMasterDone: Boolean(pregeneratedMasterUrl),
       videoMasterUrl: pregeneratedMasterUrl,
-      videoMasterApproved: Boolean(pregeneratedMasterUrl && body.videoMasterApproved === true),
-      videoMasterApprovedUrl: pregeneratedMasterUrl && body.videoMasterApproved === true ? pregeneratedMasterUrl : '',
-      ...(typeof body.videoMasterCategory === 'string' ? { videoMasterCategory: body.videoMasterCategory as any } : {}),
-      ...(typeof body.videoMasterConceptId === 'string' ? { videoMasterConceptId: body.videoMasterConceptId as any } : {}),
-      ...(typeof body.videoReferenceSessionId === 'string' ? { videoReferenceSessionId: body.videoReferenceSessionId } : {}),
+      videoMasterApproved: false,
+      videoMasterApprovedUrl: '',
+      ...(sourceSession ? {
+        videoReferenceSessionId: referenceSessionId,
+        videoPromptArchitectureVersion: VIDEO_PROMPT_ARCHITECTURE_VERSION,
+        videoMasterCategory: sourceSession.templateId,
+        videoMasterConceptId: sourceSession.conceptId,
+        videoMasterGarmentType: sourceSession.garmentType,
+        videoPersonPhotoStoragePath: sourceSession.personPhotoStoragePath,
+        videoGarmentPhotoStoragePaths: sourceSession.garmentPhotoStoragePaths,
+      } : {}),
       videoGenerating: false,
       videoDone: false,
       retryUsed: false,
@@ -155,6 +177,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (sourceSession) {
+      const db = getDb();
+      if (db) {
+        await db.runTransaction(async (transaction) => {
+          const ref = db.collection('sessions').doc(referenceSessionId);
+          const fresh = (await transaction.get(ref)).data();
+          if (fresh?.accessCode || fresh?.masterImageUrl !== pregeneratedMasterUrl) throw new Error('This portrait was already handed off. Create a new portrait.');
+          transaction.set(ref, { accessCode: code, expiresAt: pass.expiresAt }, { merge: true });
+          transaction.set(db.collection('clientWorkspaces').doc(MAHARAJA_CLIENT_ID).collection('customerPasses').doc(code), pass);
+        });
+      } else getMockStore().sessions.set(referenceSessionId, { ...sourceSession, accessCode: code, expiresAt: pass.expiresAt });
+    }
     const [entitlement] = await Promise.all([
       getCampaignEntitlementByPhone(phone),
       saveVideoPass(pass),
