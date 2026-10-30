@@ -24,6 +24,7 @@ import {
   Upload,
   Video,
 } from 'lucide-react';
+import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
 import {
   catalogueCategories,
@@ -888,264 +889,25 @@ export default function MaharajaAdminDashboard({
         </section>
 
         {/* =========================================================
-            TASK 8: RETAILER CATALOGUE MANAGEMENT (By Gender & Category)
+            TASK 8: RETAILER CATALOGUE MANAGEMENT (Upload Catalogue for Image Try-On & AI Video)
            ========================================================= */}
         <section className="border border-[#D8DCD7] bg-white p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#D8DCD7] pb-4">
-            <div>
-              <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                Store Catalogue Management · Syncs Immediately With 43&quot; TV Standee
-              </p>
-              <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                Manage Garments ({catalogue.filter((i) => i.active).length} Published / {catalogue.length} Total)
-              </h2>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setShowAddGarment((v) => !v)}
-                className="inline-flex items-center gap-1.5 bg-[#7A1428] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
-              >
-                <Plus className="h-4 w-4" />
-                {showAddGarment ? 'Close Upload Form' : 'Upload / Add Garment'}
-              </button>
-              <Link
-                href="/maharaja/tv/experience"
-                target="_blank"
-                className="inline-flex items-center gap-1.5 border border-[#161918] bg-[#FAFBF8] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#161918]"
-              >
-                Preview on TV Kiosk
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+          <div className="border-b border-[#D8DCD7] pb-4">
+            <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
+              Store Catalogue Management · Syncs Immediately With TV Standee & Counter Tablet
+            </p>
+            <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+              Manage & Upload Store Catalogue ({catalogue.filter((i) => i.active).length} Published / {catalogue.length} Total)
+            </h2>
+            <p className="mt-1 text-xs text-[#535A56]">
+              Upload garments by category with instant thumbnail view. Uploads reflect live on both the 43&quot; TV Standee and the Counter Tablet.
+            </p>
           </div>
 
-          <Link href="/maharaja/client-admin/catalogue/upload" className="mt-5 inline-flex min-h-14 items-center bg-[#161918] px-6 text-sm font-bold text-white">Upload a collection by category →</Link>
-
-          {/* Add / Upload New Garment Form */}
-          {showAddGarment && (
-            <form
-              onSubmit={handleCreateGarment}
-              className="mt-5 border-2 border-[#161918] bg-[#FAFBF8] p-5"
-            >
-              <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-3">
-                <h3 className="font-serif text-xl font-semibold text-[#161918]">
-                  Add / Upload Garment to Store Catalogue
-                </h3>
-                <span className="font-mono text-xs text-[#7A1428]">
-                  Model Photo + Garment Reference + SKU + Price
-                </span>
-              </div>
-
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                  Category (Women / Men / Boys / Girls)
-                  <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value as CatalogueCategoryId)}
-                    className="mt-1.5 h-10 w-full border border-[#D8DCD7] bg-white px-3 text-sm font-semibold text-[#161918]"
-                  >
-                    {catalogueCategories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.audience} — {cat.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                  SKU Code
-                  <input
-                    value={newSku}
-                    onChange={(e) => setNewSku(e.target.value)}
-                    placeholder="e.g. MAH-SAR-108"
-                    className="mt-1.5 h-10 w-full border border-[#D8DCD7] bg-white px-3 text-sm font-semibold text-[#161918]"
-                    required
-                  />
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                  Garment Title
-                  <input
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder="e.g. Kanchivaram Coral Gold Bridal Saree"
-                    className="mt-1.5 h-10 w-full border border-[#D8DCD7] bg-white px-3 text-sm font-semibold text-[#161918]"
-                    required
-                  />
-                </label>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                    Price (₹)
-                    <input
-                      type="number"
-                      value={newPrice}
-                      onChange={(e) => setNewPrice(e.target.value)}
-                      className="mt-1.5 h-10 w-full border border-[#D8DCD7] bg-white px-3 text-sm font-semibold text-[#161918]"
-                      required
-                    />
-                  </label>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                    Sort Order
-                    <input
-                      type="number"
-                      value={newSortOrder}
-                      onChange={(e) => setNewSortOrder(e.target.value)}
-                      className="mt-1.5 h-10 w-full border border-[#D8DCD7] bg-white px-3 text-sm font-semibold text-[#161918]"
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                  Fabric / Zari Note
-                  <input
-                    value={newFabricNote}
-                    onChange={(e) => setNewFabricNote(e.target.value)}
-                    placeholder="Pure Kanchivaram Silk · Temple Zari Border"
-                    className="mt-1.5 h-10 w-full border border-[#D8DCD7] bg-white px-3 text-sm text-[#161918]"
-                  />
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                  Model / Display Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) =>
-                      handleImageFileToDataUri(e.target.files?.[0], setNewModelPhoto)
-                    }
-                    className="mt-1.5 h-10 w-full border border-[#D8DCD7] bg-white px-2.5 py-1.5 text-xs text-[#535A56]"
-                  />
-                </label>
-
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                  Garment Reference Photo (AI Input 2)
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) =>
-                      handleImageFileToDataUri(e.target.files?.[0], setNewGarmentRefPhoto)
-                    }
-                    className="mt-1.5 h-10 w-full border border-[#D8DCD7] bg-white px-2.5 py-1.5 text-xs text-[#535A56]"
-                  />
-                </label>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-[#D8DCD7] pt-4">
-                <div className="flex flex-wrap items-center gap-5 text-xs font-semibold text-[#161918]">
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={newIsArrival}
-                      onChange={(e) => setNewIsArrival(e.target.checked)}
-                    />
-                    Mark as New Arrival
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={newEligibleVideo}
-                      onChange={(e) => setNewEligibleVideo(e.target.checked)}
-                    />
-                    Eligible for AI Catalogue Video
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={newActive}
-                      onChange={(e) => setNewActive(e.target.checked)}
-                    />
-                    Publish Immediately on TV Kiosk
-                  </label>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={savingGarment}
-                  className="bg-[#7A1428] px-6 py-2.5 text-xs font-bold uppercase tracking-[0.15em] text-[#FAF6EE] disabled:opacity-50"
-                >
-                  {savingGarment ? 'Saving Garment...' : 'Save & Publish Garment'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Filter Bar: Women / Men + New Arrivals + Category */}
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              {(['women', 'men', 'boys', 'girls'] as const).map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => {
-                    setCatGender(g);
-                    setCatFilter(g === 'women' ? 'sarees' : g === 'men' ? 'veshti' : g === 'boys' ? 'boys-veshti' : 'girls-pavadai');
-                  }}
-                  className={`border px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] ${
-                    catGender === g
-                      ? 'border-[#161918] bg-[#161918] text-white'
-                      : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
-                  }`}
-                >
-                  {g === 'women' ? 'Women' : g === 'men' ? 'Men' : g === 'boys' ? 'Boys' : 'Girls'}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => setCatFilter('new-arrivals')}
-                className={`border px-3 py-1.5 text-xs font-semibold ${
-                  catFilter === 'new-arrivals'
-                    ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                    : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
-                }`}
-              >
-                New Arrivals
-              </button>
-              {catalogueCategories
-                .filter((c) => c.gender === catGender)
-                .map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setCatFilter(cat.id)}
-                    className={`border px-3 py-1.5 text-xs font-semibold ${
-                      catFilter === cat.id
-                        ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                        : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918]'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-            </div>
+          {/* Embedded 2-Button Catalogue Upload Manager */}
+          <div className="mt-6">
+            <CatalogueBulkImport onPublished={loadCatalogue} />
           </div>
-
-          {/* Compact catalogue list: no image previews, even for large imports. */}
-          {catalogueLoading ? <p className="py-8 text-sm text-[#535A56]">Loading catalogue…</p> : <>
-            <div className="mt-4 overflow-x-auto border border-[#D8DCD7]">
-              <table className="w-full min-w-[680px] text-left text-xs">
-                <thead className="bg-[#FAFBF8]"><tr><th className="p-3">SKU / garment</th><th className="p-3">Category</th><th className="p-3">Price</th><th className="p-3">Controls</th></tr></thead>
-                <tbody>{filteredCatalogue.slice(cataloguePage * 25, (cataloguePage + 1) * 25).map((item) => <tr key={item.sku} className="border-t border-[#D8DCD7]">
-                  <td className="p-3"><span className="block font-mono font-bold">{item.sku}</span><span>{item.title}</span></td>
-                  <td className="p-3">{item.audience} · {catalogueCategories.find((cat) => cat.id === item.category)?.label || item.category}</td>
-                  <td className="p-3">{item.price > 0 ? formatINR(item.price) : 'No display price'}</td>
-                  <td className="p-3"><div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => void toggleCatalogueField(item, { active: !item.active })} className="border border-[#D8DCD7] px-2 py-1">{item.active ? 'Published' : 'Hidden'}</button>
-                    <button type="button" onClick={() => void toggleCatalogueField(item, { newArrival: !item.newArrival })} className="border border-[#D8DCD7] px-2 py-1">{item.newArrival ? 'New arrival ✓' : 'Mark new'}</button>
-                    <button type="button" onClick={() => void toggleCatalogueField(item, { eligibleForVideo: !item.eligibleForVideo })} className="border border-[#D8DCD7] px-2 py-1">{item.eligibleForVideo ? 'Video ✓' : 'Video off'}</button>
-                  </div></td>
-                </tr>)}</tbody>
-              </table>
-            </div>
-            <div className="mt-3 flex items-center justify-between text-sm"><button type="button" disabled={cataloguePage === 0} onClick={() => setCataloguePage((value) => value - 1)} className="disabled:opacity-40">← Previous</button><span>{filteredCatalogue.length} garments · Page {cataloguePage + 1} of {Math.max(1, Math.ceil(filteredCatalogue.length / 25))}</span><button type="button" disabled={(cataloguePage + 1) * 25 >= filteredCatalogue.length} onClick={() => setCataloguePage((value) => value + 1)} className="disabled:opacity-40">Next →</button></div>
-          </>}
         </section>
 
         {/* =========================================================
