@@ -15,6 +15,7 @@ import {
   Sparkles,
   Store,
   RotateCcw,
+  MoreVertical,
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import TabletVideoHandoff from '@/components/TabletVideoHandoff';
@@ -85,6 +86,9 @@ export default function MaharajaTabletExperience() {
   const [tryOnResultUrl, setTryOnResultUrl] = useState<string>('');
   const [tryOnStatusNote, setTryOnStatusNote] = useState<string>('');
   const [tryOnMobileQr, setTryOnMobileQr] = useState<string>('');
+  const pendingHandoffRef = useRef<null | (() => Promise<string>)>(null);
+  const [proceeding, setProceeding] = useState(false);
+  const [showResultMenu, setShowResultMenu] = useState(false);
 
   const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
   const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory);
@@ -170,6 +174,19 @@ export default function MaharajaTabletExperience() {
     setTabletStep('garment');
   }
 
+  async function proceedToPhone() {
+    if (!pendingHandoffRef.current || proceeding) return;
+    setProceeding(true);
+    try {
+      setTryOnMobileQr(await pendingHandoffRef.current());
+      setTryOnStatusNote('Scan to save this look on your phone. Private link expires in 15 minutes.');
+    } catch (error) {
+      setTryOnStatusNote(error instanceof Error ? error.message : 'Phone QR unavailable.');
+    } finally {
+      setProceeding(false);
+    }
+  }
+
   async function handleGenerateTryOn(modeType: 'own-garment' | 'catalogue') {
     if ((genderFilter === 'boys' || genderFilter === 'girls') && !guardianConsent) {
       setTryOnStatusNote('A parent or guardian must approve the child’s photo first.');
@@ -243,21 +260,13 @@ export default function MaharajaTabletExperience() {
 
       if (res.ok && data?.masterImageUrl) {
         setTryOnResultUrl(data.masterImageUrl);
-        setTryOnStatusNote('Your look is ready. Preparing your private phone QR…');
-        try {
-          const qr = await createImageHandoff(data.masterImageUrl, resolvedSku, resolvedTitle, {
-            category: modeType === 'catalogue' ? selectedProduct.category : ownGarmentType,
-            garmentType: resolvedGarmentType,
-            gender: genderFilter,
-            garmentReferenceUrl: modeType === 'catalogue' ? (selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl) : garmentImg,
-          });
-          if (runId !== generationRun.current) return;
-          setTryOnMobileQr(qr);
-          setTryOnStatusNote('Scan to save this look on your phone. Private link expires in 15 minutes.');
-        } catch (error) {
-          if (runId !== generationRun.current) return;
-          setTryOnStatusNote(error instanceof Error ? error.message : 'Phone QR unavailable.');
-        }
+        setTryOnStatusNote('Your look is ready. Tap Proceed to get it on your phone.');
+        pendingHandoffRef.current = () => createImageHandoff(data.masterImageUrl, resolvedSku, resolvedTitle, {
+          category: modeType === 'catalogue' ? selectedProduct.category : ownGarmentType,
+          garmentType: resolvedGarmentType,
+          gender: genderFilter,
+          garmentReferenceUrl: modeType === 'catalogue' ? (selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl) : garmentImg,
+        });
       } else {
         if (runId !== generationRun.current) return;
         setTryOnResultUrl('');
@@ -751,13 +760,18 @@ export default function MaharajaTabletExperience() {
                           Customer Result
                         </span>
                         {tryOnResultUrl && (
-                          <button
-                            type="button"
-                            onClick={tryAnotherGarment}
-                            className="text-xs font-bold text-[#7A1428] underline"
-                          >
-                            Try Another Garment
-                          </button>
+                          <div className="relative">
+                            <button type="button" aria-label="Look options" aria-expanded={showResultMenu} onClick={() => setShowResultMenu((open) => !open)} className="flex min-h-11 min-w-11 items-center justify-center border border-[#161918] bg-white">
+                              <MoreVertical className="h-5 w-5" />
+                            </button>
+                            {showResultMenu && (
+                              <div className="absolute right-0 top-12 z-40 w-56 border border-[#161918] bg-white shadow-xl">
+                                <button type="button" onClick={() => { setShowResultMenu(false); pendingHandoffRef.current = null; tryAnotherGarment(); }} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold">
+                                  <RotateCcw className="h-4 w-4" /> Retry with another garment
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                       <h3 className="font-serif text-2xl font-semibold text-[#161918]">
@@ -773,6 +787,11 @@ export default function MaharajaTabletExperience() {
                         frameClassName="mx-auto aspect-[9/16] w-full max-w-[282px]"
                       />
 
+                      {tryOnResultUrl && !tryOnMobileQr && (
+                        <button type="button" disabled={proceeding} onClick={() => void proceedToPhone()} className="min-h-14 w-full bg-[#7A1428] px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50">
+                          {proceeding ? 'Preparing phone QR…' : 'Proceed'}
+                        </button>
+                      )}
                       {tryOnMobileQr && (
                         <div className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
                           <div>
@@ -911,13 +930,18 @@ export default function MaharajaTabletExperience() {
                           Customer Result
                         </span>
                         {tryOnResultUrl && (
-                          <button
-                            type="button"
-                            onClick={tryAnotherGarment}
-                            className="text-xs font-bold text-[#7A1428] underline"
-                          >
-                            Try Another Garment
-                          </button>
+                          <div className="relative">
+                            <button type="button" aria-label="Look options" aria-expanded={showResultMenu} onClick={() => setShowResultMenu((open) => !open)} className="flex min-h-11 min-w-11 items-center justify-center border border-[#161918] bg-white">
+                              <MoreVertical className="h-5 w-5" />
+                            </button>
+                            {showResultMenu && (
+                              <div className="absolute right-0 top-12 z-40 w-56 border border-[#161918] bg-white shadow-xl">
+                                <button type="button" onClick={() => { setShowResultMenu(false); pendingHandoffRef.current = null; tryAnotherGarment(); }} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold">
+                                  <RotateCcw className="h-4 w-4" /> Retry with another garment
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                       <h3 className="font-serif text-2xl font-semibold text-[#161918]">
@@ -933,6 +957,11 @@ export default function MaharajaTabletExperience() {
                         frameClassName="mx-auto aspect-[9/16] w-full max-w-[282px]"
                       />
 
+                      {tryOnResultUrl && !tryOnMobileQr && (
+                        <button type="button" disabled={proceeding} onClick={() => void proceedToPhone()} className="min-h-14 w-full bg-[#7A1428] px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50">
+                          {proceeding ? 'Preparing phone QR…' : 'Proceed'}
+                        </button>
+                      )}
                       {tryOnMobileQr && (
                         <div className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
                           <div>

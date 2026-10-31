@@ -145,6 +145,8 @@ export default function TryFocusTvExperience() {
   const [selectedEventId, setSelectedEventId] = useState<string>(events[0].id);
   const [videoPersonPhoto, setVideoPersonPhoto] = useState<string>('');
   const [videoMasterUrl, setVideoMasterUrl] = useState<string>('');
+  const [videoMasterSessionId, setVideoMasterSessionId] = useState('');
+  const [showPortraitMenu, setShowPortraitMenu] = useState(false);
   const [videoGeneratingMaster, setVideoGeneratingMaster] = useState<boolean>(false);
   const [videoPassCreating, setVideoPassCreating] = useState<boolean>(false);
   const [videoPassUrl, setVideoPassUrl] = useState<string>('');
@@ -407,6 +409,7 @@ export default function TryFocusTvExperience() {
     } else if (target === 'video-person') {
       setVideoPersonPhoto(dataUrl);
       setVideoMasterUrl('');
+      setVideoMasterSessionId('');
       setVideoPassQr('');
       setVideoPassUrl('');
       setVideoStatusNote('');
@@ -505,7 +508,7 @@ export default function TryFocusTvExperience() {
     const firstReady = results.findIndex((item) => item.url);
     if (firstReady >= 0) {
       setTryOnStage('result');
-      void createImageHandoff(results.filter((item) => item.url));
+      setHandoffStatus('Your looks are ready. Tap Proceed to get them on your phone.');
     } else {
       setTryOnError('No looks could be created. Please try again.');
       setTryOnStage('browse');
@@ -681,7 +684,7 @@ export default function TryFocusTvExperience() {
         setTryOnStatusNote('Your look is ready.');
         setTryOnStage('result');
         setTryOnMobileQr('');
-        void createImageHandoff([{ product: targetProduct, url: data.masterImageUrl }]);
+        setHandoffStatus('Your look is ready. Tap Proceed to get it on your phone.');
         return;
       }
       throw new Error(data?.error || 'Try-on generation failed.');
@@ -730,8 +733,8 @@ export default function TryFocusTvExperience() {
       if (!res.ok || !data?.masterImageUrl) throw new Error(data?.error || 'Festival image generation failed.');
       const generatedUrl = data.masterImageUrl;
       setVideoMasterUrl(generatedUrl);
-      setVideoStatusNote('Diwali image ready. Scan the QR on your phone to generate the video.');
-      await createCatalogueVideoPass(selectedProduct, selectedEventId, generatedUrl, data.sessionId);
+      setVideoMasterSessionId(data.sessionId);
+      setVideoStatusNote('Your festival portrait is ready. Tap Proceed to continue on your phone.');
     } catch (error) {
       if (runId !== batchRunRef.current) return;
       setVideoStatusNote(error instanceof Error ? error.message : 'Festival image generation failed.');
@@ -1304,12 +1307,13 @@ export default function TryFocusTvExperience() {
                 )}
                 <div className="flex flex-wrap items-center justify-between gap-5 border border-[#D8DCD7] bg-white p-5">
                   <div className="flex-1"><h4 className="font-serif text-2xl font-semibold">Save your looks on your phone</h4><p className="mt-1 text-base text-[#535A56]">Scan this private QR. It expires in 15 minutes.</p><p className="mt-2 text-sm text-[#535A56]">{handoffStatus || (batchDone < selectedLooks.length ? 'Your QR will appear when all looks finish.' : 'Preparing your QR…')}</p></div>
-                  {tryOnMobileQr ? <img src={tryOnMobileQr} alt="Scan to save your looks" className="h-44 w-44 object-contain" /> : <div className="flex h-44 w-44 items-center justify-center bg-[#FAFBF8]"><QrCode className="h-12 w-12 text-[#7A1428]" /></div>}
+                  {tryOnMobileQr ? <img src={tryOnMobileQr} alt="Scan to save your looks" className="h-44 w-44 object-contain" /> : (
+                    <button type="button" disabled={batchDone < selectedLooks.length && !generatedLooks.some((look) => look.url)} onClick={() => void createImageHandoff(generatedLooks.filter((look) => look.url))} className="min-h-20 min-w-56 bg-[#7A1428] px-6 text-xl font-bold text-white disabled:opacity-50">
+                      Proceed
+                    </button>
+                  )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={() => { setTryOnStage('browse'); setTryOnMobileQr(''); }} className="min-h-16 border border-[#161918] bg-white px-5 text-lg font-bold">Try another</button>
-                  <button type="button" onClick={resetAllSession} className="min-h-16 bg-[#161918] px-5 text-lg font-bold text-white">Finish</button>
-                </div>
+                <button type="button" onClick={resetAllSession} className="min-h-16 w-full bg-[#161918] px-5 text-lg font-bold text-white">Finish</button>
               </section>
             )}
 
@@ -1680,9 +1684,31 @@ export default function TryFocusTvExperience() {
                         <span className="bg-[#EBF5EE] px-3 py-1 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#256B45]">
                           Step 4 · Diwali Portrait Ready
                         </span>
-                        <span className="font-mono text-xs font-bold text-[#7A1428]">
-                          Valid 24 Hours
-                        </span>
+                        <div className="relative">
+                          <button type="button" aria-label="Portrait options" aria-expanded={showPortraitMenu} onClick={() => setShowPortraitMenu((open) => !open)} className="flex min-h-14 min-w-14 items-center justify-center border border-[#161918] bg-white">
+                            <MoreVertical className="h-6 w-6" />
+                          </button>
+                          {showPortraitMenu && (
+                            <div className="absolute right-0 top-16 z-40 w-72 border border-[#161918] bg-white shadow-xl">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Retry starts again: choose another catalogue dress.
+                                  setShowPortraitMenu(false);
+                                  setVideoMasterUrl('');
+                                  setVideoMasterSessionId('');
+                                  setVideoPassQr('');
+                                  setVideoPassUrl('');
+                                  setVideoPassCode('');
+                                  setVideoStatusNote('');
+                                }}
+                                className="flex min-h-16 w-full items-center gap-3 px-5 text-left text-lg font-semibold"
+                              >
+                                <RotateCcw className="h-5 w-5" /> Retry with another dress
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="mt-4 grid grid-cols-[1fr_210px] gap-4 items-center">
@@ -1706,9 +1732,13 @@ export default function TryFocusTvExperience() {
                               className="h-44 w-44 object-contain"
                             />
                           ) : (
-                            <div className="flex h-44 w-44 items-center justify-center">
-                              <QrCode className="h-10 w-10 text-[#535A56]" />
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void createCatalogueVideoPass(selectedProduct, selectedEventId, videoMasterUrl, videoMasterSessionId)}
+                              className="flex h-44 w-44 items-center justify-center bg-[#7A1428] text-xl font-bold text-white"
+                            >
+                              Proceed
+                            </button>
                           )}
                           <p className="mt-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#7A1428]">
                             Scan for 1-Day Video Pass

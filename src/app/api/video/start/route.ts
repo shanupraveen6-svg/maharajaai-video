@@ -214,7 +214,10 @@ export async function POST(req: NextRequest) {
     let responseUrl = '';
     let providerSeed: string | number | null = null;
     {
-      const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), concept.id, garmentRoles, eventId, (access.pass.videoMasterGarmentType || 'generic') as GarmentType);
+      // A retry (a video already made, or the last attempt failed) uses the fail-proof backup prompt:
+      // customer standing still with a light smile, gentle camera, stable framing.
+      const isRetryRender = Number(access.pass.usage?.videosGenerated || 0) >= 1 || access.pass.lastVideoFailed === true;
+      const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), concept.id, garmentRoles, eventId, (access.pass.videoMasterGarmentType || 'generic') as GarmentType, isRetryRender);
       const webhookUrl = new URL('/api/video/webhook', req.nextUrl.origin);
       webhookUrl.searchParams.set('jobId', jobId);
       webhookUrl.searchParams.set('token', webhookToken);
