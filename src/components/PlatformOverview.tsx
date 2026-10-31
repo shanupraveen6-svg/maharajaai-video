@@ -1,6 +1,7 @@
 'use client';
 
-import { AlertTriangle, ArrowRight, MessageSquare, Store } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, ArrowRight, Inbox, MessageSquare, Phone, Store } from 'lucide-react';
 import { creditStatuses } from '@/lib/maharaja/credits';
 
 type ModuleKey = 'image' | 'live' | 'video';
@@ -19,6 +20,8 @@ export type OverviewClient = {
   limits: { image: number; live: number; video: number };
 };
 
+type Enquiry = { id: string; name: string; phone: string; storeName: string; city: string; interest: string; modules: string[]; message: string; source: string; createdAt: string; emailed: boolean };
+
 const MODULES: Array<[ModuleKey, string]> = [['image', 'Image Try-On'], ['live', 'Live Mirror'], ['video', 'AI Video']];
 
 /** Effective credits: a module switched off counts as not in the plan. */
@@ -31,6 +34,13 @@ function planLimit(client: OverviewClient, key: ModuleKey) {
  * attention (credits, WhatsApp requests, missing logins, paused stores) and a row per client.
  */
 export default function PlatformOverview({ clients, onSelect }: { clients: OverviewClient[]; onSelect: (clientId: string) => void }) {
+  const [enquiries, setEnquiries] = useState<Enquiry[] | null>(null);
+  useEffect(() => {
+    fetch('/api/admin/enquiries', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => setEnquiries(data.success ? data.enquiries : []))
+      .catch(() => setEnquiries([]));
+  }, []);
   const active = clients.filter((item) => item.status === 'Active').length;
   const sum = (pick: (item: OverviewClient) => number) => clients.reduce((total, item) => total + pick(item), 0);
   const credits = (item: OverviewClient) => creditStatuses(
@@ -107,6 +117,29 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
             <p key={label} className="mt-1 flex justify-between text-sm"><span>{label}</span><span className="font-mono font-bold">{count} / {clients.length}</span></p>
           ))}
         </article>
+      </section>
+
+      <section className="border border-[#D8DCD7] bg-white p-5">
+        <h2 className="flex items-center gap-2 font-serif text-xl font-semibold"><Inbox className="h-5 w-5 text-[#7A1428]" /> Enquiries</h2>
+        <p className="mt-1 text-xs text-[#535A56]">From pricing, demo and client “request” buttons. Each one is also emailed to TryFocus support.</p>
+        {enquiries === null ? (
+          <p className="mt-3 text-sm text-[#535A56]">Loading…</p>
+        ) : enquiries.length === 0 ? (
+          <p className="mt-3 text-sm text-[#535A56]">No enquiries yet.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-[#ECEEE9]">
+            {enquiries.map((item) => (
+              <li key={item.id} className="grid gap-1 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-start">
+                <div className="min-w-0">
+                  <p><span className="font-semibold">{item.storeName}</span>{item.city ? <span className="text-[#535A56]"> · {item.city}</span> : null} <span className="ml-1 font-mono text-[11px] font-bold uppercase text-[#7A1428]">{item.interest}</span></p>
+                  <p className="text-xs text-[#535A56]">{item.name}{item.modules.length ? ` · ${item.modules.join(', ')}` : ''} · {new Date(item.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} · {item.source}{item.emailed ? '' : ' · not emailed'}</p>
+                  {item.message && <p className="mt-1 text-xs text-[#161918]">“{item.message}”</p>}
+                </div>
+                <a href={`tel:${item.phone}`} className="flex min-h-10 items-center gap-1 font-mono text-xs font-bold text-[#7A1428]"><Phone className="h-3.5 w-3.5" />{item.phone}</a>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="overflow-x-auto border border-[#D8DCD7] bg-white">

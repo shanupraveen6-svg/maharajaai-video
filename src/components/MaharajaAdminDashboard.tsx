@@ -7,6 +7,7 @@ import QRCode from 'qrcode';
 import { CREDIT_BAR_COLOURS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
 import GoLivePromoManager from '@/components/GoLivePromoManager';
 import LockedAmountField from '@/components/LockedAmountField';
+import EnquiryButton from '@/components/EnquiryButton';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
   Download,
@@ -599,7 +600,7 @@ export default function MaharajaAdminDashboard({
         <div role="alert" className="border-b border-[#B42318]/40 bg-[#FEF3F2] px-5 py-3 text-sm text-[#7A271A] sm:px-8">
           <div className="mx-auto max-w-7xl space-y-0.5">
             {creditAlerts.map((item) => <p key={item.label} className="font-semibold">{creditWarningText(item)}</p>)}
-            <p className="text-xs">Contact TryFocus to add credits.</p>
+            <EnquiryButton interest="Add credits" source="client-workspace-credits" storeName={workspace.clientName} className="min-h-9 text-xs font-bold underline underline-offset-4">Request more credits from TryFocus</EnquiryButton>
           </div>
         </div>
       )}
@@ -1346,7 +1347,7 @@ export default function MaharajaAdminDashboard({
                   <GoLivePromoManager goLiveUrl={workspace.links.goLive} />
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-[#535A56]">Go Live TV comes with AI Video. Contact TryFocus to add AI Video to your plan.</p>
+                <div className="mt-4 text-sm text-[#535A56]"><p>Go Live TV comes with AI Video.</p><EnquiryButton interest="Add AI Video" source="client-workspace-video" storeName={workspace.clientName} modules={['AI Video']} className="mt-2 min-h-10 bg-[#161918] px-3 text-xs font-bold uppercase tracking-wider text-white">Request AI Video</EnquiryButton></div>
               )}
               {limits.video > 0 && (
                 <div className="mt-5 border-t border-[#D8DCD7] pt-4">

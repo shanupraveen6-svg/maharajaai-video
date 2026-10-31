@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import EnquiryButton from '@/components/EnquiryButton';
 import {
   ArrowRight, BarChart3, Camera, Check, ChevronDown, CirclePlay,
   LockKeyhole, MonitorPlay, Phone, ShieldCheck, Sparkles, Store,
@@ -211,7 +212,7 @@ export default function LandingPage() {
           </div>
           <div className="mx-auto mt-6 grid max-w-5xl gap-4 border border-[#D8DCD7] bg-white p-5 text-sm text-[#515955] md:grid-cols-[1fr_auto] md:items-center">
             <div><p className="font-black text-[#161918]">One platform. Activate only the surfaces you purchase.</p><p className="mt-1 leading-6">Mobile, tablet, TV/standee and wall player access are configured per client. AI image and AI video include a 15% retry allowance; Live AI Try-On has no retry.</p></div>
-            <div className="border-l-0 border-[#E3D7C3] pt-3 md:border-l md:pl-5 md:pt-0"><p className="text-xs font-bold uppercase tracking-wider text-[#7A1428]">Optional hardware</p><p className="mt-1 font-black text-[#161918]">43” Interactive TV Standee</p><p className="text-lg font-black text-[#7A1428]">₹1,00,000</p></div>
+            <div className="border-l-0 border-[#E3D7C3] pt-3 md:border-l md:pl-5 md:pt-0"><p className="text-xs font-bold uppercase tracking-wider text-[#7A1428]">Optional hardware</p><p className="mt-1 font-black text-[#161918]">43” Interactive TV Standee</p><p className="text-lg font-black text-[#7A1428]">₹1,00,000</p><EnquiryButton interest="43” TV Standee" source="pricing-hardware" modules={['TV Standee']} className="mt-2 min-h-10 text-xs font-bold uppercase tracking-wider text-[#7A1428] underline underline-offset-4">Request standee</EnquiryButton></div>
           </div>
         </div>
       </section>
@@ -236,6 +237,9 @@ export default function LandingPage() {
             <a href="#client-access" className="inline-flex min-h-12 items-center gap-2 bg-[#7A1428] px-6 text-sm font-bold text-white transition hover:bg-[#5D0F1F] shadow-sm">
               Select store in hero <ArrowRight className="h-4 w-4" />
             </a>
+            <EnquiryButton interest="Book a store demo" source="home-cta" className="inline-flex min-h-12 items-center gap-2 bg-[#161918] px-6 text-sm font-bold text-white transition hover:bg-[#7A1428] shadow-sm">
+              Book a demo <ArrowRight className="h-4 w-4" />
+            </EnquiryButton>
             <a href="tel:9994837342" className="inline-flex min-h-12 items-center gap-2 border border-[#BFC5C0] bg-white px-5 text-sm font-bold text-[#161918] transition hover:border-[#161918]">
               <Phone className="h-4 w-4 text-[#7A1428]" /> Contact: 9994837342
             </a>
@@ -278,7 +282,7 @@ function PricingPlan({
         ))}
       </div>
       <p className="mt-5 text-xs leading-5 text-[#59615D]">Each module is selected independently. AI Video and Live access can be restricted by your retailer’s campaign conditions.</p>
-      <a href="tel:9994837342" className={`mt-6 flex min-h-12 w-full items-center justify-center gap-2 px-4 text-xs font-black uppercase tracking-wider transition ${featured ? 'bg-[#7A1428] text-white hover:bg-[#5D0F1F]' : 'border border-[#7A1428] text-[#7A1428] hover:bg-[#7A1428] hover:text-white'}`}><Phone className="h-4 w-4" />Request this plan</a>
+      <EnquiryButton interest={`${title} plan`} source="pricing" className={`mt-6 flex min-h-12 w-full items-center justify-center gap-2 px-4 text-xs font-black uppercase tracking-wider transition ${featured ? 'bg-[#7A1428] text-white hover:bg-[#5D0F1F]' : 'border border-[#7A1428] text-[#7A1428] hover:bg-[#7A1428] hover:text-white'}`}><Phone className="h-4 w-4" />Request this plan</EnquiryButton>
     </article>
   );
 }
