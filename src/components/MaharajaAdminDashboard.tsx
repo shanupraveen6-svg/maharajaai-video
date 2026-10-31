@@ -397,7 +397,7 @@ export default function MaharajaAdminDashboard({
       }
       if (sampleInputRef.current) sampleInputRef.current.value = '';
       setSampleName('');
-      setNotice('Showcase video added to the Go Live TV loop.');
+      setNotice('Retail clip added to the Go Live TV loop.');
       await loadWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to upload showcase video.');
@@ -1323,15 +1323,15 @@ export default function MaharajaAdminDashboard({
               ) : (
                 <p className="mt-4 text-sm text-[#535A56]">Go Live TV comes with AI Video. Contact TryFocus to add AI Video to your plan.</p>
               )}
-              {showcaseList.length > 0 && (
-                <details className="mt-5 border-t border-[#D8DCD7] pt-4">
-                  <summary className="cursor-pointer text-xs font-semibold text-[#535A56]">Older loop clips ({showcaseList.length})</summary>
-                  <p className="mt-2 text-xs text-[#535A56]">These clips play inside the customer video loop. New promotional videos belong in Promo videos above.</p>
+              {limits.video > 0 && (
+                <div className="mt-5 border-t border-[#D8DCD7] pt-4">
+                  <p className="text-sm font-semibold text-[#161918]">Retail clips ({showcaseList.length})</p>
+                  <p className="mt-1 text-xs text-[#535A56]">Short store clips (MP4 or MOV, up to 4 MB) that play inside the customer video loop, so the TV is never empty. Promo videos above play after every 10 customer videos.</p>
               <div className="mt-4 grid gap-2.5 sm:grid-cols-[1fr_1fr_auto]">
                 <input
                   value={sampleName}
                   onChange={(event) => setSampleName(event.target.value)}
-                  placeholder="Clip title (optional)"
+                  placeholder="Retail clip name (optional)"
                   className="h-11 border border-[#D8DCD7] bg-white px-3 text-sm text-[#161918] outline-none focus:border-[#7A1428]"
                 />
                 <input
@@ -1354,7 +1354,7 @@ export default function MaharajaAdminDashboard({
                   Upload
                 </button>
               </div>
-                </details>
+                </div>
               )}
             </div>
 

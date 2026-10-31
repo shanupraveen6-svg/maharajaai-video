@@ -35,3 +35,14 @@ try {
 }
 
 console.log('Fal Try-On input and no-double-call error paths passed without provider requests.');
+
+// Fal failure falls back once to Gemini, and the privacy policy discloses that backup.
+{
+  const fs = await import('node:fs');
+  const route = fs.readFileSync(new URL('../src/app/api/ai/master-image/route.ts', import.meta.url), 'utf8');
+  assert.match(route, /catch \(falError\) \{[\s\S]*if \(!ai\) throw falError;/, 'Fal errors fall through to the Gemini backup');
+  const policy = fs.readFileSync(new URL('../src/app/privacy/page.tsx', import.meta.url), 'utf8');
+  assert.match(policy, /sent once to Google Gemini as a backup/);
+  assert.match(policy, /2026-10-privacy-v3/);
+  console.log('✓ Fal → Gemini backup is in place and disclosed in the privacy policy');
+}

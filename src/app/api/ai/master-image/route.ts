@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{8,120}$/.test(sessionId)) {
       return NextResponse.json({ success: false, error: 'Reload the page to start a valid photo session.' }, { status: 400 });
     }
-    if (body.processingConsent !== true || body.consentVersion !== '2026-10-privacy-v2') {
+    if (body.processingConsent !== true || body.consentVersion !== '2026-10-privacy-v3') {
       return NextResponse.json({ success: false, error: 'Photo processing permission is required before generation.' }, { status: 400 });
     }
     if ((body.templateId === 'girl' || body.templateId === 'boy') && body.guardianProcessingConsent !== true) {
@@ -377,8 +377,14 @@ ${roleInstructions}
         }
         if (!rawBuffer && service === 'try-on' && !tryOnRetry && process.env.FAL_KEY?.trim()) {
           falTryOnAttempted = true;
-          rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], process.env.FAL_KEY.trim());
-          imageProvider = 'fal-image-apps-v2-try-on';
+          try {
+            rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], process.env.FAL_KEY.trim());
+            imageProvider = 'fal-image-apps-v2-try-on';
+          } catch (falError) {
+            // Backup (disclosed in the privacy policy): the same photos go once to Gemini with the Try-On prompt.
+            if (!ai) throw falError;
+            console.warn('Fal Try-On failed; creating the look with the Gemini backup.', falError);
+          }
         }
         if (!rawBuffer) {
           if (!ai) throw new Error('Both Try-On image services are unavailable. Please ask Maharaja staff for assistance.');
@@ -488,7 +494,7 @@ ${roleInstructions}
         garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
-        consentVersion: '2026-10-privacy-v2',
+        consentVersion: '2026-10-privacy-v3',
         consentedAt: nowIso,
         ...safeImageFields,
         status: 'master_ready',
@@ -512,7 +518,7 @@ ${roleInstructions}
         garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
-        consentVersion: '2026-10-privacy-v2',
+        consentVersion: '2026-10-privacy-v3',
         consentedAt: nowIso,
         ...imageFields,
         status: 'master_ready',

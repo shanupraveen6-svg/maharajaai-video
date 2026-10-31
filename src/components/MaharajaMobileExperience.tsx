@@ -98,7 +98,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl, cl
           garmentType: selectedProduct.garmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,
-          consentVersion: '2026-10-privacy-v2',
+          consentVersion: '2026-10-privacy-v3',
           personPhoto,
           garmentPhotos: [garmentImg],
           garmentRoles: ['Primary Garment Reference'],

@@ -676,7 +676,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         tryOnGrant,
         processingConsent,
         guardianProcessingConsent: (category === 'girl' || category === 'boy') ? processingConsent : false,
-        consentVersion: '2026-10-privacy-v2',
+        consentVersion: '2026-10-privacy-v3',
       };
 
       requestBody.personPhotoStoragePath = personStoragePath;

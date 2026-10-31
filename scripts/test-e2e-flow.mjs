@@ -86,7 +86,7 @@ async function run() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sessionId: 'e2e_photo_limit', accessCode: customerPassCode, service: 'try-on', templateId: 'women',
-        processingConsent: true, consentVersion: '2026-10-privacy-v2', garmentTypeConfirmed: false,
+        processingConsent: true, consentVersion: '2026-10-privacy-v3', garmentTypeConfirmed: false,
         personPhotoStoragePath: 'clients/maharaja/sessions/e2e_photo_limit/person/photo.jpg',
         garmentPhotoStoragePaths: Array.from({ length: count }, (_, i) => `clients/maharaja/sessions/e2e_photo_limit/garment/${i}.jpg`),
       }),
