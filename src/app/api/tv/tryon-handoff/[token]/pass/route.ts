@@ -11,7 +11,7 @@ import { moduleLimit,
   saveVideoPass,
   type MaharajaVideoPass,
 } from '@/lib/maharaja/server';
-import { readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
+import { lookVideoAvailable, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
@@ -38,6 +38,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
   const imageIndex = Number(body?.imageIndex);
   const look = Number.isInteger(imageIndex) ? handoff.looks[imageIndex] : undefined;
   if (!look) return NextResponse.json({ success: false, error: 'The selected look is unavailable.' }, { status: 404 });
+  if (!lookVideoAvailable(handoff, look)) {
+    return NextResponse.json({ success: false, error: 'Catalogue festival videos are made on the store TV.' }, { status: 403 });
+  }
 
   const existingCode = handoff.lookPassCodes?.[String(imageIndex)];
   if (existingCode) {

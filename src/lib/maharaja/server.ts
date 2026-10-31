@@ -15,7 +15,6 @@ import {
   type CustomerCategory,
   MAHARAJA_CLIENT_ID,
   MAHARAJA_WORKSPACE_CODE,
-  TRY_ON_MIN_PURCHASE,
   resolveGarmentType,
   ENFORCE_REPEAT_LIMITS,
 } from './config';
@@ -31,6 +30,12 @@ export type MaharajaWorkspace = {
   tvBillSuffixRequired?: boolean;
   /** Bill amount (INR) from which the counter offers the AI Video QR; 0 offers it on every bill. */
   videoMinPurchase?: number;
+  /** Price-tag amount (INR) a customer scans before mobile Try-On when the gate is on. */
+  tryOnMinPurchase?: number;
+  /** A client's own change to a minimum locks it for 3 days (epoch ms), so stores set it carefully. */
+  minimumsLockedUntil?: { tryOn?: number; video?: number };
+  /** When the client asked TryFocus to connect WhatsApp delivery. */
+  whatsappRequestedAt?: string;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   devices?: {
@@ -477,6 +482,13 @@ function stableCode(label: string, length = 20, clientId = MAHARAJA_CLIENT_ID) {
 /** Secret code in a workspace's Go Live TV link; derived from the auth secret, so it cannot be guessed. */
 const DEFAULT_LIMITS = { image: 4000, live: 500, video: 500 } as const;
 
+/** Price-tag amount a mobile Try-On customer must scan; 0 when the store does not ask for a tag scan. */
+export function tryOnMinimumFor(workspace: Pick<MaharajaWorkspace, 'minPurchaseTryOnDisabled' | 'tryOnMinPurchase'>) {
+  return workspace.minPurchaseTryOnDisabled === false ? Math.max(1, Number(workspace.tryOnMinPurchase ?? 500)) : 0;
+}
+
+export const MINIMUM_LOCK_MS = 3 * 24 * 60 * 60 * 1000;
+
 /** Credits a module may use right now: 0 when the module is switched off for this workspace. */
 export function moduleLimit(workspace: Pick<MaharajaWorkspace, 'limits' | 'modules'>, module: 'image' | 'live' | 'video') {
   if (workspace.modules?.[module] === false) return 0;
@@ -633,6 +645,9 @@ export async function updateMaharajaSettings(
       | 'minPurchaseTryOnDisabled'
       | 'tvBillSuffixRequired'
       | 'videoMinPurchase'
+      | 'tryOnMinPurchase'
+      | 'minimumsLockedUntil'
+      | 'whatsappRequestedAt'
       | 'deliveryMode'
       | 'whatsappConnected'
       | 'devices'
@@ -2637,7 +2652,7 @@ export function publicWorkspaceView(workspace: MaharajaWorkspace) {
     clientId: workspace.clientId,
     clientName: workspace.clientName,
     campaignEnabled: workspace.campaignEnabled,
-    tryOnMinimum: workspace.minPurchaseTryOnDisabled === false ? Math.max(500, TRY_ON_MIN_PURCHASE) : TRY_ON_MIN_PURCHASE,
+    tryOnMinimum: tryOnMinimumFor(workspace),
     aiVideoMinimum: workspace.videoMinPurchase ?? AI_VIDEO_MIN_PURCHASE,
     tvBillSuffixRequired: workspace.tvBillSuffixRequired ?? true,
     activeEvents: workspace.activeEvents,

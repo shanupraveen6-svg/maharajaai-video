@@ -5,9 +5,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, GARMENT_TYPE_RULES, compatibleGarmentType, isEventId, TRY_ON_MIN_PURCHASE, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
+import { type CustomerCategory, GARMENT_TYPE_RULES, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
-import { moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
@@ -231,7 +231,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (service === 'try-on' && !access.pass && accessCode === access.workspace.tryOnCode) {
-      const requirePriceTag = TRY_ON_MIN_PURCHASE > 0 || access.workspace.minPurchaseTryOnDisabled === false;
+      const requirePriceTag = tryOnMinimumFor(access.workspace) > 0;
       if (!validTryOnDeviceId(body.deviceId)) return NextResponse.json({ success: false, error: 'Reload this page to prepare your private session.' }, { status: 400 });
       let token = typeof body.tryOnGrant === 'string' ? body.tryOnGrant : '';
       if (!requirePriceTag && !token) {

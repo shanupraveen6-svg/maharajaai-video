@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import { CREDIT_BAR_COLOURS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
 import GoLivePromoManager from '@/components/GoLivePromoManager';
+import LockedAmountField from '@/components/LockedAmountField';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
   Download,
@@ -37,6 +38,9 @@ type WorkspaceData = {
   minPurchaseTryOnDisabled?: boolean;
   tvBillSuffixRequired?: boolean;
   videoMinPurchase?: number;
+  tryOnMinPurchase?: number;
+  minimumsLockedUntil?: { tryOn?: number; video?: number };
+  whatsappRequestedAt?: string;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   whatsappEnabled?: boolean;
@@ -249,8 +253,9 @@ export default function MaharajaAdminDashboard({
         | 'minPurchaseTryOnDisabled'
         | 'tvBillSuffixRequired'
         | 'videoMinPurchase'
+        | 'tryOnMinPurchase'
       >
-    >
+    > & { requestWhatsapp?: boolean }
   ) {
     setSaving(true);
     setNotice('');
@@ -786,17 +791,18 @@ export default function MaharajaAdminDashboard({
             </div>
 
             <div className="mt-4 space-y-2 border-t border-[#D8DCD7] pt-4 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[#535A56]">₹500 Minimum Price-Tag Gate:</span>
-                <button
-                  type="button"
+              {limits.image > 0 && (
+                <LockedAmountField
+                  key={`tryon-${minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}`}
+                  id="tryon-min-purchase"
+                  label="Mobile Try-On price tag from (₹)"
+                  hint="0 = no tag scan"
+                  value={minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}
+                  lockedUntil={workspace.minimumsLockedUntil?.tryOn}
                   disabled={saving}
-                  onClick={() => savePatch({ minPurchaseTryOnDisabled: !minGateDisabled })}
-                  className="min-h-10 py-2 text-right font-mono font-bold text-[#7A1428] underline"
-                >
-                  {minGateDisabled ? 'DISABLED (Free Scan Active)' : 'ENABLED (₹500 Tag Required)'}
-                </button>
-              </div>
+                  onSave={(value) => savePatch({ tryOnMinPurchase: value })}
+                />
+              )}
               {devices.tv && <div className="flex items-center justify-between">
                 <span className="text-[#535A56]">TV Kiosk Bill Suffix:</span>
                 <button
@@ -814,31 +820,34 @@ export default function MaharajaAdminDashboard({
                     : 'ENABLED (Requires Last 4 Digits)'}
                 </button>
               </div>}
-              <div className="flex items-center justify-between gap-3">
-                <label htmlFor="video-min-purchase" className="text-[#535A56]">
-                  AI Video QR from bill (₹) <span className="text-[#8A918D]">· 0 = every bill</span>
-                </label>
-                <input
-                  key={workspace.videoMinPurchase ?? 5000}
+              {limits.video > 0 && (
+                <LockedAmountField
+                  key={`video-${workspace.videoMinPurchase ?? 5000}`}
                   id="video-min-purchase"
-                  type="number"
-                  min={0}
-                  step={500}
-                  inputMode="numeric"
+                  label="AI Video QR from bill (₹)"
+                  hint="0 = every bill"
+                  value={workspace.videoMinPurchase ?? 5000}
+                  lockedUntil={workspace.minimumsLockedUntil?.video}
                   disabled={saving}
-                  defaultValue={workspace.videoMinPurchase ?? 5000}
-                  onBlur={(event) => {
-                    const value = Math.max(0, Math.round(Number(event.target.value) || 0));
-                    if (value !== (workspace.videoMinPurchase ?? 5000)) void savePatch({ videoMinPurchase: value });
-                  }}
-                  className="w-28 border border-[#D8DCD7] bg-white px-2 py-1 text-right font-mono font-bold text-[#7A1428] outline-none focus:border-[#7A1428]"
+                  onSave={(value) => savePatch({ videoMinPurchase: value })}
                 />
-              </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-[#535A56]">WhatsApp Link Delivery:</span>
-                <span className="font-mono font-bold text-[#161918]">
-                  {whatsappConnected ? 'CONNECTED BY TRYFOCUS' : 'QR ONLY · Ask TryFocus to connect'}
-                </span>
+                {whatsappConnected ? (
+                  <span className="font-mono font-bold text-[#256B45]">CONNECTED BY TRYFOCUS</span>
+                ) : workspace.whatsappRequestedAt ? (
+                  <span className="font-mono font-bold text-[#161918]">REQUESTED · TryFocus will contact you</span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void savePatch({ requestWhatsapp: true })}
+                    className="min-h-10 bg-[#256B45] px-3 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
+                  >
+                    Request WhatsApp
+                  </button>
+                )}
               </div>
             </div>
           </div>

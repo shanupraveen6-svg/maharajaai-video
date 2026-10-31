@@ -25,6 +25,8 @@ type Look = {
   garmentType?: string;
   gender?: string;
   garmentReferenceUrl?: string;
+  /** False for catalogue looks from the counter tablet: those festival videos are made on the TV. */
+  videoAvailable?: boolean;
 };
 
 export default function PrivateLooksPage() {
@@ -279,6 +281,11 @@ export default function PrivateLooksPage() {
                 )}
 
                 <div className="mt-5 space-y-3">
+                    {current.videoAvailable === false ? (
+                      <p className="border border-[#D8DCD7] bg-[#FAFBF8] p-4 text-center text-sm text-[#535A56]">
+                        Catalogue festival videos are made on the store TV. Ask our staff to create yours there.
+                      </p>
+                    ) : (<>
                     <button
                       type="button"
                       disabled={videoStarting}
@@ -291,6 +298,7 @@ export default function PrivateLooksPage() {
                     <p className="text-center text-xs text-[#535A56]">
                       Valid for 24 hours on this phone · Showing it on the store TV is optional
                     </p>
+                    </>)}
 
                     {/* Manual Save Image Button */}
                     <button

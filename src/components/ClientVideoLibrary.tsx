@@ -13,53 +13,6 @@ import {
 } from 'lucide-react';
 import type { GoLiveAuditItem } from '@/components/MaharajaAdminDashboard';
 
-const DEMO_FALLBACK_VIDEOS: GoLiveAuditItem[] = [
-  {
-    id: 'demo-golive-1',
-    sessionId: 'maharaja_live_101',
-    customerName: 'Ananya R. · Kanchivaram Purple Peacock Saree',
-    customerLocality: 'Thanjavur Showroom',
-    eventId: 'diwali',
-    queueNumber: 1,
-    status: 'ready',
-    liveConsent: true,
-    loopConsent: true,
-    promotionConsent: true,
-    createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    videoUrl: '/videos/maharaja-demo-sample.mp4',
-  },
-  {
-    id: 'demo-golive-2',
-    sessionId: 'maharaja_live_102',
-    customerName: 'Karthik S. · Royal Maroon Zari Kurta & Angavastram',
-    customerLocality: 'Thanjavur Showroom',
-    eventId: 'pongal',
-    queueNumber: 2,
-    status: 'ready',
-    liveConsent: true,
-    loopConsent: true,
-    promotionConsent: true,
-    createdAt: new Date(Date.now() - 75 * 60 * 1000).toISOString(),
-    expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    videoUrl: '/videos/maharaja-demo-sample.mp4',
-  },
-  {
-    id: 'demo-golive-3',
-    sessionId: 'maharaja_live_103',
-    customerName: 'Meenakshi V. · Bridal Velvet Zardozi Lehenga',
-    customerLocality: 'Thanjavur Showroom',
-    eventId: 'diwali',
-    queueNumber: 3,
-    status: 'ready',
-    liveConsent: true,
-    loopConsent: true,
-    promotionConsent: false,
-    createdAt: new Date(Date.now() - 140 * 60 * 1000).toISOString(),
-    expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    videoUrl: '/videos/maharaja-demo-sample.mp4',
-  },
-];
 
 export default function ClientVideoLibrary({
   backHref = '/maharaja/workspace',
@@ -74,19 +27,17 @@ export default function ClientVideoLibrary({
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'promo'>('all');
   const [downloadingId, setDownloadingId] = useState('');
+  const [removingId, setRemovingId] = useState('');
 
   useEffect(() => {
     fetch('/api/maharaja/workspace', { cache: 'no-store' })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.workspace?.goLiveAudit?.length > 0) {
-          setVideos(data.workspace.goLiveAudit);
-        } else {
-          setVideos(DEMO_FALLBACK_VIDEOS);
-        }
+        if (!res.ok) throw new Error(data?.error || 'Go Live videos could not be loaded.');
+        setVideos(Array.isArray(data?.workspace?.goLiveAudit) ? data.workspace.goLiveAudit : []);
       })
-      .catch(() => {
-        setVideos(DEMO_FALLBACK_VIDEOS);
+      .catch((caught) => {
+        setError(caught instanceof Error ? caught.message : 'Go Live videos could not be loaded.');
       })
       .finally(() => setLoading(false));
   }, []);
@@ -99,6 +50,25 @@ export default function ClientVideoLibrary({
       return hay.includes(query.toLowerCase());
     });
   }, [videos, filter, query]);
+
+  async function handleRemove(item: GoLiveAuditItem) {
+    if (!item.sessionId || !window.confirm('Remove this video from the Go Live TV and delete it? This cannot be undone.')) return;
+    setRemovingId(item.id);
+    try {
+      const response = await fetch('/api/live/replays', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionIds: [item.sessionId] }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success === false) throw new Error(data?.error || 'The video could not be removed.');
+      setVideos((current) => current.filter((video) => video.id !== item.id));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The video could not be removed.');
+    } finally {
+      setRemovingId('');
+    }
+  }
 
   async function handleDownload(item: GoLiveAuditItem) {
     if (!item.promotionConsent) return;
@@ -269,6 +239,14 @@ export default function ClientVideoLibrary({
                     : item.promotionConsent
                     ? 'Download Go Live Video'
                     : 'Showroom Playback Only'}
+                </button>
+                <button
+                  type="button"
+                  disabled={removingId === item.id}
+                  onClick={() => void handleRemove(item)}
+                  className="mt-2 flex min-h-11 w-full items-center justify-center border border-[#B42318] bg-white px-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#B42318] disabled:opacity-50"
+                >
+                  {removingId === item.id ? 'Removing…' : 'Remove from TV'}
                 </button>
               </article>
             ))}

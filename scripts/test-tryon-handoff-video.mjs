@@ -122,4 +122,19 @@ assert.match(mobileOff.data.error, /turned off/i);
 await updateMaharajaSettings({ devices: { mobile: true } });
 console.log('✓ Video credits and mobile switch enforced before a pass is issued');
 
+// 8. Catalogue festival videos come only from TV looks; own-garment looks work from the tablet too.
+{
+  const tabletHandoff = async (sku) => (await (await createHandoff(new NextRequest('http://localhost/api/tv/tryon-handoff', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source: 'tablet', looks: [{ sku, title: 'Look', image: testBase64Png, category: 'sarees', garmentType: 'saree', gender: 'women', garmentReferenceUrl: testBase64Png }] }),
+  }))).json()).token;
+  const catalogueFromTablet = await requestPass(await tabletHandoff('TF-SAR-01'), 0);
+  assert.equal(catalogueFromTablet.status, 403);
+  assert.match(catalogueFromTablet.data.error, /store TV/);
+  const ownFromTablet = await requestPass(await tabletHandoff('OWN-777777'), 0);
+  assert.equal(ownFromTablet.status, 200, ownFromTablet.data.error);
+  console.log('✓ Catalogue festival video only from the TV; own-garment video from tablet looks');
+}
+
 console.log('ALL TRY-ON HANDOFF VIDEO PASS TESTS PASSED SUCCESSFULLY!');

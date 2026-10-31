@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOperatorSession, verifyAdminRequest, verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import {
+  MINIMUM_LOCK_MS,
   verifyClientSessionCurrent,
   getClientWorkspaceById,
   getClientWorkspaceByWorkspaceCode,
@@ -395,11 +396,42 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.tvBillSuffixRequired === 'boolean') {
       settings.tvBillSuffixRequired = body.tvBillSuffixRequired;
     }
-    if (typeof body.videoMinPurchase === 'number' && Number.isFinite(body.videoMinPurchase)) {
-      if (body.videoMinPurchase < 0 || body.videoMinPurchase > 10_000_000) {
+    // Minimums set by the client lock for 3 days after each change; TryFocus admin can always change them.
+    const isAdmin = verifyAdminRequest(req);
+    const now = Date.now();
+    const locks = { ...(targetWorkspace.minimumsLockedUntil || {}) };
+    const lockedUntilText = (until: number) => new Date(until).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
+    const changesTryOn = typeof body.tryOnMinPurchase === 'number' || typeof body.minPurchaseTryOnDisabled === 'boolean';
+    const changesVideo = typeof body.videoMinPurchase === 'number';
+    if (!isAdmin && changesTryOn && (locks.tryOn ?? 0) > now) {
+      return NextResponse.json({ success: false, error: `The Try-On minimum is locked until ${lockedUntilText(locks.tryOn!)}.` }, { status: 409 });
+    }
+    if (!isAdmin && changesVideo && (locks.video ?? 0) > now) {
+      return NextResponse.json({ success: false, error: `The AI Video minimum is locked until ${lockedUntilText(locks.video!)}.` }, { status: 409 });
+    }
+    const amountOk = (value: number) => Number.isFinite(value) && value >= 0 && value <= 10_000_000;
+    if (typeof body.tryOnMinPurchase === 'number') {
+      if (!amountOk(body.tryOnMinPurchase)) {
+        return NextResponse.json({ success: false, error: 'Enter a price-tag amount between ₹0 and ₹1,00,00,000.' }, { status: 400 });
+      }
+      settings.tryOnMinPurchase = Math.round(body.tryOnMinPurchase);
+      // ₹0 means customers try on without scanning a price tag.
+      settings.minPurchaseTryOnDisabled = settings.tryOnMinPurchase === 0;
+    }
+    if (changesVideo) {
+      if (!amountOk(body.videoMinPurchase)) {
         return NextResponse.json({ success: false, error: 'Enter a bill amount between ₹0 and ₹1,00,00,000.' }, { status: 400 });
       }
       settings.videoMinPurchase = Math.round(body.videoMinPurchase);
+    }
+    if (!isAdmin && (changesTryOn || changesVideo)) {
+      if (changesTryOn) locks.tryOn = now + MINIMUM_LOCK_MS;
+      if (changesVideo) locks.video = now + MINIMUM_LOCK_MS;
+      settings.minimumsLockedUntil = locks;
+    }
+    // The client asks for WhatsApp; TryFocus support connects it from TryFocus admin.
+    if (body.requestWhatsapp === true) {
+      settings.whatsappRequestedAt = new Date(now).toISOString();
     }
     if (body.deliveryMode === 'whatsapp' || body.deliveryMode === 'qr') {
       settings.deliveryMode = body.deliveryMode;

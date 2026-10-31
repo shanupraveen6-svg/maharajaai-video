@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
         })));
         await db.collection('tvTryOnHandoffs').doc(token).set({
           clientId: activeClientId(),
+          source: body.source === 'tablet' ? 'tablet' : 'tv',
           expiresAtMs,
           expiresAt: new Date(expiresAtMs).toISOString(),
           looks: looks.map((look, index) => ({
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
         throw error;
       }
     } else if (!db) {
-      getMockStore().sessions.set(`tv_handoff_${token}`, { clientId: activeClientId(), expiresAtMs, looks });
+      getMockStore().sessions.set(`tv_handoff_${token}`, { clientId: activeClientId(), source: body.source === 'tablet' ? 'tablet' : 'tv', expiresAtMs, looks });
     } else {
       return NextResponse.json({ error: 'Private handoff storage is unavailable.' }, { status: 503 });
     }

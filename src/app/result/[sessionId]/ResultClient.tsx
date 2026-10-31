@@ -176,18 +176,6 @@ export default function ResultClient({
   }, [liveSuccess, queueId, countdownSeconds, accessCode]);
 
   // Explicit error state if sessionId is missing — NEVER substitute sample-session
-  if (!sessionId) {
-    return (
-      <main className="min-h-screen bg-[#070609] text-[#F8F5EE] p-6 flex flex-col items-center justify-center text-center font-sans max-w-lg mx-auto">
-        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-        <h1 className="text-xl font-serif font-bold text-[#F3E5AB] uppercase mb-2">Invalid Session</h1>
-        <p className="text-sm text-gray-400 mb-6">No valid session ID was provided in the URL.</p>
-        <Link href={accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace'} className="px-6 py-3 bg-[#6e0d1f] border border-[#D4AF37] text-[#F3E5AB] rounded-lg text-sm font-semibold uppercase tracking-wider">
-          Create New Video
-        </Link>
-      </main>
-    );
-  }
 
   const fetchDownloadBlob = async (kind: 'image' | 'video' | 'bundle') => {
     const proxyRes = await fetch('/api/download/asset', {
@@ -229,6 +217,7 @@ export default function ResultClient({
     const blob = await fetchDownloadBlob(kind);
     triggerFileDownload(blob, downloadFileName(kind));
   };
+
 
   /**
    * Saves the image and video as two separate files so phones can put them in
@@ -355,6 +344,15 @@ export default function ResultClient({
     }
   };
 
+  // Saves the finished film once, automatically; the Download buttons remain for browsers that block it.
+  const autoDownloadedVideoRef = React.useRef('');
+  useEffect(() => {
+    if (videoStatus !== 'ready' || !videoUrl || autoDownloadedVideoRef.current === videoUrl) return;
+    autoDownloadedVideoRef.current = videoUrl;
+    void downloadAsset('video').catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoStatus, videoUrl]);
+
   if (liveFarewell) {
     return (
       <main className="min-h-screen bg-[#070609] text-[#F8F5EE]">
@@ -405,6 +403,20 @@ export default function ResultClient({
           <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thank you for experiencing the Maharaja AI visual celebration.</p>
         </section>
         </div>
+      </main>
+    );
+  }
+
+
+  if (!sessionId) {
+    return (
+      <main className="min-h-screen bg-[#070609] text-[#F8F5EE] p-6 flex flex-col items-center justify-center text-center font-sans max-w-lg mx-auto">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <h1 className="text-xl font-serif font-bold text-[#F3E5AB] uppercase mb-2">Invalid Session</h1>
+        <p className="text-sm text-gray-400 mb-6">No valid session ID was provided in the URL.</p>
+        <Link href={accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace'} className="px-6 py-3 bg-[#6e0d1f] border border-[#D4AF37] text-[#F3E5AB] rounded-lg text-sm font-semibold uppercase tracking-wider">
+          Create New Video
+        </Link>
       </main>
     );
   }

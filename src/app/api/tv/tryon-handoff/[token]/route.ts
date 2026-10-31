@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorageBucket } from '@/lib/firebase/admin';
 
-import { readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
+import { lookVideoAvailable, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +40,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
       garmentType: look.garmentType,
       gender: look.gender,
       garmentReferenceUrl: look.garmentReferenceUrl,
+      videoAvailable: lookVideoAvailable(handoff, look),
       imageUrl: `/api/tv/tryon-handoff/${token}?image=${index}`,
       downloadUrl: `/api/tv/tryon-handoff/${token}?image=${index}&download=1`,
     })),

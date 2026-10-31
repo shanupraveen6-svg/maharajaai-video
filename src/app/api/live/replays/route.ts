@@ -425,6 +425,10 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
+  // Deleting a customer's Go Live media is a staff action, limited to the signed-in workspace.
+  if (!verifyOperatorRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
+  }
   try {
     const body = await req.json().catch(() => ({}));
     const targetSessionIds: string[] = Array.isArray(body.sessionIds) && body.sessionIds.length > 0

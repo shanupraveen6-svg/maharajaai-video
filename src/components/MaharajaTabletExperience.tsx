@@ -846,14 +846,14 @@ export default function MaharajaTabletExperience() {
                               <img
                                 src={prod.imageUrl}
                                 alt={prod.title}
-                                className="h-full w-full object-cover transition group-hover:scale-105"
+                                className="h-full w-full object-contain transition group-hover:scale-105"
                               />
                             </div>
                             <p className="mt-1 truncate text-[11px] font-semibold text-[#161918]">
                               {prod.title}
                             </p>
                             <p className="font-mono text-[10px] text-[#7A1428]">
-                              {formatINR(prod.price)}
+                              {prod.price > 0 ? formatINR(prod.price) : ''}
                             </p>
                           </button>
                         ))}
@@ -874,7 +874,7 @@ export default function MaharajaTabletExperience() {
                             {selectedProduct.title}
                           </p>
                           <p className="font-mono text-xs font-semibold text-[#161918]">
-                            {formatINR(selectedProduct.price)}
+                            {selectedProduct.price > 0 ? formatINR(selectedProduct.price) : ''}
                           </p>
                         </div>
                       </div>

@@ -29,6 +29,8 @@ type Client = {
   whatsappConnected: boolean;
   /** TryFocus WhatsApp Cloud API credentials are configured on the server. */
   whatsappApiReady?: boolean;
+  /** When the client pressed "Request WhatsApp" in their workspace. */
+  whatsappRequestedAt?: string | null;
   /** Staff login usernames TryFocus created for this client. */
   logins?: string[];
   devices: { tv: boolean; tablet: boolean; mobile: boolean; led: boolean };
@@ -587,7 +589,9 @@ export default function TryFocusAdmin() {
                   }
                   className="min-h-10 py-2 text-right font-mono font-bold text-[#7A1428] underline disabled:cursor-not-allowed disabled:text-[#8A918D] disabled:no-underline"
                 >
-                  {client.whatsappConnected
+                  {!client.whatsappConnected && client.whatsappRequestedAt
+                    ? `REQUESTED ${new Date(client.whatsappRequestedAt).toLocaleDateString('en-IN')} · CONNECT`
+                    : client.whatsappConnected
                     ? 'CONNECTED (Link + QR)'
                     : client.whatsappApiReady
                       ? 'NOT CONNECTED (QR Only)'

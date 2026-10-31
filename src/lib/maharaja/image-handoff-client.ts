@@ -26,6 +26,8 @@ export async function createImageHandoff(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      // Tablet looks: catalogue festival videos are made only on the store TV.
+      source: 'tablet',
       looks: [{
         sku,
         title,

@@ -2,9 +2,9 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { parseBarcodePrice } from '@/lib/maharaja/barcode-price';
-import { TRY_ON_MIN_PURCHASE, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
+import { ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import { AI_CONFIG } from '@/lib/ai/config';
-import {
+import { tryOnMinimumFor,
   analyzeTagDuplicate,
   getTryOnDeviceStatus,
   issueTryOnGrant,
@@ -110,7 +110,7 @@ Return JSON only: {"amount": number | null, "barcode": string | null}`
     }
     const amount = parsed.amount;
 
-    const minimum = access.workspace.minPurchaseTryOnDisabled === false ? Math.max(500, TRY_ON_MIN_PURCHASE) : TRY_ON_MIN_PURCHASE;
+    const minimum = tryOnMinimumFor(access.workspace);
     if (amount < minimum) {
       return reject(`₹${amount} — AI Try-On is for garments ₹${minimum} and above.`, amount);
     }

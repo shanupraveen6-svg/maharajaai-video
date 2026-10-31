@@ -121,6 +121,22 @@ assert.equal(await display.displayClientId(tvReq(sriTv)), null, 'Disconnected');
 assert.equal(await display.displayClientId(tvReq(maharajaTv)), 'maharaja', 'Other workspaces stay paired');
 console.log('✓ 30-day TV pairing is per workspace and revoked per workspace');
 
+// 7b. Minimums set by the client lock for 3 days; TryFocus admin can still change them.
+{
+  const relog = await cookieFor('srireadymade', 'sri-laptop-2026');
+  const patch = (cookie, body) => workspaceRoute.PATCH(asReq('http://localhost/api/maharaja/workspace', cookie, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+  assert.equal((await patch(relog.cookie, { tryOnMinPurchase: 799 })).status, 200);
+  const locked = await server.getClientWorkspaceById(SRI);
+  assert.equal(server.tryOnMinimumFor(locked), 799, 'Mobile customers scan a tag of at least ₹799');
+  assert.ok(locked.minimumsLockedUntil.tryOn > Date.now() + 2.9 * 24 * 3600 * 1000);
+  assert.equal((await patch(relog.cookie, { tryOnMinPurchase: 0 })).status, 409, 'Locked for 3 days');
+  assert.equal((await patch(adminLogin.cookie, { clientId: SRI, tryOnMinPurchase: 0 })).status, 200, 'TryFocus admin overrides');
+  assert.equal(server.tryOnMinimumFor(await server.getClientWorkspaceById(SRI)), 0, '₹0 means no tag scan');
+  assert.equal((await patch(relog.cookie, { requestWhatsapp: true })).status, 200);
+  assert.ok((await server.getClientWorkspaceById(SRI)).whatsappRequestedAt, 'WhatsApp request recorded for TryFocus');
+  console.log('✓ Client minimums lock for 3 days; WhatsApp request reaches TryFocus');
+}
+
 // 8. Instant revocation: a password reset or disabled login is refused on the very next request.
 const { disableClientAccount } = await import('../src/lib/auth/client-accounts.ts');
 const fresh = await cookieFor('srireadymade', 'sri-laptop-2026');

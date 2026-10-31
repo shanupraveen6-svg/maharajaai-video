@@ -108,7 +108,14 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl, cl
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.masterImageUrl) {
         setResultImageUrl(data.masterImageUrl);
-        setStatusNote('Your look is ready.');
+        setStatusNote('Your look is ready and saving to your phone. Use Download Image if it did not save.');
+        // Best-effort automatic save of the finished look (an in-memory image, never stored on the server).
+        const anchor = document.createElement('a');
+        anchor.href = data.masterImageUrl;
+        anchor.download = `tryfocus-look-${Date.now()}.jpg`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
       } else {
         setResultImageUrl('');
         setStatusNote(data?.error || 'Image generation failed. Please try again.');
@@ -296,7 +303,7 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl, cl
                     <img
                       src={item.imageUrl}
                       alt={item.title}
-                      className="aspect-[3/4] w-full object-cover"
+                      className="aspect-[3/4] w-full bg-[#F4F1EA] object-contain"
                     />
                     <p className="mt-1 truncate font-mono text-[10px] font-bold">{item.title}</p>
                   </button>

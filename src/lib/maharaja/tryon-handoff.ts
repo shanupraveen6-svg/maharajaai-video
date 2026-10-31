@@ -15,11 +15,18 @@ export type StoredLook = {
 export type StoredHandoff = {
   /** Client whose TV or tablet created the looks; handoffs from before multi-client are Maharaja's. */
   clientId?: string;
+  /** Device that created the looks; catalogue festival videos are offered only for TV looks. */
+  source?: 'tv' | 'tablet';
   expiresAtMs: number;
   looks: StoredLook[];
   /** Festival video pass issued for each look, keyed by look index. */
   lookPassCodes?: Record<string, string>;
 };
+
+/** Own-garment looks can become a video from any device; catalogue looks only from the store TV. */
+export function lookVideoAvailable(handoff: StoredHandoff, look: StoredLook) {
+  return look.sku.startsWith('OWN-') || handoff.source !== 'tablet';
+}
 
 export function isHandoffToken(token: string) {
   return /^[A-Za-z0-9_-]{32}$/.test(token);
