@@ -16,6 +16,8 @@ import {
   User,
   Video,
   X,
+  MoreVertical,
+  RotateCcw,
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import { compressImage } from '@/lib/utils/image';
@@ -39,6 +41,7 @@ type VideoAudience = CatalogueAudience;
 
 export default function TryFocusTvExperience() {
   const [mode, setMode] = useState<TvMode>('image-tryon');
+  const [showLookMenu, setShowLookMenu] = useState(false);
   const [clientName, setClientName] = useState('The Majestic Maharaja');
   const [catalogueItems, setCatalogueItems] = useState<TryFocusProduct[]>([]);
 
@@ -221,6 +224,13 @@ export default function TryFocusTvExperience() {
       const saree = catalogueItems.find((item) => item.category === 'sarees' && item.eligibleForVideo && item.price >= 5000);
       if (saree) setSelectedProduct(saree);
       setCataloguePage(0);
+      // No AI Video limit: reuse the try-on photo. With a limit, the bill digits and a fresh photo are required.
+      if (tvBillSuffixRequired) {
+        setVideoPersonPhoto('');
+        setVideoMasterUrl('');
+      } else if (customerPhoto && !videoPersonPhoto) {
+        setVideoPersonPhoto(customerPhoto);
+      }
     }
     setMode(next);
   }
@@ -1218,7 +1228,22 @@ export default function TryFocusTvExperience() {
                     <h3 className="font-serif text-3xl font-semibold">Your looks are ready.</h3>
                     {batchDone < selectedLooks.length && <p className="text-base text-[#535A56]">{batchDone} of {selectedLooks.length} finished. More looks are on their way.</p>}
                   </div>
-                  {generatedLooks.length > 1 && <span className="text-lg font-semibold">Look {activeLookIndex + 1} of {selectedLooks.length}</span>}
+                  <div className="flex items-center gap-3">
+                    {generatedLooks.length > 1 && <span className="text-lg font-semibold">Look {activeLookIndex + 1} of {selectedLooks.length}</span>}
+                    {/* Retry lives in the header menu of the screen where the looks were made. */}
+                    <div className="relative">
+                      <button type="button" aria-label="Look options" aria-expanded={showLookMenu} onClick={() => setShowLookMenu((open) => !open)} className="flex min-h-16 min-w-16 items-center justify-center border border-[#161918] bg-white">
+                        <MoreVertical className="h-7 w-7" />
+                      </button>
+                      {showLookMenu && (
+                        <div className="absolute right-0 top-[4.5rem] z-40 w-72 border border-[#161918] bg-white shadow-xl">
+                          <button type="button" onClick={() => { setShowLookMenu(false); setTryOnStage('browse'); setTryOnMobileQr(''); }} className="flex min-h-16 w-full items-center gap-3 px-5 text-left text-lg font-semibold">
+                            <RotateCcw className="h-5 w-5" /> Retry with another dress
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="overflow-hidden border border-[#D8DCD7] bg-white" onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
                   // The before/after slider uses horizontal drags, so look switching stays on the buttons there.

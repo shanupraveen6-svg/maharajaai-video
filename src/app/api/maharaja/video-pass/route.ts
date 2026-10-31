@@ -6,6 +6,7 @@ import { verifyTvRequest } from '@/lib/auth/display';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import {
+  videoLimitSet,
   getVideoPass,
   savePosterDevicePass,
   readPosterDevicePass, moduleLimit, resolveRequestClientId,
@@ -54,7 +55,8 @@ export async function POST(req: NextRequest) {
     const tvBillLast4 = String(body.billLast4 || '');
     // When enabled in workspace settings, TV records the customer's 4-digit bill suffix.
     // When disabled, TV allows direct catalogue video pass creation without restriction.
-    const requiresBillSuffix = workspace.tvBillSuffixRequired !== false;
+    // The TV asks for the bill's last 4 digits whenever the store sets an AI Video minimum bill.
+    const requiresBillSuffix = videoLimitSet(workspace);
     if (body.source === 'tv-kiosk' && requiresBillSuffix && !/^\d{4}$/.test(tvBillLast4)) {
       return NextResponse.json({ success: false, error: 'Enter the last four digits of your bill.' }, { status: 400 });
     }
@@ -119,7 +121,7 @@ export async function POST(req: NextRequest) {
       ? 'catalogue-gift'
       : body.source === 'video-poster' || body.source === 'tablet-kiosk'
         ? 'purchased-garment'
-        : body.experienceType === 'catalogue-gift' ? 'catalogue-gift' : 'purchased-garment';
+        : 'purchased-garment';
     if (body.whatsappOptIn === true && phone.length !== 10) {
       return NextResponse.json({ success: false, error: 'Enter a valid 10 digit phone number.' }, { status: 400 });
     }

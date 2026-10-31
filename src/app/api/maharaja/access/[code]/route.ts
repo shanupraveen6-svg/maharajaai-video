@@ -3,6 +3,7 @@ import { getDb } from '@/lib/firebase/admin';
 import { getEventOption, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
 import {
   activateVideoPassOnFirstScan,
+  claimPassDevice,
   getTryOnDeviceStatus,
   incrementMaharajaUsage,
   incrementPassUsage,
@@ -29,6 +30,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
       access.pass = (await activateVideoPassOnFirstScan(access.pass.code)) || access.pass;
     }
     const deviceId = req.nextUrl.searchParams.get('deviceId');
+    // A video pass belongs to the first phone that opens it.
+    if (service === 'ai-video' && access.pass && validTryOnDeviceId(deviceId) && !await claimPassDevice(access.pass.code, deviceId)) {
+      return NextResponse.json({ success: false, error: 'This video pass is already in use on another phone.' }, { status: 403 });
+    }
     const deviceStatus = validTryOnDeviceId(deviceId) ? await getTryOnDeviceStatus(deviceId) : null;
     let recoveryJob: { id: string; sessionId: string } | null = null;
     if (service === 'ai-video' && access.pass && !access.pass.videoDone) {

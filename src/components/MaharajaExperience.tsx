@@ -937,7 +937,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             initialVideoUrl={videoTestUrl}
             initialMasterImageUrl={videoMasterUrl || ''}
             initialEventId={eventId}
-            allowGoLive={true}
+            allowGoLive={isCatalogueGift}
             catalogueProduct={access?.access.catalogueProduct || null}
             onBack={() => { setVideoTestUrl(''); setVideoTestJobId(''); setStage('ready'); }}
           />

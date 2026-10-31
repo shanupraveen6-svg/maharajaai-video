@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOperatorSession, verifyAdminRequest, verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import {
+  instagramUrlFor,
+  normalizeInstagramUrl,
   MINIMUM_LOCK_MS,
   verifyClientSessionCurrent,
   getClientWorkspaceById,
@@ -296,6 +298,7 @@ async function buildHydratedWorkspacePayload(targetWorkspace?: MaharajaWorkspace
     ...getWorkspaceLinks(workspace),
     whatsapp: whatsappStatus,
     whatsappConnected: workspace.whatsappConnected === true,
+    instagramUrl: instagramUrlFor(workspace),
     whatsappEnabled: workspace.whatsappConnected === true && whatsappStatus.configured,
     showcaseSamples,
     recentPasses: recentPasses.map(publicPass),
@@ -428,6 +431,13 @@ export async function PATCH(req: NextRequest) {
       if (changesTryOn) locks.tryOn = now + MINIMUM_LOCK_MS;
       if (changesVideo) locks.video = now + MINIMUM_LOCK_MS;
       settings.minimumsLockedUntil = locks;
+    }
+    if (typeof body.instagramUrl === 'string') {
+      const normalized = normalizeInstagramUrl(body.instagramUrl);
+      if (body.instagramUrl.trim() && !normalized) {
+        return NextResponse.json({ success: false, error: 'Enter an Instagram username or profile link.' }, { status: 400 });
+      }
+      settings.instagramUrl = normalized;
     }
     // The client asks for WhatsApp; TryFocus support connects it from TryFocus admin.
     if (body.requestWhatsapp === true) {

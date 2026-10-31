@@ -36,6 +36,8 @@ export type MaharajaWorkspace = {
   minimumsLockedUntil?: { tryOn?: number; video?: number };
   /** When the client asked TryFocus to connect WhatsApp delivery. */
   whatsappRequestedAt?: string;
+  /** Store Instagram profile shown as "Follow" after an AI video (part of the AI Video module). */
+  instagramUrl?: string;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   devices?: {
@@ -123,6 +125,8 @@ export type MaharajaVideoPass = {
   expiresAtMs: number;
   /** Counter QR passes start their 24-hour validity when the customer first opens them. */
   activateOnScan?: boolean;
+  /** Hash of the first phone that opened the pass; other phones are refused. */
+  ownerDeviceHash?: string;
   activatedAt?: string;
   /** Plain, garment-focused Try-On image (never used as a video source). */
   tryOnImageDone?: boolean;
@@ -489,6 +493,53 @@ export function tryOnMinimumFor(workspace: Pick<MaharajaWorkspace, 'minPurchaseT
 
 export const MINIMUM_LOCK_MS = 3 * 24 * 60 * 60 * 1000;
 
+/** Maharaja's account until the store sets its own in the AI Video section. */
+const MAHARAJA_INSTAGRAM = 'https://www.instagram.com/majestic__maharaja/';
+
+/** Turns "@handle", "handle" or a profile link into https://www.instagram.com/handle/ ('' when invalid). */
+export function normalizeInstagramUrl(value: unknown) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const handle = text.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').split(/[/?#]/)[0];
+  return /^[A-Za-z0-9._]{1,30}$/.test(handle) ? `https://www.instagram.com/${handle}/` : '';
+}
+
+export function instagramUrlFor(workspace: Pick<MaharajaWorkspace, 'clientId' | 'instagramUrl'>) {
+  return workspace.instagramUrl || (workspace.clientId === MAHARAJA_CLIENT_ID ? MAHARAJA_INSTAGRAM : '');
+}
+
+/** AI Video limit set: the TV asks for the bill's last 4 digits and a fresh photo. */
+export function videoLimitSet(workspace: Pick<MaharajaWorkspace, 'videoMinPurchase'>) {
+  return (workspace.videoMinPurchase ?? AI_VIDEO_MIN_PURCHASE) > 0;
+}
+
+/** Only TV catalogue videos (the store's showcase garments) may play on the Go Live TV. */
+export function passAllowsGoLive(pass: Pick<MaharajaVideoPass, 'experienceType'> | null | undefined) {
+  return pass?.experienceType === 'catalogue-gift';
+}
+
+/** Locks a pass to the first phone that opens it. Returns false when another phone already owns it. */
+export async function claimPassDevice(code: string, deviceId: string) {
+  const deviceHash = crypto.createHash('sha256').update(`${code}:${deviceId}`).digest('hex').slice(0, 32);
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
+    return db.runTransaction(async (transaction) => {
+      const pass = (await transaction.get(ref)).data() as MaharajaVideoPass | undefined;
+      if (!pass) return true;
+      if (pass.ownerDeviceHash) return pass.ownerDeviceHash === deviceHash;
+      transaction.set(ref, { ownerDeviceHash: deviceHash }, { merge: true });
+      return true;
+    });
+  }
+  const key = `${activeClientId()}:${code}`;
+  const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+  if (!pass) return true;
+  if (pass.ownerDeviceHash) return pass.ownerDeviceHash === deviceHash;
+  getMockStore().customerPasses.set(key, { ...pass, ownerDeviceHash: deviceHash });
+  return true;
+}
+
 /** Credits a module may use right now: 0 when the module is switched off for this workspace. */
 export function moduleLimit(workspace: Pick<MaharajaWorkspace, 'limits' | 'modules'>, module: 'image' | 'live' | 'video') {
   if (workspace.modules?.[module] === false) return 0;
@@ -648,6 +699,7 @@ export async function updateMaharajaSettings(
       | 'tryOnMinPurchase'
       | 'minimumsLockedUntil'
       | 'whatsappRequestedAt'
+      | 'instagramUrl'
       | 'deliveryMode'
       | 'whatsappConnected'
       | 'devices'

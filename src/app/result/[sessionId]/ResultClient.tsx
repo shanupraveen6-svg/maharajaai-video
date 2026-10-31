@@ -64,7 +64,9 @@ export default function ResultClient({
   const [showRetryMenu, setShowRetryMenu] = useState(false);
   const [retrySubmitting, setRetrySubmitting] = useState(false);
 
-  const instagramUrl = 'https://www.instagram.com/majestic__maharaja/?hl=en';
+  // The store's own Instagram (set in its AI Video section); hidden when the store has none.
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [storeName, setStoreName] = useState('');
   const eventLabel = getEventOption(eventId).label;
 
   useEffect(() => {
@@ -82,7 +84,9 @@ export default function ResultClient({
         setCategory(data.category || null);
         setCustomerName(data.customerName || '');
         setCustomerLocality(data.customerLocality || '');
-        setAllowGoLive(data.allowGoLive !== false);
+        setAllowGoLive(data.allowGoLive === true);
+        setInstagramUrl(typeof data.instagramUrl === 'string' ? data.instagramUrl : '');
+        setStoreName(typeof data.clientName === 'string' ? data.clientName : '');
         setCatalogueProduct(data.catalogueProduct || null);
         setVideoStatus('ready');
         if (data.queue?.queueId) {
@@ -277,8 +281,19 @@ export default function ResultClient({
     }
   };
 
-  const handleWhatsAppShare = () => {
-    const message = `My ${eventLabel} Maharaja AI film is now in the showroom queue. Thank you, Maharaja!`;
+  // Shares the film itself where the phone allows (WhatsApp appears in the share sheet); otherwise opens WhatsApp with a message.
+  const handleWhatsAppShare = async () => {
+    const message = `My ${eventLabel} AI fashion film${storeName ? ` from ${storeName}` : ''}!${instagramUrl ? ` ${instagramUrl}` : ''}`;
+    try {
+      const blob = await fetchDownloadBlob('video');
+      const file = new File([blob], downloadFileName('video'), { type: 'video/mp4' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: message });
+        return;
+      }
+    } catch (shareError) {
+      if ((shareError as { name?: string })?.name === 'AbortError') return;
+    }
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -392,12 +407,12 @@ export default function ResultClient({
             >
               <Download className="h-4 w-4" /> {downloading ? 'Preparing downloads' : 'Download image & video'}
             </button>
-            <button type="button" onClick={handleWhatsAppShare} className="flex w-full items-center justify-center gap-2 border border-[#25D366] bg-transparent px-5 py-3 text-sm font-black text-[#7BE495]">
+            <button type="button" onClick={() => void handleWhatsAppShare()} className="flex w-full items-center justify-center gap-2 border border-[#25D366] bg-transparent px-5 py-3 text-sm font-black text-[#7BE495]">
               <MessageCircle className="h-5 w-5" /> Share on WhatsApp
             </button>
-            <a href={instagramUrl} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black">
-              <ExternalLink className="h-5 w-5" /> Follow Maharaja
-            </a>
+            {instagramUrl && <a href={instagramUrl} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black">
+              <ExternalLink className="h-5 w-5" /> Follow {storeName || 'us'} on Instagram
+            </a>}
           </div>
 
           <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thank you for experiencing the Maharaja AI visual celebration.</p>
@@ -615,18 +630,25 @@ export default function ResultClient({
                 Thank you for your purchase
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
-                Your image and video downloads have started. Thank you for experiencing the Maharaja AI visual celebration.
+                Your image and video downloads have started. Thank you for experiencing the {storeName || 'store'} AI fashion film.
               </p>
             </div>
 
-            <a
+            <button
+              type="button"
+              onClick={() => void handleWhatsAppShare()}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-5 py-3 text-sm font-black uppercase tracking-wider text-black"
+            >
+              <MessageCircle className="h-5 w-5" /> Share on WhatsApp
+            </button>
+            {instagramUrl && <a
               href={instagramUrl}
               target="_blank"
               rel="noreferrer"
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-5 py-3 text-sm font-black uppercase tracking-wider text-black"
             >
-              <ExternalLink className="h-5 w-5" /> Follow on Instagram
-            </a>
+              <ExternalLink className="h-5 w-5" /> Follow {storeName || 'us'} on Instagram
+            </a>}
 
             <button
               onClick={() => setShowThankYou(false)}

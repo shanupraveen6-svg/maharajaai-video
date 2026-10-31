@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import { isEventId } from '@/lib/maharaja/config';
-import { incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { passAllowsGoLive, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { activeClientId, bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
   bindClient(access.allowed ? access.clientId : null);
   if (!access.allowed || !access.pass) {
     return NextResponse.json({ success: false, error: access.error || 'A valid AI Video pass is required.' }, { status: 401 });
+  }
+  if (!passAllowsGoLive(access.pass)) {
+    return NextResponse.json({ success: false, error: 'Go Live is available for videos made from the store TV catalogue.' }, { status: 403 });
   }
   const category = access.pass.videoMasterCategory || null;
   if ((category === 'girl' || category === 'boy') && body?.guardianConsent !== true) {

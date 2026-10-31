@@ -73,7 +73,7 @@ const { POST: enqueue } = await import('../src/app/api/live/enqueue/route.ts');
 const { POST: completeLivePlayback } = await import('../src/app/api/live/complete/route.ts');
 const liveSession = 'retention-regression';
 const liveJob = 'retention-job';
-await saveVideoPass({ ...(await getVideoPass(code)), expiresAt: new Date(Date.now() + 60_000).toISOString(), expiresAtMs: Date.now() + 60_000 });
+await saveVideoPass({ ...(await getVideoPass(code)), experienceType: 'catalogue-gift', expiresAt: new Date(Date.now() + 60_000).toISOString(), expiresAtMs: Date.now() + 60_000 });
 const store = getMockStore();
 store.sessions.set(liveSession, { accessCode: code });
 store.sessions.set(`video_test_${liveJob}`, { status: 'ready', sessionId: liveSession, accessCode: code, videoStoragePath: 'final-6s.mp4', liveVideoStoragePath: 'live-9s.mp4' });

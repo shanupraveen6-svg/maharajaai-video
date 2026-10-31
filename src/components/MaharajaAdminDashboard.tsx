@@ -41,6 +41,7 @@ type WorkspaceData = {
   tryOnMinPurchase?: number;
   minimumsLockedUntil?: { tryOn?: number; video?: number };
   whatsappRequestedAt?: string;
+  instagramUrl?: string;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   whatsappEnabled?: boolean;
@@ -254,6 +255,7 @@ export default function MaharajaAdminDashboard({
         | 'tvBillSuffixRequired'
         | 'videoMinPurchase'
         | 'tryOnMinPurchase'
+        | 'instagramUrl'
       >
     > & { requestWhatsapp?: boolean }
   ) {
@@ -803,23 +805,9 @@ export default function MaharajaAdminDashboard({
                   onSave={(value) => savePatch({ tryOnMinPurchase: value })}
                 />
               )}
-              {devices.tv && <div className="flex items-center justify-between">
-                <span className="text-[#535A56]">TV Kiosk Bill Suffix:</span>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() =>
-                    savePatch({
-                      tvBillSuffixRequired: workspace?.tvBillSuffixRequired === false,
-                    })
-                  }
-                  className="min-h-10 py-2 text-right font-mono font-bold text-[#7A1428] underline"
-                >
-                  {workspace?.tvBillSuffixRequired === false
-                    ? 'DISABLED (Open TV Access)'
-                    : 'ENABLED (Requires Last 4 Digits)'}
-                </button>
-              </div>}
+              {devices.tv && limits.video > 0 && (
+                <p className="text-xs text-[#535A56]">TV asks for the bill&apos;s last 4 digits and a fresh photo whenever an AI Video minimum is set.</p>
+              )}
               {limits.video > 0 && (
                 <LockedAmountField
                   key={`video-${workspace.videoMinPurchase ?? 5000}`}
@@ -1323,16 +1311,38 @@ export default function MaharajaAdminDashboard({
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
                 <div>
                   <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    04 · Go Live TV
+                    04 · AI Video
                   </p>
                   <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                    Customer videos & your promos
+                    Go Live TV, promos & Instagram
                   </h2>
                 </div>
               </div>
 
               {limits.video > 0 ? (
-                <div className="mt-4">
+                <div className="mt-4 space-y-5">
+                  <form
+                    className="border border-[#D8DCD7] bg-white p-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const value = new FormData(event.currentTarget).get('instagram');
+                      void savePatch({ instagramUrl: typeof value === 'string' ? value : '' });
+                    }}
+                  >
+                    <label htmlFor="store-instagram" className="text-xs font-bold uppercase tracking-wider text-[#535A56]">Your Instagram</label>
+                    <p className="mt-1 text-xs text-[#535A56]">After their AI video, customers see &ldquo;Follow {workspace.clientName} on Instagram&rdquo;.</p>
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        id="store-instagram"
+                        name="instagram"
+                        key={workspace.instagramUrl || ''}
+                        defaultValue={workspace.instagramUrl || ''}
+                        placeholder="@yourstore or instagram.com/yourstore"
+                        className="min-h-11 min-w-0 flex-1 border border-[#D8DCD7] px-3 text-sm outline-none focus:border-[#7A1428]"
+                      />
+                      <button type="submit" disabled={saving} className="min-h-11 bg-[#161918] px-4 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50">Save</button>
+                    </div>
+                  </form>
                   <GoLivePromoManager goLiveUrl={workspace.links.goLive} />
                 </div>
               ) : (

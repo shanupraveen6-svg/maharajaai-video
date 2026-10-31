@@ -65,4 +65,35 @@ await server.releaseMaharajaUsage('tryOnGenerated');
 assert.equal(await server.reserveMaharajaUsage('tryOnGenerated', before + 3), true, 'A released credit can be used again');
 assert.equal(await server.reserveMaharajaUsage('tryOnGenerated', 0), false, 'A zero limit means the service is off');
 console.log('✓ Credit reservation is limit-safe and released credits return to the store');
+// AI Video rules: own-garment passes download only; catalogue (TV) passes may Go Live.
+{
+  const res = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ billingCode: workspace.billingCode, experienceType: 'catalogue-gift' }),
+  }));
+  const counterPass = await server.getVideoPass((await res.json()).pass.code);
+  assert.equal(counterPass.experienceType, 'purchased-garment', 'Counter passes are always own-garment');
+  assert.equal(server.passAllowsGoLive(counterPass), false, 'Own-garment videos cannot Go Live');
+  assert.equal(server.passAllowsGoLive({ experienceType: 'catalogue-gift' }), true, 'TV catalogue videos can Go Live');
+  const enqueueSource = (await import('node:fs')).readFileSync(new URL('../src/app/api/live/enqueue/route.ts', import.meta.url), 'utf8');
+  assert.match(enqueueSource, /if \(!passAllowsGoLive\(access\.pass\)\)/, 'The server refuses Go Live for own-garment passes');
+
+  // Phone lock: the first phone keeps the pass; another phone is refused.
+  const openOn = async (deviceId) => (await openPass(new NextRequest(`http://localhost/api/maharaja/access/${counterPass.code}?service=ai-video&deviceId=${deviceId}`), { params: Promise.resolve({ code: counterPass.code }) })).status;
+  assert.equal(await openOn('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), 200);
+  assert.equal(await openOn('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), 200, 'The same phone can reopen it');
+  assert.equal(await openOn('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'), 403, 'Another phone is refused');
+
+  // Instagram: username or link becomes a profile link; Maharaja keeps its account by default.
+  assert.equal(server.normalizeInstagramUrl('@sri.readymade'), 'https://www.instagram.com/sri.readymade/');
+  assert.equal(server.normalizeInstagramUrl('https://instagram.com/sri_readymade?igsh=x'), 'https://www.instagram.com/sri_readymade/');
+  assert.equal(server.normalizeInstagramUrl('not a handle!'), '');
+  assert.match(server.instagramUrlFor(await server.getMaharajaWorkspace()), /majestic__maharaja/);
+
+  // TV asks for bill digits exactly when an AI Video minimum is set.
+  assert.equal(server.videoLimitSet({ videoMinPurchase: 5000 }), true);
+  assert.equal(server.videoLimitSet({ videoMinPurchase: 0 }), false);
+  console.log('✓ Go Live only for TV catalogue videos; phone lock; store Instagram; TV bill digits follow the limit');
+}
 console.log('COUNTER PASS TESTS PASSED');

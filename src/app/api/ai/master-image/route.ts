@@ -7,7 +7,7 @@ import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
 import { type CustomerCategory, GARMENT_TYPE_RULES, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
-import { tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
@@ -130,6 +130,9 @@ export async function POST(req: NextRequest) {
     bindClient(access.allowed ? access.clientId : null);
     if (!access.allowed) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
+    }
+    if (access.pass && validTryOnDeviceId(body.deviceId) && !await claimPassDevice(access.pass.code, body.deviceId)) {
+      return NextResponse.json({ success: false, error: 'This video pass is already in use on another phone.' }, { status: 403 });
     }
     // Customer QR codes and passes are phone sessions; kiosk sessions say whether they are the TV or the tablet.
     const codeAccess = Boolean(access.pass) || (typeof accessCode === 'string' && accessCode.trim() !== '' && accessCode.trim() === access.workspace.tryOnCode);

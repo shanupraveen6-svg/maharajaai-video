@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import { isEventId } from '@/lib/maharaja/config';
-import { verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { instagramUrlFor, passAllowsGoLive, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
@@ -66,7 +66,9 @@ export async function GET(req: NextRequest) {
     category: job.category || access.pass.videoMasterCategory || null,
     customerName: access.pass.customerName || null,
     customerLocality: access.pass.customerLocality || null,
-    allowGoLive: true,
+    allowGoLive: passAllowsGoLive(access.pass),
+    instagramUrl: instagramUrlFor(access.workspace),
+    clientName: access.workspace.clientName,
     catalogueProduct: access.pass.catalogueSku ? {
       sku: access.pass.catalogueSku,
       title: access.pass.catalogueTitle,
