@@ -15,6 +15,15 @@ import {
 } from 'lucide-react';
 import { CREDIT_BAR_COLOURS, creditStatuses } from '@/lib/maharaja/credits';
 import PlatformOverview from '@/components/PlatformOverview';
+import { resolveAccess } from '@/lib/maharaja/access';
+
+/** What stops when each device is turned off (the rules live in access.ts). */
+const DEVICE_STOPS: Record<'tv' | 'tablet' | 'mobile' | 'led', string> = {
+  tv: 'Off also stops Live Mirror and catalogue AI Video',
+  tablet: 'Off also stops counter AI Video passes',
+  mobile: 'Off also stops all AI Video and Go Live (videos finish on the phone)',
+  led: 'Off also stops all AI Video',
+};
 
 type Client = {
   id: string;
@@ -27,8 +36,6 @@ type Client = {
   whatsappConnected: boolean;
   /** TryFocus WhatsApp Cloud API credentials are configured on the server. */
   whatsappApiReady?: boolean;
-  /** When the client pressed "Request WhatsApp" in their workspace. */
-  whatsappRequestedAt?: string | null;
   /** Staff login usernames TryFocus created for this client. */
   logins?: string[];
   devices: { tv: boolean; tablet: boolean; mobile: boolean; led: boolean };
@@ -562,9 +569,7 @@ export default function TryFocusAdmin() {
                   }
                   className="min-h-10 py-2 text-right font-mono font-bold text-[#7A1428] underline disabled:cursor-not-allowed disabled:text-[#8A918D] disabled:no-underline"
                 >
-                  {!client.whatsappConnected && client.whatsappRequestedAt
-                    ? `REQUESTED ${new Date(client.whatsappRequestedAt).toLocaleDateString('en-IN')} · CONNECT`
-                    : client.whatsappConnected
+                  {client.whatsappConnected
                     ? 'CONNECTED (Link + QR)'
                     : client.whatsappApiReady
                       ? 'NOT CONNECTED (QR Only)'
@@ -656,7 +661,7 @@ export default function TryFocusAdmin() {
                   [
                     'tv',
                     'Interactive TV / Smart Mirror',
-                    'AI Image Try-On, 60s Live Mirror & Catalogue Video',
+                    'AI Image Try-On, 60s Live Mirror (TV only) & catalogue AI Video (TV only)',
                     Tv,
                   ],
                   [
@@ -673,8 +678,8 @@ export default function TryFocusAdmin() {
                   ],
                   [
                     'led',
-                    'Showroom TV Wall (/maharaja/tv)',
-                    'Plays approved customer Go Live videos & idle loop',
+                    'Go Live player (TV link on any screen)',
+                    'Plays customer AI videos, promos & the replay loop. Comes with AI Video',
                     Monitor,
                   ],
                 ] as const
@@ -710,6 +715,7 @@ export default function TryFocusAdmin() {
                     >
                       {client.devices[key] ? 'Subscribed · Enabled' : 'Disabled'}
                     </span>
+                    <p className="mt-1.5 text-[11px] text-[#7A4A0B]">{DEVICE_STOPS[key]}</p>
                   </div>
                 </button>
               ))}
@@ -779,6 +785,11 @@ export default function TryFocusAdmin() {
                     >
                       {client.modules?.[key] === false ? 'Module off' : 'Module on'}
                     </button>
+                    {resolveAccess(client.devices, client.modules).blockedBy[key] && (
+                      <span className="w-full text-xs font-semibold text-[#B42318]">
+                        Not running: {resolveAccess(client.devices, client.modules).blockedBy[key]}
+                      </span>
+                    )}
                     {(['standard', 'pro'] as const).map((tier) => (
                       <button
                         key={tier}

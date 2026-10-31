@@ -44,6 +44,9 @@ export default function TryFocusTvExperience() {
   const [mode, setMode] = useState<TvMode>('image-tryon');
   const [showLookMenu, setShowLookMenu] = useState(false);
   const [clientName, setClientName] = useState('The Majestic Maharaja');
+  // Live Mirror and AI Video show only while the store has them (module on and the devices they need on).
+  const [liveOn, setLiveOn] = useState(true);
+  const [videoOn, setVideoOn] = useState(true);
   const [catalogueItems, setCatalogueItems] = useState<TryFocusProduct[]>([]);
 
   // Catalogue filtering
@@ -56,6 +59,11 @@ export default function TryFocusTvExperience() {
   const [videoGuardianConsent, setVideoGuardianConsent] = useState(false);
   const catalogueTopRef = useRef<HTMLDivElement | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
+
+  // TryFocus switched the open experience off while the TV was running: go back to Image Try-On.
+  useEffect(() => {
+    if ((mode === 'live-tryon' && !liveOn) || (mode === 'catalogue-video' && !videoOn)) setMode('image-tryon');
+  }, [mode, liveOn, videoOn]);
 
   // Signed-in staff pair this TV to their workspace once; it then runs without a login for 30 days.
   useEffect(() => {
@@ -96,6 +104,10 @@ export default function TryFocusTvExperience() {
         if (!active) return;
         setTvBillSuffixRequired(settings.tvBillSuffixRequired);
         if (settings.clientName) setClientName(settings.clientName);
+        if (settings.access) {
+          setLiveOn(settings.access.modules.live);
+          setVideoOn(settings.access.catalogueVideo);
+        }
       })
       .catch(() => undefined);
     void loadCatalogue();
@@ -813,16 +825,16 @@ export default function TryFocusTvExperience() {
           </div>
           <button type="button" onClick={resetAllSession} className="tv-end-session shrink-0 border border-[#BFC2BC] bg-white px-5 py-3 text-sm font-bold text-[#7A1428]">End session</button>
         </div>
-        <nav className="tv-mode-nav mx-auto grid max-w-[1080px] grid-cols-3 gap-2 px-7 pb-4" aria-label="Choose an experience">
+        <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-2 px-7 pb-4 ${[true, liveOn, videoOn].filter(Boolean).length === 3 ? 'grid-cols-3' : [true, liveOn, videoOn].filter(Boolean).length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`} aria-label="Choose an experience">
           <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => navigateTo('image-tryon')} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
             <Sparkles className="h-6 w-6" /><span>AI Image Try-On</span>
           </button>
-          <button type="button" aria-current={mode === 'live-tryon' ? 'page' : undefined} onClick={() => navigateTo('live-tryon')} className={`tv-mode-button ${mode === 'live-tryon' ? 'is-active' : ''}`}>
+          {liveOn && <button type="button" aria-current={mode === 'live-tryon' ? 'page' : undefined} onClick={() => navigateTo('live-tryon')} className={`tv-mode-button ${mode === 'live-tryon' ? 'is-active' : ''}`}>
             <Camera className="h-6 w-6" /><span>Live Mirror</span>
-          </button>
-          <button type="button" aria-current={mode === 'catalogue-video' ? 'page' : undefined} onClick={() => { navigateTo('catalogue-video'); const first = catalogueItems.find((item) => (item.eligibleForVideo || item.sku.startsWith('TF-')) && item.gender === 'women' && item.category === 'sarees'); if (first) setSelectedProduct(first); }} className={`tv-mode-button ${mode === 'catalogue-video' ? 'is-active' : ''}`}>
+          </button>}
+          {videoOn && <button type="button" aria-current={mode === 'catalogue-video' ? 'page' : undefined} onClick={() => { navigateTo('catalogue-video'); const first = catalogueItems.find((item) => (item.eligibleForVideo || item.sku.startsWith('TF-')) && item.gender === 'women' && item.category === 'sarees'); if (first) setSelectedProduct(first); }} className={`tv-mode-button ${mode === 'catalogue-video' ? 'is-active' : ''}`}>
             <Video className="h-6 w-6" /><span>AI Video</span>
-          </button>
+          </button>}
         </nav>
       </header>
 

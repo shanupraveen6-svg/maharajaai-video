@@ -22,7 +22,7 @@ const { POST: createPass } = await import('../src/app/api/maharaja/video-pass/ro
 const SRI = 'srireadymade';
 
 // 1. TryFocus creates a mobile-only client with its own laptop login.
-const sri = await server.upsertClientWorkspace({ clientId: SRI, name: 'Sri Readymade', campaignEnabled: true, devices: { tv: false, tablet: true, mobile: true, led: false }, limits: { image: 100, video: 20, live: 0 } });
+const sri = await server.upsertClientWorkspace({ clientId: SRI, name: 'Sri Readymade', campaignEnabled: true, devices: { tv: false, tablet: true, mobile: true, led: true }, limits: { image: 100, video: 20, live: 0 } });
 assert.equal(sri.clientId, SRI);
 await setClientAccount(SRI, 'srireadymade', 'sri-laptop-2026');
 await assert.rejects(() => setClientAccount('maharaja', 'srireadymade', 'another-pass-1'), /another client/);
@@ -152,9 +152,7 @@ console.log('✓ 30-day TV pairing is per workspace and revoked per workspace');
   assert.equal((await patch(relog.cookie, { tryOnMinPurchase: 0 })).status, 409, 'Locked for 3 days');
   assert.equal((await patch(adminLogin.cookie, { clientId: SRI, tryOnMinPurchase: 0 })).status, 200, 'TryFocus admin overrides');
   assert.equal(server.tryOnMinimumFor(await server.getClientWorkspaceById(SRI)), 0, '₹0 means no tag scan');
-  assert.equal((await patch(relog.cookie, { requestWhatsapp: true })).status, 200);
-  assert.ok((await server.getClientWorkspaceById(SRI)).whatsappRequestedAt, 'WhatsApp request recorded for TryFocus');
-  console.log('✓ Client minimums lock for 3 days; WhatsApp request reaches TryFocus');
+  console.log('✓ Client minimums lock for 3 days');
 }
 
 // 8. Instant revocation: a password reset or disabled login is refused on the very next request.

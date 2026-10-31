@@ -34,6 +34,7 @@ export default function PrivateLooksPage() {
   const [looks, setLooks] = useState<Look[]>([]);
   const [active, setActive] = useState(0);
   const [expiresAt, setExpiresAt] = useState('');
+  const [videoOff, setVideoOff] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -60,6 +61,7 @@ export default function PrivateLooksPage() {
       if (!response.ok) throw new Error(data.error || 'These looks are unavailable.');
       setLooks(data.looks || []);
       setExpiresAt(data.expiresAt || '');
+      setVideoOff(data.videoOff === true);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'These looks are unavailable.');
     } finally {
@@ -281,7 +283,7 @@ export default function PrivateLooksPage() {
                 )}
 
                 <div className="mt-5 space-y-3">
-                    {current.videoAvailable === false ? (
+                    {videoOff ? null : current.videoAvailable === false ? (
                       <p className="border border-[#D8DCD7] bg-[#FAFBF8] p-4 text-center text-sm text-[#535A56]">
                         Catalogue festival videos are made on the store TV. Ask our staff to create yours there.
                       </p>

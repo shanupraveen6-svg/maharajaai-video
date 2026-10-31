@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { resolveAccess } from '@/lib/maharaja/access';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { getOperatorSession, markClientSession, verifyOperatorRequest } from '@/lib/auth/operator';
@@ -540,9 +541,9 @@ export async function claimPassDevice(code: string, deviceId: string) {
   return true;
 }
 
-/** Credits a module may use right now: 0 when the module is switched off for this workspace. */
-export function moduleLimit(workspace: Pick<MaharajaWorkspace, 'limits' | 'modules'>, module: 'image' | 'live' | 'video') {
-  if (workspace.modules?.[module] === false) return 0;
+/** Credits a module may use right now: 0 when the module is off, or a device it needs is off (see access.ts). */
+export function moduleLimit(workspace: Pick<MaharajaWorkspace, 'limits' | 'modules' | 'devices'>, module: 'image' | 'live' | 'video') {
+  if (!resolveAccess(workspace.devices, workspace.modules).modules[module]) return 0;
   return Math.max(0, Number(workspace.limits?.[module] ?? DEFAULT_LIMITS[module]));
 }
 
@@ -602,7 +603,7 @@ function defaultWorkspace(clientId = MAHARAJA_CLIENT_ID): MaharajaWorkspace {
     whatsappConnected: false,
     devices: isMaharaja
       ? { tv: true, tablet: true, mobile: true, led: true }
-      : { tv: false, tablet: true, mobile: true, led: false },
+      : { tv: false, tablet: true, mobile: true, led: true },
     limits: isMaharaja
       ? { image: 4000, live: 500, video: 500 }
       : { image: 4000, live: 0, video: 500 },

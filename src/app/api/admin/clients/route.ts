@@ -30,7 +30,6 @@ function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = []) {
     whatsappApiReady: whatsappStatus.configured,
     videoMinPurchase: ws.videoMinPurchase ?? 5000,
     tryOnMinPurchase: ws.minPurchaseTryOnDisabled === false ? ws.tryOnMinPurchase ?? 500 : 0,
-    whatsappRequestedAt: ws.whatsappRequestedAt || null,
     devices: {
       tv: ws.devices?.tv ?? true,
       tablet: ws.devices?.tablet ?? true,

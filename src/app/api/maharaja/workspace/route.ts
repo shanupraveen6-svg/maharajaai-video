@@ -18,7 +18,6 @@ import {
 } from '@/lib/maharaja/server';
 import { EVENT_IDS, FESTIVE_TIER_MIN, LUXURY_TIER_MIN, isEventId } from '@/lib/maharaja/config';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
-import { sendSupportEmail } from '@/lib/notify/email';
 import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
@@ -440,11 +439,6 @@ export async function PATCH(req: NextRequest) {
       }
       settings.instagramUrl = normalized;
     }
-    // The client asks for WhatsApp; TryFocus support connects it from TryFocus admin.
-    const newWhatsappRequest = body.requestWhatsapp === true && !targetWorkspace.whatsappRequestedAt && !targetWorkspace.whatsappConnected;
-    if (body.requestWhatsapp === true) {
-      settings.whatsappRequestedAt = targetWorkspace.whatsappRequestedAt || new Date(now).toISOString();
-    }
     if (body.deliveryMode === 'whatsapp' || body.deliveryMode === 'qr') {
       settings.deliveryMode = body.deliveryMode;
     }
@@ -500,17 +494,6 @@ export async function PATCH(req: NextRequest) {
       minPurchaseTryOnDisabled: updated.minPurchaseTryOnDisabled ?? true,
       deliveryMode: updated.deliveryMode || 'qr',
     });
-
-    if (newWhatsappRequest) {
-      const session = getOperatorSession(req);
-      await sendSupportEmail(`WhatsApp request · ${updated.clientName}`, [
-        `${updated.clientName}${updated.branch ? ` (${updated.branch})` : ''} asked TryFocus to connect WhatsApp link delivery.`,
-        `Workspace ID: ${updated.clientId}`,
-        `Requested by: ${session?.username || 'client login'}`,
-        `Requested at: ${new Date(now).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST`,
-        `Connect it in TryFocus admin: ${req.nextUrl.origin}/admin`,
-      ]);
-    }
 
     const workspace = await buildHydratedWorkspacePayload(updated);
     return NextResponse.json({ success: true, workspace });

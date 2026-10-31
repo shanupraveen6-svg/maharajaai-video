@@ -18,7 +18,7 @@ const { runWithClient, liveScreenId } = await import('../src/lib/maharaja/client
 const promos = await import('../src/lib/maharaja/promos.ts');
 
 const SRI = 'srireadymade';
-await server.upsertClientWorkspace({ clientId: SRI, name: 'Sri Readymade', campaignEnabled: true, devices: { tv: true, tablet: false, mobile: true, led: false }, limits: { image: 100, video: 20, live: 0 } });
+await server.upsertClientWorkspace({ clientId: SRI, name: 'Sri Readymade', campaignEnabled: true, devices: { tv: true, tablet: false, mobile: true, led: true }, limits: { image: 100, video: 20, live: 0 } });
 
 // 1. Each workspace has its own permanent Go Live link, and it opens only that workspace's screen.
 const maharajaCode = server.goLiveCodeFor('maharaja');

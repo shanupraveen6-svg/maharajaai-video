@@ -7,7 +7,7 @@ import QRCode from 'qrcode';
 import { CREDIT_BAR_COLOURS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
 import GoLivePromoManager from '@/components/GoLivePromoManager';
 import LockedAmountField from '@/components/LockedAmountField';
-import EnquiryButton from '@/components/EnquiryButton';
+import { resolveAccess } from '@/lib/maharaja/access';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
   Download,
@@ -20,6 +20,7 @@ import {
   Tv,
   Upload,
   Video,
+  Phone,
 } from 'lucide-react';
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
@@ -41,7 +42,6 @@ type WorkspaceData = {
   videoMinPurchase?: number;
   tryOnMinPurchase?: number;
   minimumsLockedUntil?: { tryOn?: number; video?: number };
-  whatsappRequestedAt?: string;
   instagramUrl?: string;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
@@ -258,7 +258,7 @@ export default function MaharajaAdminDashboard({
         | 'tryOnMinPurchase'
         | 'instagramUrl'
       >
-    > & { requestWhatsapp?: boolean }
+    >
   ) {
     setSaving(true);
     setNotice('');
@@ -576,12 +576,14 @@ export default function MaharajaAdminDashboard({
   }
 
   const devices = workspace.devices || { tv: true, tablet: true, mobile: true, led: true };
-  // Effective credits: a module switched off by TryFocus counts as 0, which hides its QR, credits and Go Live.
+  // Effective credits: a module that is off, or whose device is off (see access.ts), counts as 0, which
+  // hides its QR, credits and Go Live.
   const purchased = workspace.limits || { image: 4000, live: 500, video: 500 };
+  const access = resolveAccess(devices, workspace.modules);
   const limits = {
-    image: workspace.modules?.image === false ? 0 : purchased.image,
-    live: workspace.modules?.live === false ? 0 : purchased.live,
-    video: workspace.modules?.video === false ? 0 : purchased.video,
+    image: access.modules.image ? purchased.image : 0,
+    live: access.modules.live ? purchased.live : 0,
+    video: access.modules.video ? purchased.video : 0,
   };
   const minGateDisabled = workspace.minPurchaseTryOnDisabled !== false;
   const totalScans = (workspace.usage.tryOnScans || 0) + (workspace.usage.videoPasses || 0);
@@ -600,7 +602,7 @@ export default function MaharajaAdminDashboard({
         <div role="alert" className="border-b border-[#B42318]/40 bg-[#FEF3F2] px-5 py-3 text-sm text-[#7A271A] sm:px-8">
           <div className="mx-auto max-w-7xl space-y-0.5">
             {creditAlerts.map((item) => <p key={item.label} className="font-semibold">{creditWarningText(item)}</p>)}
-            <EnquiryButton interest="Add credits" source="client-workspace-credits" storeName={workspace.clientName} className="min-h-9 text-xs font-bold underline underline-offset-4">Request more credits from TryFocus</EnquiryButton>
+            <p className="text-xs">To add credits, contact TryFocus: <a href="tel:9994837342" className="font-bold underline underline-offset-4">9994837342</a></p>
           </div>
         </div>
       )}
@@ -825,17 +827,10 @@ export default function MaharajaAdminDashboard({
                 <span className="text-[#535A56]">WhatsApp Link Delivery:</span>
                 {whatsappConnected ? (
                   <span className="font-mono font-bold text-[#256B45]">CONNECTED BY TRYFOCUS</span>
-                ) : workspace.whatsappRequestedAt ? (
-                  <span className="font-mono font-bold text-[#161918]">REQUESTED · TryFocus will contact you</span>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void savePatch({ requestWhatsapp: true })}
-                    className="min-h-10 bg-[#256B45] px-3 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
-                  >
-                    Request WhatsApp
-                  </button>
+                  <a href="tel:9994837342" className="flex min-h-10 items-center gap-1.5 bg-[#256B45] px-3 text-xs font-bold uppercase tracking-wider text-white">
+                    <Phone className="h-3.5 w-3.5" /> Contact: 9994837342
+                  </a>
                 )}
               </div>
             </div>
@@ -1347,7 +1342,7 @@ export default function MaharajaAdminDashboard({
                   <GoLivePromoManager goLiveUrl={workspace.links.goLive} />
                 </div>
               ) : (
-                <div className="mt-4 text-sm text-[#535A56]"><p>Go Live TV comes with AI Video.</p><EnquiryButton interest="Add AI Video" source="client-workspace-video" storeName={workspace.clientName} modules={['AI Video']} className="mt-2 min-h-10 bg-[#161918] px-3 text-xs font-bold uppercase tracking-wider text-white">Request AI Video</EnquiryButton></div>
+                <p className="mt-4 text-sm text-[#535A56]">Go Live TV comes with AI Video. To add it, contact TryFocus: <a href="tel:9994837342" className="font-bold text-[#7A1428] underline underline-offset-4">9994837342</a></p>
               )}
               {limits.video > 0 && (
                 <div className="mt-5 border-t border-[#D8DCD7] pt-4">

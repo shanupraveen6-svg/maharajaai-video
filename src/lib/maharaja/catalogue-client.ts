@@ -1,3 +1,4 @@
+import type { WorkspaceAccess } from '@/lib/maharaja/access';
 import type { PublicCatalogueProduct } from './catalogue-types';
 
 /** `accessCode` (a customer QR or pass code) selects the client's catalogue on pages without a staff login. */
@@ -18,12 +19,16 @@ export async function fetchCompleteCatalogue(includeInactive = false, accessCode
   return [...initial.products, ...pages.flat()];
 }
 
-export async function fetchCatalogueSettings(): Promise<{ tvBillSuffixRequired: boolean; clientName: string }> {
+export async function fetchCatalogueSettings(): Promise<{ tvBillSuffixRequired: boolean; clientName: string; access: WorkspaceAccess | null }> {
   try {
     const res = await fetch('/api/maharaja/catalogue?offset=0&limit=1', { cache: 'no-store' });
     const data = await res.json();
-    return { tvBillSuffixRequired: data?.tvBillSuffixRequired !== false, clientName: typeof data?.clientName === 'string' ? data.clientName : '' };
+    return {
+      tvBillSuffixRequired: data?.tvBillSuffixRequired !== false,
+      clientName: typeof data?.clientName === 'string' ? data.clientName : '',
+      access: data?.access && typeof data.access === 'object' ? data.access as WorkspaceAccess : null,
+    };
   } catch {
-    return { tvBillSuffixRequired: true, clientName: '' };
+    return { tvBillSuffixRequired: true, clientName: '', access: null };
   }
 }

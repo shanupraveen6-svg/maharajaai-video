@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAccess } from '@/lib/maharaja/access';
 import { bindClient } from '@/lib/maharaja/client-context';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import {
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
     );
     const workspace = await getMaharajaWorkspace();
     return NextResponse.json(
-      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace) },
+      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access: resolveAccess(workspace.devices, workspace.modules) },
       {
         headers: {
           'Cache-Control': 'no-store',

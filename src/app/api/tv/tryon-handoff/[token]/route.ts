@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStorageBucket } from '@/lib/firebase/admin';
 
 import { lookVideoAvailable, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
+import { getClientWorkspaceById, moduleLimit } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,8 +32,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
     } });
   }
 
+  // No AI Video for this store (module or a device it needs is off): the look page shows no video step.
+  const workspace = await getClientWorkspaceById(handoff.clientId || '');
+  const videoOff = !workspace.campaignEnabled || moduleLimit(workspace, 'video') <= 0;
   return NextResponse.json({
     expiresAt: new Date(handoff.expiresAtMs).toISOString(),
+    videoOff,
     looks: handoff.looks.map((look, index) => ({
       sku: look.sku,
       title: look.title,

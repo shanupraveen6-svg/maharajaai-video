@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowRight, Inbox, MessageSquare, Phone, Store } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Store } from 'lucide-react';
 import { creditStatuses } from '@/lib/maharaja/credits';
+import { resolveAccess } from '@/lib/maharaja/access';
 
 type ModuleKey = 'image' | 'live' | 'video';
 
@@ -12,7 +12,6 @@ export type OverviewClient = {
   branch: string;
   status: 'Active' | 'Paused';
   whatsappConnected: boolean;
-  whatsappRequestedAt?: string | null;
   logins?: string[];
   devices: { tv: boolean; tablet: boolean; mobile: boolean; led: boolean };
   modules?: { image: boolean; live: boolean; video: boolean };
@@ -20,13 +19,11 @@ export type OverviewClient = {
   limits: { image: number; live: number; video: number };
 };
 
-type Enquiry = { id: string; name: string; phone: string; storeName: string; city: string; interest: string; modules: string[]; message: string; source: string; createdAt: string; emailed: boolean };
-
 const MODULES: Array<[ModuleKey, string]> = [['image', 'Image Try-On'], ['live', 'Live Mirror'], ['video', 'AI Video']];
 
-/** Effective credits: a module switched off counts as not in the plan. */
+/** Effective credits: a module that is off, or whose device is off, counts as not in the plan. */
 function planLimit(client: OverviewClient, key: ModuleKey) {
-  return client.modules?.[key] === false ? 0 : client.limits[key];
+  return resolveAccess(client.devices, client.modules).modules[key] ? client.limits[key] : 0;
 }
 
 /**
@@ -34,13 +31,6 @@ function planLimit(client: OverviewClient, key: ModuleKey) {
  * attention (credits, WhatsApp requests, missing logins, paused stores) and a row per client.
  */
 export default function PlatformOverview({ clients, onSelect }: { clients: OverviewClient[]; onSelect: (clientId: string) => void }) {
-  const [enquiries, setEnquiries] = useState<Enquiry[] | null>(null);
-  useEffect(() => {
-    fetch('/api/admin/enquiries', { cache: 'no-store' })
-      .then((response) => response.json())
-      .then((data) => setEnquiries(data.success ? data.enquiries : []))
-      .catch(() => setEnquiries([]));
-  }, []);
   const active = clients.filter((item) => item.status === 'Active').length;
   const sum = (pick: (item: OverviewClient) => number) => clients.reduce((total, item) => total + pick(item), 0);
   const credits = (item: OverviewClient) => creditStatuses(
@@ -48,13 +38,12 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
     { image: planLimit(item, 'image'), live: planLimit(item, 'live'), video: planLimit(item, 'video') },
   );
 
-  const attention: Array<{ client: OverviewClient; text: string; tone: 'red' | 'amber' | 'blue' }> = [];
+  const attention: Array<{ client: OverviewClient; text: string; tone: 'red' | 'amber' }> = [];
   for (const item of clients) {
     for (const status of credits(item)) {
       if (status.level === 'exhausted') attention.push({ client: item, text: `${status.label} credits used up`, tone: 'red' });
       else if (status.level === 'critical' || status.level === 'low') attention.push({ client: item, text: `${status.label}: ${status.limit - status.used} credits left`, tone: 'amber' });
     }
-    if (!item.whatsappConnected && item.whatsappRequestedAt) attention.push({ client: item, text: `Requested WhatsApp on ${new Date(item.whatsappRequestedAt).toLocaleDateString('en-IN')}`, tone: 'blue' });
     if (!item.logins?.length) attention.push({ client: item, text: 'No client login yet', tone: 'amber' });
     if (item.status === 'Paused') attention.push({ client: item, text: 'Workspace paused', tone: 'amber' });
   }
@@ -94,8 +83,8 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
                 <li key={`${item.client.id}-${index}`} className="flex items-center justify-between gap-3 py-2 text-sm">
                   <span className="min-w-0">
                     <span className="font-semibold">{item.client.name}</span>
-                    <span className={`ml-2 ${item.tone === 'red' ? 'text-[#B42318]' : item.tone === 'blue' ? 'text-[#1D4ED8]' : 'text-[#7A4A0B]'}`}>
-                      {item.tone === 'blue' && <MessageSquare className="mr-1 inline h-3.5 w-3.5" />}{item.text}
+                    <span className={`ml-2 ${item.tone === 'red' ? 'text-[#B42318]' : 'text-[#7A4A0B]'}`}>
+                      {item.text}
                     </span>
                   </span>
                   <button type="button" onClick={() => onSelect(item.client.id)} className="flex min-h-10 shrink-0 items-center gap-1 px-2 text-xs font-bold uppercase text-[#7A1428]">
@@ -119,29 +108,6 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
         </article>
       </section>
 
-      <section className="border border-[#D8DCD7] bg-white p-5">
-        <h2 className="flex items-center gap-2 font-serif text-xl font-semibold"><Inbox className="h-5 w-5 text-[#7A1428]" /> Enquiries</h2>
-        <p className="mt-1 text-xs text-[#535A56]">From pricing, demo and client “request” buttons. Each one is also emailed to TryFocus support.</p>
-        {enquiries === null ? (
-          <p className="mt-3 text-sm text-[#535A56]">Loading…</p>
-        ) : enquiries.length === 0 ? (
-          <p className="mt-3 text-sm text-[#535A56]">No enquiries yet.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-[#ECEEE9]">
-            {enquiries.map((item) => (
-              <li key={item.id} className="grid gap-1 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-start">
-                <div className="min-w-0">
-                  <p><span className="font-semibold">{item.storeName}</span>{item.city ? <span className="text-[#535A56]"> · {item.city}</span> : null} <span className="ml-1 font-mono text-[11px] font-bold uppercase text-[#7A1428]">{item.interest}</span></p>
-                  <p className="text-xs text-[#535A56]">{item.name}{item.modules.length ? ` · ${item.modules.join(', ')}` : ''} · {new Date(item.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} · {item.source}{item.emailed ? '' : ' · not emailed'}</p>
-                  {item.message && <p className="mt-1 text-xs text-[#161918]">“{item.message}”</p>}
-                </div>
-                <a href={`tel:${item.phone}`} className="flex min-h-10 items-center gap-1 font-mono text-xs font-bold text-[#7A1428]"><Phone className="h-3.5 w-3.5" />{item.phone}</a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
       <section className="overflow-x-auto border border-[#D8DCD7] bg-white">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="bg-[#FAFBF8] font-mono text-[11px] uppercase tracking-wider text-[#535A56]">
@@ -162,7 +128,7 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
                   const limit = planLimit(item, key);
                   return <td key={key} className="px-4 py-3 font-mono text-xs">{limit > 0 ? `${item.usage[key].toLocaleString('en-IN')} / ${limit.toLocaleString('en-IN')}` : '—'}</td>;
                 })}
-                <td className="px-4 py-3 text-xs">{item.whatsappConnected ? 'Connected' : item.whatsappRequestedAt ? 'Requested' : '—'}</td>
+                <td className="px-4 py-3 text-xs">{item.whatsappConnected ? 'Connected' : '—'}</td>
                 <td className="px-4 py-3 text-right">
                   <button type="button" onClick={() => onSelect(item.id)} className="min-h-10 bg-[#161918] px-3 text-xs font-bold uppercase tracking-wider text-white">Manage</button>
                 </td>
