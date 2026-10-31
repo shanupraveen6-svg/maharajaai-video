@@ -4,11 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
-  CheckCircle2,
   Download,
   ExternalLink,
   LoaderCircle,
-  Play,
   Search,
   Tv,
   Video,

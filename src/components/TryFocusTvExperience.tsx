@@ -4,11 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { fetchCatalogueSettings, fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
-  ArrowLeft,
   Camera,
-  Check,
   CheckCircle2,
-  Download,
   ExternalLink,
   LoaderCircle,
   QrCode,

@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/immutability": "warn",
       "react/no-unescaped-entities": "warn",
+      // Images here are in-memory data URLs (try-on results) and short-lived signed Storage URLs,
+      // which next/image cannot optimise; a plain <img> is the correct element.
+      "@next/next/no-img-element": "off",
     },
   },
   // Override default ignores of eslint-config-next.

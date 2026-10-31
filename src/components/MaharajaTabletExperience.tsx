@@ -9,17 +9,11 @@ import { compressImage } from '@/lib/utils/image';
 import {
   Camera,
   CheckCircle2,
-  Clock,
   LoaderCircle,
   QrCode,
   Shirt,
   Sparkles,
   Store,
-  Upload,
-  User,
-  Video,
-  ArrowRight,
-  ArrowLeft,
   RotateCcw,
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';

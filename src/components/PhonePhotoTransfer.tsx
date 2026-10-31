@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import { Smartphone, QrCode, X, LoaderCircle, CheckCircle2 } from 'lucide-react';
+import { QrCode, X, LoaderCircle } from 'lucide-react';
 
 interface PhonePhotoTransferProps {
   onPhoto: (photo: string) => void;

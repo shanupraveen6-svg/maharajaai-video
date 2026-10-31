@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Invalid login.' }, { status: 401 });
       }
       clientId = clientLogin.clientId;
-      token = signOperatorToken(clientSessionSubject(clientLogin.clientId, clientLogin.username), expiresAt);
+      token = signOperatorToken(clientSessionSubject(clientLogin.clientId, clientLogin.username, clientLogin.sessionVersion), expiresAt);
     }
 
     const response = NextResponse.json({ success: true, role: clientId ? 'client' : 'admin', clientId });

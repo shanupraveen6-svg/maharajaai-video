@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock,
   LoaderCircle,
   QrCode,
   RefreshCw,
@@ -16,7 +15,6 @@ import {
   Sparkles,
   Square,
   Tv,
-  Video,
   X,
 } from 'lucide-react';
 import {

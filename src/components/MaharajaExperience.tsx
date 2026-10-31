@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   AlertCircle,
-  BadgeIndianRupee,
   Camera,
   CheckCircle2,
   Download,

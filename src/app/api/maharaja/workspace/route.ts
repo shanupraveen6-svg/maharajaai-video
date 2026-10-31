@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOperatorSession, verifyAdminRequest, verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import {
+  verifyClientSessionCurrent,
   getClientWorkspaceById,
   getClientWorkspaceByWorkspaceCode,
   getMaharajaWorkspace,
@@ -334,6 +335,7 @@ async function buildHydratedWorkspacePayload(targetWorkspace?: MaharajaWorkspace
 
 /** A client's own login always gets its own workspace; TryFocus admin may open any client by code. */
 async function workspaceForSession(req: NextRequest, requestedCode: string | null) {
+  if (!await verifyClientSessionCurrent(req)) return null;
   const session = getOperatorSession(req);
   const workspace = session?.role === 'client' && session.clientId
     ? await getClientWorkspaceById(session.clientId)
@@ -343,6 +345,7 @@ async function workspaceForSession(req: NextRequest, requestedCode: string | nul
 }
 
 export async function GET(req: NextRequest) {
+  await verifyClientSessionCurrent(req);
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja session.' }, { status: 401 });
   }
@@ -365,6 +368,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  await verifyClientSessionCurrent(req);
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized Maharaja session.' }, { status: 401 });
   }

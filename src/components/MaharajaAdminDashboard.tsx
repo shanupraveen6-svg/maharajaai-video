@@ -8,19 +8,12 @@ import { CREDIT_BAR_COLOURS, creditStatuses, creditWarningText } from '@/lib/mah
 import GoLivePromoManager from '@/components/GoLivePromoManager';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
-  CheckCircle2,
-  Copy,
   Download,
   ExternalLink,
-  Eye,
-  EyeOff,
   LoaderCircle,
   Monitor,
-  Plus,
   QrCode,
-  RefreshCw,
   Smartphone,
-  Sparkles,
   Tablet,
   Tv,
   Upload,

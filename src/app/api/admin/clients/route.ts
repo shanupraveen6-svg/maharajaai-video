@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminRequest } from '@/lib/auth/operator';
-import { listClientLoginUsernames, setClientAccount } from '@/lib/auth/client-accounts';
+import { disableClientAccount, listClientLoginUsernames, setClientAccount } from '@/lib/auth/client-accounts';
 import {
   getClientWorkspaceById,
   getWorkspaceLinks,
@@ -58,7 +58,9 @@ async function withLogins(workspaces: MaharajaWorkspace[]) {
 }
 
 /** Creates or resets a client's own staff login when TryFocus admin supplies one. */
-async function applyLogin(clientId: string, body: { loginUsername?: unknown; loginPassword?: unknown }) {
+async function applyLogin(clientId: string, body: { loginUsername?: unknown; loginPassword?: unknown; disableLogin?: unknown }) {
+  // Disabling a login signs out every device using it immediately.
+  if (body.disableLogin !== undefined) await disableClientAccount(clientId, body.disableLogin);
   if (body.loginUsername === undefined && body.loginPassword === undefined) return;
   await setClientAccount(clientId, body.loginUsername, body.loginPassword);
 }

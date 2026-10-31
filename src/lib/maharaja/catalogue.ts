@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { catalogueCategories, sampleCatalogue, type CatalogueCategoryId, type TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import { catalogueCategories, sampleCatalogue, type CatalogueCategoryId } from '@/lib/tryfocus/sample-data';
 import type { MaharajaCatalogueProduct, PublicCatalogueProduct } from './catalogue-types';
 import { activeClientId } from './client-context';
 import { MAHARAJA_CLIENT_ID } from './config';

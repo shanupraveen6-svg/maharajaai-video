@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
-import { getOperatorSession, verifyOperatorRequest } from '@/lib/auth/operator';
+import { getOperatorSession, markClientSession, verifyOperatorRequest } from '@/lib/auth/operator';
+import { isClientSessionCurrent } from '@/lib/auth/client-accounts';
 import { displayClientId, verifyTvRequest } from '@/lib/auth/display';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
@@ -15,8 +16,6 @@ import {
   MAHARAJA_CLIENT_ID,
   MAHARAJA_WORKSPACE_CODE,
   TRY_ON_MIN_PURCHASE,
-  EVENT_IDS,
-  isEventId,
   resolveGarmentType,
   ENFORCE_REPEAT_LIMITS,
 } from './config';
@@ -2516,6 +2515,7 @@ export async function verifyMaharajaAccess(
   service: 'try-on' | 'ai-video'
 ) {
   const code = typeof accessCode === 'string' ? accessCode.trim() : '';
+  if (req?.headers) await verifyClientSessionCurrent(req);
   const sessionClientId = req?.headers ? getOperatorSession(req)?.clientId || await displayClientId(req) : null;
   let workspace = await resolveWorkspaceByAccessCode(code);
   const codeMatchedWorkspace = Boolean(code) && [workspace.tryOnCode, workspace.billingCode, workspace.openVideoCode].includes(code);
@@ -2604,7 +2604,17 @@ export async function verifyMaharajaAccess(
  * login. TryFocus admin and paired Maharaja devices fall through to null (Maharaja), unless an admin
  * names another client with `requestedClientId`. Bind the result with bindClient() in the handler.
  */
+/** Checks a client login against its account; a reset or disabled login is refused from now on. */
+export async function verifyClientSessionCurrent(req: NextRequest) {
+  const session = req?.headers ? getOperatorSession(req) : null;
+  if (session?.role !== 'client' || !session.subject || !session.clientId) return true;
+  const current = await isClientSessionCurrent(session.username, session.clientId, session.sessionVersion || '');
+  markClientSession(session.subject, current);
+  return current;
+}
+
 export async function resolveRequestClientId(req: NextRequest, accessCode?: unknown, requestedClientId?: string | null) {
+  await verifyClientSessionCurrent(req);
   const goLiveClient = await goLiveClientId(req);
   if (goLiveClient) return goLiveClient;
   const code = typeof accessCode === 'string' ? accessCode.trim() : '';

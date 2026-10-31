@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 
 /** A client's own staff login, created by TryFocus admin and limited to that client's workspace. */
-type ClientAccount = { username: string; clientId: string; salt: string; passwordHash: string; active: boolean; updatedAt: string };
+type ClientAccount = { username: string; clientId: string; salt: string; passwordHash: string; active: boolean; updatedAt: string; sessionVersion?: string };
 
 const COLLECTION = 'operatorAccounts';
 
@@ -28,7 +28,8 @@ export async function setClientAccount(clientId: string, usernameInput: unknown,
   const existing = await readAccount(username);
   if (existing && existing.clientId !== clientId) throw new Error('This username belongs to another client.');
   const salt = crypto.randomBytes(16).toString('hex');
-  const account: ClientAccount = { username, clientId, salt, passwordHash: hashPassword(password, salt), active: true, updatedAt: new Date().toISOString() };
+  // A new session version signs out every device still using the old password.
+  const account: ClientAccount = { username, clientId, salt, passwordHash: hashPassword(password, salt), active: true, updatedAt: new Date().toISOString(), sessionVersion: crypto.randomBytes(8).toString('hex') };
   const db = getDb();
   if (db) await db.collection(COLLECTION).doc(username).set(account);
   else getMockStore().sessions.set(`operator_account_${username}`, account);
@@ -44,14 +45,33 @@ export async function verifyClientLogin(usernameInput: unknown, password: unknow
   const candidate = Buffer.from(hashPassword(password, account.salt), 'hex');
   const stored = Buffer.from(account.passwordHash, 'hex');
   return candidate.length === stored.length && crypto.timingSafeEqual(candidate, stored)
-    ? { username, clientId: account.clientId }
+    ? { username, clientId: account.clientId, sessionVersion: account.sessionVersion || 'initial' }
     : null;
+}
+
+/** Whether a client session (username + session version from its cookie) is still valid. */
+export async function isClientSessionCurrent(username: string, clientId: string, sessionVersion: string) {
+  const account = await readAccount(normalizeLoginUsername(username));
+  return Boolean(account?.active && account.clientId === clientId && (account.sessionVersion || 'initial') === sessionVersion);
+}
+
+/** Turns a client login off and signs out every device using it. */
+export async function disableClientAccount(clientId: string, usernameInput: unknown) {
+  const username = normalizeLoginUsername(usernameInput);
+  const account = username ? await readAccount(username) : null;
+  if (!account || account.clientId !== clientId) throw new Error('Login not found for this client.');
+  const next = { ...account, active: false, sessionVersion: crypto.randomBytes(8).toString('hex'), updatedAt: new Date().toISOString() };
+  const db = getDb();
+  if (db) await db.collection(COLLECTION).doc(username).set(next);
+  else getMockStore().sessions.set(`operator_account_${username}`, next);
 }
 
 export async function listClientLoginUsernames(clientId: string) {
   const db = getDb();
-  if (db) return (await db.collection(COLLECTION).where('clientId', '==', clientId).get()).docs.map((doc) => doc.id);
+  if (db) return (await db.collection(COLLECTION).where('clientId', '==', clientId).get()).docs
+    .filter((doc) => (doc.data() as ClientAccount).active)
+    .map((doc) => doc.id);
   return Array.from(getMockStore().sessions.entries())
-    .filter(([key, value]) => key.startsWith('operator_account_') && (value as ClientAccount).clientId === clientId)
+    .filter(([key, value]) => key.startsWith('operator_account_') && (value as ClientAccount).clientId === clientId && (value as ClientAccount).active)
     .map(([, value]) => (value as ClientAccount).username);
 }

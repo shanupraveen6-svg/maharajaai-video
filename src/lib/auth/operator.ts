@@ -24,13 +24,26 @@ export type OperatorSession = {
   role: 'admin' | 'client';
   username: string;
   clientId: string | null;
+  sessionVersion?: string;
+  subject?: string;
 };
 
 const CLIENT_SUBJECT_PREFIX = 'client~';
 
 /** Subject stored in a client login's signed cookie; the signature makes the client id trustworthy. */
-export function clientSessionSubject(clientId: string, username: string) {
-  return `${CLIENT_SUBJECT_PREFIX}${clientId}~${username}`;
+export function clientSessionSubject(clientId: string, username: string, sessionVersion: string) {
+  return `${CLIENT_SUBJECT_PREFIX}${clientId}~${username}~${sessionVersion}`;
+}
+
+/**
+ * Client sessions verified as revoked (password reset or login disabled). Filled by the async check in
+ * resolveRequestClientId, which every client route runs first, so the synchronous checks after it refuse.
+ */
+const revokedClientSubjects = new Set<string>();
+
+export function markClientSession(subject: string, current: boolean) {
+  if (current) revokedClientSubjects.delete(subject);
+  else revokedClientSubjects.add(subject);
 }
 
 export function signOperatorToken(subject: string, expiresAt: number) {
@@ -65,8 +78,10 @@ export function getOperatorSession(req: NextRequest): OperatorSession | null {
   }
 
   if (subject.startsWith(CLIENT_SUBJECT_PREFIX)) {
-    const [clientId, username] = subject.slice(CLIENT_SUBJECT_PREFIX.length).split('~');
-    return clientId && username ? { role: 'client', username, clientId } : null;
+    const [clientId, username, sessionVersion] = subject.slice(CLIENT_SUBJECT_PREFIX.length).split('~');
+    // Sessions from before versioning carry no version and must sign in again.
+    if (!clientId || !username || !sessionVersion || revokedClientSubjects.has(subject)) return null;
+    return { role: 'client', username, clientId, sessionVersion, subject };
   }
   return getValidUsernames().includes(subject) ? { role: 'admin', username: subject, clientId: null } : null;
 }

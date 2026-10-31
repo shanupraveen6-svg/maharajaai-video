@@ -40,7 +40,11 @@ assert.equal((await cookieFor('srireadymade', 'wrong-password')).status, 401);
 const adminLogin = await cookieFor('tryfocus', 'tryfocus-pass');
 assert.equal(adminLogin.body.role, 'admin');
 const asReq = (url, cookie, init = {}) => new NextRequest(url, { ...init, headers: { ...(init.headers || {}), cookie } });
-assert.deepEqual(getOperatorSession(asReq('http://localhost/', sriLogin.cookie)), { role: 'client', username: 'srireadymade', clientId: SRI });
+const sriSession = getOperatorSession(asReq('http://localhost/', sriLogin.cookie));
+assert.equal(sriSession.role, 'client');
+assert.equal(sriSession.username, 'srireadymade');
+assert.equal(sriSession.clientId, SRI);
+assert.ok(sriSession.sessionVersion, 'Client sessions carry a revocable version');
 console.log('✓ Client login signs in as a client session; wrong password is rejected');
 
 // 2. A client login cannot open TryFocus admin or another client's workspace, nor change credits.
@@ -116,5 +120,19 @@ await display.revokeDisplayTokens(SRI);
 assert.equal(await display.displayClientId(tvReq(sriTv)), null, 'Disconnected');
 assert.equal(await display.displayClientId(tvReq(maharajaTv)), 'maharaja', 'Other workspaces stay paired');
 console.log('✓ 30-day TV pairing is per workspace and revoked per workspace');
+
+// 8. Instant revocation: a password reset or disabled login is refused on the very next request.
+const { disableClientAccount } = await import('../src/lib/auth/client-accounts.ts');
+const fresh = await cookieFor('srireadymade', 'sri-laptop-2026');
+const wsGet = (cookie) => workspaceRoute.GET(asReq('http://localhost/api/maharaja/workspace', cookie));
+assert.equal((await wsGet(fresh.cookie)).status, 200);
+await setClientAccount(SRI, 'srireadymade', 'new-password-2026');
+assert.equal((await wsGet(fresh.cookie)).status, 401, 'Old session refused right after the password reset');
+const afterReset = await cookieFor('srireadymade', 'new-password-2026');
+assert.equal((await wsGet(afterReset.cookie)).status, 200, 'The new password works');
+await disableClientAccount(SRI, 'srireadymade');
+assert.equal((await wsGet(afterReset.cookie)).status, 401, 'Disabled login refused immediately');
+assert.equal((await cookieFor('srireadymade', 'new-password-2026')).status, 401, 'Disabled login cannot sign in');
+console.log('✓ Password reset and disable sign the client out immediately');
 
 console.log('MULTI-CLIENT ISOLATION TESTS PASSED');

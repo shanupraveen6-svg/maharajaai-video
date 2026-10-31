@@ -51,3 +51,16 @@ npm run build
 node scripts/test-pass-state.mjs
 node scripts/test-admin-retry-flow.mjs
 ```
+
+## Server tests (separate test Firebase project)
+
+Three tests need a running server with real Firebase. Never run them against production.
+
+1. Create a free Firebase project for testing (for example `tryfocus-test`) with Firestore and Storage.
+2. Create a service account key for it and put the test values in `.env.test` (git-ignored):
+   `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET`,
+   `OPERATOR_USERNAME`, `OPERATOR_PASSWORD`, `OPERATOR_AUTH_SECRET`. Add AI keys only if you accept paid test calls.
+3. `npm run build && npm run test:server`
+
+The runner refuses to start if `.env.test` points at the production project, and blanks every key
+that `.env.test` does not set so nothing falls back to the production values in `.env.local`.

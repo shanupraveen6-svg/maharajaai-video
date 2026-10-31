@@ -175,6 +175,28 @@ export default function TryFocusAdmin() {
     }
   }
 
+  // Turns the login off and signs out every device using it straight away.
+  async function disableClientLogin(username: string) {
+    if (!window.confirm(`Disable "${username}"? Every device using this login is signed out immediately.`)) return;
+    setSaving(true);
+    setErrorNotice('');
+    try {
+      const res = await fetch('/api/admin/clients', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: client.id, name: client.name, branch: client.branch, campaignEnabled: client.status === 'Active', disableLogin: username }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not disable the login.');
+      if (Array.isArray(data.clients)) setClients(data.clients);
+      setSavedNotice(`Login "${username}" disabled and signed out everywhere.`);
+    } catch (err) {
+      setErrorNotice(err instanceof Error ? err.message : 'Could not disable the login.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function persistClientPatch(nextPatch: Partial<Client>) {
     const mergedClient: Client = {
       ...client,
@@ -585,8 +607,25 @@ export default function TryFocusAdmin() {
           </p>
           <p className="mt-3 text-sm">
             <span className="text-[#535A56]">Existing logins: </span>
-            <span className="font-mono font-bold">{client.logins?.length ? client.logins.join(', ') : 'none yet'}</span>
+            {!client.logins?.length && <span className="font-mono font-bold">none yet</span>}
           </p>
+          {Boolean(client.logins?.length) && (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {client.logins!.map((username) => (
+                <li key={username} className="flex items-center gap-2 border border-[#D8DCD7] px-3 py-1 text-sm">
+                  <span className="font-mono font-bold">{username}</span>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void disableClientLogin(username)}
+                    className="min-h-10 px-2 text-xs font-bold uppercase text-[#B42318] underline"
+                  >
+                    Disable
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           <form onSubmit={saveClientLogin} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
             <input
               aria-label="Client login username"

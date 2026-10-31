@@ -3,19 +3,16 @@
 import { useEffect, useState } from 'react';
 import {
   catalogueCategories,
-  formatINR,
   type CatalogueAudience,
   type CatalogueCategoryId,
 } from '@/lib/tryfocus/sample-data';
 import {
   Camera,
   CheckCircle2,
-  ExternalLink,
   Eye,
   Grid3X3,
   List,
   LoaderCircle,
-  Sparkles,
   Upload,
   Video,
   X,
