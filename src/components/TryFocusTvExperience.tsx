@@ -56,6 +56,11 @@ export default function TryFocusTvExperience() {
   const catalogueTopRef = useRef<HTMLDivElement | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
 
+  // Signed-in staff pair this TV to their workspace once; it then runs without a login for 30 days.
+  useEffect(() => {
+    void fetch('/api/tv/pair', { method: 'POST' }).catch(() => undefined);
+  }, []);
+
   // The TV stays open all day, so admin changes reach it without a reload: store settings every
   // 2 minutes (one small read) and the catalogue every 30 minutes.
   useEffect(() => {

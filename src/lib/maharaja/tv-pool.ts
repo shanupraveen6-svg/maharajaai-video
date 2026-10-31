@@ -46,7 +46,7 @@ export function nextTvPoolIndex<T extends TvPoolItem>(items: T[], currentQueueId
 }
 
 export function isApprovedDemoVideoPath(storagePath: string): boolean {
-  if (!storagePath || /(^|\/)clients\/maharaja\/sessions\//i.test(storagePath)) return false;
+  if (!storagePath || /(^|\/)clients\/[^/]+\/sessions\//i.test(storagePath)) return false;
   if (!storagePath.includes('/')) return true;
   return /(^|\/)(?:live-testing|showcase|showcases|demo|demos)(?:\/|$)/i.test(storagePath);
 }

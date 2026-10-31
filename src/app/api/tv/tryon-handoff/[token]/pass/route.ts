@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { resolveGarmentType, type CustomerCategory } from '@/lib/maharaja/config';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
-import {
+import { moduleLimit,
   getMaharajaWorkspace,
   getVideoPass,
   incrementMaharajaUsage,
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
   if (workspace.devices?.mobile === false) {
     return NextResponse.json({ success: false, error: 'Mobile AI Video is currently turned off for this store.' }, { status: 403 });
   }
-  const videoLimit = Number(workspace.limits?.video ?? 500);
+  const videoLimit = moduleLimit(workspace, 'video');
   const videoUsed = Number(workspace.usage?.videosGenerated || 0);
   if (videoLimit <= 0 || videoUsed >= videoLimit) {
     return NextResponse.json({ success: false, error: 'AI Video is paused right now. Please ask our staff for help.' }, { status: 403 });

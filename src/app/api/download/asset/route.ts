@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { applyMaharajaVideoWatermark } from '@/lib/maharaja/video-processor';
-import { verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { resolveRequestClientId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
-import { bindClient } from '@/lib/maharaja/client-context';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,12 +53,14 @@ function createStoredZip(entries: Array<{ name: string; data: Buffer }>) {
 
 function isMaharajaAsset(url: URL) {
   const decoded = decodeURIComponent(`${url.pathname}${url.search}`);
-  return decoded.includes('clients/maharaja/');
+  return decoded.includes(`clients/${activeClientId()}/`);
 }
 
 export async function POST(req: NextRequest) {
   try {
     const { url, watermark, sessionId, accessCode, jobId, kind } = await req.json();
+    // The customer's code (or staff login) decides whose files may be downloaded.
+    bindClient(await resolveRequestClientId(req, accessCode));
     const rate = await enforceRateLimit(req, 'asset-download', 20, 10 * 60 * 1000, typeof accessCode === 'string' ? accessCode : undefined);
     if (!rate.allowed) {
       return NextResponse.json({ success: false, error: 'Too many download requests. Please wait and try again.' }, {
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
         }
         const imagePath = String(session.masterStoragePath || '');
         const videoPath = String(job.videoStoragePath || '');
-        const expectedPrefix = `clients/maharaja/sessions/${sessionId}/`;
+        const expectedPrefix = `clients/${activeClientId()}/sessions/${sessionId}/`;
         if (!imagePath.startsWith(expectedPrefix) || !videoPath.startsWith(expectedPrefix)) {
           return NextResponse.json({ success: false, error: 'The requested media path is invalid.' }, { status: 403 });
         }
@@ -134,7 +136,7 @@ export async function POST(req: NextRequest) {
         storagePath = String(job.videoStoragePath || '');
       }
 
-      if (!storagePath.startsWith('clients/maharaja/sessions/')) {
+      if (!storagePath.startsWith(`clients/${activeClientId()}/sessions/`)) {
         return NextResponse.json({ success: false, error: 'The requested media path is invalid.' }, { status: 403 });
       }
       const bucket = getStorageBucket();

@@ -91,4 +91,30 @@ const blocked = await createPass(new NextRequest('http://localhost/api/maharaja/
 assert.equal(blocked.status, 403);
 console.log('✓ Device switches apply per client');
 
+// 6. Module switches: AI Video off blocks video passes and the Go Live link even with credits left.
+await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { mobile: true }, modules: { video: false } }, SRI));
+const sriNow = await server.getClientWorkspaceById(SRI);
+assert.equal(server.moduleLimit(sriNow, 'video'), 0);
+assert.ok(server.moduleLimit(sriNow, 'image') > 0, 'Other modules stay on');
+const videoOff = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'video-poster', billingCode: sri.openVideoCode }) }));
+assert.equal(videoOff.status, 403);
+const screenReq = new NextRequest('http://localhost/api/live/next', { headers: { 'x-golive-screen': server.goLiveCodeFor(SRI) } });
+assert.equal(await server.goLiveClientId(screenReq), null);
+await runWithClient(SRI, () => server.updateMaharajaSettings({ modules: { video: true } }, SRI));
+assert.equal(await server.goLiveClientId(screenReq), SRI, 'Switching the module back on restores it');
+console.log('✓ Module switches block a module even when credits remain');
+
+// 7. 30-day TV pairing per workspace; disconnecting one workspace's TVs leaves the others paired.
+const display = await import('../src/lib/auth/display.ts');
+const tvReq = (token) => new NextRequest('http://localhost/maharaja/tv/experience', { headers: { cookie: `${display.DISPLAY_COOKIE}=${token}` } });
+const sriTv = await display.issueDisplayToken(SRI);
+const maharajaTv = await display.issueDisplayToken('maharaja');
+assert.equal(await display.displayClientId(tvReq(sriTv)), SRI);
+assert.equal(await display.displayClientId(tvReq(maharajaTv)), 'maharaja');
+assert.equal(await server.resolveRequestClientId(tvReq(sriTv)), SRI, 'A paired TV opens its own workspace');
+await display.revokeDisplayTokens(SRI);
+assert.equal(await display.displayClientId(tvReq(sriTv)), null, 'Disconnected');
+assert.equal(await display.displayClientId(tvReq(maharajaTv)), 'maharaja', 'Other workspaces stay paired');
+console.log('✓ 30-day TV pairing is per workspace and revoked per workspace');
+
 console.log('MULTI-CLIENT ISOLATION TESTS PASSED');

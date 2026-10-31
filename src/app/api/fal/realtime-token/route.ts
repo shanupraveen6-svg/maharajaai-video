@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveRequestClientId, getMaharajaWorkspace } from '@/lib/maharaja/server';
+import { moduleLimit, resolveRequestClientId, getMaharajaWorkspace } from '@/lib/maharaja/server';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { bindClient } from '@/lib/maharaja/client-context';
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   if (workspace.devices && workspace.devices.tv === false) {
     return new NextResponse('The Interactive TV / Smart Mirror surface is currently disabled for this store.', { status: 403 });
   }
-  const liveLimit = Number(workspace.limits?.live ?? 500);
+  const liveLimit = moduleLimit(workspace, 'live');
   const liveUsed = Number(workspace.usage?.liveSessions || 0);
   if (liveLimit <= 0 || liveUsed >= liveLimit) {
     return new NextResponse('Live AI Mirror is paused right now. Please ask our staff for help.', { status: 403 });

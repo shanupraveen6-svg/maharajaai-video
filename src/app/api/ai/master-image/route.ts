@@ -7,7 +7,7 @@ import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
 import { type CustomerCategory, GARMENT_TYPE_RULES, compatibleGarmentType, isEventId, TRY_ON_MIN_PURCHASE, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
-import { acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
@@ -140,12 +140,12 @@ export async function POST(req: NextRequest) {
     }
     if (service === 'try-on') {
       // Reserved now and returned in finally if this request does not deliver an image.
-      if (!await reserveMaharajaUsage('tryOnGenerated', Number(access.workspace.limits?.image ?? 4000))) {
+      if (!await reserveMaharajaUsage('tryOnGenerated', moduleLimit(access.workspace, 'image'))) {
         return NextResponse.json({ success: false, error: 'AI Try-On is paused right now. Please ask our staff for help.' }, { status: 403 });
       }
       reservedTryOnCredit = true;
     } else {
-      const videoLimit = Number(access.workspace.limits?.video ?? 500);
+      const videoLimit = moduleLimit(access.workspace, 'video');
       const videoUsed = Number(access.workspace.usage?.videosGenerated || 0);
       if (videoLimit <= 0 || videoUsed >= videoLimit) {
         return NextResponse.json({ success: false, error: 'AI Video is paused right now. Please ask our staff for help.' }, { status: 403 });

@@ -45,6 +45,7 @@ function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = []) {
       live: Number(ws.limits?.live ?? 500),
       video: Number(ws.limits?.video ?? 500),
     },
+    modules: { image: ws.modules?.image !== false, live: ws.modules?.live !== false, video: ws.modules?.video !== false },
     links: links.links,
     logins,
     updatedAt: ws.updatedAt,

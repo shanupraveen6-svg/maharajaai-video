@@ -3,7 +3,7 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getStorageBucket } from '@/lib/firebase/admin';
 import { getCatalogueProduct, upsertCatalogueProduct } from '@/lib/maharaja/catalogue';
 import { catalogueCategories } from '@/lib/tryfocus/sample-data';
-import { bindClient } from '@/lib/maharaja/client-context';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       const sku = String(raw.sku || '').trim().toUpperCase().slice(0, 60);
       const path = String(raw.storagePath || '');
       const category = catalogueCategories.find((entry) => entry.id === raw.category);
-      if (!sku || !category || !path.startsWith(`clients/maharaja/catalogue-imports/${batchId}/`)) {
+      if (!sku || !category || !path.startsWith(`clients/${activeClientId()}/catalogue-imports/${batchId}/`)) {
         results.push({ sku, success: false, error: 'SKU, category or image path is invalid.' });
         continue;
       }

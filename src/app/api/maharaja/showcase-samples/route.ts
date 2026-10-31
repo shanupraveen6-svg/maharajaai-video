@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
-import { bindClient } from '@/lib/maharaja/client-context';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export const runtime = 'nodejs';
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const sampleId = `showcase_${randomUUID()}`;
     const extension = uploaded.type === 'video/quicktime' ? 'mov' : 'mp4';
-    const storagePath = `clients/maharaja/live-testing/${sampleId}.${extension}`;
+    const storagePath = `clients/${activeClientId()}/live-testing/${sampleId}.${extension}`;
     await bucket.file(storagePath).save(Buffer.from(await uploaded.arrayBuffer()), {
       resumable: false,
       contentType: uploaded.type,

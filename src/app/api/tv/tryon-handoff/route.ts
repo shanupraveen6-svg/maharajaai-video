@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const bucket = getStorageBucket();
     if (db && bucket) {
-      const paths = looks.map((_, index) => `clients/maharaja/tryon-handoffs/${token}/${index}`);
+      const paths = looks.map((_, index) => `clients/${activeClientId()}/tryon-handoffs/${token}/${index}`);
       try {
         await Promise.all(looks.map((look, index) => bucket.file(paths[index]).save(look.bytes, {
           contentType: look.contentType,
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
           })),
         });
       } catch (error) {
-        await bucket.deleteFiles({ prefix: `clients/maharaja/tryon-handoffs/${token}/`, force: true }).catch(() => undefined);
+        await bucket.deleteFiles({ prefix: `clients/${activeClientId()}/tryon-handoffs/${token}/`, force: true }).catch(() => undefined);
         throw error;
       }
     } else if (!db) {

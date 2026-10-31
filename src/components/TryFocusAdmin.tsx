@@ -34,6 +34,8 @@ type Client = {
   devices: { tv: boolean; tablet: boolean; mobile: boolean; led: boolean };
   usage: { image: number; live: number; video: number };
   limits: { image: number; live: number; video: number };
+  /** Modules this client bought; a module that is off is blocked even with credits left. */
+  modules?: { image: boolean; live: boolean; video: boolean };
   links?: {
     workspace: string;
     tryOn: string;
@@ -58,6 +60,13 @@ const initialClients: Client[] = [
     limits: { image: 4000, live: 500, video: 500 },
   },
 ];
+
+/** Credits in each plan, matching the pricing on the TryFocus home page. */
+const PLAN_CREDITS = {
+  image: { standard: 4000, pro: 6000 },
+  live: { standard: 500, pro: 1000 },
+  video: { standard: 500, pro: 1000 },
+} as const;
 
 const plans = [
   {
@@ -172,6 +181,7 @@ export default function TryFocusAdmin() {
       ...nextPatch,
       devices: nextPatch.devices ? { ...client.devices, ...nextPatch.devices } : client.devices,
       limits: nextPatch.limits ? { ...client.limits, ...nextPatch.limits } : client.limits,
+      modules: nextPatch.modules ? { ...(client.modules || { image: true, live: true, video: true }), ...nextPatch.modules } : client.modules,
     };
 
     setClients((items) =>
@@ -196,6 +206,7 @@ export default function TryFocusAdmin() {
           whatsappConnected: mergedClient.whatsappConnected,
           devices: mergedClient.devices,
           limits: mergedClient.limits,
+          modules: mergedClient.modules,
         }),
       });
       if (res.status === 401) {
@@ -783,6 +794,26 @@ export default function TryFocusAdmin() {
                       className="h-10 w-32 border border-[#D8DCD7] bg-white px-3 font-mono text-sm font-bold text-[#161918] outline-none focus:border-[#7A1428]"
                     />
                     <span className="text-xs text-[#535A56]">hard limit</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      aria-pressed={client.modules?.[key] !== false}
+                      onClick={() => void persistClientPatch({ modules: { ...(client.modules || { image: true, live: true, video: true }), [key]: client.modules?.[key] === false } })}
+                      className={`min-h-10 px-3 text-xs font-bold uppercase tracking-wider ${client.modules?.[key] === false ? 'border border-[#D8DCD7] bg-white text-[#535A56]' : 'bg-[#256B45] text-white'}`}
+                    >
+                      {client.modules?.[key] === false ? 'Module off' : 'Module on'}
+                    </button>
+                    {(['standard', 'pro'] as const).map((tier) => (
+                      <button
+                        key={tier}
+                        type="button"
+                        onClick={() => void persistClientPatch({ limits: { ...client.limits, [key]: PLAN_CREDITS[key][tier] } })}
+                        className="min-h-10 border border-[#161918] bg-white px-3 text-xs font-bold uppercase tracking-wider"
+                      >
+                        {tier === 'standard' ? 'Standard' : 'Pro'} · {PLAN_CREDITS[key][tier].toLocaleString('en-IN')}
+                      </button>
+                    ))}
                   </div>
                   <div className="mt-4 h-2 overflow-hidden bg-[#ECEEE9]">
                     <div className={`h-full ${CREDIT_BAR_COLOURS[level]}`} style={{ width: `${percent}%` }} />

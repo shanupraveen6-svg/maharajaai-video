@@ -6,7 +6,7 @@ import {
   issueDisplayToken,
   revokeDisplayTokens,
 } from '@/lib/auth/display';
-import { bindClient } from '@/lib/maharaja/client-context';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export async function POST(req: NextRequest) {
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       { status: 401 },
     );
   const response = NextResponse.json({ success: true });
-  response.cookies.set(DISPLAY_COOKIE, await issueDisplayToken(), {
+  response.cookies.set(DISPLAY_COOKIE, await issueDisplayToken(activeClientId()), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
@@ -37,7 +37,7 @@ export async function DELETE(req: NextRequest) {
       { success: false, error: 'Staff login is required.' },
       { status: 401 },
     );
-  await revokeDisplayTokens();
+  await revokeDisplayTokens(activeClientId());
   const response = NextResponse.json({ success: true });
   response.cookies.set(DISPLAY_COOKIE, '', {
     httpOnly: true,

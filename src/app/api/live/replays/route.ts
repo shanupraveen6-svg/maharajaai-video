@@ -13,7 +13,7 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { resolveStoredVideoPaths } from '@/lib/maharaja/storage-video';
 import { isApprovedDemoVideoPath } from '@/lib/maharaja/tv-pool';
-import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
+import { activeClientId, bindClient, liveScreenId, storagePathBelongsToActiveClient } from '@/lib/maharaja/client-context';
 import { goLiveClientId, resolveRequestClientId } from '@/lib/maharaja/server';
 
 const FALLBACK_NAME = 'Maharaja Guest';
@@ -109,13 +109,14 @@ export async function GET(req: NextRequest) {
       const catalogByPath = new Map<string, any>();
       catalogSnapshot.docs.forEach((doc: any) => {
         const value = { id: doc.id, ...doc.data() };
-        if (value.storagePath) catalogByPath.set(value.storagePath, value);
+        if (value.storagePath && storagePathBelongsToActiveClient(value.storagePath)) catalogByPath.set(value.storagePath, value);
       });
 
       const videosByStoragePath = new Map<string, any>();
       videosSnapshot.docs
         .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-        .filter((video: any) => selectedStoragePath(video) && (!video.status || ['ready', 'succeeded', 'completed'].includes(video.status)))
+        // Each Go Live screen shows only its own workspace's videos.
+        .filter((video: any) => selectedStoragePath(video) && storagePathBelongsToActiveClient(selectedStoragePath(video)) && (!video.status || ['ready', 'succeeded', 'completed'].includes(video.status)))
         .forEach((video: any) => {
           const path = selectedStoragePath(video);
           if (!videosByStoragePath.has(path)) videosByStoragePath.set(path, video);
@@ -136,10 +137,12 @@ export async function GET(req: NextRequest) {
         try {
           // Discover demos recursively, but never auto-publish private customer
           // session media. Completed customer films enter through Go Live consent.
-          const [allFiles] = await bucket.getFiles();
+          const [allFiles] = activeClientId() === 'maharaja'
+            ? await bucket.getFiles()
+            : await bucket.getFiles({ prefix: `clients/${activeClientId()}/` });
           const showcaseFilesByPath = new Map<string, any>();
           allFiles
-            .filter((file: any) => isApprovedDemoVideoPath(String(file.name || '')))
+            .filter((file: any) => isApprovedDemoVideoPath(String(file.name || '')) && storagePathBelongsToActiveClient(String(file.name || '')))
             .forEach((file: any) => showcaseFilesByPath.set(file.name, file));
           storageDiagnostics.totalObjects = showcaseFilesByPath.size;
           for (const file of showcaseFilesByPath.values()) {
@@ -436,7 +439,7 @@ export async function DELETE(req: NextRequest) {
       let deletedFilesCount = 0;
       if (bucket) {
         try {
-          const prefix = `clients/maharaja/sessions/${sessionId}/`;
+          const prefix = `clients/${activeClientId()}/sessions/${sessionId}/`;
           const [files] = await bucket.getFiles({ prefix });
           for (const file of files) {
             await file.delete({ ignoreNotFound: true });

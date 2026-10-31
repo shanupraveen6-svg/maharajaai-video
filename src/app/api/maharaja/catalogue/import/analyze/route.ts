@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getStorageBucket } from '@/lib/firebase/admin';
 import { catalogueCategories } from '@/lib/tryfocus/sample-data';
-import { bindClient } from '@/lib/maharaja/client-context';
+import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
     const bytes = Buffer.from(await file.arrayBuffer());
     const mimeType = imageType(bytes, file.type);
-    const storagePath = `clients/maharaja/catalogue-imports/${batchId}/${crypto.randomUUID()}`;
+    const storagePath = `clients/${activeClientId()}/catalogue-imports/${batchId}/${crypto.randomUUID()}`;
     await bucket.file(storagePath).save(bytes, { contentType: mimeType, public: false, metadata: { cacheControl: 'private, no-store' } });
     return NextResponse.json({ success: true, batchId, storagePath, filename: file.name.slice(0, 160), category: category.id });
   } catch (error) {

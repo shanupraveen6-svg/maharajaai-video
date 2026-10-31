@@ -5,7 +5,7 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
-import { resolveRequestClientId,
+import { moduleLimit, resolveRequestClientId,
   resolveWorkspaceByAccessCode,
   incrementMaharajaUsage,
   type MaharajaVideoPass,
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     if (workspace.devices?.mobile === false) {
       return NextResponse.json({ success: false, error: 'Mobile QR continuation is currently disabled for this store.' }, { status: 403 });
     }
-    const videoLimit = Number(workspace.limits?.video ?? 500);
+    const videoLimit = moduleLimit(workspace, 'video');
     const videoUsed = Number(workspace.usage?.videosGenerated || 0);
     if (videoLimit <= 0 || videoUsed >= videoLimit) {
       return NextResponse.json({ success: false, error: 'AI Video is paused right now. Please ask our staff for help.' }, { status: 403 });

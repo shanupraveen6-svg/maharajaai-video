@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, context: Context) {
   const bytes = Buffer.from(await file.arrayBuffer());
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return NextResponse.json({ error: 'Please choose a valid photo.' }, { status: 400, headers });
   const bucket = getStorageBucket();
-  const path = `clients/maharaja/photo-transfers/${token}/photo.jpg`;
+  const path = `clients/${record.clientId || 'maharaja'}/photo-transfers/${token}/photo.jpg`;
   if (bucket) {
     await bucket.file(path).save(bytes, { contentType: 'image/jpeg', public: false, metadata: { cacheControl: 'private, no-store' } });
     await savePhotoTransfer(token, { ...record, status: 'ready', path, contentType: 'image/jpeg' });

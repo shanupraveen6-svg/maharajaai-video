@@ -32,3 +32,12 @@ export function liveScreenId() {
 export function runWithClient<T>(clientId: string, fn: () => T): T {
   return clientContext.run({ clientId: normalizeClientId(clientId) }, fn);
 }
+
+/**
+ * Whether a storage path belongs to the bound client. Media lives under `clients/<id>/`; older
+ * files outside that folder (Maharaja's original demo clips) count as Maharaja's.
+ */
+export function storagePathBelongsToActiveClient(storagePath: string | null | undefined) {
+  const owner = /^clients\/([^/]+)\//.exec(String(storagePath || ''))?.[1];
+  return owner ? owner === activeClientId() : activeClientId() === MAHARAJA_CLIENT_ID;
+}

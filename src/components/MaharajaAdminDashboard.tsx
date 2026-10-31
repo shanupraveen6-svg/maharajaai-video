@@ -58,6 +58,7 @@ type WorkspaceData = {
     live: number;
     video: number;
   };
+  modules?: { image: boolean; live: boolean; video: boolean };
   activeEvents: EventId[];
   defaultEvent: EventId;
   tryOnCode: string;
@@ -574,7 +575,13 @@ export default function MaharajaAdminDashboard({
   }
 
   const devices = workspace.devices || { tv: true, tablet: true, mobile: true, led: true };
-  const limits = workspace.limits || { image: 4000, live: 500, video: 500 };
+  // Effective credits: a module switched off by TryFocus counts as 0, which hides its QR, credits and Go Live.
+  const purchased = workspace.limits || { image: 4000, live: 500, video: 500 };
+  const limits = {
+    image: workspace.modules?.image === false ? 0 : purchased.image,
+    live: workspace.modules?.live === false ? 0 : purchased.live,
+    video: workspace.modules?.video === false ? 0 : purchased.video,
+  };
   const minGateDisabled = workspace.minPurchaseTryOnDisabled !== false;
   const totalScans = (workspace.usage.tryOnScans || 0) + (workspace.usage.videoPasses || 0);
   const currentEvent =
@@ -1101,7 +1108,7 @@ export default function MaharajaAdminDashboard({
            ========================================================= */}
         <section className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
           {/* Card 1: Permanent Direct QR for AI Image Try-On */}
-          <div className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
+          {limits.image > 0 && <div className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D8DCD7] pb-4">
                 <div>
@@ -1175,10 +1182,10 @@ export default function MaharajaAdminDashboard({
                 Download QR
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Card 2: Customer AI Video QR & Bill Counter */}
-          <div className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
+          {limits.video > 0 && <div className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D8DCD7] pb-4">
                 <div>
@@ -1248,7 +1255,7 @@ export default function MaharajaAdminDashboard({
                 Download Poster QR
               </button>
             </div>
-          </div>
+          </div>}
         </section>
 
         {/* =========================================================

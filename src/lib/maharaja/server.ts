@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { getOperatorSession, verifyOperatorRequest } from '@/lib/auth/operator';
-import { verifyTvRequest } from '@/lib/auth/display';
+import { displayClientId, verifyTvRequest } from '@/lib/auth/display';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
 import { activeClientId } from './client-context';
@@ -44,6 +44,12 @@ export type MaharajaWorkspace = {
     image: number;
     live: number;
     video: number;
+  };
+  /** Modules the client bought. A module runs only when switched on and it has credits. */
+  modules?: {
+    image: boolean;
+    live: boolean;
+    video: boolean;
   };
   activeEvents: EventId[];
   defaultEvent: EventId;
@@ -470,6 +476,14 @@ function stableCode(label: string, length = 20, clientId = MAHARAJA_CLIENT_ID) {
 }
 
 /** Secret code in a workspace's Go Live TV link; derived from the auth secret, so it cannot be guessed. */
+const DEFAULT_LIMITS = { image: 4000, live: 500, video: 500 } as const;
+
+/** Credits a module may use right now: 0 when the module is switched off for this workspace. */
+export function moduleLimit(workspace: Pick<MaharajaWorkspace, 'limits' | 'modules'>, module: 'image' | 'live' | 'video') {
+  if (workspace.modules?.[module] === false) return 0;
+  return Math.max(0, Number(workspace.limits?.[module] ?? DEFAULT_LIMITS[module]));
+}
+
 export function goLiveCodeFor(clientId: string) {
   return stableCode('go-live-screen', 24, clientId);
 }
@@ -482,7 +496,7 @@ export async function goLiveClientId(req: NextRequest): Promise<string | null> {
   const code = (req.headers?.get('x-golive-screen') || req.nextUrl?.searchParams.get('screen') || '').trim();
   if (!/^[A-Za-z0-9_-]{24}$/.test(code)) return null;
   const workspace = (await listClientWorkspaces()).find((ws) => goLiveCodeFor(ws.clientId) === code);
-  if (!workspace?.campaignEnabled || Number(workspace.limits?.video ?? 0) <= 0) return null;
+  if (!workspace?.campaignEnabled || moduleLimit(workspace, 'video') <= 0) return null;
   return workspace.clientId;
 }
 
@@ -544,6 +558,13 @@ function normalizeWorkspace(data: Partial<MaharajaWorkspace>, fallback: Maharaja
       video: 500,
       ...(fallback.limits || {}),
       ...(data.limits || {}),
+    },
+    modules: {
+      image: true,
+      live: true,
+      video: true,
+      ...(fallback.modules || {}),
+      ...(data.modules || {}),
     },
     minPurchaseTryOnDisabled: typeof data.minPurchaseTryOnDisabled === 'boolean'
       ? data.minPurchaseTryOnDisabled
@@ -617,6 +638,7 @@ export async function updateMaharajaSettings(
       | 'whatsappConnected'
       | 'devices'
       | 'limits'
+      | 'modules'
       | 'activeEvents'
       | 'defaultEvent'
       | 'openVideoCode'
@@ -639,6 +661,7 @@ export async function updateMaharajaSettings(
     defaultEvent: 'diwali' as EventId,
     ...(rest.devices ? { devices: { ...(workspace.devices || { tv: true, tablet: true, mobile: true, led: true }), ...rest.devices } } : {}),
     ...(rest.limits ? { limits: { ...(workspace.limits || { image: 4000, live: 500, video: 500 }), ...rest.limits } } : {}),
+    ...(rest.modules ? { modules: { ...(workspace.modules || { image: true, live: true, video: true }), ...rest.modules } } : {}),
   };
   const updated = normalizeWorkspace(
     { ...workspace, ...productionSettings, updatedAt: new Date().toISOString() },
@@ -736,6 +759,7 @@ export async function upsertClientWorkspace(input: {
   whatsappConnected?: boolean;
   devices?: Partial<{ tv: boolean; tablet: boolean; mobile: boolean; led: boolean }>;
   limits?: Partial<{ image: number; live: number; video: number }>;
+  modules?: Partial<{ image: boolean; live: boolean; video: boolean }>;
 }): Promise<MaharajaWorkspace> {
   const rawId = input.id || input.clientId || input.name || input.clientName || '';
   const cleanId = String(rawId)
@@ -773,6 +797,15 @@ export async function upsertClientWorkspace(input: {
               tablet: input.devices.tablet ?? existing.devices?.tablet ?? true,
               mobile: input.devices.mobile ?? existing.devices?.mobile ?? true,
               led: input.devices.led ?? existing.devices?.led ?? true,
+            },
+          }
+        : {}),
+      ...(input.modules
+        ? {
+            modules: {
+              image: input.modules.image ?? existing.modules?.image ?? true,
+              live: input.modules.live ?? existing.modules?.live ?? true,
+              video: input.modules.video ?? existing.modules?.video ?? true,
             },
           }
         : {}),
@@ -2196,6 +2229,7 @@ export async function finalizeCompletedVideo({
     await Promise.all([
       db.collection('videos').doc(`video_${sessionId}`).set({
         id: `video_${sessionId}`,
+        clientId: activeClientId(),
         sessionId,
         storagePath,
         ...(liveVideo ? { liveStoragePath } : {}),
@@ -2482,7 +2516,7 @@ export async function verifyMaharajaAccess(
   service: 'try-on' | 'ai-video'
 ) {
   const code = typeof accessCode === 'string' ? accessCode.trim() : '';
-  const sessionClientId = req?.headers ? getOperatorSession(req)?.clientId || null : null;
+  const sessionClientId = req?.headers ? getOperatorSession(req)?.clientId || await displayClientId(req) : null;
   let workspace = await resolveWorkspaceByAccessCode(code);
   const codeMatchedWorkspace = Boolean(code) && [workspace.tryOnCode, workspace.billingCode, workspace.openVideoCode].includes(code);
   if (!codeMatchedWorkspace) {
@@ -2583,7 +2617,9 @@ export async function resolveRequestClientId(req: NextRequest, accessCode?: unkn
   }
   const session = getOperatorSession(req);
   if (session?.role === 'client') return session.clientId;
-  return session?.role === 'admin' && requestedClientId ? requestedClientId : null;
+  if (session?.role === 'admin') return requestedClientId || null;
+  // A TV paired by a client's staff keeps that client's workspace for 30 days.
+  return displayClientId(req);
 }
 
 export function publicWorkspaceView(workspace: MaharajaWorkspace) {

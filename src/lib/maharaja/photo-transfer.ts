@@ -1,6 +1,6 @@
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 
-export type PhotoTransfer = { receiver: string; expiresAtMs: number; status: 'waiting' | 'ready'; image?: string; path?: string; contentType?: string };
+export type PhotoTransfer = { receiver: string; expiresAtMs: number; status: 'waiting' | 'ready'; image?: string; path?: string; contentType?: string; clientId?: string };
 export const validTransferToken = (token: string) => /^[A-Za-z0-9_-]{32}$/.test(token);
 export async function readPhotoTransfer(token: string): Promise<PhotoTransfer | null> {
   if (!validTransferToken(token)) return null;

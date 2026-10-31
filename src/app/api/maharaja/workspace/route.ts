@@ -377,7 +377,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Client workspace not found.' }, { status: 404 });
     }
     // Credits, purchased devices and the WhatsApp connection are set by TryFocus, not by the client.
-    if (!verifyAdminRequest(req) && ['limits', 'devices', 'whatsappConnected', 'deliveryMode'].some((key) => body[key] !== undefined)) {
+    if (!verifyAdminRequest(req) && ['limits', 'modules', 'devices', 'whatsappConnected', 'deliveryMode'].some((key) => body[key] !== undefined)) {
       return NextResponse.json({ success: false, error: 'Only TryFocus can change credits, devices or WhatsApp.' }, { status: 403 });
     }
     const settings: Parameters<typeof updateMaharajaSettings>[0] = {};
