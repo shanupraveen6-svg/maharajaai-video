@@ -3,6 +3,18 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+/** Same id the try-on pages use; it lets a phone reopen its own pass instead of minting new ones. */
+function posterDeviceId() {
+  try {
+    const key = 'tryfocus:maharaja:device-id';
+    const value = window.localStorage.getItem(key) || crypto.randomUUID().replace(/-/g, '');
+    window.localStorage.setItem(key, value);
+    return value;
+  } catch {
+    return '';
+  }
+}
+
 function PosterEntry() {
   const router = useRouter();
   const code = useSearchParams().get('code') || '';
@@ -17,7 +29,7 @@ function PosterEntry() {
       const response = await fetch('/api/maharaja/video-pass', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'video-poster', billingCode: code, experienceType: 'purchased-garment' }),
+        body: JSON.stringify({ source: 'video-poster', billingCode: code, experienceType: 'purchased-garment', deviceId: posterDeviceId() }),
       });
       const data = await response.json();
       if (!response.ok || !data.success || !data.pass?.code) throw new Error(data.error || 'Unable to start your video.');

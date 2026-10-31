@@ -1257,6 +1257,12 @@ export default function MaharajaAdminDashboard({
                 Download Poster QR
               </button>
             </div>
+            {(workspace.videoMinPurchase ?? 5000) > 0 && (
+              <p className="mt-3 border border-[#B7791F]/40 bg-[#FFF8EB] p-3 text-xs text-[#7A4A0B]">
+                The poster QR is off while an AI Video minimum bill is set. Billers use <strong>Next customer</strong> on the counter
+                (tablet or mobile) to show each qualifying customer a fresh QR. Set the minimum to ₹0 to use the poster.
+              </p>
+            )}
           </div>}
         </section>
 

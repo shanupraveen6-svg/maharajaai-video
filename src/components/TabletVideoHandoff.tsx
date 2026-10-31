@@ -114,7 +114,8 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
         </span>
       </div>
 
-      <div className="grid grid-cols-2 border border-[#161918]" role="tablist" aria-label="Counter QR type">
+      {/* With a minimum bill, every customer gets a fresh QR; the permanent poster would bypass the bill. */}
+      {minimum === 0 && <div className="grid grid-cols-2 border border-[#161918]" role="tablist" aria-label="Counter QR type">
         {([
           ['per-customer', 'New QR per customer'],
           ['permanent', 'Permanent counter QR'],
@@ -130,11 +131,11 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
             {label}
           </button>
         ))}
-      </div>
+      </div>}
 
       {error && <p role="alert" className="border border-[#B42318] bg-[#FEF3F2] p-3 text-sm font-semibold text-[#B42318]">{error}</p>}
 
-      {mode === 'per-customer' ? (
+      {mode === 'per-customer' || minimum > 0 ? (
         <section className="flex flex-col items-center border-2 border-[#161918] bg-[#FAFBF8] p-6 text-center">
           <p className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
             <Smartphone className="h-4 w-4" />

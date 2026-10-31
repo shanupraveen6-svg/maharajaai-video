@@ -973,6 +973,19 @@ export async function activateVideoPassOnFirstScan(code: string): Promise<Mahara
   });
 }
 
+/** Pass a phone already opened today from the store's poster QR (keyed by a hash of device and date). */
+export async function readPosterDevicePass(deviceKey: string): Promise<string | null> {
+  const db = getDb();
+  if (db) return ((await db.collection('clientWorkspaces').doc(activeClientId()).collection('posterDevicePasses').doc(deviceKey).get()).data()?.code as string | undefined) || null;
+  return (getMockStore().sessions.get(`poster_device_${activeClientId()}_${deviceKey}`) as string | undefined) || null;
+}
+
+export async function savePosterDevicePass(deviceKey: string, code: string) {
+  const db = getDb();
+  if (db) await db.collection('clientWorkspaces').doc(activeClientId()).collection('posterDevicePasses').doc(deviceKey).set({ code, createdAt: new Date().toISOString(), expiresAtMs: Date.now() + 2 * 24 * 60 * 60 * 1000 });
+  else getMockStore().sessions.set(`poster_device_${activeClientId()}_${deviceKey}`, code);
+}
+
 export async function saveVideoPass(pass: MaharajaVideoPass) {
   const db = getDb();
   const ownerClientId = pass.clientId || activeClientId();

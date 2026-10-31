@@ -54,9 +54,9 @@ const sriWorkspace = await (await workspaceRoute.GET(asReq('http://localhost/api
 assert.equal(sriWorkspace.workspace.clientId, SRI, 'Asking for Maharaja still returns the client\'s own workspace');
 const creditPatch = await workspaceRoute.PATCH(asReq('http://localhost/api/maharaja/workspace', sriLogin.cookie, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limits: { image: 99999 } }) }));
 assert.equal(creditPatch.status, 403);
-const allowedPatch = await workspaceRoute.PATCH(asReq('http://localhost/api/maharaja/workspace', sriLogin.cookie, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoMinPurchase: 3000 }) }));
+const allowedPatch = await workspaceRoute.PATCH(asReq('http://localhost/api/maharaja/workspace', sriLogin.cookie, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoMinPurchase: 0 }) }));
 assert.equal(allowedPatch.status, 200);
-assert.equal((await server.getClientWorkspaceById(SRI)).videoMinPurchase, 3000);
+assert.equal((await server.getClientWorkspaceById(SRI)).videoMinPurchase, 0);
 assert.equal((await server.getClientWorkspaceById('maharaja')).videoMinPurchase, 5000, 'Maharaja settings untouched');
 console.log('✓ Client login is locked to its own workspace and cannot change credits');
 
@@ -72,6 +72,26 @@ assert.equal((await server.getVideoPass(passData.pass.code, SRI)).clientId, SRI,
 const tryOnAccess = await server.verifyMaharajaAccess(new NextRequest('http://localhost/'), sri.tryOnCode, 'try-on');
 assert.equal(tryOnAccess.clientId, SRI);
 console.log('✓ Poster and try-on QR codes resolve to the client that printed them');
+
+// 3b. Poster QR: one pass per phone per day; switched off when a minimum bill is set.
+{
+  const poster = async (deviceId) => {
+    const res = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'video-poster', billingCode: sri.openVideoCode, deviceId }) }));
+    return { status: res.status, data: await res.json() };
+  };
+  const phoneA1 = await poster('device-aaaaaaaaaaaaaaaa');
+  const phoneA2 = await poster('device-aaaaaaaaaaaaaaaa');
+  const phoneB = await poster('device-bbbbbbbbbbbbbbbb');
+  assert.equal(phoneA1.status, 200, phoneA1.data.error);
+  assert.equal(phoneA2.data.pass.code, phoneA1.data.pass.code, 'Same phone, same day: same pass');
+  assert.notEqual(phoneB.data.pass.code, phoneA1.data.pass.code, 'Another phone gets its own pass');
+  await runWithClient(SRI, () => server.updateMaharajaSettings({ videoMinPurchase: 2000 }, SRI));
+  const blockedPoster = await poster('device-cccccccccccccccc');
+  assert.equal(blockedPoster.status, 403);
+  assert.match(blockedPoster.data.error, /billing counter/);
+  await runWithClient(SRI, () => server.updateMaharajaSettings({ videoMinPurchase: 0 }, SRI));
+  console.log('✓ Poster QR: one pass per phone per day; off while a minimum bill is set');
+}
 
 // 4. Credits, catalogue and Go Live queue are separate per client.
 const maharajaUsed = Number((await server.getClientWorkspaceById('maharaja')).usage.tryOnGenerated || 0);
