@@ -14,6 +14,7 @@ import {
   Video,
 } from 'lucide-react';
 import { CREDIT_BAR_COLOURS, creditStatuses } from '@/lib/maharaja/credits';
+import PlatformOverview from '@/components/PlatformOverview';
 
 type Client = {
   id: string;
@@ -31,7 +32,7 @@ type Client = {
   /** Staff login usernames TryFocus created for this client. */
   logins?: string[];
   devices: { tv: boolean; tablet: boolean; mobile: boolean; led: boolean };
-  usage: { image: number; live: number; video: number };
+  usage: { image: number; live: number; video: number; passes?: number; goLive?: number; downloads?: number; scans?: number };
   limits: { image: number; live: number; video: number };
   /** Modules this client bought; a module that is off is blocked even with credits left. */
   modules?: { image: boolean; live: boolean; video: boolean };
@@ -93,7 +94,8 @@ const plans = [
 
 export default function TryFocusAdmin() {
   const [clients, setClients] = useState<Client[]>(initialClients);
-  const [clientId, setClientId] = useState<string>(initialClients[0].id);
+  // Empty = TryFocus platform overview; a client id = that workspace's management.
+  const [clientId, setClientId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [authRequired, setAuthRequired] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -382,7 +384,7 @@ export default function TryFocusAdmin() {
               <Plus className="h-3.5 w-3.5" />
               New Retailer Workspace
             </button>
-            <button
+            {clientId && <button
               type="button"
               disabled={saving}
               onClick={saveCurrentConfiguration}
@@ -394,7 +396,7 @@ export default function TryFocusAdmin() {
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
               {saving ? 'Saving...' : 'Save Configuration'}
-            </button>
+            </button>}
           </div>
         </div>
       </header>
@@ -470,7 +472,7 @@ export default function TryFocusAdmin() {
         )}
 
         {/* Client Selector & Status */}
-        <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className={`grid gap-6 ${clientId ? 'lg:grid-cols-[1.2fr_0.8fr]' : ''}`}>
           <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-6">
             <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
               Store Setup · {loading ? 'Syncing...' : `${clients.length} Retailers Connected`}
@@ -478,10 +480,12 @@ export default function TryFocusAdmin() {
             <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
               <div>
                 <h2 className="font-serif text-3xl font-semibold text-[#161918]">
-                  Set up each store from one place.
+                  {clientId ? client.name : 'TryFocus platform overview'}
                 </h2>
                 <p className="mt-2 max-w-xl text-sm text-[#535A56]">
-                  Turn store experiences on or off, set hard generation credit ceilings, and control how customers continue on mobile. Every change persists to the backend and is enforced in the APIs.
+                  {clientId
+                    ? 'This workspace only: status, logins, purchased devices, modules and credits. Every change is enforced in the APIs.'
+                    : 'Every client at a glance. Choose a client to manage that workspace.'}
                 </p>
               </div>
               <div className="relative min-w-64">
@@ -489,10 +493,11 @@ export default function TryFocusAdmin() {
                   Selected Retailer
                 </label>
                 <select
-                  value={client.id}
+                  value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                   className="h-11 w-full appearance-none border border-[#D8DCD7] bg-white px-3.5 text-sm font-semibold text-[#161918] outline-none focus:border-[#7A1428]"
                 >
+                  <option value="">All clients · TryFocus overview</option>
                   {clients.map((item) => {
                     const low = creditStatuses({ tryOnGenerated: item.usage.image, liveSessions: item.usage.live, videosGenerated: item.usage.video }, item.limits)
                       .some((status) => status.level !== 'ok' && status.level !== 'none');
@@ -505,7 +510,7 @@ export default function TryFocusAdmin() {
                 </select>
                 <ChevronDown className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-[#535A56]" />
               </div>
-              <a
+              {clientId && <><a
                 href={`/maharaja/${encodeURIComponent(client.workspaceCode || client.id)}`}
                 target="_blank"
                 rel="noreferrer"
@@ -513,11 +518,11 @@ export default function TryFocusAdmin() {
               >
                 Open {client.name} workspace ↗
               </a>
-              <p className="mt-2 text-xs text-[#535A56]">Opens exactly what this client sees: QR codes, Go Live, promos, catalogue and rules.</p>
+              <p className="mt-2 text-xs text-[#535A56]">Opens exactly what this client sees: QR codes, Go Live, promos, catalogue and rules.</p></>}
             </div>
           </div>
 
-          <aside className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
+          {clientId && <aside className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
             <div>
               <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
                 Client Status & Policy
@@ -567,9 +572,12 @@ export default function TryFocusAdmin() {
                 </button>
               </div>
             </div>
-          </aside>
+          </aside>}
         </section>
 
+        {!clientId && <PlatformOverview clients={clients} onSelect={setClientId} />}
+
+        {clientId && (<>
         {/* Client staff login */}
         <section className="border border-[#D8DCD7] bg-white p-6">
           <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">Client Staff Login</p>
@@ -794,6 +802,7 @@ export default function TryFocusAdmin() {
           </div>
         </section>
 
+        </>)}
       </div>
     </main>
   );

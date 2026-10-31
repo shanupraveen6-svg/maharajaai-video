@@ -41,6 +41,10 @@ function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = []) {
       image: Number(ws.usage?.tryOnGenerated || 0),
       live: Number(ws.usage?.liveSessions || 0),
       video: Number(ws.usage?.videosGenerated || 0),
+      passes: Number(ws.usage?.videoPasses || 0),
+      goLive: Number(ws.usage?.goLive || 0),
+      downloads: Number(ws.usage?.downloads || 0),
+      scans: Number(ws.usage?.tryOnScans || 0),
     },
     limits: {
       image: Number(ws.limits?.image ?? 4000),
