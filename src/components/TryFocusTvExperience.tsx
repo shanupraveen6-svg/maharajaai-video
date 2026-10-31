@@ -32,6 +32,7 @@ import {
   type CatalogueAudience,
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
+import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 
 type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
@@ -975,7 +976,10 @@ export default function TryFocusTvExperience() {
                         />
                       </div>
 
-                      <div className="mt-6 text-center">
+                      <div className="mt-6">
+                        <PhotoConsentNotice kind="try-on" large />
+                      </div>
+                      <div className="mt-4 text-center">
                         <label className="cursor-pointer font-mono text-xs font-semibold text-[#535A56] hover:text-[#161918] underline">
                           Or choose photo file from device
                           <input
@@ -1639,6 +1643,7 @@ export default function TryFocusTvExperience() {
                     </label>
                   </div>
 
+                  <PhotoConsentNotice kind="video" large />
                   {(selectedProduct.gender === 'boys' || selectedProduct.gender === 'girls') && <label className="flex items-start gap-3 border border-[#D8DCD7] bg-white p-3 text-sm"><input type="checkbox" checked={videoGuardianConsent} onChange={(event) => setVideoGuardianConsent(event.target.checked)} className="mt-1 h-5 w-5" /><span>I am the parent or legal guardian and consent to processing this child&apos;s photo for this video experience.</span></label>}
                   <button
                     type="button"

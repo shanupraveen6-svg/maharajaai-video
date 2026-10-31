@@ -20,6 +20,7 @@ import {
   type CatalogueCategoryId,
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
+import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 
 type MobileFlow = 'image-tryon' | 'ai-video';
 
@@ -222,6 +223,9 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl, cl
                 onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])}
               />
             </label>
+          </div>
+          <div className="mt-3">
+            <PhotoConsentNotice kind="try-on" />
           </div>
           {personPhoto && (
             <img

@@ -24,6 +24,7 @@ import {
   type CatalogueCategoryId,
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
+import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
 const SESSION_SECONDS = 60;
@@ -483,6 +484,7 @@ export default function LucyLiveMirror({
         <p className="font-mono text-sm font-bold uppercase tracking-[0.16em] text-[#7A1428]">Live AI Mirror · 60 seconds</p>
         <h2 className="mt-1 font-serif text-4xl font-semibold text-[#161918]">See your wedding look move with you</h2>
         <p className="mt-2 text-lg text-[#535A56]">Choose a look, open the camera, then start your 60-second session.</p>
+        <div className="mt-3"><PhotoConsentNotice kind="live" large /></div>
       </div>
 
       <div className="tv-live-audience grid grid-cols-4 gap-3" aria-label="Live mirror audience">

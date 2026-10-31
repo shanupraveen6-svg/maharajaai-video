@@ -37,7 +37,6 @@ export default function LandingPage() {
             <a href="#platform" className="transition hover:text-[#7A1428]">Platform</a>
             <a href="#pricing" className="transition hover:text-[#7A1428]">Pricing</a>
             <a href="#operations" className="transition hover:text-[#7A1428]">Operations</a>
-            <Link href="/admin" className="transition hover:text-[#7A1428]">Admin</Link>
             <a href="https://wefocus.in" target="_blank" rel="noopener noreferrer" className="transition hover:text-[#7A1428]">Company</a>
           </nav>
           <div className="flex items-center gap-2">

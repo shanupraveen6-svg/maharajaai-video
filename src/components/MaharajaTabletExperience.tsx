@@ -27,6 +27,7 @@ import {
   type CatalogueCategoryId,
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
+import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 
 export type TabletTab = 'own-garment' | 'catalogue' | 'video-pass';
 export type TabletStep = 'photo' | 'garment';
@@ -530,7 +531,10 @@ export default function MaharajaTabletExperience() {
                       />
                     </div>
 
-                    <div className="mt-6 text-center">
+                    <div className="mt-6">
+                      <PhotoConsentNotice kind="try-on" />
+                    </div>
+                    <div className="mt-4 text-center">
                       <label className="cursor-pointer font-mono text-xs font-semibold text-[#535A56] hover:text-[#161918] underline">
                         Or choose photo file from tablet storage
                         <input

@@ -3,9 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Check,
   ChevronDown,
-  ExternalLink,
   LoaderCircle,
   Monitor,
   Plus,
@@ -15,7 +13,6 @@ import {
   Tv,
   Video,
 } from 'lucide-react';
-import { catalogueCategories, formatINR, sampleCatalogue } from '@/lib/tryfocus/sample-data';
 import { CREDIT_BAR_COLOURS, creditStatuses } from '@/lib/maharaja/credits';
 
 type Client = {
@@ -385,30 +382,6 @@ export default function TryFocusAdmin() {
               <Plus className="h-3.5 w-3.5" />
               New Retailer Workspace
             </button>
-            <Link
-              href={client.links?.workspace || (client.id === 'maharaja' ? '/maharaja/workspace' : `/${client.id}/workspace`)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
-            >
-              {client.name} Workspace ↗
-            </Link>
-            <Link
-              href={client.id === 'maharaja' ? '/maharaja/tv/experience' : `/${client.id}/tv/experience`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
-            >
-              TV Smart Mirror ↗
-            </Link>
-            <Link
-              href={client.links?.tv || (client.id === 'maharaja' ? '/maharaja/tv' : `/${client.id}/tv`)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
-            >
-              TV Wall ↗
-            </Link>
             <button
               type="button"
               disabled={saving}
@@ -532,6 +505,15 @@ export default function TryFocusAdmin() {
                 </select>
                 <ChevronDown className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-[#535A56]" />
               </div>
+              <a
+                href={`/maharaja/${encodeURIComponent(client.workspaceCode || client.id)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 flex min-h-11 items-center justify-center gap-2 bg-[#161918] px-4 text-xs font-bold uppercase tracking-wider text-white"
+              >
+                Open {client.name} workspace ↗
+              </a>
+              <p className="mt-2 text-xs text-[#535A56]">Opens exactly what this client sees: QR codes, Go Live, promos, catalogue and rules.</p>
             </div>
           </div>
 
@@ -562,20 +544,6 @@ export default function TryFocusAdmin() {
             </div>
 
             <div className="mt-4 grid gap-2 border-t border-[#D8DCD7] pt-4 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[#535A56]">AI Image Try-On ₹500 Minimum:</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateClient({ minPurchaseTryOnDisabled: !client.minPurchaseTryOnDisabled })
-                  }
-                  className="font-mono font-bold text-[#256B45] underline"
-                >
-                  {client.minPurchaseTryOnDisabled
-                    ? 'DISABLED (Direct Scan Active)'
-                    : 'ENABLED (₹500 Tag Required)'}
-                </button>
-              </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#535A56]">WhatsApp Link Delivery:</span>
                 <button
@@ -660,7 +628,7 @@ export default function TryFocusAdmin() {
         </section>
 
         {/* Purchased Device Access & Retailer Permissions */}
-        <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <section className="grid gap-6">
           <div className="border border-[#D8DCD7] bg-white p-6">
             <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-4">
               <div>
@@ -740,50 +708,6 @@ export default function TryFocusAdmin() {
             </div>
           </div>
 
-          <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-              Experience settings
-            </p>
-            <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-              Customer routing & active rules
-            </h2>
-            <div className="mt-4 space-y-3">
-              {[
-                [
-                  'Mobile try-on',
-                  client.minPurchaseTryOnDisabled
-                    ? 'Free QR access is active for this store (₹500 tag gate disabled).'
-                    : '₹500 minimum price-tag verification is required before Try-On.',
-                ],
-                [
-                  'Video delivery',
-                  client.whatsappConnected && client.whatsappApiReady
-                    ? 'WhatsApp 1-day link + QR fallback is active for 24 hours.'
-                    : 'Direct customer QR is active for 24 hours.',
-                ],
-                [
-                  'TV video',
-                  client.devices.tv
-                    ? 'Featured catalogue looks generate Diwali portrait on TV and continue to mobile.'
-                    : 'TV kiosk surface is currently disabled for this store.',
-                ],
-                [
-                  'Customer choices',
-                  client.devices.led
-                    ? 'Customers can privately download or approve a Go Live video for the Showroom TV Wall.'
-                    : 'Customers can privately download their AI outputs.',
-                ],
-              ].map(([title, desc]) => (
-                <div key={title} className="flex gap-3 border border-[#D8DCD7] bg-white p-3.5">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#256B45]" />
-                  <div>
-                    <p className="text-xs font-bold text-[#161918]">{title}</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-[#535A56]">{desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </section>
 
         {/* Usage & Hard Budget Ceilings */}
@@ -870,49 +794,6 @@ export default function TryFocusAdmin() {
           </div>
         </section>
 
-        {/* Store Catalogue Summary */}
-        <section className="border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#D8DCD7] pb-4">
-            <div>
-              <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                Active Store Catalogue · {sampleCatalogue.length} Default Outfits (Managed in Client Workspace)
-              </p>
-              <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                Women & Men South Indian Collection
-              </h2>
-            </div>
-            <Link
-              href="/maharaja/workspace"
-              className="inline-flex items-center gap-1.5 bg-[#7A1428] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
-            >
-              Manage Store Catalogue
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {catalogueCategories.map((cat) => {
-              const items = sampleCatalogue.filter((item) => item.category === cat.id);
-              return (
-                <div key={cat.id} className="border border-[#D8DCD7] bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#7A1428]">
-                      {cat.gender} · {items.length} Models
-                    </span>
-                    <span className="font-mono text-xs text-[#535A56]">
-                      {formatINR(items[0]?.price || 0)} –{' '}
-                      {formatINR(items[items.length - 1]?.price || 0)}
-                    </span>
-                  </div>
-                  <h3 className="mt-1 font-serif text-lg font-semibold text-[#161918]">
-                    {cat.label}
-                  </h3>
-                  <p className="text-xs text-[#535A56]">{cat.description}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
       </div>
     </main>
   );
