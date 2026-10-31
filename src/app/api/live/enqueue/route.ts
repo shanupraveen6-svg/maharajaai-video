@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
 import { isEventId } from '@/lib/maharaja/config';
-import { passAllowsGoLive, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { getMaharajaWorkspace, passAllowsGoLive, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { resolveAccess } from '@/lib/maharaja/access';
 import { activeClientId, bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,10 @@ export async function POST(req: NextRequest) {
   }
   if (!passAllowsGoLive(access.pass)) {
     return NextResponse.json({ success: false, error: 'Go Live is available for videos made from the store TV catalogue.' }, { status: 403 });
+  }
+  const goLiveWorkspace = await getMaharajaWorkspace();
+  if (!resolveAccess(goLiveWorkspace.devices, goLiveWorkspace.modules).goLive) {
+    return NextResponse.json({ success: false, error: 'Go Live is switched off for this store. You can still download and share your video.' }, { status: 403 });
   }
   const category = access.pass.videoMasterCategory || null;
   if ((category === 'girl' || category === 'boy') && body?.guardianConsent !== true) {

@@ -211,7 +211,7 @@ export default function LandingPage() {
           </div>
           <div className="mx-auto mt-6 grid max-w-5xl gap-4 border border-[#D8DCD7] bg-white p-5 text-sm text-[#515955] md:grid-cols-[1fr_auto] md:items-center">
             <div><p className="font-black text-[#161918]">One platform. Activate only the surfaces you purchase.</p><p className="mt-1 leading-6">Mobile, tablet, TV/standee and wall player access are configured per client. AI image and AI video include a 15% retry allowance; Live AI Try-On has no retry.</p></div>
-            <div className="border-l-0 border-[#E3D7C3] pt-3 md:border-l md:pl-5 md:pt-0"><p className="text-xs font-bold uppercase tracking-wider text-[#7A1428]">Optional hardware</p><p className="mt-1 font-black text-[#161918]">43” Interactive TV Standee</p><p className="text-lg font-black text-[#7A1428]">₹1,00,000</p></div>
+            <div className="border-l-0 border-[#E3D7C3] pt-3 md:border-l md:pl-5 md:pt-0"><p className="text-xs font-bold uppercase tracking-wider text-[#7A1428]">Hardware</p><p className="mt-1 font-black text-[#161918]">Works on any portrait TV</p><p className="text-sm font-semibold text-[#59615D]">Buy the TV from your preferred store. We set it up and brand it for you.</p></div>
           </div>
         </div>
       </section>

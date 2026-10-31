@@ -561,7 +561,7 @@ export async function goLiveClientId(req: NextRequest): Promise<string | null> {
   const clientId = (await workspaceCodeIndex()).goLive.get(code);
   if (!clientId) return null;
   const workspace = await getClientWorkspaceById(clientId);
-  if (!workspace.campaignEnabled || moduleLimit(workspace, 'video') <= 0) return null;
+  if (!workspace.campaignEnabled || moduleLimit(workspace, 'video') <= 0 || !resolveAccess(workspace.devices, workspace.modules).goLive) return null;
   return workspace.clientId;
 }
 

@@ -19,10 +19,10 @@ import { resolveAccess } from '@/lib/maharaja/access';
 
 /** What stops when each device is turned off (the rules live in access.ts). */
 const DEVICE_STOPS: Record<'tv' | 'tablet' | 'mobile' | 'led', string> = {
-  tv: 'Off also stops Live Mirror and catalogue AI Video',
-  tablet: 'Off also stops counter AI Video passes',
-  mobile: 'Off also stops all AI Video and Go Live (videos finish on the phone)',
-  led: 'Off also stops all AI Video',
+  tv: 'Off also stops Live Mirror, catalogue AI Video and the Go Live link',
+  tablet: 'Off stops tablet try-on; the biller can still show AI Video QRs from a phone',
+  mobile: 'Always included in every package',
+  led: 'Off stops only catalogue AI Video on the TV; own-garment AI Video keeps working',
 };
 
 type Client = {
@@ -266,6 +266,7 @@ export default function TryFocusAdmin() {
   }
 
   function toggleDevice(key: keyof Client['devices']) {
+    if (key === 'mobile') return;
     void persistClientPatch({
       devices: { ...client.devices, [key]: !client.devices[key] },
     });
@@ -787,7 +788,7 @@ export default function TryFocusAdmin() {
                     </button>
                     {resolveAccess(client.devices, client.modules).blockedBy[key] && (
                       <span className="w-full text-xs font-semibold text-[#B42318]">
-                        Not running: {resolveAccess(client.devices, client.modules).blockedBy[key]}
+                        {key === 'video' ? '' : 'Not running: '}{resolveAccess(client.devices, client.modules).blockedBy[key]}
                       </span>
                     )}
                     {(['standard', 'pro'] as const).map((tier) => (

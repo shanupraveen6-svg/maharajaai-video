@@ -10,20 +10,11 @@ function getAuthSecret() {
   return (process.env.OPERATOR_AUTH_SECRET || '').trim();
 }
 
+/** TryFocus admin login comes only from the environment; there is no built-in fallback. */
 function getValidOperatorCredentials() {
-  const envUsername = (process.env.OPERATOR_USERNAME || 'shanu7').trim();
-  const envPassword = (process.env.OPERATOR_PASSWORD || '9994837342').trim();
-
-  const validUsernames = Array.from(
-    new Set(
-      [
-        ...envUsername.split(',').map((item) => item.trim()),
-        'shanu7',
-        'hanu7',
-      ].filter(Boolean)
-    )
-  );
-  const validPasswords = Array.from(new Set([envPassword, '9994837342'].filter(Boolean)));
+  const validUsernames = (process.env.OPERATOR_USERNAME || '').split(',').map((item) => item.trim()).filter(Boolean);
+  const envPassword = (process.env.OPERATOR_PASSWORD || '').trim();
+  const validPasswords = envPassword ? [envPassword] : [];
 
   return {
     usernames: validUsernames,

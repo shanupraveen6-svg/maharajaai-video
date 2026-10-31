@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { resolveAccess } from '@/lib/maharaja/access';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { resolveGarmentType, type CustomerCategory } from '@/lib/maharaja/config';
@@ -54,8 +55,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
   if (!workspace.campaignEnabled) {
     return NextResponse.json({ success: false, error: `${workspace.clientName} campaign is currently paused.` }, { status: 403 });
   }
-  if (workspace.devices?.mobile === false) {
-    return NextResponse.json({ success: false, error: 'Mobile AI Video is currently turned off for this store.' }, { status: 403 });
+  if (!look.sku.startsWith('OWN-') && !resolveAccess(workspace.devices, workspace.modules).catalogueVideo) {
+    return NextResponse.json({ success: false, error: 'Catalogue festival videos are switched off for this store.' }, { status: 403 });
   }
   const videoLimit = moduleLimit(workspace, 'video');
   const videoUsed = Number(workspace.usage?.videosGenerated || 0);

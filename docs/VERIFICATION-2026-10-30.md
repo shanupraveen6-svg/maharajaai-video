@@ -27,7 +27,7 @@
 - Production result QR: downloaded bytes match the original image.
 - Production phone-to-TV: upload, receiver-only read and deletion after receipt.
 - Production live token endpoint: HTTP 200 after fixing the fal token URL.
-- GenLook API authenticated key wired with fallback in AI_CONFIG (`gk_qsKrdiv9zMKIhSUIwL3ZwLEOeu92xCYHlD9FwzmReU4`), verified via endpoint test and unit-tested for sync, 202 async polling, SSRF URL security, and safe fallback classification.
+- GenLook API authenticated key wired with fallback in AI_CONFIG (key now read only from the `GENLOOK_API_KEY` environment variable), verified via endpoint test and unit-tested for sync, 202 async polling, SSRF URL security, and safe fallback classification.
 - Deployed Firebase and Storage health.
 
 ## Still needs external verification

@@ -109,11 +109,12 @@ assert.ok(!maharajaSkus.includes('SRI-001') && maharajaSkus.length > 0, 'Maharaj
 assert.equal(runWithClient('maharaja', () => liveScreenId()), 'maharaja-main');
 console.log('✓ Credits, catalogue and Go Live queue are isolated per client');
 
-// 5. A mobile-only client can switch mobile off like any other device.
+// 5. Customer Mobile is always included: even a stored "off" does not block the phone AI Video pass.
 await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { mobile: false } }, SRI));
-const blocked = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'video-poster', billingCode: sri.openVideoCode }) }));
-assert.equal(blocked.status, 403);
-console.log('✓ Device switches apply per client');
+const stillOn = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'video-poster', billingCode: sri.openVideoCode }) }));
+assert.equal(stillOn.status, 200);
+await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { mobile: true } }, SRI));
+console.log('✓ Customer Mobile is always included');
 
 // 6. Module switches: AI Video off blocks video passes and the Go Live link even with credits left.
 await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { mobile: true }, modules: { video: false } }, SRI));
@@ -125,7 +126,10 @@ assert.equal(videoOff.status, 403);
 const screenReq = new NextRequest('http://localhost/api/live/next', { headers: { 'x-golive-screen': server.goLiveCodeFor(SRI) } });
 assert.equal(await server.goLiveClientId(screenReq), null);
 await runWithClient(SRI, () => server.updateMaharajaSettings({ modules: { video: true } }, SRI));
-assert.equal(await server.goLiveClientId(screenReq), SRI, 'Switching the module back on restores it');
+assert.equal(await server.goLiveClientId(screenReq), null, 'Go Live is a TV feature: no TV, no Go Live link');
+await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { tv: true } }, SRI));
+assert.equal(await server.goLiveClientId(screenReq), SRI, 'With the TV and AI Video on, the link plays');
+await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { tv: false } }, SRI));
 console.log('✓ Module switches block a module even when credits remain');
 
 // 7. 30-day TV pairing per workspace; disconnecting one workspace's TVs leaves the others paired.

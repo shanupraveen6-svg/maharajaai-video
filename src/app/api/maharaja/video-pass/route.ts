@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { resolveAccess } from '@/lib/maharaja/access';
 import { NextRequest, NextResponse } from 'next/server';
 import { AI_VIDEO_MIN_PURCHASE, ENFORCE_REPEAT_LIMITS, isEventId } from '@/lib/maharaja/config';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
@@ -77,15 +78,10 @@ export async function POST(req: NextRequest) {
     if (!workspace.campaignEnabled) {
       return NextResponse.json({ success: false, error: `${workspace.clientName} campaign is currently paused.` }, { status: 403 });
     }
-    if (body.source === 'tv-kiosk' && workspace.devices?.tv === false) {
-      return NextResponse.json({ success: false, error: 'TV kiosk surface is currently disabled for this store.' }, { status: 403 });
+    if (body.source === 'tv-kiosk' && !resolveAccess(workspace.devices, workspace.modules).catalogueVideo) {
+      return NextResponse.json({ success: false, error: 'Catalogue AI Video on the TV is switched off for this store.' }, { status: 403 });
     }
-    if ((body.source === 'tablet-kiosk' || hasValidBillingCode) && workspace.devices?.tablet === false) {
-      return NextResponse.json({ success: false, error: 'Counter tablet / billing pass surface is currently disabled for this store.' }, { status: 403 });
-    }
-    if (workspace.devices?.mobile === false) {
-      return NextResponse.json({ success: false, error: 'Mobile QR continuation is currently disabled for this store.' }, { status: 403 });
-    }
+    // The biller's AI Video QR (tablet or the biller's phone) is part of every package.
     const videoLimit = moduleLimit(workspace, 'video');
     const videoUsed = Number(workspace.usage?.videosGenerated || 0);
     if (videoLimit <= 0 || videoUsed >= videoLimit) {

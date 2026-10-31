@@ -3,6 +3,7 @@ import { getStorageBucket } from '@/lib/firebase/admin';
 
 import { lookVideoAvailable, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
 import { getClientWorkspaceById, moduleLimit } from '@/lib/maharaja/server';
+import { resolveAccess } from '@/lib/maharaja/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
   // No AI Video for this store (module or a device it needs is off): the look page shows no video step.
   const workspace = await getClientWorkspaceById(handoff.clientId || '');
   const videoOff = !workspace.campaignEnabled || moduleLimit(workspace, 'video') <= 0;
+  const catalogueVideo = resolveAccess(workspace.devices, workspace.modules).catalogueVideo;
   return NextResponse.json({
     expiresAt: new Date(handoff.expiresAtMs).toISOString(),
     videoOff,
@@ -45,7 +47,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
       garmentType: look.garmentType,
       gender: look.gender,
       garmentReferenceUrl: look.garmentReferenceUrl,
-      videoAvailable: lookVideoAvailable(handoff, look),
+      videoAvailable: lookVideoAvailable(handoff, look) && (look.sku.startsWith('OWN-') || catalogueVideo),
       imageUrl: `/api/tv/tryon-handoff/${token}?image=${index}`,
       downloadUrl: `/api/tv/tryon-handoff/${token}?image=${index}&download=1`,
     })),

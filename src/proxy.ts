@@ -42,8 +42,7 @@ async function sessionRole(request: NextRequest): Promise<'admin' | 'client' | n
     return null;
   }
   if (subject.startsWith('client~')) return 'client';
-  const configuredUsernames = (process.env.OPERATOR_USERNAME || 'shanu7').split(',').map((item) => item.trim()).filter(Boolean);
-  const validUsernames = Array.from(new Set([...configuredUsernames, 'shanu7', 'hanu7']));
+  const validUsernames = (process.env.OPERATOR_USERNAME || '').split(',').map((item) => item.trim()).filter(Boolean);
   return validUsernames.includes(subject) ? 'admin' : null;
 }
 

@@ -110,16 +110,16 @@ const missing = await requestPass(ownToken, 4);
 assert.equal(missing.status, 404);
 console.log('✓ Unknown look rejected');
 
-// 7. Store video credits and the mobile switch are enforced
+// 7. Store video credits and the Go Live switch are enforced
 await updateMaharajaSettings({ limits: { video: 0 } });
 const noCredit = await requestPass(await newHandoffToken('OWN-222222'), 0);
 assert.equal(noCredit.status, 403);
 assert.match(noCredit.data.error, /paused/i);
-await updateMaharajaSettings({ limits: { video: 500 }, devices: { mobile: false } });
-const mobileOff = await requestPass(await newHandoffToken('OWN-333333'), 0);
-assert.equal(mobileOff.status, 403);
-assert.match(mobileOff.data.error, /turned off/i);
-await updateMaharajaSettings({ devices: { mobile: true } });
+// Go Live off: catalogue looks lose their video, own-garment looks keep it.
+await updateMaharajaSettings({ limits: { video: 500 }, devices: { led: false } });
+const ownStillOn = await requestPass(await newHandoffToken('OWN-333333'), 0);
+assert.equal(ownStillOn.status, 200);
+await updateMaharajaSettings({ devices: { led: true } });
 console.log('✓ Video credits and mobile switch enforced before a pass is issued');
 
 // 8. Catalogue festival videos come only from TV looks; own-garment looks work from the tablet too.
