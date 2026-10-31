@@ -190,24 +190,24 @@ export default function LandingPage() {
               Choose only the AI modules your store needs.
             </h2>
             <p className="mt-4 text-sm sm:text-base leading-7 text-muted">
-              Start with Image Try-On, Live AI Try-On or AI Video. Every module runs on the same TryFocus platform and can be activated on mobile, tablet, TV or the complete store setup.
+              Start with Image Try-On, Live Mirror or AI Video. Every module runs on the same TryFocus platform and can be activated on mobile, tablet, TV or the complete store setup.
             </p>
           </div>
 
           <div className="mx-auto mt-12 grid max-w-5xl gap-6 lg:grid-cols-2">
             <PricingPlan title="Standard" label="For a focused store launch" items={[
-              ['AI Image Try-On', '4,000 generations', '₹50,000', '₹40,000'],
-              ['Live AI Try-On', '500 × 60-second sessions', '₹50,000', '₹40,000'],
+              ['Try-On', '4,000 generations', '₹50,000', '₹40,000'],
+              ['Live Mirror', '500 × 60-second sessions', '₹50,000', '₹40,000'],
               ['AI Video', '500 video journeys', '₹50,000', '₹40,000'],
             ]} />
             <PricingPlan featured title="Pro" label="For a complete flagship experience" items={[
-              ['AI Image Try-On', '6,000 generations', '₹99,999', '₹80,000'],
-              ['Live AI Try-On', '1,000 × 60-second sessions', '₹99,999', '₹80,000'],
+              ['Try-On', '6,000 generations', '₹99,999', '₹80,000'],
+              ['Live Mirror', '1,000 × 60-second sessions', '₹99,999', '₹80,000'],
               ['AI Video', '1,000 video journeys', '₹99,999', '₹80,000'],
             ]} />
           </div>
           <div className="rounded-2xl mx-auto mt-6 grid max-w-5xl gap-4 border border-line bg-white p-5 text-sm text-muted md:grid-cols-[1fr_auto] md:items-center">
-            <div><p className="font-bold text-ink">One platform. Activate only the surfaces you purchase.</p><p className="mt-1 leading-6">Mobile, tablet, TV/standee and wall player access are configured per client. AI image and AI video include a 15% retry allowance; Live AI Try-On has no retry.</p></div>
+            <div><p className="font-bold text-ink">One platform. Activate only the surfaces you purchase.</p><p className="mt-1 leading-6">Mobile, tablet, TV/standee and wall player access are configured per client. AI image and AI video include a 15% retry allowance; Live Mirror has no retry.</p></div>
             <div className="border-l-0 border-[#E3D7C3] pt-3 md:border-l md:pl-5 md:pt-0"><p className="text-xs font-bold text-brand">Hardware</p><p className="mt-1 font-bold text-ink">Works on any portrait TV</p><p className="text-sm font-semibold text-muted">Buy the TV from your preferred store. We set it up and brand it for you.</p></div>
           </div>
         </div>

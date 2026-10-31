@@ -1050,30 +1050,30 @@ export default function TvPlayerPage() {
   if (!audioUnlocked) {
     return (
       <main className="min-h-[100dvh] flex items-center justify-center bg-[#2B0506] p-4 sm:p-6 text-center select-none font-sans">
-        <div className="max-w-xl w-full rounded-lg border border-[#F6D36A]/45 bg-[#170202]/92 p-6 sm:p-10 shadow-2xl space-y-5 sm:space-y-6">
+        <div className="max-w-xl w-full rounded-3xl border border-[#F6D36A]/35 bg-[#170202]/92 p-6 sm:p-10 shadow-2xl space-y-5 sm:space-y-6">
           {screenBrand.clientId === 'maharaja' && <img
             src="/maharaja-logo.png"
             alt="Majestic Maharaja"
-            className="mx-auto h-24 w-24 sm:h-32 sm:w-32 rounded-lg object-cover border border-[#F6D36A]/35"
+            className="mx-auto h-24 w-24 sm:h-32 sm:w-32 rounded-2xl object-cover border border-[#F6D36A]/35"
           />}
           <div>
-            <h1 className="tracking-tight text-2xl sm:text-3xl font-bold text-[#F8E8A8]">
-              {screenBrand.clientName} TV
+            <h1 className="text-3xl sm:text-4xl font-bold text-[#F8E8A8]">
+              {screenBrand.clientName}
             </h1>
-            <p className="mt-2 text-xs font-bold text-[#F6D36A]/80">
-              Diwali Celebration Screen
+            <p className="mt-2 text-base font-semibold text-[#F6D36A]/80">
+              Go Live player
             </p>
           </div>
-          <p className="text-xs sm:text-sm leading-6 sm:leading-7 text-[#F8E8A8]/75">
-            Tap once to start the showroom player, enable festival background music, and receive live AI videos.
+          <p className="text-base leading-7 text-[#F8E8A8]/75">
+            Tap Start once. Customer AI videos and your promos then play here with festival music.
           </p>
           <button
             onClick={() => {
               setAudioUnlocked(true);
             }}
-            className="min-h-16 w-full rounded-lg bg-[#F6D36A] px-6 py-3.5 sm:px-8 sm:py-4 text-sm sm:text-base font-bold text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
+            className="min-h-16 w-full rounded-xl bg-[#F6D36A] px-6 text-lg font-bold text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
           >
-            <Volume2 className="h-5 w-5 sm:h-6 sm:w-6" /> Start Showroom Screen
+            <Volume2 className="h-6 w-6" /> Start
           </button>
         </div>
       </main>
@@ -1128,17 +1128,17 @@ export default function TvPlayerPage() {
                 <Sparkles className="mb-4 h-10 w-10 animate-pulse text-[#F6D36A] sm:mb-5 sm:h-14 sm:w-14" />
                 <p className="tracking-tight text-xl font-bold leading-tight text-[#FFF1A8] sm:text-2xl lg:text-3xl">
                   {!replayLibraryLoaded
-                    ? 'Loading showroom videos'
+                    ? 'Loading videos'
                     : pendingSlot
-                      ? 'Loading next showroom video'
-                      : 'No showroom video ready'}
+                      ? 'Loading the next video'
+                      : 'Waiting for the first video'}
                 </p>
-                <p className="mt-3 text-xs font-bold text-[#F6D36A]/70 sm:mt-4 sm:text-xs">
+                <p className="mt-3 text-base font-medium text-[#F6D36A]/75 sm:mt-4">
                   {!replayLibraryLoaded
-                    ? 'Connecting to the video library'
+                    ? 'Connecting…'
                     : pendingSlot
-                      ? 'Preparing playback'
-                      : 'Add samples in Maharaja admin'}
+                      ? 'Getting it ready'
+                      : 'Customer videos appear here when they tap Go Live'}
                 </p>
               </div>
             )}
@@ -1149,9 +1149,9 @@ export default function TvPlayerPage() {
                 <p className="mb-4 text-xs text-white">{playbackError}</p>
                 <button
                   onClick={startVideoPlayback}
-                  className="rounded-lg bg-[#F6D36A] px-6 py-2 text-xs font-bold text-[#3B0507]"
+                  className="min-h-12 rounded-xl bg-[#F6D36A] px-6 text-base font-bold text-[#3B0507]"
                 >
-                  Press Play
+                  Play
                 </button>
               </div>
             )}

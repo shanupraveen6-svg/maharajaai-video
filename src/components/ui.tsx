@@ -34,12 +34,37 @@ export function StepProgress({ steps, current, onSelect, size = 'md' }: {
               <span className={`flex shrink-0 items-center justify-center rounded-full ${size === 'lg' ? 'h-9 w-9 text-base' : 'h-7 w-7 text-xs'} ${active ? 'bg-brand text-white' : done ? 'bg-brand-soft text-brand' : 'bg-line text-muted'}`}>
                 {done ? <Check className={size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} /> : index + 1}
               </span>
-              <span className="truncate">{label}</span>
+              <span className={`truncate ${active ? '' : 'hidden sm:inline'}`}>{label}</span>
             </button>
           </li>
         );
       })}
     </ol>
+  );
+}
+
+/** Level 0 navigation: which experience. Underlined tabs, so it never looks like a choice inside a step. */
+export function NavTabs<T extends string>({ options, value, onChange, label, size = 'md' }: {
+  options: Array<{ value: T; label: ReactNode }>;
+  value: T;
+  onChange: (value: T) => void;
+  label: string;
+  size?: 'md' | 'lg';
+}) {
+  return (
+    <nav aria-label={label} className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-current={value === option.value ? 'page' : undefined}
+          onClick={() => onChange(option.value)}
+          className={`flex shrink-0 items-center gap-2 rounded-none border-b-[3px] font-semibold transition ${size === 'lg' ? 'min-h-16 px-5 text-xl' : 'min-h-12 px-3 text-[15px]'} ${value === option.value ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'}`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </nav>
   );
 }
 

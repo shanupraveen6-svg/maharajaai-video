@@ -55,7 +55,7 @@ export default function GoLivePromoManager({ goLiveUrl }: { goLiveUrl: string })
       setPromos(done.promos || []);
       setTitle('');
       if (fileRef.current) fileRef.current.value = '';
-      setMessage('Promo added. It plays on your Go Live TV after every 10 customer videos.');
+      setMessage('Promo added. It plays on your Go Live player after every 10 customer videos.');
     } catch (caught) {
       setMessage('');
       setError(caught instanceof Error ? caught.message : 'The video could not be uploaded.');
@@ -83,7 +83,7 @@ export default function GoLivePromoManager({ goLiveUrl }: { goLiveUrl: string })
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-line bg-white p-4">
-        <p className="text-xs font-bold text-muted">Your Go Live TV link</p>
+        <p className="text-xs font-bold text-muted">Your Go Live player link</p>
         <p className="mt-1 break-all tabular-nums text-xs text-ink">{goLiveUrl}</p>
         <p className="mt-2 text-xs text-muted">
           Open it in any TV or computer browser and tap Start. It plays only your customers&apos; Go Live videos and your promos.

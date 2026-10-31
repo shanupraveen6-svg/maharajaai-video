@@ -320,9 +320,9 @@
 .tv-kiosk-content { width: min(100%, 1080px); max-width: 1080px; padding: 22px 28px 130px; }
 .tv-main-header { width: 100%; }
 .tv-mode-nav { grid-template-columns: 1.35fr 1fr 1fr; }
-.tv-mode-nav { background: color-mix(in srgb, var(--color-line) 70%, transparent); border-radius: 18px; padding: 4px; margin-inline: 32px; margin-bottom: 18px; width: auto; }
-.tv-mode-button { display: flex; min-width: 0; min-height: 68px; align-items: center; justify-content: center; gap: 12px; border-radius: 14px; background: transparent; padding: 12px; color: var(--color-muted); font-size: clamp(16px, 1.9vw, 21px); font-weight: 600; line-height: 1.15; text-align: center; }
-.tv-mode-button.is-active { background: var(--color-surface); color: var(--color-ink); box-shadow: 0 1px 3px rgb(0 0 0 / .08); }
+.tv-mode-nav { width: auto; }
+.tv-mode-button { display: flex; min-width: 0; min-height: 68px; align-items: center; justify-content: center; gap: 12px; border-radius: 0; border-bottom: 4px solid transparent; background: transparent; padding: 12px; color: var(--color-muted); font-size: clamp(16px, 1.9vw, 21px); font-weight: 600; line-height: 1.15; text-align: center; }
+.tv-mode-button.is-active { border-bottom-color: var(--color-ink); color: var(--color-ink); }
 .tv-discovery-intro { padding: 2px 2px 0; }
 .tv-discovery-intro h2 { font-size: clamp(30px, 4vw, 48px); line-height: 1.08; }
 .tv-source-bar { display: grid; grid-template-columns: 1fr; gap: 10px; }
@@ -352,12 +352,12 @@
 
 /* One visual priority per step: burgundy is reserved for the action that moves the shopper forward. */
 
-.tv-kiosk .tv-category-sidebar button[aria-pressed="true"],
+.tv-kiosk .tv-category-sidebar button[aria-pressed="true"] { border-color: transparent; background: var(--color-canvas); color: var(--color-ink); font-weight: 700; box-shadow: inset 4px 0 0 var(--color-ink); }
 .tv-kiosk .tv-live-audience button[aria-pressed="true"],
 .tv-kiosk .tv-live-category-list button[aria-pressed="true"],
 .tv-kiosk .tv-video-audience button[aria-pressed="true"],
 .tv-kiosk .tv-video-catalogue aside button[aria-pressed="true"] { border-color: var(--color-ink); background: var(--color-ink); color: #fff; }
-.tv-kiosk .tv-category-sidebar button[aria-pressed="false"] { border-color: transparent; background: transparent; color: var(--color-ink); }
+.tv-kiosk .tv-category-sidebar button[aria-pressed="false"] { border-color: transparent; background: transparent; color: var(--color-muted); font-weight: 500; }
 .tv-kiosk .tv-category-sidebar button[aria-pressed="false"]:hover { background: var(--color-canvas); }
 .tv-kiosk button:focus-visible { outline: 4px solid color-mix(in srgb, var(--color-brand) 45%, transparent); outline-offset: 3px; }
 .tv-kiosk button:disabled { opacity: .48; cursor: not-allowed; }
@@ -430,4 +430,11 @@
   .tv-video-audience button { min-height: 56px; padding: 8px; font-size: 15px; }
   .tv-live-heading h2 { font-size: 28px; }
   .tv-live-audience button { min-height: 56px; font-size: 16px; }
+}
+
+/* Level 1 choice: two large picture cards fill the portrait screen. */
+.tv-kiosk button.tv-source-card { height: 520px; }
+@media (orientation: portrait) and (min-width: 900px) and (min-height: 1600px) {
+  .tv-kiosk .tv-source-cards { grid-template-columns: minmax(0, 1fr); }
+  .tv-kiosk button.tv-source-card { height: 680px; }
 }

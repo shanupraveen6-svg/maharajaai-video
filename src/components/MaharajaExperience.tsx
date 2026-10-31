@@ -909,7 +909,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 TryFocus × {access?.workspace.clientName || 'TryFocus'}
               </p>
               <h1 className="text-xl font-bold text-ink">
-                {activeService === 'try-on' ? 'AI Image Try-On (Direct Scan · ₹500 Min Disabled)' : '1-Day AI Video Pass'}
+                {activeService === 'try-on' ? 'Try-On (Direct Scan · ₹500 Min Disabled)' : '1-Day AI Video Pass'}
               </h1>
             </div>
           </div>

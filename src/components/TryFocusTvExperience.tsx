@@ -35,10 +35,11 @@ import {
 } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { PageTitle, Segmented, StepProgress } from '@/components/ui';
+import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 
 type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
-type CatalogueTryOnStage = 'photo' | 'browse' | 'generating' | 'result';
+type CatalogueTryOnStage = 'source' | 'photo' | 'browse' | 'generating' | 'result';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
 type VideoAudience = CatalogueAudience;
 
@@ -123,9 +124,10 @@ export default function TryFocusTvExperience() {
     };
   }, []);
 
-  // AI Image Try-On state
+  // Try-On state
   const [imageSource, setImageSource] = useState<ImageTryOnSource>('catalogue');
-  const [tryOnStage, setTryOnStage] = useState<CatalogueTryOnStage>('photo');
+  const [tryOnStage, setTryOnStage] = useState<CatalogueTryOnStage>('source');
+  const [ownGarmentType, setOwnGarmentType] = useState(OWN_GARMENT_TYPES.women[0].id);
 
   // Photos (Image 1 = Customer identity, Image 2 = Garment reference)
   const [customerPhoto, setCustomerPhoto] = useState<string>('');
@@ -223,6 +225,9 @@ export default function TryFocusTvExperience() {
 
   useEffect(() => () => stopCamera(), []);
 
+  // Each audience has its own outfit types; keep the own-outfit choice valid when the audience changes.
+  useEffect(() => { setOwnGarmentType(OWN_GARMENT_TYPES[genderFilter][0].id); }, [genderFilter]);
+
   useEffect(() => {
     if (mode === 'image-tryon' && tryOnStage === 'browse' && !customerPhoto) {
       setTryOnStage('photo');
@@ -235,7 +240,7 @@ export default function TryFocusTvExperience() {
     setCameraOpen(false);
     setCameraError('');
     if (next === 'image-tryon') {
-      setTryOnStage(customerPhoto ? 'browse' : 'photo');
+      setTryOnStage(customerPhoto ? 'browse' : 'source');
     }
     if (next === 'catalogue-video') {
       const saree = catalogueItems.find((item) => item.category === 'sarees' && item.eligibleForVideo && item.price >= 5000);
@@ -668,6 +673,9 @@ export default function TryFocusTvExperience() {
     const sessionId = `tv_tryon_${Date.now()}`;
     const runId = ++batchRunRef.current;
     const targetProduct = product || selectedProduct;
+    const ownType = !product && imageSource === 'own-garment'
+      ? OWN_GARMENT_TYPES[genderFilter].find((type) => type.id === ownGarmentType) || OWN_GARMENT_TYPES[genderFilter][0]
+      : null;
 
     try {
       const res = await fetch('/api/ai/master-image', {
@@ -678,10 +686,10 @@ export default function TryFocusTvExperience() {
           service: 'try-on',
           templateId: genderFilter === 'boys' ? 'boy' : genderFilter === 'girls' ? 'girl' : genderFilter,
           guardianProcessingConsent: tryOnGuardianConsent,
-          catalogueProductId: targetProduct.sku,
-          catalogueProductTitle: targetProduct.title,
-          catalogueProductCategory: targetProduct.category,
-          garmentType: targetProduct.garmentType,
+          catalogueProductId: ownType ? `OWN-${Date.now().toString().slice(-6)}` : targetProduct.sku,
+          catalogueProductTitle: ownType ? `Customer ${ownType.label}` : targetProduct.title,
+          catalogueProductCategory: ownType ? undefined : targetProduct.category,
+          garmentType: ownType ? ownType.id : targetProduct.garmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,
           consentVersion: '2026-10-privacy-v3',
@@ -689,7 +697,7 @@ export default function TryFocusTvExperience() {
           personPhoto: personImg,
           garmentPhotos: [garmentImg],
           garmentRoles: ['Primary Garment Reference'],
-          garmentAnalysis: `${targetProduct.title} (${targetProduct.fabricNote})`,
+          garmentAnalysis: ownType ? `Customer's own ${ownType.label}` : `${targetProduct.title} (${targetProduct.fabricNote})`,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -780,7 +788,8 @@ export default function TryFocusTvExperience() {
     setGeneratedLooks([]);
     setTryOnError('');
     setTryOnStatusNote('');
-    setTryOnStage('photo');
+    setTryOnStage('source');
+    setOwnGarmentType(OWN_GARMENT_TYPES.women[0].id);
     setVideoPersonPhoto('');
     setVideoMasterUrl('');
     setVideoPassQr('');
@@ -827,7 +836,7 @@ export default function TryFocusTvExperience() {
           </div>
           <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-14 px-6 text-base">Start over</button>
         </div>
-        <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-1 px-8 pb-5 ${[true, liveOn, videoOn].filter(Boolean).length === 3 ? 'grid-cols-3': [true, liveOn, videoOn].filter(Boolean).length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`} aria-label="Choose an experience">
+        <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-2 px-8 ${[true, liveOn, videoOn].filter(Boolean).length === 3 ? 'grid-cols-3': [true, liveOn, videoOn].filter(Boolean).length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`} aria-label="Choose an experience">
           <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => navigateTo('image-tryon')} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
             <Sparkles className="h-6 w-6" /><span>Try-On</span>
           </button>
@@ -848,20 +857,64 @@ export default function TryFocusTvExperience() {
           <div className="space-y-6">
             <StepProgress
               size="lg"
-              steps={['Your photo', 'Choose outfits', 'Your looks']}
-              current={tryOnStage === 'photo' ? 0 : tryOnStage === 'browse' ? 1 : 2}
-              onSelect={(index) => { if (index === 0) setTryOnStage('photo'); if (index === 1 && customerPhoto) setTryOnStage('browse'); }}
+              steps={['Store or own', 'Your photo', imageSource === 'own-garment' ? 'Your outfit' : 'Pick outfits', imageSource === 'own-garment' ? 'Your look' : 'Your looks']}
+              current={tryOnStage === 'source' ? 0 : tryOnStage === 'photo' ? 1 : tryOnStage === 'browse' ? 2 : 3}
+              onSelect={(index) => { if (index === 0) setTryOnStage('source'); if (index === 1) setTryOnStage('photo'); if (index === 2 && customerPhoto) setTryOnStage('browse'); }}
             />
+
+            {tryOnStage === 'source' && (
+              <div className="flex flex-col gap-6">
+                <PageTitle size="lg" title="What would you like to try?" subtitle="Pick one to start. You can switch later." />
+                <div className="tv-source-cards grid gap-5 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => { setImageSource('catalogue'); setTryOnStage(customerPhoto ? 'browse' : 'photo'); }}
+                    className="tv-source-card group flex flex-col overflow-hidden rounded-3xl border border-line bg-white text-left shadow-sm transition hover:border-ink"
+                  >
+                    <span className="grid min-h-0 flex-1 grid-cols-3 gap-1 overflow-hidden bg-[#F1EEE9] p-1">
+                      {(catalogueItems.length ? catalogueItems : sampleCatalogue).filter((item) => item.gender === 'women').slice(0, 3).map((item) => (
+                        <img key={item.sku} src={item.imageUrl} alt="" className="h-full w-full rounded-2xl object-cover" />
+                      ))}
+                    </span>
+                    <span className="flex items-center justify-between gap-4 p-7">
+                      <span>
+                        <span className="block text-4xl font-bold text-ink">Store collection</span>
+                        <span className="mt-2 block text-xl text-muted">Try up to 5 outfits from this store</span>
+                      </span>
+                      <ArrowRight className="h-9 w-9 shrink-0 text-ink transition group-hover:translate-x-1" />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setImageSource('own-garment'); setTryOnStage(customerPhoto ? 'browse' : 'photo'); }}
+                    className="tv-source-card group flex flex-col overflow-hidden rounded-3xl border border-line bg-white text-left shadow-sm transition hover:border-ink"
+                  >
+                    <span className="flex flex-1 items-center justify-center bg-canvas">
+                      <span className="flex h-40 w-40 items-center justify-center rounded-full bg-white text-ink shadow-sm"><Shirt className="h-20 w-20" strokeWidth={1.4} /></span>
+                    </span>
+                    <span className="flex items-center justify-between gap-4 p-7">
+                      <span>
+                        <span className="block text-4xl font-bold text-ink">My own outfit</span>
+                        <span className="mt-2 block text-xl text-muted">Photograph an outfit you have and see it on you</span>
+                      </span>
+                      <ArrowRight className="h-9 w-9 shrink-0 text-ink transition group-hover:translate-x-1" />
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
 
             {tryOnStage === 'photo' && (
               <div className="tv-photo-step flex flex-col gap-6">
                 <PageTitle
                   size="lg"
-                  title={customerPhoto ? 'Looking good?' : 'Add your photo'}
+                  title={customerPhoto ? 'Looking good?' : 'Your photo'}
                   subtitle={customerPhoto ? 'Check that your face and full outfit are clear.' : 'Stand in front of the screen, or send a photo from your phone.'}
                 />
 
-                <div className="tv-audience-options" aria-label="Who is shopping">
+                <div className="tv-audience-options space-y-3" aria-label="Who is it for">
+                  <p className="text-lg font-semibold text-muted">Who is it for?</p>
                   <Segmented
                     size="lg"
                     label="Who is shopping"
@@ -945,7 +998,7 @@ export default function TryFocusTvExperience() {
                     />
                     <div className="mt-6 grid gap-4 sm:grid-cols-2">
                       <button type="button" onClick={() => setCustomerPhoto('')} className="tf-btn tf-btn-secondary !min-h-16 text-lg">Retake</button>
-                      <button type="button" onClick={() => setTryOnStage('browse')} className="tf-btn tf-btn-primary !min-h-16 text-lg">Choose outfits <ArrowRight className="h-5 w-5" /></button>
+                      <button type="button" onClick={() => setTryOnStage('browse')} className="tf-btn tf-btn-primary !min-h-16 text-lg">{imageSource === 'own-garment' ? 'Add my outfit' : 'Pick outfits'} <ArrowRight className="h-5 w-5" /></button>
                     </div>
                   </div>
                 )}
@@ -958,26 +1011,13 @@ export default function TryFocusTvExperience() {
             {tryOnStage === 'browse' && (
               <div className="space-y-5">
                 <div className="flex items-center justify-between gap-4">
-                  <PageTitle size="lg" title="Choose up to 5 outfits" subtitle="We create a look for each one at the same time." />
+                  <PageTitle size="lg" title={imageSource === 'own-garment' ? 'Your outfit' : 'Pick up to 5 outfits'} subtitle={imageSource === 'own-garment' ? 'Choose what it is, then add a photo of it.' : 'We create a look for each one at the same time.'} />
                   {customerPhoto && (
                     <button type="button" onClick={() => setTryOnStage('photo')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
                       <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-16 rounded-lg object-cover" />
                       <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
                     </button>
                   )}
-                </div>
-
-                <div className="tv-source-bar max-w-xl">
-                  <Segmented
-                    size="md"
-                    label="Outfit source"
-                    value={imageSource}
-                    onChange={(value) => setImageSource(value)}
-                    options={[
-                      { value: 'catalogue', label: <><Shirt className="h-5 w-5" /> Store collection</> },
-                      { value: 'own-garment', label: <><Upload className="h-5 w-5" /> My own outfit</> },
-                    ]}
-                  />
                 </div>
 
                 {/* ---------------------------------------------------------
@@ -1193,147 +1233,41 @@ export default function TryFocusTvExperience() {
                 SUB-MODE B: UPLOAD / CAPTURE MY OWN GARMENT (2 Sets: Person + Dress)
                --------------------------------------------------------- */}
             {imageSource === 'own-garment' && tryOnStage === 'browse' && (
-              <div className="rounded-2xl grid gap-6 border border-line bg-white p-6 lg:grid-cols-2">
-                {/* Set 1: Your Photo (Image 1 Identity Authority) */}
-                <div className="rounded-2xl flex flex-col justify-between border border-line bg-canvas p-5">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-brand">
-                        Your Photo
-                      </span>
-                      <span className="border border-line bg-white px-2.5 py-0.5 tabular-nums text-xs font-semibold">
-                        REQUIRED
-                      </span>
-                    </div>
-                    <h3 className="mt-1 text-2xl font-bold text-ink">
-                      Your Photo
-                    </h3>
-                    <p className="mt-1 text-xs text-muted">
-                      Stand in front of the camera for a clear, full-length photo.
-                    </p>
-
-                    <div className="rounded-2xl mt-4 flex aspect-[9/16] max-h-96 w-full items-center justify-center overflow-hidden border border-dashed border-line bg-white">
-                      {customerPhoto ? (
-                        <img
-                          src={customerPhoto}
-                          alt="Customer Identity"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="p-6 text-center text-muted">
-                          <User className="mx-auto h-10 w-10 text-brand" />
-                          <p className="mt-2 text-sm font-semibold text-ink">
-                            Add your photo
-                          </p>
-                          <p className="mt-1 text-xs">
-                            Use the camera or choose a photo.
-                          </p>
-                        </div>
-                      )}
-                    </div>
+              <div className="tv-catalogue-shell grid gap-5">
+                <aside className="tv-category-sidebar tf-card p-3" aria-label="What is your outfit">
+                  <div className="tv-kiosk-filters flex flex-col gap-1">
+                    {OWN_GARMENT_TYPES[genderFilter].map((type) => (
+                      <button key={type.id} type="button" aria-pressed={ownGarmentType === type.id} onClick={() => setOwnGarmentType(type.id)} className="rounded-xl border px-4 text-left font-semibold">
+                        {type.label}
+                      </button>
+                    ))}
                   </div>
-
-                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => openCameraFor('own-person')}
-                      className="flex min-h-14 items-center justify-center gap-2 bg-ink px-4 py-3 text-xs font-bold text-[#FAF6EE]"
-                    >
-                      <Camera className="h-4 w-4" />
-                      Take photo
-                    </button>
-                    <label className="rounded-2xl flex min-h-14 cursor-pointer items-center justify-center gap-2 border border-ink bg-white px-4 py-3 text-xs font-bold text-ink">
-                      <Upload className="h-4 w-4" />
-                      Choose photo
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="rounded-xl hidden"
-                        onChange={(e) => handleFileUpload('own-person', e.target.files?.[0])}
+                </aside>
+                <div className="min-w-0 space-y-4">
+                  <div className="tf-card flex flex-col items-center gap-6 p-8 text-center">
+                    {ownGarmentPhoto
+                      ? <img src={ownGarmentPhoto} alt="Your outfit" className="aspect-[3/4] h-[560px] max-w-full rounded-2xl bg-canvas object-contain" />
+                      : <span className="flex aspect-[3/4] h-[560px] max-w-full flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-line-strong bg-canvas p-8 text-muted"><Shirt className="h-16 w-16" strokeWidth={1.4} /><span className="text-xl">Lay the outfit flat or hang it, whole piece in frame</span></span>}
+                    <div className="grid w-full max-w-xl grid-cols-2 gap-4">
+                      <button type="button" onClick={() => void openCameraFor('own-garment')} className="tf-btn tf-btn-dark !min-h-16 text-lg"><Camera className="h-5 w-5" /> {ownGarmentPhoto ? 'Retake' : 'Use TV camera'}</button>
+                      <PhonePhotoTransfer
+                        onPhoto={(photo) => setOwnGarmentPhoto(photo)}
+                        renderTrigger={(open, busy) => (
+                          <button type="button" onClick={open} disabled={busy} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg"><QrCode className="h-5 w-5" /> {busy ? 'Preparing…' : 'From my phone'}</button>
+                        )}
                       />
+                    </div>
+                    <label className="cursor-pointer text-base font-semibold text-muted underline underline-offset-4 hover:text-ink">
+                      Choose a photo file instead
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload('own-garment', e.target.files?.[0])} />
                     </label>
                   </div>
+                  {tryOnError && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{tryOnError}</p>}
                 </div>
-
-                {/* Set 2: Own Garment / Dress Photo (Image 2 Garment Reference) */}
-                <div className="rounded-2xl flex flex-col justify-between border border-line bg-canvas p-5">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-brand">
-                        Your Garment
-                      </span>
-                      <span className="border border-line bg-white px-2.5 py-0.5 tabular-nums text-xs font-semibold">
-                        REQUIRED
-                      </span>
-                    </div>
-                    <h3 className="mt-1 text-2xl font-bold text-ink">
-                      Your Garment
-                    </h3>
-                    <p className="mt-1 text-xs text-muted">
-                      Take a clear photo of the garment you want to try, or choose one from your phone.
-                    </p>
-
-                    <div className="rounded-2xl mt-4 flex aspect-[9/16] max-h-96 w-full items-center justify-center overflow-hidden border border-dashed border-line bg-white">
-                      {ownGarmentPhoto ? (
-                        <img
-                          src={ownGarmentPhoto}
-                          alt="Own Garment Reference"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="p-6 text-center text-muted">
-                          <Shirt className="mx-auto h-10 w-10 text-brand" />
-                          <p className="mt-2 text-sm font-semibold text-ink">
-                            Add your garment
-                          </p>
-                          <p className="mt-1 text-xs">
-                            Use the camera or choose a garment photo.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => openCameraFor('own-garment')}
-                      className="flex min-h-14 items-center justify-center gap-2 bg-ink px-4 py-3 text-xs font-bold text-[#FAF6EE]"
-                    >
-                      <Camera className="h-4 w-4" />
-                      Photograph garment
-                    </button>
-                    <label className="rounded-2xl flex min-h-14 cursor-pointer items-center justify-center gap-2 border border-ink bg-white px-4 py-3 text-xs font-bold text-ink">
-                      <Upload className="h-4 w-4" />
-                      Choose garment photo
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="rounded-xl hidden"
-                        onChange={(e) => handleFileUpload('own-garment', e.target.files?.[0])}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {/* Generate Button Across Both Columns */}
-                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4 lg:col-span-2">
-                  <div>
-                    {tryOnError && (
-                      <p className="text-xs font-semibold text-danger">{tryOnError}</p>
-                    )}
-                    <p className="text-xs text-muted">
-                      Once generated, you will get a mobile QR code to download and the Old vs. New Dress comparison slider below.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={!customerPhoto || !ownGarmentPhoto}
-                    onClick={() => runTryOnGeneration(customerPhoto, ownGarmentPhoto)}
-                    className="flex min-h-16 items-center gap-2 bg-brand px-8 py-4 text-sm font-bold text-[#FAF6EE] transition hover:bg-[#610F20] disabled:opacity-40"
-                  >
-                    <Sparkles className="h-5 w-5" />
-                    Generate Own-Garment AI Try-On
+                <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
+                  <p className="text-lg font-semibold">{ownGarmentPhoto ? OWN_GARMENT_TYPES[genderFilter].find((type) => type.id === ownGarmentType)?.label : 'Add a photo of your outfit'}</p>
+                  <button type="button" disabled={!customerPhoto || !ownGarmentPhoto} onClick={() => void runTryOnGeneration(customerPhoto, ownGarmentPhoto)} className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-8 text-lg">
+                    <Sparkles className="h-5 w-5" /> Create my look
                   </button>
                 </div>
               </div>
@@ -1674,7 +1608,7 @@ export default function TryFocusTvExperience() {
           <div className="mx-auto flex w-full max-w-4xl items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="bg-brand px-3 py-1 text-xs font-bold">
-                TryFocus Smart Mirror
+                Live camera
               </span>
               <span className="tabular-nums text-xs text-white/80">
                 {cameraTarget === 'own-garment'

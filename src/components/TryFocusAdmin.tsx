@@ -78,21 +78,21 @@ const PLAN_CREDITS = {
 const plans = [
   {
     key: 'image',
-    label: 'AI Image Try-On',
+    label: 'Try-On',
     standard: '4,000 generations',
     pro: '6,000 generations',
     icon: Smartphone,
   },
   {
     key: 'live',
-    label: 'Live AI Try-On (TV Only)',
+    label: 'Live Mirror (TV only)',
     standard: '500 × 60-second sessions',
     pro: '1,000 × 60-second sessions',
     icon: Monitor,
   },
   {
     key: 'video',
-    label: 'AI Video (1-Day Pass)',
+    label: 'AI Video',
     standard: '500 video rewards',
     pro: '1,000 video rewards',
     icon: Video,

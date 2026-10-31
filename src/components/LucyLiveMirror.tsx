@@ -202,7 +202,7 @@ export default function LucyLiveMirror({
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Camera permission is required for the Live AI Mirror.'
+          : 'Camera permission is required for the Live Mirror.'
       );
       setState('error');
     }
@@ -293,7 +293,7 @@ export default function LucyLiveMirror({
         setError(
           caught instanceof Error
             ? caught.message
-            : 'Camera permission is required for the Live AI Mirror.'
+            : 'Camera permission is required for the Live Mirror.'
         );
         setState('error');
         return;
@@ -304,7 +304,7 @@ export default function LucyLiveMirror({
     clearCountdownTimer();
     setState('ready_countdown');
     setReadyCountdown(READY_COUNTDOWN_SECONDS);
-    setStatusMessage('Step back into full view. Connecting Live AI Mirror after 3-second pose countdown...');
+    setStatusMessage('Step back into full view. Connecting Live Mirror after 3-second pose countdown...');
 
     let remaining = READY_COUNTDOWN_SECONDS;
     countdownTimerRef.current = window.setInterval(() => {
@@ -324,7 +324,7 @@ export default function LucyLiveMirror({
     closeRealtimeConnections();
     setState('connecting');
     setSecondsLeft(SESSION_SECONDS);
-    setStatusMessage('Connecting to Live AI Mirror... Your 60s timer starts ONLY after AI video appears.');
+    setStatusMessage('Connecting to Live Mirror... Your 60s timer starts ONLY after AI video appears.');
 
     try {
       if (!streamRef.current) {
@@ -400,7 +400,7 @@ export default function LucyLiveMirror({
     } catch (caught) {
       closeRealtimeConnections();
       setError(
-        caught instanceof Error ? caught.message : 'Unable to start 60s Live AI Mirror.'
+        caught instanceof Error ? caught.message : 'Unable to start Live Mirror.'
       );
       setState('error');
     }
@@ -450,7 +450,7 @@ export default function LucyLiveMirror({
     if (nextState === 'complete') {
       setCompletionModalOpen(true);
       setStatusMessage(
-        '60-second Live AI Mirror session complete. Start a new 60s session or scan the QR to continue on mobile.'
+        '60-second Live Mirror session complete. Start a new 60s session or scan the QR to continue on mobile.'
       );
     } else {
       setStatusMessage(
@@ -481,7 +481,7 @@ export default function LucyLiveMirror({
   return (
     <div className="space-y-4">
       <div className="rounded-2xl tv-live-heading border border-line bg-white p-5">
-        <p className="text-sm font-bold text-brand">Live AI Mirror · 60 seconds</p>
+        <p className="text-sm font-bold text-brand">Live Mirror · 60 seconds</p>
         <h2 className="mt-1 text-4xl font-bold text-ink">See your wedding look move with you</h2>
         <p className="mt-2 text-lg text-muted">Choose a look, open the camera, then start your 60-second session.</p>
         <div className="mt-3"><PhotoConsentNotice kind="live" large /></div>
@@ -656,7 +656,7 @@ export default function LucyLiveMirror({
                 {readyCountdown}
               </div>
               <p className="mt-4 max-w-xs text-sm text-[#FAF6EE]/90">
-                Starting your 60-second Live AI Try-On with{' '}
+                Starting your 60-second Live Mirror with{' '}
                 <strong>{selectedGarment.title}</strong>...
               </p>
             </div>

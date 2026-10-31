@@ -29,41 +29,19 @@ import {
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
-import { ActionBar, PageTitle, Segmented, StepProgress } from '@/components/ui';
+import { OWN_GARMENT_TYPES as GARMENT_TYPE_OPTIONS } from '@/lib/tryfocus/garment-types';
+import { ActionBar, NavTabs, PageTitle, Segmented, StepProgress } from '@/components/ui';
 
-export type TabletTab = 'own-garment' | 'catalogue' | 'video-pass';
-export type TabletStep = 'photo' | 'garment';
+export type TabletTab = 'own-garment' | 'catalogue';
+export type TabletStep = 'source' | 'photo' | 'garment';
 
-const GARMENT_TYPE_OPTIONS: Record<TryFocusProduct['gender'], Array<{ id: string; label: string }>> = {
-  women: [
-    { id: 'saree', label: 'Silk Saree / Saree' },
-    { id: 'lehenga', label: 'Lehenga Choli' },
-    { id: 'salwar', label: 'Salwar / Anarkali' },
-    { id: 'one_piece', label: 'Gown / Dress' },
-    { id: 'two_piece', label: 'Two-Piece Set' },
-  ],
-  men: [
-    { id: 'kurta_dhoti', label: 'Kurta & Dhoti / Pyjama' },
-    { id: 'dhoti_veshti', label: 'Traditional Veshti & Shirt' },
-    { id: 'shirt_pant', label: 'Formal Shirt & Pant' },
-  ],
-  girls: [
-    { id: 'pattu_pavadai', label: 'Pattu Pavadai' },
-    { id: 'lehenga', label: 'Kids Lehenga' },
-    { id: 'one_piece', label: 'Silk Frock / Dress' },
-  ],
-  boys: [
-    { id: 'boy_ethnic', label: 'Kurta Pyjama / Dhoti Set' },
-    { id: 'shirt_pant', label: 'Shirt & Trousers' },
-  ],
-};
 
 export default function MaharajaTabletExperience() {
   const generationRun = useRef(0);
-  // Default to 1. Own Garment Try-On
-  const [tab, setTab] = useState<TabletTab>('own-garment');
-  // Strict 2-Step Process: Step 1 Photo -> Step 2 Garment Selection
-  const [tabletStep, setTabletStep] = useState<TabletStep>('photo');
+  // Level 0: what the counter is doing. Level 1 (store collection or their own outfit) is the first try-on step.
+  const [counterMode, setCounterMode] = useState<'tryon' | 'video'>('tryon');
+  const [tab, setTab] = useState<TabletTab>('catalogue');
+  const [tabletStep, setTabletStep] = useState<TabletStep>('source');
 
   // Audience & Catalogue state
   const [genderFilter, setGenderFilter] = useState<TryFocusProduct['gender']>('women');
@@ -164,7 +142,7 @@ export default function MaharajaTabletExperience() {
     setTryOnStatusNote('');
     setGuardianConsent(false);
     setTryOnGenerating(false);
-    setTabletStep('photo');
+    setTabletStep('source');
   }
 
   function tryAnotherGarment() {
@@ -365,28 +343,62 @@ export default function MaharajaTabletExperience() {
             </button>
           </div>
         </div>
-        <nav className="mx-auto max-w-6xl px-6 pb-3" aria-label="Counter modes">
-          <Segmented
+        <div className="mx-auto max-w-6xl px-6">
+          <NavTabs
             label="Counter modes"
-            value={tab}
-            onChange={setTab}
+            value={counterMode}
+            onChange={setCounterMode}
             options={[
-              { value: 'own-garment', label: <><Shirt className="h-4 w-4" /> Own outfit</> },
-              { value: 'catalogue', label: <><Store className="h-4 w-4" /> Store collection</> },
-              { value: 'video-pass', label: <><QrCode className="h-4 w-4" /> AI Video QR</> },
+              { value: 'tryon', label: <><Sparkles className="h-4 w-4" /> Try-On</> },
+              { value: 'video', label: <><QrCode className="h-4 w-4" /> AI Video QR</> },
             ]}
           />
-        </nav>
+        </div>
       </header>
 
       <div className="mx-auto max-w-6xl space-y-6 px-6 pb-6 pt-5">
-        {tab !== 'video-pass' && (
+        {counterMode === 'tryon' && (
           <div className="space-y-6">
             <StepProgress
-              steps={['Customer photo', tab === 'own-garment' ? 'Their outfit' : 'Pick an outfit']}
-              current={tabletStep === 'photo' ? 0 : 1}
-              onSelect={(index) => { if (index === 0) setTabletStep('photo'); }}
+              steps={['Store or own', 'Customer photo', tab === 'own-garment' ? 'Their outfit' : 'Pick an outfit']}
+              current={tabletStep === 'source' ? 0 : tabletStep === 'photo' ? 1 : 2}
+              onSelect={(index) => { if (index === 0) setTabletStep('source'); if (index === 1) setTabletStep('photo'); }}
             />
+
+            {tabletStep === 'source' && (
+              <div className="space-y-5">
+                <PageTitle title="What will the customer try?" subtitle="Pick one to start. You can switch later." />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {([
+                    ['catalogue', 'Store collection', 'Outfits from this store’s catalogue'],
+                    ['own-garment', 'Their own outfit', 'An outfit the customer brought or owns'],
+                  ] as const).map(([value, title, text]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => { setTab(value); setTabletStep(personPhoto ? 'garment' : 'photo'); }}
+                      className="group flex flex-col overflow-hidden rounded-3xl border border-line bg-white text-left shadow-sm transition hover:border-ink"
+                    >
+                      {value === 'catalogue' ? (
+                        <span className="grid h-56 grid-cols-3 gap-1 bg-[#F1EEE9] p-1">
+                          {catalogueItems.filter((item) => item.gender === 'women').slice(0, 3).map((item) => <img key={item.sku} src={item.imageUrl} alt="" className="h-full w-full rounded-2xl object-cover" />)}
+                        </span>
+                      ) : (
+                        <span className="flex h-56 items-center justify-center bg-canvas"><span className="flex h-28 w-28 items-center justify-center rounded-full bg-white shadow-sm"><Shirt className="h-14 w-14" strokeWidth={1.4} /></span></span>
+                      )}
+                      <span className="flex items-center justify-between gap-3 p-5">
+                        <span>
+                          <span className="block text-2xl font-bold">{title}</span>
+                          <span className="mt-1 block text-[15px] text-muted">{text}</span>
+                        </span>
+                        <ArrowRight className="h-6 w-6 shrink-0 transition group-hover:translate-x-1" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             {tabletStep === 'photo' && (
               <div className="space-y-5">
@@ -394,6 +406,7 @@ export default function MaharajaTabletExperience() {
                   title={personPhoto ? 'Check the photo' : 'Customer photo'}
                   subtitle={personPhoto ? 'Face and full outfit should be clear and upright.' : 'Use the tablet camera, or let the customer send one from their phone.'}
                 />
+                <p className="tf-label">Who is it for?</p>
                 <Segmented
                   label="Who is this look for"
                   value={genderFilter}
@@ -467,10 +480,10 @@ export default function MaharajaTabletExperience() {
                     {tab === 'own-garment' ? (
                       <div className="tf-card space-y-5 p-5">
                         <div>
-                          <p className="tf-label mb-2">Garment type</p>
+                          <p className="tf-label mb-1">What is it?</p>
                           <div className="flex flex-wrap gap-2">
                             {(GARMENT_TYPE_OPTIONS[genderFilter] || []).map((opt) => (
-                              <button key={opt.id} type="button" aria-pressed={ownGarmentType === opt.id} onClick={() => setOwnGarmentType(opt.id)} className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${ownGarmentType === opt.id ? 'bg-ink text-white' : 'border border-line bg-white text-ink hover:border-ink'}`}>
+                              <button key={opt.id} type="button" aria-pressed={ownGarmentType === opt.id} onClick={() => setOwnGarmentType(opt.id)} className={`min-h-10 rounded-none border-b-2 px-2 text-[15px] transition ${ownGarmentType === opt.id ? 'border-ink font-bold text-ink' : 'border-transparent font-medium text-muted hover:text-ink'}`}>
                                 {opt.label}
                               </button>
                             ))}
@@ -504,7 +517,7 @@ export default function MaharajaTabletExperience() {
                       <div className="tf-card space-y-4 p-5">
                         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
                           {filteredCategories.map((cat) => (
-                            <button key={cat.id} type="button" aria-pressed={activeCategory === cat.id} onClick={() => setActiveCategory(cat.id)} className={`min-h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition ${activeCategory === cat.id ? 'bg-ink text-white' : 'border border-line bg-white text-ink hover:border-ink'}`}>
+                            <button key={cat.id} type="button" aria-pressed={activeCategory === cat.id} onClick={() => setActiveCategory(cat.id)} className={`min-h-10 shrink-0 rounded-none border-b-2 px-2 text-[15px] transition ${activeCategory === cat.id ? 'border-ink font-bold text-ink' : 'border-transparent font-medium text-muted hover:text-ink'}`}>
                               {cat.label}
                             </button>
                           ))}
@@ -546,7 +559,7 @@ export default function MaharajaTabletExperience() {
           </div>
         )}
 
-        {tab === 'video-pass' && <TabletVideoHandoff />}
+        {counterMode === 'video' && <TabletVideoHandoff />}
       </div>
     </main>
   );

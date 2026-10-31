@@ -9,8 +9,8 @@ export function creditStatuses(
   limits: { image: number; live: number; video: number },
 ): CreditStatus[] {
   return ([
-    ['AI Image Try-On', Number(usage.tryOnGenerated || 0), limits.image],
-    ['60s Live AI Mirror', Number(usage.liveSessions || 0), limits.live],
+    ['Try-On', Number(usage.tryOnGenerated || 0), limits.image],
+    ['Live Mirror', Number(usage.liveSessions || 0), limits.live],
     ['AI Video', Number(usage.videosGenerated || 0), limits.video],
   ] as const).map(([label, used, limit]) => {
     if (limit <= 0) return { label, used, limit, pct: 0, level: 'none' as CreditLevel };

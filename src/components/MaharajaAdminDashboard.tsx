@@ -23,7 +23,7 @@ import {
   Phone,
 } from 'lucide-react';
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
-import { StatusPill } from '@/components/ui';
+import { NavTabs, StatusPill } from '@/components/ui';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
 import {
   catalogueCategories,
@@ -70,7 +70,7 @@ type WorkspaceData = {
     billing: string;
     openVideo: string;
     tv: string;
-    /** Permanent Go Live TV link for this workspace. */
+    /** Permanent Go Live player link for this workspace. */
     goLive: string;
   };
   whatsapp?: {
@@ -622,13 +622,14 @@ export default function MaharajaAdminDashboard({
             {workspace.campaignEnabled ? 'Live for customers' : 'Paused'}
           </button>
         </div>
-        <nav className="mx-auto mt-3 flex max-w-6xl gap-1 overflow-x-auto px-5 [scrollbar-width:none] sm:px-8" aria-label="Workspace sections">
-          {([['overview', 'Overview'], ['catalogue', 'Catalogue'], ['qr', 'QR codes'], ['golive', 'Go Live & videos']] as const).map(([key, label]) => (
-            <button key={key} type="button" aria-current={section === key ? 'page' : undefined} onClick={() => setSection(key)} className={`shrink-0 rounded-none border-b-2 px-3 pb-3 pt-1 text-[15px] font-semibold transition ${section === key ? 'border-brand text-ink' : 'border-transparent text-muted hover:text-ink'}`}>
-              {label}
-            </button>
-          ))}
-        </nav>
+        <div className="mx-auto mt-2 max-w-6xl px-5 sm:px-8">
+          <NavTabs
+            label="Workspace sections"
+            value={section}
+            onChange={setSection}
+            options={[{ value: 'overview', label: 'Overview' }, { value: 'catalogue', label: 'Catalogue' }, { value: 'qr', label: 'QR codes' }, { value: 'golive', label: 'Go Live & videos' }]}
+          />
+        </div>
       </header>
 
       <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 sm:px-8">
@@ -655,7 +656,7 @@ export default function MaharajaAdminDashboard({
           ))}
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <section className="grid gap-6 lg:grid-cols-[1fr_1fr] [&>*]:min-w-0">
           <div className="tf-card p-6">
             <h2 className="text-lg font-bold">Credits left</h2>
             <p className="mt-1 text-sm text-muted">Your plan’s allowance for each experience.</p>
@@ -965,7 +966,7 @@ export default function MaharajaAdminDashboard({
             Image Try-On QR · Video Pass QR · Counter access
            ========================================================= */}
         <section className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
-          {/* Card 1: Permanent Direct QR for AI Image Try-On */}
+          {/* Card 1: Permanent Direct QR for Try-On */}
           {limits.image > 0 && <div className="rounded-2xl flex flex-col justify-between border border-line bg-white p-6">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
@@ -986,7 +987,7 @@ export default function MaharajaAdminDashboard({
                   {tryOnQrImage ? (
                     <img
                       src={tryOnQrImage}
-                      alt="Direct AI Image Try-On QR"
+                      alt="Direct Try-On QR"
                       className="h-44 w-44 object-contain"
                     />
                   ) : (
@@ -1083,7 +1084,7 @@ export default function MaharajaAdminDashboard({
                     </p>
                     <p className="mt-0.5 text-muted">
                       Customers can take any garment (or select from the catalogue), generate their AI Video on mobile, and click{' '}
-                      <strong>Download</strong> or <strong>Go Live</strong> (which plays on your Go Live TV).
+                      <strong>Download</strong> or <strong>Go Live</strong> (which plays on your Go Live player).
                     </p>
                   </div>
                 </div>
@@ -1138,7 +1139,7 @@ export default function MaharajaAdminDashboard({
               </div>
 
               <p className="mt-4 text-sm leading-relaxed text-muted">
-                When a customer clicks <strong>Go Live</strong> after generating an AI video, their video is queued on your Go Live TV and logged in the dedicated Go Live video library.
+                When a customer clicks <strong>Go Live</strong> after generating an AI video, their video is queued on your Go Live player and logged in the dedicated Go Live video library.
               </p>
               <p className="mt-2 text-xs text-muted">
                 Videos are not played inline on this main workspace page — click the button below to open the dedicated video library page to list, play, and download approved Go Live videos.
@@ -1161,7 +1162,7 @@ export default function MaharajaAdminDashboard({
                   className="rounded-xl inline-flex items-center gap-2 border border-ink bg-white px-5 py-3.5 text-xs font-bold text-ink"
                 >
                   <Tv className="h-4 w-4" />
-                  Open Go Live TV
+                  Open Go Live player
                 </a>
               )}
             </div>
@@ -1173,7 +1174,7 @@ export default function MaharajaAdminDashboard({
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
                 <div>
                   <h2 className="mt-1 text-2xl font-bold text-ink">
-                    Go Live TV, promos & Instagram
+                    Go Live player, promos & Instagram
                   </h2>
                 </div>
               </div>
