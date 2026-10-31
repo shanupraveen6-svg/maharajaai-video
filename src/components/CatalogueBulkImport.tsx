@@ -269,24 +269,24 @@ export default function CatalogueBulkImport({
           type="button"
           disabled={busy || publishing}
           onClick={() => switchUploadMode('image-tryon')}
-          className={`flex min-h-[96px] items-center gap-4 border-2 p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-            uploadMode === 'image-tryon'
-              ? 'border-[#7A1428] bg-[#FAF6EE] shadow-md ring-2 ring-[#7A1428]/20'
-              : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
-          }`}
+          className={`flex min-h-[96px] items-center gap-4 border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+ uploadMode === 'image-tryon'
+ ? 'border-brand bg-[#FAF6EE] shadow-md ring-2 ring-brand/20'
+ : 'border-line bg-white hover:border-ink'
+ }`}
         >
           <span
             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
-              uploadMode === 'image-tryon' ? 'bg-[#7A1428] text-white' : 'bg-[#FAFBF8] text-[#161918]'
-            }`}
+ uploadMode === 'image-tryon'? 'bg-brand text-white' : 'bg-canvas text-ink'
+ }`}
           >
             <Camera className="h-6 w-6" />
           </span>
           <div>
-            <span className="block font-serif text-lg font-bold text-[#161918]">
+            <span className="block tracking-tight text-lg font-bold text-ink">
               1. Upload Catalogue for Image Try-On
             </span>
-            <span className="mt-0.5 block text-xs text-[#535A56]">
+            <span className="mt-0.5 block text-xs text-muted">
               Add dresses & sarees for virtual fitting · Optional pricing
             </span>
           </div>
@@ -296,24 +296,24 @@ export default function CatalogueBulkImport({
           type="button"
           disabled={busy || publishing}
           onClick={() => switchUploadMode('ai-video')}
-          className={`flex min-h-[96px] items-center gap-4 border-2 p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-            uploadMode === 'ai-video'
-              ? 'border-[#7A1428] bg-[#FAF6EE] shadow-md ring-2 ring-[#7A1428]/20'
-              : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
-          }`}
+          className={`flex min-h-[96px] items-center gap-4 border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+ uploadMode === 'ai-video'
+ ? 'border-brand bg-[#FAF6EE] shadow-md ring-2 ring-brand/20'
+ : 'border-line bg-white hover:border-ink'
+ }`}
         >
           <span
             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
-              uploadMode === 'ai-video' ? 'bg-[#7A1428] text-white' : 'bg-[#FAFBF8] text-[#161918]'
-            }`}
+ uploadMode === 'ai-video'? 'bg-brand text-white' : 'bg-canvas text-ink'
+ }`}
           >
             <Video className="h-6 w-6" />
           </span>
           <div>
-            <span className="block font-serif text-lg font-bold text-[#161918]">
+            <span className="block tracking-tight text-lg font-bold text-ink">
               2. Upload Catalogue for AI Video
             </span>
-            <span className="mt-0.5 block text-xs text-[#535A56]">
+            <span className="mt-0.5 block text-xs text-muted">
               Garments for cinematic AI video · Pricing strictly compulsory
             </span>
           </div>
@@ -321,16 +321,16 @@ export default function CatalogueBulkImport({
       </div>
 
       {/* Main Upload Box */}
-      <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-6 text-[#161918]">
+      <div className="rounded-2xl border border-line bg-canvas p-6 text-ink">
         {/* Top Control Bar with AI Video Checkmark */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#D8DCD7] pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
           <div>
-            <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+            <span className="text-xs font-bold text-brand">
               {uploadMode === 'ai-video'
                 ? 'AI Video Mode (Pricing Mandatory)'
                 : 'Image Try-On Mode'}
             </span>
-            <h3 className="mt-1 font-serif text-2xl font-semibold">
+            <h3 className="mt-1 text-2xl font-bold">
               {uploadMode === 'ai-video'
                 ? 'Upload AI Video Garments'
                 : 'Upload Image Try-On Garments'}
@@ -340,29 +340,29 @@ export default function CatalogueBulkImport({
           {/* Checkmark: Use for AI Video */}
           <div className="flex items-center gap-3">
             <label
-              className={`flex items-center gap-2 border px-3.5 py-2 text-xs font-bold transition ${
-                isPricingMandatory
-                  ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                  : 'border-[#D8DCD7] bg-white text-[#161918]'
-              }`}
+              className={`rounded-2xl flex items-center gap-2 border px-3.5 py-2 text-xs font-bold transition ${
+ isPricingMandatory
+ ? 'border-brand bg-brand text-white'
+ : 'border-line bg-white text-ink'
+ }`}
             >
               <input
                 type="checkbox"
                 disabled={uploadMode === 'ai-video' || publishing}
                 checked={isPricingMandatory}
                 onChange={(e) => setVideoEnabled(e.target.checked)}
-                className="h-4 w-4 accent-[#161918]"
+                className="h-4 w-4 accent-ink"
               />
               <span>Use for AI Video {isPricingMandatory ? '(Pricing Mandatory)' : ''}</span>
             </label>
 
-            <label className="flex items-center gap-2 border border-[#D8DCD7] bg-white px-3 py-2 text-xs font-semibold">
+            <label className="rounded-2xl flex items-center gap-2 border border-line bg-white px-3 py-2 text-xs font-semibold">
               <input
                 type="checkbox"
                 disabled={publishing}
                 checked={newArrival}
                 onChange={(e) => setNewArrival(e.target.checked)}
-                className="h-4 w-4 accent-[#7A1428]"
+                className="h-4 w-4 accent-brand"
               />
               <span>Mark New Arrival</span>
             </label>
@@ -372,7 +372,7 @@ export default function CatalogueBulkImport({
         {/* Step 1 & 2: Audience and Category Selection */}
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <div>
-            <p className="mb-2 font-mono text-xs font-bold uppercase tracking-wider text-[#535A56]">
+            <p className="mb-2 text-xs font-bold text-muted">
               1. Audience (Men / Women / Boys / Girls)
             </p>
             <div className="grid grid-cols-4 gap-2">
@@ -386,10 +386,10 @@ export default function CatalogueBulkImport({
                     setCategory('');
                   }}
                   className={`min-h-11 border px-2 text-xs font-bold capitalize transition ${
-                    audience === item.id
-                      ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
-                      : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
-                  } disabled:opacity-50`}
+ audience === item.id
+ ? 'border-brand bg-brand text-white shadow-sm'
+ : 'border-line bg-white hover:border-ink'
+ } disabled:opacity-50`}
                 >
                   {item.label}
                 </button>
@@ -400,7 +400,7 @@ export default function CatalogueBulkImport({
           <div>
             <label
               htmlFor="bulk-category"
-              className="mb-2 block font-mono text-xs font-bold uppercase tracking-wider text-[#535A56]"
+              className="mb-2 block text-xs font-bold text-muted"
             >
               2. Choose Category (e.g. {audience}/pants, {audience}/sarees)
             </label>
@@ -409,7 +409,7 @@ export default function CatalogueBulkImport({
               disabled={busy || rows.length > 0}
               value={category}
               onChange={(e) => setCategory(e.target.value as CatalogueCategoryId | '')}
-              className="min-h-11 w-full border border-[#D8DCD7] bg-white px-3 text-sm font-semibold text-[#161918] disabled:opacity-50"
+              className="min-h-11 w-full border border-line bg-white px-3 text-sm font-semibold text-ink disabled:opacity-50"
             >
               <option value="">Select {audience} category…</option>
               {availableCategories.map((item) => (
@@ -423,16 +423,16 @@ export default function CatalogueBulkImport({
 
         {/* Step 3: Choose Garment Photos */}
         <div className="mt-5">
-          <p className="mb-2 font-mono text-xs font-bold uppercase tracking-wider text-[#535A56]">
+          <p className="mb-2 text-xs font-bold text-muted">
             3. Upload garment photos
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <label
-              className={`flex items-center gap-2 bg-[#161918] px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition ${
-                category && !busy && !rows.length
-                  ? 'cursor-pointer hover:bg-[#2F3733]'
-                  : 'cursor-not-allowed opacity-40'
-              }`}
+              className={`flex items-center gap-2 bg-ink px-5 py-3 text-xs font-bold text-white transition ${
+ category && !busy && !rows.length
+ ? 'cursor-pointer hover:bg-[#2F3733]'
+ : 'cursor-not-allowed opacity-40'
+ }`}
             >
               <Upload className="h-4 w-4" />
               Choose Photos
@@ -447,11 +447,11 @@ export default function CatalogueBulkImport({
             </label>
 
             <label
-              className={`flex items-center gap-2 border border-[#161918] bg-white px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#161918] transition ${
-                category && !busy && !rows.length
-                  ? 'cursor-pointer hover:bg-[#FAF6EE]'
-                  : 'cursor-not-allowed opacity-40'
-              }`}
+              className={`rounded-2xl flex items-center gap-2 border border-ink bg-white px-5 py-3 text-xs font-bold text-ink transition ${
+ category && !busy && !rows.length
+ ? 'cursor-pointer hover:bg-[#FAF6EE]'
+ : 'cursor-not-allowed opacity-40'
+ }`}
             >
               Choose Folder
               <input
@@ -475,7 +475,7 @@ export default function CatalogueBulkImport({
                     setMessage('');
                   }
                 }}
-                className="border border-[#B42318] bg-white px-4 py-3 text-xs font-bold text-[#B42318] hover:bg-[#FAFBF8]"
+                className="border border-danger bg-white px-4 py-3 text-xs font-bold text-danger hover:bg-canvas"
               >
                 Clear / New Batch
               </button>
@@ -487,14 +487,14 @@ export default function CatalogueBulkImport({
             UPLOADED GARMENTS VIEW (TABLE vs 3x3 GRID)
            ========================================================= */}
         {rows.length > 0 && (
-          <div className="mt-8 space-y-4 border-t border-[#D8DCD7] pt-6">
+          <div className="mt-8 space-y-4 border-t border-line pt-6">
             {/* View Switcher Header & Action Summary */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
+            <div className="rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-line bg-white p-4">
               <div>
-                <p className="font-serif text-lg font-semibold text-[#161918]">
+                <p className="text-lg font-bold text-ink">
                   {rows.length} garments in {audience} / {selectedCategoryLabel}
                 </p>
-                <p className="text-xs text-[#535A56]">
+                <p className="text-xs text-muted">
                   {isPricingMandatory
                     ? `Pricing is mandatory. ${missingPricesCount === 0 ? '✓ All prices set' : `${missingPricesCount} price(s) missing`}`
                     : 'Optional pricing · Ready for submission'}
@@ -506,11 +506,11 @@ export default function CatalogueBulkImport({
                 <button
                   type="button"
                   onClick={() => setViewMode('table')}
-                  className={`flex items-center gap-1.5 border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
-                    viewMode === 'table'
-                      ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                      : 'border-[#D8DCD7] bg-white text-[#161918]'
-                  }`}
+                  className={`flex items-center gap-1.5 border px-3 py-1.5 text-xs font-bold transition ${
+ viewMode === 'table'
+ ? 'border-brand bg-brand text-white'
+ : 'border-line bg-white text-ink'
+ }`}
                 >
                   <List className="h-3.5 w-3.5" />
                   Table View
@@ -519,11 +519,11 @@ export default function CatalogueBulkImport({
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
-                  className={`flex items-center gap-1.5 border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
-                    viewMode === 'grid'
-                      ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                      : 'border-[#D8DCD7] bg-white text-[#161918]'
-                  }`}
+                  className={`flex items-center gap-1.5 border px-3 py-1.5 text-xs font-bold transition ${
+ viewMode === 'grid'
+ ? 'border-brand bg-brand text-white'
+ : 'border-line bg-white text-ink'
+ }`}
                 >
                   <Grid3X3 className="h-3.5 w-3.5" />
                   View Catalogue (3×3 Grid)
@@ -533,9 +533,9 @@ export default function CatalogueBulkImport({
 
             {/* VIEW A: TABLE WITH MINI-THUMBNAIL (CLICK TO OPEN FULL VIEW) */}
             {viewMode === 'table' && (
-              <div className="overflow-x-auto border border-[#D8DCD7] bg-white">
+              <div className="rounded-2xl overflow-x-auto border border-line bg-white">
                 <table className="w-full min-w-[760px] text-left text-xs">
-                  <thead className="bg-[#FAFBF8] border-b border-[#D8DCD7] font-mono uppercase tracking-wider text-[#535A56]">
+                  <thead className="bg-canvas border-b border-line text-muted">
                     <tr>
                       <th className="p-3 w-16">Thumbnail</th>
                       <th className="p-3">Name of Garment</th>
@@ -559,7 +559,7 @@ export default function CatalogueBulkImport({
                             <button
                               type="button"
                               onClick={() => setLightboxUrl(row.previewUrl)}
-                              className="group relative block aspect-[3/4] w-12 overflow-hidden rounded border border-[#D8DCD7] bg-[#ECEEE9] shadow-sm transition hover:scale-105"
+                              className="group relative block aspect-[3/4] w-12 overflow-hidden rounded border border-line bg-line shadow-sm transition hover:scale-105"
                               title="Click to open full view"
                             >
                               <img
@@ -579,17 +579,17 @@ export default function CatalogueBulkImport({
                               aria-label={`Name for ${row.filename}`}
                               value={row.title}
                               onChange={(e) => update(row.id, { title: e.target.value })}
-                              className="w-full border border-[#D8DCD7] bg-white p-2 text-xs font-semibold text-[#161918]"
+                              className="w-full border border-line bg-white p-2 text-xs font-semibold text-ink"
                               placeholder="Garment title…"
                             />
-                            <span className="mt-0.5 block font-mono text-[10px] text-[#8C938F]">
+                            <span className="mt-0.5 block tabular-nums text-xs text-subtle">
                               SKU: {row.sku}
                             </span>
                           </td>
 
                           {/* 3. Category (e.g. Men/Pants) */}
-                          <td className="p-3 font-semibold text-[#161918]">
-                            <span className="inline-block rounded border border-[#D8DCD7] bg-[#FAFBF8] px-2 py-1 text-[11px]">
+                          <td className="p-3 font-semibold text-ink">
+                            <span className="inline-block rounded border border-line bg-canvas px-2 py-1 text-xs">
                               {audience} / {selectedCategoryLabel}
                             </span>
                           </td>
@@ -597,7 +597,7 @@ export default function CatalogueBulkImport({
                           {/* 4. Pricing (Mandatory if AI Video is ticked) */}
                           <td className="p-3">
                             <div className="relative">
-                              <span className="absolute left-2.5 top-2 text-xs font-bold text-[#8C938F]">
+                              <span className="absolute left-2.5 top-2 text-xs font-bold text-subtle">
                                 ₹
                               </span>
                               <input
@@ -608,14 +608,14 @@ export default function CatalogueBulkImport({
                                 onChange={(e) => update(row.id, { price: e.target.value })}
                                 placeholder={isPricingMandatory ? 'Mandatory' : 'Optional'}
                                 className={`w-full border p-2 pl-6 text-xs font-bold ${
-                                  isPriceMissing
-                                    ? 'border-[#B42318] bg-[#FDF2F2] text-[#B42318]'
-                                    : 'border-[#D8DCD7] bg-white text-[#161918]'
-                                }`}
+ isPriceMissing
+ ? 'border-danger bg-[#FDF2F2] text-danger'
+ : 'border-line bg-white text-ink'
+ }`}
                               />
                             </div>
                             {isPriceMissing && (
-                              <span className="mt-0.5 block text-[10px] font-semibold text-[#B42318]">
+                              <span className="mt-0.5 block text-xs font-semibold text-danger">
                                 Price required for video
                               </span>
                             )}
@@ -624,17 +624,17 @@ export default function CatalogueBulkImport({
                           {/* 5. Status */}
                           <td className="p-3">
                             {row.status === 'uploading' && (
-                              <span className="inline-flex items-center gap-1 font-semibold text-[#7A1428]">
+                              <span className="inline-flex items-center gap-1 font-semibold text-brand">
                                 <LoaderCircle className="h-3 w-3 animate-spin" /> Uploading…
                               </span>
                             )}
                             {row.status === 'ready' && (
-                              <span className="inline-flex items-center gap-1 font-semibold text-[#256B45]">
+                              <span className="inline-flex items-center gap-1 font-semibold text-success">
                                 <CheckCircle2 className="h-3.5 w-3.5" /> Ready
                               </span>
                             )}
                             {row.status === 'failed' && (
-                              <span className="block text-[11px] font-semibold text-[#B42318]">
+                              <span className="block text-xs font-semibold text-danger">
                                 Failed
                               </span>
                             )}
@@ -647,7 +647,7 @@ export default function CatalogueBulkImport({
                               onClick={() =>
                                 setRows((current) => current.filter((item) => item.id !== row.id))
                               }
-                              className="text-xs font-bold text-[#B42318] hover:underline"
+                              className="text-xs font-bold text-danger hover:underline"
                             >
                               Remove
                             </button>
@@ -671,12 +671,12 @@ export default function CatalogueBulkImport({
                     return (
                       <div
                         key={row.id}
-                        className="group flex flex-col justify-between overflow-hidden border border-[#D8DCD7] bg-white p-3 shadow-sm transition hover:border-[#7A1428]"
+                        className="rounded-2xl group flex flex-col justify-between overflow-hidden border border-line bg-white p-3 shadow-sm transition hover:border-brand"
                       >
                         <button
                           type="button"
                           onClick={() => setLightboxUrl(row.previewUrl)}
-                          className="relative aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9] text-left"
+                          className="relative aspect-[3/4] w-full overflow-hidden bg-line text-left"
                           title="Click to open full view"
                         >
                           <img
@@ -684,7 +684,7 @@ export default function CatalogueBulkImport({
                             alt={row.title}
                             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                           />
-                          <span className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 font-mono text-[10px] text-white">
+                          <span className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 tabular-nums text-xs text-white">
                             Zoom
                           </span>
                         </button>
@@ -694,21 +694,21 @@ export default function CatalogueBulkImport({
                             aria-label={`Title for ${row.filename}`}
                             value={row.title}
                             onChange={(e) => update(row.id, { title: e.target.value })}
-                            className="w-full border border-[#D8DCD7] p-1.5 text-xs font-bold text-[#161918]"
+                            className="w-full border border-line p-1.5 text-xs font-bold text-ink"
                             placeholder="Garment name"
                           />
 
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-semibold text-[#535A56]">
+                            <span className="font-semibold text-muted">
                               {audience} / {selectedCategoryLabel}
                             </span>
-                            <span className="font-mono text-[10px] text-[#8C938F]">
+                            <span className="tabular-nums text-xs text-subtle">
                               {row.sku}
                             </span>
                           </div>
 
                           <div className="relative">
-                            <span className="absolute left-2.5 top-1.5 text-xs font-bold text-[#8C938F]">
+                            <span className="absolute left-2.5 top-1.5 text-xs font-bold text-subtle">
                               ₹
                             </span>
                             <input
@@ -719,15 +719,15 @@ export default function CatalogueBulkImport({
                               onChange={(e) => update(row.id, { price: e.target.value })}
                               placeholder={isPricingMandatory ? 'Price required' : 'Price (optional)'}
                               className={`w-full border p-1.5 pl-6 text-xs font-bold ${
-                                isPriceMissing
-                                  ? 'border-[#B42318] bg-[#FDF2F2] text-[#B42318]'
-                                  : 'border-[#D8DCD7] bg-white text-[#161918]'
-                              }`}
+ isPriceMissing
+ ? 'border-danger bg-[#FDF2F2] text-danger'
+ : 'border-line bg-white text-ink'
+ }`}
                             />
                           </div>
 
                           <div className="flex items-center justify-between pt-1">
-                            <span className="text-[11px] font-semibold text-[#256B45]">
+                            <span className="text-xs font-semibold text-success">
                               {row.status === 'ready' ? '✓ Ready' : row.status}
                             </span>
                             <button
@@ -735,7 +735,7 @@ export default function CatalogueBulkImport({
                               onClick={() =>
                                 setRows((current) => current.filter((item) => item.id !== row.id))
                               }
-                              className="text-[11px] font-bold text-[#B42318] hover:underline"
+                              className="text-xs font-bold text-danger hover:underline"
                             >
                               Remove
                             </button>
@@ -749,12 +749,12 @@ export default function CatalogueBulkImport({
             )}
 
             {/* Bottom Two Post-Upload Buttons: Submit / Upload Batch + View Catalogue */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-5">
+            <div className="rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-line bg-white p-5">
               <div className="space-y-1">
-                <p className="font-serif text-lg font-semibold text-[#161918]">
+                <p className="text-lg font-bold text-ink">
                   Ready to publish {rows.length} garments to store catalogue
                 </p>
-                <p className="text-xs text-[#535A56]">
+                <p className="text-xs text-muted">
                   Uploads will immediately reflect in both the 43&quot; TV standee and counter tablet.
                 </p>
               </div>
@@ -763,7 +763,7 @@ export default function CatalogueBulkImport({
                 <button
                   type="button"
                   onClick={() => setViewMode((curr) => (curr === 'table' ? 'grid' : 'table'))}
-                  className="flex min-h-12 items-center gap-2 border-2 border-[#161918] bg-white px-5 text-xs font-bold uppercase tracking-wider text-[#161918] hover:bg-[#FAF6EE]"
+                  className="flex min-h-12 items-center gap-2 border border-ink bg-white px-5 text-xs font-bold text-ink hover:bg-[#FAF6EE]"
                 >
                   {viewMode === 'table' ? (
                     <>
@@ -785,7 +785,7 @@ export default function CatalogueBulkImport({
                     (isPricingMandatory && missingPricesCount > 0)
                   }
                   onClick={() => void publish()}
-                  className="flex min-h-12 items-center gap-2 bg-[#7A1428] px-8 text-xs font-bold uppercase tracking-wider text-white shadow-md hover:bg-[#600F1F] disabled:opacity-40"
+                  className="flex min-h-12 items-center gap-2 bg-brand px-8 text-xs font-bold text-white shadow-md hover:bg-[#600F1F] disabled:opacity-40"
                 >
                   {publishing ? (
                     <>
@@ -807,9 +807,9 @@ export default function CatalogueBulkImport({
         {message && (
           <div
             role="status"
-            className="mt-4 flex items-center gap-2 border border-[#D8DCD7] bg-white p-4 text-xs font-semibold text-[#161918]"
+            className="rounded-2xl mt-4 flex items-center gap-2 border border-line bg-white p-4 text-xs font-semibold text-ink"
           >
-            <AlertCircle className="h-4 w-4 text-[#7A1428]" />
+            <AlertCircle className="h-4 w-4 text-brand" />
             <span>{message}</span>
           </div>
         )}
@@ -827,7 +827,7 @@ export default function CatalogueBulkImport({
           onClick={() => setLightboxUrl(null)}
         >
           <div
-            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-lg border-2 border-white/20 bg-[#161918] p-2 shadow-2xl"
+            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-lg border border-white/20 bg-ink p-2 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button

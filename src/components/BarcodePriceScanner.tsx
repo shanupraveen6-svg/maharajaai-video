@@ -184,7 +184,7 @@ export default function BarcodePriceScanner({
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="flex min-w-56 flex-col items-center gap-3 rounded-xl border border-[#F6D36A]/70 bg-black/80 px-6 py-5 shadow-2xl backdrop-blur-sm">
             <LoaderCircle className="h-9 w-9 animate-spin text-[#F6D36A]" />
-            <p className="text-sm font-black uppercase tracking-wide">Analyzing MRP</p>
+            <p className="text-sm font-bold">Analyzing MRP</p>
             <p className="text-xs text-white/75">Checking ₹ / Rs. price…</p>
           </div>
         </div>
@@ -208,7 +208,7 @@ export default function BarcodePriceScanner({
             id="scan-mrp-btn"
             onClick={() => void (capturedFrame ? retake() : scan())}
             disabled={status === 'reading'}
-            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[#F6D36A] text-sm font-black uppercase text-[#3A070D] shadow-lg active:scale-[0.98] disabled:opacity-60"
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[#F6D36A] text-sm font-bold text-[#3A070D] shadow-lg active:scale-[0.98] disabled:opacity-60"
           >
             {status === 'starting' && <><LoaderCircle className="h-5 w-5 animate-spin" /> Camera Starting...</>}
             {status === 'reading' && <><LoaderCircle className="h-5 w-5 animate-spin" /> Analyzing MRP...</>}

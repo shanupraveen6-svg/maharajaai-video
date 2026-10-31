@@ -1041,8 +1041,8 @@ export default function TvPlayerPage() {
         }}
         onError={() => handleVideoError(slot)}
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-in-out ${
-          isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-        }`}
+ isActive ? 'opacity-100 z-10': 'opacity-0 z-0 pointer-events-none'
+ }`}
       />
     );
   };
@@ -1057,10 +1057,10 @@ export default function TvPlayerPage() {
             className="mx-auto h-24 w-24 sm:h-32 sm:w-32 rounded-lg object-cover border border-[#F6D36A]/35"
           />}
           <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-widest text-[#F8E8A8] uppercase">
+            <h1 className="tracking-tight text-2xl sm:text-3xl font-bold text-[#F8E8A8]">
               {screenBrand.clientName} TV
             </h1>
-            <p className="mt-2 text-xs font-bold uppercase tracking-[0.24em] text-[#F6D36A]/80">
+            <p className="mt-2 text-xs font-bold text-[#F6D36A]/80">
               Diwali Celebration Screen
             </p>
           </div>
@@ -1071,7 +1071,7 @@ export default function TvPlayerPage() {
             onClick={() => {
               setAudioUnlocked(true);
             }}
-            className="min-h-16 w-full rounded-lg bg-[#F6D36A] px-6 py-3.5 sm:px-8 sm:py-4 text-sm sm:text-base font-black uppercase tracking-wider text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
+            className="min-h-16 w-full rounded-lg bg-[#F6D36A] px-6 py-3.5 sm:px-8 sm:py-4 text-sm sm:text-base font-bold text-[#3B0507] shadow-2xl transition hover:brightness-110 flex items-center justify-center gap-3"
           >
             <Volume2 className="h-5 w-5 sm:h-6 sm:w-6" /> Start Showroom Screen
           </button>
@@ -1106,12 +1106,12 @@ export default function TvPlayerPage() {
             src="/maharaja-logo.png"
             alt="Majestic Maharaja"
             className="h-14 w-14 shrink-0 rounded-lg border border-[#F6D36A]/45 object-cover shadow-[0_12px_40px_rgba(0,0,0,0.42)] sm:h-20 sm:w-20 lg:h-auto lg:w-[78%] lg:max-w-[300px]"
-          /> : <p className="font-serif text-2xl font-black uppercase tracking-[0.12em] text-[#FFF1A8] lg:text-center">{screenBrand.clientName}</p>}
+          /> : <p className="tracking-tight text-2xl font-bold text-[#FFF1A8] lg:text-center">{screenBrand.clientName}</p>}
           <div className="text-left lg:text-center">
-            <p className="font-serif text-xl font-black uppercase tracking-[0.14em] text-[#FFF1A8] sm:text-2xl lg:text-[clamp(1.65rem,2.4vw,2.5rem)]">
+            <p className="tracking-tight text-xl font-bold text-[#FFF1A8] sm:text-2xl lg:text-[clamp(1.65rem,2.4vw,2.5rem)]">
               AI Diwali
             </p>
-            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.22em] text-[#F6D36A]/85 sm:text-xs lg:mt-2 lg:text-sm">
+            <p className="mt-0.5 text-xs font-bold text-[#F6D36A]/85 sm:text-xs lg:mt-2 lg:text-sm">
               Fashion Film
             </p>
           </div>
@@ -1126,14 +1126,14 @@ export default function TvPlayerPage() {
             {!currentPlayback && (
               <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center bg-[#120203] p-5 text-center sm:p-7">
                 <Sparkles className="mb-4 h-10 w-10 animate-pulse text-[#F6D36A] sm:mb-5 sm:h-14 sm:w-14" />
-                <p className="font-serif text-xl font-black leading-tight text-[#FFF1A8] sm:text-2xl lg:text-3xl">
+                <p className="tracking-tight text-xl font-bold leading-tight text-[#FFF1A8] sm:text-2xl lg:text-3xl">
                   {!replayLibraryLoaded
                     ? 'Loading showroom videos'
                     : pendingSlot
                       ? 'Loading next showroom video'
                       : 'No showroom video ready'}
                 </p>
-                <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#F6D36A]/70 sm:mt-4 sm:text-xs">
+                <p className="mt-3 text-xs font-bold text-[#F6D36A]/70 sm:mt-4 sm:text-xs">
                   {!replayLibraryLoaded
                     ? 'Connecting to the video library'
                     : pendingSlot
@@ -1149,7 +1149,7 @@ export default function TvPlayerPage() {
                 <p className="mb-4 text-xs text-white">{playbackError}</p>
                 <button
                   onClick={startVideoPlayback}
-                  className="rounded-lg bg-[#F6D36A] px-6 py-2 text-xs font-black uppercase text-[#3B0507]"
+                  className="rounded-lg bg-[#F6D36A] px-6 py-2 text-xs font-bold text-[#3B0507]"
                 >
                   Press Play
                 </button>
@@ -1162,7 +1162,7 @@ export default function TvPlayerPage() {
         <section className="flex w-full min-w-0 flex-col items-center justify-center text-center lg:h-full lg:items-start lg:text-left">
           <div className="w-full max-w-md border-t border-[#F6D36A]/35 pt-3 lg:max-w-none lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0 xl:pl-8">
             <h1
-              className="break-words text-[clamp(1.35rem,4.5vw,2.2rem)] font-black leading-[1.12] text-[#FFF1A8] [text-shadow:0_5px_22px_rgba(0,0,0,0.55)] lg:text-[clamp(1.75rem,3.3vw,4.4rem)] lg:leading-[1.08]"
+              className="break-words text-[clamp(1.35rem,4.5vw,2.2rem)] font-bold leading-[1.12] text-[#FFF1A8] [text-shadow:0_5px_22px_rgba(0,0,0,0.55)] lg:text-[clamp(1.75rem,3.3vw,4.4rem)] lg:leading-[1.08]"
               style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
             >
               இனிய{' '}
@@ -1175,7 +1175,7 @@ export default function TvPlayerPage() {
             <div className="mx-auto mt-3 h-px w-3/4 bg-gradient-to-r from-transparent via-[#F6D36A] to-transparent lg:mx-0 lg:mt-6 lg:w-4/5 lg:from-[#F6D36A] lg:to-transparent" />
 
             <p
-              className="mt-3 break-words text-[clamp(1.1rem,3.5vw,1.6rem)] font-black leading-tight text-white lg:mt-6 lg:text-[clamp(1.3rem,2.1vw,2.5rem)]"
+              className="mt-3 break-words text-[clamp(1.1rem,3.5vw,1.6rem)] font-bold leading-tight text-white lg:mt-6 lg:text-[clamp(1.3rem,2.1vw,2.5rem)]"
               style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
             >
               {displayCustomerName(currentPlayback)}

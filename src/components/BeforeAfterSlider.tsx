@@ -31,11 +31,11 @@ export default function BeforeAfterSlider({
 
   return (
     <section aria-label="Compare your current photo with your AI Try-On" className="mt-2 text-left">
-      <div className={`mb-2 flex items-center justify-between font-mono text-[11px] font-bold uppercase tracking-[0.14em] ${dark ? 'text-white' : 'text-[#161918]'}`}>
+      <div className={`mb-2 flex items-center justify-between text-xs font-bold ${dark ? 'text-white': 'text-ink'}`}>
         <span>{beforeLabel}</span>
         <span className={dark ? 'text-[#EDC26C]' : 'text-[#7A1428]'}>{afterLabel}</span>
       </div>
-      <div className={`relative overflow-hidden border border-[#D8DCD7] bg-[#161918] ${frameClassName}`}>
+      <div className={`relative overflow-hidden border border-line bg-ink ${frameClassName}`}>
         <img
           src={resolvedBefore}
           alt={beforeLabel}
@@ -52,7 +52,7 @@ export default function BeforeAfterSlider({
           className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow-[0_0_6px_#000]"
           style={{ left: `${position}%` }}
         >
-          <span className="absolute top-1/2 left-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-[#7A1428] text-sm text-white shadow-lg">
+          <span className="absolute top-1/2 left-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white bg-brand text-sm text-white shadow-lg">
             ↔
           </span>
         </div>

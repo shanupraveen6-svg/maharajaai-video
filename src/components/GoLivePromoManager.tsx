@@ -82,40 +82,40 @@ export default function GoLivePromoManager({ goLiveUrl }: { goLiveUrl: string })
 
   return (
     <div className="space-y-5">
-      <div className="border border-[#D8DCD7] bg-white p-4">
-        <p className="text-xs font-bold uppercase tracking-wider text-[#535A56]">Your Go Live TV link</p>
-        <p className="mt-1 break-all font-mono text-xs text-[#161918]">{goLiveUrl}</p>
-        <p className="mt-2 text-xs text-[#535A56]">
+      <div className="rounded-2xl border border-line bg-white p-4">
+        <p className="text-xs font-bold text-muted">Your Go Live TV link</p>
+        <p className="mt-1 break-all tabular-nums text-xs text-ink">{goLiveUrl}</p>
+        <p className="mt-2 text-xs text-muted">
           Open it in any TV or computer browser and tap Start. It plays only your customers&apos; Go Live videos and your promos.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={copyLink} className="flex min-h-11 items-center gap-1.5 border border-[#161918] bg-white px-4 text-xs font-bold uppercase tracking-wider">
+          <button type="button" onClick={copyLink} className="rounded-xl flex min-h-11 items-center gap-1.5 border border-ink bg-white px-4 text-xs font-bold">
             <Copy className="h-4 w-4" /> {copied ? 'Copied' : 'Copy link'}
           </button>
-          <a href={goLiveUrl} target="_blank" rel="noreferrer" className="flex min-h-11 items-center gap-1.5 bg-[#161918] px-4 text-xs font-bold uppercase tracking-wider text-white">
+          <a href={goLiveUrl} target="_blank" rel="noreferrer" className="rounded-xl flex min-h-11 items-center gap-1.5 bg-ink px-4 text-xs font-bold text-white">
             <ExternalLink className="h-4 w-4" /> Open TV screen
           </a>
         </div>
       </div>
 
       <div>
-        <p className="text-sm font-semibold text-[#161918]">Promo videos ({promos.length}/3)</p>
-        <p className="mt-1 text-xs text-[#535A56]">
+        <p className="text-sm font-semibold text-ink">Promo videos ({promos.length}/3)</p>
+        <p className="mt-1 text-xs text-muted">
           One promo plays after every 10 customer videos, in turn. Portrait (9:16) MP4, WebM or MOV, 5–60 seconds, up to 50 MB.
         </p>
         <ul className="mt-3 space-y-2">
           {promos.map((promo) => (
-            <li key={promo.id} className="flex items-center justify-between gap-3 border border-[#D8DCD7] bg-white px-3 py-2 text-sm">
+            <li key={promo.id} className="rounded-2xl flex items-center justify-between gap-3 border border-line bg-white px-3 py-2 text-sm">
               <span className="min-w-0 truncate">
                 <span className="font-semibold">{promo.title}</span>
-                <span className="text-xs text-[#535A56]"> · {Math.round(promo.durationSeconds)}s · {(promo.sizeBytes / 1048576).toFixed(1)} MB</span>
+                <span className="text-xs text-muted"> · {Math.round(promo.durationSeconds)}s · {(promo.sizeBytes / 1048576).toFixed(1)} MB</span>
               </span>
-              <button type="button" onClick={() => void remove(promo.id)} aria-label={`Delete ${promo.title}`} className="flex min-h-11 min-w-11 items-center justify-center text-[#B42318]">
+              <button type="button" onClick={() => void remove(promo.id)} aria-label={`Delete ${promo.title}`} className="flex min-h-11 min-w-11 items-center justify-center text-danger">
                 <Trash2 className="h-4 w-4" />
               </button>
             </li>
           ))}
-          {!promos.length && <li className="border border-dashed border-[#D8DCD7] px-3 py-3 text-xs text-[#535A56]">No promos yet.</li>}
+          {!promos.length && <li className="border border-dashed border-line px-3 py-3 text-xs text-muted">No promos yet.</li>}
         </ul>
         {!full && (
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -124,17 +124,17 @@ export default function GoLivePromoManager({ goLiveUrl }: { goLiveUrl: string })
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Promo name (optional)"
               maxLength={60}
-              className="min-h-11 border border-[#D8DCD7] bg-white px-3 text-sm outline-none focus:border-[#7A1428]"
+              className="min-h-11 border border-line bg-white px-3 text-sm outline-none focus:border-brand"
             />
-            <input ref={fileRef} type="file" accept={ACCEPTED} aria-label="Promo video file" className="min-h-11 w-full min-w-0 border border-[#D8DCD7] bg-white px-3 py-2 text-xs" />
-            <button type="button" disabled={busy} onClick={() => void upload()} className="flex min-h-11 items-center justify-center gap-1.5 bg-[#7A1428] px-4 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50 sm:col-span-2">
+            <input ref={fileRef} type="file" accept={ACCEPTED} aria-label="Promo video file" className="rounded-xl min-h-11 w-full min-w-0 border border-line bg-white px-3 py-2 text-xs" />
+            <button type="button" disabled={busy} onClick={() => void upload()} className="flex min-h-11 items-center justify-center gap-1.5 bg-brand px-4 text-xs font-bold text-white disabled:opacity-50 sm:col-span-2">
               {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Upload
             </button>
           </div>
         )}
-        {full && <p className="mt-3 text-xs text-[#535A56]">You have 3 promos. Delete one to upload another.</p>}
-        {message && <p role="status" className="mt-3 text-sm font-semibold text-[#256B45]">{message}</p>}
-        {error && <p role="alert" className="mt-3 text-sm font-semibold text-[#B42318]">{error}</p>}
+        {full && <p className="mt-3 text-xs text-muted">You have 3 promos. Delete one to upload another.</p>}
+        {message && <p role="status" className="mt-3 text-sm font-semibold text-success">{message}</p>}
+        {error && <p role="alert" className="mt-3 text-sm font-semibold text-danger">{error}</p>}
       </div>
     </div>
   );

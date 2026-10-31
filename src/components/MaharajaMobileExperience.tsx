@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useStoreCatalogue } from '@/lib/maharaja/use-store-catalogue';
 import {
   Camera,
+  Check,
   Download,
   Film,
   LoaderCircle,
@@ -21,6 +22,7 @@ import {
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
+import { ActionBar, Segmented } from '@/components/ui';
 
 type MobileFlow = 'image-tryon' | 'ai-video';
 
@@ -109,7 +111,8 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl, cl
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.masterImageUrl) {
         setResultImageUrl(data.masterImageUrl);
-        setStatusNote('Your look is ready and saving to your phone. Use Download Image if it did not save.');
+        setStatusNote('');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         // Best-effort automatic save of the finished look (an in-memory image, never stored on the server).
         const anchor = document.createElement('a');
         anchor.href = data.masterImageUrl;
@@ -129,272 +132,144 @@ export default function MaharajaMobileExperience({ accessCode, videoEntryUrl, cl
     }
   }
 
+  const garmentReady = sourceMode === 'own-garment' ? Boolean(ownGarmentPhoto) : Boolean(selectedProduct);
+  const needsGuardian = (genderFilter === 'boys' || genderFilter === 'girls') && !guardianConsent;
+  const canCreate = Boolean(personPhoto) && garmentReady && !needsGuardian && !generatingImage;
+
   return (
-    <main className="mobile-workspace min-h-screen bg-[#F4F5F2] text-[#161918]">
-      {/* Unified TryFocus Mobile Header */}
-      <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 px-4 py-3.5 backdrop-blur-md">
-        <div className="mx-auto flex max-w-xl items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
-              TF
-            </span>
+    <main className="mobile-workspace min-h-screen bg-canvas text-ink">
+      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur-md">
+        <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
             <div className="min-w-0">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                TryFocus × {clientName}
-              </p>
-              <h1 className="font-serif text-base font-semibold text-[#161918]">Your private style room</h1>
+              <h1 className="truncate text-base font-bold text-ink">{clientName}</h1>
+              <p className="text-[13px] text-muted">Private try-on on your phone</p>
             </div>
           </div>
-
-          <Link
-            href="/maharaja/try-on"
-            className="flex min-h-11 shrink-0 items-center border border-[#161918] bg-white px-3 font-mono text-[10px] font-bold uppercase tracking-wider text-[#161918]"
-          >
-            Help
-          </Link>
+          <Link href="/maharaja/try-on" className="flex min-h-10 shrink-0 items-center rounded-xl px-3 text-sm font-semibold text-muted hover:text-ink">Help</Link>
         </div>
       </header>
 
-      <div className="mx-auto max-w-xl space-y-5 px-4 py-5">
-        {/* Flow Switcher: AI Image Try-On vs 1-Day AI Video Pass */}
-        <div className="grid grid-cols-2 border border-[#D8DCD7] bg-white p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setFlow('image-tryon');
-            }}
-            className={`flex min-h-11 items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] ${
-              flow === 'image-tryon' ? 'bg-[#7A1428] text-white' : 'text-[#161918]'
-            }`}
-          >
-            <Shirt className="h-3.5 w-3.5" />
-            Try a look
-          </button>
-          <button
-            type="button"
-            onClick={() => setFlow('ai-video')}
-            className={`flex min-h-11 items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] ${
-              flow === 'ai-video' ? 'bg-[#7A1428] text-white' : 'text-[#161918]'
-            }`}
-          >
-            <Film className="h-3.5 w-3.5" />
-            Create video
-          </button>
-        </div>
-
-        {/* Status Pill */}
-        <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-3.5 text-xs text-[#535A56]">
-          {flow === 'image-tryon' ? (
-            <p>Choose a garment, add your photo, and keep the finished look on your phone.</p>
-          ) : (
-            <p>Start a private 24-hour session with your photo and garment.</p>
-          )}
-        </div>
+      <div className="mx-auto max-w-xl space-y-4 px-4 pt-4">
+        <Segmented
+          label="What would you like to do"
+          value={flow}
+          onChange={setFlow}
+          options={[
+            { value: 'image-tryon', label: <><Shirt className="h-4 w-4" /> Try on</> },
+            { value: 'ai-video', label: <><Film className="h-4 w-4" /> AI video</> },
+          ]}
+        />
 
         {flow === 'ai-video' && (
-          <section className="space-y-4 border border-[#D8DCD7] bg-white p-4">
-            <h2 className="font-serif text-xl font-semibold">Create your Diwali video</h2>
-            <p className="text-sm text-[#535A56]">Use your own garment and photo. Your private session lasts 24 hours. Download your finished film or choose Go Live for the store screen.</p>
-            <Link href={videoEntryUrl} className="flex min-h-14 items-center justify-center bg-[#7A1428] px-4 text-sm font-semibold text-white">Start my video</Link>
+          <section className="tf-card space-y-3 p-5">
+            <h2 className="text-xl font-bold">Your festival video</h2>
+            <p className="text-[15px] text-muted">Add your photo and outfit to get a short festival film. Your private session lasts 24 hours, so you can download it or show it on the store screen.</p>
+            <Link href={videoEntryUrl} className="tf-btn tf-btn-primary w-full">Start my video</Link>
           </section>
         )}
 
         {flow === 'image-tryon' && <>
-
-        <div>{(genderFilter === 'boys' || genderFilter === 'girls') && <label className="my-4 flex min-h-14 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-sm"><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve using this child’s photo for this experience.</label>}</div>
-        {/* Step 1: Image 1 (Customer Photo) */}
-        <section className="border border-[#D8DCD7] bg-white p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                Step 1
-              </span>
-              <h2 className="font-serif text-lg font-semibold text-[#161918]">
-                Add your photo
-              </h2>
-            </div>
-            <label className="flex min-h-11 cursor-pointer items-center gap-1.5 bg-[#161918] px-3.5 text-xs font-semibold text-white">
-              <Camera className="h-3.5 w-3.5" />
-              {personPhoto ? 'Change Photo' : 'Upload / Camera'}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])}
+          {resultImageUrl && (
+            <section id="mobile-result" className="tf-card overflow-hidden">
+              <BeforeAfterSlider
+                beforeImage={personPhoto || selectedProduct.imageUrl}
+                afterImage={resultImageUrl}
+                beforeLabel="You"
+                afterLabel="New look"
               />
-            </label>
-          </div>
-          <div className="mt-3">
-            <PhotoConsentNotice kind="try-on" />
-          </div>
-          {personPhoto && (
-            <img
-              src={personPhoto}
-              alt="Customer"
-              className="mt-3 h-40 w-32 border border-[#D8DCD7] object-cover"
-            />
+              <div className="flex gap-3 p-4">
+                <a href={resultImageUrl} download={`tryfocus-look-${selectedProduct.sku.toLowerCase()}.jpg`} className="tf-btn tf-btn-dark flex-1">
+                  <Download className="h-4 w-4" /> Save photo
+                </a>
+                <button type="button" onClick={() => { setResultImageUrl(''); setStatusNote(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="tf-btn tf-btn-secondary flex-1">Try another</button>
+              </div>
+            </section>
           )}
-        </section>
 
-        {/* Step 2: Image 2 (Store Catalogue or Own Garment) */}
-        <section className="border border-[#D8DCD7] bg-white p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-3">
-            <div>
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                Step 2
+          <section className="tf-card p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold">1. Your photo</h2>
+              {personPhoto && <span className="text-sm font-semibold text-success">Added</span>}
+            </div>
+            <label className="flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed border-line-strong bg-canvas p-3 transition hover:border-ink">
+              {personPhoto
+                ? <img src={personPhoto} alt="Your photo" className="h-24 w-16 shrink-0 rounded-lg object-cover" />
+                : <span className="flex h-24 w-16 shrink-0 items-center justify-center rounded-lg bg-white text-muted"><Camera className="h-7 w-7" /></span>}
+              <span className="min-w-0">
+                <span className="block text-[15px] font-semibold">{personPhoto ? 'Change photo' : 'Take or choose a photo'}</span>
+                <span className="mt-0.5 block text-[13px] text-muted">Full body, standing straight, good light</span>
               </span>
-              <h2 className="font-serif text-lg font-semibold text-[#161918]">
-                Choose your outfit
-              </h2>
-            </div>
-            <div className="flex border border-[#D8DCD7] bg-[#F4F5F2] p-0.5 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setSourceMode('catalogue')}
-                className={`min-h-11 px-3 ${
-                  sourceMode === 'catalogue' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
-                }`}
-              >
-                Store styles
-              </button>
-              <button
-                type="button"
-                onClick={() => setSourceMode('own-garment')}
-                className={`min-h-11 px-3 ${
-                  sourceMode === 'own-garment' ? 'bg-[#7A1428] text-white' : 'text-[#535A56]'
-                }`}
-              >
-                My garment
-              </button>
-            </div>
-          </div>
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])} />
+            </label>
+            <div className="mt-3"><PhotoConsentNotice kind="try-on" /></div>
+          </section>
 
-          {sourceMode === 'catalogue' ? (
-            <div className="mt-3 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="grid w-full grid-cols-4 gap-2 text-xs font-semibold">{(['women', 'men', 'boys', 'girls'] as const).map((audience) => <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => { setGenderFilter(audience); setActiveCategory(catalogueCategories.find((cat) => cat.gender === audience)!.id); }} className={`min-h-12 px-2 capitalize ${genderFilter === audience ? 'bg-[#e6eee8] text-[#20352b]' : 'bg-white'}`}>{audience}</button>)}</div>
+          <section className="tf-card p-4">
+            <h2 className="mb-3 text-lg font-bold">2. Your outfit</h2>
+            <Segmented
+              size="sm"
+              label="Outfit source"
+              value={sourceMode}
+              onChange={setSourceMode}
+              options={[{ value: 'catalogue', label: 'Store collection' }, { value: 'own-garment', label: 'My own outfit' }]}
+            />
 
-                <div className="flex flex-wrap gap-1.5">
-                  {filteredCategories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setActiveCategory(cat.id)}
-                      className={`min-h-11 border px-3 text-xs font-semibold ${
-                        activeCategory === cat.id
-                          ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                          : 'border-[#D8DCD7] bg-white text-[#161918]'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
+            {sourceMode === 'catalogue' ? (
+              <div className="mt-4 space-y-3">
+                <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+                  {(['women', 'men', 'boys', 'girls'] as const).map((audience) => (
+                    <button key={audience} type="button" aria-pressed={genderFilter === audience} onClick={() => { setGenderFilter(audience); setActiveCategory(catalogueCategories.find((cat) => cat.gender === audience)!.id); }} className={`min-h-10 shrink-0 rounded-full px-4 text-sm font-semibold capitalize ${genderFilter === audience ? 'bg-ink text-white' : 'border border-line bg-white text-ink'}`}>{audience}</button>
                   ))}
                 </div>
+                <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+                  {filteredCategories.map((cat) => (
+                    <button key={cat.id} type="button" aria-pressed={activeCategory === cat.id} onClick={() => setActiveCategory(cat.id)} className={`min-h-9 shrink-0 rounded-full px-3.5 text-[13px] font-semibold ${activeCategory === cat.id ? 'bg-brand-soft text-brand' : 'text-muted'}`}>{cat.label}</button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {categoryProducts.map((item) => {
+                    const picked = selectedProduct.sku === item.sku;
+                    return (
+                      <button key={item.sku} type="button" aria-pressed={picked} onClick={() => setSelectedProduct(item)} className={`relative overflow-hidden rounded-2xl border text-left transition ${picked ? 'border-brand ring-2 ring-brand' : 'border-line'}`}>
+                        <img src={item.imageUrl} alt="" className="aspect-[3/4] w-full bg-[#F1EEE9] object-contain" />
+                        {picked && <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-white"><Check className="h-4 w-4" /></span>}
+                        <span className="line-clamp-2 block p-2.5 text-[13px] font-semibold leading-snug">{item.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {categoryProducts.length === 0 && <p className="rounded-2xl bg-canvas p-6 text-center text-sm text-muted">No styles in this category yet.</p>}
               </div>
-
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                {categoryProducts.map((item) => (
-                  <button
-                    key={item.sku}
-                    type="button"
-                    onClick={() => setSelectedProduct(item)}
-                    className={`border p-1 text-left ${
-                      selectedProduct.sku === item.sku
-                        ? 'border-[#7A1428] bg-[#7A1428]/10 ring-1 ring-[#7A1428]'
-                        : 'border-[#D8DCD7] bg-[#FAFBF8]'
-                    }`}
-                  >
-                    <img
-                      src={item.imageUrl}
-                      alt={item.title}
-                      className="aspect-[3/4] w-full bg-[#F4F1EA] object-contain"
-                    />
-                    <p className="mt-1 truncate font-mono text-[10px] font-bold">{item.title}</p>
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs font-semibold text-[#161918]">
-                Selected: {selectedProduct.title}
-              </p>
-            </div>
-          ) : (
-            <div className="mt-3">
-              <label className="flex cursor-pointer items-center justify-center gap-2 border border-dashed border-[#161918] bg-[#FAFBF8] py-4 text-xs font-bold uppercase tracking-wider text-[#161918]">
-                <Upload className="h-4 w-4" />
-                {ownGarmentPhoto ? 'Replace Garment Photo' : 'Upload / Capture Garment Photo'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleFileRead(setOwnGarmentPhoto, e.target.files?.[0])}
-                />
-              </label>
-              {ownGarmentPhoto && (
-                <img
-                  src={ownGarmentPhoto}
-                  alt="Garment"
-                  className="mt-3 h-40 w-32 border border-[#D8DCD7] object-cover"
-                />
-              )}
-            </div>
-          )}
-
-          <button
-            type="button"
-            disabled={generatingImage}
-            onClick={runMobileGeneration}
-            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 bg-[#7A1428] px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] disabled:opacity-50"
-          >
-            {generatingImage ? (
-              <>
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-                Generating...
-              </>
             ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Create my look
-              </>
+              <label className="mt-4 flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed border-line-strong bg-canvas p-3 transition hover:border-ink">
+                {ownGarmentPhoto
+                  ? <img src={ownGarmentPhoto} alt="Your outfit" className="h-24 w-16 shrink-0 rounded-lg object-cover" />
+                  : <span className="flex h-24 w-16 shrink-0 items-center justify-center rounded-lg bg-white text-muted"><Upload className="h-7 w-7" /></span>}
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-semibold">{ownGarmentPhoto ? 'Change outfit photo' : 'Photo of the outfit'}</span>
+                  <span className="mt-0.5 block text-[13px] text-muted">Lay it flat or hang it, the whole garment in frame</span>
+                </span>
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileRead(setOwnGarmentPhoto, e.target.files?.[0])} />
+              </label>
             )}
-          </button>
 
-          {statusNote && (
-            <p className="mt-3 border border-[#D8DCD7] bg-[#FAFBF8] p-2.5 text-xs text-[#535A56]">
-              {statusNote}
-            </p>
-          )}
-        </section>
+            {(genderFilter === 'boys' || genderFilter === 'girls') && (
+              <label className="mt-4 flex items-start gap-3 rounded-2xl bg-warn-soft p-3 text-[13px] text-ink">
+                <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
+                I am the parent or guardian and approve using this child’s photo.
+              </label>
+            )}
+          </section>
 
-        {/* Result appears only after the customer creates a look. */}
-        {resultImageUrl && <section className="space-y-4 border border-[#D8DCD7] bg-white p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-              Your look
-              </p>
-              <h3 className="font-serif text-lg font-semibold text-[#161918]">
-              Before and after
-              </h3>
-            </div>
-            <a
-              href={resultImageUrl || selectedProduct.imageUrl}
-              download={`maharaja-tryon-${selectedProduct.sku.toLowerCase()}.jpg`}
-              className="flex min-h-11 items-center gap-1.5 bg-[#161918] px-3 font-mono text-[10px] font-bold uppercase text-white"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Download Image
-            </a>
-          </div>
-
-          <BeforeAfterSlider
-            beforeImage={personPhoto || selectedProduct.imageUrl}
-            afterImage={resultImageUrl || selectedProduct.imageUrl}
-            beforeLabel="Old / Current Photo"
-            afterLabel="New AI Try-On Dress"
-          />
-
-        </section>}
+          <ActionBar note={statusNote || (generatingImage ? 'Creating your look. This takes about 20 seconds.' : !personPhoto ? 'Add your photo to continue' : !garmentReady ? 'Choose an outfit to continue' : undefined)}>
+            <button type="button" disabled={!canCreate} onClick={() => void runMobileGeneration()} className="tf-btn tf-btn-primary !min-h-14 text-base">
+              {generatingImage ? <><LoaderCircle className="h-5 w-5 animate-spin" /> Creating…</> : <><Sparkles className="h-5 w-5" /> Create my look</>}
+            </button>
+          </ActionBar>
         </>}
+        {flow === 'ai-video' && <div className="h-6" />}
       </div>
     </main>
   );

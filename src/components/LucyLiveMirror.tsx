@@ -480,30 +480,29 @@ export default function LucyLiveMirror({
 
   return (
     <div className="space-y-4">
-      <div className="tv-live-heading border-2 border-[#D8DCD7] bg-white p-5">
-        <p className="font-mono text-sm font-bold uppercase tracking-[0.16em] text-[#7A1428]">Live AI Mirror · 60 seconds</p>
-        <h2 className="mt-1 font-serif text-4xl font-semibold text-[#161918]">See your wedding look move with you</h2>
-        <p className="mt-2 text-lg text-[#535A56]">Choose a look, open the camera, then start your 60-second session.</p>
+      <div className="rounded-2xl tv-live-heading border border-line bg-white p-5">
+        <p className="text-sm font-bold text-brand">Live AI Mirror · 60 seconds</p>
+        <h2 className="mt-1 text-4xl font-bold text-ink">See your wedding look move with you</h2>
+        <p className="mt-2 text-lg text-muted">Choose a look, open the camera, then start your 60-second session.</p>
         <div className="mt-3"><PhotoConsentNotice kind="live" large /></div>
       </div>
 
       <div className="tv-live-audience grid grid-cols-4 gap-3" aria-label="Live mirror audience">
-        {(['women', 'men', 'boys', 'girls'] as const).map((g) => <button key={g} type="button" aria-pressed={gender === g} onClick={() => { setGender(g); setCategory('wedding-picks'); setPageIndex(0); const first = activeCatalogue.find((item) => item.gender === g); if (first) void selectGarment(first); }} className={`min-h-16 border-2 px-4 text-xl font-bold ${gender === g ? 'border-[#161918] bg-[#161918] text-white' : 'border-[#D8DCD7] bg-white text-[#161918]'}`}>{g.charAt(0).toUpperCase() + g.slice(1)}</button>)}
+        {(['women', 'men', 'boys', 'girls'] as const).map((g) => <button key={g} type="button" aria-pressed={gender === g} onClick={() => { setGender(g); setCategory('wedding-picks'); setPageIndex(0); const first = activeCatalogue.find((item) => item.gender === g); if (first) void selectGarment(first); }} className={`min-h-16 border px-4 text-xl font-bold ${gender === g ? 'border-ink bg-ink text-white': 'border-line bg-white text-ink'}`}>{g.charAt(0).toUpperCase() + g.slice(1)}</button>)}
       </div>
 
-      {(gender === 'boys' || gender === 'girls') && <label className="flex min-h-16 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-lg"><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve this child’s live mirror session.</label>}
+      {(gender === 'boys' || gender === 'girls') && <label className="rounded-2xl flex min-h-16 items-center gap-3 border border-line bg-white p-4 text-lg"><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve this child’s live mirror session.</label>}
 
       {/* Main 2-Column Row: Left Outfit Selector + Right Mirror Viewport */}
       <div className="tv-live-row grid min-w-0 gap-5 lg:grid-cols-[minmax(340px,400px)_1fr] items-start">
         {/* Left Column: Step 2 Outfit Selector */}
-        <aside className="tv-live-menu flex min-w-0 flex-col justify-between border-2 border-[#D8DCD7] bg-[#FAFBF8] p-4 sm:p-5 shadow-sm">
+        <aside className="rounded-2xl tv-live-menu flex min-w-0 flex-col justify-between border border-line bg-canvas p-4 sm:p-5 shadow-sm">
           <div>
-            <div className="border-b border-[#D8DCD7] pb-3">
-              <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">Wedding collection</p>
-              <h3 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">Choose your look</h3>
+            <div className="border-b border-line pb-3">
+              <h3 className="mt-1 text-2xl font-bold text-ink">Choose your look</h3>
             </div>
             <div className="tv-live-category-list mt-3.5 grid gap-2">
-              <button type="button" aria-pressed={category === 'wedding-picks'} onClick={() => { setCategory('wedding-picks'); setPageIndex(0); }} className={`min-h-14 border px-4 py-2.5 text-left text-base font-bold ${category === 'wedding-picks' ? 'border-[#7A1428] bg-[#7A1428] text-white' : 'border-[#D8DCD7] bg-white text-[#161918] hover:border-[#161918]'}`}>Wedding Picks</button>
+              <button type="button" aria-pressed={category === 'wedding-picks'} onClick={() => { setCategory('wedding-picks'); setPageIndex(0); }} className={`min-h-14 border px-4 py-2.5 text-left text-base font-bold ${category === 'wedding-picks'? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-ink'}`}>Wedding Picks</button>
               {visibleCategories.map((cat) => (
                 <button
                   key={cat.id}
@@ -516,10 +515,10 @@ export default function LucyLiveMirror({
                     if (first) void selectGarment(first);
                   }}
                   className={`min-h-14 border px-4 py-2.5 text-left text-base font-bold ${
-                    category === cat.id
-                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                      : 'border-[#D8DCD7] bg-white text-[#161918] hover:border-[#161918]'
-                  }`}
+ category === cat.id
+ ? 'border-brand bg-brand text-[#FAF6EE]'
+ : 'border-line bg-white text-ink hover:border-ink'
+ }`}
                 >
                   {cat.label}
                 </button>
@@ -527,7 +526,7 @@ export default function LucyLiveMirror({
             </div>
 
             <div className="tv-live-garments mt-4 grid gap-2.5">
-              {pagedProducts.length === 0 && <p className="p-3 text-sm text-[#535A56]">This collection is being prepared. Choose another wedding style.</p>}
+              {pagedProducts.length === 0 && <p className="p-3 text-sm text-muted">This collection is being prepared. Choose another wedding style.</p>}
               {pagedProducts.map((item) => {
                 const active = selectedGarment.id === item.id || selectedGarment.sku === item.sku;
                 return (
@@ -535,13 +534,13 @@ export default function LucyLiveMirror({
                     key={item.sku}
                     type="button"
                     onClick={() => selectGarment(item)}
-                    className={`flex min-w-0 items-center gap-3 overflow-hidden border-2 p-2.5 text-left transition ${
-                      active
-                        ? 'border-[#7A1428] bg-white shadow-md ring-2 ring-[#7A1428]'
-                        : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
-                    }`}
+                    className={`flex min-w-0 items-center gap-3 overflow-hidden border p-2.5 text-left transition ${
+ active
+ ? 'border-brand bg-white shadow-md ring-2 ring-brand'
+ : 'border-line bg-white hover:border-ink'
+ }`}
                   >
-                    <div className="relative h-20 w-16 shrink-0 overflow-hidden bg-[#ECEEE9]">
+                    <div className="relative h-20 w-16 shrink-0 overflow-hidden bg-line">
                       <img
                         src={item.imageUrl}
                         alt={item.title}
@@ -549,14 +548,14 @@ export default function LucyLiveMirror({
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 font-serif text-sm font-semibold text-[#161918]">
+                      <p className="line-clamp-2 tracking-tight text-sm font-semibold text-ink">
                         {item.title}
                       </p>
-                      <div className="mt-1 flex items-center justify-between font-mono text-xs">
-                        <span className="font-bold text-[#7A1428]">
+                      <div className="mt-1 flex items-center justify-between tabular-nums text-xs">
+                        <span className="font-bold text-brand">
                           {formatINR(item.price)}
                         </span>
-                        <span className="text-xs font-bold text-[#7A1428]">
+                        <span className="text-xs font-bold text-brand">
                           {active ? '✓ Selected' : item.sku}
                         </span>
                       </div>
@@ -568,24 +567,24 @@ export default function LucyLiveMirror({
           </div>
 
           {/* Pager Controls */}
-          <div className="mt-4 flex items-center justify-between border-t border-[#D8DCD7] pt-4">
+          <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
             <button
               type="button"
               disabled={safePageIndex <= 0}
               onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-              className="inline-flex min-h-[56px] items-center gap-2 border border-[#161918] bg-white px-5 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
+              className="inline-flex min-h-[56px] items-center gap-2 border border-ink bg-white px-5 py-2 text-xs font-bold text-ink disabled:opacity-40"
             >
               <ChevronLeft className="h-4 w-4" />
               Prev
             </button>
-            <span className="font-mono text-sm font-bold text-[#535A56]">
+            <span className="tabular-nums text-sm font-bold text-muted">
               Page {safePageIndex + 1} / {totalPages}
             </span>
             <button
               type="button"
               disabled={safePageIndex >= totalPages - 1}
               onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
-              className="inline-flex min-h-[56px] items-center gap-2 border border-[#161918] bg-white px-5 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#161918] disabled:opacity-40"
+              className="inline-flex min-h-[56px] items-center gap-2 border border-ink bg-white px-5 py-2 text-xs font-bold text-ink disabled:opacity-40"
             >
               Next
               <ChevronRight className="h-4 w-4" />
@@ -594,7 +593,7 @@ export default function LucyLiveMirror({
         </aside>
 
         {/* Right Column: Mirror Viewport */}
-        <div className="tv-live-camera relative aspect-[9/16] w-full min-w-0 overflow-hidden border-2 border-[#D8DCD7] bg-[#161918] shadow-sm">
+        <div className="tv-live-camera relative aspect-[9/16] w-full min-w-0 overflow-hidden border border-line bg-ink shadow-sm">
           {/* Local Camera Feed (Never labeled as AI output!) */}
           <video
             ref={localVideoRef}
@@ -602,8 +601,8 @@ export default function LucyLiveMirror({
             muted
             autoPlay
             className={`h-full w-full object-cover [transform:scaleX(-1)] ${
-              state === 'live' ? 'opacity-20' : 'opacity-100'
-            }`}
+ state === 'live'? 'opacity-20' : 'opacity-100'
+ }`}
           />
 
           {/* Remote AI Try-On Stream */}
@@ -613,22 +612,22 @@ export default function LucyLiveMirror({
             muted
             autoPlay
             className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
-              state === 'live' ? 'opacity-100' : 'pointer-events-none opacity-0'
-            }`}
+ state === 'live'? 'opacity-100' : 'pointer-events-none opacity-0'
+ }`}
           />
 
           {/* Honest Status Badge */}
           <div className="absolute left-4 top-4 right-4 flex items-center justify-between gap-2">
             <span
-              className={`px-3.5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] ${
-                state === 'live'
-                  ? 'bg-[#256B45] text-white'
-                  : state === 'connecting' || state === 'ready_countdown'
-                    ? 'bg-[#8A6A20] text-white'
-                    : state === 'error'
-                      ? 'bg-[#B42318] text-white'
-                      : 'bg-[#161918]/90 text-[#FAF6EE]'
-              }`}
+              className={`px-3.5 py-2 text-xs font-bold ${
+ state === 'live'
+ ? 'bg-success text-white'
+ : state === 'connecting'|| state === 'ready_countdown'
+ ? 'bg-[#8A6A20] text-white'
+ : state === 'error'
+ ? 'bg-danger text-white'
+ : 'bg-ink/90 text-[#FAF6EE]'
+ }`}
             >
               {state === 'live'
                 ? `AI LIVE MIRROR · ${secondsLeft}s`
@@ -642,18 +641,18 @@ export default function LucyLiveMirror({
                         ? 'AI STREAM UNAVAILABLE · CAMERA ONLY'
                         : 'CAMERA STANDBY'}
             </span>
-            <span className="bg-white/95 px-3.5 py-2 font-mono text-xs font-bold text-[#161918]">
+            <span className="bg-white/95 px-3.5 py-2 tabular-nums text-xs font-bold text-ink">
               {selectedGarment.sku} · {formatINR(selectedGarment.price)}
             </span>
           </div>
 
           {/* 3-2-1 Ready Countdown Overlay */}
           {state === 'ready_countdown' && readyCountdown !== null && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#161918]/55 p-6 text-center text-[#FAF6EE]">
-              <p className="font-mono text-sm font-bold uppercase tracking-[0.22em] text-[#F3E5AB]">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/55 p-6 text-center text-[#FAF6EE]">
+              <p className="text-sm font-bold text-[#F3E5AB]">
                 Move Back & Stand Full-Length
               </p>
-              <div className="mt-4 flex h-32 w-32 items-center justify-center border-4 border-[#FAF6EE] bg-[#7A1428] font-serif text-7xl font-bold text-[#FAF6EE]">
+              <div className="mt-4 flex h-32 w-32 items-center justify-center border-4 border-[#FAF6EE] bg-brand tracking-tight text-7xl font-bold text-[#FAF6EE]">
                 {readyCountdown}
               </div>
               <p className="mt-4 max-w-xs text-sm text-[#FAF6EE]/90">
@@ -665,21 +664,21 @@ export default function LucyLiveMirror({
 
           {/* Idle Overlay */}
           {state === 'idle' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#161918]/85 p-8 text-center text-[#FAF6EE]">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/85 p-8 text-center text-[#FAF6EE]">
               <Tv className="h-14 w-14 text-[#FAF6EE]" />
-              <p className="mt-4 font-mono text-xs font-bold uppercase tracking-[0.22em] text-[#D8DCD7]">
+              <p className="mt-4 text-xs font-bold text-line">
                 Step 1 of 3 · Mirror Camera
               </p>
-              <h3 className="mt-2 font-serif text-3xl font-semibold">
+              <h3 className="mt-2 text-3xl font-bold">
                 Stand in Front of the Standee
               </h3>
-              <p className="mt-3 max-w-sm text-sm leading-relaxed text-[#D8DCD7]">
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-line">
                 Tap below to open the live camera preview first. Your 60-second AI session only begins when you start Step 3 and the AI stream is confirmed playing.
               </p>
               <button
                 type="button"
                 onClick={enableCameraPreview}
-                className="mt-6 inline-flex min-h-[64px] items-center gap-3 bg-[#7A1428] px-8 py-4 text-sm font-bold uppercase tracking-[0.16em] text-[#FAF6EE]"
+                className="rounded-xl mt-6 inline-flex min-h-[64px] items-center gap-3 bg-brand px-8 py-4 text-sm font-bold text-[#FAF6EE]"
               >
                 <Camera className="h-5 w-5" />
                 Open Mirror Camera
@@ -689,12 +688,12 @@ export default function LucyLiveMirror({
 
           {/* Connecting Overlay */}
           {state === 'connecting' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#161918]/75 p-8 text-center text-[#FAF6EE]">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/75 p-8 text-center text-[#FAF6EE]">
               <LoaderCircle className="h-14 w-14 animate-spin text-[#FAF6EE]" />
-              <p className="mt-4 font-serif text-2xl font-semibold">
+              <p className="mt-4 text-2xl font-bold">
                 Preparing Your Live AI Garment...
               </p>
-              <p className="mt-2 max-w-xs text-sm text-[#D8DCD7]">
+              <p className="mt-2 max-w-xs text-sm text-line">
                 Loading <strong>{selectedGarment.title}</strong>. Your 60-second countdown will begin automatically once the AI video track starts playing.
               </p>
             </div>
@@ -702,18 +701,18 @@ export default function LucyLiveMirror({
 
           {/* Honest Error Banner (Never pretends raw camera is AI mirror) */}
           {state === 'error' && error && (
-            <div className="absolute inset-x-4 bottom-24 border-2 border-[#B42318] bg-[#FEF3F2] p-4 text-[#B42318] shadow-xl">
+            <div className="rounded-2xl absolute inset-x-4 bottom-24 border border-danger bg-[#FEF3F2] p-4 text-danger shadow-xl">
               <div className="flex items-start gap-3">
                 <ShieldAlert className="mt-0.5 h-6 w-6 shrink-0" />
                 <div>
-                  <p className="font-mono text-xs font-bold uppercase tracking-[0.14em]">
+                  <p className="text-xs font-bold">
                     AI Live Stream Not Active — Showing Ordinary Camera Preview
                   </p>
-                  <p className="mt-1 text-xs leading-relaxed text-[#161918]">{error}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-ink">{error}</p>
                   <button
                     type="button"
                     onClick={beginLiveCountdownAndConnect}
-                    className="mt-3 inline-flex min-h-[48px] items-center gap-2 bg-[#7A1428] px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE]"
+                    className="rounded-xl mt-3 inline-flex min-h-[48px] items-center gap-2 bg-brand px-4 py-2 text-xs font-bold text-[#FAF6EE]"
                   >
                     <RefreshCw className="h-4 w-4" />
                     Retry 60s Live AI Stream
@@ -726,16 +725,13 @@ export default function LucyLiveMirror({
       </div>
 
       {/* Row 2: Bottom Full-Width 30-Second Controls with Big Touch Area */}
-      <section className="tv-live-controls border-2 border-[#D8DCD7] bg-white p-5 sm:p-6 shadow-sm" aria-label="Live session controls">
+      <section className="rounded-2xl tv-live-controls border border-line bg-white p-5 sm:p-6 shadow-sm" aria-label="Live session controls">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           {/* Left: 30-Second Status & Timer Progress */}
           <div className="flex-1 space-y-2.5">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <div>
-                <span className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#7A1428]">
-                  Your Session · 30 Seconds Live
-                </span>
-                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#161918]">
+                <h3 className="tracking-tight text-2xl sm:text-3xl font-bold text-ink">
                   {state === 'live'
                     ? 'AI Live Mirror Active'
                     : state === 'ready_countdown'
@@ -745,14 +741,14 @@ export default function LucyLiveMirror({
                     : '30 Seconds to See It Live'}
                 </h3>
               </div>
-              <div className="flex items-center gap-2.5 rounded border border-[#D8DCD7] bg-[#FAFBF8] px-4 py-2 font-mono text-lg font-bold text-[#161918]">
-                <span className="text-xs uppercase text-[#535A56]">Time left</span>
-                <span className="text-2xl font-black text-[#7A1428]">{secondsLeft}s</span>
+              <div className="flex items-center gap-2.5 rounded border border-line bg-canvas px-4 py-2 tabular-nums text-lg font-bold text-ink">
+                <span className="text-xs text-muted">Time left</span>
+                <span className="text-2xl font-bold text-brand">{secondsLeft}s</span>
               </div>
             </div>
 
             {/* Progress bar */}
-            <div className="h-3.5 w-full overflow-hidden rounded bg-[#ECEEE9] border border-[#D8DCD7]">
+            <div className="h-3.5 w-full overflow-hidden rounded bg-line border border-line">
               <div
                 className={`h-full transition-all duration-500 ${
                   state === 'live' ? 'bg-[#256B45]' : 'bg-[#7A1428]'
@@ -761,13 +757,13 @@ export default function LucyLiveMirror({
               />
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#535A56]">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
               <p className="font-medium">{statusMessage}</p>
               <p>You can change looks on the left during your live session.</p>
             </div>
 
             {error && (
-              <p role="alert" className="border-2 border-[#B42318] bg-[#FEF3F2] p-3 text-sm font-semibold text-[#B42318]">
+              <p role="alert" className="border border-danger bg-[#FEF3F2] p-3 text-sm font-semibold text-danger">
                 {error}
               </p>
             )}
@@ -779,7 +775,7 @@ export default function LucyLiveMirror({
               <button
                 type="button"
                 onClick={enableCameraPreview}
-                className="tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border-2 border-[#161918] bg-[#161918] px-8 text-xl font-bold uppercase tracking-wider text-white shadow-md transition hover:bg-[#2C3330] active:scale-[0.99] sm:min-w-[280px]"
+                className="rounded-xl tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border border-ink bg-ink px-8 text-xl font-bold text-white shadow-md transition hover:bg-[#2C3330] active:scale-[0.99] sm:min-w-[280px]"
               >
                 <Camera className="h-6 w-6" />
                 Open Camera
@@ -788,7 +784,7 @@ export default function LucyLiveMirror({
               <button
                 type="button"
                 onClick={() => stopSession('camera_ready')}
-                className="tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border-2 border-[#B42318] bg-[#FEF3F2] px-8 text-xl font-bold uppercase tracking-wider text-[#B42318] shadow-md transition hover:bg-[#FEE4E2] active:scale-[0.99] sm:min-w-[280px]"
+                className="tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border border-danger bg-[#FEF3F2] px-8 text-xl font-bold text-danger shadow-md transition hover:bg-[#FEE4E2] active:scale-[0.99] sm:min-w-[280px]"
               >
                 <Square className="h-6 w-6 fill-current" />
                 Stop Session
@@ -797,7 +793,7 @@ export default function LucyLiveMirror({
               <button
                 type="button"
                 onClick={beginLiveCountdownAndConnect}
-                className="tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border-2 border-[#7A1428] bg-[#7A1428] px-10 text-xl font-bold uppercase tracking-wider text-white shadow-lg transition hover:bg-[#600F1F] active:scale-[0.99] sm:min-w-[320px]"
+                className="rounded-xl tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border border-brand bg-brand px-10 text-xl font-bold text-white shadow-lg transition hover:bg-[#600F1F] active:scale-[0.99] sm:min-w-[320px]"
               >
                 <Sparkles className="h-6 w-6 text-[#F3E5AB]" />
                 Start 60s Live Mirror
@@ -809,18 +805,18 @@ export default function LucyLiveMirror({
 
       {/* 30-Second Session Completion Popup Modal */}
       {completionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#161918]/80 p-6">
-          <div className="w-full max-w-xl border-2 border-[#161918] bg-[#FAFBF8] p-8 shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-[#D8DCD7] pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-6">
+          <div className="rounded-2xl w-full max-w-xl border border-ink bg-canvas p-8 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-line pb-4">
               <div className="flex items-center gap-3">
-                <span className="flex h-12 w-12 items-center justify-center bg-[#256B45] text-white">
+                <span className="flex h-12 w-12 items-center justify-center bg-success text-white">
                   <CheckCircle2 className="h-6 w-6" />
                 </span>
                 <div>
-                  <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#256B45]">
+                  <p className="text-xs font-bold text-success">
                     30-Second Live Session Completed
                   </p>
-                  <h3 className="mt-1 font-serif text-3xl font-semibold text-[#161918]">
+                  <h3 className="mt-1 text-3xl font-bold text-ink">
                     Loved How {selectedGarment.title} Looked?
                   </h3>
                 </div>
@@ -828,14 +824,14 @@ export default function LucyLiveMirror({
               <button
                 type="button"
                 onClick={() => setCompletionModalOpen(false)}
-                className="flex h-12 w-12 items-center justify-center border border-[#D8DCD7] bg-white text-[#161918]"
+                className="flex h-12 w-12 items-center justify-center border border-line bg-white text-ink"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="mt-6 grid gap-6 sm:grid-cols-[200px_1fr] sm:items-center">
-              <div className="flex flex-col items-center border border-[#D8DCD7] bg-white p-3">
+              <div className="rounded-2xl flex flex-col items-center border border-line bg-white p-3">
                 {qrDataUrl ? (
                   <img
                     src={qrDataUrl}
@@ -843,15 +839,15 @@ export default function LucyLiveMirror({
                     className="h-40 w-40 object-contain"
                   />
                 ) : (
-                  <QrCode className="h-24 w-24 text-[#161918]" />
+                  <QrCode className="h-24 w-24 text-ink" />
                 )}
-                <span className="mt-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#7A1428]">
+                <span className="mt-2 text-xs font-bold text-brand">
                   Scan to Save Outfit
                 </span>
               </div>
 
               <div className="space-y-4">
-                <p className="text-sm leading-relaxed text-[#535A56]">
+                <p className="text-sm leading-relaxed text-muted">
                   Your live session has finished. Scan the QR to save{' '}
                   <strong>{selectedGarment.title}</strong> ({formatINR(selectedGarment.price)}) on your phone, or start another 60-second live session.
                 </p>
@@ -860,7 +856,7 @@ export default function LucyLiveMirror({
                   <button
                     type="button"
                     onClick={beginLiveCountdownAndConnect}
-                    className="inline-flex min-h-[56px] items-center gap-2 bg-[#7A1428] px-6 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE]"
+                    className="rounded-xl inline-flex min-h-[56px] items-center gap-2 bg-brand px-6 py-3 text-xs font-bold text-[#FAF6EE]"
                   >
                     <RefreshCw className="h-4 w-4" />
                     Start Another 60s Live Session
@@ -868,7 +864,7 @@ export default function LucyLiveMirror({
                   <button
                     type="button"
                     onClick={() => setCompletionModalOpen(false)}
-                    className="inline-flex min-h-[56px] items-center gap-2 border border-[#161918] bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#161918]"
+                    className="inline-flex min-h-[56px] items-center gap-2 border border-ink bg-white px-5 py-3 text-xs font-bold text-ink"
                   >
                     Back to Mirror
                   </button>

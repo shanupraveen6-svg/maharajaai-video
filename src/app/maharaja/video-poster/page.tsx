@@ -41,16 +41,15 @@ function PosterEntry() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-5 py-10 text-[#161918]">
-      <section className="w-full max-w-md border border-[#D8DCD7] bg-white p-7 shadow-sm">
-        <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">TryFocus · AI Fashion Video</p>
-        <h1 className="mt-4 font-serif text-4xl font-semibold">Create your AI fashion video</h1>
-        <p className="mt-4 text-base leading-relaxed text-[#535A56]">Use your own garment and photo to create a Diwali portrait, then generate your video privately on this phone. Your session lasts 24 hours.</p>
+    <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-5 py-10 text-ink">
+      <section className="rounded-2xl w-full max-w-md border border-line bg-white p-7 shadow-sm">
+        <h1 className="mt-4 text-4xl font-bold">Create your AI fashion video</h1>
+        <p className="mt-4 text-base leading-relaxed text-muted">Use your own garment and photo to create a Diwali portrait, then generate your video privately on this phone. Your session lasts 24 hours.</p>
         {error && <p role="alert" className="mt-5 border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-        <button type="button" disabled={!code || busy} onClick={start} className="mt-7 min-h-14 w-full bg-[#7A1428] px-5 text-base font-bold text-white disabled:opacity-50">
+        <button type="button" disabled={!code || busy} onClick={start} className="rounded-xl mt-7 min-h-14 w-full bg-brand px-5 text-base font-bold text-white disabled:opacity-50">
           {busy ? 'Opening your private session…' : 'Start my video'}
         </button>
-        <p className="mt-4 text-center text-xs text-[#535A56]">Show this QR only when the store offers the video experience.</p>
+        <p className="mt-4 text-center text-xs text-muted">Show this QR only when the store offers the video experience.</p>
       </section>
     </main>
   );

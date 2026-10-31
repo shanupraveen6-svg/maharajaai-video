@@ -51,20 +51,20 @@ export default function LockedAmountField({
             disabled={disabled || locked}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            className="min-h-10 w-28 border border-[#D8DCD7] bg-white px-2 text-right font-mono font-bold text-[#7A1428] outline-none focus:border-[#7A1428] disabled:bg-[#F4F5F2]"
+            className="min-h-10 w-28 border border-line bg-white px-2 text-right tabular-nums font-bold text-brand outline-none focus:border-brand disabled:bg-[#F4F5F2]"
           />
           <button
             type="button"
             disabled={disabled || locked || amount === value}
             onClick={() => void save()}
-            className="min-h-10 bg-[#161918] px-3 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-40"
+            className="min-h-10 bg-ink px-3 text-xs font-bold text-white disabled:opacity-40"
           >
             Save
           </button>
         </div>
       </div>
       {locked && (
-        <p className="flex items-center justify-end gap-1 text-xs text-[#535A56]">
+        <p className="flex items-center justify-end gap-1 text-xs text-muted">
           <Lock className="h-3 w-3" />
           Locked until {new Date(lockedUntil!).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
         </p>

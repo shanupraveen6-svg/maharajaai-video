@@ -149,19 +149,16 @@ export default function PrivateLooksPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+    <main className="min-h-screen bg-[#F4F5F2] text-ink">
       {/* Header with Contextual Retry Button */}
-      <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-line bg-[#F4F5F2]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
+            <span className="flex h-8 w-8 items-center justify-center border border-ink bg-ink tabular-nums text-xs font-bold text-[#FAF6EE]">
               TF
             </span>
             <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#7A1428]">
-                TryFocus
-              </p>
-              <h1 className="font-serif text-base font-semibold leading-none text-[#161918]">
+              <h1 className="text-base font-bold leading-none text-ink">
                 Your Private Looks
               </h1>
             </div>
@@ -170,9 +167,9 @@ export default function PrivateLooksPage() {
           <button
             type="button"
             onClick={() => setShowRetryImageModal(true)}
-            className="inline-flex min-h-11 items-center gap-1.5 border border-[#161918] bg-white px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider text-[#161918] shadow-sm transition hover:bg-[#FAF6EE] active:scale-95"
+            className="inline-flex min-h-11 items-center gap-1.5 border border-ink bg-white px-3 py-1 text-xs font-bold text-ink shadow-sm transition hover:bg-[#FAF6EE] active:scale-95"
           >
-            <RotateCcw className="h-3.5 w-3.5 text-[#7A1428]" />
+            <RotateCcw className="h-3.5 w-3.5 text-brand" />
             Retry Image
           </button>
         </div>
@@ -182,20 +179,20 @@ export default function PrivateLooksPage() {
       <div className="mx-auto max-w-xl px-4 py-6 sm:px-6">
         {loading && (
           <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
-            <LoaderCircle className="h-10 w-10 animate-spin text-[#7A1428]" />
-            <p className="mt-4 font-serif text-lg">Opening your private looks…</p>
+            <LoaderCircle className="h-10 w-10 animate-spin text-brand" />
+            <p className="mt-4 tracking-tight text-lg">Opening your private looks…</p>
           </div>
         )}
 
         {error && !loading && (
-          <div className="border border-[#B42318] bg-white p-6 text-center shadow-sm">
-            <AlertCircle className="mx-auto h-10 w-10 text-[#B42318]" />
-            <h2 className="mt-3 font-serif text-xl font-bold text-[#161918]">Look Unavailable</h2>
-            <p className="mt-2 text-sm text-[#535A56]">{error}</p>
+          <div className="rounded-2xl border border-danger bg-white p-6 text-center shadow-sm">
+            <AlertCircle className="mx-auto h-10 w-10 text-danger" />
+            <h2 className="mt-3 tracking-tight text-xl font-bold text-ink">Look Unavailable</h2>
+            <p className="mt-2 text-sm text-muted">{error}</p>
             <button
               type="button"
               onClick={fetchLooks}
-              className="mt-5 inline-flex min-h-11 items-center justify-center border border-[#161918] bg-white px-5 text-sm font-semibold text-[#161918] hover:bg-[#F4F5F2]"
+              className="rounded-xl mt-5 inline-flex min-h-11 items-center justify-center border border-ink bg-white px-5 text-sm font-semibold text-ink hover:bg-[#F4F5F2]"
             >
               Check Again
             </button>
@@ -206,7 +203,7 @@ export default function PrivateLooksPage() {
           <>
             <div>
                 {/* Honest download messaging */}
-                <div className="mb-4 flex items-center justify-between border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs text-[#535A56]">
+                <div className="rounded-2xl mb-4 flex items-center justify-between border border-line bg-canvas px-3.5 py-2 text-xs text-muted">
                   <span className="flex items-center gap-1.5 font-medium text-emerald-800">
                     <CheckCircle2 className="h-4 w-4" />
                     Auto-download attempted · Tap button below if not saved
@@ -214,16 +211,16 @@ export default function PrivateLooksPage() {
                   <button
                     type="button"
                     onClick={() => downloadAsset(current.downloadUrl, `tryfocus-${current.sku || 'look'}.jpg`)}
-                    className="flex min-h-11 shrink-0 items-center pl-3 font-mono font-bold uppercase tracking-wider text-[#7A1428] underline underline-offset-2"
+                    className="flex min-h-11 shrink-0 items-center pl-3 font-bold text-brand underline underline-offset-2"
                   >
                     Save look
                   </button>
                 </div>
 
                 {/* 9:16 Vertical Try-On Result Card */}
-                <div className="relative overflow-hidden border-2 border-[#161918] bg-[#161918] shadow-md">
+                <div className="relative overflow-hidden border border-ink bg-ink shadow-md">
                   <div className="absolute left-3 top-3 z-10">
-                    <span className="border border-[#7A1428]/40 bg-[#7A1428] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                    <span className="border border-brand/40 bg-brand px-2.5 py-1 text-xs font-bold text-white shadow-sm">
                       AI Virtual Try-On
                     </span>
                   </div>
@@ -236,27 +233,27 @@ export default function PrivateLooksPage() {
 
                 {/* Carousel Controls (if multi-looks present) */}
                 {looks.length > 1 && (
-                  <div className="mt-4 flex items-center justify-between gap-3 border border-[#D8DCD7] bg-white p-3 shadow-sm">
+                  <div className="rounded-2xl mt-4 flex items-center justify-between gap-3 border border-line bg-white p-3 shadow-sm">
                     <button
                       type="button"
                       onClick={() =>
                         setActive((index) => (index - 1 + looks.length) % looks.length)
                       }
-                      className="flex h-11 w-11 items-center justify-center border border-[#161918] bg-white text-lg font-semibold hover:bg-[#F4F5F2] active:scale-95"
+                      className="flex h-11 w-11 items-center justify-center border border-ink bg-white text-lg font-semibold hover:bg-[#F4F5F2] active:scale-95"
                       aria-label="Previous look"
                     >
                       <ArrowLeft className="h-5 w-5" />
                     </button>
                     <div className="min-w-0 text-center">
-                      <p className="truncate font-serif text-base font-semibold">{current.title}</p>
-                      <p className="font-mono text-xs text-[#535A56]">
+                      <p className="truncate text-base font-bold">{current.title}</p>
+                      <p className="tabular-nums text-xs text-muted">
                         Look {active + 1} of {looks.length}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setActive((index) => (index + 1) % looks.length)}
-                      className="flex h-11 w-11 items-center justify-center border border-[#161918] bg-white text-lg font-semibold hover:bg-[#F4F5F2] active:scale-95"
+                      className="flex h-11 w-11 items-center justify-center border border-ink bg-white text-lg font-semibold hover:bg-[#F4F5F2] active:scale-95"
                       aria-label="Next look"
                     >
                       <ArrowRight className="h-5 w-5" />
@@ -267,11 +264,11 @@ export default function PrivateLooksPage() {
                 {/* Single Look Title */}
                 {looks.length <= 1 && (
                   <div className="mt-3 text-center">
-                    <h2 className="font-serif text-xl font-semibold text-[#161918]">
+                    <h2 className="text-xl font-bold text-ink">
                       {current.title}
                     </h2>
                     {current.sku && !current.sku.startsWith('OWN-') && (
-                      <p className="font-mono text-xs uppercase tracking-wider text-[#535A56]">
+                      <p className="text-xs text-muted">
                         SKU: {current.sku}
                       </p>
                     )}
@@ -279,12 +276,12 @@ export default function PrivateLooksPage() {
                 )}
 
                 {videoError && (
-                  <p role="alert" className="mt-4 border border-[#B42318] bg-white p-4 text-sm font-semibold text-[#B42318]">{videoError}</p>
+                  <p role="alert" className="mt-4 border border-danger bg-white p-4 text-sm font-semibold text-danger">{videoError}</p>
                 )}
 
                 <div className="mt-5 space-y-3">
                     {videoOff ? null : current.videoAvailable === false ? (
-                      <p className="border border-[#D8DCD7] bg-[#FAFBF8] p-4 text-center text-sm text-[#535A56]">
+                      <p className="border border-line bg-canvas p-4 text-center text-sm text-muted">
                         Catalogue festival videos are made on the store TV. Ask our staff to create yours there.
                       </p>
                     ) : (<>
@@ -292,12 +289,12 @@ export default function PrivateLooksPage() {
                       type="button"
                       disabled={videoStarting}
                       onClick={() => void startFestivalVideo()}
-                      className="flex min-h-16 w-full items-center justify-center gap-2.5 border border-[#7A1428] bg-[#7A1428] px-6 text-center text-lg font-bold text-white shadow-md transition hover:bg-[#600f1f] active:scale-[0.99] disabled:opacity-60"
+                      className="flex min-h-16 w-full items-center justify-center gap-2.5 border border-brand bg-brand px-6 text-center text-lg font-bold text-white shadow-md transition hover:bg-[#600f1f] active:scale-[0.99] disabled:opacity-60"
                     >
                       {videoStarting ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />}
                       {videoStarting ? 'Opening your video studio…' : 'Create my festival video'}
                     </button>
-                    <p className="text-center text-xs text-[#535A56]">
+                    <p className="text-center text-xs text-muted">
                       Valid for 24 hours on this phone · Showing it on the store TV is optional
                     </p>
                     </>)}
@@ -307,7 +304,7 @@ export default function PrivateLooksPage() {
                       type="button"
                       disabled={downloadingManual}
                       onClick={() => downloadAsset(current.downloadUrl, `tryfocus-${(current.sku || 'look').toLowerCase()}.jpg`)}
-                      className="flex min-h-12 w-full items-center justify-center gap-2 border border-[#161918] bg-white px-5 text-sm font-semibold text-[#161918] transition hover:bg-[#F4F5F2]"
+                      className="flex min-h-12 w-full items-center justify-center gap-2 border border-ink bg-white px-5 text-sm font-semibold text-ink transition hover:bg-[#F4F5F2]"
                     >
                       <Download className="h-4 w-4" />
                       {downloadingManual ? 'Saving Image…' : 'Save Try-On Image (.jpg)'}
@@ -317,7 +314,7 @@ export default function PrivateLooksPage() {
 
             {/* Expiry and Privacy Note */}
             {expiresAt && (
-              <p className="mt-6 flex items-center justify-center gap-1.5 text-center font-mono text-xs text-[#535A56]">
+              <p className="mt-6 flex items-center justify-center gap-1.5 text-center tabular-nums text-xs text-muted">
                 <Clock className="h-3.5 w-3.5" />
                 This private look link expires at{' '}
                 {new Date(expiresAt).toLocaleTimeString('en-IN', {
@@ -334,21 +331,21 @@ export default function PrivateLooksPage() {
       {/* "Retry Image" Modal Dialog */}
       {showRetryImageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm border-2 border-[#161918] bg-white p-6 shadow-2xl">
+          <div className="rounded-2xl w-full max-w-sm border border-ink bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2 text-[#7A1428]">
+              <div className="flex items-center gap-2 text-brand">
                 <RotateCcw className="h-5 w-5" />
-                <h3 className="font-serif text-lg font-bold text-[#161918]">Retake or Change Garment</h3>
+                <h3 className="tracking-tight text-lg font-bold text-ink">Retake or Change Garment</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowRetryImageModal(false)}
-                className="p-1 text-[#535A56] hover:text-[#161918]"
+                className="p-1 text-muted hover:text-ink"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <p className="mt-3 text-sm text-[#535A56]">
+            <p className="mt-3 text-sm text-muted">
               To capture a new photo or select different garments from the store collection,
               please step to the showroom 43&quot; TV kiosk or counter tablet.
             </p>
@@ -359,14 +356,14 @@ export default function PrivateLooksPage() {
                   setShowRetryImageModal(false);
                   fetchLooks();
                 }}
-                className="min-h-11 border border-[#161918] bg-[#161918] px-4 font-mono text-xs font-bold uppercase tracking-wider text-white hover:bg-[#2A2E2C]"
+                className="min-h-11 border border-ink bg-ink px-4 text-xs font-bold text-white hover:bg-[#2A2E2C]"
               >
                 Refresh Current Looks
               </button>
               <button
                 type="button"
                 onClick={() => setShowRetryImageModal(false)}
-                className="min-h-11 border border-[#D8DCD7] bg-white px-4 font-mono text-xs font-bold uppercase tracking-wider text-[#535A56] hover:bg-[#F4F5F2]"
+                className="min-h-11 border border-line bg-white px-4 text-xs font-bold text-muted hover:bg-[#F4F5F2]"
               >
                 Close
               </button>

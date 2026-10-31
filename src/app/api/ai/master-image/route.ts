@@ -155,7 +155,8 @@ export async function POST(req: NextRequest) {
       }
     }
     const rateIdentity = access.pass?.code || (typeof body.deviceId === 'string' ? body.deviceId : sessionId);
-    const rate = await enforceRateLimit(req, `master-image:${service}`, 4, 10 * 60 * 1000, rateIdentity);
+    // A shopper commonly tries five or more looks in one visit; video masters stay tighter.
+    const rate = await enforceRateLimit(req, `master-image:${service}`, service === 'try-on' ? 12 : 4, 10 * 60 * 1000, rateIdentity);
     if (!rate.allowed) {
       return NextResponse.json({ success: false, error: 'Image generation is temporarily limited for this customer. Please wait and try again.' }, {
         status: 429,

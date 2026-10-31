@@ -23,6 +23,7 @@ import {
   Phone,
 } from 'lucide-react';
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
+import { StatusPill } from '@/components/ui';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
 import {
   catalogueCategories,
@@ -142,6 +143,7 @@ export default function MaharajaAdminDashboard({
   const activeWorkspaceCode = workspaceCode || expectedWorkspaceCode || 'workspace';
   const router = useRouter();
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
+  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'golive'>('overview');
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -519,29 +521,26 @@ export default function MaharajaAdminDashboard({
 
   if (loading && !workspace) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] text-[#161918]">
-        <LoaderCircle className="h-8 w-8 animate-spin text-[#7A1428]" />
+      <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] text-ink">
+        <LoaderCircle className="h-8 w-8 animate-spin text-brand" />
       </main>
     );
   }
 
   if (authRequired) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-[#161918]">
-        <div className="max-w-md border border-[#D8DCD7] bg-[#FAFBF8] p-8 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#7A1428]">
-            Maharaja client area
-          </p>
-          <h1 className="mt-2 font-serif text-3xl font-semibold">
+      <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-ink">
+        <div className="rounded-2xl max-w-md border border-line bg-canvas p-8 text-center">
+          <h1 className="mt-2 text-3xl font-bold">
             Sign in to manage your store
           </h1>
-          <p className="mt-3 text-sm text-[#535A56]">
+          <p className="mt-3 text-sm text-muted">
             Access devices, QR handoffs, catalogue publishing, campaigns and the video library from one private workspace.
           </p>
           <button
             type="button"
             onClick={() => router.push(`/login?next=/maharaja/${activeWorkspaceCode}`)}
-            className="mt-6 bg-[#7A1428] px-5 py-3 text-xs font-bold uppercase tracking-[0.15em] text-[#FAF6EE]"
+            className="mt-6 bg-brand px-5 py-3 text-xs font-bold text-[#FAF6EE]"
           >
             Sign in
           </button>
@@ -559,15 +558,12 @@ export default function MaharajaAdminDashboard({
 
   if (!workspace || !isValidWorkspace) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-[#161918]">
-        <div className="max-w-md border border-[#D8DCD7] bg-[#FAFBF8] p-8 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#7A1428]">
-            Invalid Link
-          </p>
-          <h1 className="mt-2 font-serif text-3xl font-semibold">
+      <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-ink">
+        <div className="rounded-2xl max-w-md border border-line bg-canvas p-8 text-center">
+          <h1 className="mt-2 text-3xl font-bold">
             Workspace Not Found
           </h1>
-          <p className="mt-3 text-sm text-[#535A56]">
+          <p className="mt-3 text-sm text-muted">
             Check the workspace URL with your TryFocus administrator.
           </p>
         </div>
@@ -597,281 +593,124 @@ export default function MaharajaAdminDashboard({
   const creditAlerts = credits.filter((item) => item.level !== 'ok' && item.level !== 'none');
 
   return (
-    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
+    <main className="min-h-screen bg-canvas text-ink">
       {creditAlerts.length > 0 && (
-        <div role="alert" className="border-b border-[#B42318]/40 bg-[#FEF3F2] px-5 py-3 text-sm text-[#7A271A] sm:px-8">
-          <div className="mx-auto max-w-7xl space-y-0.5">
-            {creditAlerts.map((item) => <p key={item.label} className="font-semibold">{creditWarningText(item)}</p>)}
-            <p className="text-xs">To add credits, contact TryFocus: <a href="tel:9994837342" className="font-bold underline underline-offset-4">9994837342</a></p>
+        <div role="alert" className="border-b border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger sm:px-8">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
+            <div>{creditAlerts.map((item) => <p key={item.label} className="font-semibold">{creditWarningText(item)}</p>)}</div>
+            <a href="tel:9994837342" className="inline-flex items-center gap-1.5 font-semibold underline underline-offset-4"><Phone className="h-4 w-4" /> Add credits: 9994837342</a>
           </div>
         </div>
       )}
-      {/* Unified TryFocus Top Header — Shows ONLY Subscribed Surfaces */}
-      <header className="border-b border-[#D8DCD7] bg-[#F4F5F2]/95">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
-              TF
-            </span>
-            <div>
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                TryFocus Client Workspace · {workspace.branch || 'Thanjavur'}
-              </p>
-              <h1 className="font-serif text-2xl font-semibold text-[#161918]">
-                {workspace.clientName}
-              </h1>
+      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 pt-4 sm:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{workspace.clientName.replace(/^The\s+/i, '').charAt(0)}</span>
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-bold">{workspace.clientName}</h1>
+              <p className="text-sm text-muted">{workspace.branch || 'Main showroom'} · Store workspace</p>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {devices.tv && (
-              <Link
-                href="/maharaja/tv/experience"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
-              >
-                Interactive TV Kiosk
-              </Link>
-            )}
-            {devices.tablet && (
-              <Link
-                href="/maharaja/tablet/experience"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
-              >
-                Staff Tablet
-              </Link>
-            )}
-            {devices.led && (
-              <Link
-                href={workspace.links.tv}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="border border-[#D8DCD7] bg-[#FAFBF8] px-3.5 py-2 text-xs font-semibold text-[#161918] hover:border-[#161918]"
-              >
-                Showroom TV Wall
-              </Link>
-            )}
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => savePatch({ campaignEnabled: !workspace.campaignEnabled })}
-              className={`px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] transition ${
-                workspace.campaignEnabled
-                  ? 'bg-[#256B45] text-white'
-                  : 'border border-[#D8DCD7] bg-white text-[#535A56]'
-              }`}
-            >
-              {workspace.campaignEnabled ? 'Campaign Active' : 'Campaign Paused'}
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => savePatch({ campaignEnabled: !workspace.campaignEnabled })}
+            className={`inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold transition ${workspace.campaignEnabled ? 'bg-success-soft text-success' : 'bg-line text-muted'}`}
+            title={workspace.campaignEnabled ? 'Tap to pause all customer experiences' : 'Tap to turn customer experiences back on'}
+          >
+            <span className={`h-2 w-2 rounded-full ${workspace.campaignEnabled ? 'bg-success' : 'bg-subtle'}`} />
+            {workspace.campaignEnabled ? 'Live for customers' : 'Paused'}
+          </button>
         </div>
+        <nav className="mx-auto mt-3 flex max-w-6xl gap-1 overflow-x-auto px-5 [scrollbar-width:none] sm:px-8" aria-label="Workspace sections">
+          {([['overview', 'Overview'], ['catalogue', 'Catalogue'], ['qr', 'QR codes'], ['golive', 'Go Live & videos']] as const).map(([key, label]) => (
+            <button key={key} type="button" aria-current={section === key ? 'page' : undefined} onClick={() => setSection(key)} className={`shrink-0 rounded-none border-b-2 px-3 pb-3 pt-1 text-[15px] font-semibold transition ${section === key ? 'border-brand text-ink' : 'border-transparent text-muted hover:text-ink'}`}>
+              {label}
+            </button>
+          ))}
+        </nav>
       </header>
 
-      <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
+      <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 sm:px-8">
         {(error || notice) && (
-          <div
-            className={`border p-4 text-sm font-medium ${
-              error
-                ? 'border-[#B42318] bg-[#FEF3F2] text-[#B42318]'
-                : 'border-[#256B45] bg-[#EBF5EE] text-[#256B45]'
-            }`}
-          >
+          <div className={`rounded-2xl p-4 text-sm font-medium ${error ? 'bg-danger-soft text-danger' : 'bg-success-soft text-success'}`}>
             {error || notice}
           </div>
         )}
 
-        {/* Subscribed Store Surfaces & Credit Usage Monitor (Task 10) */}
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="border border-[#D8DCD7] bg-white p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D8DCD7] pb-4">
-              <div>
-                <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                  Subscribed Store Surfaces
-                </p>
-                <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                  Active Hardware & Customer Touchpoints
-                </h2>
-              </div>
-              <span className="border border-[#256B45] bg-[#EBF5EE] px-3 py-1 font-mono text-[11px] font-bold uppercase text-[#256B45]">
-                {Object.values(devices).filter(Boolean).length} Surfaces Subscribed
-              </span>
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {(
-                [
-                  [
-                    'tv',
-                    '43" Portrait TV Kiosk',
-                    '/maharaja/tv/experience',
-                    'AI Image Try-On, 60s Live Mirror & Diwali Catalogue Video',
-                    Tv,
-                  ],
-                  [
-                    'tablet',
-                    'Counter Billing Tablet',
-                    '/maharaja/tablet/experience',
-                    'Staff-issued 1-day Purchased Garment & Giveaway passes',
-                    Tablet,
-                  ],
-                  [
-                    'mobile',
-                    'Customer Mobile Continuation',
-                    workspace.links.tryOn,
-                    'Private Try-On scan, 1-day AI Video pass & Download',
-                    Smartphone,
-                  ],
-                  [
-                    'led',
-                    'Showroom TV Wall Display',
-                    workspace.links.tv,
-                    'Plays customer-approved Go Live videos & showcase loop',
-                    Monitor,
-                  ],
-                ] as const
-              )
-                .filter(([key]) => devices[key])
-                .map(([key, title, href, desc, Icon]) => (
-                  <div
-                    key={key}
-                    className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#7A1428] text-white">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="font-serif text-base font-semibold text-[#161918]">
-                          {title}
-                        </p>
-                        <p className="mt-1 text-xs text-[#535A56]">{desc}</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between border-t border-[#D8DCD7] pt-2.5 text-xs">
-                      <span className="font-mono text-[10px] font-bold uppercase text-[#256B45]">
-                        ● Online & Subscribed
-                      </span>
-                      <Link
-                        href={href}
-                        target="_blank"
-                        className="inline-flex items-center gap-1 font-mono font-bold text-[#7A1428]"
-                      >
-                        Open
-                        <ExternalLink className="h-3 w-3" />
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* Credit Usage & Store Policy Switches */}
-          <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-            <div>
-              <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                Plan Credits & Store Policy Controls
-              </p>
-              <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                Live Allowance & Rules
-              </h2>
-
-              <div className="mt-4 space-y-3">
-                {credits.filter((item) => item.level !== 'none').map(({ label, used, limit, pct, level }) => (
-                  <div key={label} className="border border-[#D8DCD7] bg-white p-3">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span>{label}</span>
-                      <span className="font-mono text-[#535A56]">
-                        {used.toLocaleString('en-IN')} / {limit.toLocaleString('en-IN')} ({pct}%)
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden bg-[#ECEEE9]">
-                      <div className={`h-full ${CREDIT_BAR_COLOURS[level]}`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-2 border-t border-[#D8DCD7] pt-4 text-xs">
-              {limits.image > 0 && (
-                <LockedAmountField
-                  key={`tryon-${minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}`}
-                  id="tryon-min-purchase"
-                  label="Mobile Try-On price tag from (₹)"
-                  hint="0 = no tag scan"
-                  value={minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}
-                  lockedUntil={workspace.minimumsLockedUntil?.tryOn}
-                  disabled={saving}
-                  onSave={(value) => savePatch({ tryOnMinPurchase: value })}
-                />
-              )}
-              {devices.tv && limits.video > 0 && (
-                <p className="text-xs text-[#535A56]">TV asks for the bill&apos;s last 4 digits and a fresh photo whenever an AI Video minimum is set.</p>
-              )}
-              {limits.video > 0 && (
-                <LockedAmountField
-                  key={`video-${workspace.videoMinPurchase ?? 5000}`}
-                  id="video-min-purchase"
-                  label="AI Video QR from bill (₹)"
-                  hint="0 = every bill"
-                  value={workspace.videoMinPurchase ?? 5000}
-                  lockedUntil={workspace.minimumsLockedUntil?.video}
-                  disabled={saving}
-                  onSave={(value) => savePatch({ videoMinPurchase: value })}
-                />
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-[#535A56]">WhatsApp Link Delivery:</span>
-                {whatsappConnected ? (
-                  <span className="font-mono font-bold text-[#256B45]">CONNECTED BY TRYFOCUS</span>
-                ) : (
-                  <a href="tel:9994837342" className="flex min-h-10 items-center gap-1.5 bg-[#256B45] px-3 text-xs font-bold uppercase tracking-wider text-white">
-                    <Phone className="h-3.5 w-3.5" /> Contact: 9994837342
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Metrics Row */}
+        {section === 'overview' && <>
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {[
-            ['Total QR Scans', totalScans],
-            ['AI Image Try-Ons', workspace.usage.tryOnGenerated],
-            ['AI Video Passes', workspace.usage.videoPasses],
-            ['AI Videos Rendered', workspace.usage.videosGenerated],
-            ['Go Live Queued', workspace.usage.goLive],
+            ['QR scans', totalScans],
+            ['Try-On looks', workspace.usage.tryOnGenerated],
+            ['Video passes', workspace.usage.videoPasses],
+            ['Videos made', workspace.usage.videosGenerated],
+            ['Go Live plays', workspace.usage.goLive],
             ['Downloads', workspace.usage.downloads],
           ].map(([label, value]) => (
-            <div key={String(label)} className="border border-[#D8DCD7] bg-[#FAFBF8] p-4">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#535A56]">
-                {label}
-              </p>
-              <p className="mt-2 font-serif text-3xl font-semibold text-[#161918]">{value}</p>
+            <div key={String(label)} className="tf-card p-4">
+              <p className="text-[13px] font-medium text-muted">{label}</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums">{Number(value || 0).toLocaleString('en-IN')}</p>
             </div>
           ))}
         </section>
 
-        {/* Active Festival Selector */}
-        <section className="border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+        <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+          <div className="tf-card p-6">
+            <h2 className="text-lg font-bold">Credits left</h2>
+            <p className="mt-1 text-sm text-muted">Your plan’s allowance for each experience.</p>
+            <div className="mt-5 space-y-5">
+              {credits.filter((item) => item.level !== 'none').map(({ label, used, limit, pct, level }) => (
+                <div key={label}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-semibold">{label}</span>
+                    <span className="text-sm text-muted"><b className="text-ink tabular-nums">{Math.max(0, limit - used).toLocaleString('en-IN')}</b> of {limit.toLocaleString('en-IN')} left</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-line">
+                    <div className={`h-full rounded-full ${CREDIT_BAR_COLOURS[level]}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="tf-card p-6">
+            <h2 className="text-lg font-bold">Your screens</h2>
+            <p className="mt-1 text-sm text-muted">Open a screen on the device it runs on.</p>
+            <ul className="mt-4 divide-y divide-line">
+              {(
+                [
+                  ['tv', 'Portrait TV', '/maharaja/tv/experience', 'Try-On, Live Mirror and AI Video', Tv],
+                  ['tablet', 'Counter tablet', '/maharaja/tablet/experience', 'Try-On for staff and AI Video QRs', Tablet],
+                  ['mobile', 'Customer phone', workspace.links.tryOn, 'Try-On from the permanent QR', Smartphone],
+                  ['led', 'Go Live player', workspace.links.tv, 'Plays customer videos on any screen', Monitor],
+                ] as const
+              )
+                .filter(([key]) => devices[key])
+                .map(([key, title, href, desc, Icon]) => (
+                  <li key={key} className="flex items-center gap-3 py-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand"><Icon className="h-5 w-5" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold">{title}</span>
+                      <span className="block truncate text-sm text-muted">{desc}</span>
+                    </span>
+                    <Link href={href} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-secondary !min-h-10 shrink-0 px-3 text-sm">
+                      Open <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="tf-card p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                Active Storefront Theme
-              </p>
-              <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                Festival Scene: {currentEvent.label}
-              </h2>
+              <h2 className="text-lg font-bold">Festival theme</h2>
+              <p className="mt-1 text-sm text-muted">Sets the scene for AI videos. Now showing: <b className="text-ink">{currentEvent.label}</b></p>
             </div>
-            <span className="border border-[#D8DCD7] bg-white px-3 py-1.5 font-mono text-xs text-[#535A56]">
-              Diwali Production Ready · Other Themes Planned
-            </span>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mt-4 flex flex-wrap gap-2">
             {EVENT_OPTIONS.map((ev) => {
               const selected = workspace.defaultEvent === ev.id;
               const isDiwali = ev.id === 'diwali';
@@ -881,36 +720,66 @@ export default function MaharajaAdminDashboard({
                   type="button"
                   disabled={saving || !isDiwali}
                   onClick={() => selectDefaultEvent(ev.id)}
-                  className={`border px-3 py-3 text-left transition ${
-                    selected
-                      ? 'border-[#7A1428] bg-[#7A1428] text-[#FAF6EE]'
-                      : isDiwali
-                        ? 'border-[#D8DCD7] bg-white text-[#161918] hover:border-[#161918]'
-                        : 'border-[#D8DCD7] bg-white/60 text-[#535A56] opacity-55'
-                  }`}
+                  className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : isDiwali ? 'border border-line bg-white hover:border-ink' : 'border border-dashed border-line text-subtle'}`}
                 >
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] opacity-80">
-                    {selected ? 'Active' : isDiwali ? 'Select' : 'Soon'}
-                  </p>
-                  <p className="mt-0.5 font-serif text-base font-semibold">{ev.label}</p>
+                  {ev.label}{!isDiwali && <span className="ml-1.5 text-xs font-medium">Soon</span>}
                 </button>
               );
             })}
           </div>
         </section>
+        </>}
 
+        {section === 'qr' && (
+          <section className="tf-card p-6">
+            <h2 className="text-lg font-bold">QR rules</h2>
+            <p className="mt-1 text-sm text-muted">Who gets a QR at the counter. You can change a minimum once it unlocks.</p>
+            <div className="mt-4 space-y-3 text-sm">
+              {limits.image > 0 && (
+                <LockedAmountField
+                  key={`tryon-${minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}`}
+                  id="tryon-min-purchase"
+                  label="Phone Try-On needs a price tag from (₹)"
+                  hint="0 = no tag scan"
+                  value={minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}
+                  lockedUntil={workspace.minimumsLockedUntil?.tryOn}
+                  disabled={saving}
+                  onSave={(value) => savePatch({ tryOnMinPurchase: value })}
+                />
+              )}
+              {limits.video > 0 && (
+                <LockedAmountField
+                  key={`video-${workspace.videoMinPurchase ?? 5000}`}
+                  id="video-min-purchase"
+                  label="AI Video QR for bills from (₹)"
+                  hint="0 = every bill"
+                  value={workspace.videoMinPurchase ?? 5000}
+                  lockedUntil={workspace.minimumsLockedUntil?.video}
+                  disabled={saving}
+                  onSave={(value) => savePatch({ videoMinPurchase: value })}
+                />
+              )}
+              {devices.tv && limits.video > 0 && <p className="text-muted">With a minimum set, the TV asks for the bill’s last 4 digits and a fresh photo.</p>}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+                <span className="text-muted">Send links on WhatsApp</span>
+                {whatsappConnected
+                  ? <StatusPill tone="success">Connected</StatusPill>
+                  : <a href="tel:9994837342" className="inline-flex items-center gap-1.5 font-semibold text-brand underline underline-offset-4"><Phone className="h-4 w-4" /> Ask TryFocus: 9994837342</a>}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {section === 'catalogue' && <>
         {/* =========================================================
             TASK 8: RETAILER CATALOGUE MANAGEMENT (Upload Catalogue for Image Try-On & AI Video)
            ========================================================= */}
-        <section className="border border-[#D8DCD7] bg-white p-6">
-          <div className="border-b border-[#D8DCD7] pb-4">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-              Store Catalogue Management · Syncs Immediately With TV Standee & Counter Tablet
-            </p>
-            <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-              Manage & Upload Store Catalogue ({catalogue.filter((i) => i.active).length} Published / {catalogue.length} Total)
+        <section className="rounded-2xl border border-line bg-white p-6">
+          <div className="border-b border-line pb-4">
+            <h2 className="mt-1 text-2xl font-bold text-ink">
+              Store catalogue · {catalogue.filter((i) => i.active).length} of {catalogue.length} live
             </h2>
-            <p className="mt-1 text-xs text-[#535A56]">
+            <p className="mt-1 text-xs text-muted">
               Upload garments by category with instant thumbnail view. Uploads reflect live on both the 43&quot; TV Standee and the Counter Tablet.
             </p>
           </div>
@@ -921,13 +790,13 @@ export default function MaharajaAdminDashboard({
           </div>
 
           {/* Existing Catalogue Items Management Table */}
-          <div className="mt-10 border-t border-[#D8DCD7] pt-6">
+          <div className="mt-10 border-t border-line pt-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="font-serif text-xl font-semibold text-[#161918]">
-                  Existing Store Catalogue ({filteredCatalogue.length} matching)
+                <h3 className="text-xl font-bold text-ink">
+                  Your garments ({filteredCatalogue.length})
                 </h3>
-                <p className="mt-0.5 text-xs text-[#535A56]">
+                <p className="mt-0.5 text-xs text-muted">
                   Toggle active status, new arrival badges, or AI video eligibility for showroom kiosks.
                 </p>
               </div>
@@ -942,11 +811,11 @@ export default function MaharajaAdminDashboard({
                       setCatGender(g);
                       setCatFilter(g === 'women' ? 'sarees' : g === 'men' ? 'veshti' : g === 'boys' ? 'boys-veshti' : 'girls-pavadai');
                     }}
-                    className={`border px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider ${
-                      catGender === g
-                        ? 'border-[#161918] bg-[#161918] text-white'
-                        : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:bg-white'
-                    }`}
+                    className={`border px-3 py-1.5 text-xs font-bold ${
+ catGender === g
+ ? 'border-ink bg-ink text-white'
+ : 'border-line bg-canvas text-ink hover:bg-white'
+ }`}
                   >
                     {g === 'women' ? 'Women' : g === 'men' ? 'Men' : g === 'boys' ? 'Boys' : 'Girls'}
                   </button>
@@ -960,10 +829,10 @@ export default function MaharajaAdminDashboard({
                 type="button"
                 onClick={() => setCatFilter('new-arrivals')}
                 className={`border px-3 py-1 text-xs font-semibold ${
-                  catFilter === 'new-arrivals'
-                    ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                    : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:bg-white'
-                }`}
+ catFilter === 'new-arrivals'
+ ? 'border-brand bg-brand text-white'
+ : 'border-line bg-canvas text-ink hover:bg-white'
+ }`}
               >
                 New Arrivals
               </button>
@@ -975,10 +844,10 @@ export default function MaharajaAdminDashboard({
                     type="button"
                     onClick={() => setCatFilter(cat.id)}
                     className={`border px-3 py-1 text-xs font-semibold ${
-                      catFilter === cat.id
-                        ? 'border-[#7A1428] bg-[#7A1428] text-white'
-                        : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:bg-white'
-                    }`}
+ catFilter === cat.id
+ ? 'border-brand bg-brand text-white'
+ : 'border-line bg-canvas text-ink hover:bg-white'
+ }`}
                   >
                     {cat.label}
                   </button>
@@ -988,16 +857,16 @@ export default function MaharajaAdminDashboard({
             {/* Table */}
             {catalogueLoading ? (
               <div className="flex items-center justify-center py-10">
-                <LoaderCircle className="h-6 w-6 animate-spin text-[#7A1428]" />
-                <span className="ml-2 text-xs text-[#535A56]">Loading catalogue…</span>
+                <LoaderCircle className="h-6 w-6 animate-spin text-brand" />
+                <span className="ml-2 text-xs text-muted">Loading catalogue…</span>
               </div>
             ) : filteredCatalogue.length === 0 ? (
-              <p className="py-8 text-center text-xs text-[#535A56]">No garments found in this category.</p>
+              <p className="py-8 text-center text-xs text-muted">No garments found in this category.</p>
             ) : (
               <>
-                <div className="mt-4 overflow-x-auto border border-[#D8DCD7]">
+                <div className="mt-4 overflow-x-auto border border-line">
                   <table className="w-full min-w-[680px] text-left text-xs">
-                    <thead className="bg-[#FAFBF8] font-mono text-[11px] uppercase tracking-wider text-[#535A56]">
+                    <thead className="bg-canvas text-xs text-muted">
                       <tr>
                         <th className="p-3">SKU / Garment</th>
                         <th className="p-3">Category</th>
@@ -1007,15 +876,15 @@ export default function MaharajaAdminDashboard({
                     </thead>
                     <tbody>
                       {filteredCatalogue.slice(cataloguePage * 25, (cataloguePage + 1) * 25).map((item) => (
-                        <tr key={item.sku} className="border-t border-[#D8DCD7] hover:bg-[#FAFBF8]">
+                        <tr key={item.sku} className="border-t border-line hover:bg-canvas">
                           <td className="p-3">
-                            <span className="block font-mono font-bold text-[#161918]">{item.sku}</span>
+                            <span className="block tabular-nums font-bold text-ink">{item.sku}</span>
                             <span className="text-[#535A56]">{item.title}</span>
                           </td>
-                          <td className="p-3 text-[#535A56]">
+                          <td className="p-3 text-muted">
                             {item.audience} · {catalogueCategories.find((cat) => cat.id === item.category)?.label || item.category}
                           </td>
-                          <td className="p-3 font-semibold text-[#161918]">
+                          <td className="p-3 font-semibold text-ink">
                             {item.price > 0 ? formatINR(item.price) : <span className="text-[#8C938F]">No price</span>}
                           </td>
                           <td className="p-3">
@@ -1023,33 +892,33 @@ export default function MaharajaAdminDashboard({
                               <button
                                 type="button"
                                 onClick={() => void toggleCatalogueField(item, { active: !item.active })}
-                                className={`border px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
-                                  item.active
-                                    ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
-                                    : 'border-[#D8DCD7] bg-white text-[#8C938F]'
-                                }`}
+                                className={`border px-2 py-1 text-xs font-bold ${
+ item.active
+ ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
+ : 'border-line bg-white text-subtle'
+ }`}
                               >
                                 {item.active ? 'Published' : 'Hidden'}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => void toggleCatalogueField(item, { newArrival: !item.newArrival })}
-                                className={`border px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
-                                  item.newArrival
-                                    ? 'border-amber-700 bg-amber-50 text-amber-800'
-                                    : 'border-[#D8DCD7] bg-white text-[#8C938F]'
-                                }`}
+                                className={`border px-2 py-1 text-xs font-bold ${
+ item.newArrival
+ ? 'border-amber-700 bg-amber-50 text-amber-800'
+ : 'border-line bg-white text-subtle'
+ }`}
                               >
                                 {item.newArrival ? 'New arrival ✓' : 'Mark new'}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => void toggleCatalogueField(item, { eligibleForVideo: !item.eligibleForVideo })}
-                                className={`border px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${
-                                  item.eligibleForVideo
-                                    ? 'border-[#7A1428] bg-[#FAF6EE] text-[#7A1428]'
-                                    : 'border-[#D8DCD7] bg-white text-[#8C938F]'
-                                }`}
+                                className={`border px-2 py-1 text-xs font-bold ${
+ item.eligibleForVideo
+ ? 'border-brand bg-[#FAF6EE] text-brand'
+ : 'border-line bg-white text-subtle'
+ }`}
                               >
                                 {item.eligibleForVideo ? 'Video ✓' : 'Video off'}
                               </button>
@@ -1062,12 +931,12 @@ export default function MaharajaAdminDashboard({
                 </div>
 
                 {/* Pagination */}
-                <div className="mt-3 flex items-center justify-between text-xs text-[#535A56]">
+                <div className="mt-3 flex items-center justify-between text-xs text-muted">
                   <button
                     type="button"
                     disabled={cataloguePage === 0}
                     onClick={() => setCataloguePage((v) => v - 1)}
-                    className="border border-[#D8DCD7] bg-white px-3 py-1 font-mono disabled:opacity-40"
+                    className="border border-line bg-white px-3 py-1 tabular-nums disabled:opacity-40"
                   >
                     ← Previous
                   </button>
@@ -1078,7 +947,7 @@ export default function MaharajaAdminDashboard({
                     type="button"
                     disabled={(cataloguePage + 1) * 25 >= filteredCatalogue.length}
                     onClick={() => setCataloguePage((v) => v + 1)}
-                    className="border border-[#D8DCD7] bg-white px-3 py-1 font-mono disabled:opacity-40"
+                    className="border border-line bg-white px-3 py-1 tabular-nums disabled:opacity-40"
                   >
                     Next →
                   </button>
@@ -1088,32 +957,32 @@ export default function MaharajaAdminDashboard({
           </div>
         </section>
 
+        </>}
+
+        {section === 'qr' && <>
         {/* =========================================================
             DIRECT QR CARDS:
             Image Try-On QR · Video Pass QR · Counter access
            ========================================================= */}
         <section className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
           {/* Card 1: Permanent Direct QR for AI Image Try-On */}
-          {limits.image > 0 && <div className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
+          {limits.image > 0 && <div className="rounded-2xl flex flex-col justify-between border border-line bg-white p-6">
             <div>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D8DCD7] pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
                 <div>
-                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    Image Try-On QR
-                  </p>
-                  <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                    Permanent AI Image Try-On QR
+                  <h2 className="mt-1 text-2xl font-bold text-ink">
+                    Permanent Try-On QR
                   </h2>
                 </div>
-                <span className="border border-[#256B45] bg-[#EBF5EE] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#256B45]">
+                <span className="rounded-full bg-success-soft px-3 py-1 text-xs font-semibold text-success">
                   {minGateDisabled
-                    ? '₹500 Minimum: Disabled (Free Scan)'
-                    : '₹500 Minimum: Enabled'}
+                    ? 'Open to everyone'
+                    : 'Needs a price tag scan'}
                 </span>
               </div>
 
               <div className="mt-4 grid gap-5 sm:grid-cols-[200px_1fr] sm:items-center">
-                <div className="flex flex-col items-center border border-[#D8DCD7] bg-[#FAFBF8] p-3">
+                <div className="rounded-2xl flex flex-col items-center border border-line bg-canvas p-3">
                   {tryOnQrImage ? (
                     <img
                       src={tryOnQrImage}
@@ -1122,26 +991,26 @@ export default function MaharajaAdminDashboard({
                     />
                   ) : (
                     <div className="flex h-44 w-44 items-center justify-center">
-                      <QrCode className="h-10 w-10 text-[#535A56]" />
+                      <QrCode className="h-10 w-10 text-muted" />
                     </div>
                   )}
-                  <span className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#161918]">
+                  <span className="mt-1.5 text-xs font-semibold text-ink">
                     Direct Image Scan QR
                   </span>
                 </div>
 
-                <div className="space-y-3 text-sm text-[#535A56]">
+                <div className="space-y-3 text-sm text-muted">
                   <p className="leading-relaxed">
                     Place this QR at a mirror or counter. Customers continue their private try-on on their own phone.
                   </p>
-                  <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-3 text-xs">
-                    <p className="font-semibold text-[#161918]">
+                  <div className="rounded-2xl border border-line bg-canvas p-3 text-xs">
+                    <p className="font-semibold text-ink">
                       Admin Rule:{' '}
                       {minGateDisabled
                         ? '₹500 Minimum Price-Tag Gate is Disabled'
                         : '₹500 Minimum Price-Tag Gate is Enabled'}
                     </p>
-                    <p className="mt-0.5 text-[#535A56]">
+                    <p className="mt-0.5 text-muted">
                       {minGateDisabled
                         ? 'Customers go straight to photo upload without needing to scan a ₹500 barcode tag first.'
                         : 'Customers scan a ₹500+ Maharaja price tag before generating their try-on.'}
@@ -1162,7 +1031,7 @@ export default function MaharajaAdminDashboard({
                     workspace.links.tryOn
                   )
                 }
-                className="flex items-center justify-center gap-1.5 bg-[#7A1428] px-3 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#FAF6EE]"
+                className="flex items-center justify-center gap-1.5 bg-brand px-3 py-3 text-xs font-semibold text-[#FAF6EE]"
               >
                 <Download className="h-4 w-4" />
                 Download QR
@@ -1171,26 +1040,23 @@ export default function MaharajaAdminDashboard({
           </div>}
 
           {/* Card 2: Customer AI Video QR & Bill Counter */}
-          {limits.video > 0 && <div className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
+          {limits.video > 0 && <div className="rounded-2xl flex flex-col justify-between border border-line bg-white p-6">
             <div>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D8DCD7] pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
                 <div>
-                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    02 · AI Video Delivery & Counter QR
-                  </p>
-                  <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                  <h2 className="mt-1 text-2xl font-bold text-ink">
                     Video pass QR
                   </h2>
                 </div>
-                <span className="border border-[#7A1428] bg-[#7A1428]/10 px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A1428]">
+                <span className="border border-brand bg-brand/10 px-3 py-1 text-xs font-bold text-brand">
                   {whatsappConnected
                     ? 'WhatsApp API Connected (1-Day Link)'
-                    : 'Permanent Poster QR · Private 1-Day Sessions'}
+                    : 'Permanent poster · 24-hour sessions'}
                 </span>
               </div>
 
               <div className="mt-4 grid gap-5 sm:grid-cols-[200px_1fr] sm:items-center">
-                <div className="flex flex-col items-center border border-[#D8DCD7] bg-[#FAFBF8] p-3">
+                <div className="rounded-2xl flex flex-col items-center border border-line bg-canvas p-3">
                   {videoQrImage ? (
                     <img
                       src={videoQrImage}
@@ -1199,23 +1065,23 @@ export default function MaharajaAdminDashboard({
                     />
                   ) : (
                     <div className="flex h-44 w-44 items-center justify-center">
-                      <QrCode className="h-10 w-10 text-[#535A56]" />
+                      <QrCode className="h-10 w-10 text-muted" />
                     </div>
                   )}
-                  <span className="mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#161918]">
+                  <span className="mt-1.5 text-xs font-semibold text-ink">
                     Customer video QR
                   </span>
                 </div>
 
-                <div className="space-y-3 text-sm text-[#535A56]">
+                <div className="space-y-3 text-sm text-muted">
                   <p className="leading-relaxed">
                     This poster QR stays the same. Each scan starts a separate private session valid for 24 hours.
                   </p>
-                  <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-3 text-xs">
-                    <p className="font-semibold text-[#161918]">
+                  <div className="rounded-2xl border border-line bg-canvas p-3 text-xs">
+                    <p className="font-semibold text-ink">
                       Giveaway & Purchased Garment Support + Go Live
                     </p>
-                    <p className="mt-0.5 text-[#535A56]">
+                    <p className="mt-0.5 text-muted">
                       Customers can take any garment (or select from the catalogue), generate their AI Video on mobile, and click{' '}
                       <strong>Download</strong> or <strong>Go Live</strong> (which plays on your Go Live TV).
                     </p>
@@ -1235,14 +1101,14 @@ export default function MaharajaAdminDashboard({
                     workspace.links.openVideo
                   )
                 }
-                className="flex items-center justify-center gap-1.5 bg-[#7A1428] px-3 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#FAF6EE]"
+                className="flex items-center justify-center gap-1.5 bg-brand px-3 py-3 text-xs font-semibold text-[#FAF6EE]"
               >
                 <Download className="h-4 w-4" />
                 Download Poster QR
               </button>
             </div>
             {(workspace.videoMinPurchase ?? 5000) > 0 && (
-              <p className="mt-3 border border-[#B7791F]/40 bg-[#FFF8EB] p-3 text-xs text-[#7A4A0B]">
+              <p className="mt-3 border border-warn/40 bg-[#FFF8EB] p-3 text-xs text-warn">
                 The poster QR is off while an AI Video minimum bill is set. Billers use <strong>Next customer</strong> on the counter
                 (tablet or mobile) to show each qualifying customer a fresh QR. Set the minimum to ₹0 to use the poster.
               </p>
@@ -1250,31 +1116,31 @@ export default function MaharajaAdminDashboard({
           </div>}
         </section>
 
+        </>}
+
+        {section === 'golive' && <>
         {/* =========================================================
             GO LIVE VIDEOS CARD (NO VIDEO PLAYER ON DASHBOARD — ONLY BUTTON TO DEDICATED PAGE)
             & TV WALL / SHOWCASE SAMPLE UPLOAD
            ========================================================= */}
         <section className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
-          <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+          <div className="tf-card flex flex-col gap-6 self-start p-6">
             <div>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
                 <div>
-                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    03 · Showroom Go Live Library
-                  </p>
-                  <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                    Customer Go Live Videos
+                  <h2 className="mt-1 text-2xl font-bold text-ink">
+                    Customer videos
                   </h2>
                 </div>
-                <span className="border border-[#D8DCD7] bg-white px-3 py-1 font-mono text-xs font-semibold text-[#161918]">
+                <span className="border border-line bg-white px-3 py-1 tabular-nums text-xs font-semibold text-ink">
                   {goLiveList.length} Recorded
                 </span>
               </div>
 
-              <p className="mt-4 text-sm leading-relaxed text-[#535A56]">
+              <p className="mt-4 text-sm leading-relaxed text-muted">
                 When a customer clicks <strong>Go Live</strong> after generating an AI video, their video is queued on your Go Live TV and logged in the dedicated Go Live video library.
               </p>
-              <p className="mt-2 text-xs text-[#535A56]">
+              <p className="mt-2 text-xs text-muted">
                 Videos are not played inline on this main workspace page — click the button below to open the dedicated video library page to list, play, and download approved Go Live videos.
               </p>
             </div>
@@ -1282,17 +1148,17 @@ export default function MaharajaAdminDashboard({
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
                 href={`/maharaja/${workspace.workspaceCode}/videos`}
-                className="inline-flex items-center gap-2 bg-[#7A1428] px-6 py-3.5 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] transition hover:bg-[#610F20]"
+                className="rounded-xl inline-flex items-center gap-2 bg-brand px-6 py-3.5 text-xs font-bold text-[#FAF6EE] transition hover:bg-[#610F20]"
               >
                 <Video className="h-4 w-4" />
-                Explore All Videos (List & Play)
+                See all videos
               </Link>
               {limits.video > 0 && (
                 <a
                   href={workspace.links.goLive}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 border border-[#161918] bg-white px-5 py-3.5 text-xs font-bold uppercase tracking-[0.16em] text-[#161918]"
+                  className="rounded-xl inline-flex items-center gap-2 border border-ink bg-white px-5 py-3.5 text-xs font-bold text-ink"
                 >
                   <Tv className="h-4 w-4" />
                   Open Go Live TV
@@ -1302,14 +1168,11 @@ export default function MaharajaAdminDashboard({
           </div>
 
           {/* Go Live TV: the workspace link, its promo videos and any older loop clips */}
-          <div className="flex flex-col justify-between border border-[#D8DCD7] bg-[#FAFBF8] p-6">
+          <div className="rounded-2xl flex flex-col justify-between border border-line bg-canvas p-6">
             <div>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D8DCD7] pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
                 <div>
-                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                    04 · AI Video
-                  </p>
-                  <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
+                  <h2 className="mt-1 text-2xl font-bold text-ink">
                     Go Live TV, promos & Instagram
                   </h2>
                 </div>
@@ -1318,15 +1181,15 @@ export default function MaharajaAdminDashboard({
               {limits.video > 0 ? (
                 <div className="mt-4 space-y-5">
                   <form
-                    className="border border-[#D8DCD7] bg-white p-4"
+                    className="rounded-2xl border border-line bg-white p-4"
                     onSubmit={(event) => {
                       event.preventDefault();
                       const value = new FormData(event.currentTarget).get('instagram');
                       void savePatch({ instagramUrl: typeof value === 'string' ? value : '' });
                     }}
                   >
-                    <label htmlFor="store-instagram" className="text-xs font-bold uppercase tracking-wider text-[#535A56]">Your Instagram</label>
-                    <p className="mt-1 text-xs text-[#535A56]">After their AI video, customers see &ldquo;Follow {workspace.clientName} on Instagram&rdquo;.</p>
+                    <label htmlFor="store-instagram" className="text-xs font-bold text-muted">Your Instagram</label>
+                    <p className="mt-1 text-xs text-muted">After their AI video, customers see &ldquo;Follow {workspace.clientName} on Instagram&rdquo;.</p>
                     <div className="mt-2 flex gap-2">
                       <input
                         id="store-instagram"
@@ -1334,38 +1197,38 @@ export default function MaharajaAdminDashboard({
                         key={workspace.instagramUrl || ''}
                         defaultValue={workspace.instagramUrl || ''}
                         placeholder="@yourstore or instagram.com/yourstore"
-                        className="min-h-11 min-w-0 flex-1 border border-[#D8DCD7] px-3 text-sm outline-none focus:border-[#7A1428]"
+                        className="rounded-xl min-h-11 min-w-0 flex-1 border border-line px-3 text-sm outline-none focus:border-brand"
                       />
-                      <button type="submit" disabled={saving} className="min-h-11 bg-[#161918] px-4 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50">Save</button>
+                      <button type="submit" disabled={saving} className="rounded-xl min-h-11 bg-ink px-4 text-xs font-bold text-white disabled:opacity-50">Save</button>
                     </div>
                   </form>
                   <GoLivePromoManager goLiveUrl={workspace.links.goLive} />
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-[#535A56]">Go Live TV comes with AI Video. To add it, contact TryFocus: <a href="tel:9994837342" className="font-bold text-[#7A1428] underline underline-offset-4">9994837342</a></p>
+                <p className="mt-4 text-sm text-muted">Go Live TV comes with AI Video. To add it, contact TryFocus: <a href="tel:9994837342" className="font-bold text-brand underline underline-offset-4">9994837342</a></p>
               )}
               {limits.video > 0 && (
-                <div className="mt-5 border-t border-[#D8DCD7] pt-4">
-                  <p className="text-sm font-semibold text-[#161918]">Retail clips ({showcaseList.length})</p>
-                  <p className="mt-1 text-xs text-[#535A56]">Short store clips (MP4 or MOV, up to 4 MB) that play inside the customer video loop, so the TV is never empty. Promo videos above play after every 10 customer videos.</p>
+                <div className="mt-5 border-t border-line pt-4">
+                  <p className="text-sm font-semibold text-ink">Retail clips ({showcaseList.length})</p>
+                  <p className="mt-1 text-xs text-muted">Short store clips (MP4 or MOV, up to 4 MB) that play inside the customer video loop, so the TV is never empty. Promo videos above play after every 10 customer videos.</p>
               <div className="mt-4 grid gap-2.5 sm:grid-cols-[1fr_1fr_auto]">
                 <input
                   value={sampleName}
                   onChange={(event) => setSampleName(event.target.value)}
                   placeholder="Retail clip name (optional)"
-                  className="h-11 border border-[#D8DCD7] bg-white px-3 text-sm text-[#161918] outline-none focus:border-[#7A1428]"
+                  className="h-11 border border-line bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                 />
                 <input
                   ref={sampleInputRef}
                   type="file"
                   accept="video/mp4,video/quicktime"
-                  className="h-11 border border-[#D8DCD7] bg-white px-3 py-2 text-xs text-[#535A56]"
+                  className="rounded-xl h-11 border border-line bg-white px-3 py-2 text-xs text-muted"
                 />
                 <button
                   type="button"
                   disabled={uploadingSample}
                   onClick={uploadShowcaseSample}
-                  className="flex h-11 items-center justify-center gap-1.5 bg-[#161918] px-4 text-xs font-bold uppercase tracking-[0.14em] text-[#FAF6EE] disabled:opacity-50"
+                  className="rounded-xl flex h-11 items-center justify-center gap-1.5 bg-ink px-4 text-xs font-bold text-[#FAF6EE] disabled:opacity-50"
                 >
                   {uploadingSample ? (
                     <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -1379,11 +1242,12 @@ export default function MaharajaAdminDashboard({
               )}
             </div>
 
-            <div className="mt-5 border-t border-[#D8DCD7] pt-4 text-xs text-[#535A56]">
+            <div className="mt-5 border-t border-line pt-4 text-xs text-muted">
               <span className="min-w-0 break-all">Billing Counter Link: {workspace.links.billing}</span>
             </div>
           </div>
         </section>
+        </>}
       </div>
     </main>
   );

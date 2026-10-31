@@ -63,81 +63,56 @@ function MaharajaLoginForm() {
     }
   }
 
+  const isAdmin = nextPath.startsWith('/admin');
   return (
-    <main className="min-h-screen bg-[#F8F5EE] text-[#1A1412]">
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,245,238,0.96),rgba(248,245,238,0.88)),url('https://images.unsplash.com/photo-1615715874901-4412f63d6e0f?auto=format&fit=crop&w=1800&q=80')]" />
-      <section className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6">
-        <Link href="/" className="inline-flex w-fit items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#6e0d1f] text-[#F3E5AB]">
+    <main className="flex min-h-screen flex-col bg-canvas text-ink">
+      <header className="mx-auto flex w-full max-w-5xl items-center px-5 py-5">
+        <Link href="/" className="inline-flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white">
             <WandSparkles className="h-5 w-5" />
           </span>
-          <span>
-            <span className="block font-serif text-2xl font-bold text-[#6e0d1f]">TryFocus</span>
-            <span className="block text-[10px] font-bold uppercase tracking-[0.28em] text-[#8A6A20]">
-              {nextPath.startsWith('/admin') ? 'Universal Admin Control Plane' : 'Maharaja client workspace'}
-            </span>
-          </span>
+          <span className="text-xl font-bold">TryFocus</span>
         </Link>
+      </header>
 
-        <div className="grid flex-1 items-center gap-8 py-10 md:grid-cols-[1fr_420px]">
+      <section className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 pb-16">
+        <div className="mb-6 flex items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+            {isAdmin ? <LockKeyhole className="h-6 w-6" /> : <Store className="h-6 w-6" />}
+          </span>
           <div>
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#6e0d1f]/15 bg-white/75 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6e0d1f]">
-              <Store className="h-4 w-4 text-[#8A6A20]" />
-              {nextPath.startsWith('/admin') ? 'TryFocus Super Admin' : 'Maharaja Client Workspace'}
-            </div>
-            <h1 className="font-serif text-5xl font-bold leading-tight text-[#2A060C] md:text-6xl">
-              {nextPath.startsWith('/admin')
-                ? 'Login to manage TryFocus & Maharaja.'
-                : 'Login to manage Maharaja AI experiences.'}
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-8 text-[#4A3B35]">
-              {nextPath.startsWith('/admin')
-                ? 'Use your unified operator login to manage client workspaces, device provisioning, catalogue publishing, and credit limits.'
-                : 'Download the permanent Try-On QR, open the billing-counter link, and track Maharaja customer usage from one workspace.'}
-            </p>
+            <h1 className="text-2xl font-bold">{isAdmin ? 'TryFocus admin' : 'Store sign in'}</h1>
+            <p className="text-[15px] text-muted">{isAdmin ? 'Manage clients, devices and credits.' : 'Your QR codes, catalogue, videos and usage.'}</p>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="rounded-2xl border border-[#6e0d1f]/14 bg-white/90 p-6 shadow-2xl backdrop-blur">
-            <div className="mb-6 flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#6e0d1f] text-[#F3E5AB]">
-                <LockKeyhole className="h-5 w-5" />
-              </span>
-              <div>
-                <h2 className="font-serif text-2xl font-bold text-[#2A060C]">
-                  {nextPath.startsWith('/admin') ? 'TryFocus Operator Login' : 'Maharaja Login'}
-                </h2>
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#8A6A20]">
-                  Unified project access
-                </p>
-              </div>
-            </div>
-
-            <label htmlFor="username-input" className="block text-xs font-bold uppercase tracking-wider text-[#5C4B43]">
+        <form onSubmit={handleSubmit} className="tf-card space-y-4 p-6">
+            <label htmlFor="username-input" className="block text-sm font-semibold text-ink">
               Username
               <input
                 id="username-input"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                className="mt-2 w-full rounded-xl border border-[#6e0d1f]/18 bg-[#fffaf0] px-4 py-3 text-base font-semibold text-[#2A060C] outline-none focus:border-[#6e0d1f]"
+                className="mt-1.5 w-full rounded-xl border border-line-strong bg-white px-4 py-3 text-base text-ink outline-none focus:border-brand"
                 autoComplete="username"
                 autoFocus
               />
             </label>
 
-            <label htmlFor="password-input" className="mt-4 block text-xs font-bold uppercase tracking-wider text-[#5C4B43]">
+            <label htmlFor="password-input" className="block text-sm font-semibold text-ink">
               Password
               <input
                 id="password-input"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="mt-2 w-full rounded-xl border border-[#6e0d1f]/18 bg-[#fffaf0] px-4 py-3 text-base font-semibold text-[#2A060C] outline-none focus:border-[#6e0d1f]"
+                className="mt-1.5 w-full rounded-xl border border-line-strong bg-white px-4 py-3 text-base text-ink outline-none focus:border-brand"
                 autoComplete="current-password"
               />
             </label>
 
             {error && (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+              <div className="rounded-xl bg-danger-soft p-3 text-sm font-medium text-danger">
                 {error}
               </div>
             )}
@@ -146,22 +121,22 @@ function MaharajaLoginForm() {
               type="submit"
               id="login-submit-btn"
               disabled={isSubmitting}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#6e0d1f] px-5 py-4 text-sm font-bold uppercase tracking-wider text-[#F3E5AB] shadow-lg transition hover:bg-[#800A1D] disabled:opacity-75 disabled:cursor-not-allowed"
+              className="tf-btn tf-btn-primary w-full !min-h-12"
             >
               {isSubmitting ? (
                 <>
-                  <LoaderCircle className="h-4 w-4 animate-spin text-[#F3E5AB]" />
-                  <span>Logging in...</span>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  <span>Signing in…</span>
                 </>
               ) : (
                 <>
-                  <span>{nextPath.startsWith('/admin') ? 'Enter TryFocus Admin' : 'Enter Maharaja Workspace'}</span>
+                  <span>Sign in</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
+
               )}
             </button>
           </form>
-        </div>
       </section>
     </main>
   );
@@ -169,7 +144,7 @@ function MaharajaLoginForm() {
 
 export default function MaharajaLoginPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen bg-[#F8F5EE]" />}>
+    <Suspense fallback={<main className="min-h-screen bg-canvas" />}>
       <MaharajaLoginForm />
     </Suspense>
   );

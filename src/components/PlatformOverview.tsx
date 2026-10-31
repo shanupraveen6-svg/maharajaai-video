@@ -64,19 +64,19 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
     <div className="space-y-6">
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {kpis.map(([label, value, note]) => (
-          <article key={label} className="border border-[#D8DCD7] bg-white p-5">
-            <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#7A1428]">{label}</p>
-            <p className="mt-2 font-serif text-3xl font-semibold">{value}</p>
-            <p className="mt-1 text-xs text-[#535A56]">{note}</p>
+          <article key={label} className="tf-card p-5">
+            <p className="text-[13px] font-medium text-muted">{label}</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums">{value}</p>
+            <p className="mt-1 text-[13px] text-subtle">{note}</p>
           </article>
         ))}
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <article className="border border-[#D8DCD7] bg-white p-5">
-          <h2 className="flex items-center gap-2 font-serif text-xl font-semibold"><AlertTriangle className="h-5 w-5 text-[#B7791F]" /> Needs attention</h2>
+        <article className="tf-card p-5">
+          <h2 className="flex items-center gap-2 text-xl font-bold"><AlertTriangle className="h-5 w-5 text-warn" /> Needs attention</h2>
           {attention.length === 0 ? (
-            <p className="mt-3 text-sm text-[#535A56]">Nothing needs action right now.</p>
+            <p className="mt-3 text-sm text-muted">Nothing needs action right now.</p>
           ) : (
             <ul className="mt-3 divide-y divide-[#ECEEE9]">
               {attention.map((item, index) => (
@@ -87,7 +87,7 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
                       {item.text}
                     </span>
                   </span>
-                  <button type="button" onClick={() => onSelect(item.client.id)} className="flex min-h-10 shrink-0 items-center gap-1 px-2 text-xs font-bold uppercase text-[#7A1428]">
+                  <button type="button" onClick={() => onSelect(item.client.id)} className="flex min-h-10 shrink-0 items-center gap-1 px-2 text-xs font-bold text-brand">
                     Open <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </li>
@@ -95,22 +95,22 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
             </ul>
           )}
         </article>
-        <article className="border border-[#D8DCD7] bg-white p-5">
-          <h2 className="font-serif text-xl font-semibold">What clients bought</h2>
-          <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-wider text-[#535A56]">Modules</p>
+        <article className="tf-card p-5">
+          <h2 className="text-xl font-bold">What clients bought</h2>
+          <p className="mt-3 text-[13px] font-semibold text-muted">Modules</p>
           {adoption.map(([label, count]) => (
-            <p key={label} className="mt-1 flex justify-between text-sm"><span>{label}</span><span className="font-mono font-bold">{count} / {clients.length}</span></p>
+            <p key={label} className="mt-1 flex justify-between text-sm"><span>{label}</span><span className="tabular-nums font-bold">{count} / {clients.length}</span></p>
           ))}
-          <p className="mt-4 font-mono text-[11px] font-bold uppercase tracking-wider text-[#535A56]">Devices</p>
+          <p className="mt-4 text-xs font-bold text-muted">Devices</p>
           {devices.map(([label, count]) => (
-            <p key={label} className="mt-1 flex justify-between text-sm"><span>{label}</span><span className="font-mono font-bold">{count} / {clients.length}</span></p>
+            <p key={label} className="mt-1 flex justify-between text-sm"><span>{label}</span><span className="tabular-nums font-bold">{count} / {clients.length}</span></p>
           ))}
         </article>
       </section>
 
-      <section className="overflow-x-auto border border-[#D8DCD7] bg-white">
+      <section className="tf-card overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="bg-[#FAFBF8] font-mono text-[11px] uppercase tracking-wider text-[#535A56]">
+          <thead className="bg-canvas text-[13px] font-semibold text-muted">
             <tr>
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Status</th>
@@ -121,16 +121,16 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
           </thead>
           <tbody>
             {clients.map((item) => (
-              <tr key={item.id} className="border-t border-[#ECEEE9]">
-                <td className="px-4 py-3"><span className="flex items-center gap-2 font-semibold"><Store className="h-4 w-4 text-[#7A1428]" />{item.name}</span><span className="text-xs text-[#535A56]">{item.branch}</span></td>
+              <tr key={item.id} className="border-t border-line">
+                <td className="px-4 py-3"><span className="flex items-center gap-2 font-semibold"><Store className="h-4 w-4 text-brand" />{item.name}</span><span className="text-xs text-muted">{item.branch}</span></td>
                 <td className="px-4 py-3"><span className={item.status === 'Active' ? 'text-[#256B45]' : 'text-[#7A4A0B]'}>{item.status}</span></td>
                 {MODULES.map(([key]) => {
                   const limit = planLimit(item, key);
-                  return <td key={key} className="px-4 py-3 font-mono text-xs">{limit > 0 ? `${item.usage[key].toLocaleString('en-IN')} / ${limit.toLocaleString('en-IN')}` : '—'}</td>;
+                  return <td key={key} className="px-4 py-3 tabular-nums text-xs">{limit > 0 ? `${item.usage[key].toLocaleString('en-IN')} / ${limit.toLocaleString('en-IN')}` : '—'}</td>;
                 })}
                 <td className="px-4 py-3 text-xs">{item.whatsappConnected ? 'Connected' : '—'}</td>
                 <td className="px-4 py-3 text-right">
-                  <button type="button" onClick={() => onSelect(item.id)} className="min-h-10 bg-[#161918] px-3 text-xs font-bold uppercase tracking-wider text-white">Manage</button>
+                  <button type="button" onClick={() => onSelect(item.id)} className="tf-btn tf-btn-dark !min-h-10 px-4 text-sm">Manage</button>
                 </td>
               </tr>
             ))}

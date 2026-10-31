@@ -848,18 +848,18 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   }
 
   if (stage === 'loading') {
-    return <main className="flex min-h-screen items-center justify-center bg-[#F5F2EA] text-[#6E0D1F]"><LoaderCircle className="h-9 w-9 animate-spin" /></main>;
+    return <main className="flex min-h-screen items-center justify-center bg-[#F5F2EA] text-brand"><LoaderCircle className="h-9 w-9 animate-spin" /></main>;
   }
 
   if (error && !access) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F5F2EA] p-6 text-center">
-        <div className="mx-auto max-w-md border border-[#D8C49B] bg-white p-6 shadow-md">
+        <div className="rounded-2xl mx-auto max-w-md border border-[#D8C49B] bg-white p-6 shadow-md">
           {error === 'This AI Video has been completed.' ? (
             <>
               <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-700" />
-              <h1 className="mt-4 font-serif text-2xl font-bold text-[#2A060C]">This AI Video has been completed</h1>
-              <p className="mt-3 text-sm leading-6 text-[#5C4B43]">Each Maharaja bill QR provides one AI Video experience. Thank you for shopping with us!</p>
+              <h1 className="mt-4 tracking-tight text-2xl font-bold text-[#2A060C]">This AI Video has been completed</h1>
+              <p className="mt-3 text-sm leading-6 text-muted">Each Maharaja bill QR provides one AI Video experience. Thank you for shopping with us!</p>
             </>
           ) : (
             <>
@@ -880,35 +880,35 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#21090E]/90 p-5 text-center text-white backdrop-blur-sm" role="alert" aria-live="assertive">
           <div className="w-full max-w-sm border border-[#D4AF37]/55 bg-[#2A060C] p-6 shadow-2xl">
             <div className="relative mx-auto mb-5 h-20 w-20">
-              <span className="absolute inset-0 animate-ping rounded-full border-2 border-[#D4AF37]/45" />
-              <span className="absolute inset-2 animate-spin rounded-full border-2 border-transparent border-t-[#D4AF37] border-r-[#D4AF37]" />
+              <span className="absolute inset-0 animate-ping rounded-full border border-[#D4AF37]/45" />
+              <span className="absolute inset-2 animate-spin rounded-full border border-transparent border-t-[#D4AF37] border-r-[#D4AF37]" />
               <span className="absolute inset-0 flex items-center justify-center text-3xl">🪔</span>
             </div>
-            <p className="font-serif text-xl font-bold text-[#F3E5AB]">{stage === 'image' ? 'Creating your Diwali portrait' : 'Rendering your Diwali film'}</p>
+            <p className="tracking-tight text-xl font-bold text-[#F3E5AB]">{stage === 'image' ? 'Creating your Diwali portrait' : 'Rendering your Diwali film'}</p>
             <p className="mt-2 min-h-12 text-sm leading-6 text-[#F3E5AB]/85">{generationStatus}</p>
             {stage === 'image' ? <div className="mt-5" aria-label={`Generation progress ${generationProgress}%`}>
-              <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wide text-[#F3E5AB]/75">
+              <div className="mb-2 flex items-center justify-between text-xs font-bold text-[#F3E5AB]/75">
                 <span>Creating</span><span>{generationProgress}%</span>
               </div>
               <div className="h-2.5 w-full overflow-hidden rounded-full bg-black/45">
                 <div className="h-full rounded-full bg-[#D4AF37] transition-[width] duration-700 ease-out" style={{ width: `${generationProgress}%` }} />
               </div>
             </div> : <p className="mt-5 text-sm text-[#F3E5AB]" role="status">{message || 'Waiting for the video provider…'}</p>}
-            <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#D4AF37]">You can refresh this page; the same job will resume</p>
+            <p className="mt-4 text-xs font-bold text-[#D4AF37]">You can refresh this page; the same job will resume</p>
           </div>
         </div>
       )}
-      <header className="border-b border-[#D8DCD7] bg-[#F4F5F2] px-5 py-4 text-[#161918]">
+      <header className="border-b border-line bg-[#F4F5F2] px-5 py-4 text-ink">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
+            <span className="flex h-10 w-10 items-center justify-center border border-ink bg-ink tabular-nums text-xs font-bold text-[#FAF6EE]">
               TF
             </span>
             <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+              <p className="text-xs font-bold text-brand">
                 TryFocus × {access?.workspace.clientName || 'TryFocus'}
               </p>
-              <h1 className="font-serif text-xl font-semibold text-[#161918]">
+              <h1 className="text-xl font-bold text-ink">
                 {activeService === 'try-on' ? 'AI Image Try-On (Direct Scan · ₹500 Min Disabled)' : '1-Day AI Video Pass'}
               </h1>
             </div>
@@ -916,13 +916,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           <div className="relative flex shrink-0 items-center gap-2">
             {masterImageUrl && stage !== 'result' && (
               <>
-                <button type="button" aria-label="Image options" title="Image options" onClick={() => setShowImageRetryMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center border border-[#D8DCD7] bg-white text-[#161918] hover:border-[#161918]"><MoreVertical className="h-5 w-5" /></button>
-                {showImageRetryMenu && <div className="absolute right-0 top-11 z-40 w-40 border border-[#D8DCD7] bg-white p-1 text-[#161918] shadow-xl">
+                <button type="button" aria-label="Image options" title="Image options" onClick={() => setShowImageRetryMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center border border-line bg-white text-ink hover:border-ink"><MoreVertical className="h-5 w-5" /></button>
+                {showImageRetryMenu && <div className="rounded-2xl absolute right-0 top-11 z-40 w-40 border border-line bg-white p-1 text-ink shadow-xl">
                   <button type="button" onClick={() => { setShowImageRetryMenu(false); if (window.confirm('Use your included image retry?')) void handleRetryImage(); }} className="flex min-h-10 w-full items-center gap-2 px-2 text-left text-xs font-bold hover:bg-[#F4F5F2]"><RotateCcw className="h-4 w-4" /> Retry image</button>
                 </div>}
               </>
             )}
-            {activeService === 'try-on' ? <Shirt className="h-6 w-6 text-[#7A1428]" /> : <Film className="h-6 w-6 text-[#7A1428]" />}
+            {activeService === 'try-on' ? <Shirt className="h-6 w-6 text-brand" /> : <Film className="h-6 w-6 text-brand" />}
           </div>
         </div>
       </header>
@@ -967,36 +967,36 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           </div>
         )}
 
-        {!isCatalogueGift && <div className="mb-5 grid grid-cols-2 border border-[#D8C49B] bg-white p-1">
-          <button type="button" onClick={() => setActiveService('try-on')} className={`min-h-12 px-3 text-xs font-bold uppercase ${activeService === 'try-on' ? 'bg-[#6E0D1F] text-[#F3E5AB]' : 'text-[#6E0D1F]'}`}><Shirt className="mr-2 inline h-4 w-4" />AI Try-On</button>
-          <button type="button" disabled={service !== 'ai-video'} onClick={() => { setActiveService('ai-video'); setPurchaseConfirmed(true); }} className={`min-h-12 px-3 text-xs font-bold uppercase disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${activeService === 'ai-video' ? 'bg-[#21090E] text-[#F3E5AB]' : 'text-[#6E0D1F]'}`}><Film className="mr-2 inline h-4 w-4" />AI Video<span className="block text-[10px] normal-case">{service === 'ai-video' ? 'Unlocked' : 'Above Rs 5000 purchase'}</span></button>
+        {!isCatalogueGift && <div className="rounded-2xl mb-5 grid grid-cols-2 border border-[#D8C49B] bg-white p-1">
+          <button type="button" onClick={() => setActiveService('try-on')} className={`min-h-12 px-3 text-xs font-bold ${activeService === 'try-on'? 'bg-brand text-[#F3E5AB]' : 'text-brand'}`}><Shirt className="mr-2 inline h-4 w-4" />AI Try-On</button>
+          <button type="button" disabled={service !== 'ai-video'} onClick={() => { setActiveService('ai-video'); setPurchaseConfirmed(true); }} className={`min-h-12 px-3 text-xs font-bold disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${activeService === 'ai-video'? 'bg-[#21090E] text-[#F3E5AB]' : 'text-brand'}`}><Film className="mr-2 inline h-4 w-4" />AI Video<span className="block text-xs normal-case">{service === 'ai-video' ? 'Unlocked' : 'Above Rs 5000 purchase'}</span></button>
         </div>}
 
         {isCatalogueGift && access?.access.catalogueProduct && (
-          <div className="mb-5 border border-[#D8C49B] bg-white p-4 text-center">
-            <p className="text-xs font-bold uppercase text-[#8A6A20]">Your selected Maharaja saree</p>
-            <p className="mt-1 font-serif text-xl font-bold text-[#2A060C]">{access.access.catalogueProduct.title}</p>
-            <p className="mt-1 text-lg font-black text-[#6E0D1F]">Rs {new Intl.NumberFormat('en-IN').format(access.access.catalogueProduct.price || 0)}</p>
+          <div className="rounded-2xl mb-5 border border-[#D8C49B] bg-white p-4 text-center">
+            <p className="text-xs font-bold text-[#8A6A20]">Your selected Maharaja saree</p>
+            <p className="mt-1 tracking-tight text-xl font-bold text-[#2A060C]">{access.access.catalogueProduct.title}</p>
+            <p className="mt-1 text-lg font-bold text-brand">Rs {new Intl.NumberFormat('en-IN').format(access.access.catalogueProduct.price || 0)}</p>
           </div>
         )}
 
         {enforceLimits && activeService === 'try-on' && tryOnUsed && (
-          <section id="tryon-completed-banner" className="mx-auto max-w-xl border border-[#D8C49B] bg-white p-6 text-center">
+          <section id="tryon-completed-banner" className="rounded-2xl mx-auto max-w-xl border border-[#D8C49B] bg-white p-6 text-center">
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-700" />
-            <h2 className="mt-3 font-serif text-3xl font-bold text-[#2A060C]">Try-On completed</h2>
-            <p className="mt-3 text-sm leading-6 text-[#5C4B43]">This device has completed its Maharaja AI Try-On. Thank you for visiting Maharaja!</p>
+            <h2 className="mt-3 tracking-tight text-3xl font-bold text-[#2A060C]">Try-On completed</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">This device has completed its Maharaja AI Try-On. Thank you for visiting Maharaja!</p>
           </section>
         )}
 
         {activeService === 'try-on' && (!enforceLimits || !tryOnUsed) && !purchaseConfirmed && (
-          <section className="mx-auto max-w-xl border border-[#D8C49B] bg-white p-6 text-center shadow-md">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#6E0D1F]/10 border border-[#D4AF37]/50 text-[#6E0D1F] mb-3">
-              <ScanLine className="h-7 w-7 text-[#6E0D1F]" />
+          <section className="rounded-2xl mx-auto max-w-xl border border-[#D8C49B] bg-white p-6 text-center shadow-md">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 border border-[#D4AF37]/50 text-brand mb-3">
+              <ScanLine className="h-7 w-7 text-brand" />
             </div>
-            <h2 className="font-serif text-2xl md:text-3xl font-bold text-[#2A060C]">
+            <h2 className="tracking-tight text-2xl md:text-3xl font-bold text-[#2A060C]">
               Scan the price tag
             </h2>
-            <p className="mt-2 text-sm leading-6 text-[#5C4B43] max-w-md mx-auto">
+            <p className="mt-2 text-sm leading-6 text-muted max-w-md mx-auto">
               Garments ₹500 and above unlock AI Try-On.
             </p>
 
@@ -1004,7 +1004,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
               type="button"
               id="open-full-size-camera-btn"
               onClick={() => { setError(''); setIsFullCameraOpen(true); }}
-              className="mx-auto mt-6 flex min-h-14 w-full max-w-md items-center justify-center gap-3 bg-[#6E0D1F] px-6 text-sm font-black uppercase text-[#F3E5AB] shadow-lg active:scale-[0.99]"
+              className="mx-auto mt-6 flex min-h-14 w-full max-w-md items-center justify-center gap-3 bg-brand px-6 text-sm font-bold text-[#F3E5AB] shadow-lg active:scale-[0.99]"
             >
               <Camera className="h-5 w-5 text-[#D4AF37]" /> Scan Price Tag
             </button>
@@ -1020,11 +1020,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         {purchaseConfirmed && !tryOnUsed && (
           <>
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
-              {!retrySessionId && <div className="border border-[#D8C49B] bg-white p-5 md:p-6">
-                <div className={`${isCatalogueGift ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} grid gap-4`}>
-                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase text-[#5C4B43]">Customer category</legend><div className={`mt-2 grid grid-cols-2 gap-2 ${isCatalogueGift ? 'max-w-md' : 'sm:grid-cols-4'}`}>{selectableCategories.map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setConceptId(conceptsForCategory(option)[0].id); if (isCatalogueGift) { setGarmentType('saree'); setGarmentTypeConfirmed(true); setGarmentRoles(['Saree body, pallu, border and blouse reference']); setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'saree', primaryColor: 'Original color' }); } else { setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); } setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold uppercase transition ${category === option ? 'border-[#6E0D1F] bg-[#6E0D1F] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFFDF8] text-[#5C4B43] hover:border-[#6E0D1F]'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div>{isCatalogueGift && <p className="mt-2 text-xs leading-5 text-[#5C4B43]">Choose Women or Girl, then select one of three festive visual sets below. Your selected Maharaja saree stays unchanged.</p>}</fieldset>
+              {!retrySessionId && <div className="rounded-2xl border border-[#D8C49B] bg-white p-5 md:p-6">
+                <div className={`${isCatalogueGift ? 'sm:grid-cols-1': 'sm:grid-cols-2'} grid gap-4`}>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold text-muted">Customer category</legend><div className={`mt-2 grid grid-cols-2 gap-2 ${isCatalogueGift ? 'max-w-md': 'sm:grid-cols-4'}`}>{selectableCategories.map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setConceptId(conceptsForCategory(option)[0].id); if (isCatalogueGift) { setGarmentType('saree'); setGarmentTypeConfirmed(true); setGarmentRoles(['Saree body, pallu, border and blouse reference']); setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'saree', primaryColor: 'Original color' }); } else { setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); } setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold transition ${category === option ? 'border-brand bg-brand text-[#F3E5AB] shadow-sm': 'border-[#D8C49B] bg-[#FFFDF8] text-muted hover:border-brand'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div>{isCatalogueGift && <p className="mt-2 text-xs leading-5 text-muted">Choose Women or Girl, then select one of three festive visual sets below. Your selected Maharaja saree stays unchanged.</p>}</fieldset>
 
-                  <label className="text-xs font-bold uppercase text-[#5C4B43] sm:col-span-2">Event
+                  <label className="text-xs font-bold text-muted sm:col-span-2">Event
                     <select
                       id="event-select"
                       value={eventId}
@@ -1037,22 +1037,22 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                   </label>
                 </div>
 
-                <div className={`${isCatalogueGift ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} mt-6 grid gap-4`}>
-                  <div className="border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex flex-col justify-between">
+                <div className={`${isCatalogueGift ? 'sm:grid-cols-1': 'sm:grid-cols-2'} mt-6 grid gap-4`}>
+                  <div className="rounded-2xl border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold uppercase text-[#6E0D1F]">Image 1 · Customer photo (identity source)</span>
+                        <span className="text-xs font-bold text-brand">Image 1 · Customer photo (identity source)</span>
                         {personPhoto && !imagesLocked && (
                           <button
                             type="button"
                             onClick={() => { setPersonPhoto(null); setPersonAnalysis(null); }}
-                            className="text-[11px] font-bold text-red-700 hover:underline"
+                            className="text-xs font-bold text-red-700 hover:underline"
                           >
                             Remove
                           </button>
                         )}
                       </div>
-                      <p className="mb-2 text-[11px] leading-4 text-[#5C4B43]">
+                      <p className="mb-2 text-xs leading-4 text-muted">
                         Use the real customer only—never a catalogue model. Stand ~3 feet away in full stature; keep head, hands and legs/footwear clearly visible.
                       </p>
 
@@ -1062,37 +1062,37 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                         ) : (
                           <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
                             <User className="h-10 w-10 text-slate-300" />
-                            <span className="text-xs font-bold uppercase">Customer identity photo</span>
+                            <span className="text-xs font-bold">Customer identity photo</span>
                           </div>
                         )}
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-1 gap-2">
-                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB]">
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-brand text-xs font-bold text-[#F3E5AB]">
                         <Camera className="h-4 w-4" /> Add customer photo
-                        <input id="person-photo-input" type="file" accept="image/*" className="hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
+                        <input id="person-photo-input" type="file" accept="image/*" className="rounded-xl hidden" disabled={busy || imagesLocked} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) void analyzePerson(file); }} />
                       </label>
                     </div>
                   </div>
 
-                  <div className={`${isCatalogueGift ? 'hidden' : 'flex'} border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex-col justify-between`}>
+                  <div className={`rounded-2xl ${isCatalogueGift ? 'hidden': 'flex'} border border-dashed border-[#B99A55] bg-[#FFF9EC] p-4 flex-col justify-between`}>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold uppercase text-[#6E0D1F]">
+                        <span className="text-xs font-bold text-brand">
                           Image 2+ · Garment references ({visibleGarmentPhotos.length}/{maxGarmentPhotos} max)
                         </span>
                         {garmentPhotos.length > 0 && !imagesLocked && (
                           <button
                             type="button"
                             onClick={() => { setGarmentPhotos([]); setGarmentAnalysis(null); }}
-                            className="text-[11px] font-bold text-red-700 hover:underline"
+                            className="text-xs font-bold text-red-700 hover:underline"
                           >
                             Clear all
                           </button>
                         )}
                       </div>
 
-                      <label className="mb-3 block text-xs font-bold uppercase text-[#5C4B43]">
+                      <label className="mb-3 block text-xs font-bold text-muted">
                         Garment type
                         <select
                           value={garmentType}
@@ -1104,26 +1104,26 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                             setGarmentRoles(rolesForGarment(nextType));
                             setGarmentAnalysis((current) => current ? { ...current, garmentType: nextType } : current);
                           }}
-                          className="mt-1 min-h-11 w-full border border-[#B99A55] bg-white px-3 text-sm font-semibold text-[#2A060C] outline-none focus:border-[#6E0D1F]"
+                          className="mt-1 min-h-11 w-full border border-[#B99A55] bg-white px-3 text-sm font-semibold text-[#2A060C] outline-none focus:border-brand"
                         >
                           {GARMENT_TYPE_OPTIONS[category].map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
-                        <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">Confirm the garment type first. The reference roles below are sent to AI.</span>
-                        {garmentType === 'saree' && isTryOn && maxGarmentPhotos === 3 && <span className="mt-1 block normal-case font-medium text-[#6E0D1F]">On the Gemini retry, a blouse photo may be the third reference.</span>}
+                        <span className="mt-1 block normal-case font-medium text-brand">Confirm the garment type first. The reference roles below are sent to AI.</span>
+                        {garmentType === 'saree' && isTryOn && maxGarmentPhotos === 3 && <span className="mt-1 block normal-case font-medium text-brand">On the Gemini retry, a blouse photo may be the third reference.</span>}
                       </label>
 
                       {garmentPhotos.length === 0 ? (
                         <div className="aspect-[3/4] overflow-hidden bg-white p-2 flex flex-col items-center justify-center gap-2 text-slate-400">
                           <Shirt className="h-10 w-10 text-slate-300" />
-                          <span className="text-xs font-bold uppercase text-center">
+                          <span className="text-xs font-bold text-center">
                             {isTryOn ? `1 to ${maxGarmentPhotos} garment photo${maxGarmentPhotos === 1 ? '' : 's'}` : '1 to 2 garment photos'}
                           </span>
-                          <span className="text-[11px] text-center text-slate-400">
+                          <span className="text-xs text-center text-slate-400">
                             {garmentType === 'saree' ? 'Saree body, pallu / border. Catalogue model faces are ignored.' : 'Front view, detail, or border / layer. Catalogue model faces are ignored.'}
                           </span>
                         </div>
                       ) : (
-                        <div className={`grid gap-2 ${maxGarmentPhotos === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                        <div className={`grid gap-2 ${maxGarmentPhotos === 2 ? 'grid-cols-2': 'grid-cols-3'}`}>
                           {visibleGarmentPhotos.map((photo, idx) => {
                             const defaultRole = GARMENT_ROLE_OPTIONS[garmentType][idx] || 'Garment detail';
                             const role = garmentRoles[idx] || defaultRole;
@@ -1138,7 +1138,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                                     updated[idx] = event.target.value;
                                     setGarmentRoles(updated);
                                   }}
-                                  className="absolute bottom-1 left-1 max-w-[92%] rounded border border-[#D4AF37]/50 bg-black/85 px-1.5 py-0.5 text-[9px] font-bold uppercase text-[#F3E5AB] outline-none"
+                                  className="absolute bottom-1 left-1 max-w-[92%] rounded border border-[#D4AF37]/50 bg-black/85 px-1.5 py-0.5 text-xs font-bold text-[#F3E5AB] outline-none"
                                   aria-label={`Garment photo ${idx + 1} role`}
                                 >
                                   {GARMENT_ROLE_OPTIONS[garmentType].map((option) => <option key={option} value={option}>{option}</option>)}
@@ -1157,14 +1157,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                             );
                           })}
                           {garmentPhotos.length < maxGarmentPhotos && (
-                            <label className="aspect-[3/4] flex flex-col items-center justify-center border-2 border-dashed border-[#B99A55] bg-white cursor-pointer text-slate-400 hover:text-[#6E0D1F] transition">
-                              <Plus className="h-5 w-5 mb-1 text-[#6E0D1F]" />
-                              <span className="text-[10px] font-bold uppercase text-center text-[#6E0D1F]">Add photo</span>
+                            <label className="rounded-2xl aspect-[3/4] flex flex-col items-center justify-center border border-dashed border-[#B99A55] bg-white cursor-pointer text-slate-400 hover:text-brand transition">
+                              <Plus className="h-5 w-5 mb-1 text-brand" />
+                              <span className="text-xs font-bold text-center text-brand">Add photo</span>
                               <input
                                 type="file"
                                 accept="image/*"
                                 multiple
-                                className="hidden"
+                                className="rounded-xl hidden"
                                 disabled={busy || imagesLocked}
                                 onChange={(event) => {
                                   const files = Array.from(event.target.files || []);
@@ -1180,8 +1180,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
                     {!isCatalogueGift && activeService === 'ai-video' && (
                       <fieldset className="mt-5 border-t border-[#D8C49B] pt-4">
-                        <legend className="px-1 text-xs font-bold uppercase tracking-[0.16em] text-[#6E0D1F]">Choose your Diwali film</legend>
-                        <p className="mt-1 text-xs leading-5 text-[#5C4B43]">Choose a title only. Your final portrait remains a surprise.</p>
+                        <legend className="px-1 text-xs font-bold text-brand">Choose your Diwali film</legend>
+                        <p className="mt-1 text-xs leading-5 text-muted">Choose a title only. Your final portrait remains a surprise.</p>
                         <div className="mt-3 grid gap-2 sm:grid-cols-3">
                           {conceptsForCategory(category).map((concept, index) => (
                             <button
@@ -1190,11 +1190,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                               disabled={busy || imagesLocked}
                               aria-pressed={conceptId === concept.id}
                               onClick={() => { setConceptId(concept.id); setProcessingConsent(false); clearActiveImage(); }}
-                              className={`min-h-24 border p-3 text-left transition ${conceptId === concept.id ? 'border-[#D4AF37] bg-[#21090E] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFF9EC] text-[#2A060C] hover:border-[#6E0D1F]'}`}
+                              className={`min-h-24 border p-3 text-left transition ${conceptId === concept.id ? 'border-[#D4AF37] bg-[#21090E] text-[#F3E5AB] shadow-sm': 'border-[#D8C49B] bg-[#FFF9EC] text-[#2A060C] hover:border-brand'}`}
                             >
-                              <span className={`block text-[10px] font-bold tracking-[0.18em] ${conceptId === concept.id ? 'text-[#D4AF37]' : 'text-[#6E0D1F]'}`}>0{index + 1}</span>
-                              <span className="mt-1 block font-serif text-base font-bold">{concept.title}</span>
-                              <span className={`mt-1 block text-[11px] leading-4 ${conceptId === concept.id ? 'text-[#F3E5AB]/80' : 'text-[#5C4B43]'}`}>{concept.mood}</span>
+                              <span className={`block text-xs font-bold ${conceptId === concept.id ? 'text-[#D4AF37]': 'text-brand'}`}>0{index + 1}</span>
+                              <span className="mt-1 block tracking-tight text-base font-bold">{concept.title}</span>
+                              <span className={`mt-1 block text-xs leading-4 ${conceptId === concept.id ? 'text-[#F3E5AB]/80': 'text-muted'}`}>{concept.mood}</span>
                             </button>
                           ))}
                         </div>
@@ -1203,14 +1203,14 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
                     {photoInputError && <p className="mt-3 border border-red-300 bg-red-50 p-3 text-xs font-bold leading-5 text-red-700">{photoInputError}</p>}
                     <div className="mt-3 grid grid-cols-1 gap-2">
-                      <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-[#6E0D1F] text-xs font-bold uppercase text-[#F3E5AB] ${garmentPhotos.length >= maxGarmentPhotos ? 'opacity-40 pointer-events-none' : ''}`}>
+                      <label className={`flex min-h-11 cursor-pointer items-center justify-center gap-1 bg-brand text-xs font-bold text-[#F3E5AB] ${garmentPhotos.length >= maxGarmentPhotos ? 'opacity-40 pointer-events-none': ''}`}>
                         <Camera className="h-4 w-4" /> {garmentPhotos.length > 0 && garmentPhotos.length < maxGarmentPhotos ? '+ Add photo' : 'Add photo'}
                         <input
                           id="garment-photo-input"
                           type="file"
                           accept="image/*"
                           multiple
-                          className="hidden"
+                          className="rounded-xl hidden"
                           disabled={busy || imagesLocked || garmentPhotos.length >= maxGarmentPhotos}
                           onChange={(event) => {
                             const files = Array.from(event.target.files || []);
@@ -1225,8 +1225,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
                 {isCatalogueGift && activeService === 'ai-video' && (
                   <fieldset className="mt-6 border-t border-[#D8C49B] pt-4">
-                    <legend className="px-1 text-xs font-bold uppercase tracking-[0.16em] text-[#6E0D1F]">Choose your Diwali visual set</legend>
-                    <p className="mt-1 text-xs leading-5 text-[#5C4B43]">Three approved settings are available for {category === 'girl' ? 'Girl' : 'Women'}. Your face and selected saree remain the visual authority.</p>
+                    <legend className="px-1 text-xs font-bold text-brand">Choose your Diwali visual set</legend>
+                    <p className="mt-1 text-xs leading-5 text-muted">Three approved settings are available for {category === 'girl' ? 'Girl' : 'Women'}. Your face and selected saree remain the visual authority.</p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-3">
                       {conceptsForCategory(category).map((concept, index) => (
                         <button
@@ -1235,40 +1235,40 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                           disabled={busy || imagesLocked}
                           aria-pressed={conceptId === concept.id}
                           onClick={() => { setConceptId(concept.id); setProcessingConsent(false); clearActiveImage(); }}
-                          className={`min-h-24 border p-3 text-left transition ${conceptId === concept.id ? 'border-[#D4AF37] bg-[#21090E] text-[#F3E5AB] shadow-sm' : 'border-[#D8C49B] bg-[#FFF9EC] text-[#2A060C] hover:border-[#6E0D1F]'}`}
+                          className={`min-h-24 border p-3 text-left transition ${conceptId === concept.id ? 'border-[#D4AF37] bg-[#21090E] text-[#F3E5AB] shadow-sm': 'border-[#D8C49B] bg-[#FFF9EC] text-[#2A060C] hover:border-brand'}`}
                         >
-                          <span className={`block text-[10px] font-bold tracking-[0.18em] ${conceptId === concept.id ? 'text-[#D4AF37]' : 'text-[#6E0D1F]'}`}>0{index + 1}</span>
-                          <span className="mt-1 block font-serif text-base font-bold">{concept.title}</span>
-                          <span className={`mt-1 block text-[11px] leading-4 ${conceptId === concept.id ? 'text-[#F3E5AB]/80' : 'text-[#5C4B43]'}`}>{concept.mood}</span>
+                          <span className={`block text-xs font-bold ${conceptId === concept.id ? 'text-[#D4AF37]': 'text-brand'}`}>0{index + 1}</span>
+                          <span className="mt-1 block tracking-tight text-base font-bold">{concept.title}</span>
+                          <span className={`mt-1 block text-xs leading-4 ${conceptId === concept.id ? 'text-[#F3E5AB]/80': 'text-muted'}`}>{concept.mood}</span>
                         </button>
                       ))}
                     </div>
                   </fieldset>
                 )}
 
-                {message && <div className="mt-4 border border-[#E2D4B8] bg-[#FFF9EC] p-3 text-sm font-semibold text-[#6E0D1F]">{message}</div>}
+                {message && <div className="rounded-2xl mt-4 border border-[#E2D4B8] bg-[#FFF9EC] p-3 text-sm font-semibold text-brand">{message}</div>}
                 {error && <div className="mt-4 border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</div>}
 
                 {!masterImageUrl && (
-                  <label className="mt-5 flex cursor-pointer items-start gap-3 border border-[#D8C49B] bg-[#FFF9EC] p-3.5 text-left">
+                  <label className="rounded-2xl mt-5 flex cursor-pointer items-start gap-3 border border-[#D8C49B] bg-[#FFF9EC] p-3.5 text-left">
                     <input
                       type="checkbox"
                       checked={processingConsent}
                       onChange={(event) => setProcessingConsent(event.target.checked)}
-                      className="mt-0.5 h-5 w-5 shrink-0 accent-[#6E0D1F]"
+                      className="mt-0.5 h-5 w-5 shrink-0 accent-brand"
                     />
-                    <span className="text-xs leading-5 text-[#5C4B43]">
+                    <span className="text-xs leading-5 text-muted">
                       {category === 'girl' || category === 'boy'
                         ? 'I confirm that I am the parent or legal guardian and agree to the temporary processing of these photos to create this Maharaja AI experience.'
                         : 'I agree to the temporary processing of the uploaded photos to create this Maharaja AI experience.'}{' '}
-                      <Link href="/privacy" className="font-bold text-[#6E0D1F] underline underline-offset-2">Privacy &amp; Data Use</Link>
+                      <Link href="/privacy" className="rounded-xl font-bold text-brand underline underline-offset-2">Privacy &amp; Data Use</Link>
                       <span className="px-1">·</span>
-                      <Link href="/terms" className="font-bold text-[#6E0D1F] underline underline-offset-2">Terms</Link>
+                      <Link href="/terms" className="rounded-xl font-bold text-brand underline underline-offset-2">Terms</Link>
                     </span>
                   </label>
                 )}
 
-                {!masterImageUrl && <button type="button" id="generate-master-image-btn" onClick={() => void generateImage()} disabled={!canGenerateImage || busy} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 bg-[#6E0D1F] px-5 text-xs font-bold uppercase text-[#F3E5AB] disabled:opacity-40">{stage === 'image' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />} {activeService === 'try-on' ? 'Generate AI Try-On' : 'Generate Festival Image for Video'}</button>}
+                {!masterImageUrl && <button type="button" id="generate-master-image-btn" onClick={() => void generateImage()} disabled={!canGenerateImage || busy} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 bg-brand px-5 text-xs font-bold text-[#F3E5AB] disabled:opacity-40">{stage === 'image' ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />} {activeService === 'try-on' ? 'Generate AI Try-On' : 'Generate Festival Image for Video'}</button>}
               </div>}
 
               <aside className="border border-[#D8C49B] bg-[#21090E] p-5 text-center text-[#F3E5AB]">
@@ -1278,15 +1278,15 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 />
                 {masterImageUrl && activeService === 'try-on' && (
                   <div className="mt-4 space-y-2">
-                    <button type="button" id="download-tryon-btn" onClick={downloadImage} className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold uppercase text-black hover:brightness-105"><Download className="h-4 w-4" /> Download Try-On</button>
+                    <button type="button" id="download-tryon-btn" onClick={downloadImage} className="rounded-xl flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] text-xs font-bold text-black hover:brightness-105"><Download className="h-4 w-4" /> Download Try-On</button>
                     {personPhoto && <BeforeAfterSlider before={personPhoto} after={masterImageUrl} />}
                   </div>
                 )}
                 {masterImageUrl && activeService === 'ai-video' && (
                   <div className="mt-4 space-y-3 border border-[#D4AF37]/40 bg-black/25 p-4 text-left text-xs leading-5 text-[#F3E5AB]">
-                    <div className="font-bold uppercase tracking-wide">Create your cinematic AI film</div>
+                    <div className="font-bold">Create your cinematic AI film</div>
                     <p className="text-[#F3E5AB]/80">Your approved portrait becomes a premium six-second film, saved securely for download and optional showroom presentation.</p>
-                    <label className="block space-y-1.5 text-[10px] font-bold uppercase tracking-wide text-[#F3E5AB]/85">
+                    <label className="block space-y-1.5 text-xs font-bold text-[#F3E5AB]/85">
                         Video model
                         <select
                           value={videoTestModel}
@@ -1301,7 +1301,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                       type="button"
                       onClick={() => void startVideoTest()}
                       disabled={stage === 'video'}
-                      className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 font-bold uppercase text-[#21090E] disabled:cursor-not-allowed disabled:opacity-45 hover:brightness-105"
+                      className="flex min-h-12 w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 font-bold text-[#21090E] disabled:cursor-not-allowed disabled:opacity-45 hover:brightness-105"
                     >
                       {stage === 'video' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
                       {stage === 'video' ? 'Generation in progress' : error ? 'Please Retry Video Generation' : 'Generate cinematic video'}
@@ -1318,13 +1318,13 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           </>
         )}
       </div>
-      <div className="mx-auto mt-6 max-w-5xl border-t border-[#D8C49B] px-4 py-5 text-center text-[11px] leading-5 text-[#5C4B43]">
+      <div className="mx-auto mt-6 max-w-5xl border-t border-[#D8C49B] px-4 py-5 text-center text-xs leading-5 text-muted">
         {activeService === 'try-on'
           ? 'Your photos are temporarily processed to create this Try-On and are removed from Maharaja storage after generation. The downloaded result remains on your device.'
           : 'AI Video media is temporarily retained for delivery, expires after one day, and is cleared by scheduled cleanup unless an adult separately permits promotional use. Anonymous usage totals may be retained.'}{' '}
-        <Link href="/privacy" className="inline-block py-3 font-bold text-[#6E0D1F] underline underline-offset-2">Privacy &amp; Data Use</Link>
+        <Link href="/privacy" className="rounded-xl inline-block py-3 font-bold text-brand underline underline-offset-2">Privacy &amp; Data Use</Link>
         <span className="px-1.5">·</span>
-        <Link href="/terms" className="inline-block py-3 font-bold text-[#6E0D1F] underline underline-offset-2">Terms</Link>
+        <Link href="/terms" className="rounded-xl inline-block py-3 font-bold text-brand underline underline-offset-2">Terms</Link>
       </div>
     </main>
   );

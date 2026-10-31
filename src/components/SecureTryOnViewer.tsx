@@ -24,7 +24,7 @@ export default function SecureTryOnViewer({
       ) : (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-[#F3E5AB]/45">
           <Sparkles className="h-12 w-12" />
-          <span className="text-xs font-bold uppercase">AI result preview</span>
+          <span className="text-xs font-bold">AI result preview</span>
         </div>
       )}
 
@@ -32,7 +32,7 @@ export default function SecureTryOnViewer({
       {imageUrl && (
         <div className="pointer-events-none absolute top-3 right-3 z-20 flex items-center gap-1.5 rounded-full border border-[#D4AF37]/50 bg-black/60 px-2 py-1 backdrop-blur-sm shadow-md">
           <img src="/maharaja-logo.png" alt="Maharaja Silks" className="h-4 w-4 rounded-full object-contain" />
-          <span className="text-[10px] font-bold tracking-wider uppercase text-[#F3E5AB]">Maharaja</span>
+          <span className="text-xs font-bold text-[#F3E5AB]">Maharaja</span>
         </div>
       )}
 

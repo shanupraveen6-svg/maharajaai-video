@@ -26,9 +26,9 @@ const DETAILS: Record<ConsentKind, string> = {
 export default function PhotoConsentNotice({ kind, large = false }: { kind: ConsentKind; large?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={`border border-[#D8DCD7] bg-[#FAFBF8] text-left text-[#535A56] ${large ? 'p-4 text-base' : 'p-3 text-xs'}`}>
+    <div className={`text-left leading-relaxed text-muted ${large ? 'text-base' : 'text-[13px]'}`}>
       <p className="flex items-start gap-2">
-        <ShieldCheck className={`${large ? 'mt-0.5 h-5 w-5' : 'h-4 w-4'} shrink-0 text-[#256B45]`} />
+        <ShieldCheck className={`${large ? 'mt-0.5 h-5 w-5': 'h-4 w-4'} shrink-0 text-success`} />
         <span>
           {SUMMARY[kind]}{' '}
           A parent or guardian must agree for a child.{' '}
@@ -36,14 +36,14 @@ export default function PhotoConsentNotice({ kind, large = false }: { kind: Cons
             type="button"
             aria-expanded={open}
             onClick={() => setOpen((value) => !value)}
-            className={`inline-flex items-center gap-1 font-semibold text-[#7A1428] underline ${large ? 'min-h-11' : 'min-h-8'}`}
+            className="inline-flex items-center gap-1 align-baseline font-semibold text-brand underline underline-offset-2"
           >
-            <Info className="h-4 w-4" /> Details
+            <Info className="h-3.5 w-3.5 self-center" /> Details
           </button>{' '}
-          <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-[#7A1428] underline">Privacy</a>
+          <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">Privacy</a>
         </span>
       </p>
-      {open && <p className="mt-2 border-t border-[#D8DCD7] pt-2">{DETAILS[kind]}</p>}
+      {open && <p className="mt-2 rounded-xl bg-white p-3">{DETAILS[kind]}</p>}
     </div>
   );
 }

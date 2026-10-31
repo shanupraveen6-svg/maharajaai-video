@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+
+const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.tryfocus.in"),
@@ -28,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased min-h-screen bg-[#070609] text-[#F8F5EE] selection:bg-[#D4AF37] selection:text-black">
+    <html lang="en" className={jakarta.variable}>
+      <body className="min-h-screen bg-canvas text-ink selection:bg-brand selection:text-white">
         {children}
       </body>
     </html>

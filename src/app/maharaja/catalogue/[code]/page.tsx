@@ -87,17 +87,14 @@ export default function MaharajaCatalogueGiftPage() {
   if (confirmed) return <MaharajaExperience service="ai-video" accessCode={code} />;
 
   return (
-    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
-      <header className="border-b border-[#D8DCD7] bg-[#F4F5F2] px-5 py-5">
+    <main className="min-h-screen bg-[#F4F5F2] text-ink">
+      <header className="border-b border-line bg-[#F4F5F2] px-5 py-5">
         <div className="mx-auto flex max-w-6xl items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
+          <span className="flex h-10 w-10 items-center justify-center border border-ink bg-ink tabular-nums text-xs font-bold text-[#FAF6EE]">
             TF
           </span>
           <div>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#7A1428]">
-              TryFocus · 1-Day Video Pass
-            </p>
-            <h1 className="font-serif text-2xl font-semibold text-[#161918]">
+            <h1 className="text-2xl font-bold text-ink">
               Choose Your Store Catalogue Outfit (Women & Men)
             </h1>
           </div>
@@ -105,17 +102,17 @@ export default function MaharajaCatalogueGiftPage() {
       </header>
 
       <div className="mx-auto max-w-6xl px-4 py-6">
-        <p className="max-w-2xl text-sm leading-6 text-[#535A56]">
+        <p className="max-w-2xl text-sm leading-6 text-muted">
           Select any outfit from our 30-item South Indian collection (Sarees, Salwars, Lehengas, Kurtas, Veshtis & Shirts) to create your AI portrait and 6-second AI Video with <strong>Download</strong> and <strong>Go Live</strong> on the Maharaja showroom screen.
         </p>
         {error && (
-          <p className="mt-4 border border-[#B42318] bg-[#FEF3F2] p-3 text-sm font-semibold text-[#B42318]">
+          <p className="mt-4 border border-danger bg-[#FEF3F2] p-3 text-sm font-semibold text-danger">
             {error}
           </p>
         )}
         {loading ? (
           <div className="flex justify-center py-24">
-            <LoaderCircle className="h-8 w-8 animate-spin text-[#7A1428]" />
+            <LoaderCircle className="h-8 w-8 animate-spin text-brand" />
           </div>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-3.5 md:grid-cols-3 lg:grid-cols-5">
@@ -127,10 +124,10 @@ export default function MaharajaCatalogueGiftPage() {
                   type="button"
                   onClick={() => setSelectedSku(product.sku)}
                   className={`relative overflow-hidden border bg-white text-left transition ${
-                    selected
-                      ? 'border-[#7A1428] ring-2 ring-[#7A1428]'
-                      : 'border-[#D8DCD7] hover:border-[#161918]'
-                  }`}
+ selected
+ ? 'border-brand ring-2 ring-brand'
+ : 'border-line hover:border-ink'
+ }`}
                 >
                   <img
                     src={product.imageUrl}
@@ -140,18 +137,18 @@ export default function MaharajaCatalogueGiftPage() {
                     className="aspect-[3/4] w-full object-cover"
                   />
                   <div className="p-3">
-                    <p className="font-mono text-[10px] font-bold uppercase text-[#7A1428]">
+                    <p className="text-xs font-bold text-brand">
                       {product.sku}
                     </p>
-                    <p className="mt-0.5 line-clamp-2 min-h-10 font-serif text-sm font-semibold text-[#161918]">
+                    <p className="mt-0.5 line-clamp-2 min-h-10 tracking-tight text-sm font-semibold text-ink">
                       {product.title}
                     </p>
-                    <p className="mt-1.5 font-mono text-sm font-bold text-[#161918]">
+                    <p className="mt-1.5 tabular-nums text-sm font-bold text-ink">
                       ₹{new Intl.NumberFormat('en-IN').format(product.price)}
                     </p>
                   </div>
                   {selected && (
-                    <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center bg-[#7A1428] text-white">
+                    <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center bg-brand text-white">
                       <Check className="h-4 w-4" />
                     </span>
                   )}
@@ -165,7 +162,7 @@ export default function MaharajaCatalogueGiftPage() {
             type="button"
             onClick={() => void loadMore()}
             disabled={loadingMore}
-            className="mx-auto mt-6 flex min-h-11 items-center justify-center border border-[#161918] bg-white px-6 text-xs font-bold uppercase text-[#161918] disabled:opacity-50"
+            className="mx-auto mt-6 flex min-h-11 items-center justify-center border border-ink bg-white px-6 text-xs font-bold text-ink disabled:opacity-50"
           >
             {loadingMore ? 'Loading outfits...' : 'View More Outfits'}
           </button>
@@ -176,7 +173,7 @@ export default function MaharajaCatalogueGiftPage() {
               type="button"
               onClick={() => void confirmSelection()}
               disabled={!selectedSku || saving}
-              className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#7A1428] px-5 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] shadow-xl disabled:opacity-45"
+              className="flex min-h-14 w-full items-center justify-center gap-2 bg-brand px-5 text-xs font-bold text-[#FAF6EE] shadow-xl disabled:opacity-45"
             >
               <ShoppingBag className="h-4 w-5" />
               {saving ? 'Securing Selection...' : 'Confirm Outfit & Continue to AI Video'}

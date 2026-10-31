@@ -342,12 +342,9 @@ export default function TryFocusAdmin() {
 
   if (authRequired) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-[#161918]">
-        <div className="w-full max-w-md border border-[#D8DCD7] bg-[#FFFFFF] p-8 shadow-sm">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-            TryFocus Super Admin · Protected Control Plane
-          </p>
-          <h1 className="mt-3 font-serif text-2xl font-semibold text-[#161918]">
+      <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-ink">
+        <div className="rounded-2xl w-full max-w-md border border-line bg-[#FFFFFF] p-8 shadow-sm">
+          <h1 className="mt-3 text-2xl font-bold text-ink">
             Operator authentication required
           </h1>
           <p className="mt-2 text-sm leading-6 text-[#555E5A]">
@@ -355,7 +352,7 @@ export default function TryFocusAdmin() {
           </p>
           <Link
             href="/login?next=/admin"
-            className="mt-6 flex w-full items-center justify-center border border-[#7A1428] bg-[#7A1428] px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] transition hover:bg-[#5E0E1E]"
+            className="rounded-xl mt-6 flex w-full items-center justify-center border border-brand bg-brand px-5 py-3 text-xs font-bold text-[#FAF6EE] transition hover:bg-[#5E0E1E]"
           >
             Sign In to TryFocus Admin
           </Link>
@@ -365,21 +362,14 @@ export default function TryFocusAdmin() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F4F5F2] text-[#161918]">
-      {/* Unified TryFocus Top Header */}
-      <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+    <main className="min-h-screen bg-canvas text-ink">
+      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-3 sm:px-8">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
-              TF
-            </span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-sm font-bold text-white">TF</span>
             <div>
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                TryFocus Super Admin · Universal Client Control Plane
-              </p>
-              <h1 className="font-serif text-xl font-semibold text-[#161918]">
-                Store Management & Surface Provisioning
-              </h1>
+              <h1 className="text-lg font-bold text-ink">TryFocus admin</h1>
+              <p className="text-sm text-muted">{loading ? 'Loading clients…' : `${clients.length} client${clients.length === 1 ? '' : 's'}`}</p>
             </div>
           </div>
 
@@ -387,36 +377,36 @@ export default function TryFocusAdmin() {
             <button
               type="button"
               onClick={() => setShowCreateForm((v) => !v)}
-              className="inline-flex items-center gap-1.5 border border-[#161918] bg-white px-3.5 py-2 text-xs font-semibold text-[#161918] hover:bg-[#161918] hover:text-white"
+              className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm"
             >
-              <Plus className="h-3.5 w-3.5" />
-              New Retailer Workspace
+              <Plus className="h-4 w-4" />
+              New client
             </button>
             {clientId && <button
               type="button"
               disabled={saving}
               onClick={saveCurrentConfiguration}
-              className="inline-flex items-center gap-1.5 bg-[#7A1428] px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#FAF6EE] disabled:opacity-50"
+              className="tf-btn tf-btn-primary !min-h-11 px-4 text-sm"
             >
               {saving ? (
                 <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
-              {saving ? 'Saving...' : 'Save Configuration'}
+              {saving ? 'Saving…' : 'Save changes'}
             </button>}
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
+      <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 sm:px-8">
         {(savedNotice || errorNotice) && (
           <div
-            className={`border p-4 text-sm font-semibold ${
-              errorNotice
-                ? 'border-[#B42318] bg-[#FEF3F2] text-[#B42318]'
-                : 'border-[#256B45] bg-[#EBF5EE] text-[#256B45]'
-            }`}
+            className={`rounded-2xl border p-4 text-sm font-semibold ${
+ errorNotice
+ ? 'border-danger bg-[#FEF3F2] text-danger'
+ : 'border-success bg-[#EBF5EE] text-success'
+ }`}
           >
             {errorNotice || savedNotice}
           </div>
@@ -426,53 +416,50 @@ export default function TryFocusAdmin() {
         {showCreateForm && (
           <form
             onSubmit={createNewRetailer}
-            className="border-2 border-[#161918] bg-white p-6 shadow-sm"
+            className="tf-card p-6"
           >
-            <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-4">
+            <div className="flex items-center justify-between border-b border-line pb-4">
               <div>
-                <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
-                  Provision New Client Store
-                </p>
-                <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                  Create Isolated Retailer Workspace
+                <h2 className="mt-1 text-2xl font-bold text-ink">
+                  New client workspace
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
-                className="text-xs font-semibold text-[#535A56] underline"
+                className="text-xs font-semibold text-muted underline"
               >
                 Cancel
               </button>
             </div>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
-                Retailer Store Name
+              <label className="block text-xs font-bold text-muted">
+                Store name
                 <input
                   value={newStoreName}
                   onChange={(e) => setNewStoreName(e.target.value)}
                   placeholder="e.g. Pothys Silk Palace"
-                  className="mt-1.5 h-11 w-full border border-[#D8DCD7] bg-[#FAFBF8] px-3 text-sm font-semibold text-[#161918] outline-none focus:border-[#7A1428]"
+                  className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                   required
                 />
               </label>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#535A56]">
+              <label className="block text-xs font-bold text-muted">
                 Branch / City
                 <input
                   value={newStoreBranch}
                   onChange={(e) => setNewStoreBranch(e.target.value)}
                   placeholder="e.g. Chennai · T. Nagar"
-                  className="mt-1.5 h-11 w-full border border-[#D8DCD7] bg-[#FAFBF8] px-3 text-sm font-semibold text-[#161918] outline-none focus:border-[#7A1428]"
+                  className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                 />
               </label>
               <div className="flex items-end">
                 <button
                   type="submit"
                   disabled={creatingClient}
-                  className="h-11 w-full bg-[#7A1428] px-5 text-xs font-bold uppercase tracking-[0.16em] text-[#FAF6EE] disabled:opacity-50"
+                  className="rounded-xl h-11 w-full bg-brand px-5 text-xs font-bold text-[#FAF6EE] disabled:opacity-50"
                 >
-                  {creatingClient ? 'Creating Workspace...' : 'Create Store Workspace'}
+                  {creatingClient ? 'Creating…' : 'Create workspace'}
                 </button>
               </div>
             </div>
@@ -480,32 +467,29 @@ export default function TryFocusAdmin() {
         )}
 
         {/* Client Selector & Status */}
-        <section className={`grid gap-6 ${clientId ? 'lg:grid-cols-[1.2fr_0.8fr]' : ''}`}>
-          <div className="border border-[#D8DCD7] bg-[#FAFBF8] p-6">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-              Store Setup · {loading ? 'Syncing...' : `${clients.length} Retailers Connected`}
-            </p>
-            <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+        <section className={`grid gap-6 ${clientId ? 'lg:grid-cols-[1.2fr_0.8fr]': ''}`}>
+          <div className="tf-card p-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h2 className="font-serif text-3xl font-semibold text-[#161918]">
-                  {clientId ? client.name : 'TryFocus platform overview'}
+                <h2 className="text-2xl font-bold text-ink">
+                  {clientId ? client.name : 'All clients'}
                 </h2>
-                <p className="mt-2 max-w-xl text-sm text-[#535A56]">
+                <p className="mt-2 max-w-xl text-sm text-muted">
                   {clientId
-                    ? 'This workspace only: status, logins, purchased devices, modules and credits. Every change is enforced in the APIs.'
-                    : 'Every client at a glance. Choose a client to manage that workspace.'}
+                    ? 'Status, logins, devices, modules and credits for this client.'
+                    : 'Usage and alerts across every client. Pick one to manage it.'}
                 </p>
               </div>
               <div className="relative min-w-64">
-                <label className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#535A56]">
-                  Selected Retailer
+                <label className="mb-1.5 block text-xs font-bold text-muted">
+                  Client
                 </label>
                 <select
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
-                  className="h-11 w-full appearance-none border border-[#D8DCD7] bg-white px-3.5 text-sm font-semibold text-[#161918] outline-none focus:border-[#7A1428]"
+                  className="h-11 w-full appearance-none rounded-xl border border-line-strong bg-white px-3.5 text-sm font-semibold text-ink outline-none focus:border-brand"
                 >
-                  <option value="">All clients · TryFocus overview</option>
+                  <option value="">All clients</option>
                   {clients.map((item) => {
                     const low = creditStatuses({ tryOnGenerated: item.usage.image, liveSessions: item.usage.live, videosGenerated: item.usage.video }, item.limits)
                       .some((status) => status.level !== 'ok' && status.level !== 'none');
@@ -516,47 +500,44 @@ export default function TryFocusAdmin() {
                     );
                   })}
                 </select>
-                <ChevronDown className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-[#535A56]" />
+                <ChevronDown className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-muted" />
               </div>
               {clientId && <><a
                 href={`/maharaja/${encodeURIComponent(client.workspaceCode || client.id)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 flex min-h-11 items-center justify-center gap-2 bg-[#161918] px-4 text-xs font-bold uppercase tracking-wider text-white"
+                className="rounded-xl mt-3 flex min-h-11 items-center justify-center gap-2 bg-ink px-4 text-xs font-bold text-white"
               >
                 Open {client.name} workspace ↗
               </a>
-              <p className="mt-2 text-xs text-[#535A56]">Opens exactly what this client sees: QR codes, Go Live, promos, catalogue and rules.</p></>}
+              <p className="mt-2 text-xs text-muted">Opens exactly what this client sees: QR codes, Go Live, promos, catalogue and rules.</p></>}
             </div>
           </div>
 
-          {clientId && <aside className="flex flex-col justify-between border border-[#D8DCD7] bg-white p-6">
+          {clientId && <aside className="rounded-2xl flex flex-col justify-between border border-line bg-white p-6">
             <div>
-              <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                Client Status & Policy
-              </p>
               <div className="mt-3 flex items-center justify-between">
                 <div>
-                  <p className="font-serif text-2xl font-semibold text-[#161918]">{client.name}</p>
-                  <p className="text-xs text-[#535A56]">{client.branch}</p>
+                  <p className="text-2xl font-bold text-ink">{client.name}</p>
+                  <p className="text-xs text-muted">{client.branch}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() =>
                     updateClient({ status: client.status === 'Active' ? 'Paused' : 'Active' })
                   }
-                  className={`px-3.5 py-1.5 font-mono text-xs font-bold uppercase tracking-wider ${
-                    client.status === 'Active'
-                      ? 'border border-[#256B45] bg-[#EBF5EE] text-[#256B45]'
-                      : 'border border-[#B42318] bg-[#FEF3F2] text-[#B42318]'
-                  }`}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold ${
+ client.status === 'Active'
+ ? 'bg-success-soft text-success'
+ : 'bg-danger-soft text-danger'
+ }`}
                 >
                   {client.status}
                 </button>
               </div>
             </div>
 
-            <div className="mt-4 grid gap-2 border-t border-[#D8DCD7] pt-4 text-xs">
+            <div className="mt-4 grid gap-2 border-t border-line pt-4 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-[#535A56]">WhatsApp Link Delivery:</span>
                 <button
@@ -568,13 +549,13 @@ export default function TryFocusAdmin() {
                       deliveryMode: client.whatsappConnected ? 'qr' : 'whatsapp',
                     })
                   }
-                  className="min-h-10 py-2 text-right font-mono font-bold text-[#7A1428] underline disabled:cursor-not-allowed disabled:text-[#8A918D] disabled:no-underline"
+                  className="min-h-10 py-2 text-right tabular-nums font-bold text-brand underline disabled:cursor-not-allowed disabled:text-subtle disabled:no-underline"
                 >
                   {client.whatsappConnected
                     ? 'CONNECTED (Link + QR)'
                     : client.whatsappApiReady
                       ? 'NOT CONNECTED (QR Only)'
-                      : 'API NOT CONFIGURED (QR Only)'}
+                      : 'Not connected (QR only)'}
                 </button>
               </div>
             </div>
@@ -585,26 +566,25 @@ export default function TryFocusAdmin() {
 
         {clientId && (<>
         {/* Client staff login */}
-        <section className="border border-[#D8DCD7] bg-white p-6">
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">Client Staff Login</p>
-          <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">{client.name} login</h2>
-          <p className="mt-1 text-sm text-[#535A56]">
+        <section className="rounded-2xl border border-line bg-white p-6">
+          <h2 className="mt-1 text-2xl font-bold text-ink">{client.name} login</h2>
+          <p className="mt-1 text-sm text-muted">
             This login opens only {client.name}&apos;s workspace, counter and devices. It cannot open TryFocus admin or another client.
           </p>
           <p className="mt-3 text-sm">
             <span className="text-[#535A56]">Existing logins: </span>
-            {!client.logins?.length && <span className="font-mono font-bold">none yet</span>}
+            {!client.logins?.length && <span className="tabular-nums font-bold">none yet</span>}
           </p>
           {Boolean(client.logins?.length) && (
             <ul className="mt-2 flex flex-wrap gap-2">
               {client.logins!.map((username) => (
-                <li key={username} className="flex items-center gap-2 border border-[#D8DCD7] px-3 py-1 text-sm">
-                  <span className="font-mono font-bold">{username}</span>
+                <li key={username} className="flex items-center gap-2 border border-line px-3 py-1 text-sm">
+                  <span className="tabular-nums font-bold">{username}</span>
                   <button
                     type="button"
                     disabled={saving}
                     onClick={() => void disableClientLogin(username)}
-                    className="min-h-10 px-2 text-xs font-bold uppercase text-[#B42318] underline"
+                    className="min-h-10 px-2 text-xs font-bold text-danger underline"
                   >
                     Disable
                   </button>
@@ -619,7 +599,7 @@ export default function TryFocusAdmin() {
               onChange={(event) => setLoginUsername(event.target.value)}
               placeholder="Username (e.g. srireadymade)"
               autoComplete="off"
-              className="min-h-11 border border-[#D8DCD7] px-3 text-sm outline-none focus:border-[#7A1428]"
+              className="min-h-11 border border-line px-3 text-sm outline-none focus:border-brand"
             />
             <input
               aria-label="Client login password"
@@ -628,32 +608,29 @@ export default function TryFocusAdmin() {
               onChange={(event) => setLoginPassword(event.target.value)}
               placeholder="Password (8+ characters)"
               autoComplete="new-password"
-              className="min-h-11 border border-[#D8DCD7] px-3 text-sm outline-none focus:border-[#7A1428]"
+              className="min-h-11 border border-line px-3 text-sm outline-none focus:border-brand"
             />
             <button
               type="submit"
               disabled={saving || loginUsername.trim().length < 3 || loginPassword.length < 8}
-              className="min-h-11 bg-[#7A1428] px-5 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
+              className="min-h-11 bg-brand px-5 text-xs font-bold text-white disabled:opacity-50"
             >
               Save login
             </button>
           </form>
-          <p className="mt-2 text-xs text-[#535A56]">Saving an existing username resets its password.</p>
+          <p className="mt-2 text-xs text-muted">Saving an existing username resets its password.</p>
         </section>
 
         {/* Purchased Device Access & Retailer Permissions */}
         <section className="grid gap-6">
-          <div className="border border-[#D8DCD7] bg-white p-6">
-            <div className="flex items-center justify-between border-b border-[#D8DCD7] pb-4">
+          <div className="rounded-2xl border border-line bg-white p-6">
+            <div className="flex items-center justify-between border-b border-line pb-4">
               <div>
-                <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                  Purchased Device Surfaces
-                </p>
-                <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                  Turn Each Surface On or Off
+                <h2 className="mt-1 text-2xl font-bold text-ink">
+                  Devices
                 </h2>
               </div>
-              <Tv className="h-6 w-6 text-[#7A1428]" />
+              <Tv className="h-6 w-6 text-brand" />
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -661,26 +638,26 @@ export default function TryFocusAdmin() {
                 [
                   [
                     'tv',
-                    'Interactive TV / Smart Mirror',
-                    'AI Image Try-On, 60s Live Mirror (TV only) & catalogue AI Video (TV only)',
+                    'Portrait TV',
+                    'Try-On, Live Mirror and catalogue AI Video',
                     Tv,
                   ],
                   [
                     'tablet',
-                    'Counter Tablet & Billing',
-                    'Staff-assisted 1-day Direct QR & giveaway passes',
+                    'Counter tablet',
+                    'Staff Try-On and AI Video QRs for customers',
                     Tablet,
                   ],
                   [
                     'mobile',
-                    'Customer Mobile QR',
-                    'Direct image scan, 1-day video pass, Download + Go Live',
+                    'Customer phone',
+                    'Try-On from the permanent QR and AI Video passes',
                     Smartphone,
                   ],
                   [
                     'led',
-                    'Go Live player (TV link on any screen)',
-                    'Plays customer AI videos, promos & the replay loop. Comes with AI Video',
+                    'Go Live player',
+                    'Plays customer AI videos and promos on any screen',
                     Monitor,
                   ],
                 ] as const
@@ -689,34 +666,34 @@ export default function TryFocusAdmin() {
                   key={key}
                   type="button"
                   onClick={() => toggleDevice(key)}
-                  className={`flex items-start gap-3.5 border p-4 text-left transition ${
-                    client.devices[key]
-                      ? 'border-[#7A1428] bg-[#FAFBF8]'
-                      : 'border-[#D8DCD7] bg-[#F4F5F2] opacity-65'
-                  }`}
+                  className={`flex items-start gap-3.5 rounded-2xl border p-4 text-left transition ${
+ client.devices[key]
+ ? 'border-line bg-white hover:border-line-strong'
+ : 'border-dashed border-line-strong bg-canvas opacity-70'
+ }`}
                 >
                   <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center ${
-                      client.devices[key]
-                        ? 'bg-[#7A1428] text-white'
-                        : 'border border-[#D8DCD7] bg-white text-[#535A56]'
-                    }`}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+ client.devices[key]
+ ? 'bg-brand-soft text-brand'
+ : 'border border-line bg-white text-muted'
+ }`}
                   >
                     <Icon className="h-5 w-5" />
                   </span>
                   <div>
-                    <p className="font-serif text-base font-semibold text-[#161918]">{title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-[#535A56]">{description}</p>
+                    <p className="text-base font-bold text-ink">{title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted">{description}</p>
                     <span
-                      className={`mt-2.5 inline-block px-2 py-0.5 font-mono text-[10px] font-bold uppercase ${
-                        client.devices[key]
-                          ? 'bg-[#EBF5EE] text-[#256B45]'
-                          : 'bg-[#ECEEE9] text-[#535A56]'
-                      }`}
+                      className={`mt-2.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+ client.devices[key]
+ ? 'bg-[#EBF5EE] text-success'
+ : 'bg-line text-muted'
+ }`}
                     >
-                      {client.devices[key] ? 'Subscribed · Enabled' : 'Disabled'}
+                      {client.devices[key] ? 'On' : 'Off'}
                     </span>
-                    <p className="mt-1.5 text-[11px] text-[#7A4A0B]">{DEVICE_STOPS[key]}</p>
+                    <p className="mt-1.5 text-xs text-muted">{DEVICE_STOPS[key]}</p>
                   </div>
                 </button>
               ))}
@@ -726,22 +703,19 @@ export default function TryFocusAdmin() {
         </section>
 
         {/* Usage & Hard Budget Ceilings */}
-        <section className="border border-[#D8DCD7] bg-white p-6">
-          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#D8DCD7] pb-4">
+        <section className="rounded-2xl border border-line bg-white p-6">
+          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-4">
             <div>
-              <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-[#7A1428]">
-                Usage & Credit Ceilings (Enforced in APIs)
-              </p>
-              <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                Generation Credits for {client.name}
+              <h2 className="mt-1 text-2xl font-bold text-ink">
+                Credits
               </h2>
             </div>
             <button
               type="button"
               onClick={saveCurrentConfiguration}
-              className="border border-[#161918] bg-[#FAFBF8] px-3.5 py-1.5 font-mono text-xs font-bold uppercase text-[#161918] hover:bg-[#161918] hover:text-white"
+              className="rounded-xl border border-ink bg-canvas px-3.5 py-1.5 text-xs font-bold text-ink hover:bg-ink hover:text-white"
             >
-              Apply Credit Limits
+              Apply limits
             </button>
           </div>
 
@@ -754,16 +728,16 @@ export default function TryFocusAdmin() {
               const level = percent >= 100 ? 'exhausted' : percent >= 95 ? 'critical' : percent >= 80 ? 'low' : 'ok';
               const Icon = plan.icon;
               return (
-                <article key={key} className="border border-[#D8DCD7] bg-[#FAFBF8] p-5">
+                <article key={key} className="rounded-2xl border border-line bg-canvas p-5">
                   <div className="flex items-center justify-between">
-                    <span className="flex h-9 w-9 items-center justify-center bg-[#161918] text-white">
+                    <span className="flex h-9 w-9 items-center justify-center bg-ink text-white">
                       <Icon className="h-4 w-4" />
                     </span>
-                    <span className="font-mono text-xs font-semibold text-[#535A56]">
+                    <span className="tabular-nums text-xs font-semibold text-muted">
                       {used.toLocaleString('en-IN')} used
                     </span>
                   </div>
-                  <h3 className="mt-3 font-serif text-xl font-semibold text-[#161918]">
+                  <h3 className="mt-3 text-xl font-bold text-ink">
                     {plan.label}
                   </h3>
                   <div className="mt-3 flex items-center gap-3">
@@ -773,21 +747,21 @@ export default function TryFocusAdmin() {
                       value={limit}
                       onChange={(e) => setLimit(key, Number(e.target.value))}
                       onBlur={() => void saveCurrentConfiguration()}
-                      className="h-10 w-32 border border-[#D8DCD7] bg-white px-3 font-mono text-sm font-bold text-[#161918] outline-none focus:border-[#7A1428]"
+                      className="h-10 w-32 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
                     />
-                    <span className="text-xs text-[#535A56]">hard limit</span>
+                    <span className="text-xs text-muted">hard limit</span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       aria-pressed={client.modules?.[key] !== false}
                       onClick={() => void persistClientPatch({ modules: { ...(client.modules || { image: true, live: true, video: true }), [key]: client.modules?.[key] === false } })}
-                      className={`min-h-10 px-3 text-xs font-bold uppercase tracking-wider ${client.modules?.[key] === false ? 'border border-[#D8DCD7] bg-white text-[#535A56]' : 'bg-[#256B45] text-white'}`}
+                      className={`min-h-10 px-3 text-xs font-bold ${client.modules?.[key] === false ? 'border border-line bg-white text-muted': 'bg-success text-white'}`}
                     >
                       {client.modules?.[key] === false ? 'Module off' : 'Module on'}
                     </button>
                     {resolveAccess(client.devices, client.modules).blockedBy[key] && (
-                      <span className="w-full text-xs font-semibold text-[#B42318]">
+                      <span className="w-full text-xs font-semibold text-danger">
                         {key === 'video' ? '' : 'Not running: '}{resolveAccess(client.devices, client.modules).blockedBy[key]}
                       </span>
                     )}
@@ -796,16 +770,16 @@ export default function TryFocusAdmin() {
                         key={tier}
                         type="button"
                         onClick={() => void persistClientPatch({ limits: { ...client.limits, [key]: PLAN_CREDITS[key][tier] } })}
-                        className="min-h-10 border border-[#161918] bg-white px-3 text-xs font-bold uppercase tracking-wider"
+                        className="min-h-10 border border-line-strong bg-white px-3 text-xs font-semibold hover:border-ink"
                       >
                         {tier === 'standard' ? 'Standard' : 'Pro'} · {PLAN_CREDITS[key][tier].toLocaleString('en-IN')}
                       </button>
                     ))}
                   </div>
-                  <div className="mt-4 h-2 overflow-hidden bg-[#ECEEE9]">
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-line">
                     <div className={`h-full ${CREDIT_BAR_COLOURS[level]}`} style={{ width: `${percent}%` }} />
                   </div>
-                  <p className="mt-2 font-mono text-xs text-[#535A56]">
+                  <p className="mt-2 tabular-nums text-xs text-muted">
                     {Math.max(0, limit - used).toLocaleString('en-IN')} remaining · {percent}% used
                   </p>
                 </article>

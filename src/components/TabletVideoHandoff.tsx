@@ -103,19 +103,19 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 border border-[#7A1428]/30 bg-[#7A1428]/5 px-4 py-3">
-        <p className="text-sm font-semibold text-[#161918]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border border-brand/30 bg-brand/5 px-4 py-3">
+        <p className="text-sm font-semibold text-ink">
           {minimum > 0 ? <>Offer for bills of <strong>{formatINR(minimum)}</strong> and above</> : <>Offer on every bill</>}
-          <span className="font-normal text-[#535A56]"> · Own garment AI video</span>
+          <span className="font-normal text-muted"> · Own garment AI video</span>
         </p>
-        <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider text-[#7A1428]">
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-brand">
           <Clock className="h-3.5 w-3.5" />
           Valid 24 h from first scan
         </span>
       </div>
 
       {/* With a minimum bill, every customer gets a fresh QR; the permanent poster would bypass the bill. */}
-      {minimum === 0 && <div className="grid grid-cols-2 border border-[#161918]" role="tablist" aria-label="Counter QR type">
+      {minimum === 0 && <div className="grid grid-cols-2 border border-ink" role="tablist" aria-label="Counter QR type">
         {([
           ['per-customer', 'New QR per customer'],
           ['permanent', 'Permanent counter QR'],
@@ -126,26 +126,26 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
             role="tab"
             aria-selected={mode === id}
             onClick={() => setMode(id)}
-            className={`min-h-12 px-3 text-xs font-bold uppercase tracking-wider ${mode === id ? 'bg-[#161918] text-white' : 'bg-white text-[#161918]'}`}
+            className={`min-h-12 px-3 text-xs font-bold ${mode === id ? 'bg-ink text-white': 'bg-white text-ink'}`}
           >
             {label}
           </button>
         ))}
       </div>}
 
-      {error && <p role="alert" className="border border-[#B42318] bg-[#FEF3F2] p-3 text-sm font-semibold text-[#B42318]">{error}</p>}
+      {error && <p role="alert" className="border border-danger bg-[#FEF3F2] p-3 text-sm font-semibold text-danger">{error}</p>}
 
       {mode === 'per-customer' || minimum > 0 ? (
-        <section className="flex flex-col items-center border-2 border-[#161918] bg-[#FAFBF8] p-6 text-center">
-          <p className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
+        <section className="rounded-2xl flex flex-col items-center border border-ink bg-canvas p-6 text-center">
+          <p className="flex items-center gap-2 text-xs font-bold text-brand">
             <Smartphone className="h-4 w-4" />
             {passQr ? `Customer ${customerCount} · Scan with phone camera` : 'Ready for the next customer'}
           </p>
-          <div className="mt-4 border-4 border-[#161918] bg-white p-3">
+          <div className="mt-4 border-4 border-ink bg-white p-3">
             {passQr ? (
               <img src={passQr} alt="Customer AI Video QR" className="aspect-square w-full max-w-[300px] object-contain" />
             ) : (
-              <div className="flex aspect-square w-[min(300px,70vw)] items-center justify-center text-[#8A918D]">
+              <div className="flex aspect-square w-[min(300px,70vw)] items-center justify-center text-subtle">
                 <QrCode className="h-16 w-16" />
               </div>
             )}
@@ -154,18 +154,18 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
             type="button"
             disabled={busy || !config}
             onClick={() => void issuePass()}
-            className="mt-5 flex min-h-14 w-full max-w-sm items-center justify-center gap-2 bg-[#7A1428] px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50"
+            className="mt-5 flex min-h-14 w-full max-w-sm items-center justify-center gap-2 bg-brand px-5 text-sm font-bold text-white disabled:opacity-50"
           >
             {busy ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
             {busy ? 'Creating QR…' : passQr ? 'Next customer · New QR' : 'Show QR for this customer'}
           </button>
-          <p className="mt-3 max-w-sm text-xs text-[#535A56]">
+          <p className="mt-3 max-w-sm text-xs text-muted">
             Each QR is private to one customer. A QR that is never scanned does not use any video credit.
           </p>
 
           {config?.whatsappEnabled && (
-            <div className="mt-5 w-full max-w-sm border-t border-[#D8DCD7] pt-4 text-left">
-              <label htmlFor="counter-phone" className="block text-xs font-semibold text-[#535A56]">
+            <div className="mt-5 w-full max-w-sm border-t border-line pt-4 text-left">
+              <label htmlFor="counter-phone" className="block text-xs font-semibold text-muted">
                 Or send the link on WhatsApp
               </label>
               <div className="mt-2 flex gap-2">
@@ -175,13 +175,13 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
                   onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))}
                   inputMode="tel"
                   placeholder="10-digit mobile number"
-                  className="min-h-12 min-w-0 flex-1 border border-[#D8DCD7] bg-white px-3 text-sm font-semibold outline-none focus:border-[#7A1428]"
+                  className="min-h-12 min-w-0 flex-1 border border-line bg-white px-3 text-sm font-semibold outline-none focus:border-brand"
                 />
                 <button
                   type="button"
                   disabled={phone.length !== 10 || busy}
                   onClick={() => void issuePass(phone)}
-                  className="flex min-h-12 items-center gap-1.5 bg-[#161918] px-4 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
+                  className="flex min-h-12 items-center gap-1.5 bg-ink px-4 text-xs font-bold text-white disabled:opacity-50"
                 >
                   <MessageSquare className="h-4 w-4" />
                   Send
@@ -189,28 +189,28 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
               </div>
             </div>
           )}
-          {notice && <p role="status" className="mt-4 max-w-sm text-sm font-semibold text-[#256B45]">{notice}</p>}
+          {notice && <p role="status" className="mt-4 max-w-sm text-sm font-semibold text-success">{notice}</p>}
         </section>
       ) : (
-        <section className="flex flex-col items-center border-2 border-[#161918] bg-[#FAFBF8] p-6 text-center">
-          <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">Print and paste at the counter</p>
-          <div className="mt-4 border-4 border-[#161918] bg-white p-3">
+        <section className="rounded-2xl flex flex-col items-center border border-ink bg-canvas p-6 text-center">
+          <p className="text-xs font-bold text-brand">Print and paste at the counter</p>
+          <div className="mt-4 border-4 border-ink bg-white p-3">
             {permanentQr ? (
               <img src={permanentQr} alt="Permanent AI Video counter QR" className="aspect-square w-full max-w-[300px] object-contain" />
             ) : (
-              <div className="flex aspect-square w-[min(300px,70vw)] items-center justify-center text-sm text-[#535A56]">Loading QR…</div>
+              <div className="flex aspect-square w-[min(300px,70vw)] items-center justify-center text-sm text-muted">Loading QR…</div>
             )}
           </div>
           <button
             type="button"
             disabled={!permanentQr}
             onClick={downloadPermanentQr}
-            className="mt-5 flex min-h-12 w-full max-w-sm items-center justify-center gap-2 border border-[#161918] bg-white px-5 text-xs font-bold uppercase tracking-wider text-[#161918] disabled:opacity-50"
+            className="rounded-xl mt-5 flex min-h-12 w-full max-w-sm items-center justify-center gap-2 border border-ink bg-white px-5 text-xs font-bold text-ink disabled:opacity-50"
           >
             <Download className="h-4 w-4" />
             Download QR for printing
           </button>
-          <p className="mt-3 max-w-sm text-xs text-[#535A56]">
+          <p className="mt-3 max-w-sm text-xs text-muted">
             Every scan creates a separate private 24-hour session for that customer.
           </p>
         </section>

@@ -7,6 +7,7 @@ import { fetchCatalogueSettings } from '@/lib/maharaja/catalogue-client';
 import { createImageHandoff } from '@/lib/maharaja/image-handoff-client';
 import { compressImage } from '@/lib/utils/image';
 import {
+  ArrowRight,
   Camera,
   CheckCircle2,
   LoaderCircle,
@@ -28,6 +29,7 @@ import {
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
+import { ActionBar, PageTitle, Segmented, StepProgress } from '@/components/ui';
 
 export type TabletTab = 'own-garment' | 'catalogue' | 'video-pass';
 export type TabletStep = 'photo' | 'garment';
@@ -282,723 +284,269 @@ export default function MaharajaTabletExperience() {
     }
   }
 
+  const resultPanel = (
+    <div id="tablet-result" className="tf-card space-y-4 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-xl font-bold">{tryOnResultUrl ? 'Customer’s new look' : 'The look appears here'}</h3>
+        {tryOnResultUrl && (
+          <div className="relative">
+            <button type="button" aria-label="Look options" aria-expanded={showResultMenu} onClick={() => setShowResultMenu((open) => !open)} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-line-strong bg-white">
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            {showResultMenu && (
+              <div className="absolute right-0 top-12 z-40 w-60 overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
+                <button type="button" onClick={() => { setShowResultMenu(false); pendingHandoffRef.current = null; tryAnotherGarment(); }} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold hover:bg-canvas">
+                  <RotateCcw className="h-4 w-4" /> Try another outfit
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {tryOnResultUrl || tryOnGenerating ? (
+        <div className="relative">
+          <BeforeAfterSlider
+            key={tryOnResultUrl.slice(-24)}
+            beforeImage={personPhoto || '/maharaja-logo.png'}
+            afterImage={tryOnResultUrl || personPhoto || '/maharaja-logo.png'}
+            beforeLabel="Before"
+            afterLabel="New look"
+            frameClassName="mx-auto aspect-[9/16] w-full max-w-[320px] rounded-2xl overflow-hidden"
+          />
+          {tryOnGenerating && (
+            <div className="absolute inset-0 mx-auto flex max-w-[320px] flex-col items-center justify-center gap-3 rounded-2xl bg-white/80 text-center backdrop-blur-sm">
+              <LoaderCircle className="h-10 w-10 animate-spin text-brand" />
+              <p className="font-semibold">Creating the look…</p>
+              <p className="text-sm text-muted">About 20 seconds</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mx-auto flex aspect-[9/16] w-full max-w-[320px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong bg-canvas p-6 text-center text-muted">
+          <Sparkles className="h-8 w-8 text-subtle" />
+          <p className="text-sm">Choose an outfit and tap <b className="text-ink">Create look</b></p>
+        </div>
+      )}
+      {tryOnResultUrl && !tryOnMobileQr && (
+        <button type="button" disabled={proceeding} onClick={() => void proceedToPhone()} className="tf-btn tf-btn-primary w-full !min-h-14">
+          <QrCode className="h-5 w-5" /> {proceeding ? 'Preparing QR…' : 'Send to customer’s phone'}
+        </button>
+      )}
+      {tryOnMobileQr && (
+        <div className="flex items-center gap-4 rounded-2xl bg-canvas p-4">
+          <img src={tryOnMobileQr} alt="Scan to save on phone" className="h-28 w-28 rounded-lg bg-white object-contain p-1" />
+          <div>
+            <p className="font-semibold">Ask the customer to scan</p>
+            <p className="mt-1 text-sm text-muted">The look opens on their phone to save. The QR works for 15 minutes.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const canCreateOwn = Boolean(personPhoto && ownGarmentPhoto) && !tryOnGenerating;
+  const canCreateCatalogue = Boolean(personPhoto) && !tryOnGenerating;
+
   return (
-    <main className="tablet-workspace min-h-screen bg-[#F4F5F2] text-[#161918]">
-      {/* Unified Tablet Header with 3 Core Modes */}
-      <header className="sticky top-0 z-30 border-b border-[#D8DCD7] bg-[#F4F5F2]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-3 sm:px-8">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center border border-[#161918] bg-[#161918] font-mono text-xs font-bold tracking-widest text-[#FAF6EE]">
-              TF
-            </span>
-            <div>
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7A1428]">
-                TryFocus × {clientName} · Counter
-              </p>
-              <h1 className="font-serif text-lg font-semibold text-[#161918]">Counter assistant</h1>
+    <main className="tablet-workspace min-h-screen bg-canvas text-ink">
+      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-bold">{clientName}</h1>
+              <p className="text-sm text-muted">Counter</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={resetCustomerSession}
-              className="min-h-11 border border-[#D8DCD7] bg-white px-3.5 text-xs font-semibold hover:border-[#161918]"
-            >
-              New customer
+          <div className="flex shrink-0 items-center gap-2">
+            <Link href="/maharaja/workspace" className="flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-muted hover:text-ink">Workspace</Link>
+            <button type="button" onClick={resetCustomerSession} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">
+              <RotateCcw className="h-4 w-4" /> New customer
             </button>
-            <Link
-              href="/maharaja/workspace"
-              className="flex min-h-11 items-center border border-[#D8DCD7] bg-white px-3.5 text-xs font-semibold text-[#161918] hover:border-[#161918]"
-            >
-              Workspace
-            </Link>
           </div>
-
-          {/* 3 Main Modes Navigation: 1 Own Garment, 2 Store Catalogue, 3 AI Video Pass */}
-          <nav className="grid w-full grid-cols-3 gap-2" aria-label="Counter modes">
-
-            {/* Mode 1: Own Garment Try-On (Default) */}
-            <button
-              type="button"
-              onClick={() => {
-                setTab('own-garment');
-              }}
-              className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] transition ${
-                tab === 'own-garment'
-                  ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
-                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
-              }`}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              1. Own Garment
-            </button>
-
-            {/* Mode 2: Store Catalogue Try-On */}
-            <button
-              type="button"
-              onClick={() => {
-                setTab('catalogue');
-              }}
-              className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] transition ${
-                tab === 'catalogue'
-                  ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
-                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
-              }`}
-            >
-              <Store className="h-3.5 w-3.5" />
-              2. Store Catalogue
-            </button>
-
-            {/* Mode 3: AI Video Pass (QR Code) */}
-            <button
-              type="button"
-              onClick={() => setTab('video-pass')}
-              className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] transition ${
-                tab === 'video-pass'
-                  ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
-                  : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#161918]'
-              }`}
-            >
-              <QrCode className="h-3.5 w-3.5" />
-              3. AI Video Pass (QR)
-            </button>
-
-          </nav>
         </div>
+        <nav className="mx-auto max-w-6xl px-6 pb-3" aria-label="Counter modes">
+          <Segmented
+            label="Counter modes"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'own-garment', label: <><Shirt className="h-4 w-4" /> Own outfit</> },
+              { value: 'catalogue', label: <><Store className="h-4 w-4" /> Store collection</> },
+              { value: 'video-pass', label: <><QrCode className="h-4 w-4" /> AI Video QR</> },
+            ]}
+          />
+        </nav>
       </header>
 
-      <div className="mx-auto max-w-7xl space-y-6 px-5 py-6 sm:px-8">
-        {/* =========================================================
-            MODES 1 & 2: STRICT 2-STEP TRY-ON FLOW (STEP 1 PHOTO -> STEP 2 GARMENTS)
-           ========================================================= */}
+      <div className="mx-auto max-w-6xl space-y-6 px-6 pb-6 pt-5">
         {tab !== 'video-pass' && (
           <div className="space-y-6">
-            {/* 2-Step Process Stepper Header */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setTabletStep('photo')}
-                  className={`flex min-h-12 items-center gap-2 border px-4 text-xs font-bold uppercase tracking-wider transition ${
-                    tabletStep === 'photo'
-                      ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
-                      : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#161918] hover:border-[#7A1428]'
-                  }`}
-                >
-                  <span>Step 1</span>
-                  <span>· Customer Photo {personPhoto ? '✓' : ''}</span>
-                </button>
+            <StepProgress
+              steps={['Customer photo', tab === 'own-garment' ? 'Their outfit' : 'Pick an outfit']}
+              current={tabletStep === 'photo' ? 0 : 1}
+              onSelect={(index) => { if (index === 0) setTabletStep('photo'); }}
+            />
 
-                <span className="text-[#8C938F]">→</span>
-
-                <button
-                  type="button"
-                  disabled={!personPhoto}
-                  onClick={() => setTabletStep('garment')}
-                  className={`flex min-h-12 items-center gap-2 border px-4 text-xs font-bold uppercase tracking-wider transition ${
-                    tabletStep === 'garment'
-                      ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
-                      : personPhoto
-                      ? 'border-[#161918] bg-white text-[#161918] hover:border-[#7A1428]'
-                      : 'border-[#D8DCD7] bg-[#FAFBF8] text-[#8C938F] opacity-50'
-                  }`}
-                >
-                  <span>Step 2</span>
-                  <span>· Select Garments</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#535A56]">
-                <span>Active Mode:</span>
-                <span className="font-bold text-[#7A1428]">
-                  {tab === 'own-garment' ? '1. Own Garment Try-On' : '2. Store Catalogue Try-On'}
-                </span>
-              </div>
-            </div>
-
-            {/* ---------------------------------------------------------
-                STEP 1: CUSTOMER PHOTO (Take Photo or Upload Photo via QR)
-               --------------------------------------------------------- */}
             {tabletStep === 'photo' && (
-              <div className="space-y-6">
-                {/* Child Guardian Consent */}
+              <div className="space-y-5">
+                <PageTitle
+                  title={personPhoto ? 'Check the photo' : 'Customer photo'}
+                  subtitle={personPhoto ? 'Face and full outfit should be clear and upright.' : 'Use the tablet camera, or let the customer send one from their phone.'}
+                />
+                <Segmented
+                  label="Who is this look for"
+                  value={genderFilter}
+                  onChange={(audience) => { setGenderFilter(audience); const firstCat = catalogueCategories.find((cat) => cat.gender === audience); if (firstCat) setActiveCategory(firstCat.id); }}
+                  options={([['women', 'Women'], ['men', 'Men'], ['boys', 'Boys'], ['girls', 'Girls']] as const).map(([value, label]) => ({ value, label }))}
+                />
                 {(genderFilter === 'boys' || genderFilter === 'girls') && (
-                  <label className="flex min-h-14 items-center gap-3 border border-[#D8DCD7] bg-white p-4 text-sm font-semibold">
-                    <input
-                      type="checkbox"
-                      checked={guardianConsent}
-                      onChange={(event) => setGuardianConsent(event.target.checked)}
-                      className="h-6 w-6 accent-[#7A1428]"
-                    />
-                    I am the parent or legal guardian and approve using this child’s photo for this experience.
+                  <label className="flex items-start gap-3 rounded-2xl bg-warn-soft p-4 text-[15px]">
+                    <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
+                    I am the parent or legal guardian and approve using this child’s photo.
                   </label>
                 )}
 
-                {/* Audience Selection */}
-                <div className="border border-[#D8DCD7] bg-white p-5">
-                  <span className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                    Who is this look for?
-                  </span>
-                  <div className="mt-2 grid grid-cols-4 gap-2 text-xs font-bold">
-                    {(['women', 'men', 'boys', 'girls'] as const).map((audience) => (
-                      <button
-                        key={audience}
-                        type="button"
-                        aria-pressed={genderFilter === audience}
-                        onClick={() => {
-                          setGenderFilter(audience);
-                          const firstCat = catalogueCategories.find((cat) => cat.gender === audience);
-                          if (firstCat) setActiveCategory(firstCat.id);
-                        }}
-                        className={`min-h-12 border px-3 capitalize font-bold transition ${
-                          genderFilter === audience
-                            ? 'border-[#7A1428] bg-[#7A1428] text-white shadow-sm'
-                            : 'border-[#D8DCD7] bg-white text-[#161918] hover:border-[#161918]'
-                        }`}
-                      >
-                        {audience}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* If NO photo captured yet: Show 2 Large Action Buttons */}
                 {!personPhoto ? (
-                  <div className="border border-[#D8DCD7] bg-white p-6 sm:p-8">
-                    <div className="mx-auto max-w-xl text-center">
-                      <span className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#7A1428]">
-                        Step 1 · Customer Photo
-                      </span>
-                      <h2 className="mt-1 font-serif text-3xl font-semibold text-[#161918]">
-                        Add Customer Photo
-                      </h2>
-                      <p className="mt-2 text-sm text-[#535A56]">
-                        Take a portrait photo directly using the tablet camera, or let the customer scan a QR code to upload from their smartphone gallery.
-                      </p>
-                    </div>
-
-                    <div className="mx-auto mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
-                      {/* Button 1: Take Photo */}
-                      <label className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-3 border-2 border-[#161918] bg-[#FAFBF8] p-6 text-center transition hover:border-[#7A1428] hover:bg-[#FAF6EE]">
-                        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#161918] text-white">
-                          <Camera className="h-7 w-7" />
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="group flex min-h-[260px] cursor-pointer flex-col items-center justify-center gap-4 rounded-3xl bg-ink p-6 text-center text-white shadow-lg transition hover:bg-black">
+                        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10"><Camera className="h-8 w-8" /></span>
+                        <span>
+                          <span className="block text-2xl font-bold">Take a photo</span>
+                          <span className="mt-1 block text-[15px] text-white/70">Tablet camera, portrait</span>
                         </span>
-                        <div>
-                          <span className="block font-serif text-xl font-semibold text-[#161918]">
-                            Take Photo
-                          </span>
-                          <span className="mt-1 block text-xs text-[#535A56]">
-                            Tablet camera (vertical 9:16 format)
-                          </span>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="user"
-                          className="hidden"
-                          onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])}
-                        />
+                        <input type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])} />
                       </label>
-
-                      {/* Button 2: Upload Photo (via Mobile QR) */}
                       <PhonePhotoTransfer
                         onPhoto={(photo) => setPersonPhoto(photo)}
                         renderTrigger={(open, busy) => (
-                          <button
-                            type="button"
-                            onClick={open}
-                            disabled={busy}
-                            className="flex min-h-[160px] w-full flex-col items-center justify-center gap-3 border-2 border-[#161918] bg-[#FAFBF8] p-6 text-center transition hover:border-[#7A1428] hover:bg-[#FAF6EE] disabled:opacity-50"
-                          >
-                            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#7A1428] text-white">
-                              {busy ? (
-                                <LoaderCircle className="h-7 w-7 animate-spin" />
-                              ) : (
-                                <QrCode className="h-7 w-7" />
-                              )}
+                          <button type="button" onClick={open} disabled={busy} className="flex h-full min-h-[260px] w-full flex-col items-center justify-center gap-4 rounded-3xl border border-line bg-white p-6 text-center shadow-sm transition hover:border-brand disabled:opacity-50">
+                            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-soft text-brand">{busy ? <LoaderCircle className="h-8 w-8 animate-spin" /> : <QrCode className="h-8 w-8" />}</span>
+                            <span>
+                              <span className="block text-2xl font-bold">{busy ? 'Preparing QR…' : 'From their phone'}</span>
+                              <span className="mt-1 block text-[15px] text-muted">Customer scans a QR and sends a photo</span>
                             </span>
-                            <div>
-                              <span className="block font-serif text-xl font-semibold text-[#161918]">
-                                {busy ? 'Preparing QR…' : 'Upload Photo'}
-                              </span>
-                              <span className="mt-1 block text-xs text-[#535A56]">
-                                Show QR code for customer phone
-                              </span>
-                            </div>
                           </button>
                         )}
                       />
                     </div>
-
-                    <div className="mt-6">
-                      <PhotoConsentNotice kind="try-on" />
-                    </div>
-                    <div className="mt-4 text-center">
-                      <label className="cursor-pointer font-mono text-xs font-semibold text-[#535A56] hover:text-[#161918] underline">
-                        Or choose photo file from tablet storage
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])}
-                        />
-                      </label>
-                    </div>
-                  </div>
+                    <PhotoConsentNotice kind="try-on" />
+                    <label className="block cursor-pointer text-center text-sm font-semibold text-muted underline underline-offset-4 hover:text-ink">
+                      Choose a photo file instead
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])} />
+                    </label>
+                  </>
                 ) : (
-                  /* If photo is present: 9:16 portrait review with Retake & Next buttons */
-                  <div className="mx-auto max-w-2xl border border-[#D8DCD7] bg-white p-6 sm:p-8 text-center">
-                    <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Customer Photo Confirmed
-                    </span>
-                    <h2 className="mt-1 font-serif text-3xl font-semibold text-[#161918]">
-                      Review portrait photo
-                    </h2>
-                    <p className="mt-1 text-xs text-[#535A56]">
-                      Ensure the person’s posture and face are clearly visible in 9:16 vertical portrait format.
-                    </p>
-
-                    <div className="mt-5 flex justify-center">
-                      <img
-                        src={personPhoto}
-                        alt="Customer portrait preview"
-                        className="aspect-[9/16] h-[440px] border-4 border-[#161918] object-cover shadow-xl"
-                      />
-                    </div>
-
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => setPersonPhoto('')}
-                        className="flex min-h-14 items-center justify-center gap-2 border-2 border-[#161918] bg-white px-5 text-sm font-bold text-[#161918] hover:bg-[#FAFBF8]"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        Retake Photo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTabletStep('garment')}
-                        className="flex min-h-14 items-center justify-center gap-2 bg-[#7A1428] px-5 text-base font-bold text-white shadow-md hover:bg-[#601020]"
-                      >
-                        Next: Select Garments →
-                      </button>
+                  <div className="tf-card mx-auto max-w-md p-5 text-center">
+                    <img src={personPhoto} alt="Customer photo" className="mx-auto aspect-[9/16] h-[460px] max-w-full rounded-2xl object-cover" />
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                      <button type="button" onClick={() => setPersonPhoto('')} className="tf-btn tf-btn-secondary !min-h-14">Retake</button>
+                      <button type="button" onClick={() => setTabletStep('garment')} className="tf-btn tf-btn-primary !min-h-14">Continue <ArrowRight className="h-4 w-4" /></button>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* ---------------------------------------------------------
-                STEP 2: SELECT GARMENTS & CREATE TRY-ON LOOKS
-               --------------------------------------------------------- */}
             {tabletStep === 'garment' && (
-              <div className="space-y-6">
-                {/* Confirmed Customer Photo Card with Change Photo button */}
-                <div className="flex flex-wrap items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
-                  <div className="flex items-center gap-3">
-                    {personPhoto && (
-                      <img
-                        src={personPhoto}
-                        alt="Customer photo"
-                        className="aspect-[9/16] h-12 border border-[#161918] object-cover shadow-sm"
-                      />
-                    )}
-                    <div>
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7A1428]">
-                        Step 1 · Customer Photo Confirmed ✓
-                      </span>
-                      <p className="text-sm font-semibold text-[#161918]">
-                        Step 2: Choose outfit & create look
-                      </p>
-                    </div>
-                  </div>
+              <div className="space-y-5">
+                <PageTitle
+                  title={tab === 'own-garment' ? 'Photograph their outfit' : 'Pick an outfit'}
+                  subtitle={tab === 'own-garment' ? 'The garment the customer brought: whole piece in frame, good light.' : 'From the store collection.'}
+                  action={personPhoto && (
+                    <button type="button" onClick={() => setTabletStep('photo')} className="group flex shrink-0 items-center gap-2 rounded-xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
+                      <img src={personPhoto} alt="Customer photo" className="aspect-[9/16] h-12 rounded-md object-cover" />
+                      <span className="text-sm font-semibold text-muted group-hover:text-ink">Change</span>
+                    </button>
+                  )}
+                />
 
-                  <button
-                    type="button"
-                    onClick={() => setTabletStep('photo')}
-                    className="flex min-h-10 items-center gap-1.5 border border-[#161918] bg-white px-3 py-1.5 text-xs font-bold hover:bg-[#FAFBF8]"
-                  >
-                    ← Change / Retake Photo
-                  </button>
-                </div>
-
-                {/* Sub-Mode 1: Own Garment Try-On */}
-                {tab === 'own-garment' && (
-                  <div className="grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-2">
-                    {/* Left Column: Own Garment Inputs */}
-                    <div className="space-y-5">
-                      <div className="border-b border-[#D8DCD7] pb-3">
-                        <span className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                          Mode 1 · Own Garment AI Try-On
-                        </span>
-                        <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                          Try customer’s own dress or saree
-                        </h2>
-                        <p className="mt-1 text-xs text-[#535A56]">
-                          Photograph or upload the outfit they brought for an instant transformation.
-                        </p>
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+                  <div className="min-w-0 space-y-4">
+                    {tab === 'own-garment' ? (
+                      <div className="tf-card space-y-5 p-5">
+                        <div>
+                          <p className="tf-label mb-2">Garment type</p>
+                          <div className="flex flex-wrap gap-2">
+                            {(GARMENT_TYPE_OPTIONS[genderFilter] || []).map((opt) => (
+                              <button key={opt.id} type="button" aria-pressed={ownGarmentType === opt.id} onClick={() => setOwnGarmentType(opt.id)} className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${ownGarmentType === opt.id ? 'bg-ink text-white' : 'border border-line bg-white text-ink hover:border-ink'}`}>
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 rounded-2xl border border-dashed border-line-strong bg-canvas p-4">
+                          {ownGarmentPhoto
+                            ? <img src={ownGarmentPhoto} alt="Customer's outfit" className="aspect-[9/16] h-36 shrink-0 rounded-xl object-cover" />
+                            : <span className="flex aspect-[9/16] h-36 shrink-0 items-center justify-center rounded-xl bg-white text-subtle"><Shirt className="h-9 w-9" /></span>}
+                          <div className="min-w-0 space-y-2">
+                            <p className="font-semibold">{ownGarmentPhoto ? 'Outfit photo added' : 'Add the outfit photo'}</p>
+                            <div className="flex flex-wrap gap-2">
+                              <label className="tf-btn tf-btn-dark cursor-pointer !min-h-11 px-4 text-sm">
+                                <Camera className="h-4 w-4" /> {ownGarmentPhoto ? 'Retake' : 'Tablet camera'}
+                                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleGarmentFileRead(e.target.files?.[0])} />
+                              </label>
+                              <PhonePhotoTransfer
+                                onPhoto={(photo) => setOwnGarmentPhoto(photo)}
+                                buttonLabel="Phone QR"
+                                renderTrigger={(open, busy) => (
+                                  <button type="button" onClick={open} disabled={busy} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">
+                                    <QrCode className="h-4 w-4" /> From phone
+                                  </button>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
-
-                      {/* Garment Type Selector */}
-                      <div>
-                        <label className="block font-mono text-[11px] font-bold uppercase tracking-wider text-[#535A56]">
-                          Select Garment Type
-                        </label>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {(GARMENT_TYPE_OPTIONS[genderFilter] || []).map((opt) => (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              onClick={() => setOwnGarmentType(opt.id)}
-                              className={`border px-3 py-1.5 text-xs font-semibold transition ${
-                                ownGarmentType === opt.id
-                                  ? 'border-[#161918] bg-[#161918] text-white'
-                                  : 'border-[#D8DCD7] bg-white text-[#161918] hover:border-[#161918]'
-                              }`}
-                            >
-                              {opt.label}
+                    ) : (
+                      <div className="tf-card space-y-4 p-5">
+                        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+                          {filteredCategories.map((cat) => (
+                            <button key={cat.id} type="button" aria-pressed={activeCategory === cat.id} onClick={() => setActiveCategory(cat.id)} className={`min-h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition ${activeCategory === cat.id ? 'bg-ink text-white' : 'border border-line bg-white text-ink hover:border-ink'}`}>
+                              {cat.label}
                             </button>
                           ))}
                         </div>
-                      </div>
-
-                      {/* Garment Photo Input (Image 2) */}
-                      <div className="border-2 border-[#D8DCD7] bg-[#FAFBF8] p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#7A1428]">
-                              Customer&apos;s Own Garment
-                            </span>
-                            <p className="text-[11px] text-[#535A56]">Clear photo of the outfit / saree</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <label className="flex cursor-pointer items-center gap-1.5 bg-[#7A1428] px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#600F1F]">
-                              <Camera className="h-4 w-4" />
-                              Tablet Camera
-                              <input
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                className="hidden"
-                                onChange={(e) => handleGarmentFileRead(e.target.files?.[0])}
-                              />
-                            </label>
-                            <PhonePhotoTransfer
-                              onPhoto={(photo) => setOwnGarmentPhoto(photo)}
-                              buttonLabel="Phone QR"
-                              renderTrigger={(open, busy) => (
-                                <button
-                                  type="button"
-                                  onClick={open}
-                                  disabled={busy}
-                                  className="flex items-center gap-1.5 border border-[#161918] bg-white px-3 py-2 text-xs font-bold uppercase tracking-wider hover:bg-[#FAFBF8]"
-                                >
-                                  <QrCode className="h-3.5 w-3.5 text-[#7A1428]" />
-                                  Phone QR
-                                </button>
-                              )}
-                            />
-                          </div>
-                        </div>
-
-                        {ownGarmentPhoto ? (
-                          <div className="mt-3 flex items-center gap-4">
-                            <img
-                              src={ownGarmentPhoto}
-                              alt="Customer's own garment"
-                              className="aspect-[9/16] h-44 border-2 border-[#7A1428] object-cover shadow-sm"
-                            />
-                            <div className="text-xs text-[#535A56]">
-                              <p className="font-semibold text-[#161918]">Garment Loaded</p>
-                              <p className="mt-1">Vertical 9:16 dress reference ready.</p>
-                              <button
-                                type="button"
-                                onClick={() => setOwnGarmentPhoto('')}
-                                className="mt-2 text-xs font-bold text-[#B42318] underline"
-                              >
-                                Clear & retake
+                        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                          {categoryProducts.map((prod) => {
+                            const picked = selectedProduct.sku === prod.sku;
+                            return (
+                              <button key={prod.sku} type="button" aria-pressed={picked} onClick={() => setSelectedProduct(prod)} className={`relative flex flex-col overflow-hidden rounded-2xl border text-left transition ${picked ? 'border-brand ring-2 ring-brand' : 'border-line bg-white hover:border-line-strong'}`}>
+                                <img src={prod.imageUrl} alt="" className="aspect-[3/4] w-full bg-[#F1EEE9] object-contain" />
+                                {picked && <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-white"><CheckCircle2 className="h-4 w-4" /></span>}
+                                <span className="block p-2">
+                                  <span className="line-clamp-2 block text-[13px] font-semibold leading-snug">{prod.title}</span>
+                                  {prod.price > 0 && <span className="mt-0.5 block text-[13px] text-muted">{formatINR(prod.price)}</span>}
+                                </span>
                               </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-3 flex aspect-[9/16] max-h-36 w-full items-center justify-center border border-dashed border-[#D8DCD7] bg-white text-xs text-[#535A56]">
-                            <div className="text-center">
-                              <Shirt className="mx-auto h-8 w-8 text-[#7A1428]" />
-                              <span className="mt-1 block font-semibold">No garment photo yet</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Generate Button */}
-                      <button
-                        type="button"
-                        disabled={!personPhoto || !ownGarmentPhoto || tryOnGenerating}
-                        onClick={() => handleGenerateTryOn('own-garment')}
-                        className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#7A1428] px-5 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-md hover:bg-[#600F1F] disabled:opacity-40"
-                      >
-                        {tryOnGenerating ? (
-                          <>
-                            <LoaderCircle className="h-5 w-5 animate-spin" />
-                            Creating Own-Garment AI Look…
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-5 w-5" />
-                            Generate AI Try-On
-                          </>
-                        )}
-                      </button>
-
-                      {tryOnStatusNote && (
-                        <p className="text-xs font-medium text-[#7A1428]">{tryOnStatusNote}</p>
-                      )}
-                    </div>
-
-                    {/* Right Column: Customer Result & Comparison */}
-                    <div className="space-y-4 border border-[#D8DCD7] bg-[#FAFBF8] p-5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                          Customer Result
-                        </span>
-                        {tryOnResultUrl && (
-                          <div className="relative">
-                            <button type="button" aria-label="Look options" aria-expanded={showResultMenu} onClick={() => setShowResultMenu((open) => !open)} className="flex min-h-11 min-w-11 items-center justify-center border border-[#161918] bg-white">
-                              <MoreVertical className="h-5 w-5" />
-                            </button>
-                            {showResultMenu && (
-                              <div className="absolute right-0 top-12 z-40 w-56 border border-[#161918] bg-white shadow-xl">
-                                <button type="button" onClick={() => { setShowResultMenu(false); pendingHandoffRef.current = null; tryAnotherGarment(); }} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold">
-                                  <RotateCcw className="h-4 w-4" /> Retry with another garment
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <h3 className="font-serif text-2xl font-semibold text-[#161918]">
-                        Compare and save to phone
-                      </h3>
-
-                      <BeforeAfterSlider
-                        key={tryOnResultUrl.slice(-24)}
-                        beforeImage={personPhoto || '/maharaja-logo.png'}
-                        afterImage={tryOnResultUrl || ownGarmentPhoto || '/maharaja-logo.png'}
-                        beforeLabel="Customer Original"
-                        afterLabel="New AI Try-On"
-                        frameClassName="mx-auto aspect-[9/16] w-full max-w-[282px]"
-                      />
-
-                      {tryOnResultUrl && !tryOnMobileQr && (
-                        <button type="button" disabled={proceeding} onClick={() => void proceedToPhone()} className="min-h-14 w-full bg-[#7A1428] px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50">
-                          {proceeding ? 'Preparing phone QR…' : 'Proceed'}
-                        </button>
-                      )}
-                      {tryOnMobileQr && (
-                        <div className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
-                          <div>
-                            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7A1428]">
-                              Scan & Download
-                            </span>
-                            <p className="mt-0.5 text-xs text-[#535A56]">
-                              Scan this QR on phone to save the high-res look.
-                            </p>
-                          </div>
-                          <img
-                            src={tryOnMobileQr}
-                            alt="Scan to save on phone"
-                            className="h-24 w-24 object-contain"
-                          />
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
+                        {categoryProducts.length === 0 && <p className="rounded-2xl bg-canvas p-6 text-center text-sm text-muted">No styles in this category yet.</p>}
+                      </div>
+                    )}
                   </div>
-                )}
+                  <div className={`lg:sticky lg:top-40 lg:self-start ${tryOnResultUrl || tryOnGenerating ? '' : 'hidden lg:block'}`}>{resultPanel}</div>
+                </div>
 
-                {/* Sub-Mode 2: Store Catalogue Try-On */}
-                {tab === 'catalogue' && (
-                  <div className="grid gap-6 border border-[#D8DCD7] bg-white p-6 lg:grid-cols-2">
-                    {/* Left Column: Catalogue Browser & Selection */}
-                    <div className="space-y-5">
-                      <div className="border-b border-[#D8DCD7] pb-3">
-                        <span className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                          Mode 2 · Store Catalogue AI Try-On
-                        </span>
-                        <h2 className="mt-1 font-serif text-2xl font-semibold text-[#161918]">
-                          Try Maharaja silk sarees & outfits
-                        </h2>
-                        <p className="mt-1 text-xs text-[#535A56]">
-                          Select an authentic Maharaja garment from the store inventory.
-                        </p>
-                      </div>
-
-                      {/* Subcategory Pills */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {filteredCategories.map((cat) => (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => setActiveCategory(cat.id)}
-                            className={`border px-3 py-1.5 text-xs font-semibold transition ${
-                              activeCategory === cat.id
-                                ? 'border-[#161918] bg-[#161918] text-white'
-                                : 'border-[#D8DCD7] bg-white text-[#161918]'
-                            }`}
-                          >
-                            {cat.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Garment Grid */}
-                      <div className="grid max-h-[380px] grid-cols-3 gap-2 overflow-y-auto border border-[#D8DCD7] p-2 sm:grid-cols-4">
-                        {categoryProducts.map((prod) => (
-                          <button
-                            key={prod.sku}
-                            type="button"
-                            onClick={() => setSelectedProduct(prod)}
-                            className={`group relative flex flex-col overflow-hidden border p-1 text-left transition ${
-                              selectedProduct.sku === prod.sku
-                                ? 'border-[#7A1428] ring-2 ring-[#7A1428]'
-                                : 'border-[#D8DCD7] bg-white hover:border-[#161918]'
-                            }`}
-                          >
-                            <div className="aspect-[3/4] w-full overflow-hidden bg-[#ECEEE9]">
-                              <img
-                                src={prod.imageUrl}
-                                alt={prod.title}
-                                className="h-full w-full object-contain transition group-hover:scale-105"
-                              />
-                            </div>
-                            <p className="mt-1 truncate text-[11px] font-semibold text-[#161918]">
-                              {prod.title}
-                            </p>
-                            <p className="font-mono text-[10px] text-[#7A1428]">
-                              {prod.price > 0 ? formatINR(prod.price) : ''}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Selected Product Card */}
-                      <div className="flex items-center gap-3 border border-[#D8DCD7] bg-[#FAFBF8] p-3">
-                        <img
-                          src={selectedProduct.imageUrl}
-                          alt={selectedProduct.title}
-                          className="aspect-[3/4] h-16 border border-[#161918] object-cover"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <span className="font-mono text-[10px] font-bold text-[#7A1428]">
-                            Selected Outfit
-                          </span>
-                          <p className="truncate text-xs font-bold text-[#161918]">
-                            {selectedProduct.title}
-                          </p>
-                          <p className="font-mono text-xs font-semibold text-[#161918]">
-                            {selectedProduct.price > 0 ? formatINR(selectedProduct.price) : ''}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Generate Button */}
-                      <button
-                        type="button"
-                        disabled={!personPhoto || tryOnGenerating}
-                        onClick={() => handleGenerateTryOn('catalogue')}
-                        className="flex min-h-14 w-full items-center justify-center gap-2 bg-[#7A1428] px-5 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-md hover:bg-[#600F1F] disabled:opacity-40"
-                      >
-                        {tryOnGenerating ? (
-                          <>
-                            <LoaderCircle className="h-5 w-5 animate-spin" />
-                            Creating Catalogue AI Look…
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-5 w-5" />
-                            Generate AI Try-On
-                          </>
-                        )}
-                      </button>
-
-                      {tryOnStatusNote && (
-                        <p className="text-xs font-medium text-[#7A1428]">{tryOnStatusNote}</p>
-                      )}
-                    </div>
-
-                    {/* Right Column: Customer Result & Comparison */}
-                    <div className="space-y-4 border border-[#D8DCD7] bg-[#FAFBF8] p-5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#7A1428]">
-                          Customer Result
-                        </span>
-                        {tryOnResultUrl && (
-                          <div className="relative">
-                            <button type="button" aria-label="Look options" aria-expanded={showResultMenu} onClick={() => setShowResultMenu((open) => !open)} className="flex min-h-11 min-w-11 items-center justify-center border border-[#161918] bg-white">
-                              <MoreVertical className="h-5 w-5" />
-                            </button>
-                            {showResultMenu && (
-                              <div className="absolute right-0 top-12 z-40 w-56 border border-[#161918] bg-white shadow-xl">
-                                <button type="button" onClick={() => { setShowResultMenu(false); pendingHandoffRef.current = null; tryAnotherGarment(); }} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold">
-                                  <RotateCcw className="h-4 w-4" /> Retry with another garment
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <h3 className="font-serif text-2xl font-semibold text-[#161918]">
-                        Compare and save to phone
-                      </h3>
-
-                      <BeforeAfterSlider
-                        key={tryOnResultUrl.slice(-24)}
-                        beforeImage={personPhoto || '/maharaja-logo.png'}
-                        afterImage={tryOnResultUrl || selectedProduct.imageUrl}
-                        beforeLabel="Customer Original"
-                        afterLabel="New AI Try-On"
-                        frameClassName="mx-auto aspect-[9/16] w-full max-w-[282px]"
-                      />
-
-                      {tryOnResultUrl && !tryOnMobileQr && (
-                        <button type="button" disabled={proceeding} onClick={() => void proceedToPhone()} className="min-h-14 w-full bg-[#7A1428] px-5 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50">
-                          {proceeding ? 'Preparing phone QR…' : 'Proceed'}
-                        </button>
-                      )}
-                      {tryOnMobileQr && (
-                        <div className="flex items-center justify-between gap-4 border border-[#D8DCD7] bg-white p-4">
-                          <div>
-                            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7A1428]">
-                              Scan & Download
-                            </span>
-                            <p className="mt-0.5 text-xs text-[#535A56]">
-                              Scan this QR on phone to save the high-res look.
-                            </p>
-                          </div>
-                          <img
-                            src={tryOnMobileQr}
-                            alt="Scan to save on phone"
-                            className="h-24 w-24 object-contain"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <ActionBar note={tryOnStatusNote || undefined}>
+                  <button
+                    type="button"
+                    disabled={tab === 'own-garment' ? !canCreateOwn : !canCreateCatalogue}
+                    onClick={() => { handleGenerateTryOn(tab === 'own-garment' ? 'own-garment' : 'catalogue'); document.getElementById('tablet-result')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
+                    className="tf-btn tf-btn-primary !min-h-14 text-base"
+                  >
+                    {tryOnGenerating ? <><LoaderCircle className="h-5 w-5 animate-spin" /> Creating…</> : <><Sparkles className="h-5 w-5" /> {tab === 'own-garment' ? 'Create look' : `Create look · ${selectedProduct.title.length > 28 ? `${selectedProduct.title.slice(0, 28)}…` : selectedProduct.title}`}</>}
+                  </button>
+                </ActionBar>
               </div>
             )}
           </div>
         )}
 
-        {/* =========================================================
-            TAB 3: AI VIDEO PASS (QR CODE / HANDOFF)
-           ========================================================= */}
-        {tab === 'video-pass' && (
-          <div className="space-y-6">
-            <TabletVideoHandoff />
-          </div>
-        )}
+        {tab === 'video-pass' && <TabletVideoHandoff />}
       </div>
     </main>
   );
