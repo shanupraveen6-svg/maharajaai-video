@@ -391,6 +391,9 @@ ${roleInstructions}
         }
         if (!rawBuffer) {
           if (!ai) throw new Error('Both Try-On image services are unavailable. Please ask Maharaja staff for assistance.');
+          // Stay inside the 300 s function limit so the credit and pass lock are always released in finally.
+          const geminiBudgetMs = Math.min(150_000, startedAt + 280_000 - Date.now());
+          if (geminiBudgetMs < 25_000) throw new Error('The image service is busy right now. Please try again in a moment.');
           contents.push(prompt);
           geminiAttempted = true;
           const genResponse = await ai.models.generateContent({
@@ -399,7 +402,7 @@ ${roleInstructions}
             config: {
               responseModalities: ['TEXT', 'IMAGE'],
               imageConfig: { aspectRatio: '9:16' },
-              abortSignal: AbortSignal.timeout(150_000),
+              abortSignal: AbortSignal.timeout(geminiBudgetMs),
             },
           });
           const part = genResponse.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);

@@ -557,9 +557,33 @@ export function goLiveCodeFor(clientId: string) {
 export async function goLiveClientId(req: NextRequest): Promise<string | null> {
   const code = (req.headers?.get('x-golive-screen') || req.nextUrl?.searchParams.get('screen') || '').trim();
   if (!/^[A-Za-z0-9_-]{24}$/.test(code)) return null;
-  const workspace = (await listClientWorkspaces()).find((ws) => goLiveCodeFor(ws.clientId) === code);
-  if (!workspace?.campaignEnabled || moduleLimit(workspace, 'video') <= 0) return null;
+  const clientId = (await workspaceCodeIndex()).goLive.get(code);
+  if (!clientId) return null;
+  const workspace = await getClientWorkspaceById(clientId);
+  if (!workspace.campaignEnabled || moduleLimit(workspace, 'video') <= 0) return null;
   return workspace.clientId;
+}
+
+/**
+ * QR and Go Live code -> client id. Codes change rarely, so the map is kept per server instance for
+ * 60 s (and rebuilt at once after an admin change here); lookups then read only the one workspace.
+ */
+let codeIndexCache: { builtAt: number; byCode: Map<string, string>; goLive: Map<string, string> } | null = null;
+
+async function workspaceCodeIndex() {
+  if (codeIndexCache && Date.now() - codeIndexCache.builtAt < 60_000) return codeIndexCache;
+  const byCode = new Map<string, string>();
+  const goLive = new Map<string, string>();
+  for (const ws of await listClientWorkspaces()) {
+    for (const code of [ws.tryOnCode, ws.billingCode, ws.openVideoCode]) if (code) byCode.set(code, ws.clientId);
+    goLive.set(goLiveCodeFor(ws.clientId), ws.clientId);
+  }
+  codeIndexCache = { builtAt: Date.now(), byCode, goLive };
+  return codeIndexCache;
+}
+
+export function invalidateWorkspaceCodeIndex() {
+  codeIndexCache = null;
 }
 
 function defaultWorkspace(clientId = MAHARAJA_CLIENT_ID): MaharajaWorkspace {
@@ -716,6 +740,7 @@ export async function updateMaharajaSettings(
     ? await getMaharajaWorkspace()
     : await getClientWorkspaceById(clientId);
   const { regenerateOpenVideoCode, ...rest } = settings;
+  if (regenerateOpenVideoCode) invalidateWorkspaceCodeIndex();
   const nextOpenVideoCode = regenerateOpenVideoCode
     ? crypto.randomBytes(15).toString('base64url')
     : rest.openVideoCode || workspace.openVideoCode;
@@ -805,11 +830,8 @@ export async function getClientWorkspaceByWorkspaceCode(workspaceCode?: string |
 export async function resolveWorkspaceByAccessCode(code?: string | null): Promise<MaharajaWorkspace> {
   const clean = String(code || '').trim();
   if (!clean) return getMaharajaWorkspace();
-  const all = await listClientWorkspaces();
-  const matched = all.find(
-    (ws) => ws.tryOnCode === clean || ws.billingCode === clean || ws.openVideoCode === clean
-  );
-  return matched || getMaharajaWorkspace();
+  const clientId = (await workspaceCodeIndex()).byCode.get(clean);
+  return clientId ? getClientWorkspaceById(clientId) : getMaharajaWorkspace();
 }
 
 export async function upsertClientWorkspace(input: {
@@ -835,6 +857,7 @@ export async function upsertClientWorkspace(input: {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
   if (!cleanId) {
+  invalidateWorkspaceCodeIndex();
     throw new Error('Client workspace ID or store name is required.');
   }
   const existing = await getClientWorkspaceById(cleanId);
@@ -2699,9 +2722,8 @@ export async function resolveRequestClientId(req: NextRequest, accessCode?: unkn
   if (goLiveClient) return goLiveClient;
   const code = typeof accessCode === 'string' ? accessCode.trim() : '';
   if (code) {
-    const all = await listClientWorkspaces();
-    const byCode = all.find((ws) => ws.tryOnCode === code || ws.billingCode === code || ws.openVideoCode === code);
-    if (byCode) return byCode.clientId;
+    const byCode = (await workspaceCodeIndex()).byCode.get(code);
+    if (byCode) return byCode;
     const passOwner = await passClientId(code);
     if (passOwner) return passOwner;
   }
