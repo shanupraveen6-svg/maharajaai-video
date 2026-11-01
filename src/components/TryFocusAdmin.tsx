@@ -21,9 +21,9 @@ import { PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage
 /** The platforms a store can book; device and module rules for each live in access.ts. */
 const PACKAGE_CARDS: Array<{ id: PackageId; Icon: typeof Tv; text: string }> = [
   { id: 'tv', Icon: Tv, text: 'Try-On, AI Video and Live Mirror on the showroom TV.' },
-  { id: 'tablet', Icon: Tablet, text: 'Try-On and AI Video on the counter tablet.' },
+  { id: 'tablet', Icon: Tablet, text: 'Try-On and the AI Video QR on the tablet.' },
   { id: 'phone', Icon: Smartphone, text: 'Try-On on the customer’s phone from the wall QR. No AI Video.' },
-  { id: 'tv-tablet', Icon: Monitor, text: 'The TV in the showroom and the tablet at the counter. Priced as TV.' },
+  { id: 'tv-tablet', Icon: Monitor, text: 'The TV in the showroom and a tablet. Priced as TV.' },
 ];
 
 type PricingAnswer = {

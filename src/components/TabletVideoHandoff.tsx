@@ -23,7 +23,12 @@ const PAGE_SIZE = 100;
  * it. AI Video uses the store collection: the biller may tap the piece the customer bought, so the
  * customer's phone opens with it chosen; otherwise the customer picks from the collection.
  */
-export default function TabletVideoHandoff({ billingCode }: { billingCode?: string }) {
+export default function TabletVideoHandoff({ billingCode, qrOnly = false }: {
+  billingCode?: string;
+  /** The tablet's AI Video tab: the QR shows straight away, with only New customer under it. The customer
+   *  picks the piece on their phone. */
+  qrOnly?: boolean;
+}) {
   const [config, setConfig] = useState<CounterConfig | null>(null);
   const [passQr, setPassQr] = useState('');
   const [customerCount, setCustomerCount] = useState(0);
@@ -59,6 +64,7 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
   }
 
   useEffect(() => {
+    if (qrOnly) { setPiecesLoading(false); return; }
     let active = true;
     fetchPieces(0)
       .then(({ items, total }) => { if (active) { setPieces(items); setPiecesTotal(total); } })
@@ -134,12 +140,19 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
     }
   }
 
+  // The tablet shows the first customer's QR as soon as the store settings load.
+  useEffect(() => {
+    if (qrOnly && config && !passQr) void issuePass();
+  // Runs once, when the settings arrive.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrOnly, config]);
+
   const minimum = config?.videoMinPurchase ?? 5000;
   const storeName = config?.clientName || 'the store';
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-brand-soft px-4 py-3 text-sm">
+      {!qrOnly && <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-brand-soft px-4 py-3 text-sm">
         <p className="font-semibold text-ink">
           <Gift className="mr-1.5 inline h-4 w-4 text-brand" />
           Thank-you gift {minimum > 0 ? <>for bills of {formatINR(minimum)} and above</> : <>on every bill</>}
@@ -147,11 +160,11 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
         <span className="inline-flex items-center gap-1.5 text-muted">
           <Clock className="h-4 w-4" /> Each QR works for 1 day
         </span>
-      </div>
+      </div>}
 
       {error && <p role="alert" className="rounded-2xl bg-danger-soft p-3 text-sm font-semibold text-danger">{error}</p>}
 
-      <section className="tf-card p-5" aria-label="Piece the customer bought">
+      {!qrOnly && <section className="tf-card p-5" aria-label="Piece the customer bought">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="text-base font-bold text-ink">Piece the customer bought</h3>
           <p className="text-sm text-muted">Optional. Without it, the customer picks from the collection.</p>
@@ -187,12 +200,12 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
             )}
           </>
         )}
-      </section>
+      </section>}
 
       <section className="tf-card flex flex-col items-center p-6 text-center">
         <p className="flex items-center gap-2 text-sm font-semibold text-muted">
           <Smartphone className="h-4 w-4" />
-          {passQr ? `Customer ${customerCount} · scan with your phone camera` : 'Ready for the next customer'}
+          {passQr ? (qrOnly ? 'Scan with your phone camera' : `Customer ${customerCount} · scan with your phone camera`) : 'Ready for the next customer'}
         </p>
         <div className="mt-4 rounded-2xl border border-line bg-white p-3">
           {passQr ? (
@@ -203,7 +216,7 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
             </div>
           )}
         </div>
-        {passQr && <p className="mt-3 max-w-sm text-sm text-ink">A gift from {storeName}: a short AI Video of you in a piece from our collection.</p>}
+        {passQr && !qrOnly && <p className="mt-3 max-w-sm text-sm text-ink">A gift from {storeName}: a short AI Video of you in a piece from our collection.</p>}
         <button
           type="button"
           disabled={busy || !config}
@@ -213,11 +226,11 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
           {busy ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
           {busy ? 'Creating QR…' : passQr ? 'New customer' : 'Show QR for this customer'}
         </button>
-        <p className="mt-3 max-w-sm text-sm text-muted">
+        {!qrOnly && <p className="mt-3 max-w-sm text-sm text-muted">
           One QR per customer. Tap New customer for the next bill. A QR that is never scanned uses no credit.
-        </p>
+        </p>}
 
-        {config?.whatsappEnabled && (
+        {config?.whatsappEnabled && !qrOnly && (
           <div className="mt-5 w-full max-w-sm border-t border-line pt-4 text-left">
             <label htmlFor="counter-phone" className="tf-label block">Or send the gift link on WhatsApp</label>
             <div className="mt-2 flex gap-2">

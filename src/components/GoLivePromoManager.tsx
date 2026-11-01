@@ -76,10 +76,7 @@ export default function GoLivePromoManager() {
   return (
     <div>
       <div>
-        <p className="text-sm font-semibold text-ink">Promo videos ({promos.length}/3)</p>
-        <p className="mt-1 text-xs text-muted">
-          One promo plays after every 10 customer videos, in turn. Portrait (9:16) MP4, WebM or MOV, 5–60 seconds, up to 50 MB.
-        </p>
+        <p className="text-sm text-muted">{promos.length} of 3 · portrait MP4, WebM or MOV, 5–60 seconds, up to 50 MB</p>
         <ul className="mt-3 space-y-2">
           {promos.map((promo) => (
             <li key={promo.id} className="rounded-2xl flex items-center justify-between gap-3 border border-line bg-white px-3 py-2 text-sm">

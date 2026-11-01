@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     const codeAccess = Boolean(access.pass) || (typeof accessCode === 'string' && accessCode.trim() !== '' && accessCode.trim() === access.workspace.tryOnCode);
     const surface = codeAccess ? 'mobile' : body.surface === 'tablet' ? 'tablet' : 'tv';
     if (access.workspace.devices?.[surface] === false) {
-      const surfaceLabel = surface === 'mobile' ? 'Mobile' : surface === 'tablet' ? 'Counter tablet' : 'Interactive TV';
+      const surfaceLabel = surface === 'mobile' ? 'Mobile' : surface === 'tablet' ? 'Tablet' : 'Interactive TV';
       return NextResponse.json({ success: false, error: `${surfaceLabel} experience is currently turned off for this store.` }, { status: 403 });
     }
     if (!await spendAllowed()) {

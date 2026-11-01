@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import { CREDIT_BAR_COLOURS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
 import GoLivePromoManager from '@/components/GoLivePromoManager';
+import ClientVideoLibrary from '@/components/ClientVideoLibrary';
 import LockedAmountField from '@/components/LockedAmountField';
 import { packageLabel, resolveAccess } from '@/lib/maharaja/access';
 import { conceptsForCategory } from '@/lib/maharaja/video-concepts';
@@ -13,7 +13,6 @@ import type { CustomerCategory } from '@/lib/maharaja/config';
 import { LIVE_CATEGORIES, isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
-  Copy,
   Download,
   ExternalLink,
   LoaderCircle,
@@ -22,13 +21,11 @@ import {
   Tablet,
   Tv,
   Upload,
-  Video,
   Phone,
 } from 'lucide-react';
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import TabletVideoHandoff from '@/components/TabletVideoHandoff';
 import { NavTabs, Segmented, StatusPill } from '@/components/ui';
-import CustomerLeads from '@/components/CustomerLeads';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
 import {
   catalogueCategories,
@@ -163,15 +160,12 @@ export default function MaharajaAdminDashboard({
   const activeWorkspaceCode = workspaceCode || expectedWorkspaceCode || 'workspace';
   const router = useRouter();
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
-  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'gift' | 'golive' | 'customers'>('overview');
+  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'gift' | 'golive'>('overview');
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadingSample, setUploadingSample] = useState(false);
-  const [sampleName, setSampleName] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [copiedKey, setCopiedKey] = useState('');
 
   // Visible QR codes on the client workspace page
   const [tryOnQrImage, setTryOnQrImage] = useState<string>('');
@@ -185,7 +179,6 @@ export default function MaharajaAdminDashboard({
   const [cataloguePage, setCataloguePage] = useState(0);
   const [showAddGarment, setShowAddGarment] = useState<boolean>(false);
 
-  const sampleInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadWorkspace = useCallback(async () => {
     try {
@@ -287,12 +280,6 @@ export default function MaharajaAdminDashboard({
     void savePatch({ activeEvents: nextEvents, defaultEvent: eventId });
   }
 
-  async function copyText(key: string, value: string) {
-    await navigator.clipboard.writeText(value);
-    setCopiedKey(key);
-    window.setTimeout(() => setCopiedKey(''), 1800);
-  }
-
   async function downloadBrandedQr(
     filename: string,
     title: string,
@@ -346,38 +333,6 @@ export default function MaharajaAdminDashboard({
     anchor.href = canvas.toDataURL('image/png');
     anchor.download = filename;
     anchor.click();
-  }
-
-  async function uploadShowcaseSample() {
-    const file = sampleInputRef.current?.files?.[0];
-    if (!file) {
-      setError('Select an MP4 or MOV video file up to 4 MB.');
-      return;
-    }
-    setUploadingSample(true);
-    setNotice('');
-    setError('');
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      if (sampleName.trim()) form.append('displayName', sampleName.trim());
-      const response = await fetch('/api/maharaja/showcase-samples', {
-        method: 'POST',
-        body: form,
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Unable to upload showcase video.');
-      }
-      if (sampleInputRef.current) sampleInputRef.current.value = '';
-      setSampleName('');
-      setNotice('Retail clip added to the Go Live TV loop.');
-      await loadWorkspace();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to upload showcase video.');
-    } finally {
-      setUploadingSample(false);
-    }
   }
 
   async function toggleCatalogueField(
@@ -496,9 +451,7 @@ export default function MaharajaAdminDashboard({
   const currentEvent =
     EVENT_OPTIONS.find((item) => item.id === workspace.defaultEvent) || EVENT_OPTIONS[0];
   // WhatsApp is connected per client by TryFocus admin; the client workspace only shows its status.
-  const whatsappConnected = workspace.whatsappEnabled === true;
   const goLiveList = Array.isArray(workspace.goLiveAudit) ? workspace.goLiveAudit : [];
-  const showcaseList = Array.isArray(workspace.showcaseSamples) ? workspace.showcaseSamples : [];
   const credits = creditStatuses(workspace.usage, limits);
   const videoMinimum = workspace.videoMinPurchase ?? 5000;
   // Go Live plays every AI Video (TV and gift QR) on the store's player, which comes with the TV.
@@ -518,20 +471,11 @@ export default function MaharajaAdminDashboard({
     ['Go Live plays', 'goLive', goLiveOn],
     ['Downloads', 'downloads', true],
   ] as const).filter(([, , on]) => on);
-  // First-day setup: each step is done when the store's own usage shows it happened.
-  const setupSteps = [
-    { label: 'Upload at least 10 outfits', done: catalogue.length >= 10, go: 'catalogue' as const, action: 'Catalogue' },
-    limits.image > 0 && { label: 'Print and paste the Wall QR (done at the first scan)', done: (workspace.usage.tryOnScans || 0) > 0, go: 'qr' as const, action: 'Wall QR' },
-    limits.video > 0 && { label: 'Give your first AI Video gift', done: (workspace.usage.videoPasses || 0) > 0, go: 'gift' as const, action: 'AI Video gift' },
-    limits.live > 0 && { label: 'Run one Live Mirror session on the TV', done: (workspace.usage.liveSessions || 0) > 0, go: null, action: '' },
-    goLiveOn && { label: 'Open the Go Live player on a screen and send one video', done: (workspace.usage.goLive || 0) > 0, go: 'golive' as const, action: 'Go Live' },
-  ].filter((step) => step !== false);
-  const setupDone = setupSteps.filter((step) => step.done).length;
   const catalogueExperiences = allowedExperiences.map((value) => ({ value, label: value === 'tryon' ? 'Try-On' : value === 'live' ? 'Live Mirror' : 'AI Video' }));
   // Customers' own phones are reached through the wall QR, so they are not a screen to open here.
   const screens = [
     devices.tv && { key: 'tv', title: 'Portrait TV', href: '/maharaja/tv/experience', desc: 'Try-On, Live Mirror and AI Video from your collection', Icon: Tv },
-    devices.tablet && { key: 'tablet', title: 'Counter tablet', href: '/maharaja/tablet/experience', desc: limits.video > 0 ? 'Staff Try-On and the AI Video QR for each bill' : 'Staff Try-On', Icon: Tablet },
+    devices.tablet && { key: 'tablet', title: 'Tablet', href: '/maharaja/tablet/experience', desc: limits.video > 0 ? 'Try-On from the collection or your own outfit, and the AI Video QR' : 'Try-On from the collection or your own outfit', Icon: Tablet },
     goLiveOn && { key: 'golive', title: 'Go Live player', href: workspace.links.goLive, desc: 'Plays your customers’ AI Videos, and your promos', Icon: Monitor },
   ].filter((screen) => screen !== false);
   const creditAlerts = credits.filter((item) => item.level !== 'ok' && item.level !== 'none');
@@ -577,7 +521,6 @@ export default function MaharajaAdminDashboard({
               ...(limits.video > 0 ? [{ value: 'gift' as const, label: 'AI Video gift' }] : []),
               ...(limits.image > 0 ? [{ value: 'qr' as const, label: 'Wall QR' }] : []),
               ...(goLiveOn ? [{ value: 'golive' as const, label: 'Go Live & videos' }] : []),
-              { value: 'customers', label: 'Customers' },
             ]}
           />
         </div>
@@ -591,28 +534,27 @@ export default function MaharajaAdminDashboard({
         )}
 
         {section === 'overview' && <>
-        {!catalogueLoading && setupDone < setupSteps.length && (
-          <section className="tf-card p-6">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-lg font-bold">Get your store ready</h2>
-              <span className="text-sm font-semibold text-muted">{setupDone} of {setupSteps.length} done</span>
-            </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-line">
-              <div className="h-full rounded-full bg-success" style={{ width: `${(setupDone / setupSteps.length) * 100}%` }} />
-            </div>
-            <ul className="mt-4 divide-y divide-line">
-              {setupSteps.map((step) => (
-                <li key={step.label} className="flex items-center gap-3 py-2.5">
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${step.done ? 'bg-success text-white' : 'border border-line-strong text-muted'}`}>{step.done ? '✓' : ''}</span>
-                  <span className={`min-w-0 flex-1 text-sm ${step.done ? 'text-muted line-through' : 'text-ink'}`}>{step.label}</span>
-                  {!step.done && step.go && (
-                    <button type="button" onClick={() => setSection(step.go!)} className="tf-btn tf-btn-secondary !min-h-9 shrink-0 px-3 text-sm">{step.action}</button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        <section className="tf-card p-6">
+          <h2 className="text-lg font-bold">Festival theme</h2>
+          <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b></p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {EVENT_OPTIONS.map((ev) => {
+              const selected = workspace.defaultEvent === ev.id;
+              const isDiwali = ev.id === 'diwali';
+              return (
+                <button
+                  key={ev.id}
+                  type="button"
+                  disabled={saving || !isDiwali}
+                  onClick={() => selectDefaultEvent(ev.id)}
+                  className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : isDiwali ? 'border border-line bg-white hover:border-ink' : 'border border-dashed border-line text-subtle'}`}
+                >
+                  {ev.label}{!isDiwali && <span className="ml-1.5 text-xs font-medium">Soon</span>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         <section>
           <h2 className="text-lg font-bold">{monthName} so far</h2>
@@ -674,27 +616,6 @@ export default function MaharajaAdminDashboard({
           </div>
         </section>
 
-        <section className="tf-card p-6">
-          <h2 className="text-lg font-bold">Festival theme</h2>
-          <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b></p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {EVENT_OPTIONS.map((ev) => {
-              const selected = workspace.defaultEvent === ev.id;
-              const isDiwali = ev.id === 'diwali';
-              return (
-                <button
-                  key={ev.id}
-                  type="button"
-                  disabled={saving || !isDiwali}
-                  onClick={() => selectDefaultEvent(ev.id)}
-                  className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : isDiwali ? 'border border-line bg-white hover:border-ink' : 'border border-dashed border-line text-subtle'}`}
-                >
-                  {ev.label}{!isDiwali && <span className="ml-1.5 text-xs font-medium">Soon</span>}
-                </button>
-              );
-            })}
-          </div>
-        </section>
         </>}
 
         {section === 'catalogue' && (
@@ -702,7 +623,7 @@ export default function MaharajaAdminDashboard({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-bold">Your catalogue</h2>
-                <p className="mt-1 text-sm text-muted">{catalogue.filter((item) => item.active).length} of {catalogue.length} garments showing to customers. Changes reach the TV, counter and phones straight away.</p>
+                <p className="mt-1 text-sm text-muted">{catalogue.filter((item) => item.active).length} of {catalogue.length} garments showing to customers. Changes reach the TV, tablet and phones straight away.</p>
               </div>
               <button type="button" onClick={() => setShowAddGarment((open) => !open)} className="tf-btn tf-btn-primary !min-h-11 px-4 text-sm">
                 <Upload className="h-4 w-4" /> {showAddGarment ? 'Close' : 'Add garments'}
@@ -775,9 +696,10 @@ export default function MaharajaAdminDashboard({
                   {filteredCatalogue.slice(cataloguePage * CATALOGUE_PAGE_SIZE, (cataloguePage + 1) * CATALOGUE_PAGE_SIZE).map((item) => {
                     const on = shownExperience === 'tryon' ? item.active : shownExperience === 'live' ? isLiveMirrorReady(item) : item.eligibleForVideo;
                     const blocked = shownExperience === 'live' && item.price <= 10000;
+                    const faded = shownExperience === 'live' ? blocked : !on;
                     return (
-                      <li key={item.sku} className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white ${on ? 'border-line' : 'border-dashed border-line-strong'}`}>
-                        <div className={`aspect-[3/4] w-full bg-canvas ${on ? '' : 'opacity-50'}`}>
+                      <li key={item.sku} className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white ${faded ? 'border-dashed border-line-strong' : 'border-line'}`}>
+                        <div className={`aspect-[3/4] w-full bg-canvas ${faded ? 'opacity-50' : ''}`}>
                           <img src={item.thumbnailUrl || item.imageUrl} alt={item.title} loading="lazy" className="h-full w-full object-contain object-top" />
                         </div>
                         <div className="flex flex-1 flex-col p-3">
@@ -873,130 +795,34 @@ export default function MaharajaAdminDashboard({
         )}
 
         {section === 'gift' && limits.video > 0 && (
-          <section className="grid gap-6 lg:grid-cols-[1fr_1fr] [&>*]:min-w-0">
-            <TabletVideoHandoff />
-
-            <div className="tf-card flex flex-col self-start p-6">
-              <h2 className="text-2xl font-bold">AI Video gift after purchase</h2>
-              <p className="mt-2 text-sm text-muted">A thank-you for buying: the customer gets a short festive AI Video of themselves, in the outfit they bought or one from your collection, from {workspace.clientName}. They keep it and share it, and your store goes with it.</p>
-
-              <ol className="mt-5 space-y-3 text-sm">
-                {[
-                  `A bill reaches ${videoMinimum > 0 ? `${formatINR(videoMinimum)} or more` : 'any amount'}. Tap Show QR here.`,
-                  'The customer scans it, picks an outfit from your collection or the one they bought, and makes the video on their phone.',
-                  'For the next bill, tap New customer. The QR changes, so each gift is for one customer.',
-                ].map((step, index) => (
-                  <li key={step} className="flex gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-canvas text-xs font-bold text-ink">{index + 1}</span>
-                    <span className="pt-1 text-ink">{step}</span>
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-4 rounded-2xl bg-canvas p-3 text-sm text-muted">{`Each QR works for 1 day on one phone, with one free retry, and uses one AI Video credit. The customer can download the video${goLiveOn ? ' and send it to your Go Live screen' : ''}.`}</p>
-
-              <div className="mt-5 border-t border-line pt-4">
-                <LockedAmountField
-                  key={`video-${videoMinimum}`}
-                  id="video-min-purchase"
-                  label="Give the gift for bills from (₹)"
-                  hint="0 = every bill"
-                  value={videoMinimum}
-                  lockedUntil={workspace.minimumsLockedUntil?.video}
-                  disabled={saving}
-                  onSave={(value) => savePatch({ videoMinPurchase: value })}
-                />
-                {access.catalogueVideo && videoMinimum > 0 && <p className="mt-2 text-sm text-muted">The TV also asks for the bill’s last 4 digits before an AI Video.</p>}
-              </div>
-
-              <div className="mt-5 border-t border-line pt-4 text-sm">
-                <p className="text-muted">Billing on another phone or tablet? Open this link there to show the same QR without signing in.</p>
-                <button type="button" onClick={() => void copyText('billing', workspace.links.billing)} className="tf-btn tf-btn-secondary mt-3">
-                  <Copy className="h-4 w-4" /> {copiedKey === 'billing' ? 'Link copied' : 'Copy billing counter link'}
-                </button>
-              </div>
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm">
-                <span className="text-muted">Send the gift link on WhatsApp</span>
-                {whatsappConnected
-                  ? <StatusPill tone="success">Connected</StatusPill>
-                  : <a href="tel:9994837342" className="inline-flex items-center gap-1.5 font-semibold text-ink underline underline-offset-4"><Phone className="h-4 w-4" /> Ask TryFocus: 9994837342</a>}
-              </div>
+          <section className="mx-auto max-w-md space-y-4">
+            <TabletVideoHandoff qrOnly />
+            <div className="tf-card p-5">
+              <LockedAmountField
+                key={`video-${videoMinimum}`}
+                id="video-min-purchase"
+                label="Give the gift for bills from (₹)"
+                hint="0 = every bill"
+                value={videoMinimum}
+                lockedUntil={workspace.minimumsLockedUntil?.video}
+                disabled={saving}
+                onSave={(value) => savePatch({ videoMinPurchase: value })}
+              />
             </div>
           </section>
         )}
 
-        {section === 'customers' && <CustomerLeads />}
-
         {section === 'golive' && (goLiveOn ? (
           <div className="space-y-6">
-            <section className="grid gap-6 lg:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
-              <div className="tf-card p-6">
-                <h2 className="text-2xl font-bold">Go Live player</h2>
-                <p className="mt-1 text-sm text-muted">{`Plays your customers’ AI Videos on your LED or wall screen, with your promos in between.${devices.tv ? ' When nobody is using the TV, it plays them there too.' : ''}`}</p>
-                <ol className="mt-5 grid gap-3 sm:grid-cols-3">
-                  {[devices.tv ? 'A customer makes an AI Video on the TV or from your gift QR.' : 'A customer makes an AI Video from your gift QR.', 'They tap Go Live on their phone.', 'It plays on your LED or wall screen.'].map((step, index) => (
-                    <li key={step} className="rounded-2xl bg-canvas p-4 text-sm">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold text-ink">{index + 1}</span>
-                      <p className="mt-2 text-ink">{step}</p>
-                    </li>
-                  ))}
-                </ol>
-                <div className="mt-5 rounded-2xl border border-line p-4">
-                  <p className="tf-label">Player link</p>
-                  <p className="mt-1 break-all text-sm tabular-nums text-ink">{workspace.links.goLive}</p>
-                  <p className="mt-2 text-sm text-muted">Open it in the browser of any TV or computer, then tap Start. No login needed.</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <a href={workspace.links.goLive} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-primary">
-                      <Tv className="h-4 w-4" /> Open player
-                    </a>
-                    <button type="button" onClick={() => void copyText('golive', workspace.links.goLive)} className="tf-btn tf-btn-secondary">
-                      <Copy className="h-4 w-4" /> {copiedKey === 'golive' ? 'Link copied' : 'Copy link'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="tf-card flex flex-col p-6">
-                <h2 className="text-lg font-bold">Customer videos</h2>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl bg-canvas p-4">
-                    <p className="text-[13px] font-medium text-muted">Went live</p>
-                    <p className="mt-1 text-3xl font-bold tabular-nums">{goLiveList.length.toLocaleString('en-IN')}</p>
-                  </div>
-                  <div className="rounded-2xl bg-canvas p-4">
-                    <p className="text-[13px] font-medium text-muted">Downloads</p>
-                    <p className="mt-1 text-3xl font-bold tabular-nums">{Number(workspace.usage.downloads || 0).toLocaleString('en-IN')}</p>
-                  </div>
-                </div>
-                <p className="mt-4 text-sm text-muted">Watch, download or remove the videos customers sent to Go Live.</p>
-                <Link href={`/maharaja/${workspace.workspaceCode}/videos`} className="tf-btn tf-btn-secondary mt-auto self-start">
-                  <Video className="h-4 w-4" /> See all videos
-                </Link>
-              </div>
+            <section className="tf-card p-6">
+              <h2 className="text-lg font-bold">Went live ({goLiveList.length.toLocaleString('en-IN')})</h2>
+              <div className="mt-4"><ClientVideoLibrary embedded /></div>
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
-              <div className="tf-card space-y-6 p-6">
-                <div>
-                  <h2 className="text-lg font-bold">Between customer videos</h2>
-                  <p className="mt-1 text-sm text-muted">What the player shows so the screen is never empty.</p>
-                </div>
-                <GoLivePromoManager />
-                <div className="border-t border-line pt-5">
-                  <p className="text-sm font-semibold text-ink">Store clips ({showcaseList.length})</p>
-                  <p className="mt-1 text-xs text-muted">Short clips of your store (MP4 or MOV, up to 4 MB) that play inside the customer video loop.</p>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                    <input
-                      value={sampleName}
-                      onChange={(event) => setSampleName(event.target.value)}
-                      placeholder="Clip name (optional)"
-                      className="min-h-11 border border-line bg-white px-3 text-sm text-ink outline-none focus:border-brand"
-                    />
-                    <input ref={sampleInputRef} type="file" accept="video/mp4,video/quicktime" aria-label="Store clip file" className="min-h-11 min-w-0 border border-line bg-white px-3 py-2 text-xs text-muted" />
-                    <button type="button" disabled={uploadingSample} onClick={uploadShowcaseSample} className="tf-btn tf-btn-dark !min-h-11 px-4 text-sm">
-                      {uploadingSample ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Upload
-                    </button>
-                  </div>
-                </div>
+            <section className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
+              <div className="tf-card p-6">
+                <h2 className="text-lg font-bold">Promo videos</h2>
+                <div className="mt-4"><GoLivePromoManager /></div>
               </div>
 
               <form
@@ -1007,10 +833,8 @@ export default function MaharajaAdminDashboard({
                   void savePatch({ instagramUrl: typeof value === 'string' ? value : '' });
                 }}
               >
-                <h2 className="text-lg font-bold">After the video</h2>
-                <p className="mt-1 text-sm text-muted">Customers see “Follow {workspace.clientName} on Instagram” after their AI Video.</p>
-                <label htmlFor="store-instagram" className="tf-label mt-4 block">Your Instagram</label>
-                <div className="mt-1.5 flex gap-2">
+                <label htmlFor="store-instagram" className="block text-lg font-bold">Instagram</label>
+                <div className="mt-4 flex gap-2">
                   <input
                     id="store-instagram"
                     name="instagram"

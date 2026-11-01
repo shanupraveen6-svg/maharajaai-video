@@ -22,7 +22,7 @@ import {
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
-import { ActionBar, PageTitle, Segmented, StepProgress } from '@/components/ui';
+import { ActionBar, PageTitle, Segmented } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { useLeadGate } from '@/components/LeadGate';
@@ -189,12 +189,6 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
 
       <div className="mx-auto max-w-xl space-y-5 px-4 pt-4">
         <>
-          <StepProgress
-            steps={[t('stepSource'), t('stepPhoto'), sourceMode === 'own-garment' ? t('stepYourOutfit') : t('stepPickOutfit')]}
-            current={stage === 'source' ? 0 : stage === 'photo' ? 1 : 2}
-            onSelect={(index) => setStage(index === 0 ? 'source' : 'photo')}
-          />
-
           {stage === 'source' && (
             <div className="space-y-4">
               <PageTitle title={t('whatToTry')} />

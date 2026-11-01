@@ -9,7 +9,7 @@ export default function MaharajaGoLiveVideosPage() {
   return (
     <ClientVideoLibrary
       backHref={`/maharaja/${workspaceCode}`}
-      backLabel="Back to Client Workspace"
+      backLabel="Back to workspace"
     />
   );
 }

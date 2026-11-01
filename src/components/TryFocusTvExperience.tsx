@@ -36,7 +36,7 @@ import {
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
-import { PageTitle, Segmented, StepProgress } from '@/components/ui';
+import { PageTitle, Segmented } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 
 type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video' | 'gift';
@@ -52,11 +52,11 @@ const AUDIENCE_OPTIONS = ([['women', 'Women'], ['men', 'Men'], ['boys', 'Boys'],
 const isPersonTarget = (target: CameraTarget) => target !== 'own-garment';
 
 /**
- * The store screen: the portrait TV, or the counter tablet (`device="tablet"`), with the same flow at a
- * different scale. Try-On: Who → Store collection or My own outfit → the camera opens full screen (with a
- * QR to send a photo from the phone) → pick up to 3 pieces, or photograph the outfit (camera only, no QR)
- * → looks. AI Video: Who → camera → pick one piece from the store collection → portrait → QR to make the
- * video on the phone. Live Mirror runs on the TV only; the tablet also carries the biller's gift QR.
+ * The store screen: the portrait TV, or the tablet (`device="tablet"`), at a different scale.
+ * TV, three tabs: Try-On (Store collection or My own outfit), AI Video (pick a piece, take a photo, then a
+ * QR makes the video on the phone) and Live Mirror.
+ * Tablet, three tabs: Store collection, My own outfit (both Try-On) and AI Video, which only shows the
+ * customer's QR; the customer picks the piece and makes the video on their phone.
  */
 export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' | 'tablet' }) {
   const isTablet = device === 'tablet';
@@ -483,6 +483,19 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     }
     setTryOnStage('photo');
     void openCameraFor(source === 'own-garment' ? 'own-person' : 'catalogue-person');
+  }
+
+  /** Tablet: the Store collection and My own outfit tabs are both Try-On, with the source already chosen. */
+  function openTabletTryOn(source: ImageTryOnSource) {
+    navigateTo('image-tryon');
+    setImageSource(source);
+    setTryOnError('');
+    if (customerPhoto) {
+      setTryOnStage('browse');
+      if (source === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
+    } else {
+      setTryOnStage('who');
+    }
   }
 
   /** After the photo: the store collection opens, or the camera opens again for the customer's own outfit. */
@@ -914,48 +927,48 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-2xl font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
             <div className="min-w-0">
               <h1 className="truncate text-[28px] font-bold text-ink">{clientName}</h1>
-              <p className="text-base text-muted">{isTablet ? 'Counter' : 'See any outfit on you in seconds'}</p>
+              <p className="text-base text-muted">See any outfit on you in seconds</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {isTablet && <Link href="/maharaja/workspace" className="flex min-h-12 items-center rounded-xl px-3 text-base font-semibold text-muted hover:text-ink">Workspace</Link>}
-            <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-14 px-6 text-base">{isTablet ? 'New customer' : 'Start over'}</button>
+            {/* On the tablet's AI Video tab, New customer sits under the QR and makes the next customer's QR. */}
+            {!(isTablet && mode === 'gift') && <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-14 px-6 text-base">{isTablet ? 'New customer' : 'Start over'}</button>}
           </div>
         </div>
-        <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-2 px-8 ${['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4'][[true, liveOn, videoOn, isTablet && videoOn].filter(Boolean).length - 1]}`} aria-label="Choose an experience">
-          <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => navigateTo('image-tryon')} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
-            <Sparkles className="h-6 w-6" /><span>Try-On</span>
-          </button>
-          {liveOn && <button type="button" aria-current={mode === 'live-tryon' ? 'page' : undefined} onClick={() => navigateTo('live-tryon')} className={`tv-mode-button ${mode === 'live-tryon' ? 'is-active' : ''}`}>
-            <Camera className="h-6 w-6" /><span>Live Mirror</span>
-          </button>}
-          {videoOn && <button type="button" aria-current={mode === 'catalogue-video' ? 'page' : undefined} onClick={() => navigateTo('catalogue-video')} className={`tv-mode-button ${mode === 'catalogue-video' ? 'is-active' : ''}`}>
-            <Video className="h-6 w-6" /><span>AI Video</span>
-          </button>}
-          {isTablet && videoOn && <button type="button" aria-current={mode === 'gift' ? 'page' : undefined} onClick={() => navigateTo('gift')} className={`tv-mode-button ${mode === 'gift' ? 'is-active' : ''}`}>
-            <QrCode className="h-6 w-6" /><span>AI Video gift</span>
-          </button>}
-        </nav>
+        {isTablet ? (
+          <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-2 px-8 ${videoOn ? 'grid-cols-3' : 'grid-cols-2'}`} aria-label="Choose an experience">
+            <button type="button" aria-current={mode === 'image-tryon' && imageSource === 'catalogue' ? 'page' : undefined} onClick={() => openTabletTryOn('catalogue')} className={`tv-mode-button ${mode === 'image-tryon' && imageSource === 'catalogue' ? 'is-active' : ''}`}>
+              <Sparkles className="h-6 w-6" /><span>Store collection</span>
+            </button>
+            <button type="button" aria-current={mode === 'image-tryon' && imageSource === 'own-garment' ? 'page' : undefined} onClick={() => openTabletTryOn('own-garment')} className={`tv-mode-button ${mode === 'image-tryon' && imageSource === 'own-garment' ? 'is-active' : ''}`}>
+              <Shirt className="h-6 w-6" /><span>My own outfit</span>
+            </button>
+            {videoOn && <button type="button" aria-current={mode === 'gift' ? 'page' : undefined} onClick={() => navigateTo('gift')} className={`tv-mode-button ${mode === 'gift' ? 'is-active' : ''}`}>
+              <QrCode className="h-6 w-6" /><span>AI Video</span>
+            </button>}
+          </nav>
+        ) : (
+          <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-2 px-8 ${['grid-cols-1', 'grid-cols-2', 'grid-cols-3'][[true, videoOn, liveOn].filter(Boolean).length - 1]}`} aria-label="Choose an experience">
+            <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => navigateTo('image-tryon')} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
+              <Sparkles className="h-6 w-6" /><span>Try-On</span>
+            </button>
+            {videoOn && <button type="button" aria-current={mode === 'catalogue-video' ? 'page' : undefined} onClick={() => navigateTo('catalogue-video')} className={`tv-mode-button ${mode === 'catalogue-video' ? 'is-active' : ''}`}>
+              <Video className="h-6 w-6" /><span>AI Video</span>
+            </button>}
+            {liveOn && <button type="button" aria-current={mode === 'live-tryon' ? 'page' : undefined} onClick={() => navigateTo('live-tryon')} className={`tv-mode-button ${mode === 'live-tryon' ? 'is-active' : ''}`}>
+              <Camera className="h-6 w-6" /><span>Live Mirror</span>
+            </button>}
+          </nav>
+        )}
       </header>
 
       <div className="tv-kiosk-content mx-auto max-w-[1920px] px-5 py-6 sm:px-8">
         {/* =========================================================
-            MODE 1: AI IMAGE TRY-ON (Strict 2-Step Process: Step 1 Photo -> Step 2 Garments)
+            MODE 1: TRY-ON (store collection or own outfit)
            ========================================================= */}
         {mode === 'image-tryon' && (
           <div className="space-y-6">
-            <StepProgress
-              size="lg"
-              steps={['Who', 'Store or own', 'Your photo', imageSource === 'own-garment' ? 'Your outfit' : 'Pick outfits', imageSource === 'own-garment' ? 'Your look' : 'Your looks']}
-              current={tryOnStage === 'who' ? 0 : tryOnStage === 'source' ? 1 : tryOnStage === 'photo' ? 2 : tryOnStage === 'browse' ? 3 : 4}
-              onSelect={(index) => {
-                if (index === 0) setTryOnStage('who');
-                if (index === 1) setTryOnStage('source');
-                if (index === 2) setTryOnStage('photo');
-                if (index === 3 && customerPhoto) setTryOnStage('browse');
-              }}
-            />
-
             {tryOnStage === 'who' && (
               <div className="flex flex-col gap-6">
                 <PageTitle size="lg" title="Who is it for?" subtitle="Tap one to start." />
@@ -963,7 +976,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   size="lg"
                   label="Who is it for"
                   value={genderFilter}
-                  onChange={(audience) => { selectGender(audience); setTryOnStage('source'); }}
+                  onChange={(audience) => { selectGender(audience); if (isTablet) chooseTryOnSource(imageSource); else setTryOnStage('source'); }}
                   options={AUDIENCE_OPTIONS}
                 />
               </div>
@@ -1392,7 +1405,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         {/* =========================================================
             MODE 3: AI VIDEO (store collection only): Who -> camera -> one piece -> portrait -> QR to the phone
            ========================================================= */}
-        {mode === 'catalogue-video' && tvBillSuffixRequired && !tvBillEntered && (
+        {mode === 'catalogue-video' && !isTablet && tvBillSuffixRequired && !tvBillEntered && (
           <section className="tf-card mx-auto max-w-2xl space-y-6 p-8 text-center">
             <h2 className="text-4xl font-bold">Enter the last four digits of your bill</h2>
             <p className="text-lg text-muted">Your biller will tell you which four digits to enter.</p>
@@ -1400,19 +1413,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             <button type="button" disabled={tvBillLast4.length !== 4} onClick={() => setTvBillEntered(true)} className="tf-btn tf-btn-primary !min-h-16 w-full max-w-sm text-lg">Continue to AI Video</button>
           </section>
         )}
-        {mode === 'catalogue-video' && (!tvBillSuffixRequired || tvBillEntered) && (
+        {mode === 'catalogue-video' && !isTablet && (!tvBillSuffixRequired || tvBillEntered) && (
           <div className="space-y-6">
-            <StepProgress
-              size="lg"
-              steps={['Who', 'Your photo', 'Pick a piece', 'Your portrait']}
-              current={videoStage === 'who' ? 0 : videoStage === 'photo' ? 1 : videoStage === 'pick' ? 2 : 3}
-              onSelect={(index) => {
-                if (index === 0) setVideoStage('who');
-                if (index === 1) setVideoStage('photo');
-                if (index === 2 && videoPersonPhoto) setVideoStage('pick');
-              }}
-            />
-
             {videoStage === 'who' && (
               <div className="flex flex-col gap-6">
                 <PageTitle size="lg" title="Who is the video for?" subtitle="A short AI Video of you in a piece from our collection." />
@@ -1588,7 +1590,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           </div>
         )}
 
-        {mode === 'gift' && isTablet && <TabletVideoHandoff />}
+        {mode === 'gift' && isTablet && <TabletVideoHandoff qrOnly />}
       </div>
 
       {/* =========================================================

@@ -755,7 +755,7 @@ export default function CatalogueBulkImport({
                   Ready to publish {rows.length} garments to store catalogue
                 </p>
                 <p className="text-xs text-muted">
-                  Uploads will immediately reflect in both the 43&quot; TV standee and counter tablet.
+                  Uploads will immediately reflect in the TV and the tablet.
                 </p>
               </div>
 

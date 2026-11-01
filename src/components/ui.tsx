@@ -1,49 +1,13 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Check } from 'lucide-react';
 
 /**
  * Shared building blocks for every TryFocus surface. They keep one type scale, one colour set and
- * one way of showing progress, choices and the next action, whether the screen is a TV, a tablet,
+ * one way of showing choices and the next action, whether the screen is a TV, a tablet,
  * a phone or the admin.
  */
 
-export function StepProgress({ steps, current, onSelect, size = 'md' }: {
-  steps: string[];
-  current: number;
-  onSelect?: (index: number) => void;
-  size?: 'md' | 'lg';
-}) {
-  return (
-    <ol className={`flex items-center gap-2 ${size === 'lg' ? 'text-lg' : 'text-sm'}`} aria-label="Progress">
-      {steps.map((label, index) => {
-        const done = index < current;
-        const active = index === current;
-        const clickable = Boolean(onSelect) && done;
-        return (
-          <li key={label} className="flex min-w-0 items-center gap-2">
-            {index > 0 && <span className={`h-px w-6 shrink-0 ${done || active ? 'bg-brand' : 'bg-line-strong'}`} aria-hidden="true" />}
-            <button
-              type="button"
-              disabled={!clickable}
-              onClick={() => onSelect?.(index)}
-              aria-current={active ? 'step' : undefined}
-              className={`flex min-w-0 items-center gap-2 rounded-full font-semibold disabled:cursor-default ${active ? 'text-ink' : done ? 'text-brand' : 'text-subtle'}`}
-            >
-              <span className={`flex shrink-0 items-center justify-center rounded-full ${size === 'lg' ? 'h-9 w-9 text-base' : 'h-7 w-7 text-xs'} ${active ? 'bg-brand text-white' : done ? 'bg-brand-soft text-brand' : 'bg-line text-muted'}`}>
-                {done ? <Check className={size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} /> : index + 1}
-              </span>
-              <span className={`truncate ${active ? '' : 'hidden sm:inline'}`}>{label}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-/** Level 0 navigation: which experience. Underlined tabs, so it never looks like a choice inside a step. */
 export function NavTabs<T extends string>({ options, value, onChange, label, size = 'md' }: {
   options: Array<{ value: T; label: ReactNode }>;
   value: T;
