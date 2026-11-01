@@ -6,31 +6,46 @@ for (const key of ['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRI
 process.env.ALLOW_MOCK_BACKEND = 'true';
 process.env.OPERATOR_AUTH_SECRET = 'test_secret';
 
-const { CREDIT_PACKAGES, OFFERED_PACKAGES, PACKAGES, packageOf, packageLabel, resolveAccess } = await import('../src/lib/maharaja/access.ts');
+const { OFFERED_PACKAGES, PACKAGES, modulesForPackage, packageOf, packageLabel, resolveAccess } = await import('../src/lib/maharaja/access.ts');
 const { moduleLimit } = await import('../src/lib/maharaja/server.ts');
 
 const allDevices = { tv: true, tablet: true, mobile: true, led: true };
 const allModules = { image: true, live: true, video: true };
 
-// Everything on: everything runs.
+// Everything on: everything runs, but AI Video never uses an own-outfit photo.
 let access = resolveAccess(allDevices, allModules);
 assert.deepEqual(access.modules, allModules);
 assert.equal(access.goLive, true);
 assert.equal(access.catalogueVideo, true);
+assert.equal(access.ownGarmentVideo, false, 'AI Video is made from the store collection only');
 
-// No TV (a tablet store): Live Mirror and AI Video on the TV stop; the gift QR and Go Live keep running.
-access = resolveAccess({ ...allDevices, tv: false }, allModules);
+// Tablet store: Try-On and AI Video (store collection on the tablet), no Live Mirror.
+access = resolveAccess(PACKAGES.tablet.devices, modulesForPackage('tablet'));
+assert.deepEqual(access.modules, { image: true, video: true, live: false });
+assert.equal(access.catalogueVideo, true, 'The tablet makes AI Video from the store collection');
+assert.equal(access.goLive, true);
+assert.equal(access.counterTryOn, true);
+// A tablet store that still has Live Mirror switched on is blocked: it needs the TV.
+access = resolveAccess(PACKAGES.tablet.devices, allModules);
 assert.equal(access.modules.live, false);
 assert.match(access.blockedBy.live, /TV/);
-assert.equal(access.catalogueVideo, false);
-assert.equal(access.goLive, true, 'Go Live plays on the store LED screen without the TV');
-assert.equal(access.ownGarmentVideo, true);
-assert.equal(access.modules.image, true);
 
-// Go Live player switched off: AI Video still runs everywhere, download only.
+// TV store: all three.
+access = resolveAccess(PACKAGES.tv.devices, modulesForPackage('tv'));
+assert.deepEqual(access.modules, { image: true, video: true, live: true });
+assert.deepEqual([access.goLive, access.catalogueVideo, access.counterTryOn], [true, true, false]);
+
+// Phone store: Try-On only. No AI Video and so no Go Live, even if the module was left on.
+access = resolveAccess(PACKAGES.phone.devices, allModules);
+assert.deepEqual(access.modules, { image: true, video: false, live: false });
+assert.equal(access.goLive, false);
+assert.equal(access.catalogueVideo, false);
+assert.match(access.blockedBy.video, /TV or the tablet/);
+assert.deepEqual(modulesForPackage('phone'), { image: true, video: false, live: false });
+
+// Go Live player switched off: AI Video still runs, download only.
 access = resolveAccess({ ...allDevices, led: false }, allModules);
 assert.equal(access.modules.video, true);
-assert.equal(access.catalogueVideo, true);
 assert.equal(access.goLive, false);
 assert.match(access.blockedBy.video, /download/);
 
@@ -43,24 +58,18 @@ assert.equal(access.modules.image, true);
 assert.equal(resolveAccess(PACKAGES.tv.devices, allModules).counterTryOn, false);
 assert.equal(resolveAccess(allDevices, allModules).counterTryOn, true);
 
-// Screens: TV, tablet or both; Live Mirror needs the TV; Go Live comes with AI Video on either.
-assert.deepEqual(OFFERED_PACKAGES, ['tv', 'tablet', 'tv-tablet']);
+// Platforms offered: TV, tablet or phone; "TV and tablet" stays readable for older stores.
+assert.deepEqual(OFFERED_PACKAGES, ['tv', 'tablet', 'phone']);
 assert.equal(packageOf(PACKAGES.tablet.devices), 'tablet');
 assert.equal(packageOf(PACKAGES.tv.devices), 'tv');
+assert.equal(packageOf(PACKAGES.phone.devices), 'phone');
 assert.equal(packageOf(PACKAGES['tv-tablet'].devices), 'tv-tablet');
 assert.equal(packageLabel(PACKAGES['tv-tablet'].devices), 'TV and tablet');
-access = resolveAccess(PACKAGES.tv.devices, allModules);
-assert.deepEqual([access.goLive, access.catalogueVideo, access.modules.live, access.counterTryOn], [true, true, true, false]);
-access = resolveAccess(PACKAGES.tablet.devices, allModules);
-assert.deepEqual([access.goLive, access.catalogueVideo, access.modules.live, access.counterTryOn, access.ownGarmentVideo], [true, false, false, true, true]);
+assert.deepEqual(modulesForPackage('tv-tablet'), { image: true, video: true, live: true });
+
+// A module TryFocus paused stays off.
 access = resolveAccess(PACKAGES.tv.devices, { image: true, live: false, video: false });
-assert.deepEqual([access.modules.live, access.modules.video, access.goLive], [false, false, false], 'Try-On only: no add-ons, no Go Live');
-
-// Credit packages cover all three experiences.
-assert.deepEqual([CREDIT_PACKAGES.one.image, CREDIT_PACKAGES.one.video, CREDIT_PACKAGES.one.live], [3000, 1000, 1000]);
-assert.deepEqual([CREDIT_PACKAGES.two.image, CREDIT_PACKAGES.two.video, CREDIT_PACKAGES.two.live], [5000, 2000, 2000]);
-
-// AI Video module off: Go Live off too.
+assert.deepEqual([access.modules.live, access.modules.video, access.goLive], [false, false, false]);
 access = resolveAccess(allDevices, { ...allModules, video: false });
 assert.equal(access.goLive, false);
 assert.equal(access.blockedBy.video, undefined);
@@ -68,8 +77,10 @@ assert.equal(access.blockedBy.video, undefined);
 // Server credits follow the same rules.
 const limits = { image: 4000, live: 500, video: 500 };
 assert.equal(moduleLimit({ limits, modules: allModules, devices: { ...allDevices, tv: false } }, 'live'), 0);
-assert.equal(moduleLimit({ limits, modules: allModules, devices: { ...allDevices, led: false } }, 'video'), 500, 'Own-garment video keeps its credits');
+assert.equal(moduleLimit({ limits, modules: allModules, devices: { ...allDevices, led: false } }, 'video'), 500, 'AI Video keeps its credits without the Go Live player');
 assert.equal(moduleLimit({ limits, modules: allModules, devices: allDevices }, 'video'), 500);
 assert.equal(moduleLimit({ limits, modules: allModules }, 'live'), 500);
+assert.equal(moduleLimit({ limits, modules: allModules, devices: PACKAGES.phone.devices }, 'video'), 0, 'A phone store has no AI Video credits');
+assert.equal(moduleLimit({ limits, modules: allModules, devices: PACKAGES.phone.devices }, 'image'), 4000);
 
 console.log('access rules: all checks passed');

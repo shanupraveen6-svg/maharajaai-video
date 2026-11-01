@@ -1,9 +1,10 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getStorageBucket } from '@/lib/firebase/admin';
-import { finalizeCompletedVideo, markPassVideoFailed } from '@/lib/maharaja/server';
+import { finalizeCompletedVideo, logMaharajaActivity, markPassVideoFailed } from '@/lib/maharaja/server';
 import { extractVideoUrl } from '@/lib/maharaja/video-test';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
+import { failOverVideoJob, recordEngineSuccess } from '@/lib/maharaja/video-engines';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -40,7 +41,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Webhook request mismatch.' }, { status: 409 });
   }
   if (body?.status === 'ERROR' || body?.error) {
-    await jobRef.set({ status: 'failed', error: 'Fal video generation failed.', updatedAt: new Date().toISOString() }, { merge: true });
+    const reason = typeof body?.error === 'string' ? body.error : 'Fal video generation failed.';
+    // The render failed on this engine: the same job moves to the next one.
+    const falKey = process.env.FAL_KEY?.trim();
+    const switched = falKey ? await failOverVideoJob({ ...job, jobId }, { origin: req.nextUrl.origin, falKey, reason }) : null;
+    if (switched) {
+      await logMaharajaActivity('video', 'AI Video switched to the backup engine', { jobId, from: job.modelId, to: 'modelId' in switched ? String(switched.modelId) : 'next' }).catch(() => undefined);
+      return NextResponse.json({ success: true, status: 'switching' });
+    }
+    await jobRef.set({ status: 'failed', error: reason.slice(0, 500), updatedAt: new Date().toISOString() }, { merge: true });
     await db.collection('sessions').doc(job.sessionId).set({ activeVideoTestJobId: null }, { merge: true });
     const passCode = String(job.passCode || job.accessCode || '');
     if (passCode) await markPassVideoFailed(passCode, jobId);
@@ -88,6 +97,7 @@ export async function POST(req: NextRequest) {
       eventId: job.eventId || 'diwali',
     });
     if (!finalized.success) throw new Error(finalized.error);
+    if (job.modelId) await recordEngineSuccess(job.modelId);
     const nowIso = new Date().toISOString();
     await Promise.all([
       jobRef.set({

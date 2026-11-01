@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Download, Tv, Sparkles, RotateCcw, AlertCircle, ExternalLink, MessageCircle, MoreVertical } from 'lucide-react';
 import { getEventOption, type EventId } from '@/lib/maharaja/config';
+import { useLeadGate } from '@/components/LeadGate';
 
 export default function ResultClient({
   sessionId,
@@ -67,6 +68,8 @@ export default function ResultClient({
   // The store's own Instagram (set in its AI Video section); hidden when the store has none.
   const [instagramUrl, setInstagramUrl] = useState('');
   const [storeName, setStoreName] = useState('');
+  // Nothing downloads or shares on its own: the customer gives a WhatsApp number first.
+  const leadGate = useLeadGate({ kind: 'pass', ref: accessCode, source: 'ai-video' });
   const eventLabel = getEventOption(eventId).label;
 
   useEffect(() => {
@@ -181,15 +184,16 @@ export default function ResultClient({
 
   // Explicit error state if sessionId is missing — NEVER substitute sample-session
 
-  const fetchDownloadBlob = async (kind: 'image' | 'video' | 'bundle') => {
+  const fetchDownloadBlob = async (kind: 'image' | 'video' | 'bundle', leadToken: string) => {
     const proxyRes = await fetch('/api/download/asset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, accessCode, jobId: videoJobId, kind }),
+      body: JSON.stringify({ sessionId, accessCode, jobId: videoJobId, kind, leadToken }),
     });
 
     if (!proxyRes.ok) {
       const payload = await proxyRes.json().catch(() => null);
+      if (payload?.leadRequired) leadGate.forgetLead();
       throw new Error(payload?.error || 'Download failed.');
     }
 
@@ -217,8 +221,8 @@ export default function ResultClient({
     }, 30000);
   };
 
-  const downloadAsset = async (kind: 'image' | 'video' | 'bundle') => {
-    const blob = await fetchDownloadBlob(kind);
+  const downloadAsset = async (kind: 'image' | 'video' | 'bundle', leadToken: string) => {
+    const blob = await fetchDownloadBlob(kind, leadToken);
     triggerFileDownload(blob, downloadFileName(kind));
   };
 
@@ -229,13 +233,13 @@ export default function ResultClient({
    * to two individual downloads, and only then to the ZIP bundle.
    * Returns 'cancelled' when the customer dismisses the share sheet.
    */
-  const saveImageAndVideo = async (): Promise<'shared' | 'downloaded' | 'cancelled'> => {
+  const saveImageAndVideo = async (leadToken: string): Promise<'shared' | 'downloaded' | 'cancelled'> => {
     let imageBlob: Blob;
     let videoBlob: Blob;
     try {
-      [imageBlob, videoBlob] = await Promise.all([fetchDownloadBlob('image'), fetchDownloadBlob('video')]);
+      [imageBlob, videoBlob] = await Promise.all([fetchDownloadBlob('image', leadToken), fetchDownloadBlob('video', leadToken)]);
     } catch {
-      await downloadAsset('bundle');
+      await downloadAsset('bundle', leadToken);
       return 'downloaded';
     }
     const files = [
@@ -257,12 +261,14 @@ export default function ResultClient({
     return 'downloaded';
   };
 
-  const handleDownloadBundle = async (showConfirmation = true) => {
+  const handleDownloadBundle = (showConfirmation = true) => leadGate.withLead((leadToken) => saveBundle(leadToken, showConfirmation));
+
+  const saveBundle = async (leadToken: string, showConfirmation: boolean) => {
     if (downloading) return;
     setDownloading('bundle');
     setLiveError(null);
     try {
-      const outcome = await saveImageAndVideo();
+      const outcome = await saveImageAndVideo(leadToken);
       if (outcome === 'cancelled') return;
       await fetch('/api/maharaja/activity', {
         method: 'POST',
@@ -282,10 +288,12 @@ export default function ResultClient({
   };
 
   // Shares the film itself where the phone allows (WhatsApp appears in the share sheet); otherwise opens WhatsApp with a message.
-  const handleWhatsAppShare = async () => {
+  const handleWhatsAppShare = () => leadGate.withLead((leadToken) => shareOnWhatsApp(leadToken));
+
+  const shareOnWhatsApp = async (leadToken: string) => {
     const message = `My ${eventLabel} AI fashion film${storeName ? ` from ${storeName}` : ''}!${instagramUrl ? ` ${instagramUrl}` : ''}`;
     try {
-      const blob = await fetchDownloadBlob('video');
+      const blob = await fetchDownloadBlob('video', leadToken);
       const file = new File([blob], downloadFileName('video'), { type: 'video/mp4' });
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text: message });
@@ -347,9 +355,6 @@ export default function ResultClient({
       setLiveSuccess(true);
       setCountdownSeconds(0);
       setLiveFarewell(true);
-      await saveImageAndVideo().catch(() => {
-        setLiveError('Your TV queue is confirmed. Tap Download below if the image and video did not save.');
-      });
       setThankYouMode('live');
       setLiveFarewell(true);
     } catch (caught) {
@@ -359,14 +364,7 @@ export default function ResultClient({
     }
   };
 
-  // Saves the finished film once, automatically; the Download buttons remain for browsers that block it.
-  const autoDownloadedVideoRef = React.useRef('');
-  useEffect(() => {
-    if (videoStatus !== 'ready' || !videoUrl || autoDownloadedVideoRef.current === videoUrl) return;
-    autoDownloadedVideoRef.current = videoUrl;
-    void downloadAsset('video').catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoStatus, videoUrl]);
+  // Nothing saves on its own: the customer taps Download (after giving a WhatsApp number).
 
   if (liveFarewell) {
     return (
@@ -659,6 +657,7 @@ export default function ResultClient({
           </div>
         </div>
       )}
+      {leadGate.dialog}
     </main>
   );
 }

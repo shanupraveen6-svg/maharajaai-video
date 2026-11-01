@@ -1,4 +1,20 @@
 const FAL_TRY_ON_MODEL = 'fal-ai/image-apps-v2/virtual-try-on';
+
+export type TryOnEngine = 'genlook' | 'fal' | 'fashn' | 'gemini';
+const TRY_ON_ENGINES: TryOnEngine[] = ['genlook', 'fal', 'fashn', 'gemini'];
+
+/**
+ * The order Try-On image engines are tried in: TRYON_ENGINE_ORDER (comma-separated, e.g. "fal,gemini,fashn,genlook")
+ * or GenLook → fal → FASHN → Gemini. Gemini, the disclosed backup, is always kept as the last resort.
+ */
+export function tryOnEngineOrder(value = process.env.TRYON_ENGINE_ORDER): TryOnEngine[] {
+  const configured = String(value || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter((item): item is TryOnEngine => (TRY_ON_ENGINES as string[]).includes(item));
+  const order = Array.from(new Set(configured.length ? configured : TRY_ON_ENGINES));
+  return order.includes('gemini') ? order : [...order, 'gemini'];
+}
 const MAX_RESULT_BYTES = 16 * 1024 * 1024;
 
 export function buildFalTryOnInput(personBase64: string, garmentBase64: string) {

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/image';
 import { LOOK_PREFILL_KEY, type LookPrefill } from '@/lib/maharaja/look-prefill';
+import { useLeadGate } from '@/components/LeadGate';
 import {
   EVENT_OPTIONS,
   GARMENT_TYPE_VALUES,
@@ -181,6 +182,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [tryOnImageUrl, setTryOnImageUrl] = useState<string | null>(null);
   const [videoMasterUrl, setVideoMasterUrl] = useState<string | null>(null);
   const [stage, setStage] = useState<'loading' | 'ready' | 'analyzing' | 'image' | 'video' | 'result'>('loading');
+  // Nothing downloads on its own: Download asks for the customer's WhatsApp number first.
+  const leadGate = useLeadGate({ kind: 'pass', ref: accessCode, source: service === 'ai-video' ? 'ai-video' : 'try-on' });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [processingConsent, setProcessingConsent] = useState(false);
@@ -677,7 +680,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         tryOnGrant,
         processingConsent,
         guardianProcessingConsent: (category === 'girl' || category === 'boy') ? processingConsent : false,
-        consentVersion: '2026-10-privacy-v3',
+        consentVersion: '2026-11-privacy-v4',
       };
 
       requestBody.personPhotoStoragePath = personStoragePath;
@@ -711,7 +714,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
     }
   }
 
-  async function downloadImage() {
+  function downloadImage() {
+    if (!masterImageUrl) return;
+    void leadGate.withLead((leadToken) => saveImage(leadToken));
+  }
+
+  async function saveImage(leadToken: string) {
     if (!masterImageUrl) return;
     setError('');
     try {
@@ -730,10 +738,11 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         const response = await fetch('/api/download/asset', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: masterImageUrl, sessionId, accessCode, kind: 'image' }),
+          body: JSON.stringify({ url: masterImageUrl, sessionId, accessCode, kind: 'image', leadToken }),
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
+          if (payload?.leadRequired) leadGate.forgetLead();
           throw new Error(payload?.error || 'Unable to download the image.');
         }
         blob = await response.blob();
@@ -911,7 +920,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                 TryFocus × {access?.workspace.clientName || 'TryFocus'}
               </p>
               <h1 className="text-xl font-bold text-ink">
-                {activeService === 'try-on' ? 'Try-On (Direct Scan · ₹500 Min Disabled)' : '1-Day AI Video Pass'}
+                {activeService === 'try-on' ? 'Try-On' : 'AI Video'}
               </h1>
             </div>
           </div>
@@ -1324,6 +1333,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         <span className="px-1.5">·</span>
         <Link href="/terms" className="rounded-xl inline-block py-3 font-bold text-brand underline underline-offset-2">Terms</Link>
       </div>
+      {leadGate.dialog}
     </main>
   );
 }

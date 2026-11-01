@@ -1,20 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  CheckCircle2,
   Clock,
   Download,
   Film,
   LoaderCircle,
+  MoreVertical,
+  RefreshCw,
   RotateCcw,
   X,
 } from 'lucide-react';
 import { LOOK_PREFILL_KEY, type LookPrefill } from '@/lib/maharaja/look-prefill';
+import { useLeadGate } from '@/components/LeadGate';
 
 type Look = {
   sku: string;
@@ -42,11 +44,13 @@ export default function PrivateLooksPage() {
   const [videoStarting, setVideoStarting] = useState(false);
   const [videoError, setVideoError] = useState('');
 
-  // Auto-download tracking (runs once per look / video)
-  const downloadedImagesRef = useRef<Record<string, boolean>>({});
   const [downloadingManual, setDownloadingManual] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+  // Nothing downloads on its own: Save asks for the customer's WhatsApp number first.
+  const leadGate = useLeadGate({ kind: 'looks', ref: token || '', source: 'tv-looks' });
 
-  // Header modal state for "Retry Image"
+  // Retry lives in the header ⋯ menu.
+  const [showMenu, setShowMenu] = useState(false);
   const [showRetryImageModal, setShowRetryImageModal] = useState(false);
 
   const fetchLooks = useCallback(async () => {
@@ -75,45 +79,31 @@ export default function PrivateLooksPage() {
 
   const current = looks[active];
 
-  // Reliable manual download helper using blob URLs
-  const downloadAsset = async (url: string, filename: string) => {
+  // Saves the look once the customer has given a WhatsApp number (the server checks the lead token).
+  const saveLook = (look: Look) => leadGate.withLead(async (leadToken) => {
+    setDownloadingManual(true);
+    setDownloadError('');
     try {
-      setDownloadingManual(true);
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
+      const res = await fetch(`${look.downloadUrl}&lead=${encodeURIComponent(leadToken)}`, { cache: 'no-store' });
+      if (res.status === 428) {
+        leadGate.forgetLead();
+        throw new Error('Please enter your WhatsApp number again.');
+      }
+      if (!res.ok) throw new Error('This look could not be saved. Please try again.');
+      const blobUrl = URL.createObjectURL(await res.blob());
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = filename;
+      link.download = `tryfocus-${(look.sku || 'look').toLowerCase().replace(/[^a-z0-9_-]/g, '')}.jpg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
-    } catch {
-      window.open(url, '_blank');
+    } catch (caught) {
+      setDownloadError(caught instanceof Error ? caught.message : 'This look could not be saved. Please try again.');
     } finally {
       setDownloadingManual(false);
     }
-  };
-
-  // Best-effort auto-download attempt on initial view
-  useEffect(() => {
-    if (!current?.downloadUrl) return;
-    const key = `${current.sku || 'look'}_${active}`;
-    if (downloadedImagesRef.current[key]) return;
-    downloadedImagesRef.current[key] = true;
-
-    try {
-      const a = document.createElement('a');
-      a.href = current.downloadUrl;
-      a.download = `tryfocus-maharaja-${(current.sku || 'look').toLowerCase().replace(/[^a-z0-9_-]/g, '')}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (err) {
-      console.warn('Auto image download skipped:', err);
-    }
-  }, [current, active]);
+  });
 
   // The festival video is made on the customer's own 24-hour pass: Gemini creates the event
   // portrait from this look, the customer approves it, then renders and optionally goes live.
@@ -164,14 +154,27 @@ export default function PrivateLooksPage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowRetryImageModal(true)}
-            className="inline-flex min-h-11 items-center gap-1.5 border border-ink bg-white px-3 py-1 text-xs font-bold text-ink shadow-sm transition hover:bg-[#FAF6EE] active:scale-95"
-          >
-            <RotateCcw className="h-3.5 w-3.5 text-brand" />
-            Retry Image
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Look options"
+              aria-expanded={showMenu}
+              onClick={() => setShowMenu((open) => !open)}
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-line-strong bg-white"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-12 z-40 w-64 overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
+                <button type="button" onClick={() => { setShowMenu(false); setShowRetryImageModal(true); }} className="flex min-h-12 w-full items-center gap-3 px-4 text-left text-[15px] font-semibold">
+                  <RotateCcw className="h-4 w-4" /> Retry with another outfit
+                </button>
+                <button type="button" onClick={() => { setShowMenu(false); void fetchLooks(); }} className="flex min-h-12 w-full items-center gap-3 border-t border-line px-4 text-left text-[15px] font-semibold">
+                  <RefreshCw className="h-4 w-4" /> Refresh my looks
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -202,21 +205,6 @@ export default function PrivateLooksPage() {
         {!loading && !error && current && (
           <>
             <div>
-                {/* Honest download messaging */}
-                <div className="rounded-2xl mb-4 flex items-center justify-between border border-line bg-canvas px-3.5 py-2 text-xs text-muted">
-                  <span className="flex items-center gap-1.5 font-medium text-emerald-800">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Auto-download attempted · Tap button below if not saved
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => downloadAsset(current.downloadUrl, `tryfocus-${current.sku || 'look'}.jpg`)}
-                    className="flex min-h-11 shrink-0 items-center pl-3 font-bold text-brand underline underline-offset-2"
-                  >
-                    Save look
-                  </button>
-                </div>
-
                 {/* 9:16 Vertical Try-On Result Card */}
                 <div className="relative overflow-hidden border border-ink bg-ink shadow-md">
                   <div className="absolute left-3 top-3 z-10">
@@ -282,7 +270,7 @@ export default function PrivateLooksPage() {
                 <div className="mt-5 space-y-3">
                     {videoOff ? null : current.videoAvailable === false ? (
                       <p className="border border-line bg-canvas p-4 text-center text-sm text-muted">
-                        Catalogue festival videos are made on the store TV. Ask our staff to create yours there.
+                        AI Video uses our store collection. Ask our staff to pick a piece for your video.
                       </p>
                     ) : (<>
                     <button
@@ -292,23 +280,23 @@ export default function PrivateLooksPage() {
                       className="flex min-h-16 w-full items-center justify-center gap-2.5 border border-brand bg-brand px-6 text-center text-lg font-bold text-white shadow-md transition hover:bg-[#600f1f] active:scale-[0.99] disabled:opacity-60"
                     >
                       {videoStarting ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />}
-                      {videoStarting ? 'Opening your video studio…' : 'Create my festival video'}
+                      {videoStarting ? 'Opening your AI Video…' : 'Create my AI Video'}
                     </button>
                     <p className="text-center text-xs text-muted">
                       Valid for 24 hours on this phone · Showing it on the store TV is optional
                     </p>
                     </>)}
 
-                    {/* Manual Save Image Button */}
                     <button
                       type="button"
                       disabled={downloadingManual}
-                      onClick={() => downloadAsset(current.downloadUrl, `tryfocus-${(current.sku || 'look').toLowerCase()}.jpg`)}
-                      className="flex min-h-12 w-full items-center justify-center gap-2 border border-ink bg-white px-5 text-sm font-semibold text-ink transition hover:bg-[#F4F5F2]"
+                      onClick={() => void saveLook(current)}
+                      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-ink bg-white px-5 text-sm font-semibold text-ink transition hover:bg-[#F4F5F2]"
                     >
-                      <Download className="h-4 w-4" />
-                      {downloadingManual ? 'Saving Image…' : 'Save Try-On Image (.jpg)'}
+                      {downloadingManual ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      {downloadingManual ? 'Saving…' : 'Download this look'}
                     </button>
+                    {downloadError && <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm font-semibold text-danger">{downloadError}</p>}
                 </div>
             </div>
 
@@ -328,7 +316,9 @@ export default function PrivateLooksPage() {
         )}
       </div>
 
-      {/* "Retry Image" Modal Dialog */}
+      {leadGate.dialog}
+
+      {/* Retry, from the header ⋯ menu */}
       {showRetryImageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="rounded-2xl w-full max-w-sm border border-ink bg-white p-6 shadow-2xl">
@@ -346,8 +336,8 @@ export default function PrivateLooksPage() {
               </button>
             </div>
             <p className="mt-3 text-sm text-muted">
-              To capture a new photo or select different garments from the store collection,
-              please step to the showroom 43&quot; TV kiosk or counter tablet.
+              To take a new photo or pick other outfits from the store collection, go back to the
+              store TV or ask our staff at the counter.
             </p>
             <div className="mt-5 flex flex-col gap-2">
               <button

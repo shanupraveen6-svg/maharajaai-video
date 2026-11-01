@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mirrorRecordingUrls, readMirrorRecording } from '@/lib/maharaja/mirror-recordings';
 import { getClientWorkspaceById } from '@/lib/maharaja/server';
+import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { countLeadDownload, verifyLeadToken } from '@/lib/maharaja/leads';
 
 export const dynamic = 'force-dynamic';
 
-/** The customer's phone: the private id in the QR is the only key. */
-export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+/**
+ * The customer's phone: the private id in the QR is the only key to watch. The download link comes only
+ * with `?lead=` (the token from the customer's WhatsApp number).
+ */
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const record = await readMirrorRecording(id);
   if (!record) return NextResponse.json({ success: false, error: 'This Live Mirror video has expired.' }, { status: 404, headers: { 'Cache-Control': 'private, no-store' } });
   const [urls, workspace] = await Promise.all([mirrorRecordingUrls(record), getClientWorkspaceById(record.clientId)]);
+  const lead = verifyLeadToken(req.nextUrl.searchParams.get('lead'), record.clientId || MAHARAJA_CLIENT_ID);
+  if (lead && req.nextUrl.searchParams.get('download') === '1') void countLeadDownload(lead.leadId, record.clientId || MAHARAJA_CLIENT_ID).catch(() => undefined);
   return NextResponse.json({
     success: true,
     ...urls,
+    downloadUrl: lead ? urls.downloadUrl : null,
+    looks: urls.looks.map((look) => ({ ...look, downloadable: Boolean(lead) })),
     contentType: record.contentType,
     garmentTitle: record.garmentTitle,
     clientName: workspace.clientName,

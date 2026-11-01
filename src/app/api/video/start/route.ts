@@ -10,9 +10,9 @@ import {
   markPassVideoSubmitted,
   verifyMaharajaAccess,
 } from '@/lib/maharaja/server';
-import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
+import { getVideoTestModel } from '@/lib/maharaja/video-test';
+import { availableEngines, newWebhookToken, submitRender, videoEngineOrder, webhookUrlFor, type RenderRequest } from '@/lib/maharaja/video-engines';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
-import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -81,15 +81,6 @@ async function normalizeGarmentReference(sourcePath: string, outputPath: string,
   };
 }
 
-function falError(status: number, raw: string) {
-  let detail = raw;
-  try {
-    const parsed = JSON.parse(raw);
-    detail = typeof parsed?.detail === 'string' ? parsed.detail : JSON.stringify(parsed?.detail || parsed?.error || parsed);
-  } catch {}
-  return `Fal request failed (${status}): ${detail.slice(0, 500)}`;
-}
-
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
@@ -136,12 +127,13 @@ export async function POST(req: NextRequest) {
   }
 
   const jobId = `vtest_${crypto.randomUUID()}`;
-  const webhookToken = crypto.randomBytes(32).toString('hex');
-  const webhookTokenHash = crypto.createHash('sha256').update(webhookToken).digest('hex');
+  const { token: webhookToken, hash: webhookTokenHash } = newWebhookToken();
   const createdAt = new Date().toISOString();
+  // Engines in order, resting ones left out; a requested test model goes first.
+  const engineChain = Array.from(new Set([...(requestedModelId ? [model.id] : []), ...await availableEngines(videoEngineOrder())]));
   const basePath = `clients/${activeClientId()}/sessions/${sessionId}/video-tests/${jobId}`;
   const jobBase = {
-    jobId, sessionId, accessCode, passCode, clientId: activeClientId(), modelId: model.id, model: model.model,
+    jobId, sessionId, accessCode, passCode, clientId: activeClientId(), modelId: engineChain[0], model: getVideoTestModel(engineChain[0])?.model || model.model, engineChain,
     status: 'preparing', createdAt, updatedAt: createdAt,
     estimatedUsd: model.estimatedUsd, duration: model.seconds,
     attempt: 1, providerName,
@@ -210,41 +202,25 @@ export async function POST(req: NextRequest) {
     const garmentRoles = Array.isArray(access.pass.videoMasterGarmentRoles)
       ? access.pass.videoMasterGarmentRoles.map((value) => String(value)).slice(0, garments.length)
       : [];
-    let requestId = '';
-    let statusUrl = '';
-    let responseUrl = '';
-    let providerSeed: string | number | null = null;
-    {
-      // A retry (a video already made, or the last attempt failed) uses the fail-proof backup prompt:
-      // customer standing still with a light smile, gentle camera, stable framing.
-      const isRetryRender = Number(access.pass.usage?.videosGenerated || 0) >= 1 || access.pass.lastVideoFailed === true;
-      const input = buildVideoTestInput(model.id, master.url, garments.map((item) => item.url), concept.id, garmentRoles, eventId, (access.pass.videoMasterGarmentType || 'generic') as GarmentType, isRetryRender);
-      const webhookUrl = new URL('/api/video/webhook', req.nextUrl.origin);
-      webhookUrl.searchParams.set('jobId', jobId);
-      webhookUrl.searchParams.set('token', webhookToken);
-      if (!await spendAllowed()) throw new Error(SPEND_CAP_MESSAGE);
-      const queueUrl = new URL(`https://queue.fal.run/${model.model}`);
-      queueUrl.searchParams.set('fal_webhook', webhookUrl.toString());
-      const response = await fetch(queueUrl, {
-        method: 'POST',
-        headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(input),
-        cache: 'no-store',
-      });
-      const raw = await response.text();
-      if (!response.ok) throw new Error(falError(response.status, raw));
-      const provider = JSON.parse(raw);
-      requestId = provider.request_id || provider.requestId;
-      statusUrl = provider.status_url || provider.statusUrl;
-      responseUrl = provider.response_url || provider.responseUrl;
-      providerSeed = typeof provider.seed === 'number' || typeof provider.seed === 'string' ? provider.seed : null;
-      if (!requestId || !statusUrl || !responseUrl) throw new Error('Fal accepted the request but returned incomplete queue tracking data.');
-      await recordAiCost('video-render', model.estimatedUsd);
-    }
+    // A retry (a video already made, or the last attempt failed) uses the fail-proof backup prompt:
+    // customer standing still with a light smile, gentle camera, stable framing.
+    const renderRequest: RenderRequest = {
+      masterUrl: master.url,
+      garmentUrls: garments.map((item) => item.url),
+      conceptId: concept.id,
+      garmentRoles,
+      eventId,
+      garmentType: (access.pass.videoMasterGarmentType || 'generic') as GarmentType,
+      retryRender: Number(access.pass.usage?.videosGenerated || 0) >= 1 || access.pass.lastVideoFailed === true,
+    };
+    // The first engine that accepts the job renders it; a refused submission moves on at once.
+    const submitted = await submitRender({ chain: engineChain, request: renderRequest, webhookUrl: webhookUrlFor(req.nextUrl.origin, jobId, webhookToken), falKey });
 
     const update = {
-      status: 'submitted', requestId, statusUrl, responseUrl, providerName,
-      seed: providerSeed,
+      status: 'submitted', requestId: submitted.requestId, statusUrl: submitted.statusUrl, responseUrl: submitted.responseUrl, providerName,
+      modelId: submitted.engine.id, model: submitted.engine.model, estimatedUsd: submitted.engine.estimatedUsd,
+      engineAttempts: submitted.attempts, engineSubmittedAt: new Date().toISOString(), renderRequest,
+      seed: submitted.seed,
       referenceCount: garments.length + 1,
       eventId,
       category,
@@ -257,10 +233,10 @@ export async function POST(req: NextRequest) {
     if (db) await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
     else getMockStore().sessions.set(`video_test_${jobId}`, { ...jobBase, ...update });
     await markPassVideoSubmitted(passCode, jobId);
-    return NextResponse.json({ success: true, jobId, status: 'submitted', modelId: model.id, estimatedUsd: model.estimatedUsd });
+    return NextResponse.json({ success: true, jobId, status: 'submitted', modelId: submitted.engine.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Video test submission failed.';
-    const update = { status: 'failed', error: message, updatedAt: new Date().toISOString() };
+    const update = { status: 'failed', error: message, engineAttempts: (error as Error & { attempts?: unknown }).attempts || [], updatedAt: new Date().toISOString() };
     if (db) {
       await db.collection('videoTestJobs').doc(jobId).set(update, { merge: true });
       await db.collection('sessions').doc(sessionId).set({ activeVideoTestJobId: null }, { merge: true });

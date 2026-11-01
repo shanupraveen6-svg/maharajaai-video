@@ -47,6 +47,7 @@ function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = [], spend:
       goLive: Number(ws.usage?.goLive || 0),
       downloads: Number(ws.usage?.downloads || 0),
       scans: Number(ws.usage?.tryOnScans || 0),
+      retries: Number(ws.usage?.retries || 0),
     },
     limits: {
       image: Number(ws.limits?.image ?? 4000),

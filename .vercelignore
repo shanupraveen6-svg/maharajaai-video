@@ -1,0 +1,13 @@
+# Never upload secrets, customer media or local build output with a CLI deploy.
+.env*
+!.env.example
+*-firebase-adminsdk-*.json
+*.mp4
+*.zip
+/silk_sarees_collages/
+/test-results/
+/playwright-report/
+/.next/
+/node_modules/
+quality-check-*.html
+*.tsbuildinfo

@@ -15,14 +15,49 @@ import {
 } from 'lucide-react';
 import { CREDIT_BAR_COLOURS, creditStatuses } from '@/lib/maharaja/credits';
 import PlatformOverview, { type PlatformSpend } from '@/components/PlatformOverview';
-import { CREDIT_PACKAGES, OFFERED_PACKAGES, PACKAGES, packageLabel, packageOf, resolveAccess, type CreditPackageId, type PackageId } from '@/lib/maharaja/access';
+import { OFFERED_PACKAGES, PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, type PackageId } from '@/lib/maharaja/access';
+import { PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage, presetFor, type Credits, type Platform, type PresetId } from '@/lib/maharaja/pricing';
 
-/** The screens a store can book; device rules for each live in access.ts. */
+/** The platforms a store can book; device and module rules for each live in access.ts. */
 const PACKAGE_CARDS: Array<{ id: PackageId; Icon: typeof Tv; text: string }> = [
-  { id: 'tv', Icon: Tv, text: 'Try-On and AI Video on the showroom TV. Live Mirror can be added.' },
-  { id: 'tablet', Icon: Tablet, text: 'Staff Try-On and the AI Video gift QR on the counter tablet.' },
-  { id: 'tv-tablet', Icon: Monitor, text: 'The TV in the showroom and the tablet at the counter.' },
+  { id: 'tv', Icon: Tv, text: 'Try-On, AI Video and Live Mirror on the showroom TV.' },
+  { id: 'tablet', Icon: Tablet, text: 'Try-On and AI Video on the counter tablet.' },
+  { id: 'phone', Icon: Smartphone, text: 'Try-On on the customer’s phone from the wall QR. No AI Video.' },
+  { id: 'tv-tablet', Icon: Monitor, text: 'The TV in the showroom and the tablet at the counter. Priced as TV.' },
 ];
+
+type PricingAnswer = {
+  quote: { creditsTotal: number; softwareFee: number; gst: number; total: number; credits: Credits };
+  margin: { aiCost: number; creditProfit: number; creditMargin: number };
+};
+
+/** Price, AI cost and profit of a package (from the server, which alone knows our costs). */
+function PackageQuote({ platform, credits, software }: { platform: Platform; credits: Credits; software: boolean }) {
+  const [answer, setAnswer] = useState<PricingAnswer | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const params = new URLSearchParams({ platform, image: String(credits.image), video: String(credits.video), live: String(credits.live), software: software ? '1' : '0' });
+    fetch(`/api/admin/pricing?${params}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => { if (active) { setAnswer(data?.success ? data : null); setFailed(!data?.success); } })
+      .catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [platform, credits.image, credits.video, credits.live, software]);
+  if (failed) return <p className="text-sm text-danger">Price unavailable. Check the connection and try again.</p>;
+  if (!answer) return <p className="text-sm text-muted">Working out the price…</p>;
+  const { quote, margin } = answer;
+  return (
+    <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+      <div className="flex justify-between gap-3"><dt className="text-muted">Credits</dt><dd className="tabular-nums font-semibold">{formatRupees(quote.creditsTotal)}</dd></div>
+      {software && <div className="flex justify-between gap-3"><dt className="text-muted">Software (one time)</dt><dd className="tabular-nums font-semibold">{formatRupees(quote.softwareFee)}</dd></div>}
+      <div className="flex justify-between gap-3"><dt className="text-muted">GST (18%)</dt><dd className="tabular-nums">{formatRupees(quote.gst)}</dd></div>
+      <div className="flex justify-between gap-3"><dt className="font-bold text-ink">Store pays</dt><dd className="tabular-nums font-bold text-ink">{formatRupees(quote.total)}</dd></div>
+      <div className="flex justify-between gap-3"><dt className="text-muted">Our AI cost (all credits used)</dt><dd className="tabular-nums">{formatRupees(margin.aiCost)}</dd></div>
+      <div className="flex justify-between gap-3"><dt className="text-muted">Credit profit</dt><dd className="tabular-nums font-semibold text-success">{formatRupees(margin.creditProfit)} · {Math.round(margin.creditMargin * 100)}%</dd></div>
+    </dl>
+  );
+}
 
 type Client = {
   id: string;
@@ -90,8 +125,7 @@ export default function TryFocusAdmin() {
   const [newStoreName, setNewStoreName] = useState<string>('');
   const [newStoreBranch, setNewStoreBranch] = useState<string>('');
   const [newPackage, setNewPackage] = useState<PackageId>('tv');
-  const [newLiveAddOn, setNewLiveAddOn] = useState(false);
-  const [newCredits, setNewCredits] = useState<CreditPackageId>('one');
+  const [newPreset, setNewPreset] = useState<PresetId>('standard');
   const [creatingClient, setCreatingClient] = useState<boolean>(false);
 
   const loadClients = useCallback(async () => {
@@ -251,16 +285,29 @@ export default function TryFocusAdmin() {
   }
 
   const currentPackage = packageOf(client.devices);
-  const liveAddOn = client.devices.tv && client.modules?.live !== false;
-  const currentCreditPackage = (Object.keys(CREDIT_PACKAGES) as CreditPackageId[]).find((id) => {
-    const plan = CREDIT_PACKAGES[id];
-    return client.limits.image === plan.image && client.limits.video === plan.video && client.limits.live === plan.live;
-  });
+  const currentPlatform = platformOfPackage(currentPackage);
+  const clientAccess = resolveAccess(client.devices, client.modules);
+  const currentPreset = presetFor(currentPlatform, client.limits);
+  const newPlatform = platformOfPackage(newPackage);
+  const newCredits = clampCredits(newPlatform, PRESETS[newPreset]);
+  const [topUpPreset, setTopUpPreset] = useState<PresetId>('standard');
+  const topUpCredits = clampCredits(currentPlatform, PRESETS[topUpPreset]);
 
-  // Try-On and AI Video come with every screen; a screen without the TV cannot keep the Live Mirror add-on.
+  // The platform decides the modules: every module it includes comes with it, the others go off.
   function choosePackage(id: PackageId) {
-    const devices = { ...PACKAGES[id].devices, led: client.devices.led };
-    void persistClientPatch({ devices, modules: { image: true, video: true, live: devices.tv && liveAddOn } });
+    const devices = { ...PACKAGES[id].devices, led: PACKAGES[id].devices.led && client.devices.led !== false };
+    void persistClientPatch({ devices, modules: modulesForPackage(id) });
+  }
+
+  // A top-up adds a package's credits to what the store has left; used credits stay counted.
+  function addTopUp(credits: Credits) {
+    void persistClientPatch({
+      limits: {
+        image: client.limits.image + credits.image,
+        video: client.limits.video + credits.video,
+        live: client.limits.live + credits.live,
+      },
+    });
   }
 
   function setLimit(key: keyof Client['limits'], value: number) {
@@ -301,8 +348,8 @@ export default function TryFocusAdmin() {
           minPurchaseTryOnDisabled: true,
           deliveryMode: 'qr',
           devices: PACKAGES[newPackage].devices,
-          modules: { image: true, video: true, live: PACKAGES[newPackage].devices.tv && newLiveAddOn },
-          limits: { image: CREDIT_PACKAGES[newCredits].image, video: CREDIT_PACKAGES[newCredits].video, live: CREDIT_PACKAGES[newCredits].live },
+          modules: modulesForPackage(newPackage),
+          limits: newCredits,
         }),
       });
       if (res.status === 401) {
@@ -446,29 +493,30 @@ export default function TryFocusAdmin() {
                 />
               </label>
               <label className="block text-xs font-bold text-muted">
-                Package
+                Platform
                 <select
                   value={newPackage}
                   onChange={(e) => setNewPackage(e.target.value as PackageId)}
                   className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                 >
-                  {OFFERED_PACKAGES.map((key) => <option key={key} value={key}>{PACKAGES[key].label}</option>)}
+                  {[...OFFERED_PACKAGES, 'tv-tablet' as const].map((key) => <option key={key} value={key}>{PACKAGES[key].label}</option>)}
                 </select>
                 <select
                   aria-label="Credit package"
-                  value={newCredits}
-                  onChange={(e) => setNewCredits(e.target.value as CreditPackageId)}
+                  value={newPreset}
+                  onChange={(e) => setNewPreset(e.target.value as PresetId)}
                   className="mt-2 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                 >
-                  {(Object.keys(CREDIT_PACKAGES) as CreditPackageId[]).map((id) => <option key={id} value={id}>{CREDIT_PACKAGES[id].label}</option>)}
+                  {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
                 </select>
-                {PACKAGES[newPackage].devices.tv && (
-                  <span className="mt-2 flex items-center gap-2 font-semibold text-ink">
-                    <input type="checkbox" checked={newLiveAddOn} onChange={(e) => setNewLiveAddOn(e.target.checked)} className="h-4 w-4 accent-brand" />
-                    Live Mirror add-on
-                  </span>
-                )}
+                <span className="mt-2 block font-normal tabular-nums">
+                  {newCredits.image.toLocaleString('en-IN')} images{newCredits.video ? ` · ${newCredits.video.toLocaleString('en-IN')} AI Videos` : ''}{newCredits.live ? ` · ${newCredits.live.toLocaleString('en-IN')} Live Mirror` : ''}
+                </span>
               </label>
+              <div className="sm:col-span-2 lg:col-span-3 rounded-2xl bg-canvas p-4">
+                <p className="mb-2 text-xs font-bold text-muted">{PLATFORM_LABELS[newPlatform]} · {PRESETS[newPreset].label}, with software</p>
+                <PackageQuote platform={newPlatform} credits={newCredits} software />
+              </div>
               <div className="flex items-end">
                 <button
                   type="submit"
@@ -628,12 +676,12 @@ export default function TryFocusAdmin() {
           <p className="mt-2 text-xs text-muted">{loginExists ? 'Type a different username to add a second login.' : 'The client signs in with this on the TV, counter and workspace.'}</p>
         </section>
 
-        {/* What this client booked: a screen (the phone comes with it), Try-On and AI Video, and the Live Mirror add-on. */}
+        {/* What this client booked: a platform decides its modules (the phone comes with the TV and the tablet). */}
         <section className="tf-card p-6">
-          <h2 className="text-2xl font-bold">Package</h2>
-          <p className="mt-1 text-sm text-muted">Now: <b className="text-ink">{packageLabel(client.devices)}</b> · Try-On and AI Video{liveAddOn ? ' · Live Mirror' : ''}. Tap a screen to change it.</p>
+          <h2 className="text-2xl font-bold">Platform</h2>
+          <p className="mt-1 text-sm text-muted">Now: <b className="text-ink">{packageLabel(client.devices)}</b> · {['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}. Tap a platform to change it; its modules switch with it.</p>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {PACKAGE_CARDS.map(({ id, Icon, text }) => {
               const selected = currentPackage === id;
               return (
@@ -655,26 +703,11 @@ export default function TryFocusAdmin() {
           <div className="mt-4 flex items-start gap-3.5 rounded-2xl bg-canvas p-4">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-ink"><Smartphone className="h-5 w-5" /></span>
             <p className="text-sm text-muted">
-              <b className="text-ink">Included with every screen:</b> Try-On and AI Video, the customer’s phone (Wall QR Try-On and the AI Video gift QR), the workspace, and Go Live on the store’s own LED or wall screen.
+              <b className="text-ink">Included:</b> the workspace and, with the TV or the tablet, the customer’s phone (Wall QR Try-On, the photo upload QR and the AI Video on the phone) and Go Live on the store’s own LED or wall screen.
             </p>
           </div>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            <div className={`flex items-start justify-between gap-4 rounded-2xl border p-4 ${client.devices.tv ? 'border-line' : 'border-dashed border-line-strong bg-canvas'}`}>
-              <div>
-                <p className="font-bold text-ink">Live Mirror add-on</p>
-                <p className="mt-1 text-sm text-muted">{client.devices.tv ? 'Live try-on on the TV: 60 seconds, outfits change as the customer moves.' : 'Needs the TV.'}</p>
-              </div>
-              <button
-                type="button"
-                aria-pressed={liveAddOn}
-                disabled={!client.devices.tv}
-                onClick={() => void persistClientPatch({ modules: { image: true, video: true, live: !liveAddOn } })}
-                className={`min-h-10 shrink-0 rounded-full px-4 text-sm font-semibold disabled:opacity-50 ${liveAddOn ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}
-              >
-                {liveAddOn ? 'Added' : 'Add'}
-              </button>
-            </div>
+          {clientAccess.modules.video && <div className="mt-4 grid gap-3 lg:grid-cols-2">
             <div className="flex items-start justify-between gap-4 rounded-2xl border border-line p-4">
               <div>
                 <p className="font-bold text-ink">Go Live player</p>
@@ -689,34 +722,54 @@ export default function TryFocusAdmin() {
                 {client.devices.led ? 'On' : 'Off'}
               </button>
             </div>
-          </div>
+          </div>}
         </section>
 
-        {/* Credits: one of the two packages, or a custom limit per experience. */}
+        {/* Credits: limits are running totals; a top-up adds a package to them. */}
         <section className="tf-card p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-2xl font-bold">Credits</h2>
-              <p className="mt-1 text-sm text-muted">{currentCreditPackage ? `${CREDIT_PACKAGES[currentCreditPackage].label}.` : 'Custom limits.'} Each package covers all three; the store uses what it booked.</p>
+              <p className="mt-1 text-sm text-muted">{currentPreset ? `Set to ${PRESETS[currentPreset].label}.` : 'Custom limits.'} Limits are running totals; a top-up adds a package to them.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {(Object.keys(CREDIT_PACKAGES) as CreditPackageId[]).map((id) => {
-                const plan = CREDIT_PACKAGES[id];
-                const selected = currentCreditPackage === id;
+              {(Object.keys(PRESETS) as PresetId[]).map((id) => {
+                const plan = clampCredits(currentPlatform, PRESETS[id]);
+                const selected = currentPreset === id;
                 return (
                   <button
                     key={id}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => void persistClientPatch({ limits: { image: plan.image, video: plan.video, live: plan.live } })}
+                    onClick={() => void persistClientPatch({ limits: plan })}
                     className={`min-h-11 rounded-xl border px-4 text-left text-sm ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white hover:border-ink'}`}
                   >
-                    <span className="block font-bold">{plan.label}</span>
-                    <span className={`block text-xs tabular-nums ${selected ? 'text-white/80' : 'text-muted'}`}>{plan.image.toLocaleString('en-IN')} images · {plan.video.toLocaleString('en-IN')} videos · {plan.live.toLocaleString('en-IN')} live</span>
+                    <span className="block font-bold">Set to {PRESETS[id].label}</span>
+                    <span className={`block text-xs tabular-nums ${selected ? 'text-white/80' : 'text-muted'}`}>{plan.image.toLocaleString('en-IN')} images{plan.video ? ` · ${plan.video.toLocaleString('en-IN')} videos` : ''}{plan.live ? ` · ${plan.live.toLocaleString('en-IN')} live` : ''}</span>
                   </button>
                 );
               })}
             </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl bg-canvas p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="font-bold text-ink">Top up</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  aria-label="Top-up package"
+                  value={topUpPreset}
+                  onChange={(e) => setTopUpPreset(e.target.value as PresetId)}
+                  className="h-10 rounded-xl border border-line-strong bg-white px-3 text-sm text-ink"
+                >
+                  {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
+                </select>
+                <button type="button" disabled={saving} onClick={() => addTopUp(topUpCredits)} className="min-h-10 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50">
+                  Add {topUpCredits.image.toLocaleString('en-IN')} images{topUpCredits.video ? ` · ${topUpCredits.video.toLocaleString('en-IN')} videos` : ''}{topUpCredits.live ? ` · ${topUpCredits.live.toLocaleString('en-IN')} live` : ''}
+                </button>
+              </div>
+            </div>
+            <div className="mt-3"><PackageQuote platform={currentPlatform} credits={topUpCredits} software={false} /></div>
           </div>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-3">
@@ -727,7 +780,7 @@ export default function TryFocusAdmin() {
               const percent = limit ? Math.min(100, Math.round((used / limit) * 100)) : 100;
               const level = percent >= 100 ? 'exhausted' : percent >= 95 ? 'critical' : percent >= 80 ? 'low' : 'ok';
               const Icon = plan.icon;
-              const running = key !== 'live' || liveAddOn;
+              const running = clientAccess.modules[key];
               return (
                 <article key={key} className={`rounded-2xl border p-5 ${running ? 'border-line bg-canvas' : 'border-dashed border-line-strong bg-white'}`}>
                   <div className="flex items-center justify-between">
@@ -739,7 +792,7 @@ export default function TryFocusAdmin() {
                     </span>
                   </div>
                   <h3 className="mt-3 text-xl font-bold text-ink">{plan.label}</h3>
-                  {!running && <p className="mt-1 text-xs text-muted">Not added. Add it under Package.</p>}
+                  {!running && <p className="mt-1 text-xs text-muted">Not on the {PLATFORM_LABELS[currentPlatform]} platform.</p>}
                   <div className="mt-3 flex items-center gap-3">
                     <input
                       aria-label={`${plan.label} limit`}

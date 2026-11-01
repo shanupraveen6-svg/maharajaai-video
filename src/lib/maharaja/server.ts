@@ -903,7 +903,6 @@ export async function upsertClientWorkspace(input: {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
   if (!cleanId) {
-  invalidateWorkspaceCodeIndex();
     throw new Error('Client workspace ID or store name is required.');
   }
   const existing = await getClientWorkspaceById(cleanId);
@@ -913,7 +912,7 @@ export async function upsertClientWorkspace(input: {
       ? input.status === 'Active'
       : existing.campaignEnabled;
 
-  return updateMaharajaSettings(
+  const saved = await updateMaharajaSettings(
     {
       clientName: input.clientName || input.name || existing.clientName,
       branch: input.branch || existing.branch || 'Main Showroom',
@@ -956,6 +955,9 @@ export async function upsertClientWorkspace(input: {
     },
     cleanId
   );
+  // A new store's QR and Go Live codes must resolve on this server at once.
+  invalidateWorkspaceCodeIndex();
+  return saved;
 }
 
 export async function logMaharajaActivity(

@@ -3,16 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
-import { resolveRequestClientId } from '@/lib/maharaja/server';
+import { getMaharajaWorkspace, resolveRequestClientId } from '@/lib/maharaja/server';
+import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { saveGoLiveEntry } from '@/lib/maharaja/go-live-library';
 
 export const runtime = 'nodejs';
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
-const DEFAULT_NAME = 'Maharaja Festival Showcase';
 
-function cleanName(value: FormDataEntryValue | null) {
-  if (typeof value !== 'string') return DEFAULT_NAME;
-  return value.trim().replace(/\s+/g, ' ').slice(0, 60) || DEFAULT_NAME;
+function cleanName(value: FormDataEntryValue | null, fallback: string) {
+  if (typeof value !== 'string') return fallback;
+  return value.trim().replace(/\s+/g, ' ').slice(0, 60) || fallback;
 }
 
 export async function POST(req: NextRequest) {
@@ -46,27 +47,32 @@ export async function POST(req: NextRequest) {
       metadata: { cacheControl: 'private, max-age=0' },
     });
 
+    const workspace = await getMaharajaWorkspace();
+    const storeName = workspace.clientName.replace(/^The\s+/i, '').trim() || 'Our store';
+    const showcaseName = activeClientId() === MAHARAJA_CLIENT_ID ? 'Maharaja Festival Showcase' : `${storeName} Showcase`;
     const video = {
       id: sampleId,
       sessionId: sampleId,
-      clientId: 'maharaja',
-      status: 'ready',
+      clientId: activeClientId(),
+      status: 'ready' as const,
       storagePath,
       contentType: uploaded.type,
-      displayName: cleanName(form.get('displayName')),
-      customerName: DEFAULT_NAME,
-      customerLocality: 'Maharaja Showroom',
+      displayName: cleanName(form.get('displayName'), showcaseName),
+      customerName: showcaseName,
+      customerLocality: activeClientId() === MAHARAJA_CLIENT_ID ? 'Maharaja Showroom' : storeName,
       isShowcaseSample: true,
       published: true,
       replayEnabled: true,
       universalPool: true,
-      playbackMode: 'embedded',
+      playbackMode: 'embedded' as const,
       hasEmbeddedAudio: true,
       createdAt: new Date().toISOString(),
     };
     const db = getDb();
     if (db) await db.collection('videos').doc(sampleId).set(video);
     else getMockStore().videos.set(sampleId, video);
+    // The clip plays on this store's Go Live screens from its own library straight away.
+    await saveGoLiveEntry({ ...video, updatedAt: video.createdAt });
 
     return NextResponse.json({ success: true, video });
   } catch (error: any) {

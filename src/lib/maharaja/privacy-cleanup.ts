@@ -138,6 +138,8 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
           const batch = db.batch();
           queue.docs.forEach((item) => batch.delete(item.ref));
           batch.delete(db.collection('videos').doc(`video_${sessionId}`));
+          // The store's Go Live library entry for this video goes with its media (see go-live-library.ts).
+          batch.delete(db.collection('clientWorkspaces').doc(ownerId).collection('goLive').doc(`video_${sessionId}`));
           batch.delete(doc.ref);
           await batch.commit();
           deleted += 1;

@@ -6,6 +6,7 @@ import { resolveRequestClientId, verifyMaharajaAccess } from '@/lib/maharaja/ser
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
+import { countLeadDownload, verifyLeadToken } from '@/lib/maharaja/leads';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +59,7 @@ function isMaharajaAsset(url: URL) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { url, watermark, sessionId, accessCode, jobId, kind } = await req.json();
+    const { url, watermark, sessionId, accessCode, jobId, kind, leadToken } = await req.json();
     // The customer's code (or staff login) decides whose files may be downloaded.
     bindClient(await resolveRequestClientId(req, accessCode));
     const rate = await enforceRateLimit(req, 'asset-download', 20, 10 * 60 * 1000, typeof accessCode === 'string' ? accessCode : undefined);
@@ -82,6 +83,12 @@ export async function POST(req: NextRequest) {
       if (!session || session.accessCode !== accessCode) {
         return NextResponse.json({ success: false, error: 'This media does not belong to this AI Video pass.' }, { status: 403 });
       }
+      // A customer download needs the customer's WhatsApp number first (the lead form on the phone).
+      const lead = verifyLeadToken(leadToken);
+      if (!lead) {
+        return NextResponse.json({ success: false, leadRequired: true, error: 'Enter your WhatsApp number to download.' }, { status: 428 });
+      }
+      void countLeadDownload(lead.leadId).catch(() => undefined);
 
       if (kind === 'bundle') {
         if (typeof jobId !== 'string' || !jobId) return NextResponse.json({ success: false, error: 'A completed video job is required.' }, { status: 400 });

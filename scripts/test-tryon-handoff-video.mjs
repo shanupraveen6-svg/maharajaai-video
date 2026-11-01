@@ -28,7 +28,7 @@ const handoffBody = (headers) => new NextRequest('http://localhost/api/tv/tryon-
   headers: { 'Content-Type': 'application/json', ...headers },
   body: JSON.stringify({
     looks: [{
-      sku: 'TF-SAR-01',
+      sku: '8IC53071',
       title: 'Kanchivaram Silk Saree',
       image: testBase64Png,
       category: 'sarees',
@@ -54,7 +54,7 @@ const getRes = await getHandoff(getReq, { params: Promise.resolve({ token }) });
 assert.equal(getRes.status, 200, 'Fetching handoff failed');
 const getData = await getRes.json();
 assert.equal(getData.looks.length, 1);
-assert.equal(getData.looks[0].sku, 'TF-SAR-01');
+assert.equal(getData.looks[0].sku, '8IC53071');
 assert.equal(getData.looks[0].category, 'sarees');
 assert.equal(getData.looks[0].garmentReferenceUrl, sampleGarmentUrl);
 console.log('✓ Handoff look retrieved with authentic garment reference:', getData.looks[0].garmentReferenceUrl);
@@ -78,18 +78,15 @@ async function newHandoffToken(sku = 'OWN-123456') {
   return (await res.json()).token;
 }
 
-// 3. A look becomes a private 24-hour festival video pass (no Go Live condition, no direct render)
+// 3. A catalogue look becomes a private 24-hour AI Video pass on the store collection.
 const first = await requestPass(token, 0);
 assert.equal(first.status, 200, first.data.error);
 assert.ok(first.data.pass.code, 'Pass code must be returned');
-assert.equal(first.data.pass.path.endsWith(first.data.pass.code), true);
-assert.equal(
-  first.data.pass.path.startsWith('/maharaja/catalogue/'),
-  first.data.pass.experienceType === 'catalogue-gift',
-  'Catalogue looks open the catalogue pass page; own garments open the video page'
-);
+assert.equal(first.data.pass.experienceType, 'catalogue-gift');
+assert.ok(first.data.pass.path.startsWith('/maharaja/catalogue/'), 'Catalogue looks open the catalogue pass page');
 const stored = await getVideoPass(first.data.pass.code);
 assert.ok(stored, 'Pass must be persisted');
+assert.equal(stored.catalogueSku, '8IC53071', 'The look\'s piece is chosen on the pass');
 assert.equal(stored.videoMasterDone, false, 'Gemini event portrait is created on the phone, not reused from the Try-On image');
 assert.ok(Math.abs(stored.expiresAtMs - Date.now() - 24 * 60 * 60 * 1000) < 60_000, 'Pass is valid for 24 hours');
 console.log('✓ Look converted into a 24-hour AI Video pass:', first.data.pass.experienceType);
@@ -100,44 +97,47 @@ assert.equal(repeat.status, 200);
 assert.equal(repeat.data.pass.code, first.data.pass.code);
 console.log('✓ Repeat tap reuses the same pass');
 
-// 5. Own garment looks become purchased-garment passes
+// 5. AI Video is store collection only: an own-outfit look cannot become a video.
 const ownToken = await newHandoffToken();
 const own = await requestPass(ownToken, 0);
-assert.equal(own.status, 200, own.data.error);
-assert.equal(own.data.pass.experienceType, 'purchased-garment');
-assert.match(own.data.pass.path, /^\/maharaja\/video\//);
-console.log('✓ Own garment look opens the own-garment video flow');
+assert.equal(own.status, 403);
+assert.match(own.data.error, /store collection/);
+const ownView = await (await getHandoff(new NextRequest(`http://localhost/api/tv/tryon-handoff/${ownToken}`), { params: Promise.resolve({ token: ownToken }) })).json();
+assert.equal(ownView.looks[0].videoAvailable, false, 'The look page offers no video for an own outfit');
+// A catalogue piece that is not set up for AI Video is refused too.
+const notInCatalogue = await requestPass(await newHandoffToken('TF-SAR-99'), 0);
+assert.equal(notInCatalogue.status, 403);
+console.log('✓ Own-outfit and non-AI-Video looks are refused');
 
 // 6. Unknown look index is rejected
-const missing = await requestPass(ownToken, 4);
+const missing = await requestPass(token, 4);
 assert.equal(missing.status, 404);
 console.log('✓ Unknown look rejected');
 
-// 7. Store video credits and the Go Live switch are enforced
+// 7. Store video credits are enforced; the Go Live player being off does not stop AI Video.
 await updateMaharajaSettings({ limits: { video: 0 } });
-const noCredit = await requestPass(await newHandoffToken('OWN-222222'), 0);
+const noCredit = await requestPass(await newHandoffToken('8IC53074'), 0);
 assert.equal(noCredit.status, 403);
 assert.match(noCredit.data.error, /paused/i);
-// Go Live off: catalogue looks lose their video, own-garment looks keep it.
 await updateMaharajaSettings({ limits: { video: 500 }, devices: { led: false } });
-const ownStillOn = await requestPass(await newHandoffToken('OWN-333333'), 0);
-assert.equal(ownStillOn.status, 200);
+const goLiveOff = await requestPass(await newHandoffToken('8IC53072'), 0);
+assert.equal(goLiveOff.status, 200, goLiveOff.data.error);
 await updateMaharajaSettings({ devices: { led: true } });
-console.log('✓ Video credits and mobile switch enforced before a pass is issued');
+console.log('✓ Video credits enforced before a pass is issued');
 
-// 8. Catalogue festival videos come only from TV looks; own-garment looks work from the tablet too.
+// 8. The tablet makes AI Video from the store collection too (a fresh hour for the handoff rate limit).
+globalThis.__MAHARAJA_RATE_LIMITS__?.clear();
 {
   const tabletHandoff = async (sku) => (await (await createHandoff(new NextRequest('http://localhost/api/tv/tryon-handoff', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-operator-key': 'test_secret' },
     body: JSON.stringify({ source: 'tablet', looks: [{ sku, title: 'Look', image: testBase64Png, category: 'sarees', garmentType: 'saree', gender: 'women', garmentReferenceUrl: testBase64Png }] }),
   }))).json()).token;
-  const catalogueFromTablet = await requestPass(await tabletHandoff('TF-SAR-01'), 0);
-  assert.equal(catalogueFromTablet.status, 403);
-  assert.match(catalogueFromTablet.data.error, /store TV/);
+  const catalogueFromTablet = await requestPass(await tabletHandoff('8IC53071'), 0);
+  assert.equal(catalogueFromTablet.status, 200, catalogueFromTablet.data.error);
   const ownFromTablet = await requestPass(await tabletHandoff('OWN-777777'), 0);
-  assert.equal(ownFromTablet.status, 200, ownFromTablet.data.error);
-  console.log('✓ Catalogue festival video only from the TV; own-garment video from tablet looks');
+  assert.equal(ownFromTablet.status, 403);
+  console.log('✓ Catalogue AI Video from tablet looks; own-outfit looks refused on every device');
 }
 
 console.log('ALL TRY-ON HANDOFF VIDEO PASS TESTS PASSED SUCCESSFULLY!');

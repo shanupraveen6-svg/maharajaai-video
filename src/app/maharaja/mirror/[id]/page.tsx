@@ -4,15 +4,59 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Download, LoaderCircle } from 'lucide-react';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
+import { useLeadGate } from '@/components/LeadGate';
 
-type Recording = { videoUrl: string; downloadUrl: string; garmentTitle: string; clientName: string; expiresAt: string; looks?: Array<{ title: string; imageUrl: string }> };
+type Recording = { videoUrl: string; downloadUrl: string | null; garmentTitle: string; clientName: string; expiresAt: string; looks?: Array<{ title: string; imageUrl: string }> };
 
-/** Where the Live Mirror QR lands: the customer's whole 60-second session, to watch and save. */
+/**
+ * Where the Live Mirror QR lands: the customer's whole session, to watch and save. Watching is open;
+ * saving the video or a still asks for the customer's WhatsApp number first.
+ */
 export default function MirrorRecordingPage() {
   const { id } = useParams<{ id: string }>();
   const [recording, setRecording] = useState<Recording | null>(null);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const { language, setLanguage, t } = usePhoneLanguage();
+  const leadGate = useLeadGate({ kind: 'mirror', ref: id || '', source: 'live-mirror' });
+
+  /** A fresh download link for the video, which the server gives only with the lead token. */
+  const saveVideo = () => leadGate.withLead(async (leadToken) => {
+    setSaving(true);
+    setSaveError('');
+    try {
+      const response = await fetch(`/api/tv/mirror-recording/${encodeURIComponent(id || '')}?lead=${encodeURIComponent(leadToken)}&download=1`, { cache: 'no-store' });
+      const data = await response.json().catch(() => ({}));
+      if (!data?.downloadUrl) {
+        leadGate.forgetLead();
+        throw new Error(data?.error || 'Please enter your WhatsApp number again.');
+      }
+      window.location.href = data.downloadUrl;
+    } catch (caught) {
+      setSaveError(caught instanceof Error ? caught.message : 'The video could not be saved. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  });
+
+  const saveStill = (imageUrl: string, index: number) => leadGate.withLead(async () => {
+    setSaveError('');
+    try {
+      const blob = await (await fetch(imageUrl, { cache: 'no-store' })).blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `live-mirror-look-${index + 1}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+    } catch {
+      // Some phones block saving a file from another site: show the photo to save it by holding it.
+      window.open(imageUrl, '_blank', 'noopener');
+    }
+  });
 
   useEffect(() => {
     fetch(`/api/tv/mirror-recording/${encodeURIComponent(id || '')}`, { cache: 'no-store' })
@@ -56,9 +100,10 @@ export default function MirrorRecordingPage() {
             {recording.garmentTitle && <p className="mt-1 text-[15px] text-muted">{recording.garmentTitle}</p>}
           </div>
           <video src={recording.videoUrl} controls playsInline className="aspect-[9/16] w-full rounded-2xl bg-ink object-cover" />
-          <a href={recording.downloadUrl} download className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
-            <Download className="h-5 w-5" /> {t('downloadVideo')}
-          </a>
+          <button type="button" disabled={saving} onClick={() => void saveVideo()} className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
+            {saving ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />} {t('downloadVideo')}
+          </button>
+          {saveError && <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm font-semibold text-danger">{saveError}</p>}
           {Boolean(recording.looks?.length) && (
             <section className="space-y-3 pt-2">
               <div>
@@ -67,10 +112,10 @@ export default function MirrorRecordingPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {recording.looks!.map((look, index) => (
-                  <a key={look.imageUrl} href={look.imageUrl} download={`live-mirror-look-${index + 1}.jpg`} className="tf-card overflow-hidden">
+                  <button key={look.imageUrl} type="button" onClick={() => void saveStill(look.imageUrl, index)} className="tf-card overflow-hidden text-left">
                     <img src={look.imageUrl} alt={look.title || `Look ${index + 1}`} className="aspect-[9/16] w-full bg-canvas object-cover" />
                     <span className="line-clamp-2 block p-2.5 text-[13px] font-semibold leading-snug">{look.title || `Look ${index + 1}`}</span>
-                  </a>
+                  </button>
                 ))}
               </div>
             </section>
@@ -78,6 +123,7 @@ export default function MirrorRecordingPage() {
           <p className="text-center text-sm text-muted">{t('linkWorksUntil')} {new Date(recording.expiresAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}.</p>
         </>}
       </div>
+      {leadGate.dialog}
     </main>
   );
 }

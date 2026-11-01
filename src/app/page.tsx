@@ -1,10 +1,14 @@
 import Link from 'next/link';
-import { CREDIT_PACKAGES, type CreditPackageId } from '@/lib/maharaja/access';
 import Image from 'next/image';
 import {
   ArrowRight, BarChart3, Camera, Check, ChevronDown, CirclePlay,
   LockKeyhole, MonitorPlay, Phone, ShieldCheck, Sparkles, Store,
 } from 'lucide-react';
+import PricingCalculator, { type PricingCalculatorConfig } from '@/components/PricingCalculator';
+import {
+  CREDIT_LABELS, CREDIT_RANGE, CREDIT_VALIDITY_MONTHS, GST_RATE, PLATFORMS, PLATFORM_LABELS, PLATFORM_MODULES,
+  PRESETS, SOFTWARE_FEE, moduleTotalsTable,
+} from '@/lib/maharaja/pricing';
 
 const stores = [{ id: 'maharaja', name: 'Majestic Maharaja', location: 'Thanjavur, Tamil Nadu' }];
 
@@ -15,32 +19,19 @@ const capabilities = [
   ['04', 'Store intelligence', 'Track scans, successful generations, retries, downloads and participation from one workspace.', BarChart3],
 ] as const;
 
-type CreditPlan = (typeof CREDIT_PACKAGES)[CreditPackageId];
-
-/** The two products (rules in access.ts). Each is sold as Package 1 or 2; the customer's phone comes with both. */
-const offers: Array<{ name: string; text: string; includes: string[]; credits: (plan: CreditPlan) => string; addOn?: string }> = [
-  {
-    name: 'TV',
-    text: 'A portrait TV in your showroom.',
-    includes: [
-      'Try-On: customers see your outfits on themselves',
-      'AI Video: a festive video of the customer, with Go Live on your LED or wall screen',
-      'The customer’s phone: Try-On from your wall QR and the AI Video gift QR',
-    ],
-    credits: (plan) => `${plan.image.toLocaleString('en-IN')} Try-On images · ${plan.video.toLocaleString('en-IN')} AI Videos · ${plan.live.toLocaleString('en-IN')} Live Mirror sessions`,
-    addOn: 'The bride sees the saree move with her on the TV, live, and takes the video home.',
-  },
-  {
-    name: 'Tablet',
-    text: 'At your counter, run by your team.',
-    includes: [
-      'Try-On: your team shows customers in your outfits',
-      'AI Video: the after-sales gift QR, with Go Live on your LED or wall screen',
-      'The customer’s phone: Try-On from your wall QR and the AI Video gift QR',
-    ],
-    credits: (plan) => `${plan.image.toLocaleString('en-IN')} Try-On images · ${plan.video.toLocaleString('en-IN')} AI Videos`,
-  },
-];
+/** The calculator gets only package totals per credit count (rules in pricing.ts), never per-credit prices. */
+const pricingConfig: PricingCalculatorConfig = {
+  platforms: PLATFORMS,
+  platformLabels: PLATFORM_LABELS,
+  platformModules: PLATFORM_MODULES,
+  softwareFee: SOFTWARE_FEE,
+  ranges: CREDIT_RANGE,
+  labels: CREDIT_LABELS,
+  totals: { image: moduleTotalsTable('image'), video: moduleTotalsTable('video'), live: moduleTotalsTable('live') },
+  presets: PRESETS,
+  gstRate: GST_RATE,
+  validityMonths: CREDIT_VALIDITY_MONTHS,
+};
 
 const principles = [
   'Client-isolated workspaces',
@@ -214,47 +205,11 @@ export default function LandingPage() {
       <section id="pricing" className="border-b border-line bg-canvas">
         <div className="mx-auto max-w-5xl px-5 py-16 md:px-8 md:py-20">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl font-bold leading-tight text-ink sm:text-4xl">Do you want a TV or a tablet?</h2>
-            <p className="mt-4 text-sm leading-7 text-muted sm:text-base">Pick your screen, then a package. Your customers’ phones are always included.</p>
+            <h2 className="text-3xl font-bold leading-tight text-ink sm:text-4xl">TV, tablet or phone?</h2>
+            <p className="mt-4 text-sm leading-7 text-muted sm:text-base">Pick your platform, choose your credits and see your total. Software is a one-time payment; credits are pay as you go.</p>
           </div>
 
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            {offers.map(({ name, text, includes, credits, addOn }) => (
-              <article key={name} className="tf-card flex flex-col p-6">
-                <h3 className="text-2xl font-bold text-ink">{name}</h3>
-                <p className="mt-1 text-sm text-muted">{text}</p>
-                <ul className="mt-5 space-y-2.5 text-sm">
-                  {includes.map((item) => (
-                    <li key={item} className="flex gap-2.5 text-ink"><Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />{item}</li>
-                  ))}
-                </ul>
-                <p className="mt-6 text-sm font-semibold text-muted">Choose a package</p>
-                <ul className="mt-2 space-y-2">
-                  {(Object.keys(CREDIT_PACKAGES) as CreditPackageId[]).map((id) => {
-                    const plan = CREDIT_PACKAGES[id];
-                    return (
-                      <li key={id} className="rounded-2xl border border-line p-4">
-                        <p className="font-bold text-ink">{plan.label}</p>
-                        <p className="mt-0.5 text-sm tabular-nums text-muted">{credits(plan)}</p>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {addOn && (
-                  <div className="mt-4 rounded-2xl border border-ink p-4">
-                    <p className="font-bold text-ink">Add-on: Live Mirror</p>
-                    <p className="mt-1 text-sm text-muted">{addOn}</p>
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-
-          <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-4 rounded-2xl border border-line bg-white p-6 text-center">
-            <p className="text-lg font-bold text-ink">Call us to discuss your store and the right package.</p>
-            <a href="tel:9994837342" className="tf-btn tf-btn-primary !min-h-12 px-6"><Phone className="h-4 w-4" /> Call us: 9994837342</a>
-            <p className="text-sm text-muted">Phone only platform, without a TV or tablet? <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">Contact us</a>.</p>
-          </div>
+          <PricingCalculator config={pricingConfig} />
         </div>
       </section>
 

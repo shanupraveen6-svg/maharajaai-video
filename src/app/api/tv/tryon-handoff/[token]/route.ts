@@ -4,6 +4,8 @@ import { getStorageBucket } from '@/lib/firebase/admin';
 import { lookVideoAvailable, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
 import { getClientWorkspaceById, moduleLimit } from '@/lib/maharaja/server';
 import { resolveAccess } from '@/lib/maharaja/access';
+import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { countLeadDownload, verifyLeadToken } from '@/lib/maharaja/leads';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +26,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
     const bytes = look.bytes || (bucket && look.path ? (await bucket.file(look.path).download())[0] : null);
     if (!bytes) return NextResponse.json({ error: 'Look is unavailable.' }, { status: 503 });
     const download = req.nextUrl.searchParams.get('download') === '1';
+    if (download) {
+      // Saving a look needs the customer's WhatsApp number first (the lead form on the phone).
+      const lead = verifyLeadToken(req.nextUrl.searchParams.get('lead'), handoff.clientId || MAHARAJA_CLIENT_ID);
+      if (!lead) return NextResponse.json({ error: 'Enter your WhatsApp number to save your look.', leadRequired: true }, { status: 428 });
+      void countLeadDownload(lead.leadId, handoff.clientId || MAHARAJA_CLIENT_ID).catch(() => undefined);
+    }
     const extension = look.contentType === 'image/png' ? 'png' : look.contentType === 'image/webp' ? 'webp' : 'jpg';
     return new NextResponse(new Uint8Array(bytes), { headers: {
       'Content-Type': look.contentType,
@@ -47,7 +55,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
       garmentType: look.garmentType,
       gender: look.gender,
       garmentReferenceUrl: look.garmentReferenceUrl,
-      videoAvailable: lookVideoAvailable(handoff, look) && (look.sku.startsWith('OWN-') || catalogueVideo),
+      videoAvailable: lookVideoAvailable(handoff, look) && catalogueVideo,
       imageUrl: `/api/tv/tryon-handoff/${token}?image=${index}`,
       downloadUrl: `/api/tv/tryon-handoff/${token}?image=${index}&download=1`,
     })),

@@ -7,9 +7,11 @@ const { FAL_VIDEO_MODELS, buildVideoTestInput, getVideoTestModel } = await impor
 
 assert.equal(VIDEO_CONCEPTS.length, 12);
 assert.equal(VIDEO_PROMPT_ARCHITECTURE_VERSION, 'festival-v8-grounded-performance');
-assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['h3-max', 'pixverse-c1']);
+assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['h3-max', 'pixverse-c1', 'vidu-q4', 'gemini-omni']);
+assert.ok(FAL_VIDEO_MODELS.every((model) => model.seconds === 6), 'Every engine renders six seconds');
 assert.equal(getVideoTestModel().id, 'h3-max');
 assert.equal(getVideoTestModel('gemini-omni-1.1'), null);
+assert.equal(getVideoTestModel('gemini-omni').model, 'google/gemini-omni-flash/v1.1/reference-to-video');
 
 for (const category of ['men', 'women', 'boy', 'girl']) {
   assert.equal(VIDEO_CONCEPTS.filter((concept) => concept.category === category).length, 3);
@@ -57,7 +59,7 @@ for (const concept of VIDEO_CONCEPTS) {
     const input = buildVideoTestInput(model.id, references[0], references.slice(1), concept.id, ['front', 'back']);
     assert.equal(input.duration, 6);
     assert.equal(input.aspect_ratio, '9:16');
-    assert.match(input.prompt, /Image 1|@customer/);
+    assert.match(input.prompt, /Image 1|@customer|\[@reference_image_1\]/);
     assert.match(input.prompt, /smile/i);
     if (model.id === 'h3-max') {
       assert.match(input.prompt, /Image 1 is the approved exact opening frame/i);
@@ -84,6 +86,17 @@ for (const concept of VIDEO_CONCEPTS) {
       assert.equal(input.resolution, '720p');
       assert.equal(input.generate_audio_switch, false);
       assert(Buffer.byteLength(input.prompt, 'utf8') <= 2048, 'PixVerse prompt exceeds 2,048 UTF-8 bytes');
+    } else if (model.id === 'vidu-q4') {
+      // Vidu names its references [@reference_image_N] in the order sent; the master is the first.
+      assert.match(input.prompt, /\[@reference_image_1\] is the approved exact opening frame/i);
+      assert.doesNotMatch(input.prompt, /\bImage \d\b/);
+      assert.deepEqual(input.reference_image_urls, references);
+      assert.deepEqual([input.resolution, input.aspect_ratio, input.audio], ['720p', '9:16', false]);
+      assert(input.prompt.length <= 5000, 'Vidu prompt exceeds 5,000 characters');
+    } else if (model.id === 'gemini-omni') {
+      assert.match(input.prompt, /Image 1 is the approved exact opening frame/i);
+      assert.deepEqual(input.image_urls, references);
+      assert.deepEqual([input.resolution, input.aspect_ratio], ['720p', '9:16']);
     }
   }
   for (const eventId of events) {

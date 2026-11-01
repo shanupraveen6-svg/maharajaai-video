@@ -10,6 +10,8 @@ interface PhonePhotoTransferProps {
   buttonSubLabel?: string;
   buttonClassName?: string;
   renderTrigger?: (onClick: () => void, busy: boolean) => React.ReactNode;
+  /** Shows the upload QR straight away beside the camera, instead of a button that opens it. */
+  inline?: boolean;
 }
 
 export default function PhonePhotoTransfer({
@@ -18,6 +20,7 @@ export default function PhonePhotoTransfer({
   buttonSubLabel = 'Scan QR on phone to upload from gallery',
   buttonClassName,
   renderTrigger,
+  inline = false,
 }: PhonePhotoTransferProps) {
   const [transfer, setTransfer] = useState<{ token: string; receiver: string; expiresAtMs: number } | null>(null);
   const [qr, setQr] = useState('');
@@ -110,6 +113,14 @@ export default function PhonePhotoTransfer({
     }
   }
 
+  // Inline: the QR is ready as soon as the camera opens, and a new one replaces it when it expires.
+  useEffect(() => {
+    if (!inline || qr || busy) return;
+    // After an expiry or an error, wait before asking again so a failing network is not hammered.
+    const timer = window.setTimeout(() => void create(), message ? 10_000 : 0);
+    return () => window.clearTimeout(timer);
+  }, [inline, qr, busy, message]);
+
   function handleClose() {
     if (transfer?.token && transfer?.receiver) {
       void fetch(`/api/tv/photo-transfer/${encodeURIComponent(transfer.token)}`, {
@@ -120,6 +131,20 @@ export default function PhonePhotoTransfer({
     setTransfer(null);
     setQr('');
     setMessage('');
+  }
+
+  if (inline) {
+    return (
+      <div className="flex w-full flex-col items-center gap-3 rounded-2xl bg-white p-4 text-center text-ink">
+        <p className="text-lg font-bold">Use a photo from your phone</p>
+        <div className="flex aspect-square w-full max-w-[220px] items-center justify-center rounded-xl border border-line bg-white p-2">
+          {qr
+            ? <img src={qr} alt="Scan to send a photo from your phone" className="h-full w-full object-contain" />
+            : <LoaderCircle className="h-8 w-8 animate-spin text-muted" />}
+        </div>
+        <p className="text-sm text-muted">Scan with your phone camera, pick a photo and tap Confirm. It appears here.</p>
+      </div>
+    );
   }
 
   return (

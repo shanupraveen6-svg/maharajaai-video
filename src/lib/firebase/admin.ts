@@ -86,6 +86,10 @@ type MockStore = {
   tryOnGrants: Map<string, unknown>;
   scannedTags: Map<string, unknown>;
   campaignEntitlements: Map<string, unknown>;
+  /** Go Live library entries, keyed `<clientId>:<videoId>` (Firestore: clientWorkspaces/<id>/goLive). */
+  goLive: Map<string, any>;
+  /** Customer download leads, keyed `<clientId>:<leadId>` (Firestore: clientWorkspaces/<id>/leads). */
+  leads: Map<string, any>;
 };
 
 const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
@@ -107,7 +111,9 @@ const globalMockStore: MockStore = (global as any).__MAHARAJA_MOCK_STORE__ || {
   activityLogs: new Map(),
   tryOnGrants: new Map(),
   scannedTags: new Map(),
-  campaignEntitlements: new Map()
+  campaignEntitlements: new Map(),
+  goLive: new Map(),
+  leads: new Map()
 };
 
 (global as any).__MAHARAJA_MOCK_STORE__ = globalMockStore;
@@ -176,6 +182,19 @@ class MockStorageFile {
 }
 
 class MockStorageBucket {
+  name = 'maharaja-mock';
+  /** Lists saved mock files like Cloud Storage: by prefix, and only one folder level with a delimiter. */
+  async getFiles({ prefix = '', delimiter }: { prefix?: string; delimiter?: string } = {}): Promise<[Array<MockStorageFile & { name: string; metadata: Record<string, unknown> }>]> {
+    const files = [];
+    for (const [key, value] of getMockStore().sessions.entries()) {
+      if (!key.startsWith('mock_blob_')) continue;
+      const name = key.slice('mock_blob_'.length);
+      if (!name.startsWith(prefix)) continue;
+      if (delimiter && name.slice(prefix.length).includes(delimiter)) continue;
+      files.push(Object.assign(new MockStorageFile(name), { name, metadata: { contentType: value?.contentType, timeCreated: value?.savedAt } }));
+    }
+    return [files];
+  }
   async deleteFiles({ prefix }: { prefix: string; force?: boolean }) {
     for (const key of getMockStore().sessions.keys()) if (key.startsWith(`mock_blob_${prefix}`)) getMockStore().sessions.delete(key);
   }
@@ -203,6 +222,8 @@ export function getMockStore() {
   if (!globalMockStore.tryOnGrants) globalMockStore.tryOnGrants = new Map();
   if (!globalMockStore.scannedTags) globalMockStore.scannedTags = new Map();
   if (!globalMockStore.campaignEntitlements) globalMockStore.campaignEntitlements = new Map();
+  if (!globalMockStore.goLive) globalMockStore.goLive = new Map();
+  if (!globalMockStore.leads) globalMockStore.leads = new Map();
   return globalMockStore;
 }
 

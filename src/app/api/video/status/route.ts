@@ -3,6 +3,7 @@ import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin'
 import { finalizeCompletedVideo, logMaharajaActivity, markPassVideoFailed, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { extractVideoUrl, publicFalQueueUrl } from '@/lib/maharaja/video-test';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
+import { QUEUE_TIMEOUT_MS, cancelQueuedRender, failOverVideoJob, recordEngineSuccess } from '@/lib/maharaja/video-engines';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -57,9 +58,20 @@ export async function GET(req: NextRequest) {
   if (job.status === 'failed') {
     return NextResponse.json({ success: false, status: 'failed', jobId, error: job.error || 'Video test failed.' }, { status: 422 });
   }
+  // Another request is moving this job to the next engine.
+  if (job.status === 'switching' && Date.now() - new Date(job.updatedAt || 0).getTime() < 60_000) {
+    return NextResponse.json({ success: true, status: 'processing', providerStatus: 'SWITCHING', jobId });
+  }
 
   const falKey = process.env.FAL_KEY?.trim();
   if (!falKey) return NextResponse.json({ success: false, status: 'failed', error: 'Video provider is temporarily unavailable.' }, { status: 503 });
+  /** Moves the job to the next engine; true when it was resubmitted (the customer keeps waiting). */
+  const switchEngine = async (reason: string) => {
+    const switched = await failOverVideoJob({ ...job, jobId }, { origin: req.nextUrl.origin, falKey, reason });
+    if (!switched) return false;
+    await logMaharajaActivity('video', 'AI Video switched to the backup engine', { jobId, from: job.modelId, reason: reason.slice(0, 120) }).catch(() => undefined);
+    return true;
+  };
 
   let remoteVideoUrl = '';
   let providerTerminalFailure = false;
@@ -69,6 +81,14 @@ export async function GET(req: NextRequest) {
     const isCompleted = state === 'COMPLETED' || state === 'SUCCEEDED';
     const isTerminalFailure = ['FAILED', 'CANCELLED', 'TIMEOUT', 'DELETED', 'ERROR'].includes(state)
       || (typeof providerStatus?.error === 'string' && providerStatus.error.trim().length > 0);
+
+    // Still waiting in the engine's queue after 2.5 minutes, not started: cancel it and use the next engine.
+    const submittedAt = new Date(job.engineSubmittedAt || job.createdAt || 0).getTime();
+    if (state === 'IN_QUEUE' && submittedAt && Date.now() - submittedAt > QUEUE_TIMEOUT_MS && job.statusUrl) {
+      if (await cancelQueuedRender(job.statusUrl, falKey) && await switchEngine('Waited too long in the engine queue.')) {
+        return NextResponse.json({ success: true, status: 'processing', jobId, providerStatus: 'SWITCHING' });
+      }
+    }
 
     if (!isCompleted && !isTerminalFailure) {
       const activeState = state || 'PROCESSING';
@@ -90,6 +110,10 @@ export async function GET(req: NextRequest) {
       const failureMessage = providerError
         ? `Fal error: ${providerError.slice(0, 500)}`
         : `Fal returned terminal status ${state || 'UNKNOWN'}.`;
+      // The render failed on this engine: the same job moves to the next one.
+      if (await switchEngine(failureMessage)) {
+        return NextResponse.json({ success: true, status: 'processing', jobId, providerStatus: 'SWITCHING' });
+      }
       throw new Error(failureMessage);
     }
 
@@ -150,6 +174,7 @@ export async function GET(req: NextRequest) {
       eventId: job.eventId || 'diwali',
     });
     if (!finalized.success) throw new Error(finalized.error);
+    if (job.modelId) await recordEngineSuccess(job.modelId);
     const update = {
       status: 'ready', providerStatus: state, videoStoragePath: finalized.storagePath,
       liveVideoStoragePath: finalized.liveStoragePath || null,

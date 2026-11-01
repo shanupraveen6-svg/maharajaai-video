@@ -17,7 +17,7 @@ export async function expectMockBackend(request: APIRequestContext) {
 export async function newGiftPass(request: APIRequestContext) {
   const workspace = await (await request.get('/api/maharaja/workspace?workspaceCode=workspace')).json();
   const billingCode = workspace.workspace.billingCode;
-  const response = await request.post('/api/maharaja/video-pass', { data: { billingCode, experienceType: 'purchased-garment' } });
+  const response = await request.post('/api/maharaja/video-pass', { data: { billingCode } });
   const data = await response.json();
   expect(data.success, data.error).toBeTruthy();
   return data.pass.code as string;

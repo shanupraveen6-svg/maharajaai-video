@@ -97,19 +97,23 @@ export async function POST(req: NextRequest) {
     // QR customers do not share a made-up phone number or campaign entitlement.
     const phone = rawPhone;
     const whatsappOptIn = rawPhone.length === 10 && body.whatsappOptIn === true;
-    const experienceType = body.source === 'tv-kiosk'
-      ? 'catalogue-gift'
-      : body.source === 'video-poster' || body.source === 'tablet-kiosk'
-        ? 'purchased-garment'
-        : 'purchased-garment';
+    // AI Video is made from the store collection only. The TV picks the piece; at the counter the biller
+    // may pick the piece the customer bought, otherwise the customer picks it on their phone.
+    const experienceType = resolveAccess(workspace.devices, workspace.modules).ownGarmentVideo && body.experienceType === 'purchased-garment'
+      ? 'purchased-garment'
+      : 'catalogue-gift';
     if (body.whatsappOptIn === true && phone.length !== 10) {
       return NextResponse.json({ success: false, error: 'Enter a valid 10 digit phone number.' }, { status: 400 });
     }
 
     const selectedSku = experienceType === 'catalogue-gift' && typeof body.catalogueSku === 'string' ? body.catalogueSku.trim() : '';
     const preselectedProduct = selectedSku ? await getCatalogueProduct(selectedSku) : null;
-    if (body.source === 'tv-kiosk' && (!preselectedProduct || (!preselectedProduct.eligibleForVideo && !preselectedProduct.sku.startsWith('TF-')))) {
+    const videoReady = (product: typeof preselectedProduct) => Boolean(product && (product.eligibleForVideo || product.sku.startsWith('TF-')));
+    if (body.source === 'tv-kiosk' && !videoReady(preselectedProduct)) {
       return NextResponse.json({ success: false, error: 'Select an AI Video garment from the TV catalogue.' }, { status: 400 });
+    }
+    if (selectedSku && !videoReady(preselectedProduct)) {
+      return NextResponse.json({ success: false, error: 'This piece is not set up for AI Video. Pick another piece, or let the customer choose on their phone.' }, { status: 400 });
     }
     const requestedEventId = isEventId(body.eventId) ? body.eventId : workspace.defaultEvent;
     const pregeneratedMasterUrl = typeof body.videoMasterUrl === 'string' && body.videoMasterUrl.trim()

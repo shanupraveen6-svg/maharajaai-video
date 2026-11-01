@@ -12,6 +12,7 @@ sessions.set('private-expired', { expiresAt: expiry });
 let progress;
 let pages = 0;
 const deletions = [];
+const goLiveDeletes = [];
 const handoffs = new Map([['expired-phone-handoff', {}]]);
 const mirrorRecordings = new Map([['expired-mirror-video', { clientId: 'sri-readymade' }]]);
 const ref = (id) => ({ id, set: async (patch) => {
@@ -23,6 +24,7 @@ const db = {
   doc: () => ({ get: async () => ({ data: () => progress }), set: async (value) => { progress = value; }, delete: async () => { progress = undefined; } }),
   collection(name) {
     if (name === 'videos') return { doc: (id) => ({ id, get: async () => ({ exists: false }) }) };
+    if (name === 'clientWorkspaces') return { doc: (clientId) => ({ collection: (sub) => ({ doc: (id) => ({ id: `${clientId}/${sub}/${id}` }) }) }) };
     let cursor = '';
     const query = {
       where: () => query, orderBy: () => query, limit: () => query,
@@ -46,7 +48,7 @@ const db = {
   },
   batch() {
     const ids = [];
-    return { delete: (value) => ids.push(value.id), commit: async () => ids.forEach((id) => { sessions.delete(id); rateLimits.delete(id); }) };
+    return { delete: (value) => ids.push(value.id), commit: async () => ids.forEach((id) => { if (id.includes('/goLive/')) goLiveDeletes.push(id); sessions.delete(id); rateLimits.delete(id); }) };
   },
 };
 const bucket = {
@@ -58,6 +60,7 @@ assert.equal(result.deleted, 1);
 assert.equal(result.retainedForPromotion, 505);
 assert.equal(result.preservedLive, 2);
 assert.equal(result.failed, 0);
+assert.deepEqual(goLiveDeletes, ['maharaja/goLive/video_private-expired'], 'A deleted video also leaves its store\'s Go Live library');
 assert.equal(handoffs.size, 0, 'Expired phone handoff records are deleted.');
 assert.equal(mirrorRecordings.size, 0, 'Expired Live Mirror videos are deleted.');
 assert.ok(deletions.includes('clients/sri-readymade/mirror-recordings/expired-mirror-video/'), 'A Live Mirror video is deleted from its own client folder.');

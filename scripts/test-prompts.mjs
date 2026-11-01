@@ -106,6 +106,19 @@ for (const model of FAL_VIDEO_MODELS) {
               if (!isChild && !backup) assert.ok(/Around 2-3s/.test(input.prompt), `${label}: one mild gesture`);
               if (!['saree', 'lehenga', 'salwar'].includes(type)) assert.ok(!/pallu|dupatta|\bsaree\b/.test(input.prompt), `${label}: no saree or dupatta wording for ${type}`);
               assert.ok(!/ in [A-Z][a-z]+ /.test(input.prompt.split('\n')[0].replace(/@customer|South Indian|Diwali|Thanjavur|Chettinad|Christmas|Pongal|Ramadan/g, '')), `${label}: scene reads as one sentence`);
+            } else if (model.id === 'vidu-q4') {
+              assert.equal(input.reference_image_urls[0], MASTER, `${label}: Vidu opens on the approved master`);
+              assert.ok(input.prompt.length <= 5000, `${label}: Vidu prompt limit`);
+              for (const used of input.prompt.match(/\[@reference_image_(\d+)\]/g) || []) {
+                const index = Number(used.match(/\d+/)[0]);
+                assert.ok(index >= 1 && index <= input.reference_image_urls.length, `${label}: ${used} has no matching reference`);
+              }
+            } else if (model.id === 'gemini-omni') {
+              assert.equal(input.image_urls[0], MASTER, `${label}: Gemini Omni reads the approved master first`);
+              for (const used of input.prompt.match(/Image (\d+)/g) || []) {
+                const index = Number(used.split(' ')[1]);
+                assert.ok(index >= 1 && index <= input.image_urls.length, `${label}: ${used} has no matching reference`);
+              }
             } else {
               assert.equal(input.image_url, MASTER, `${label}: H3 opens on the approved master`);
               assert.equal(input.prompt_expansion_mode, 'disabled', `${label}: exact wording`);
@@ -124,7 +137,7 @@ for (const model of FAL_VIDEO_MODELS) {
     }
   }
 }
-console.log('✓ Video prompts: H3 Max and PixVerse C1, normal and backup, every concept/event/garment/reference count');
+console.log('✓ Video prompts: H3 Max, PixVerse C1, Vidu Q4 and Gemini Omni, normal and backup, every concept/event/garment/reference count');
 
 // 4. The H3 prompts verified on real renders produce exactly the same text as the committed version.
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tryfocus-prompts-'));

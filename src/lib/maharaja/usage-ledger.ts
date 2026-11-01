@@ -12,11 +12,12 @@ import { activeClientId } from './client-context';
 export type AiCostKind = 'try-on' | 'video-portrait' | 'video-render' | 'live-session';
 
 const DEFAULT_COST_USD: Record<AiCostKind, number> = {
-  'try-on': 0.04,
-  'video-portrait': 0.04,
+  'try-on': 0.068,
+  'video-portrait': 0.0735,
   // Overridden by the video model's own estimate when one is known.
-  'video-render': 0.4,
-  'live-session': 0.5,
+  'video-render': 0.48,
+  // One 30-second Live Mirror session at $0.02 a second.
+  'live-session': 0.6,
 };
 
 const COST_ENV: Record<AiCostKind, string> = {
@@ -35,9 +36,9 @@ export function aiCostUsd(kind: AiCostKind) {
   return envNumber(COST_ENV[kind]) ?? DEFAULT_COST_USD[kind];
 }
 
-/** Rupees per dollar for showing spend in ₹ (USD_TO_INR, default 88). */
+/** Rupees per dollar for showing spend in ₹ (USD_TO_INR, default 98: about ₹94 plus a ₹4 buffer). */
 export function usdToInr(usd: number) {
-  return usd * (envNumber('USD_TO_INR') ?? 88);
+  return usd * (envNumber('USD_TO_INR') ?? 98);
 }
 
 /** Daily caps in US dollars; unset or 0 means no cap. */

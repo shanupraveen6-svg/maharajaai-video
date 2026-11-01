@@ -27,7 +27,7 @@ import { PageTitle, Segmented } from '@/components/ui';
 import { LIVE_CATEGORIES } from '@/lib/tryfocus/live-categories';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
-const SESSION_SECONDS = 60;
+const SESSION_SECONDS = 30;
 const READY_COUNTDOWN_SECONDS = 5;
 // MP4 first: phones play it everywhere; Chrome on older TVs falls back to WebM.
 const RECORDING_TYPES = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
@@ -395,7 +395,7 @@ export default function LucyLiveMirror({
     closeRealtimeConnections();
     setState('connecting');
     setSecondsLeft(SESSION_SECONDS);
-    setStatusMessage('Connecting. Your 60 seconds start when the live picture appears.');
+    setStatusMessage('Connecting. Your 30 seconds start when the live picture appears.');
 
     try {
       if (!streamRef.current) {
@@ -571,7 +571,7 @@ export default function LucyLiveMirror({
   return (
     <div className="space-y-5">
       <div className="space-y-3">
-        <PageTitle size="lg" title="Live Mirror" subtitle="See the outfit move with you. Pick one, tap Start and step back. 60 seconds, change outfits any time." />
+        <PageTitle size="lg" title="Live Mirror" subtitle="See the outfit move with you. Pick one, tap Start live and step back. 30 seconds, change outfits any time." />
         <PhotoConsentNotice kind="live" large />
       </div>
 
@@ -725,7 +725,7 @@ export default function LucyLiveMirror({
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/70 p-8 text-center text-white">
               <LoaderCircle className="h-14 w-14 animate-spin" />
               <p className="mt-4 text-3xl font-bold">Dressing you in {selectedGarment.title}</p>
-              <p className="mt-2 max-w-sm text-lg text-white/80">Your 60 seconds start when the live picture appears.</p>
+              <p className="mt-2 max-w-sm text-lg text-white/80">Your 30 seconds start when the live picture appears.</p>
             </div>
           )}
 
@@ -765,7 +765,7 @@ export default function LucyLiveMirror({
         ) : (
           <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary tv-live-action !w-auto shrink-0">
             {state === 'error' ? <RefreshCw className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
-            {state === 'error' ? 'Try again' : 'Start Live Mirror'}
+            {state === 'error' ? 'Try again' : 'Start live'}
           </button>
         )}
       </section>
@@ -805,7 +805,7 @@ export default function LucyLiveMirror({
                 Back to mirror
               </button>
               <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary !min-h-16 text-lg">
-                <RefreshCw className="h-5 w-5" /> Another 60 seconds
+                <RefreshCw className="h-5 w-5" /> Another 30 seconds
               </button>
             </div>
           </div>

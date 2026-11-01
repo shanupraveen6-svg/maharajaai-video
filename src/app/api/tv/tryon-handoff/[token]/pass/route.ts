@@ -40,7 +40,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
   const look = Number.isInteger(imageIndex) ? handoff.looks[imageIndex] : undefined;
   if (!look) return NextResponse.json({ success: false, error: 'The selected look is unavailable.' }, { status: 404 });
   if (!lookVideoAvailable(handoff, look)) {
-    return NextResponse.json({ success: false, error: 'Catalogue festival videos are made on the store TV.' }, { status: 403 });
+    return NextResponse.json({ success: false, error: 'AI Video uses our store collection. Ask our staff to pick a piece for your video.' }, { status: 403 });
   }
 
   const existingCode = handoff.lookPassCodes?.[String(imageIndex)];
@@ -55,8 +55,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
   if (!workspace.campaignEnabled) {
     return NextResponse.json({ success: false, error: `${workspace.clientName} campaign is currently paused.` }, { status: 403 });
   }
-  if (!look.sku.startsWith('OWN-') && !resolveAccess(workspace.devices, workspace.modules).catalogueVideo) {
-    return NextResponse.json({ success: false, error: 'Catalogue festival videos are switched off for this store.' }, { status: 403 });
+  if (!resolveAccess(workspace.devices, workspace.modules).catalogueVideo) {
+    return NextResponse.json({ success: false, error: 'AI Video is switched off for this store.' }, { status: 403 });
   }
   const videoLimit = moduleLimit(workspace, 'video');
   const videoUsed = Number(workspace.usage?.videosGenerated || 0);
@@ -67,6 +67,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
   const category = CATEGORY_BY_GENDER[look.gender || ''] || 'women';
   const product = look.sku && !look.sku.startsWith('OWN-') ? await getCatalogueProduct(look.sku) : null;
   const catalogueLook = Boolean(product && product.eligibleForVideo !== false);
+  if (!catalogueLook) {
+    return NextResponse.json({ success: false, error: 'This piece is not set up for AI Video. Ask our staff for another piece.' }, { status: 403 });
+  }
   const now = Date.now();
   const validityMs = 24 * 60 * 60 * 1000;
   const code = crypto.randomBytes(18).toString('base64url');

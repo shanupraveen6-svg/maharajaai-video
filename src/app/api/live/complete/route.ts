@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { goLiveClientId, resolveRequestClientId, logMaharajaActivity } from '@/lib/maharaja/server';
 import { verifyTvRequest } from '@/lib/auth/display';
-import { bindClient } from '@/lib/maharaja/client-context';
+import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
+import { goLiveEntryFromVideo, saveGoLiveEntry } from '@/lib/maharaja/go-live-library';
 
 const LIVE_PLAY_COUNT = 2;
 
@@ -39,19 +40,22 @@ export async function POST(req: NextRequest) {
     if (db) {
       const queueDocRef = db.collection('liveQueue').doc(queueId);
       const doc = await queueDocRef.get();
-      if (!doc.exists || doc.data()?.reservationId !== reservationId) {
+      // A screen completes only its own store's queue.
+      if (!doc.exists || doc.data()?.reservationId !== reservationId || (doc.data()?.screenId && doc.data()?.screenId !== liveScreenId())) {
         return NextResponse.json({ success: false, error: 'Invalid or expired reservationId' }, { status: 400 });
       }
+      /** Publishes the video in the shared record and in the store's Go Live library. */
+      const publish = async (videoId: string, metadata: Record<string, unknown>) => {
+        const videoRef = db.collection('videos').doc(videoId);
+        await videoRef.set(metadata, { merge: true });
+        const video = (await videoRef.get()).data();
+        if (video?.storagePath) await saveGoLiveEntry({ ...goLiveEntryFromVideo({ ...video, id: videoId }), ...metadata, published: true, replayEnabled: true });
+      };
 
       const queueData = doc.data() || {};
       const previousPlays = Number(queueData.timesPlayed || 0);
       if (queueData.status === 'completed') {
-        if (queueData.videoId) {
-          await db.collection('videos').doc(queueData.videoId).set(
-            replayMetadata(queueData, queueData.completedAt || nowIso),
-            { merge: true },
-          );
-        }
+        if (queueData.videoId) await publish(queueData.videoId, replayMetadata(queueData, queueData.completedAt || nowIso));
         return NextResponse.json({ success: true, status: 'completed', timesPlayed: previousPlays });
       }
       const timesPlayed = requestedPlayNumber ?? previousPlays + 1;
@@ -77,15 +81,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, status: 'repeat', timesPlayed, playsRemaining: LIVE_PLAY_COUNT - timesPlayed });
       }
       const displayMetadata = replayMetadata(queueData, nowIso);
-      if (queueData.videoId) {
-        await db.collection('videos').doc(queueData.videoId).set(displayMetadata, { merge: true });
-      }
+      if (queueData.videoId) await publish(queueData.videoId, displayMetadata);
       if (queueData.sessionId) {
         await db.collection('sessions').doc(queueData.sessionId).set(displayMetadata, { merge: true });
       }
     } else {
       const mockStore = getMockStore();
-      const item = mockStore.liveQueue.find((i) => i.id === queueId && i.reservationId === reservationId);
+      const item = mockStore.liveQueue.find((i) => i.id === queueId && i.reservationId === reservationId && (!i.screenId || i.screenId === liveScreenId()));
       if (!item) {
         return NextResponse.json({ success: false, error: 'Invalid or expired reservationId' }, { status: 400 });
       }
@@ -122,10 +124,11 @@ export async function POST(req: NextRequest) {
         displayUpdatedAt: nowIso
       };
       const mockVideo = mockStore.videos.get(item.videoId);
-      if (mockVideo) mockStore.videos.set(item.videoId, {
-        ...mockVideo,
-        ...replayMetadata(item, nowIso),
-      });
+      if (mockVideo) {
+        const published = { ...mockVideo, ...replayMetadata(item, nowIso) };
+        mockStore.videos.set(item.videoId, published);
+        if (published.storagePath) await saveGoLiveEntry({ ...goLiveEntryFromVideo({ ...published, id: item.videoId }), published: true, replayEnabled: true });
+      }
       const mockSession = mockStore.sessions.get(item.sessionId);
       if (mockSession) mockStore.sessions.set(item.sessionId, { ...mockSession, ...displayMetadata });
     }

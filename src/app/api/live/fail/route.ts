@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { verifyTvRequest } from '@/lib/auth/display';
-import { bindClient } from '@/lib/maharaja/client-context';
+import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 import { goLiveClientId, resolveRequestClientId } from '@/lib/maharaja/server';
 
 export async function POST(req: NextRequest) {
@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
     if (db) {
       const queueDocRef = db.collection('liveQueue').doc(queueId);
       const doc = await queueDocRef.get();
-      if (!doc.exists || doc.data()?.reservationId !== reservationId) {
+      // A screen reports failures only for its own store's queue.
+      if (!doc.exists || doc.data()?.reservationId !== reservationId || (doc.data()?.screenId && doc.data()?.screenId !== liveScreenId())) {
         return NextResponse.json({ success: false, error: 'Invalid or expired reservationId' }, { status: 400 });
       }
       const retryCount = Number(doc.data()?.tvRetryCount || 0);
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
       });
     } else {
       const mockStore = getMockStore();
-      const item = mockStore.liveQueue.find((i) => i.id === queueId && i.reservationId === reservationId);
+      const item = mockStore.liveQueue.find((i) => i.id === queueId && i.reservationId === reservationId && (!i.screenId || i.screenId === liveScreenId()));
       if (!item) {
         return NextResponse.json({ success: false, error: 'Invalid or expired reservationId' }, { status: 400 });
       }

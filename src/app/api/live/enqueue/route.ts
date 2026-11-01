@@ -5,6 +5,8 @@ import { isEventId } from '@/lib/maharaja/config';
 import { getMaharajaWorkspace, passAllowsGoLive, incrementMaharajaUsage, incrementPassUsage, logMaharajaActivity, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { activeClientId, bindClient, liveScreenId } from '@/lib/maharaja/client-context';
+import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { saveGoLiveEntry } from '@/lib/maharaja/go-live-library';
 
 export const dynamic = 'force-dynamic';
 const LIVE_PLAY_COUNT = 2;
@@ -53,7 +55,9 @@ export async function POST(req: NextRequest) {
   const eventId = isEventId(access.pass.eventId) ? access.pass.eventId : 'diwali';
   const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString();
   const customerName = cleanDisplayText(body?.customerName) || cleanDisplayText(access.pass.customerName);
-  const customerLocality = cleanDisplayText(body?.customerLocality) || cleanDisplayText(access.pass.customerLocality) || 'தஞ்சாவூர்';
+  // Maharaja's screens show Thanjavur; another store shows the city of its branch.
+  const storeLocality = activeClientId() === MAHARAJA_CLIENT_ID ? 'தஞ்சாவூர்' : cleanDisplayText(String(goLiveWorkspace.branch || '').split('·')[0]);
+  const customerLocality = cleanDisplayText(body?.customerLocality) || cleanDisplayText(access.pass.customerLocality) || storeLocality;
   const liveAudioUrl = getLiveAudioTrack(queueId, eventId);
   const db = getDb();
 
@@ -117,6 +121,26 @@ export async function POST(req: NextRequest) {
         expiresAt,
       };
       transaction.set(videoRef, media, { merge: true });
+      // The store's own Go Live library holds the video from consent; it joins the replay loop after two live plays.
+      void saveGoLiveEntry({
+        id: videoId,
+        sessionId,
+        storagePath: job.videoStoragePath,
+        liveStoragePath: hasFinalLiveAsset ? liveStoragePath : null,
+        status: 'ready',
+        published: false,
+        replayEnabled: false,
+        eventId,
+        category,
+        playbackMode: hasFinalLiveAsset ? 'embedded' : 'external',
+        hasEmbeddedAudio: hasFinalLiveAsset,
+        durationSeconds: hasFinalLiveAsset ? 9 : 6,
+        customerName,
+        customerLocality,
+        createdAt: nowIso,
+        expiresAt,
+        updatedAt: nowIso,
+      }, { transaction });
       transaction.set(queueRef, {
         id: queueId,
         screenId: liveScreenId(),
@@ -176,8 +200,14 @@ export async function POST(req: NextRequest) {
       queueNumber = store.liveQueue.reduce((highest, item) => Math.max(highest, Number(item.queueNumber || 0)), 0) + 1;
       const liveStoragePath = String((job as any).liveVideoStoragePath || (session as any).liveVideoStoragePath || '');
       const hasFinalLiveAsset = Boolean(liveStoragePath);
+      await saveGoLiveEntry({
+        id: videoId, sessionId, storagePath: job.videoStoragePath, liveStoragePath: hasFinalLiveAsset ? liveStoragePath : null,
+        status: 'ready', published: false, replayEnabled: false, eventId, category,
+        playbackMode: hasFinalLiveAsset ? 'embedded' : 'external', hasEmbeddedAudio: hasFinalLiveAsset, durationSeconds: hasFinalLiveAsset ? 9 : 6,
+        customerName, customerLocality, createdAt: nowIso, expiresAt, updatedAt: nowIso,
+      });
       store.videos.set(videoId, {
-        id: videoId, sessionId, accessCode, approvedJobId: jobId, storagePath: job.videoStoragePath,
+        id: videoId, clientId: activeClientId(), sessionId, accessCode, approvedJobId: jobId, storagePath: job.videoStoragePath,
         ...(hasFinalLiveAsset ? { liveStoragePath } : {}),
         eventId, category, status: 'ready', published: false, replayEnabled: false,
         liveConsent: true, loopConsent: true, promotionConsent, playbackMode: hasFinalLiveAsset ? 'embedded' : 'external', durationSeconds: hasFinalLiveAsset ? 9 : 6,

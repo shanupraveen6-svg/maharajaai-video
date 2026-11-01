@@ -11,6 +11,8 @@ const server = await import('../src/lib/maharaja/server.ts');
 const { POST: createPass } = await import('../src/app/api/maharaja/video-pass/route.ts');
 const { GET: openPass } = await import('../src/app/api/maharaja/access/[code]/route.ts');
 const { GET: billingInfo } = await import('../src/app/api/maharaja/billing/[code]/route.ts');
+const { POST: chooseGift } = await import('../src/app/api/maharaja/video-pass/choice/route.ts');
+const { listCatalogueProducts } = await import('../src/lib/maharaja/catalogue.ts');
 
 const workspace = await server.getMaharajaWorkspace();
 assert.equal(workspace.videoMinPurchase, 5000, 'AI Video counter threshold defaults to Rs 5,000');
@@ -72,8 +74,32 @@ console.log('✓ Credit reservation is limit-safe and released credits return to
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ billingCode: workspace.billingCode, experienceType: 'catalogue-gift' }),
   }));
-  const counterPass = await server.getVideoPass((await res.json()).pass.code);
-  assert.equal(counterPass.experienceType, 'purchased-garment', 'A gift QR starts as the outfit bought until the customer chooses');
+  const counterData = await res.json();
+  const counterPass = await server.getVideoPass(counterData.pass.code);
+  assert.equal(counterPass.experienceType, 'catalogue-gift', 'AI Video uses the store collection: a gift QR opens the collection');
+  assert.match(counterData.pass.link, /\/maharaja\/catalogue\//);
+  // An old client asking for an own-outfit pass still gets the store collection.
+  const askedOwn = await server.getVideoPass((await (await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billingCode: workspace.billingCode, experienceType: 'purchased-garment' }),
+  }))).json()).pass.code);
+  assert.equal(askedOwn.experienceType, 'catalogue-gift');
+
+  // The biller may pick the piece the customer bought: the pass opens with it chosen.
+  const { products } = await listCatalogueProducts(0, 100, { videoOnly: true });
+  const videoPiece = products.find((item) => item.eligibleForVideo);
+  assert.ok(videoPiece, 'The demo catalogue has an AI Video piece');
+  const picked = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billingCode: workspace.billingCode, catalogueSku: videoPiece.sku }),
+  }));
+  const pickedPass = await server.getVideoPass((await picked.json()).pass.code);
+  assert.equal(pickedPass.catalogueSku, videoPiece.sku, 'The purchased piece is stored on the pass');
+  const offPiece = (await listCatalogueProducts(0, 100)).products.find((item) => !item.eligibleForVideo);
+  if (offPiece) {
+    const refused = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billingCode: workspace.billingCode, catalogueSku: offPiece.sku }),
+    }));
+    assert.equal(refused.status, 400, 'A piece not set up for AI Video is refused');
+  }
   const tvStore = { devices: { tv: true, tablet: false, mobile: true, led: true }, modules: { image: true, live: true, video: true } };
   const phoneStore = { devices: { tv: false, tablet: false, mobile: true, led: false }, modules: { image: true, live: false, video: true } };
   assert.equal(server.passAllowsGoLive(counterPass, tvStore), true, 'Gift QR videos can Go Live in a TV store');
@@ -83,20 +109,27 @@ console.log('✓ Credit reservation is limit-safe and released credits return to
   const enqueueSource = (await import('node:fs')).readFileSync(new URL('../src/app/api/live/enqueue/route.ts', import.meta.url), 'utf8');
   assert.match(enqueueSource, /\.goLive\)/, 'The server refuses Go Live when the store has no Go Live player');
 
-  // The customer's first choice on a gift QR: made once, before anything is generated.
-  const choicePass = async () => server.getVideoPass((await (await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billingCode: workspace.billingCode }),
-  }))).json()).pass.code);
-  const toCatalogue = await choicePass();
+  // An older gift QR issued as the outfit bought: the store collection is the only choice left.
+  const legacyPass = async () => {
+    const pass = await server.getVideoPass((await (await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billingCode: workspace.billingCode }),
+    }))).json()).pass.code);
+    pass.experienceType = 'purchased-garment';
+    await server.saveVideoPass(pass);
+    return pass;
+  };
+  const toCatalogue = await legacyPass();
   assert.equal(await server.chooseGiftGarment(toCatalogue.code, 'catalogue'), true);
   const converted = await server.getVideoPass(toCatalogue.code);
   assert.equal(converted.experienceType, 'catalogue-gift', 'Store collection turns the pass into a catalogue pass');
   assert.equal(await server.chooseGiftGarment(toCatalogue.code, 'catalogue'), true, 'Choosing the same again is fine');
   assert.equal(await server.chooseGiftGarment(toCatalogue.code, 'own'), false, 'The choice cannot be switched');
-  const toOwn = await choicePass();
-  assert.equal(await server.chooseGiftGarment(toOwn.code, 'own'), true);
-  assert.equal((await server.getVideoPass(toOwn.code)).experienceType, 'purchased-garment');
-  assert.equal(await server.chooseGiftGarment(toOwn.code, 'catalogue'), false);
+  const toOwn = await legacyPass();
+  const ownRes = await chooseGift(new NextRequest('http://localhost/api/maharaja/video-pass/choice', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessCode: toOwn.code, choice: 'own' }),
+  }));
+  assert.equal(ownRes.status, 409, 'An own-outfit AI Video can no longer be started');
+  assert.equal((await server.getVideoPass(toOwn.code)).giftChoice, undefined, 'The refused choice is not saved');
 
   // Phone lock: the first phone keeps the pass; another phone is refused.
   const openOn = async (deviceId) => (await openPass(new NextRequest(`http://localhost/api/maharaja/access/${counterPass.code}?service=ai-video&deviceId=${deviceId}`), { params: Promise.resolve({ code: counterPass.code }) })).status;

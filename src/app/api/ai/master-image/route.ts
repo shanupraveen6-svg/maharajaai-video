@@ -10,12 +10,16 @@ import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERS
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
-import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
+import { tryOnEngineOrder, generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
+import { generateFashnTryOn } from '@/lib/maharaja/fashn-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 
+
+/** Photo-processing consent texts the server accepts: the current one first. */
+const CONSENT_VERSIONS = ['2026-11-privacy-v4', '2026-10-privacy-v3'];
 export const maxDuration = 300;
 const MAX_SOURCE_IMAGE_BYTES = 8 * 1024 * 1024;
 
@@ -121,7 +125,9 @@ export async function POST(req: NextRequest) {
     if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{8,120}$/.test(sessionId)) {
       return NextResponse.json({ success: false, error: 'Reload the page to start a valid photo session.' }, { status: 400 });
     }
-    if (body.processingConsent !== true || body.consentVersion !== '2026-10-privacy-v3') {
+    // A screen left open across a release still sends the previous version; both are accepted and recorded.
+    const consentVersion = CONSENT_VERSIONS.includes(body.consentVersion) ? String(body.consentVersion) : '';
+    if (body.processingConsent !== true || !consentVersion) {
       return NextResponse.json({ success: false, error: 'Photo processing permission is required before generation.' }, { status: 400 });
     }
     if ((body.templateId === 'girl' || body.templateId === 'boy') && body.guardianProcessingConsent !== true) {
@@ -361,57 +367,83 @@ ${roleInstructions}
         }
 
         let rawBuffer: Buffer | null = null;
-        if (service === 'try-on' && !tryOnRetry && AI_CONFIG.GENLOOK_API_KEY?.trim()) {
-          genlookAttempted = true;
-          try {
-            rawBuffer = await generateGenlookTryOn(
-              personBase64,
-              garmentBase64s[0],
-              AI_CONFIG.GENLOOK_API_KEY.trim(),
-              {
-                externalId: typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `maharaja-${garmentType}`,
-                title: typeof body.catalogueProductTitle === 'string' ? body.catalogueProductTitle : `Maharaja ${garmentType.replace(/_/g, ' ')}`,
-                description: `${GARMENT_TYPE_RULES[garmentType]} Preserve its exact structure, fabric, colours, borders and details.`.slice(0, 500),
-              },
-            );
-            imageProvider = 'genlook-try-on';
-          } catch (error) {
-            if (!canFallbackFromGenlook(error)) {
-              genlookOutcomeUncertain = true;
-              throw error;
+        // Try-On engines in order (TRYON_ENGINE_ORDER, default GenLook → fal → FASHN → Gemini); one that is not
+        // configured is skipped. A customer retry and the AI Video portrait use Gemini only. An engine whose
+        // outcome is uncertain (it may still have made and billed the image) stops the chain: no double charge.
+        const engines = service === 'try-on' && !tryOnRetry ? tryOnEngineOrder() : ['gemini' as const];
+        let lastEngineError: unknown = null;
+        for (const engine of engines) {
+          if (rawBuffer) break;
+          if (engine === 'genlook') {
+            const key = AI_CONFIG.GENLOOK_API_KEY?.trim();
+            if (!key) continue;
+            genlookAttempted = true;
+            try {
+              rawBuffer = await generateGenlookTryOn(
+                personBase64,
+                garmentBase64s[0],
+                key,
+                {
+                  externalId: typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `maharaja-${garmentType}`,
+                  title: typeof body.catalogueProductTitle === 'string' ? body.catalogueProductTitle : `Maharaja ${garmentType.replace(/_/g, ' ')}`,
+                  description: `${GARMENT_TYPE_RULES[garmentType]} Preserve its exact structure, fabric, colours, borders and details.`.slice(0, 500),
+                },
+              );
+              imageProvider = 'genlook-try-on';
+            } catch (error) {
+              if (!canFallbackFromGenlook(error)) {
+                genlookOutcomeUncertain = true;
+                throw error;
+              }
+              lastEngineError = error;
+              console.warn('GenLook Try-On failed explicitly; using the next image engine.');
             }
-            console.warn('GenLook Try-On failed explicitly; using configured backup image provider.');
+          } else if (engine === 'fal') {
+            const key = process.env.FAL_KEY?.trim();
+            if (!key) continue;
+            falTryOnAttempted = true;
+            try {
+              rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], key);
+              imageProvider = 'fal-image-apps-v2-try-on';
+            } catch (falError) {
+              lastEngineError = falError;
+              console.warn('Fal Try-On failed; using the next image engine.', falError);
+            }
+          } else if (engine === 'fashn') {
+            const key = process.env.FASHN_API_KEY?.trim();
+            if (!key) continue;
+            try {
+              rawBuffer = await generateFashnTryOn(personBase64, garmentBase64s[0], key, { timeoutMs: Math.max(20_000, Math.min(60_000, startedAt + 200_000 - Date.now())) });
+              imageProvider = 'fashn-tryon-v1.6';
+            } catch (fashnError) {
+              lastEngineError = fashnError;
+              console.warn('FASHN Try-On failed; using the next image engine.', fashnError);
+            }
+          } else if (engine === 'gemini') {
+            if (!ai) continue;
+            // Stay inside the 300 s function limit so the credit and pass lock are always released in finally.
+            const geminiBudgetMs = Math.min(150_000, startedAt + 280_000 - Date.now());
+            if (geminiBudgetMs < 25_000) throw new Error('The image service is busy right now. Please try again in a moment.');
+            contents.push(prompt);
+            geminiAttempted = true;
+            const genResponse = await ai.models.generateContent({
+              model: AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
+              contents,
+              config: {
+                responseModalities: ['TEXT', 'IMAGE'],
+                imageConfig: { aspectRatio: '9:16' },
+                abortSignal: AbortSignal.timeout(geminiBudgetMs),
+              },
+            });
+            const part = genResponse.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+            if (part?.inlineData?.data) {
+              rawBuffer = Buffer.from(part.inlineData.data, 'base64');
+              imageProvider = 'gemini';
+            }
           }
         }
-        if (!rawBuffer && service === 'try-on' && !tryOnRetry && process.env.FAL_KEY?.trim()) {
-          falTryOnAttempted = true;
-          try {
-            rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], process.env.FAL_KEY.trim());
-            imageProvider = 'fal-image-apps-v2-try-on';
-          } catch (falError) {
-            // Backup (disclosed in the privacy policy): the same photos go once to Gemini with the Try-On prompt.
-            if (!ai) throw falError;
-            console.warn('Fal Try-On failed; creating the look with the Gemini backup.', falError);
-          }
-        }
-        if (!rawBuffer) {
-          if (!ai) throw new Error('Both Try-On image services are unavailable. Please ask Maharaja staff for assistance.');
-          // Stay inside the 300 s function limit so the credit and pass lock are always released in finally.
-          const geminiBudgetMs = Math.min(150_000, startedAt + 280_000 - Date.now());
-          if (geminiBudgetMs < 25_000) throw new Error('The image service is busy right now. Please try again in a moment.');
-          contents.push(prompt);
-          geminiAttempted = true;
-          const genResponse = await ai.models.generateContent({
-            model: AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
-            contents,
-            config: {
-              responseModalities: ['TEXT', 'IMAGE'],
-              imageConfig: { aspectRatio: '9:16' },
-              abortSignal: AbortSignal.timeout(geminiBudgetMs),
-            },
-          });
-          const part = genResponse.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
-          if (part?.inlineData?.data) rawBuffer = Buffer.from(part.inlineData.data, 'base64');
+        if (!rawBuffer && !geminiAttempted) {
+          throw lastEngineError || new Error('No Try-On image service is available. Please ask Maharaja staff for assistance.');
         }
         imageReadyAt = Date.now();
         if (rawBuffer) {
@@ -506,7 +538,7 @@ ${roleInstructions}
         garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
-        consentVersion: '2026-10-privacy-v3',
+        consentVersion,
         consentedAt: nowIso,
         ...safeImageFields,
         status: 'master_ready',
@@ -530,7 +562,7 @@ ${roleInstructions}
         garmentRoles: sanitizedGarmentRoles.slice(0, 3),
         processingConsent: true,
         guardianProcessingConsent: customerCategory === 'girl' || customerCategory === 'boy',
-        consentVersion: '2026-10-privacy-v3',
+        consentVersion,
         consentedAt: nowIso,
         ...imageFields,
         status: 'master_ready',

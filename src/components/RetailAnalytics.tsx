@@ -53,7 +53,7 @@ export default function RetailAnalytics() {
     ['Try-On images', String(analytics.imagesSuccess), `${rate(analytics.imagesSuccess, analytics.imageFailures)} success · ${analytics.imageRetries} retries`],
     ['AI videos', String(analytics.videosSuccess), `${rate(analytics.videosSuccess, analytics.videoFailures)} success · ${analytics.videosRendering} rendering`],
     ['Video passes issued', String(usage.videoPasses || 0), `${usage.goLive || 0} sent to Go Live`],
-    ['Live mirror sessions', String(usage.liveSessions || 0), '60-second sessions'],
+    ['Live mirror sessions', String(usage.liveSessions || 0), '30-second sessions'],
     ['Downloads & shares', String(analytics.brandedReach), 'Branded media saved by customers'],
     ['Price tags scanned', String(analytics.totalGarments), `${usage.tryOnScans || 0} QR opens`],
   ];

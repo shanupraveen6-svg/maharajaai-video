@@ -25,6 +25,7 @@ import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { ActionBar, PageTitle, Segmented, StepProgress } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
+import { useLeadGate } from '@/components/LeadGate';
 
 /**
  * What the wall QR opens: Try-On on the customer's own phone. AI Video is not offered here; it comes only
@@ -32,6 +33,8 @@ import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
  */
 export default function MaharajaMobileExperience({ accessCode, clientName = 'The Majestic Maharaja' }: { accessCode: string; clientName?: string }) {
   const { language, setLanguage, t } = usePhoneLanguage();
+  // Nothing downloads on its own: Save asks for the customer's WhatsApp number first.
+  const leadGate = useLeadGate({ kind: 'pass', ref: accessCode, source: 'try-on' });
   const [sourceMode, setSourceMode] = useState<'catalogue' | 'own-garment'>('catalogue');
   const [stage, setStage] = useState<'source' | 'photo' | 'outfit'>('source');
   const [genderFilter, setGenderFilter] = useState<TryFocusProduct['gender']>('women');
@@ -64,6 +67,23 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   }, [activeCategory, genderFilter, catalogueItems]);
 
   useEffect(() => { setOwnGarmentType(OWN_GARMENT_TYPES[genderFilter][0].id); }, [genderFilter]);
+
+  const saveLook = () => leadGate.withLead(async () => {
+    const filename = `tryfocus-look-${selectedProduct.sku.toLowerCase().replace(/[^a-z0-9_-]/g, '')}.jpg`;
+    try {
+      const blobUrl = URL.createObjectURL(await (await fetch(resultImageUrl, { cache: 'no-store' })).blob());
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+    } catch {
+      // Some phones block saving a file from another site: show the photo to save it by holding it.
+      window.open(resultImageUrl, '_blank', 'noopener');
+    }
+  });
 
   // Phone photos are often 4-8 MB; resizing keeps requests under the 4.5 MB serverless body limit.
   function handleFileRead(setter: (val: string) => void, file?: File | null) {
@@ -109,7 +129,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
           garmentType: sourceMode === 'catalogue' ? selectedProduct.garmentType : ownGarmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,
-          consentVersion: '2026-10-privacy-v3',
+          consentVersion: '2026-11-privacy-v4',
           personPhoto,
           garmentPhotos: [garmentImg],
           garmentRoles: ['Primary Garment Reference'],
@@ -239,7 +259,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
                 <section id="mobile-result" className="tf-card overflow-hidden">
                   <BeforeAfterSlider beforeImage={personPhoto || selectedProduct.imageUrl} afterImage={resultImageUrl} beforeLabel={t('you')} afterLabel={t('newLook')} />
                   <div className="flex gap-3 p-4">
-                    <a href={resultImageUrl} download={`tryfocus-look-${selectedProduct.sku.toLowerCase()}.jpg`} className="tf-btn tf-btn-dark flex-1"><Download className="h-4 w-4" /> {t('savePhoto')}</a>
+                    <button type="button" onClick={() => void saveLook()} className="tf-btn tf-btn-dark flex-1"><Download className="h-4 w-4" /> {t('savePhoto')}</button>
                     <button type="button" onClick={() => { setResultImageUrl(''); setStatusNote(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="tf-btn tf-btn-secondary flex-1">{t('tryAnother')}</button>
                   </div>
                 </section>
@@ -296,6 +316,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
           )}
         </>
       </div>
+      {leadGate.dialog}
     </main>
   );
 }

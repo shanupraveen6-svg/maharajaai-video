@@ -23,9 +23,12 @@ export type StoredHandoff = {
   lookPassCodes?: Record<string, string>;
 };
 
-/** Own-garment looks can become a video from any device; catalogue looks only from the store TV. */
-export function lookVideoAvailable(handoff: StoredHandoff, look: StoredLook) {
-  return look.sku.startsWith('OWN-') || handoff.source !== 'tablet';
+/**
+ * Whether a look can become an AI Video. AI Video is made from the store collection only, so a catalogue
+ * look from the TV or the tablet can, and a look of the customer's own outfit cannot.
+ */
+export function lookVideoAvailable(_handoff: StoredHandoff, look: StoredLook) {
+  return !look.sku.startsWith('OWN-');
 }
 
 export function isHandoffToken(token: string) {

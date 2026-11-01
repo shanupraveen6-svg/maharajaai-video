@@ -19,7 +19,10 @@ const [start, status, webhook, finalize, cleanup, next, playing, proxy, master, 
 
 assert.match(start, /videoMasterApproved/);
 assert.match(start, /videoMasterApprovedUrl !== access\.pass\.videoMasterUrl/);
-assert.match(start, /fal_webhook/);
+// The fal webhook is set by the engine switcher the start route submits through.
+assert.match(start, /submitRender\(/);
+assert.match(start, /webhookUrlFor\(/);
+assert.match(await read('src/lib/maharaja/video-engines.ts'), /fal_webhook/);
 assert.match(start, /acquirePassVideoLock\(passCode, jobId\)/);
 assert.match(start, /markPassVideoSubmitted\(passCode, jobId\)/);
 assert.match(start, /markPassVideoFailed\(passCode, jobId\)/);

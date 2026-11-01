@@ -15,7 +15,7 @@ export type OverviewClient = {
   logins?: string[];
   devices: { tv: boolean; tablet: boolean; mobile: boolean; led: boolean };
   modules?: { image: boolean; live: boolean; video: boolean };
-  usage: { image: number; live: number; video: number; passes?: number; goLive?: number; downloads?: number; scans?: number };
+  usage: { image: number; live: number; video: number; passes?: number; goLive?: number; downloads?: number; scans?: number; retries?: number };
   limits: { image: number; live: number; video: number };
   /** Estimated AI spend in rupees (see usage-ledger.ts). */
   spend?: { todayInr: number; monthInr: number };
@@ -23,6 +23,8 @@ export type OverviewClient = {
 
 /** Today's estimated AI spend across every client, with the daily caps. */
 export type PlatformSpend = { todayInr: number; clientCapInr: number | null; platformCapInr: number | null };
+
+const RETRY_ALLOWANCE = 0.15;
 
 const inr = (value: number) => `₹${Math.round(value).toLocaleString('en-IN')}`;
 
@@ -56,6 +58,10 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
     if (clientCap && item.spend && item.spend.todayInr >= clientCap) attention.push({ client: item, text: 'Daily AI spending cap reached; AI is paused until midnight', tone: 'red' });
     else if (clientCap && item.spend && item.spend.todayInr >= clientCap * 0.8) attention.push({ client: item, text: `${inr(item.spend.todayInr)} of the ${inr(clientCap)} daily AI cap used`, tone: 'amber' });
     if (item.status === 'Paused') attention.push({ client: item, text: 'Workspace paused', tone: 'amber' });
+    // Prices allow for about 15% retries; above that the store's credits cost us more than planned.
+    const results = item.usage.image + item.usage.video;
+    const retryRate = results >= 20 ? Number(item.usage.retries || 0) / results : 0;
+    if (retryRate > RETRY_ALLOWANCE) attention.push({ client: item, text: `Retries at ${Math.round(retryRate * 100)}% (pricing allows 15%)`, tone: retryRate > 0.25 ? 'red' : 'amber' });
   }
 
   const kpis: Array<[string, string, string]> = [
@@ -63,7 +69,7 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
     ['Try-On images', sum((item) => item.usage.image).toLocaleString('en-IN'), `${sum((item) => item.usage.scans || 0).toLocaleString('en-IN')} QR opens`],
     ['AI videos', sum((item) => item.usage.video).toLocaleString('en-IN'), `${sum((item) => item.usage.passes || 0).toLocaleString('en-IN')} video passes issued`],
     ['Go Live plays queued', sum((item) => item.usage.goLive || 0).toLocaleString('en-IN'), `${sum((item) => item.usage.downloads || 0).toLocaleString('en-IN')} downloads`],
-    ['Live Mirror sessions', sum((item) => item.usage.live).toLocaleString('en-IN'), '60-second sessions'],
+    ['Live Mirror sessions', sum((item) => item.usage.live).toLocaleString('en-IN'), '30-second sessions'],
     ['AI cost today (est.)', inr(platform?.todayInr || 0), platform?.platformCapInr ? `Cap ${inr(platform.platformCapInr)} a day` : 'No daily cap set'],
     ['AI cost this month (est.)', inr(sum((item) => item.spend?.monthInr || 0)), 'From the AI_COST_* estimates'],
     ['Needs attention', String(attention.length), attention.length ? 'See the list below' : 'All clients healthy'],
@@ -74,8 +80,7 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
 
   const adoption = MODULES.map(([key, label]) => [label, clients.filter((item) => planLimit(item, key) > 0).length] as const);
   const packages = (['tv', 'tablet', 'tv-tablet', 'phone'] as const)
-    .map((id) => [PACKAGES[id].label, clients.filter((item) => packageOf(item.devices) === id).length] as const)
-    .filter(([label, count]) => label !== PACKAGES.phone.label || count > 0);
+    .map((id) => [PACKAGES[id].label, clients.filter((item) => packageOf(item.devices) === id).length] as const);
 
   return (
     <div className="space-y-6">

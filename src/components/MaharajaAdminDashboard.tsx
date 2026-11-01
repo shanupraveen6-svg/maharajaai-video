@@ -28,6 +28,7 @@ import {
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import TabletVideoHandoff from '@/components/TabletVideoHandoff';
 import { NavTabs, Segmented, StatusPill } from '@/components/ui';
+import CustomerLeads from '@/components/CustomerLeads';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
 import {
   catalogueCategories,
@@ -162,7 +163,7 @@ export default function MaharajaAdminDashboard({
   const activeWorkspaceCode = workspaceCode || expectedWorkspaceCode || 'workspace';
   const router = useRouter();
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
-  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'gift' | 'golive'>('overview');
+  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'gift' | 'golive' | 'customers'>('overview');
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -576,6 +577,7 @@ export default function MaharajaAdminDashboard({
               ...(limits.video > 0 ? [{ value: 'gift' as const, label: 'AI Video gift' }] : []),
               ...(limits.image > 0 ? [{ value: 'qr' as const, label: 'Wall QR' }] : []),
               ...(goLiveOn ? [{ value: 'golive' as const, label: 'Go Live & videos' }] : []),
+              { value: 'customers', label: 'Customers' },
             ]}
           />
         </div>
@@ -921,6 +923,8 @@ export default function MaharajaAdminDashboard({
             </div>
           </section>
         )}
+
+        {section === 'customers' && <CustomerLeads />}
 
         {section === 'golive' && (goLiveOn ? (
           <div className="space-y-6">

@@ -62,9 +62,6 @@ const STRINGS = {
     ta: 'புகைப்படம் எடுப்பதன் மூலம், உங்கள் தோற்றத்தை உருவாக்க அது எங்கள் AI கூட்டாளர்களுக்கு அனுப்பப்படுவதை ஏற்கிறீர்கள். தோற்றம் உருவான பிறகு அது வைத்திருக்கப்படாது. குழந்தைக்கு பெற்றோர் அல்லது பாதுகாவலர் அனுமதி தேவை.',
   },
   privacy: { en: 'Privacy', ta: 'தனியுரிமை' },
-  // AI Video gift: the two boxes after scanning the biller's QR (the store name goes before newCollection)
-  newCollection: { en: 'new collection', ta: 'புதிய கலெக்ஷன்' },
-  yourCollection: { en: 'Your collection', ta: 'உங்கள் கலெக்ஷன்' },
   // Store collection outfit picker (after "new collection" on the gift QR, or from the TV)
   chooseOutfit: { en: 'Choose your outfit', ta: 'உங்கள் உடையைத் தேர்ந்தெடுங்கள்' },
   chooseOutfitText: { en: 'Pick an outfit, then add your photo. Your festive video is made in this outfit.', ta: 'ஒரு உடையைத் தேர்ந்தெடுத்து, உங்கள் புகைப்படத்தைச் சேருங்கள். இந்த உடையில் உங்கள் பண்டிகை வீடியோ உருவாகும்.' },
@@ -80,6 +77,15 @@ const STRINGS = {
   loadingVideo: { en: 'Loading your video…', ta: 'உங்கள் வீடியோ ஏற்றப்படுகிறது…' },
   videoUnavailable: { en: 'Video not available', ta: 'வீடியோ கிடைக்கவில்லை' },
   linkWorksUntil: { en: 'This private link works until', ta: 'இந்தத் தனிப்பட்ட இணைப்பு செயல்படும் நேரம்:' },
+  // The WhatsApp number asked before any download
+  leadTitle: { en: 'Save to your phone', ta: 'உங்கள் போனில் சேமிக்க' },
+  leadText: { en: 'Enter your WhatsApp number to download.', ta: 'பதிவிறக்க உங்கள் வாட்ஸ்அப் எண்ணை உள்ளிடுங்கள்.' },
+  leadNumber: { en: 'WhatsApp number', ta: 'வாட்ஸ்அப் எண்' },
+  leadOffers: { en: 'Send me this store’s offers on WhatsApp', ta: 'இந்தக் கடையின் சலுகைகளை வாட்ஸ்அப்பில் எனக்கு அனுப்பவும்' },
+  leadSubmit: { en: 'Download', ta: 'பதிவிறக்கு' },
+  leadInvalid: { en: 'Enter a 10-digit WhatsApp number.', ta: '10 இலக்க வாட்ஸ்அப் எண்ணை உள்ளிடுங்கள்.' },
+  leadPrivacy: { en: 'The store uses your number only as you choose here.', ta: 'நீங்கள் இங்கே தேர்வு செய்தபடி மட்டுமே கடை உங்கள் எண்ணைப் பயன்படுத்தும்.' },
+  cancel: { en: 'Cancel', ta: 'ரத்து' },
 } as const;
 
 export type PhoneStringKey = keyof typeof STRINGS;
