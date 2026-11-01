@@ -664,9 +664,6 @@ export default function MaharajaAdminDashboard({
               ))}
             </div>
 
-            {shownExperience === 'live' && (
-              <p className="mt-4 text-sm text-muted">Live Mirror is for bridal and function wear. A garment shows on the TV when it is switched on here and priced over ₹10,000.</p>
-            )}
             {shownExperience === 'video' && (
               <div className="mt-4">
                 <p className="text-sm font-semibold text-ink">Video shots for {catGender}</p>
@@ -695,8 +692,8 @@ export default function MaharajaAdminDashboard({
                 <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   {filteredCatalogue.slice(cataloguePage * CATALOGUE_PAGE_SIZE, (cataloguePage + 1) * CATALOGUE_PAGE_SIZE).map((item) => {
                     const on = shownExperience === 'tryon' ? item.active : shownExperience === 'live' ? isLiveMirrorReady(item) : item.eligibleForVideo;
-                    const blocked = shownExperience === 'live' && item.price <= 10000;
-                    const faded = shownExperience === 'live' ? blocked : !on;
+                    // Live Mirror pieces all look ready; the switch alone says whether the TV shows them.
+                    const faded = shownExperience !== 'live' && !on;
                     return (
                       <li key={item.sku} className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white ${faded ? 'border-dashed border-line-strong' : 'border-line'}`}>
                         <div className={`aspect-[3/4] w-full bg-canvas ${faded ? 'opacity-50' : ''}`}>
@@ -714,9 +711,7 @@ export default function MaharajaAdminDashboard({
                                 New arrival
                               </button>
                             </>}
-                            {shownExperience === 'live' && (blocked
-                              ? <span className="text-xs text-muted">Price must be over ₹10,000</span>
-                              : <button type="button" aria-pressed={on} onClick={() => void toggleCatalogueField(item, { eligibleForLive: !item.eligibleForLive })} className={`min-h-9 rounded-full px-3 text-xs font-semibold ${on ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}>
+                            {shownExperience === 'live' && (<button type="button" aria-pressed={on} onClick={() => void toggleCatalogueField(item, { eligibleForLive: !item.eligibleForLive })} className={`min-h-9 rounded-full px-3 text-xs font-semibold ${on ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}>
                                   {on ? 'On Live Mirror' : 'Off'}
                                 </button>)}
                             {shownExperience === 'video' && (

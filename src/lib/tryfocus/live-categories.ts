@@ -8,10 +8,7 @@ export const LIVE_CATEGORIES: Record<CatalogueAudience, Array<{ id: CatalogueCat
   girls: [{ id: 'girls-pavadai', label: 'Pattu pavadai' }, { id: 'girls-lehenga', label: 'Lehenga' }, { id: 'girls-anarkali', label: 'Anarkali' }, { id: 'girls-gown', label: 'Gown' }],
 };
 
-/**
- * Same rule the TV uses to pick Live Mirror garments: only pieces the store switched on for Live Mirror
- * (bridal and function wear above ₹10,000).
- */
-export function isLiveMirrorReady(item: { price: number; sku: string; eligibleForLive?: boolean }) {
-  return item.price > 10000 && item.eligibleForLive === true;
+/** Same rule the TV uses to pick Live Mirror garments: the pieces the store switched on for Live Mirror. */
+export function isLiveMirrorReady(item: { eligibleForLive?: boolean }) {
+  return item.eligibleForLive === true;
 }
