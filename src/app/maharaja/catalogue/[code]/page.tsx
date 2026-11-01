@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Check, LoaderCircle, ShoppingBag } from 'lucide-react';
 import MaharajaExperience from '@/components/MaharajaExperience';
+import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import type { PublicCatalogueProduct } from '@/lib/maharaja/catalogue-types';
 
 async function readJson(response: Response) {
@@ -23,10 +24,11 @@ export default function MaharajaCatalogueGiftPage() {
   const [totalProducts, setTotalProducts] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const { language, setLanguage, t } = usePhoneLanguage();
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/maharaja/catalogue?offset=0&limit=30&access=${encodeURIComponent(code)}`, { cache: 'no-store' }).then(readJson),
+      fetch(`/api/maharaja/catalogue?offset=0&limit=30&videoOnly=true&access=${encodeURIComponent(code)}`, { cache: 'no-store' }).then(readJson),
       fetch(`/api/maharaja/access/${encodeURIComponent(code)}?service=ai-video`, { cache: 'no-store' }).then(readJson),
     ])
       .then(([catalogue, access]) => {
@@ -71,7 +73,7 @@ export default function MaharajaCatalogueGiftPage() {
     setLoadingMore(true);
     try {
       const catalogue = await readJson(
-        await fetch(`/api/maharaja/catalogue?offset=${products.length}&limit=12&access=${encodeURIComponent(code)}`, {
+        await fetch(`/api/maharaja/catalogue?offset=${products.length}&limit=12&videoOnly=true&access=${encodeURIComponent(code)}`, {
           cache: 'no-store',
         })
       );
@@ -95,15 +97,20 @@ export default function MaharajaCatalogueGiftPage() {
           </span>
           <div>
             <h1 className="text-2xl font-bold text-ink">
-              Choose Your Store Catalogue Outfit (Women & Men)
+              {t('chooseOutfit')}
             </h1>
+          </div>
+          <div role="group" aria-label="Language" className="ml-auto flex shrink-0 rounded-xl bg-line/70 p-0.5 text-sm font-semibold">
+            {([['en', 'English'], ['ta', 'தமிழ்']] as const).map(([value, label]) => (
+              <button key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)} className={`min-h-10 rounded-[10px] px-2.5 ${language === value ? 'bg-white text-ink shadow-sm' : 'text-muted'}`}>{label}</button>
+            ))}
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-6xl px-4 py-6">
         <p className="max-w-2xl text-sm leading-6 text-muted">
-          Select any outfit from our 30-item South Indian collection (Sarees, Salwars, Lehengas, Kurtas, Veshtis & Shirts) to create your AI portrait and 6-second AI Video with <strong>Download</strong> and <strong>Go Live</strong> on the Maharaja showroom screen.
+          {t('chooseOutfitText')}
         </p>
         {error && (
           <p className="mt-4 border border-danger bg-[#FEF3F2] p-3 text-sm font-semibold text-danger">
@@ -116,7 +123,7 @@ export default function MaharajaCatalogueGiftPage() {
           </div>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-3.5 md:grid-cols-3 lg:grid-cols-5">
-            {products.map((product) => {
+            {products.filter((product) => product.eligibleForVideo !== false).map((product) => {
               const selected = selectedSku === product.sku;
               return (
                 <button
@@ -130,7 +137,7 @@ export default function MaharajaCatalogueGiftPage() {
  }`}
                 >
                   <img
-                    src={product.imageUrl}
+                    src={product.thumbnailUrl || product.imageUrl}
                     alt={product.title}
                     loading="lazy"
                     decoding="async"
@@ -164,7 +171,7 @@ export default function MaharajaCatalogueGiftPage() {
             disabled={loadingMore}
             className="mx-auto mt-6 flex min-h-11 items-center justify-center border border-ink bg-white px-6 text-xs font-bold text-ink disabled:opacity-50"
           >
-            {loadingMore ? 'Loading outfits...' : 'View More Outfits'}
+            {loadingMore ? t('loadingOutfits') : t('moreOutfits')}
           </button>
         )}
         {!loading && (
@@ -176,7 +183,7 @@ export default function MaharajaCatalogueGiftPage() {
               className="flex min-h-14 w-full items-center justify-center gap-2 bg-brand px-5 text-xs font-bold text-[#FAF6EE] shadow-xl disabled:opacity-45"
             >
               <ShoppingBag className="h-4 w-5" />
-              {saving ? 'Securing Selection...' : 'Confirm Outfit & Continue to AI Video'}
+              {saving ? t('saving') : t('continueWithOutfit')}
             </button>
           </div>
         )}

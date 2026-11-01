@@ -65,7 +65,7 @@ await server.releaseMaharajaUsage('tryOnGenerated');
 assert.equal(await server.reserveMaharajaUsage('tryOnGenerated', before + 3), true, 'A released credit can be used again');
 assert.equal(await server.reserveMaharajaUsage('tryOnGenerated', 0), false, 'A zero limit means the service is off');
 console.log('✓ Credit reservation is limit-safe and released credits return to the store');
-// AI Video rules: own-garment passes download only; catalogue (TV) passes may Go Live.
+// AI Video rules: every AI Video may Go Live when the store has the Go Live player.
 {
   const res = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', {
     method: 'POST',
@@ -73,11 +73,30 @@ console.log('✓ Credit reservation is limit-safe and released credits return to
     body: JSON.stringify({ billingCode: workspace.billingCode, experienceType: 'catalogue-gift' }),
   }));
   const counterPass = await server.getVideoPass((await res.json()).pass.code);
-  assert.equal(counterPass.experienceType, 'purchased-garment', 'Counter passes are always own-garment');
-  assert.equal(server.passAllowsGoLive(counterPass), false, 'Own-garment videos cannot Go Live');
-  assert.equal(server.passAllowsGoLive({ experienceType: 'catalogue-gift' }), true, 'TV catalogue videos can Go Live');
+  assert.equal(counterPass.experienceType, 'purchased-garment', 'A gift QR starts as the outfit bought until the customer chooses');
+  const tvStore = { devices: { tv: true, tablet: false, mobile: true, led: true }, modules: { image: true, live: true, video: true } };
+  const phoneStore = { devices: { tv: false, tablet: false, mobile: true, led: false }, modules: { image: true, live: false, video: true } };
+  assert.equal(server.passAllowsGoLive(counterPass, tvStore), true, 'Gift QR videos can Go Live in a TV store');
+  assert.equal(server.passAllowsGoLive({ experienceType: 'catalogue-gift' }, tvStore), true, 'TV catalogue videos can Go Live');
+  assert.equal(server.passAllowsGoLive(counterPass, phoneStore), false, 'No Go Live player, no Go Live');
+  assert.equal(server.passAllowsGoLive(null, tvStore), false);
   const enqueueSource = (await import('node:fs')).readFileSync(new URL('../src/app/api/live/enqueue/route.ts', import.meta.url), 'utf8');
-  assert.match(enqueueSource, /if \(!passAllowsGoLive\(access\.pass\)\)/, 'The server refuses Go Live for own-garment passes');
+  assert.match(enqueueSource, /\.goLive\)/, 'The server refuses Go Live when the store has no Go Live player');
+
+  // The customer's first choice on a gift QR: made once, before anything is generated.
+  const choicePass = async () => server.getVideoPass((await (await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billingCode: workspace.billingCode }),
+  }))).json()).pass.code);
+  const toCatalogue = await choicePass();
+  assert.equal(await server.chooseGiftGarment(toCatalogue.code, 'catalogue'), true);
+  const converted = await server.getVideoPass(toCatalogue.code);
+  assert.equal(converted.experienceType, 'catalogue-gift', 'Store collection turns the pass into a catalogue pass');
+  assert.equal(await server.chooseGiftGarment(toCatalogue.code, 'catalogue'), true, 'Choosing the same again is fine');
+  assert.equal(await server.chooseGiftGarment(toCatalogue.code, 'own'), false, 'The choice cannot be switched');
+  const toOwn = await choicePass();
+  assert.equal(await server.chooseGiftGarment(toOwn.code, 'own'), true);
+  assert.equal((await server.getVideoPass(toOwn.code)).experienceType, 'purchased-garment');
+  assert.equal(await server.chooseGiftGarment(toOwn.code, 'catalogue'), false);
 
   // Phone lock: the first phone keeps the pass; another phone is refused.
   const openOn = async (deviceId) => (await openPass(new NextRequest(`http://localhost/api/maharaja/access/${counterPass.code}?service=ai-video&deviceId=${deviceId}`), { params: Promise.resolve({ code: counterPass.code }) })).status;
@@ -94,6 +113,6 @@ console.log('✓ Credit reservation is limit-safe and released credits return to
   // TV asks for bill digits exactly when an AI Video minimum is set.
   assert.equal(server.videoLimitSet({ videoMinPurchase: 5000 }), true);
   assert.equal(server.videoLimitSet({ videoMinPurchase: 0 }), false);
-  console.log('✓ Go Live only for TV catalogue videos; phone lock; store Instagram; TV bill digits follow the limit');
+  console.log('✓ Go Live for every AI Video with a Go Live player; gift choice locks; phone lock; store Instagram; TV bill digits follow the limit');
 }
 console.log('COUNTER PASS TESTS PASSED');

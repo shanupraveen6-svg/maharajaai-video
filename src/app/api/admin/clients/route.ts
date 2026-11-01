@@ -10,10 +10,13 @@ import {
   upsertClientWorkspace,
 } from '@/lib/maharaja/server';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
+import { monthlyReport, spendToday, usdToInr } from '@/lib/maharaja/usage-ledger';
 
 export const dynamic = 'force-dynamic';
 
-function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = []) {
+type ClientSpend = { todayInr: number; monthInr: number };
+
+function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = [], spend: ClientSpend = { todayInr: 0, monthInr: 0 }) {
   const whatsappStatus = getWhatsAppStatus();
   const links = getWorkspaceLinks(ws);
   return {
@@ -53,13 +56,33 @@ function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = []) {
     modules: { image: ws.modules?.image !== false, live: ws.modules?.live !== false, video: ws.modules?.video !== false },
     links: links.links,
     logins,
+    spend,
     updatedAt: ws.updatedAt,
   };
 }
 
-/** Client records with the staff login usernames TryFocus created for each client. */
+/** Estimated AI spend for one client today and this month, in rupees. */
+async function clientSpend(clientId: string): Promise<ClientSpend> {
+  const [today, report] = await Promise.all([spendToday(clientId), monthlyReport(clientId)]).catch(() => [null, null] as const);
+  return { todayInr: Math.round(usdToInr(today?.clientUsd || 0)), monthInr: Math.round(usdToInr(report?.costUsd || 0)) };
+}
+
+/** Client records with the staff login usernames TryFocus created for each client, and their AI spend. */
 async function withLogins(workspaces: MaharajaWorkspace[]) {
-  return Promise.all(workspaces.map(async (ws) => formatClientRecord(ws, await listClientLoginUsernames(ws.clientId).catch(() => []))));
+  return Promise.all(workspaces.map(async (ws) => {
+    const [logins, spend] = await Promise.all([listClientLoginUsernames(ws.clientId).catch(() => []), clientSpend(ws.clientId)]);
+    return formatClientRecord(ws, logins, spend);
+  }));
+}
+
+/** Today's estimated AI spend across every client, with the daily caps (₹). */
+async function platformSpend() {
+  const today = await spendToday().catch(() => null);
+  return {
+    todayInr: Math.round(usdToInr(today?.platformUsd || 0)),
+    clientCapInr: today?.caps.client ? Math.round(usdToInr(today.caps.client)) : null,
+    platformCapInr: today?.caps.platform ? Math.round(usdToInr(today.caps.platform)) : null,
+  };
 }
 
 /** Creates or resets a client's own staff login when TryFocus admin supplies one. */
@@ -85,10 +108,8 @@ export async function GET(req: NextRequest) {
     }
 
     const workspaces = await listClientWorkspaces();
-    return NextResponse.json({
-      success: true,
-      clients: await withLogins(workspaces),
-    });
+    const [clients, platform] = await Promise.all([withLogins(workspaces), platformSpend()]);
+    return NextResponse.json({ success: true, clients, platform });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unable to load client workspaces.' },

@@ -17,6 +17,12 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
     await handoff.ref.delete();
     expiredTvHandoffs += 1;
   }
+  // Live Mirror session videos live for 1 day.
+  const mirrorRecordings = await db.collection('tvMirrorRecordings').where('expiresAtMs', '<=', Date.now()).limit(100).get();
+  for (const recording of mirrorRecordings.docs) {
+    await bucket.deleteFiles({ prefix: `clients/${recording.data?.()?.clientId || MAHARAJA_CLIENT_ID}/mirror-recordings/${recording.id}/`, force: true });
+    await recording.ref.delete();
+  }
   let expiredRateLimits = 0;
   const rateDeadline = Date.now() + 20_000;
   // Also handles old records without Timestamp expiry while Cloud TTL is pending.

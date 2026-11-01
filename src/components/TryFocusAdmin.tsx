@@ -14,16 +14,15 @@ import {
   Video,
 } from 'lucide-react';
 import { CREDIT_BAR_COLOURS, creditStatuses } from '@/lib/maharaja/credits';
-import PlatformOverview from '@/components/PlatformOverview';
-import { resolveAccess } from '@/lib/maharaja/access';
+import PlatformOverview, { type PlatformSpend } from '@/components/PlatformOverview';
+import { CREDIT_PACKAGES, OFFERED_PACKAGES, PACKAGES, packageLabel, packageOf, resolveAccess, type CreditPackageId, type PackageId } from '@/lib/maharaja/access';
 
-/** What stops when each device is turned off (the rules live in access.ts). */
-const DEVICE_STOPS: Record<'tv' | 'tablet' | 'mobile' | 'led', string> = {
-  tv: 'Off also stops Live Mirror, catalogue AI Video and the Go Live link',
-  tablet: 'Off stops tablet try-on; the biller can still show AI Video QRs from a phone',
-  mobile: 'Always included in every package',
-  led: 'Off stops only catalogue AI Video on the TV; own-garment AI Video keeps working',
-};
+/** The screens a store can book; device rules for each live in access.ts. */
+const PACKAGE_CARDS: Array<{ id: PackageId; Icon: typeof Tv; text: string }> = [
+  { id: 'tv', Icon: Tv, text: 'Try-On and AI Video on the showroom TV. Live Mirror can be added.' },
+  { id: 'tablet', Icon: Tablet, text: 'Staff Try-On and the AI Video gift QR on the counter tablet.' },
+  { id: 'tv-tablet', Icon: Monitor, text: 'The TV in the showroom and the tablet at the counter.' },
+];
 
 type Client = {
   id: string;
@@ -41,6 +40,7 @@ type Client = {
   devices: { tv: boolean; tablet: boolean; mobile: boolean; led: boolean };
   usage: { image: number; live: number; video: number; passes?: number; goLive?: number; downloads?: number; scans?: number };
   limits: { image: number; live: number; video: number };
+  spend?: { todayInr: number; monthInr: number };
   /** Modules this client bought; a module that is off is blocked even with credits left. */
   modules?: { image: boolean; live: boolean; video: boolean };
   links?: {
@@ -68,39 +68,15 @@ const initialClients: Client[] = [
   },
 ];
 
-/** Credits in each plan, matching the pricing on the TryFocus home page. */
-const PLAN_CREDITS = {
-  image: { standard: 4000, pro: 6000 },
-  live: { standard: 500, pro: 1000 },
-  video: { standard: 500, pro: 1000 },
-} as const;
-
 const plans = [
-  {
-    key: 'image',
-    label: 'Try-On',
-    standard: '4,000 generations',
-    pro: '6,000 generations',
-    icon: Smartphone,
-  },
-  {
-    key: 'live',
-    label: 'Live Mirror (TV only)',
-    standard: '500 × 60-second sessions',
-    pro: '1,000 × 60-second sessions',
-    icon: Monitor,
-  },
-  {
-    key: 'video',
-    label: 'AI Video',
-    standard: '500 video rewards',
-    pro: '1,000 video rewards',
-    icon: Video,
-  },
+  { key: 'image', label: 'Try-On images', icon: Smartphone },
+  { key: 'video', label: 'AI Videos', icon: Video },
+  { key: 'live', label: 'Live Mirror sessions', icon: Monitor },
 ] as const;
 
 export default function TryFocusAdmin() {
   const [clients, setClients] = useState<Client[]>(initialClients);
+  const [platformSpend, setPlatformSpend] = useState<PlatformSpend | null>(null);
   // Empty = TryFocus platform overview; a client id = that workspace's management.
   const [clientId, setClientId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -113,6 +89,9 @@ export default function TryFocusAdmin() {
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
   const [newStoreName, setNewStoreName] = useState<string>('');
   const [newStoreBranch, setNewStoreBranch] = useState<string>('');
+  const [newPackage, setNewPackage] = useState<PackageId>('tv');
+  const [newLiveAddOn, setNewLiveAddOn] = useState(false);
+  const [newCredits, setNewCredits] = useState<CreditPackageId>('one');
   const [creatingClient, setCreatingClient] = useState<boolean>(false);
 
   const loadClients = useCallback(async () => {
@@ -127,6 +106,7 @@ export default function TryFocusAdmin() {
       if (res.ok && data?.success && Array.isArray(data.clients) && data.clients.length > 0) {
         setClients(data.clients);
       }
+      if (data?.platform) setPlatformSpend(data.platform);
     } catch {
       // keep fallback state if network is offline
     } finally {
@@ -145,6 +125,9 @@ export default function TryFocusAdmin() {
 
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  // An empty username field means the client's existing login, so the usual action is a password reset.
+  const loginName = (loginUsername.trim() || client.logins?.[0] || '').toLowerCase();
+  const loginExists = Boolean(client.logins?.includes(loginName));
 
   // Creates or resets the client's own staff login; it opens only this client's workspace.
   async function saveClientLogin(event: React.FormEvent) {
@@ -166,14 +149,16 @@ export default function TryFocusAdmin() {
           whatsappConnected: client.whatsappConnected,
           devices: client.devices,
           limits: client.limits,
-          loginUsername,
+          loginUsername: loginName,
           loginPassword,
         }),
       });
       const data = await res.json();
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not save the client login.');
       if (Array.isArray(data.clients)) setClients(data.clients);
-      setSavedNotice(`Login "${loginUsername.trim().toLowerCase()}" saved for ${client.name}. It opens only this client's workspace.`);
+      setSavedNotice(loginExists
+        ? `Password reset for "${loginName}". Devices using it are signed out.`
+        : `Login "${loginName}" created for ${client.name}. It opens only this client's workspace.`);
       setLoginUsername('');
       setLoginPassword('');
     } catch (err) {
@@ -265,11 +250,17 @@ export default function TryFocusAdmin() {
     void persistClientPatch(next);
   }
 
-  function toggleDevice(key: keyof Client['devices']) {
-    if (key === 'mobile') return;
-    void persistClientPatch({
-      devices: { ...client.devices, [key]: !client.devices[key] },
-    });
+  const currentPackage = packageOf(client.devices);
+  const liveAddOn = client.devices.tv && client.modules?.live !== false;
+  const currentCreditPackage = (Object.keys(CREDIT_PACKAGES) as CreditPackageId[]).find((id) => {
+    const plan = CREDIT_PACKAGES[id];
+    return client.limits.image === plan.image && client.limits.video === plan.video && client.limits.live === plan.live;
+  });
+
+  // Try-On and AI Video come with every screen; a screen without the TV cannot keep the Live Mirror add-on.
+  function choosePackage(id: PackageId) {
+    const devices = { ...PACKAGES[id].devices, led: client.devices.led };
+    void persistClientPatch({ devices, modules: { image: true, video: true, live: devices.tv && liveAddOn } });
   }
 
   function setLimit(key: keyof Client['limits'], value: number) {
@@ -309,8 +300,9 @@ export default function TryFocusAdmin() {
           status: 'Active',
           minPurchaseTryOnDisabled: true,
           deliveryMode: 'qr',
-          devices: { tv: true, tablet: true, mobile: true, led: true },
-          limits: { image: 4000, live: 500, video: 500 },
+          devices: PACKAGES[newPackage].devices,
+          modules: { image: true, video: true, live: PACKAGES[newPackage].devices.tv && newLiveAddOn },
+          limits: { image: CREDIT_PACKAGES[newCredits].image, video: CREDIT_PACKAGES[newCredits].video, live: CREDIT_PACKAGES[newCredits].live },
         }),
       });
       if (res.status === 401) {
@@ -433,7 +425,7 @@ export default function TryFocusAdmin() {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-4">
               <label className="block text-xs font-bold text-muted">
                 Store name
                 <input
@@ -452,6 +444,30 @@ export default function TryFocusAdmin() {
                   placeholder="e.g. Chennai · T. Nagar"
                   className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                 />
+              </label>
+              <label className="block text-xs font-bold text-muted">
+                Package
+                <select
+                  value={newPackage}
+                  onChange={(e) => setNewPackage(e.target.value as PackageId)}
+                  className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
+                >
+                  {OFFERED_PACKAGES.map((key) => <option key={key} value={key}>{PACKAGES[key].label}</option>)}
+                </select>
+                <select
+                  aria-label="Credit package"
+                  value={newCredits}
+                  onChange={(e) => setNewCredits(e.target.value as CreditPackageId)}
+                  className="mt-2 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
+                >
+                  {(Object.keys(CREDIT_PACKAGES) as CreditPackageId[]).map((id) => <option key={id} value={id}>{CREDIT_PACKAGES[id].label}</option>)}
+                </select>
+                {PACKAGES[newPackage].devices.tv && (
+                  <span className="mt-2 flex items-center gap-2 font-semibold text-ink">
+                    <input type="checkbox" checked={newLiveAddOn} onChange={(e) => setNewLiveAddOn(e.target.checked)} className="h-4 w-4 accent-brand" />
+                    Live Mirror add-on
+                  </span>
+                )}
               </label>
               <div className="flex items-end">
                 <button
@@ -502,15 +518,6 @@ export default function TryFocusAdmin() {
                 </select>
                 <ChevronDown className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-muted" />
               </div>
-              {clientId && <><a
-                href={`/maharaja/${encodeURIComponent(client.workspaceCode || client.id)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl mt-3 flex min-h-11 items-center justify-center gap-2 bg-ink px-4 text-xs font-bold text-white"
-              >
-                Open {client.name} workspace ↗
-              </a>
-              <p className="mt-2 text-xs text-muted">Opens exactly what this client sees: QR codes, Go Live, promos, catalogue and rules.</p></>}
             </div>
           </div>
 
@@ -562,7 +569,7 @@ export default function TryFocusAdmin() {
           </aside>}
         </section>
 
-        {!clientId && <PlatformOverview clients={clients} onSelect={setClientId} />}
+        {!clientId && <PlatformOverview clients={clients} platform={platformSpend} onSelect={setClientId} />}
 
         {clientId && (<>
         {/* Client staff login */}
@@ -597,7 +604,7 @@ export default function TryFocusAdmin() {
               aria-label="Client login username"
               value={loginUsername}
               onChange={(event) => setLoginUsername(event.target.value)}
-              placeholder="Username (e.g. srireadymade)"
+              placeholder={client.logins?.[0] ? `Username (${client.logins[0]})` : 'Username (e.g. srireadymade)'}
               autoComplete="off"
               className="min-h-11 border border-line px-3 text-sm outline-none focus:border-brand"
             />
@@ -606,117 +613,110 @@ export default function TryFocusAdmin() {
               type="password"
               value={loginPassword}
               onChange={(event) => setLoginPassword(event.target.value)}
-              placeholder="Password (8+ characters)"
+              placeholder={loginExists ? 'New password (8+ characters)' : 'Password (8+ characters)'}
               autoComplete="new-password"
               className="min-h-11 border border-line px-3 text-sm outline-none focus:border-brand"
             />
             <button
               type="submit"
-              disabled={saving || loginUsername.trim().length < 3 || loginPassword.length < 8}
+              disabled={saving || loginName.length < 3 || loginPassword.length < 8}
               className="min-h-11 bg-brand px-5 text-xs font-bold text-white disabled:opacity-50"
             >
-              Save login
+              {loginExists ? 'Reset password' : 'Create login'}
             </button>
           </form>
-          <p className="mt-2 text-xs text-muted">Saving an existing username resets its password.</p>
+          <p className="mt-2 text-xs text-muted">{loginExists ? 'Type a different username to add a second login.' : 'The client signs in with this on the TV, counter and workspace.'}</p>
         </section>
 
-        {/* Purchased Device Access & Retailer Permissions */}
-        <section className="grid gap-6">
-          <div className="rounded-2xl border border-line bg-white p-6">
-            <div className="flex items-center justify-between border-b border-line pb-4">
-              <div>
-                <h2 className="mt-1 text-2xl font-bold text-ink">
-                  Devices
-                </h2>
-              </div>
-              <Tv className="h-6 w-6 text-brand" />
-            </div>
+        {/* What this client booked: a screen (the phone comes with it), Try-On and AI Video, and the Live Mirror add-on. */}
+        <section className="tf-card p-6">
+          <h2 className="text-2xl font-bold">Package</h2>
+          <p className="mt-1 text-sm text-muted">Now: <b className="text-ink">{packageLabel(client.devices)}</b> · Try-On and AI Video{liveAddOn ? ' · Live Mirror' : ''}. Tap a screen to change it.</p>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {(
-                [
-                  [
-                    'tv',
-                    'Portrait TV',
-                    'Try-On, Live Mirror and catalogue AI Video',
-                    Tv,
-                  ],
-                  [
-                    'tablet',
-                    'Counter tablet',
-                    'Staff Try-On and AI Video QRs for customers',
-                    Tablet,
-                  ],
-                  [
-                    'mobile',
-                    'Customer phone',
-                    'Try-On from the permanent QR and AI Video passes',
-                    Smartphone,
-                  ],
-                  [
-                    'led',
-                    'Go Live player',
-                    'Plays customer AI videos and promos on any screen',
-                    Monitor,
-                  ],
-                ] as const
-              ).map(([key, title, description, Icon]) => (
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {PACKAGE_CARDS.map(({ id, Icon, text }) => {
+              const selected = currentPackage === id;
+              return (
                 <button
-                  key={key}
+                  key={id}
                   type="button"
-                  onClick={() => toggleDevice(key)}
-                  className={`flex items-start gap-3.5 rounded-2xl border p-4 text-left transition ${
- client.devices[key]
- ? 'border-line bg-white hover:border-line-strong'
- : 'border-dashed border-line-strong bg-canvas opacity-70'
- }`}
+                  aria-pressed={selected}
+                  onClick={() => choosePackage(id)}
+                  className={`flex flex-col items-start gap-3 rounded-2xl border p-4 text-left transition ${selected ? 'border-ink bg-white ring-1 ring-ink' : 'border-line bg-white hover:border-line-strong'}`}
                 >
-                  <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
- client.devices[key]
- ? 'bg-brand-soft text-brand'
- : 'border border-line bg-white text-muted'
- }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <p className="text-base font-bold text-ink">{title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted">{description}</p>
-                    <span
-                      className={`mt-2.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
- client.devices[key]
- ? 'bg-[#EBF5EE] text-success'
- : 'bg-line text-muted'
- }`}
-                    >
-                      {client.devices[key] ? 'On' : 'Off'}
-                    </span>
-                    <p className="mt-1.5 text-xs text-muted">{DEVICE_STOPS[key]}</p>
-                  </div>
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${selected ? 'bg-ink text-white' : 'bg-canvas text-ink'}`}><Icon className="h-5 w-5" /></span>
+                  <span className="text-base font-bold text-ink">{PACKAGES[id].label}</span>
+                  <span className="text-sm text-muted">{text}</span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
 
+          <div className="mt-4 flex items-start gap-3.5 rounded-2xl bg-canvas p-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-ink"><Smartphone className="h-5 w-5" /></span>
+            <p className="text-sm text-muted">
+              <b className="text-ink">Included with every screen:</b> Try-On and AI Video, the customer’s phone (Wall QR Try-On and the AI Video gift QR), the workspace, and Go Live on the store’s own LED or wall screen.
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className={`flex items-start justify-between gap-4 rounded-2xl border p-4 ${client.devices.tv ? 'border-line' : 'border-dashed border-line-strong bg-canvas'}`}>
+              <div>
+                <p className="font-bold text-ink">Live Mirror add-on</p>
+                <p className="mt-1 text-sm text-muted">{client.devices.tv ? 'Live try-on on the TV: 60 seconds, outfits change as the customer moves.' : 'Needs the TV.'}</p>
+              </div>
+              <button
+                type="button"
+                aria-pressed={liveAddOn}
+                disabled={!client.devices.tv}
+                onClick={() => void persistClientPatch({ modules: { image: true, video: true, live: !liveAddOn } })}
+                className={`min-h-10 shrink-0 rounded-full px-4 text-sm font-semibold disabled:opacity-50 ${liveAddOn ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}
+              >
+                {liveAddOn ? 'Added' : 'Add'}
+              </button>
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-line p-4">
+              <div>
+                <p className="font-bold text-ink">Go Live player</p>
+                <p className="mt-1 text-sm text-muted">Plays every customer AI Video and the store’s promos on their LED or wall screen. Off makes AI Videos download only.</p>
+              </div>
+              <button
+                type="button"
+                aria-pressed={client.devices.led}
+                onClick={() => void persistClientPatch({ devices: { ...client.devices, led: !client.devices.led } })}
+                className={`min-h-10 shrink-0 rounded-full px-4 text-sm font-semibold ${client.devices.led ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}
+              >
+                {client.devices.led ? 'On' : 'Off'}
+              </button>
+            </div>
+          </div>
         </section>
 
-        {/* Usage & Hard Budget Ceilings */}
-        <section className="rounded-2xl border border-line bg-white p-6">
-          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-4">
+        {/* Credits: one of the two packages, or a custom limit per experience. */}
+        <section className="tf-card p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="mt-1 text-2xl font-bold text-ink">
-                Credits
-              </h2>
+              <h2 className="text-2xl font-bold">Credits</h2>
+              <p className="mt-1 text-sm text-muted">{currentCreditPackage ? `${CREDIT_PACKAGES[currentCreditPackage].label}.` : 'Custom limits.'} Each package covers all three; the store uses what it booked.</p>
             </div>
-            <button
-              type="button"
-              onClick={saveCurrentConfiguration}
-              className="rounded-xl border border-ink bg-canvas px-3.5 py-1.5 text-xs font-bold text-ink hover:bg-ink hover:text-white"
-            >
-              Apply limits
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(CREDIT_PACKAGES) as CreditPackageId[]).map((id) => {
+                const plan = CREDIT_PACKAGES[id];
+                const selected = currentCreditPackage === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => void persistClientPatch({ limits: { image: plan.image, video: plan.video, live: plan.live } })}
+                    className={`min-h-11 rounded-xl border px-4 text-left text-sm ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white hover:border-ink'}`}
+                  >
+                    <span className="block font-bold">{plan.label}</span>
+                    <span className={`block text-xs tabular-nums ${selected ? 'text-white/80' : 'text-muted'}`}>{plan.image.toLocaleString('en-IN')} images · {plan.video.toLocaleString('en-IN')} videos · {plan.live.toLocaleString('en-IN')} live</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-3">
@@ -727,19 +727,19 @@ export default function TryFocusAdmin() {
               const percent = limit ? Math.min(100, Math.round((used / limit) * 100)) : 100;
               const level = percent >= 100 ? 'exhausted' : percent >= 95 ? 'critical' : percent >= 80 ? 'low' : 'ok';
               const Icon = plan.icon;
+              const running = key !== 'live' || liveAddOn;
               return (
-                <article key={key} className="rounded-2xl border border-line bg-canvas p-5">
+                <article key={key} className={`rounded-2xl border p-5 ${running ? 'border-line bg-canvas' : 'border-dashed border-line-strong bg-white'}`}>
                   <div className="flex items-center justify-between">
-                    <span className="flex h-9 w-9 items-center justify-center bg-ink text-white">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-white">
                       <Icon className="h-4 w-4" />
                     </span>
                     <span className="tabular-nums text-xs font-semibold text-muted">
                       {used.toLocaleString('en-IN')} used
                     </span>
                   </div>
-                  <h3 className="mt-3 text-xl font-bold text-ink">
-                    {plan.label}
-                  </h3>
+                  <h3 className="mt-3 text-xl font-bold text-ink">{plan.label}</h3>
+                  {!running && <p className="mt-1 text-xs text-muted">Not added. Add it under Package.</p>}
                   <div className="mt-3 flex items-center gap-3">
                     <input
                       aria-label={`${plan.label} limit`}
@@ -749,33 +749,11 @@ export default function TryFocusAdmin() {
                       onBlur={() => void saveCurrentConfiguration()}
                       className="h-10 w-32 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
                     />
-                    <span className="text-xs text-muted">hard limit</span>
+                    <span className="text-xs text-muted">limit</span>
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      aria-pressed={client.modules?.[key] !== false}
-                      onClick={() => void persistClientPatch({ modules: { ...(client.modules || { image: true, live: true, video: true }), [key]: client.modules?.[key] === false } })}
-                      className={`min-h-10 px-3 text-xs font-bold ${client.modules?.[key] === false ? 'border border-line bg-white text-muted': 'bg-success text-white'}`}
-                    >
-                      {client.modules?.[key] === false ? 'Module off' : 'Module on'}
-                    </button>
-                    {resolveAccess(client.devices, client.modules).blockedBy[key] && (
-                      <span className="w-full text-xs font-semibold text-danger">
-                        {key === 'video' ? '' : 'Not running: '}{resolveAccess(client.devices, client.modules).blockedBy[key]}
-                      </span>
-                    )}
-                    {(['standard', 'pro'] as const).map((tier) => (
-                      <button
-                        key={tier}
-                        type="button"
-                        onClick={() => void persistClientPatch({ limits: { ...client.limits, [key]: PLAN_CREDITS[key][tier] } })}
-                        className="min-h-10 border border-line-strong bg-white px-3 text-xs font-semibold hover:border-ink"
-                      >
-                        {tier === 'standard' ? 'Standard' : 'Pro'} · {PLAN_CREDITS[key][tier].toLocaleString('en-IN')}
-                      </button>
-                    ))}
-                  </div>
+                  {resolveAccess(client.devices, client.modules).blockedBy[key] && (
+                    <p className="mt-2 text-xs font-semibold text-danger">{resolveAccess(client.devices, client.modules).blockedBy[key]}</p>
+                  )}
                   <div className="mt-4 h-2 overflow-hidden rounded-full bg-line">
                     <div className={`h-full ${CREDIT_BAR_COLOURS[level]}`} style={{ width: `${percent}%` }} />
                   </div>

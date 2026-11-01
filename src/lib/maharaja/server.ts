@@ -8,6 +8,7 @@ import { displayClientId, verifyTvRequest } from '@/lib/auth/display';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
 import { activeClientId } from './client-context';
+import { recordUsage } from './usage-ledger';
 import { getLiveAudioTrack, getPreviewAudioTrack } from './audio';
 import { generateCustomer6sVideo, generateLive9sVideo, validateBrandedVideo } from './video-processor';
 import {
@@ -111,6 +112,8 @@ export type MaharajaVideoPass = {
   phone: string;
   phoneMasked: string;
   experienceType?: 'purchased-garment' | 'catalogue-gift';
+  /** A biller's gift QR: the customer chose the store collection or the outfit they bought. */
+  giftChoice?: 'catalogue' | 'own';
   catalogueSku?: string;
   catalogueTitle?: string;
   cataloguePrice?: number;
@@ -515,8 +518,50 @@ export function videoLimitSet(workspace: Pick<MaharajaWorkspace, 'videoMinPurcha
 }
 
 /** Only TV catalogue videos (the store's showcase garments) may play on the Go Live TV. */
-export function passAllowsGoLive(pass: Pick<MaharajaVideoPass, 'experienceType'> | null | undefined) {
-  return pass?.experienceType === 'catalogue-gift';
+/**
+ * Every AI Video can Go Live: from the TV (store collection) and from the biller's gift QR (store
+ * collection or the outfit bought), as long as the store has the Go Live player.
+ */
+export function passAllowsGoLive(
+  pass: Pick<MaharajaVideoPass, 'experienceType'> | null | undefined,
+  workspace?: Pick<MaharajaWorkspace, 'devices' | 'modules'> | null,
+) {
+  if (!pass) return false;
+  return workspace ? resolveAccess(workspace.devices, workspace.modules).goLive : true;
+}
+
+/**
+ * The customer's first choice on a biller's gift QR. "catalogue" turns the pass into a store-collection
+ * pass (garment picked from the catalogue next); "own" keeps the photo of the outfit they bought. The choice
+ * is made once, before anything is generated.
+ */
+export async function chooseGiftGarment(code: string, choice: 'catalogue' | 'own') {
+  const patch = choice === 'catalogue'
+    ? { giftChoice: choice, experienceType: 'catalogue-gift' as const }
+    : { giftChoice: choice };
+  const started = (pass: MaharajaVideoPass) => Boolean(pass.videoMasterDone || pass.videoMasterUrl || pass.videoGenerating || pass.videoDone);
+  const check = (pass: MaharajaVideoPass | undefined) => {
+    if (!pass) throw new Error('This AI Video QR is no longer valid.');
+    if (pass.giftChoice) return pass.giftChoice === choice ? 'same' : 'locked';
+    if (pass.experienceType === 'catalogue-gift') return 'locked';
+    if (started(pass)) return 'locked';
+    return 'set';
+  };
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
+    return db.runTransaction(async (transaction) => {
+      const pass = (await transaction.get(ref)).data() as MaharajaVideoPass | undefined;
+      const result = check(pass);
+      if (result === 'set') transaction.set(ref, { ...patch, updatedAt: new Date().toISOString() }, { merge: true });
+      return result !== 'locked';
+    });
+  }
+  const key = `${activeClientId()}:${code}`;
+  const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+  const result = check(pass);
+  if (result === 'set') getMockStore().customerPasses.set(key, { ...pass, ...patch, updatedAt: new Date().toISOString() });
+  return result !== 'locked';
 }
 
 /** Locks a pass to the first phone that opens it. Returns false when another phone already owns it. */
@@ -1047,19 +1092,6 @@ export async function activateVideoPassOnFirstScan(code: string): Promise<Mahara
     }, { merge: true });
     return next;
   });
-}
-
-/** Pass a phone already opened today from the store's poster QR (keyed by a hash of device and date). */
-export async function readPosterDevicePass(deviceKey: string): Promise<string | null> {
-  const db = getDb();
-  if (db) return ((await db.collection('clientWorkspaces').doc(activeClientId()).collection('posterDevicePasses').doc(deviceKey).get()).data()?.code as string | undefined) || null;
-  return (getMockStore().sessions.get(`poster_device_${activeClientId()}_${deviceKey}`) as string | undefined) || null;
-}
-
-export async function savePosterDevicePass(deviceKey: string, code: string) {
-  const db = getDb();
-  if (db) await db.collection('clientWorkspaces').doc(activeClientId()).collection('posterDevicePasses').doc(deviceKey).set({ code, createdAt: new Date().toISOString(), expiresAtMs: Date.now() + 2 * 24 * 60 * 60 * 1000 });
-  else getMockStore().sessions.set(`poster_device_${activeClientId()}_${deviceKey}`, code);
 }
 
 export async function saveVideoPass(pass: MaharajaVideoPass) {
@@ -1594,6 +1626,7 @@ export async function listRecentVideoPasses(limit = 8): Promise<MaharajaVideoPas
 }
 
 export async function incrementMaharajaUsage(field: keyof MaharajaWorkspace['usage']) {
+  await recordUsage(field);
   const db = getDb();
   if (db) {
     // set() treats dotted keys as literal field names, so the counter is written as a nested map.
@@ -1625,6 +1658,9 @@ export async function reserveMaharajaUsage(field: 'tryOnGenerated' | 'videosGene
       if (used >= limit) return false;
       transaction.set(ref, { usage: { [field]: used + 1 }, updatedAt: new Date().toISOString() }, { merge: true });
       return true;
+    }).then(async (reserved) => {
+      if (reserved) await recordUsage(field);
+      return reserved;
     });
   }
   // The mock store is read and written without an await in between, so it is atomic as well.
@@ -1634,11 +1670,13 @@ export async function reserveMaharajaUsage(field: 'tryOnGenerated' | 'videosGene
   const used = Number(workspace.usage[field] || 0);
   if (used >= limit) return false;
   getMockStore().clientWorkspaces.set(activeClientId(), { ...workspace, usage: { ...workspace.usage, [field]: used + 1 } });
+  await recordUsage(field);
   return true;
 }
 
 /** Returns a reserved credit when the generation it was reserved for did not complete. */
 export async function releaseMaharajaUsage(field: 'tryOnGenerated' | 'videosGenerated' | 'liveSessions') {
+  await recordUsage(field, -1);
   const db = getDb();
   if (db) {
     await db.collection('clientWorkspaces').doc(activeClientId()).set({

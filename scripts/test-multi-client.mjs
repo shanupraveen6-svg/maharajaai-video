@@ -61,7 +61,7 @@ assert.equal((await server.getClientWorkspaceById('maharaja')).videoMinPurchase,
 console.log('✓ Client login is locked to its own workspace and cannot change credits');
 
 // 3. QR passes belong to the client whose QR issued them.
-const passRes = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'video-poster', billingCode: sri.openVideoCode, experienceType: 'purchased-garment' }) }));
+const passRes = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billingCode: sri.billingCode, experienceType: 'purchased-garment' }) }));
 const passData = await passRes.json();
 assert.equal(passRes.status, 200, passData.error);
 const access = await server.verifyMaharajaAccess(new NextRequest('http://localhost/'), passData.pass.code, 'ai-video');
@@ -71,26 +71,16 @@ assert.equal(access.workspace.clientName, 'Sri Readymade');
 assert.equal((await server.getVideoPass(passData.pass.code, SRI)).clientId, SRI, 'Pass stored in the client\'s workspace');
 const tryOnAccess = await server.verifyMaharajaAccess(new NextRequest('http://localhost/'), sri.tryOnCode, 'try-on');
 assert.equal(tryOnAccess.clientId, SRI);
-console.log('✓ Poster and try-on QR codes resolve to the client that printed them');
+console.log('✓ Billing-counter and try-on QR codes resolve to the client that issued them');
 
-// 3b. Poster QR: one pass per phone per day; switched off when a minimum bill is set.
+// 3b. Poster QR: refused even with no minimum bill; AI Video QRs come only from the billing counter.
 {
-  const poster = async (deviceId) => {
-    const res = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'video-poster', billingCode: sri.openVideoCode, deviceId }) }));
-    return { status: res.status, data: await res.json() };
-  };
-  const phoneA1 = await poster('device-aaaaaaaaaaaaaaaa');
-  const phoneA2 = await poster('device-aaaaaaaaaaaaaaaa');
-  const phoneB = await poster('device-bbbbbbbbbbbbbbbb');
-  assert.equal(phoneA1.status, 200, phoneA1.data.error);
-  assert.equal(phoneA2.data.pass.code, phoneA1.data.pass.code, 'Same phone, same day: same pass');
-  assert.notEqual(phoneB.data.pass.code, phoneA1.data.pass.code, 'Another phone gets its own pass');
-  await runWithClient(SRI, () => server.updateMaharajaSettings({ videoMinPurchase: 2000 }, SRI));
-  const blockedPoster = await poster('device-cccccccccccccccc');
-  assert.equal(blockedPoster.status, 403);
-  assert.match(blockedPoster.data.error, /billing counter/);
   await runWithClient(SRI, () => server.updateMaharajaSettings({ videoMinPurchase: 0 }, SRI));
-  console.log('✓ Poster QR: one pass per phone per day; off while a minimum bill is set');
+  const res = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'video-poster', billingCode: sri.openVideoCode, deviceId: 'device-aaaaaaaaaaaaaaaa' }) }));
+  const data = await res.json();
+  assert.equal(res.status, 403);
+  assert.match(data.error, /billing counter/);
+  console.log('✓ Poster QR is refused; AI Video QRs come from the billing counter');
 }
 
 // 4. Credits, catalogue and Go Live queue are separate per client.
@@ -111,7 +101,7 @@ console.log('✓ Credits, catalogue and Go Live queue are isolated per client');
 
 // 5. Customer Mobile is always included: even a stored "off" does not block the phone AI Video pass.
 await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { mobile: false } }, SRI));
-const stillOn = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'video-poster', billingCode: sri.openVideoCode }) }));
+const stillOn = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billingCode: sri.billingCode }) }));
 assert.equal(stillOn.status, 200);
 await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { mobile: true } }, SRI));
 console.log('✓ Customer Mobile is always included');
@@ -121,15 +111,15 @@ await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { mobile
 const sriNow = await server.getClientWorkspaceById(SRI);
 assert.equal(server.moduleLimit(sriNow, 'video'), 0);
 assert.ok(server.moduleLimit(sriNow, 'image') > 0, 'Other modules stay on');
-const videoOff = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'video-poster', billingCode: sri.openVideoCode }) }));
+const videoOff = await createPass(new NextRequest('http://localhost/api/maharaja/video-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billingCode: sri.billingCode }) }));
 assert.equal(videoOff.status, 403);
 const screenReq = new NextRequest('http://localhost/api/live/next', { headers: { 'x-golive-screen': server.goLiveCodeFor(SRI) } });
 assert.equal(await server.goLiveClientId(screenReq), null);
 await runWithClient(SRI, () => server.updateMaharajaSettings({ modules: { video: true } }, SRI));
-assert.equal(await server.goLiveClientId(screenReq), null, 'Go Live is a TV feature: no TV, no Go Live link');
-await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { tv: true } }, SRI));
-assert.equal(await server.goLiveClientId(screenReq), SRI, 'With the TV and AI Video on, the link plays');
-await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { tv: false } }, SRI));
+assert.equal(await server.goLiveClientId(screenReq), SRI, 'With AI Video on, the Go Live link plays on the store screen, with or without the TV');
+await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { led: false } }, SRI));
+assert.equal(await server.goLiveClientId(screenReq), null, 'The Go Live player switched off: no link');
+await runWithClient(SRI, () => server.updateMaharajaSettings({ devices: { led: true } }, SRI));
 console.log('✓ Module switches block a module even when credits remain');
 
 // 7. 30-day TV pairing per workspace; disconnecting one workspace's TVs leaves the others paired.

@@ -12,6 +12,7 @@ import {
 } from '@/lib/maharaja/server';
 import { buildVideoTestInput, getVideoTestModel } from '@/lib/maharaja/video-test';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
+import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -221,6 +222,7 @@ export async function POST(req: NextRequest) {
       const webhookUrl = new URL('/api/video/webhook', req.nextUrl.origin);
       webhookUrl.searchParams.set('jobId', jobId);
       webhookUrl.searchParams.set('token', webhookToken);
+      if (!await spendAllowed()) throw new Error(SPEND_CAP_MESSAGE);
       const queueUrl = new URL(`https://queue.fal.run/${model.model}`);
       queueUrl.searchParams.set('fal_webhook', webhookUrl.toString());
       const response = await fetch(queueUrl, {
@@ -237,6 +239,7 @@ export async function POST(req: NextRequest) {
       responseUrl = provider.response_url || provider.responseUrl;
       providerSeed = typeof provider.seed === 'number' || typeof provider.seed === 'string' ? provider.seed : null;
       if (!requestId || !statusUrl || !responseUrl) throw new Error('Fal accepted the request but returned incomplete queue tracking data.');
+      await recordAiCost('video-render', model.estimatedUsd);
     }
 
     const update = {

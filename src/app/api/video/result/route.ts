@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     category: job.category || access.pass.videoMasterCategory || null,
     customerName: access.pass.customerName || null,
     customerLocality: access.pass.customerLocality || null,
-    allowGoLive: passAllowsGoLive(access.pass),
+    allowGoLive: passAllowsGoLive(access.pass, access.workspace),
     instagramUrl: instagramUrlFor(access.workspace),
     clientName: access.workspace.clientName,
     catalogueProduct: access.pass.catalogueSku ? {

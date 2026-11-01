@@ -46,6 +46,8 @@ type AccessResponse = {
     billLast4: string | null;
     experienceType?: 'purchased-garment' | 'catalogue-gift';
     catalogueProduct?: { sku: string; title?: string; price?: number } | null;
+    /** Every AI Video can Go Live when the store has the Go Live player. */
+    allowGoLive?: boolean;
     tryOnUsed: boolean;
     videoMasterApproved?: boolean;
     videoMasterCategory?: CustomerCategory | null;
@@ -937,7 +939,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             initialVideoUrl={videoTestUrl}
             initialMasterImageUrl={videoMasterUrl || ''}
             initialEventId={eventId}
-            allowGoLive={isCatalogueGift}
+            allowGoLive={access?.access.allowGoLive === true}
             catalogueProduct={access?.access.catalogueProduct || null}
             onBack={() => { setVideoTestUrl(''); setVideoTestJobId(''); setStage('ready'); }}
           />
@@ -967,10 +969,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           </div>
         )}
 
-        {!isCatalogueGift && <div className="rounded-2xl mb-5 grid grid-cols-2 border border-[#D8C49B] bg-white p-1">
-          <button type="button" onClick={() => setActiveService('try-on')} className={`min-h-12 px-3 text-xs font-bold ${activeService === 'try-on'? 'bg-brand text-[#F3E5AB]' : 'text-brand'}`}><Shirt className="mr-2 inline h-4 w-4" />AI Try-On</button>
-          <button type="button" disabled={service !== 'ai-video'} onClick={() => { setActiveService('ai-video'); setPurchaseConfirmed(true); }} className={`min-h-12 px-3 text-xs font-bold disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${activeService === 'ai-video'? 'bg-[#21090E] text-[#F3E5AB]' : 'text-brand'}`}><Film className="mr-2 inline h-4 w-4" />AI Video<span className="block text-xs normal-case">{service === 'ai-video' ? 'Unlocked' : 'Above Rs 5000 purchase'}</span></button>
-        </div>}
 
         {isCatalogueGift && access?.access.catalogueProduct && (
           <div className="rounded-2xl mb-5 border border-[#D8C49B] bg-white p-4 text-center">

@@ -3,6 +3,7 @@ import { moduleLimit, resolveRequestClientId, getMaharajaWorkspace } from '@/lib
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { bindClient } from '@/lib/maharaja/client-context';
+import { SPEND_CAP_MESSAGE, spendAllowed } from '@/lib/maharaja/usage-ledger';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
 
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest) {
   if (liveLimit <= 0 || liveUsed >= liveLimit) {
     return new NextResponse('Live AI Mirror is paused right now. Please ask our staff for help.', { status: 403 });
   }
+
+  if (!await spendAllowed()) return new NextResponse(SPEND_CAP_MESSAGE, { status: 503 });
 
   const falKey = process.env.FAL_KEY?.trim();
   if (!falKey) return new NextResponse('Live AI Mirror is not configured.', { status: 503 });

@@ -2,30 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Clock, Download, LoaderCircle, MessageSquare, QrCode, RefreshCw, Smartphone } from 'lucide-react';
+import { Clock, Gift, LoaderCircle, MessageSquare, QrCode, RefreshCw, Smartphone } from 'lucide-react';
 import { formatINR } from '@/lib/tryfocus/sample-data';
 
 type CounterConfig = {
   clientName: string;
   videoMinPurchase: number;
   whatsappEnabled: boolean;
-  openVideoUrl: string;
 };
-
-type CounterMode = 'per-customer' | 'permanent';
 
 const QR_COLORS = { dark: '#161918', light: '#FFFFFF' };
 
 /**
- * Billing-counter AI Video QR. Used on the counter tablet (operator session) and on the
- * billing link (billingCode capability). Each "Next customer" tap issues a fresh private pass
- * whose 24-hour validity starts when the customer first opens it.
+ * The AI Video thank-you gift QR, given after a purchase. Shown in the client workspace, on the counter
+ * tablet or the biller's phone (operator session), and on the billing link (billingCode capability). Each
+ * "New customer" tap issues a fresh private pass whose 1-day validity starts when the customer first opens
+ * it. The customer picks the store collection or the outfit they bought, then downloads or Goes Live.
  */
 export default function TabletVideoHandoff({ billingCode }: { billingCode?: string }) {
   const [config, setConfig] = useState<CounterConfig | null>(null);
-  const [mode, setMode] = useState<CounterMode>('per-customer');
   const [passQr, setPassQr] = useState('');
-  const [permanentQr, setPermanentQr] = useState('');
   const [customerCount, setCustomerCount] = useState(0);
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
@@ -41,7 +37,6 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
             clientName: data.clientName,
             videoMinPurchase: Number(data.videoMinPurchase ?? 5000),
             whatsappEnabled: data.whatsappEnabled === true,
-            openVideoUrl: data.openVideoUrl || '',
           } : Promise.reject(new Error(data?.error || 'Invalid billing-counter link.')))
       : fetch('/api/maharaja/workspace', { cache: 'no-store' })
           .then((response) => response.json())
@@ -49,14 +44,9 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
             clientName: data.workspace?.clientName,
             videoMinPurchase: Number(data.workspace?.videoMinPurchase ?? 5000),
             whatsappEnabled: data.workspace?.whatsappEnabled === true,
-            openVideoUrl: data.workspace?.links?.openVideo || '',
           } : Promise.reject(new Error(data?.error || 'Sign in again to load the counter QR.')));
     source
-      .then(async (next: CounterConfig) => {
-        if (!active) return;
-        setConfig(next);
-        if (next.openVideoUrl) setPermanentQr(await QRCode.toDataURL(next.openVideoUrl, { width: 720, margin: 2, color: QR_COLORS }));
-      })
+      .then((next: CounterConfig) => { if (active) setConfig(next); })
       .catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : 'Unable to load the counter QR. Reload this page.'); });
     return () => { active = false; };
   }, [billingCode]);
@@ -91,130 +81,76 @@ export default function TabletVideoHandoff({ billingCode }: { billingCode?: stri
     }
   }
 
-  function downloadPermanentQr() {
-    if (!permanentQr) return;
-    const link = document.createElement('a');
-    link.href = permanentQr;
-    link.download = `${(config?.clientName || 'store').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-ai-video-counter-qr.png`;
-    link.click();
-  }
-
   const minimum = config?.videoMinPurchase ?? 5000;
+  const storeName = config?.clientName || 'the store';
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 border border-brand/30 bg-brand/5 px-4 py-3">
-        <p className="text-sm font-semibold text-ink">
-          {minimum > 0 ? <>Offer for bills of <strong>{formatINR(minimum)}</strong> and above</> : <>Offer on every bill</>}
-          <span className="font-normal text-muted"> · Own garment AI video</span>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-brand-soft px-4 py-3 text-sm">
+        <p className="font-semibold text-ink">
+          <Gift className="mr-1.5 inline h-4 w-4 text-brand" />
+          Thank-you gift {minimum > 0 ? <>for bills of {formatINR(minimum)} and above</> : <>on every bill</>}
         </p>
-        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-brand">
-          <Clock className="h-3.5 w-3.5" />
-          Valid 24 h from first scan
+        <span className="inline-flex items-center gap-1.5 text-muted">
+          <Clock className="h-4 w-4" /> Each QR works for 1 day
         </span>
       </div>
 
-      {/* With a minimum bill, every customer gets a fresh QR; the permanent poster would bypass the bill. */}
-      {minimum === 0 && <div className="grid grid-cols-2 border border-ink" role="tablist" aria-label="Counter QR type">
-        {([
-          ['per-customer', 'New QR per customer'],
-          ['permanent', 'Permanent counter QR'],
-        ] as const).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={mode === id}
-            onClick={() => setMode(id)}
-            className={`min-h-12 px-3 text-xs font-bold ${mode === id ? 'bg-ink text-white': 'bg-white text-ink'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>}
+      {error && <p role="alert" className="rounded-2xl bg-danger-soft p-3 text-sm font-semibold text-danger">{error}</p>}
 
-      {error && <p role="alert" className="border border-danger bg-[#FEF3F2] p-3 text-sm font-semibold text-danger">{error}</p>}
-
-      {mode === 'per-customer' || minimum > 0 ? (
-        <section className="rounded-2xl flex flex-col items-center border border-ink bg-canvas p-6 text-center">
-          <p className="flex items-center gap-2 text-xs font-bold text-brand">
-            <Smartphone className="h-4 w-4" />
-            {passQr ? `Customer ${customerCount} · Scan with phone camera` : 'Ready for the next customer'}
-          </p>
-          <div className="mt-4 border-4 border-ink bg-white p-3">
-            {passQr ? (
-              <img src={passQr} alt="Customer AI Video QR" className="aspect-square w-full max-w-[300px] object-contain" />
-            ) : (
-              <div className="flex aspect-square w-[min(300px,70vw)] items-center justify-center text-subtle">
-                <QrCode className="h-16 w-16" />
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            disabled={busy || !config}
-            onClick={() => void issuePass()}
-            className="mt-5 flex min-h-14 w-full max-w-sm items-center justify-center gap-2 bg-brand px-5 text-sm font-bold text-white disabled:opacity-50"
-          >
-            {busy ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
-            {busy ? 'Creating QR…' : passQr ? 'Next customer · New QR' : 'Show QR for this customer'}
-          </button>
-          <p className="mt-3 max-w-sm text-xs text-muted">
-            Each QR is private to one customer. A QR that is never scanned does not use any video credit.
-          </p>
-
-          {config?.whatsappEnabled && (
-            <div className="mt-5 w-full max-w-sm border-t border-line pt-4 text-left">
-              <label htmlFor="counter-phone" className="block text-xs font-semibold text-muted">
-                Or send the link on WhatsApp
-              </label>
-              <div className="mt-2 flex gap-2">
-                <input
-                  id="counter-phone"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))}
-                  inputMode="tel"
-                  placeholder="10-digit mobile number"
-                  className="min-h-12 min-w-0 flex-1 border border-line bg-white px-3 text-sm font-semibold outline-none focus:border-brand"
-                />
-                <button
-                  type="button"
-                  disabled={phone.length !== 10 || busy}
-                  onClick={() => void issuePass(phone)}
-                  className="flex min-h-12 items-center gap-1.5 bg-ink px-4 text-xs font-bold text-white disabled:opacity-50"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  Send
-                </button>
-              </div>
+      <section className="tf-card flex flex-col items-center p-6 text-center">
+        <p className="flex items-center gap-2 text-sm font-semibold text-muted">
+          <Smartphone className="h-4 w-4" />
+          {passQr ? `Customer ${customerCount} · scan with your phone camera` : 'Ready for the next customer'}
+        </p>
+        <div className="mt-4 rounded-2xl border border-line bg-white p-3">
+          {passQr ? (
+            <img src={passQr} alt="AI Video gift QR for this customer" className="aspect-square w-[min(300px,70vw)] object-contain" />
+          ) : (
+            <div className="flex aspect-square w-[min(300px,70vw)] items-center justify-center text-subtle">
+              <QrCode className="h-16 w-16" />
             </div>
           )}
-          {notice && <p role="status" className="mt-4 max-w-sm text-sm font-semibold text-success">{notice}</p>}
-        </section>
-      ) : (
-        <section className="rounded-2xl flex flex-col items-center border border-ink bg-canvas p-6 text-center">
-          <p className="text-xs font-bold text-brand">Print and paste at the counter</p>
-          <div className="mt-4 border-4 border-ink bg-white p-3">
-            {permanentQr ? (
-              <img src={permanentQr} alt="Permanent AI Video counter QR" className="aspect-square w-full max-w-[300px] object-contain" />
-            ) : (
-              <div className="flex aspect-square w-[min(300px,70vw)] items-center justify-center text-sm text-muted">Loading QR…</div>
-            )}
+        </div>
+        {passQr && <p className="mt-3 max-w-sm text-sm text-ink">A gift from {storeName}: a short AI Video of you, in the outfit you bought or one from our collection.</p>}
+        <button
+          type="button"
+          disabled={busy || !config}
+          onClick={() => void issuePass()}
+          className="tf-btn tf-btn-primary mt-5 !min-h-14 w-full max-w-sm text-base"
+        >
+          {busy ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
+          {busy ? 'Creating QR…' : passQr ? 'New customer' : 'Show QR for this customer'}
+        </button>
+        <p className="mt-3 max-w-sm text-sm text-muted">
+          One QR per customer. Tap New customer for the next bill. A QR that is never scanned uses no credit.
+        </p>
+
+        {config?.whatsappEnabled && (
+          <div className="mt-5 w-full max-w-sm border-t border-line pt-4 text-left">
+            <label htmlFor="counter-phone" className="tf-label block">Or send the gift link on WhatsApp</label>
+            <div className="mt-2 flex gap-2">
+              <input
+                id="counter-phone"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))}
+                inputMode="tel"
+                placeholder="10-digit mobile number"
+                className="min-h-12 min-w-0 flex-1 border border-line bg-white px-3 text-sm font-semibold outline-none focus:border-brand"
+              />
+              <button
+                type="button"
+                disabled={phone.length !== 10 || busy}
+                onClick={() => void issuePass(phone)}
+                className="tf-btn tf-btn-dark !min-h-12 px-4 text-sm"
+              >
+                <MessageSquare className="h-4 w-4" /> Send
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            disabled={!permanentQr}
-            onClick={downloadPermanentQr}
-            className="rounded-xl mt-5 flex min-h-12 w-full max-w-sm items-center justify-center gap-2 border border-ink bg-white px-5 text-xs font-bold text-ink disabled:opacity-50"
-          >
-            <Download className="h-4 w-4" />
-            Download QR for printing
-          </button>
-          <p className="mt-3 max-w-sm text-xs text-muted">
-            Every scan creates a separate private 24-hour session for that customer.
-          </p>
-        </section>
-      )}
+        )}
+        {notice && <p role="status" className="mt-4 max-w-sm text-sm font-semibold text-success">{notice}</p>}
+      </section>
     </div>
   );
 }

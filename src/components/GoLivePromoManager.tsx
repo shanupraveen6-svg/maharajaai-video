@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Copy, ExternalLink, LoaderCircle, Trash2, Upload } from 'lucide-react';
+import { LoaderCircle, Trash2, Upload } from 'lucide-react';
 
 type Promo = { id: string; title: string; durationSeconds: number; sizeBytes: number; createdAt: string };
 
@@ -9,16 +9,15 @@ const ACCEPTED = 'video/mp4,video/webm,video/quicktime';
 const MAX_BYTES = 50 * 1024 * 1024;
 
 /**
- * The workspace's Go Live TV: its permanent link and up to three promo videos that play after every
- * ten customer videos. Files go straight to storage, then the server checks type, size, length and frame.
+ * Up to three promo videos that play on the workspace's Go Live player after every ten customer videos.
+ * Files go straight to storage, then the server checks type, size, length and frame.
  */
-export default function GoLivePromoManager({ goLiveUrl }: { goLiveUrl: string }) {
+export default function GoLivePromoManager() {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -72,32 +71,10 @@ export default function GoLivePromoManager({ goLiveUrl }: { goLiveUrl: string })
     setPromos(data.promos || []);
   }
 
-  async function copyLink() {
-    await navigator.clipboard.writeText(goLiveUrl).catch(() => undefined);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }
-
   const full = promos.length >= 3;
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-line bg-white p-4">
-        <p className="text-xs font-bold text-muted">Your Go Live player link</p>
-        <p className="mt-1 break-all tabular-nums text-xs text-ink">{goLiveUrl}</p>
-        <p className="mt-2 text-xs text-muted">
-          Open it in any TV or computer browser and tap Start. It plays only your customers&apos; Go Live videos and your promos.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={copyLink} className="rounded-xl flex min-h-11 items-center gap-1.5 border border-ink bg-white px-4 text-xs font-bold">
-            <Copy className="h-4 w-4" /> {copied ? 'Copied' : 'Copy link'}
-          </button>
-          <a href={goLiveUrl} target="_blank" rel="noreferrer" className="rounded-xl flex min-h-11 items-center gap-1.5 bg-ink px-4 text-xs font-bold text-white">
-            <ExternalLink className="h-4 w-4" /> Open TV screen
-          </a>
-        </div>
-      </div>
-
+    <div>
       <div>
         <p className="text-sm font-semibold text-ink">Promo videos ({promos.length}/3)</p>
         <p className="mt-1 text-xs text-muted">

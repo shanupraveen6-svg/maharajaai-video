@@ -10,5 +10,5 @@ export default async function MaharajaMobileExperiencePage({ searchParams }: { s
   const { access } = await searchParams;
   const workspace = await resolveWorkspaceByAccessCode(access);
   if (workspace.minPurchaseTryOnDisabled === false) return <MaharajaExperience service="try-on" accessCode={workspace.tryOnCode} />;
-  return <MaharajaMobileExperience accessCode={workspace.tryOnCode} clientName={workspace.clientName} videoEntryUrl={`/maharaja/video-poster?code=${encodeURIComponent(workspace.openVideoCode)}`} />;
+  return <MaharajaMobileExperience accessCode={workspace.tryOnCode} clientName={workspace.clientName} />;
 }

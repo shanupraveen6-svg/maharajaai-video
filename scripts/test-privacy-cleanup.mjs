@@ -13,6 +13,7 @@ let progress;
 let pages = 0;
 const deletions = [];
 const handoffs = new Map([['expired-phone-handoff', {}]]);
+const mirrorRecordings = new Map([['expired-mirror-video', { clientId: 'sri-readymade' }]]);
 const ref = (id) => ({ id, set: async (patch) => {
   const session = sessions.get(id);
   Object.assign(session, patch);
@@ -28,6 +29,7 @@ const db = {
       startAfter: (_expiry, id) => { cursor = id; return query; },
       get: async () => {
         if (name === 'tvPhotoTransfers') return { docs: [] };
+        if (name === 'tvMirrorRecordings') return { docs: [...mirrorRecordings].map(([id, value]) => ({ id, data: () => value, ref: { delete: async () => mirrorRecordings.delete(id) } })) };
         if (name === 'tvTryOnHandoffs') return { docs: [...handoffs.keys()].map((id) => ({ id, ref: { delete: async () => handoffs.delete(id) } })) };
         if (name === 'liveQueue') return { empty: true, docs: [] };
         if (name === 'securityRateLimits') {
@@ -57,6 +59,8 @@ assert.equal(result.retainedForPromotion, 505);
 assert.equal(result.preservedLive, 2);
 assert.equal(result.failed, 0);
 assert.equal(handoffs.size, 0, 'Expired phone handoff records are deleted.');
+assert.equal(mirrorRecordings.size, 0, 'Expired Live Mirror videos are deleted.');
+assert.ok(deletions.includes('clients/sri-readymade/mirror-recordings/expired-mirror-video/'), 'A Live Mirror video is deleted from its own client folder.');
 assert.ok(deletions.includes('clients/maharaja/tryon-handoffs/expired-phone-handoff/'), 'Expired phone images are deleted with their handoff.');
 assert.equal(result.expiredRateLimits, 250, 'Numeric expiry also removes old rate-limit records across pages.');
 assert.ok(pages >= 6, 'Cleanup must cross the old 500-record ceiling.');

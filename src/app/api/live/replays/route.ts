@@ -76,6 +76,220 @@ function stableSessionId(storagePath: string): string {
   return match?.[1] || `stored_${stableId(storagePath).slice(0, 12)}`;
 }
 
+/**
+ * The Go Live replay library for one store: its videos, names and showcase clips. Building it reads the
+ * video records and scans storage, so it is reused for REPLAY_CACHE_MS; every Go Live screen and idle TV
+ * of that store then shares one build. New Go Live videos still play at once through the live queue.
+ */
+const REPLAY_CACHE_MS = 3 * 60 * 1000;
+type ReplayLibrary = { preparedVideos: any[]; readyCount: number; completedQueueByVideoId: Map<string, any>; storageDiagnostics: Record<string, unknown> };
+const replayCache = new Map<string, { builtAt: number; library: Promise<ReplayLibrary> }>();
+
+function cachedReplayLibrary(db: NonNullable<ReturnType<typeof getDb>>, includeUnpublished: boolean) {
+  const key = `${activeClientId()}:${includeUnpublished ? 'all' : 'published'}`;
+  const cached = replayCache.get(key);
+  if (cached && Date.now() - cached.builtAt < REPLAY_CACHE_MS) return cached.library;
+  const library = buildReplayLibrary(db, includeUnpublished);
+  replayCache.set(key, { builtAt: Date.now(), library });
+  // A failed build is not kept, so the next request tries again.
+  library.catch(() => replayCache.delete(key));
+  return library;
+}
+
+async function buildReplayLibrary(db: NonNullable<ReturnType<typeof getDb>>, includeUnpublished: boolean): Promise<ReplayLibrary> {
+    const [videosSnapshot, queueSnapshot, catalogSnapshot] = await Promise.all([
+      db.collection('videos').get(),
+      db.collection('liveQueue').where('screenId', '==', liveScreenId()).limit(1000).get(),
+      db.collection('videoCatalog').get(),
+    ]);
+
+    const completedQueueByVideoId = new Map<string, any>();
+    queueSnapshot.docs
+      .map((doc: any) => ({ id: doc.id, ...doc.data() }))
+      .filter((item: any) => item.videoId && item.status === 'completed')
+      .sort((a: any, b: any) => getMillis(b.completedAt || b.createdAt) - getMillis(a.completedAt || a.createdAt))
+      .forEach((item: any) => {
+        if (!completedQueueByVideoId.has(item.videoId)) completedQueueByVideoId.set(item.videoId, item);
+      });
+
+    const catalogByPath = new Map<string, any>();
+    catalogSnapshot.docs.forEach((doc: any) => {
+      const value = { id: doc.id, ...doc.data() };
+      if (value.storagePath && storagePathBelongsToActiveClient(value.storagePath)) catalogByPath.set(value.storagePath, value);
+    });
+
+    const videosByStoragePath = new Map<string, any>();
+    videosSnapshot.docs
+      .map((doc: any) => ({ id: doc.id, ...doc.data() }))
+      // Each Go Live screen shows only its own workspace's videos.
+      .filter((video: any) => selectedStoragePath(video) && storagePathBelongsToActiveClient(selectedStoragePath(video)) && (!video.status || ['ready', 'succeeded', 'completed'].includes(video.status)))
+      .forEach((video: any) => {
+        const path = selectedStoragePath(video);
+        if (!videosByStoragePath.has(path)) videosByStoragePath.set(path, video);
+      });
+
+    const bucket = getStorageBucket();
+    const storageDiagnostics = {
+      bucket: bucket?.name || null,
+      firestoreVideoRecords: videosSnapshot.size,
+      totalObjects: 0,
+      videoObjects: 0,
+      imageObjects: 0,
+      otherObjects: 0,
+      scanError: null as string | null,
+    };
+    const missingShowcaseRecords: Array<{ id: string; data: Record<string, unknown> }> = [];
+    if (bucket) {
+      try {
+        // Discover demos recursively, but never auto-publish private customer
+        // session media. Completed customer films enter through Go Live consent.
+        const [allFiles] = activeClientId() === 'maharaja'
+          ? await bucket.getFiles()
+          : await bucket.getFiles({ prefix: `clients/${activeClientId()}/` });
+        const showcaseFilesByPath = new Map<string, any>();
+        allFiles
+          .filter((file: any) => isApprovedDemoVideoPath(String(file.name || '')) && storagePathBelongsToActiveClient(String(file.name || '')))
+          .forEach((file: any) => showcaseFilesByPath.set(file.name, file));
+        storageDiagnostics.totalObjects = showcaseFilesByPath.size;
+        for (const file of showcaseFilesByPath.values()) {
+          const storagePath = file.name;
+          const contentType = String(file.metadata?.contentType || '');
+          const isShowcaseVideo = isApprovedDemoVideoPath(storagePath) && (
+            isSupportedVideoPath(storagePath) || contentType.startsWith('video/')
+          );
+          if (!isShowcaseVideo) {
+            storageDiagnostics.otherObjects += 1;
+            continue;
+          }
+          storageDiagnostics.videoObjects += 1;
+          const existing = videosByStoragePath.get(storagePath);
+          const showcaseId = existing?.id || `showcase_${stableId(storagePath)}`;
+          const showcaseRecord = {
+            ...existing,
+            id: showcaseId,
+            sessionId: existing?.sessionId || stableSessionId(storagePath),
+            storagePath,
+            contentType: contentType || 'video/mp4',
+            status: 'ready',
+            published: true,
+            replayEnabled: true,
+            universalPool: true,
+            isShowcaseSample: true,
+            displayName: SHOWCASE_NAME,
+            playbackMode: 'embedded',
+            hasEmbeddedAudio: true,
+            createdAt: existing?.createdAt || file.metadata?.timeCreated || file.metadata?.updated || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          videosByStoragePath.set(storagePath, showcaseRecord);
+          if (!existing || existing.published !== true || existing.replayEnabled !== true || existing.isShowcaseSample !== true) {
+            missingShowcaseRecords.push({ id: showcaseId, data: showcaseRecord });
+          }
+        }
+      } catch (scanError: any) {
+        storageDiagnostics.scanError = scanError?.message || 'Unable to scan showcase videos.';
+        console.warn('Showcase video scan warning:', scanError);
+      }
+    }
+    if (missingShowcaseRecords.length) {
+      try {
+        const batch = db.batch();
+        missingShowcaseRecords.forEach(({ id, data }) => {
+          batch.set(db.collection('videos').doc(id), data, { merge: true });
+        });
+        await batch.commit();
+      } catch (importError) {
+        console.warn('Root showcase import warning:', importError);
+      }
+    }
+    const now = Date.now();
+    const replayCandidates = Array.from(videosByStoragePath.values())
+      .filter(isPlayableVideo)
+      .filter((video: any) => {
+        if (video.isShowcaseSample !== true && video.expiresAt && getMillis(video.expiresAt) <= now) return false;
+        const completedBefore = completedQueueByVideoId.has(video.id) || completedQueueByVideoId.has(`video_${video.sessionId}`);
+        return includeUnpublished || video.universalPool === true || (video.published === true && video.replayEnabled === true) || completedBefore;
+      });
+    // Do not block the whole showroom playlist on one Storage existence
+    // request per clip. Signing below is the final availability check; a
+    // broken object is skipped without delaying every healthy video.
+    const readyVideos = replayCandidates
+      .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
+
+    const usedNames = new Set(
+      Array.from(catalogByPath.values())
+        .map((item) => item.displayName)
+        .filter((name) => name && !REMOVED_TV_NAMES.has(String(name).toLocaleLowerCase()))
+    );
+    const pendingCatalogWrites: Array<{ id: string; data: Record<string, unknown> }> = [];
+
+    const preparedVideos = readyVideos.map((video: any, index: number) => {
+      const storagePath = selectedStoragePath(video);
+      const catalog = catalogByPath.get(storagePath);
+      if (video.isShowcaseSample === true) {
+        return { ...video, catalog, isMen: false };
+      }
+      const isMen = video.category === 'men' ||
+        video.templateId === 'men' ||
+        storagePath.toLowerCase().includes('men') ||
+        storagePath.toLowerCase().includes('karthi') ||
+        storagePath.toLowerCase().includes('kurta');
+      const requiredGentsName = getAssignedTvName(video.sessionId || stableSessionId(storagePath));
+      let displayName = requiredGentsName || (
+        (catalog?.displayName && (REMOVED_TV_NAMES.has(String(catalog.displayName).trim().toLowerCase()) || catalog.displayName === 'திவ்யா' || String(catalog.displayName).trim().toLowerCase() === 'divya'))
+          ? undefined
+          : catalog?.displayName
+      );
+
+      if (displayName === 'திவ்யா' || String(displayName).trim().toLowerCase() === 'divya') {
+        displayName = 'கார்த்திக்';
+      }
+
+      if (isMen && (!displayName || !TAMIL_GENTS_NAMES.includes(displayName as any))) {
+        displayName = 'கார்த்திக்';
+      }
+
+      let resolvedCatalog = catalog;
+      const catalogLocalityNeedsUpdate = catalog?.displayLocality !== TV_LOCALITY;
+      const catalogNameNeedsUpdate = Boolean(displayName && catalog?.displayName !== displayName);
+      if (!displayName || catalogLocalityNeedsUpdate || catalogNameNeedsUpdate) {
+        if (!displayName) {
+          displayName = isMen
+            ? 'கார்த்திக்'
+            : (TAMIL_LADIES_NAMES.find((name) => !usedNames.has(name)) || getTamilCustomerName(storagePath, index, 'women'));
+          usedNames.add(displayName);
+        }
+        resolvedCatalog = {
+          storagePath,
+          displayName,
+          displayLocality: TV_LOCALITY,
+          createdAt: video.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        pendingCatalogWrites.push({
+          id: stableId(storagePath),
+          data: resolvedCatalog,
+        });
+      }
+      return { ...video, catalog: resolvedCatalog, isMen };
+    });
+
+    if (pendingCatalogWrites.length) {
+      try {
+        for (let start = 0; start < pendingCatalogWrites.length; start += 400) {
+          const batch = db.batch();
+          pendingCatalogWrites.slice(start, start + 400).forEach((entry) => {
+            batch.set(db.collection('videoCatalog').doc(entry.id), entry.data, { merge: true });
+          });
+          await batch.commit();
+        }
+      } catch (catalogError) {
+        console.warn('Video catalogue alias persistence warning:', catalogError);
+      }
+    }
+  return { preparedVideos, readyCount: readyVideos.length, completedQueueByVideoId, storageDiagnostics };
+}
+
 export async function GET(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   if (!(await goLiveClientId(req)) && !await verifyTvRequest(req)) {
@@ -91,197 +305,8 @@ export async function GET(req: NextRequest) {
     const db = getDb();
 
     if (db) {
-      const [videosSnapshot, queueSnapshot, catalogSnapshot] = await Promise.all([
-        db.collection('videos').get(),
-        db.collection('liveQueue').where('screenId', '==', liveScreenId()).limit(1000).get(),
-        db.collection('videoCatalog').get(),
-      ]);
-
-      const completedQueueByVideoId = new Map<string, any>();
-      queueSnapshot.docs
-        .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-        .filter((item: any) => item.videoId && item.status === 'completed')
-        .sort((a: any, b: any) => getMillis(b.completedAt || b.createdAt) - getMillis(a.completedAt || a.createdAt))
-        .forEach((item: any) => {
-          if (!completedQueueByVideoId.has(item.videoId)) completedQueueByVideoId.set(item.videoId, item);
-        });
-
-      const catalogByPath = new Map<string, any>();
-      catalogSnapshot.docs.forEach((doc: any) => {
-        const value = { id: doc.id, ...doc.data() };
-        if (value.storagePath && storagePathBelongsToActiveClient(value.storagePath)) catalogByPath.set(value.storagePath, value);
-      });
-
-      const videosByStoragePath = new Map<string, any>();
-      videosSnapshot.docs
-        .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-        // Each Go Live screen shows only its own workspace's videos.
-        .filter((video: any) => selectedStoragePath(video) && storagePathBelongsToActiveClient(selectedStoragePath(video)) && (!video.status || ['ready', 'succeeded', 'completed'].includes(video.status)))
-        .forEach((video: any) => {
-          const path = selectedStoragePath(video);
-          if (!videosByStoragePath.has(path)) videosByStoragePath.set(path, video);
-        });
-
+      const { preparedVideos, readyCount, completedQueueByVideoId, storageDiagnostics } = await cachedReplayLibrary(db, includeUnpublished);
       const bucket = getStorageBucket();
-      const storageDiagnostics = {
-        bucket: bucket?.name || null,
-        firestoreVideoRecords: videosSnapshot.size,
-        totalObjects: 0,
-        videoObjects: 0,
-        imageObjects: 0,
-        otherObjects: 0,
-        scanError: null as string | null,
-      };
-      const missingShowcaseRecords: Array<{ id: string; data: Record<string, unknown> }> = [];
-      if (bucket) {
-        try {
-          // Discover demos recursively, but never auto-publish private customer
-          // session media. Completed customer films enter through Go Live consent.
-          const [allFiles] = activeClientId() === 'maharaja'
-            ? await bucket.getFiles()
-            : await bucket.getFiles({ prefix: `clients/${activeClientId()}/` });
-          const showcaseFilesByPath = new Map<string, any>();
-          allFiles
-            .filter((file: any) => isApprovedDemoVideoPath(String(file.name || '')) && storagePathBelongsToActiveClient(String(file.name || '')))
-            .forEach((file: any) => showcaseFilesByPath.set(file.name, file));
-          storageDiagnostics.totalObjects = showcaseFilesByPath.size;
-          for (const file of showcaseFilesByPath.values()) {
-            const storagePath = file.name;
-            const contentType = String(file.metadata?.contentType || '');
-            const isShowcaseVideo = isApprovedDemoVideoPath(storagePath) && (
-              isSupportedVideoPath(storagePath) || contentType.startsWith('video/')
-            );
-            if (!isShowcaseVideo) {
-              storageDiagnostics.otherObjects += 1;
-              continue;
-            }
-            storageDiagnostics.videoObjects += 1;
-            const existing = videosByStoragePath.get(storagePath);
-            const showcaseId = existing?.id || `showcase_${stableId(storagePath)}`;
-            const showcaseRecord = {
-              ...existing,
-              id: showcaseId,
-              sessionId: existing?.sessionId || stableSessionId(storagePath),
-              storagePath,
-              contentType: contentType || 'video/mp4',
-              status: 'ready',
-              published: true,
-              replayEnabled: true,
-              universalPool: true,
-              isShowcaseSample: true,
-              displayName: SHOWCASE_NAME,
-              playbackMode: 'embedded',
-              hasEmbeddedAudio: true,
-              createdAt: existing?.createdAt || file.metadata?.timeCreated || file.metadata?.updated || new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-            videosByStoragePath.set(storagePath, showcaseRecord);
-            if (!existing || existing.published !== true || existing.replayEnabled !== true || existing.isShowcaseSample !== true) {
-              missingShowcaseRecords.push({ id: showcaseId, data: showcaseRecord });
-            }
-          }
-        } catch (scanError: any) {
-          storageDiagnostics.scanError = scanError?.message || 'Unable to scan showcase videos.';
-          console.warn('Showcase video scan warning:', scanError);
-        }
-      }
-      if (missingShowcaseRecords.length) {
-        try {
-          const batch = db.batch();
-          missingShowcaseRecords.forEach(({ id, data }) => {
-            batch.set(db.collection('videos').doc(id), data, { merge: true });
-          });
-          await batch.commit();
-        } catch (importError) {
-          console.warn('Root showcase import warning:', importError);
-        }
-      }
-      const now = Date.now();
-      const replayCandidates = Array.from(videosByStoragePath.values())
-        .filter(isPlayableVideo)
-        .filter((video: any) => {
-          if (video.isShowcaseSample !== true && video.expiresAt && getMillis(video.expiresAt) <= now) return false;
-          const completedBefore = completedQueueByVideoId.has(video.id) || completedQueueByVideoId.has(`video_${video.sessionId}`);
-          return includeUnpublished || video.universalPool === true || (video.published === true && video.replayEnabled === true) || completedBefore;
-        });
-      // Do not block the whole showroom playlist on one Storage existence
-      // request per clip. Signing below is the final availability check; a
-      // broken object is skipped without delaying every healthy video.
-      const readyVideos = replayCandidates
-        .sort((a: any, b: any) => getMillis(b.createdAt) - getMillis(a.createdAt));
-
-      const usedNames = new Set(
-        Array.from(catalogByPath.values())
-          .map((item) => item.displayName)
-          .filter((name) => name && !REMOVED_TV_NAMES.has(String(name).toLocaleLowerCase()))
-      );
-      const pendingCatalogWrites: Array<{ id: string; data: Record<string, unknown> }> = [];
-
-      const preparedVideos = readyVideos.map((video: any, index: number) => {
-        const storagePath = selectedStoragePath(video);
-        const catalog = catalogByPath.get(storagePath);
-        if (video.isShowcaseSample === true) {
-          return { ...video, catalog, isMen: false };
-        }
-        const isMen = video.category === 'men' ||
-          video.templateId === 'men' ||
-          storagePath.toLowerCase().includes('men') ||
-          storagePath.toLowerCase().includes('karthi') ||
-          storagePath.toLowerCase().includes('kurta');
-        const requiredGentsName = getAssignedTvName(video.sessionId || stableSessionId(storagePath));
-        let displayName = requiredGentsName || (
-          (catalog?.displayName && (REMOVED_TV_NAMES.has(String(catalog.displayName).trim().toLowerCase()) || catalog.displayName === 'திவ்யா' || String(catalog.displayName).trim().toLowerCase() === 'divya'))
-            ? undefined
-            : catalog?.displayName
-        );
-
-        if (displayName === 'திவ்யா' || String(displayName).trim().toLowerCase() === 'divya') {
-          displayName = 'கார்த்திக்';
-        }
-
-        if (isMen && (!displayName || !TAMIL_GENTS_NAMES.includes(displayName as any))) {
-          displayName = 'கார்த்திக்';
-        }
-
-        let resolvedCatalog = catalog;
-        const catalogLocalityNeedsUpdate = catalog?.displayLocality !== TV_LOCALITY;
-        const catalogNameNeedsUpdate = Boolean(displayName && catalog?.displayName !== displayName);
-        if (!displayName || catalogLocalityNeedsUpdate || catalogNameNeedsUpdate) {
-          if (!displayName) {
-            displayName = isMen
-              ? 'கார்த்திக்'
-              : (TAMIL_LADIES_NAMES.find((name) => !usedNames.has(name)) || getTamilCustomerName(storagePath, index, 'women'));
-            usedNames.add(displayName);
-          }
-          resolvedCatalog = {
-            storagePath,
-            displayName,
-            displayLocality: TV_LOCALITY,
-            createdAt: video.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          pendingCatalogWrites.push({
-            id: stableId(storagePath),
-            data: resolvedCatalog,
-          });
-        }
-        return { ...video, catalog: resolvedCatalog, isMen };
-      });
-
-      if (pendingCatalogWrites.length) {
-        try {
-          for (let start = 0; start < pendingCatalogWrites.length; start += 400) {
-            const batch = db.batch();
-            pendingCatalogWrites.slice(start, start + 400).forEach((entry) => {
-              batch.set(db.collection('videoCatalog').doc(entry.id), entry.data, { merge: true });
-            });
-            await batch.commit();
-          }
-        } catch (catalogError) {
-          console.warn('Video catalogue alias persistence warning:', catalogError);
-        }
-      }
-
       const pageCandidates = preparedVideos.slice(offset, offset + limit);
       const pageVideos = await resolveStoredVideoPaths(bucket, pageCandidates);
       const settledItems = await Promise.allSettled(
@@ -336,10 +361,10 @@ export async function GET(req: NextRequest) {
       const failed = pageCandidates.length - items.length;
       if (failed) console.warn(`Replay library skipped ${failed} unavailable or unplayable video(s).`);
 
-      const nextOffset = offset + pageCandidates.length < readyVideos.length ? offset + pageCandidates.length : null;
+      const nextOffset = offset + pageCandidates.length < readyCount ? offset + pageCandidates.length : null;
       return NextResponse.json({
         success: true,
-        count: readyVideos.length,
+        count: readyCount,
         returned: items.length,
         failed,
         nextOffset,
@@ -438,6 +463,8 @@ export async function DELETE(req: NextRequest) {
     const db = getDb();
     const bucket = getStorageBucket();
     const results: Array<{ sessionId: string; deletedFilesCount: number }> = [];
+    // A removed video must leave every Go Live screen at once.
+    for (const key of [...replayCache.keys()]) if (key.startsWith(`${activeClientId()}:`)) replayCache.delete(key);
 
     for (const sessionId of targetSessionIds) {
       let deletedFilesCount = 0;

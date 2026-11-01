@@ -1,0 +1,10 @@
+rules_version = '2';
+// Customer photos and videos are reached only through short-lived signed links made by the server.
+// Signed links bypass these rules, so every other direct request is refused.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

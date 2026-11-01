@@ -6,7 +6,7 @@ for (const key of ['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRI
 process.env.ALLOW_MOCK_BACKEND = 'true';
 process.env.OPERATOR_AUTH_SECRET = 'test_secret';
 
-const { resolveAccess } = await import('../src/lib/maharaja/access.ts');
+const { CREDIT_PACKAGES, OFFERED_PACKAGES, PACKAGES, packageOf, packageLabel, resolveAccess } = await import('../src/lib/maharaja/access.ts');
 const { moduleLimit } = await import('../src/lib/maharaja/server.ts');
 
 const allDevices = { tv: true, tablet: true, mobile: true, led: true };
@@ -18,31 +18,47 @@ assert.deepEqual(access.modules, allModules);
 assert.equal(access.goLive, true);
 assert.equal(access.catalogueVideo, true);
 
-// TV off: Live Mirror, catalogue AI Video and Go Live stop; own-garment AI Video and image try-on keep running.
+// No TV (a tablet store): Live Mirror and AI Video on the TV stop; the gift QR and Go Live keep running.
 access = resolveAccess({ ...allDevices, tv: false }, allModules);
 assert.equal(access.modules.live, false);
 assert.match(access.blockedBy.live, /TV/);
 assert.equal(access.catalogueVideo, false);
-assert.equal(access.goLive, false);
-assert.equal(access.modules.video, true);
+assert.equal(access.goLive, true, 'Go Live plays on the store LED screen without the TV');
 assert.equal(access.ownGarmentVideo, true);
 assert.equal(access.modules.image, true);
 
-// Go Live switched off: only catalogue AI Video stops.
+// Go Live player switched off: AI Video still runs everywhere, download only.
 access = resolveAccess({ ...allDevices, led: false }, allModules);
 assert.equal(access.modules.video, true);
-assert.equal(access.ownGarmentVideo, true);
-assert.equal(access.catalogueVideo, false);
+assert.equal(access.catalogueVideo, true);
 assert.equal(access.goLive, false);
+assert.match(access.blockedBy.video, /download/);
 
-// Customer Mobile is always included, even if stored as off.
+// The customer's phone is always included, even if stored as off.
 access = resolveAccess({ ...allDevices, mobile: false }, allModules);
 assert.equal(access.modules.video, true);
 assert.equal(access.modules.image, true);
 
-// Phone-only (no TV, no tablet): image try-on and own-garment AI Video run.
-access = resolveAccess({ tv: false, tablet: false, mobile: true, led: false }, allModules);
-assert.deepEqual([access.modules.image, access.modules.video, access.modules.live, access.goLive], [true, true, false, false]);
+// Without the tablet the counter page is the biller's AI Video QR only.
+assert.equal(resolveAccess(PACKAGES.tv.devices, allModules).counterTryOn, false);
+assert.equal(resolveAccess(allDevices, allModules).counterTryOn, true);
+
+// Screens: TV, tablet or both; Live Mirror needs the TV; Go Live comes with AI Video on either.
+assert.deepEqual(OFFERED_PACKAGES, ['tv', 'tablet', 'tv-tablet']);
+assert.equal(packageOf(PACKAGES.tablet.devices), 'tablet');
+assert.equal(packageOf(PACKAGES.tv.devices), 'tv');
+assert.equal(packageOf(PACKAGES['tv-tablet'].devices), 'tv-tablet');
+assert.equal(packageLabel(PACKAGES['tv-tablet'].devices), 'TV and tablet');
+access = resolveAccess(PACKAGES.tv.devices, allModules);
+assert.deepEqual([access.goLive, access.catalogueVideo, access.modules.live, access.counterTryOn], [true, true, true, false]);
+access = resolveAccess(PACKAGES.tablet.devices, allModules);
+assert.deepEqual([access.goLive, access.catalogueVideo, access.modules.live, access.counterTryOn, access.ownGarmentVideo], [true, false, false, true, true]);
+access = resolveAccess(PACKAGES.tv.devices, { image: true, live: false, video: false });
+assert.deepEqual([access.modules.live, access.modules.video, access.goLive], [false, false, false], 'Try-On only: no add-ons, no Go Live');
+
+// Credit packages cover all three experiences.
+assert.deepEqual([CREDIT_PACKAGES.one.image, CREDIT_PACKAGES.one.video, CREDIT_PACKAGES.one.live], [3000, 1000, 1000]);
+assert.deepEqual([CREDIT_PACKAGES.two.image, CREDIT_PACKAGES.two.video, CREDIT_PACKAGES.two.live], [5000, 2000, 2000]);
 
 // AI Video module off: Go Live off too.
 access = resolveAccess(allDevices, { ...allModules, video: false });

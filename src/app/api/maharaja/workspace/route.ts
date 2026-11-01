@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { monthlyReport } from '@/lib/maharaja/usage-ledger';
 import { getOperatorSession, verifyAdminRequest, verifyOperatorRequest } from '@/lib/auth/operator';
 import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin';
 import {
@@ -360,10 +361,14 @@ export async function GET(req: NextRequest) {
     if (!targetWorkspace) {
       return NextResponse.json({ success: false, error: 'Client workspace not found.' }, { status: 404 });
     }
-    const workspace = await buildHydratedWorkspacePayload(targetWorkspace);
+    const [workspace, report] = await Promise.all([
+      buildHydratedWorkspacePayload(targetWorkspace),
+      monthlyReport(targetWorkspace.clientId),
+    ]);
+    // The store sees its month's activity; AI costs stay with TryFocus.
     return NextResponse.json({
       success: true,
-      workspace,
+      workspace: { ...workspace, report: { month: report.month, counts: report.counts, lastCounts: report.lastCounts } },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load Maharaja workspace.';

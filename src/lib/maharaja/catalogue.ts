@@ -1,5 +1,6 @@
 import 'server-only';
 
+import sharp from 'sharp';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
 import { catalogueCategories, sampleCatalogue, type CatalogueCategoryId } from '@/lib/tryfocus/sample-data';
 import type { MaharajaCatalogueProduct, PublicCatalogueProduct } from './catalogue-types';
@@ -156,6 +157,7 @@ function normalizeCatalogueProduct(raw: Partial<MaharajaCatalogueProduct>, index
     garmentType,
     storagePath,
     garmentReferencePath,
+    ...(raw.thumbnailPath ? { thumbnailPath: String(raw.thumbnailPath), thumbnailSource: String(raw.thumbnailSource || '') } : {}),
     fabricNote: raw.fabricNote || `${catMeta.label} · Maharaja Collection`,
     badge,
     newArrival,
@@ -225,10 +227,39 @@ async function persistDataUrlIfNeeded(sku: string, slot: 'model' | 'reference', 
   }
 }
 
+/** Garment photos in storage (not the bundled demo images or outside links). */
+function isStoredImagePath(path: string) {
+  return Boolean(path) && !path.startsWith('/') && !path.startsWith('http://') && !path.startsWith('https://') && !path.startsWith('data:');
+}
+
+/**
+ * A 480 px WebP preview beside the garment photo, so grids of 16+ garments load fast. Returns the
+ * existing preview when the photo has not changed; nothing when the photo cannot be read.
+ */
+async function ensureThumbnail(record: MaharajaCatalogueProduct): Promise<Pick<MaharajaCatalogueProduct, 'thumbnailPath' | 'thumbnailSource'>> {
+  if (!isStoredImagePath(record.storagePath)) return {};
+  if (record.thumbnailPath && record.thumbnailSource === record.storagePath) {
+    return { thumbnailPath: record.thumbnailPath, thumbnailSource: record.thumbnailSource };
+  }
+  const bucket = getStorageBucket();
+  if (!bucket) return {};
+  try {
+    const [original] = await bucket.file(record.storagePath).download();
+    const thumb = await sharp(original).rotate().resize({ width: 480, withoutEnlargement: true }).webp({ quality: 74 }).toBuffer();
+    const safeSku = record.sku.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const thumbnailPath = `clients/${activeClientId()}/catalogue/${safeSku}/thumb_${Date.now()}.webp`;
+    await bucket.file(thumbnailPath).save(thumb, { contentType: 'image/webp', public: false });
+    return { thumbnailPath, thumbnailSource: record.storagePath };
+  } catch (error) {
+    console.warn(`Catalogue thumbnail skipped for ${record.sku}:`, error);
+    return {};
+  }
+}
+
 export async function listCatalogueProducts(
   offset = 0,
   limit = 50,
-  options?: { includeInactive?: boolean }
+  options?: { includeInactive?: boolean; videoOnly?: boolean }
 ): Promise<{ products: PublicCatalogueProduct[]; total: number }> {
   const includeInactive = options?.includeInactive === true;
   const db = getDb();
@@ -258,23 +289,27 @@ export async function listCatalogueProducts(
     allProducts = Array.from(map.values()).map((item, idx) => normalizeCatalogueProduct(item, idx + 1));
   }
 
+  // videoOnly: the pieces the store switched on for AI Video, filtered before paging so every page is full.
   const filtered = (includeInactive ? allProducts : allProducts.filter((item) => item.active !== false))
+    .filter((item) => !options?.videoOnly || item.eligibleForVideo !== false)
     .sort((left, right) => left.sortOrder - right.sortOrder);
 
   const safeLimit = Math.min(Math.max(1, limit), 100);
   const sliced = filtered.slice(Math.max(0, offset), Math.max(0, offset) + safeLimit);
 
   const products: PublicCatalogueProduct[] = await Promise.all(
-    sliced.map(async ({ storagePath, garmentReferencePath, ...product }) => {
-      const imageUrl = await resolveCatalogueImageUrl(storagePath);
-      const garmentReferenceUrl = garmentReferencePath
-        ? await resolveCatalogueImageUrl(garmentReferencePath)
-        : imageUrl;
+    sliced.map(async ({ storagePath, garmentReferencePath, thumbnailPath, thumbnailSource: _thumbSource, ...product }) => {
+      const [imageUrl, referenceUrl, thumbnailUrl] = await Promise.all([
+        resolveCatalogueImageUrl(storagePath),
+        garmentReferencePath ? resolveCatalogueImageUrl(garmentReferencePath) : Promise.resolve(''),
+        thumbnailPath ? resolveCatalogueImageUrl(thumbnailPath) : Promise.resolve(''),
+      ]);
       return {
         ...product,
         id: product.id || product.sku.toLowerCase(),
         imageUrl,
-        garmentReferenceUrl,
+        garmentReferenceUrl: referenceUrl || imageUrl,
+        thumbnailUrl: thumbnailUrl || imageUrl,
         accent: 'from-[#FAF6F0] to-[#EFE8DC]',
       };
     })
@@ -325,7 +360,7 @@ export async function upsertCatalogueProduct(input: Partial<MaharajaCataloguePro
   const garmentReferencePath = await persistDataUrlIfNeeded(sku, 'reference', rawRefPath);
 
   const nowIso = new Date().toISOString();
-  const record = normalizeCatalogueProduct({
+  const normalized = normalizeCatalogueProduct({
     ...input,
     sku,
     title,
@@ -334,6 +369,7 @@ export async function upsertCatalogueProduct(input: Partial<MaharajaCataloguePro
     updatedAt: nowIso,
     createdAt: input.createdAt || nowIso,
   });
+  const record = { ...normalized, ...await ensureThumbnail(normalized) };
 
   const db = getDb();
   if (db) {
@@ -347,13 +383,15 @@ export async function upsertCatalogueProduct(input: Partial<MaharajaCataloguePro
   const garmentReferenceUrl = record.garmentReferencePath
     ? await resolveCatalogueImageUrl(record.garmentReferencePath)
     : imageUrl;
+  const thumbnailUrl = record.thumbnailPath ? await resolveCatalogueImageUrl(record.thumbnailPath) : imageUrl;
 
-  const { storagePath: _s, garmentReferencePath: _g, ...rest } = record;
+  const { storagePath: _s, garmentReferencePath: _g, thumbnailPath: _t, thumbnailSource: _ts, ...rest } = record;
   return {
     ...rest,
     id: record.id || record.sku.toLowerCase(),
     imageUrl,
     garmentReferenceUrl,
+    thumbnailUrl,
     accent: 'from-[#FAF6F0] to-[#EFE8DC]',
   };
 }

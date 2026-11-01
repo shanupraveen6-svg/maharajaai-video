@@ -7,6 +7,7 @@ import {
   getTryOnDeviceStatus,
   incrementMaharajaUsage,
   incrementPassUsage,
+  passAllowsGoLive,
   publicWorkspaceView,
   verifyMaharajaAccess,
   validTryOnDeviceId,
@@ -81,6 +82,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         phoneMasked: access.pass?.phoneMasked || null,
         billLast4: access.pass?.billLast4 || null,
         experienceType: access.pass?.experienceType || 'purchased-garment',
+        giftChoice: access.pass?.giftChoice || null,
+        allowGoLive: service === 'ai-video' && passAllowsGoLive(access.pass, workspace),
         catalogueProduct: access.pass?.catalogueSku ? {
           sku: access.pass.catalogueSku,
           title: access.pass.catalogueTitle,

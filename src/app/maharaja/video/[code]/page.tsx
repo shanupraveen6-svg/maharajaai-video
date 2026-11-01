@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import MaharajaExperience from '@/components/MaharajaExperience';
+import GiftVideoEntry from '@/components/GiftVideoEntry';
 import { getMaharajaWorkspace } from '@/lib/maharaja/server';
 
 export default async function MaharajaVideoExperiencePage({
@@ -15,5 +15,5 @@ export default async function MaharajaVideoExperiencePage({
   if (code === workspace.openVideoCode) {
     redirect(`/maharaja/video-poster?code=${encodeURIComponent(code)}`);
   }
-  return <MaharajaExperience service="ai-video" accessCode={code} retrySessionId={query.retry || ''} />;
+  return <GiftVideoEntry code={code} retrySessionId={query.retry || ''} />;
 }

@@ -2,40 +2,42 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fal } from '@fal-ai/client';
+import QRCode from 'qrcode';
 import { createImageHandoff } from '@/lib/maharaja/image-handoff-client';
 import {
   Camera,
-  CheckCircle2,
+  Check,
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
-  QrCode,
   RefreshCw,
   ShieldAlert,
   Sparkles,
   Square,
-  Tv,
   X,
 } from 'lucide-react';
 import {
-  catalogueCategories,
   formatINR,
   sampleCatalogue,
   type CatalogueCategoryId,
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
+import { PageTitle, Segmented } from '@/components/ui';
+import { LIVE_CATEGORIES } from '@/lib/tryfocus/live-categories';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
 const SESSION_SECONDS = 60;
 const READY_COUNTDOWN_SECONDS = 5;
-const CARDS_PER_PAGE = 4;
-const WEDDING_CATEGORIES: Record<TryFocusProduct['gender'], CatalogueCategoryId[]> = {
-  women: ['sarees', 'half-sarees', 'lehengas', 'gowns', 'salwar-suits'],
-  men: ['veshti', 'kurta', 'angavastram', 'sherwanis', 'blazers'],
-  boys: ['boys-veshti', 'boys-kurta', 'boys-sherwani', 'boys-jacket', 'boys-festive'],
-  girls: ['girls-pavadai', 'girls-lehenga', 'girls-half-saree', 'girls-gown', 'girls-anarkali'],
-};
+// MP4 first: phones play it everywhere; Chrome on older TVs falls back to WebM.
+const RECORDING_TYPES = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+const CARDS_PER_PAGE = 6;
+const AUDIENCES = [
+  { value: 'women', label: 'Women' },
+  { value: 'men', label: 'Men' },
+  { value: 'boys', label: 'Boys' },
+  { value: 'girls', label: 'Girls' },
+] as const;
 
 type LiveState =
   | 'idle'
@@ -50,17 +52,20 @@ export default function LucyLiveMirror({
   catalogue: propCatalogue,
   selectedProduct: externalProduct,
   onSelectProduct,
+  onUsePhotoTryOn,
 }: {
   catalogue?: TryFocusProduct[];
   garmentPrompt?: string;
   garmentTitle?: string;
   selectedProduct?: TryFocusProduct;
   onSelectProduct?: (product: TryFocusProduct) => void;
+  /** Offered when Live Mirror cannot run, so the customer can still see the outfit on a photo. */
+  onUsePhotoTryOn?: (product: TryFocusProduct) => void;
 } = {}) {
   const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
 
   const [gender, setGender] = useState<TryFocusProduct['gender']>(externalProduct?.gender || 'women');
-  const [category, setCategory] = useState<'wedding-picks' | CatalogueCategoryId>('wedding-picks');
+  const [category, setCategory] = useState<CatalogueCategoryId>(externalProduct?.category || LIVE_CATEGORIES.women[0].id);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedGarment, setSelectedGarment] = useState<TryFocusProduct>(
     externalProduct || activeCatalogue[0]
@@ -71,7 +76,7 @@ export default function LucyLiveMirror({
   const [error, setError] = useState('');
   const [guardianConsent, setGuardianConsent] = useState(false);
   const [statusMessage, setStatusMessage] = useState(
-    'Step 1: Open the mirror camera, choose a catalogue outfit, and tap Start 60s Live Try-On.'
+    'Open the camera, pick an outfit, then tap Start.'
   );
   const [completionModalOpen, setCompletionModalOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -87,17 +92,23 @@ export default function LucyLiveMirror({
   const countdownTimerRef = useRef<number | null>(null);
   const selectedGarmentRef = useRef<TryFocusProduct>(activeCatalogue[0]);
   const paidTimerStartedRef = useRef(false);
+  // The whole live session is recorded on the TV so the customer can take the video home.
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const wornTitlesRef = useRef<string[]>([]);
+  // One still per outfit worn, shown side by side on the customer's phone.
+  const lookShotsRef = useRef<Array<{ title: string; image: string }>>([]);
 
   const visibleCategories = useMemo(
-    () => WEDDING_CATEGORIES[gender].map((id) => catalogueCategories.find((cat) => cat.id === id)!).filter(Boolean),
-    [gender]
+    () => LIVE_CATEGORIES[gender].filter((cat) => activeCatalogue.some((item) => item.gender === gender && item.category === cat.id)),
+    [activeCatalogue, gender]
   );
+  const activeCategory = visibleCategories.some((cat) => cat.id === category) ? category : visibleCategories[0]?.id;
 
-  const categoryProducts = useMemo(() => {
-    const byGender = activeCatalogue.filter((item) => item.gender === gender);
-    if (category === 'wedding-picks') return byGender;
-    return byGender.filter((item) => item.category === category);
-  }, [activeCatalogue, gender, category]);
+  const categoryProducts = useMemo(
+    () => activeCatalogue.filter((item) => item.gender === gender && item.category === activeCategory),
+    [activeCatalogue, gender, activeCategory]
+  );
 
   const totalPages = Math.max(1, Math.ceil(categoryProducts.length / CARDS_PER_PAGE));
   const safePageIndex = Math.min(pageIndex, totalPages - 1);
@@ -142,6 +153,7 @@ export default function LucyLiveMirror({
   }
 
   function closeRealtimeConnections() {
+    discardRecording();
     if (connectionDeadlineRef.current) clearTimeout(connectionDeadlineRef.current);
     connectionDeadlineRef.current = null;
     clearSessionTimer();
@@ -196,7 +208,7 @@ export default function LucyLiveMirror({
       }
       setState('camera_ready');
       setStatusMessage(
-        'Camera preview is active. Select any outfit on the right, then tap Start 60s Live Try-On.'
+        'Camera is on. Pick an outfit, then tap Start.'
       );
     } catch (caught) {
       setError(
@@ -231,14 +243,73 @@ export default function LucyLiveMirror({
     ws.send({ reference_image_url: imageDataUri, prompt, enhance_prompt: true });
   }
 
+  function startRecording() {
+    const stream = remoteVideoRef.current?.srcObject;
+    if (!(stream instanceof MediaStream) || typeof MediaRecorder === 'undefined') return;
+    const mimeType = RECORDING_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
+    if (!mimeType) return;
+    try {
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
+      recordedChunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) recordedChunksRef.current.push(event.data); };
+      recorder.start(1000);
+      recorderRef.current = recorder;
+    } catch {
+      recorderRef.current = null;
+    }
+  }
+
+  /** Stops the recorder and hands back the session video; the recorder is detached first so closing the stream cannot drop it. */
+  function finishRecording(): Promise<Blob | null> {
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    if (!recorder || recorder.state === 'inactive') return Promise.resolve(null);
+    return new Promise((resolve) => {
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType });
+        recordedChunksRef.current = [];
+        resolve(blob.size ? blob : null);
+      };
+      recorder.stop();
+    });
+  }
+
+  function discardRecording() {
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    recordedChunksRef.current = [];
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = null;
+      recorder.stop();
+    }
+  }
+
+  /** Uploads the session video and returns the private link for the customer's QR. */
+  async function saveRecording(blob: Blob) {
+    const post = async (body: Record<string, unknown>) => {
+      const response = await fetch('/api/tv/mirror-recording', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'The video could not be saved.');
+      return data;
+    };
+    const start = await post({ action: 'upload-url', contentType: blob.type, sizeBytes: blob.size });
+    const upload = await fetch(start.uploadUrl, { method: 'PUT', headers: { 'Content-Type': start.contentType }, body: blob });
+    if (!upload.ok) throw new Error('The video upload was interrupted.');
+    const done = await post({ action: 'confirm', id: start.id, contentType: start.contentType, garmentTitle: wornTitlesRef.current.join(' · '), looks: lookShotsRef.current });
+    return String(done.link);
+  }
+
   function startPaidSessionWindow() {
     if (paidTimerStartedRef.current) return;
     paidTimerStartedRef.current = true;
     void fetch('/api/fal/realtime-session', { method: 'POST' }).catch(() => undefined);
     setState('live');
+    wornTitlesRef.current = [selectedGarmentRef.current.title];
+    lookShotsRef.current = [];
+    startRecording();
     setSecondsLeft(SESSION_SECONDS);
     setStatusMessage(
-      'AI Live Mirror is active! Move naturally or tap another outfit to switch instantly during your 60-second session.'
+      'Turn and move. Tap another outfit to change it.'
     );
     clearSessionTimer();
     timerRef.current = window.setInterval(() => {
@@ -304,7 +375,7 @@ export default function LucyLiveMirror({
     clearCountdownTimer();
     setState('ready_countdown');
     setReadyCountdown(READY_COUNTDOWN_SECONDS);
-    setStatusMessage('Step back into full view. Connecting Live Mirror after 3-second pose countdown...');
+    setStatusMessage('Step back into full view. Your Live Mirror starts in 5 seconds.');
 
     let remaining = READY_COUNTDOWN_SECONDS;
     countdownTimerRef.current = window.setInterval(() => {
@@ -324,7 +395,7 @@ export default function LucyLiveMirror({
     closeRealtimeConnections();
     setState('connecting');
     setSecondsLeft(SESSION_SECONDS);
-    setStatusMessage('Connecting to Live Mirror... Your 60s timer starts ONLY after AI video appears.');
+    setStatusMessage('Connecting. Your 60 seconds start when the live picture appears.');
 
     try {
       if (!streamRef.current) {
@@ -406,62 +477,76 @@ export default function LucyLiveMirror({
     }
   }
 
+  /** A still of the last frame, kept as the fallback when this TV browser cannot record video. */
+  function captureSnapshot() {
+    const video = remoteVideoRef.current?.videoWidth ? remoteVideoRef.current : localVideoRef.current;
+    if (!video?.videoWidth || !video.videoHeight) return '';
+    const targetAspect = 9 / 16;
+    const currentAspect = video.videoWidth / video.videoHeight;
+    let sx = 0, sy = 0, sWidth = video.videoWidth, sHeight = video.videoHeight;
+    if (currentAspect > targetAspect) {
+      sWidth = Math.round(video.videoHeight * targetAspect);
+      sx = Math.round((video.videoWidth - sWidth) / 2);
+    } else if (currentAspect < targetAspect) {
+      sHeight = Math.round(video.videoWidth / targetAspect);
+      sy = Math.round((video.videoHeight - sHeight) / 2);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = 720;
+    canvas.height = 1280;
+    const context = canvas.getContext('2d');
+    if (!context) return '';
+    context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.82);
+  }
+
   function stopSession(nextState: LiveState = 'camera_ready') {
     if (nextState === 'complete') {
-      setQrDataUrl(''); setHandoffMessage('Preparing your private phone QR…');
-      const video = (remoteVideoRef.current?.videoWidth ? remoteVideoRef.current : localVideoRef.current);
-      if (video?.videoWidth && video.videoHeight) {
-        const vWidth = video.videoWidth;
-        const vHeight = video.videoHeight;
-        const targetAspect = 9 / 16;
-        const currentAspect = vWidth / vHeight;
-
-        let sx = 0;
-        let sy = 0;
-        let sWidth = vWidth;
-        let sHeight = vHeight;
-
-        if (currentAspect > targetAspect) {
-          sHeight = vHeight;
-          sWidth = Math.round(vHeight * targetAspect);
-          sx = Math.round((vWidth - sWidth) / 2);
-          sy = 0;
-        } else if (currentAspect < targetAspect) {
-          sWidth = vWidth;
-          sHeight = Math.round(vWidth / targetAspect);
-          sx = 0;
-          sy = Math.round((vHeight - sHeight) / 2);
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 720;
-        canvas.height = 1280;
-        const context = canvas.getContext('2d');
-        if (context) {
-          context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-          void createImageHandoff(canvas.toDataURL('image/jpeg', 0.88), selectedGarmentRef.current.sku, selectedGarmentRef.current.title)
-            .then((qr) => { setQrDataUrl(qr); setHandoffMessage('Scan to save your live mirror look. Private link valid for 15 minutes.'); })
-            .catch(() => setHandoffMessage('The snapshot could not be saved. Ask a store assistant for help.'));
-        }
-      } else setHandoffMessage('A live mirror snapshot is not available for this session.');
+      setQrDataUrl('');
+      setHandoffMessage('Saving your video…');
+      const snapshot = captureSnapshot();
+      keepLookShot(selectedGarmentRef.current.title, snapshot);
+      const garment = selectedGarmentRef.current;
+      void finishRecording()
+        .then(async (blob) => {
+          if (!blob) throw new Error('no recording');
+          const link = await saveRecording(blob);
+          setQrDataUrl(await QRCode.toDataURL(link, { width: 360, margin: 2 }));
+          setHandoffMessage('Scan to download your whole Live Mirror video. The link works for 1 day.');
+        })
+        .catch(async () => {
+          if (!snapshot) { setHandoffMessage('Your video could not be saved this time. Ask a store assistant for help.'); return; }
+          try {
+            setQrDataUrl(await createImageHandoff(snapshot, garment.sku, garment.title));
+            setHandoffMessage('Your video could not be saved, so this QR saves a picture of your look instead.');
+          } catch {
+            setHandoffMessage('Your video could not be saved this time. Ask a store assistant for help.');
+          }
+        });
     }
     closeRealtimeConnections();
     setState(nextState);
     if (nextState === 'complete') {
       setCompletionModalOpen(true);
-      setStatusMessage(
-        '60-second Live Mirror session complete. Start a new 60s session or scan the QR to continue on mobile.'
-      );
+      setStatusMessage('Your session is over.');
     } else {
-      setStatusMessage(
-        'Live session stopped. Camera preview is ready whenever you want to start another 60s session.'
-      );
+      setStatusMessage('Stopped. Tap Start when you are ready.');
     }
   }
 
+  /** Keeps a still of the outfit on screen now; one per outfit, the latest frame wins. */
+  function keepLookShot(title: string, image = captureSnapshot()) {
+    if (!image) return;
+    const others = lookShotsRef.current.filter((look) => look.title !== title);
+    lookShotsRef.current = [...others, { title, image }].slice(-6);
+  }
+
   async function selectGarment(item: TryFocusProduct) {
+    // Before switching, keep a picture of the outfit the customer is wearing now.
+    if (recorderRef.current && selectedGarmentRef.current.title !== item.title) keepLookShot(selectedGarmentRef.current.title);
     setSelectedGarment(item);
     selectedGarmentRef.current = item;
+    if (recorderRef.current && !wornTitlesRef.current.includes(item.title)) wornTitlesRef.current.push(item.title);
     onSelectProduct?.(item);
     if (wsRef.current) {
       try {
@@ -473,250 +558,189 @@ export default function LucyLiveMirror({
     }
   }
 
-  const progressPercent = Math.max(
-    0,
-    Math.min(100, (secondsLeft / SESSION_SECONDS) * 100)
-  );
+  const progressPercent = Math.max(0, Math.min(100, (secondsLeft / SESSION_SECONDS) * 100));
+  const running = state === 'live' || state === 'connecting' || state === 'ready_countdown';
+  const stateLabel =
+    state === 'live' ? `Live · ${secondsLeft}s left`
+      : state === 'ready_countdown' ? `Get ready · ${readyCountdown}s`
+        : state === 'connecting' ? 'Connecting…'
+          : state === 'error' ? 'Camera only · Live Mirror unavailable'
+            : state === 'camera_ready' ? 'Camera preview · not live yet'
+              : 'Camera off';
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl tv-live-heading border border-line bg-white p-5">
-        <p className="text-sm font-bold text-brand">Live Mirror · 60 seconds</p>
-        <h2 className="mt-1 text-4xl font-bold text-ink">See your wedding look move with you</h2>
-        <p className="mt-2 text-lg text-muted">Choose a look, open the camera, then start your 60-second session.</p>
-        <div className="mt-3"><PhotoConsentNotice kind="live" large /></div>
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <PageTitle size="lg" title="Live Mirror" subtitle="See the outfit move with you. Pick one, tap Start and step back. 60 seconds, change outfits any time." />
+        <PhotoConsentNotice kind="live" large />
       </div>
 
-      <div className="tv-live-audience grid grid-cols-4 gap-3" aria-label="Live mirror audience">
-        {(['women', 'men', 'boys', 'girls'] as const).map((g) => <button key={g} type="button" aria-pressed={gender === g} onClick={() => { setGender(g); setCategory('wedding-picks'); setPageIndex(0); const first = activeCatalogue.find((item) => item.gender === g); if (first) void selectGarment(first); }} className={`min-h-16 border px-4 text-xl font-bold ${gender === g ? 'border-ink bg-ink text-white': 'border-line bg-white text-ink'}`}>{g.charAt(0).toUpperCase() + g.slice(1)}</button>)}
-      </div>
+      <Segmented
+        label="Who is it for?"
+        size="lg"
+        options={[...AUDIENCES]}
+        value={gender}
+        onChange={(g) => {
+          setGender(g);
+          setPageIndex(0);
+          const first = LIVE_CATEGORIES[g]
+            .map((cat) => activeCatalogue.find((item) => item.gender === g && item.category === cat.id))
+            .find(Boolean);
+          if (first) { setCategory(first.category); void selectGarment(first); }
+        }}
+      />
 
-      {(gender === 'boys' || gender === 'girls') && <label className="rounded-2xl flex min-h-16 items-center gap-3 border border-line bg-white p-4 text-lg"><input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6" />I am the parent or guardian and approve this child’s live mirror session.</label>}
+      {(gender === 'boys' || gender === 'girls') && (
+        <label className="flex min-h-16 items-center gap-3 rounded-2xl bg-warn-soft p-4 text-lg text-ink">
+          <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6 accent-brand" />
+          I am the parent or guardian and approve this child’s Live Mirror session.
+        </label>
+      )}
 
-      {/* Main 2-Column Row: Left Outfit Selector + Right Mirror Viewport */}
-      <div className="tv-live-row grid min-w-0 gap-5 lg:grid-cols-[minmax(340px,400px)_1fr] items-start">
-        {/* Left Column: Step 2 Outfit Selector */}
-        <aside className="rounded-2xl tv-live-menu flex min-w-0 flex-col justify-between border border-line bg-canvas p-4 sm:p-5 shadow-sm">
-          <div>
-            <div className="border-b border-line pb-3">
-              <h3 className="mt-1 text-2xl font-bold text-ink">Choose your look</h3>
-            </div>
-            <div className="tv-live-category-list mt-3.5 grid gap-2">
-              <button type="button" aria-pressed={category === 'wedding-picks'} onClick={() => { setCategory('wedding-picks'); setPageIndex(0); }} className={`min-h-14 border px-4 py-2.5 text-left text-base font-bold ${category === 'wedding-picks'? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink hover:border-ink'}`}>Wedding Picks</button>
-              {visibleCategories.map((cat) => (
+      <div className="tv-live-row grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(380px,460px)_1fr]">
+        <aside className="tv-live-menu flex min-w-0 flex-col rounded-2xl border border-line bg-white p-4">
+          <div role="group" aria-label="Category" className="tv-live-category-list border-b border-line">
+            {visibleCategories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                aria-pressed={activeCategory === cat.id}
+                onClick={() => {
+                  setCategory(cat.id);
+                  setPageIndex(0);
+                  const first = activeCatalogue.find((item) => item.gender === gender && item.category === cat.id);
+                  if (first) void selectGarment(first);
+                }}
+                className={`-mb-px min-h-16 border-b-[3px] px-1 text-lg font-semibold leading-tight ${
+                  activeCategory === cat.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="tv-live-garments mt-4">
+            {pagedProducts.length === 0 && <p className="col-span-2 p-3 text-lg text-muted">No outfits here yet. Ask the store to add some.</p>}
+            {pagedProducts.map((item) => {
+              const active = selectedGarment.sku === item.sku;
+              return (
                 <button
-                  key={cat.id}
+                  key={item.sku}
                   type="button"
-                  aria-pressed={category === cat.id}
-                  onClick={() => {
-                    setCategory(cat.id);
-                    setPageIndex(0);
-                    const first = activeCatalogue.find((item) => item.category === cat.id);
-                    if (first) void selectGarment(first);
-                  }}
-                  className={`min-h-14 border px-4 py-2.5 text-left text-base font-bold ${
- category === cat.id
- ? 'border-brand bg-brand text-[#FAF6EE]'
- : 'border-line bg-white text-ink hover:border-ink'
- }`}
+                  aria-pressed={active}
+                  onClick={() => selectGarment(item)}
+                  className={`relative min-w-0 overflow-hidden rounded-xl border-2 bg-white text-left transition ${active ? 'border-ink shadow-md' : 'border-line hover:border-ink'}`}
                 >
-                  {cat.label}
+                  <div className="aspect-[3/4] w-full overflow-hidden bg-canvas">
+                    <img src={item.thumbnailUrl || item.imageUrl} alt={item.title} loading="lazy" className="h-full w-full object-contain object-top" />
+                  </div>
+                  {active && <span className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-ink text-white"><Check className="h-5 w-5" /></span>}
+                  <div className="p-2.5">
+                    <p className="line-clamp-1 text-base font-semibold text-ink">{item.title}</p>
+                    <p className="tabular-nums text-base font-bold text-ink">{formatINR(item.price)}</p>
+                  </div>
                 </button>
-              ))}
-            </div>
-
-            <div className="tv-live-garments mt-4 grid gap-2.5">
-              {pagedProducts.length === 0 && <p className="p-3 text-sm text-muted">This collection is being prepared. Choose another wedding style.</p>}
-              {pagedProducts.map((item) => {
-                const active = selectedGarment.id === item.id || selectedGarment.sku === item.sku;
-                return (
-                  <button
-                    key={item.sku}
-                    type="button"
-                    onClick={() => selectGarment(item)}
-                    className={`flex min-w-0 items-center gap-3 overflow-hidden border p-2.5 text-left transition ${
- active
- ? 'border-brand bg-white shadow-md ring-2 ring-brand'
- : 'border-line bg-white hover:border-ink'
- }`}
-                  >
-                    <div className="relative h-20 w-16 shrink-0 overflow-hidden bg-line">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.title}
-                        className="h-full w-full object-contain object-top"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 tracking-tight text-sm font-semibold text-ink">
-                        {item.title}
-                      </p>
-                      <div className="mt-1 flex items-center justify-between tabular-nums text-xs">
-                        <span className="font-bold text-brand">
-                          {formatINR(item.price)}
-                        </span>
-                        <span className="text-xs font-bold text-brand">
-                          {active ? '✓ Selected' : item.sku}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+              );
+            })}
           </div>
 
-          {/* Pager Controls */}
-          <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-            <button
-              type="button"
-              disabled={safePageIndex <= 0}
-              onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-              className="inline-flex min-h-[56px] items-center gap-2 border border-ink bg-white px-5 py-2 text-xs font-bold text-ink disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Prev
-            </button>
-            <span className="tabular-nums text-sm font-bold text-muted">
-              Page {safePageIndex + 1} / {totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={safePageIndex >= totalPages - 1}
-              onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
-              className="inline-flex min-h-[56px] items-center gap-2 border border-ink bg-white px-5 py-2 text-xs font-bold text-ink disabled:opacity-40"
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
+              <button
+                type="button"
+                disabled={safePageIndex <= 0}
+                onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+                className="tf-btn tf-btn-secondary !min-h-16 px-5 text-lg disabled:opacity-40"
+              >
+                <ChevronLeft className="h-5 w-5" /> Back
+              </button>
+              <span className="tabular-nums text-lg font-semibold text-muted">{safePageIndex + 1} of {totalPages}</span>
+              <button
+                type="button"
+                disabled={safePageIndex >= totalPages - 1}
+                onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
+                className="tf-btn tf-btn-secondary !min-h-16 px-5 text-lg disabled:opacity-40"
+              >
+                More <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          )}
         </aside>
 
-        {/* Right Column: Mirror Viewport */}
-        <div className="tv-live-camera relative aspect-[9/16] w-full min-w-0 overflow-hidden border border-line bg-ink shadow-sm">
-          {/* Local Camera Feed (Never labeled as AI output!) */}
+        <div className="tv-live-camera relative aspect-[9/16] w-full min-w-0 overflow-hidden rounded-2xl bg-ink">
+          {/* The camera preview is never presented as the AI result. */}
           <video
             ref={localVideoRef}
             playsInline
             muted
             autoPlay
-            className={`h-full w-full object-cover [transform:scaleX(-1)] ${
- state === 'live'? 'opacity-20' : 'opacity-100'
- }`}
+            className={`h-full w-full object-cover [transform:scaleX(-1)] ${state === 'live' ? 'opacity-0' : 'opacity-100'}`}
           />
-
-          {/* Remote AI Try-On Stream */}
           <video
             ref={remoteVideoRef}
             playsInline
             muted
             autoPlay
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
- state === 'live'? 'opacity-100' : 'pointer-events-none opacity-0'
- }`}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${state === 'live' ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
           />
 
-          {/* Honest Status Badge */}
-          <div className="absolute left-4 top-4 right-4 flex items-center justify-between gap-2">
-            <span
-              className={`px-3.5 py-2 text-xs font-bold ${
- state === 'live'
- ? 'bg-success text-white'
- : state === 'connecting'|| state === 'ready_countdown'
- ? 'bg-[#8A6A20] text-white'
- : state === 'error'
- ? 'bg-danger text-white'
- : 'bg-ink/90 text-[#FAF6EE]'
- }`}
-            >
-              {state === 'live'
-                ? `AI LIVE MIRROR · ${secondsLeft}s`
-                : state === 'ready_countdown'
-                  ? `GET READY · ${readyCountdown}s`
-                  : state === 'connecting'
-                    ? 'CONNECTING AI STREAM...'
-                    : state === 'camera_ready'
-                      ? 'CAMERA PREVIEW ONLY (NOT AI YET)'
-                      : state === 'error'
-                        ? 'AI STREAM UNAVAILABLE · CAMERA ONLY'
-                        : 'CAMERA STANDBY'}
-            </span>
-            <span className="bg-white/95 px-3.5 py-2 tabular-nums text-xs font-bold text-ink">
-              {selectedGarment.sku} · {formatINR(selectedGarment.price)}
-            </span>
+          <span className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full bg-ink/80 px-4 py-2 text-base font-semibold text-white backdrop-blur">
+            <span className={`h-2.5 w-2.5 rounded-full ${state === 'live' ? 'bg-success' : state === 'error' ? 'bg-danger' : 'bg-white/60'}`} />
+            {stateLabel}
+          </span>
+
+          {/* The outfit being worn, as in the reference mirror: a small card in the top-right corner. */}
+          <div className="absolute right-4 top-4 z-10 flex max-w-[55%] items-center gap-3 rounded-2xl bg-white/95 p-2 pr-4 shadow-lg">
+            <img src={selectedGarment.thumbnailUrl || selectedGarment.imageUrl} alt="" className="h-20 w-16 shrink-0 rounded-lg bg-canvas object-contain object-top" />
+            <div className="min-w-0">
+              <p className="line-clamp-2 text-base font-semibold leading-snug text-ink">{selectedGarment.title}</p>
+              <p className="tabular-nums text-base font-bold text-ink">{formatINR(selectedGarment.price)}</p>
+            </div>
           </div>
 
-          {/* 3-2-1 Ready Countdown Overlay */}
+          {state === 'live' && (
+            <div className="absolute inset-x-0 bottom-0 h-2 bg-white/20">
+              <div className="h-full bg-white transition-all duration-1000 ease-linear" style={{ width: `${progressPercent}%` }} />
+            </div>
+          )}
+
           {state === 'ready_countdown' && readyCountdown !== null && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/55 p-6 text-center text-[#FAF6EE]">
-              <p className="text-sm font-bold text-[#F3E5AB]">
-                Move Back & Stand Full-Length
-              </p>
-              <div className="mt-4 flex h-32 w-32 items-center justify-center border-4 border-[#FAF6EE] bg-brand tracking-tight text-7xl font-bold text-[#FAF6EE]">
-                {readyCountdown}
-              </div>
-              <p className="mt-4 max-w-xs text-sm text-[#FAF6EE]/90">
-                Starting your 60-second Live Mirror with{' '}
-                <strong>{selectedGarment.title}</strong>...
-              </p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/55 p-8 text-center text-white">
+              <p className="text-2xl font-semibold">Step back so your whole outfit is in view</p>
+              <p className="mt-6 text-[160px] font-bold leading-none tabular-nums">{readyCountdown}</p>
+              <p className="mt-6 text-lg text-white/80">Starting {selectedGarment.title}</p>
             </div>
           )}
 
-          {/* Idle Overlay */}
           {state === 'idle' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/85 p-8 text-center text-[#FAF6EE]">
-              <Tv className="h-14 w-14 text-[#FAF6EE]" />
-              <p className="mt-4 text-xs font-bold text-line">
-                Step 1 of 3 · Mirror Camera
-              </p>
-              <h3 className="mt-2 text-3xl font-bold">
-                Stand in Front of the Standee
-              </h3>
-              <p className="mt-3 max-w-sm text-sm leading-relaxed text-line">
-                Tap below to open the live camera preview first. Your 60-second AI session only begins when you start Step 3 and the AI stream is confirmed playing.
-              </p>
-              <button
-                type="button"
-                onClick={enableCameraPreview}
-                className="rounded-xl mt-6 inline-flex min-h-[64px] items-center gap-3 bg-brand px-8 py-4 text-sm font-bold text-[#FAF6EE]"
-              >
-                <Camera className="h-5 w-5" />
-                Open Mirror Camera
-              </button>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/85 p-8 text-center text-white">
+              <Camera className="h-14 w-14" />
+              <p className="mt-4 text-3xl font-bold">Stand in front of the screen</p>
+              <p className="mt-2 max-w-sm text-lg text-white/80">Open the camera to see yourself first. Nothing is live until you tap Start.</p>
             </div>
           )}
 
-          {/* Connecting Overlay */}
           {state === 'connecting' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/75 p-8 text-center text-[#FAF6EE]">
-              <LoaderCircle className="h-14 w-14 animate-spin text-[#FAF6EE]" />
-              <p className="mt-4 text-2xl font-bold">
-                Preparing Your Live AI Garment...
-              </p>
-              <p className="mt-2 max-w-xs text-sm text-line">
-                Loading <strong>{selectedGarment.title}</strong>. Your 60-second countdown will begin automatically once the AI video track starts playing.
-              </p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/70 p-8 text-center text-white">
+              <LoaderCircle className="h-14 w-14 animate-spin" />
+              <p className="mt-4 text-3xl font-bold">Dressing you in {selectedGarment.title}</p>
+              <p className="mt-2 max-w-sm text-lg text-white/80">Your 60 seconds start when the live picture appears.</p>
             </div>
           )}
 
-          {/* Honest Error Banner (Never pretends raw camera is AI mirror) */}
           {state === 'error' && error && (
-            <div className="rounded-2xl absolute inset-x-4 bottom-24 border border-danger bg-[#FEF3F2] p-4 text-danger shadow-xl">
+            <div className="absolute inset-x-4 bottom-6 rounded-2xl bg-white p-5 shadow-xl">
               <div className="flex items-start gap-3">
-                <ShieldAlert className="mt-0.5 h-6 w-6 shrink-0" />
+                <ShieldAlert className="mt-0.5 h-7 w-7 shrink-0 text-danger" />
                 <div>
-                  <p className="text-xs font-bold">
-                    AI Live Stream Not Active — Showing Ordinary Camera Preview
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-ink">{error}</p>
-                  <button
-                    type="button"
-                    onClick={beginLiveCountdownAndConnect}
-                    className="rounded-xl mt-3 inline-flex min-h-[48px] items-center gap-2 bg-brand px-4 py-2 text-xs font-bold text-[#FAF6EE]"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Retry 60s Live AI Stream
-                  </button>
+                  <p className="text-lg font-bold text-ink">Live Mirror is not running. This is the plain camera.</p>
+                  <p className="mt-1 text-base text-muted">{error}</p>
+                  {onUsePhotoTryOn && (
+                    <button type="button" onClick={() => { stopEverything(); onUsePhotoTryOn(selectedGarment); }} className="tf-btn tf-btn-secondary mt-3 !min-h-16 text-lg">
+                      Try this outfit on a photo instead
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -724,152 +748,65 @@ export default function LucyLiveMirror({
         </div>
       </div>
 
-      {/* Row 2: Bottom Full-Width 30-Second Controls with Big Touch Area */}
-      <section className="rounded-2xl tv-live-controls border border-line bg-white p-5 sm:p-6 shadow-sm" aria-label="Live session controls">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          {/* Left: 30-Second Status & Timer Progress */}
-          <div className="flex-1 space-y-2.5">
-            <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <div>
-                <h3 className="tracking-tight text-2xl sm:text-3xl font-bold text-ink">
-                  {state === 'live'
-                    ? 'AI Live Mirror Active'
-                    : state === 'ready_countdown'
-                    ? 'Step Back & Get Ready...'
-                    : state === 'connecting'
-                    ? 'Connecting Live AI Stream...'
-                    : '30 Seconds to See It Live'}
-                </h3>
-              </div>
-              <div className="flex items-center gap-2.5 rounded border border-line bg-canvas px-4 py-2 tabular-nums text-lg font-bold text-ink">
-                <span className="text-xs text-muted">Time left</span>
-                <span className="text-2xl font-bold text-brand">{secondsLeft}s</span>
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            <div className="h-3.5 w-full overflow-hidden rounded bg-line border border-line">
-              <div
-                className={`h-full transition-all duration-500 ${
-                  state === 'live' ? 'bg-[#256B45]' : 'bg-[#7A1428]'
-                }`}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-              <p className="font-medium">{statusMessage}</p>
-              <p>You can change looks on the left during your live session.</p>
-            </div>
-
-            {error && (
-              <p role="alert" className="border border-danger bg-[#FEF3F2] p-3 text-sm font-semibold text-danger">
-                {error}
-              </p>
-            )}
-          </div>
-
-          {/* Right: Big Touch Action Button for 43-inch TV */}
-          <div className="shrink-0 lg:pl-6">
-            {state === 'idle' ? (
-              <button
-                type="button"
-                onClick={enableCameraPreview}
-                className="rounded-xl tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border border-ink bg-ink px-8 text-xl font-bold text-white shadow-md transition hover:bg-[#2C3330] active:scale-[0.99] sm:min-w-[280px]"
-              >
-                <Camera className="h-6 w-6" />
-                Open Camera
-              </button>
-            ) : state === 'live' || state === 'connecting' || state === 'ready_countdown' ? (
-              <button
-                type="button"
-                onClick={() => stopSession('camera_ready')}
-                className="tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border border-danger bg-[#FEF3F2] px-8 text-xl font-bold text-danger shadow-md transition hover:bg-[#FEE4E2] active:scale-[0.99] sm:min-w-[280px]"
-              >
-                <Square className="h-6 w-6 fill-current" />
-                Stop Session
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={beginLiveCountdownAndConnect}
-                className="rounded-xl tv-live-action flex min-h-[84px] w-full items-center justify-center gap-3.5 border border-brand bg-brand px-10 text-xl font-bold text-white shadow-lg transition hover:bg-[#600F1F] active:scale-[0.99] sm:min-w-[320px]"
-              >
-                <Sparkles className="h-6 w-6 text-[#F3E5AB]" />
-                Start 60s Live Mirror
-              </button>
-            )}
-          </div>
+      {/* One primary action, in a floating bar on the TV. */}
+      <section className="tv-live-controls tv-selection-bar sticky z-20 mx-auto flex items-center justify-between gap-5" aria-label="Live Mirror controls">
+        <div className="min-w-0">
+          <p className="truncate text-xl font-bold text-ink">{selectedGarment.title}</p>
+          <p className="text-base text-muted">{statusMessage}</p>
         </div>
+        {state === 'idle' ? (
+          <button type="button" onClick={enableCameraPreview} className="tf-btn tf-btn-primary tv-live-action !w-auto shrink-0">
+            <Camera className="h-6 w-6" /> Open camera
+          </button>
+        ) : running ? (
+          <button type="button" onClick={() => stopSession(state === 'live' ? 'complete' : 'camera_ready')} className="tf-btn tf-btn-secondary tv-live-action !w-auto shrink-0">
+            <Square className="h-6 w-6 fill-current" /> Stop
+          </button>
+        ) : (
+          <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary tv-live-action !w-auto shrink-0">
+            {state === 'error' ? <RefreshCw className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
+            {state === 'error' ? 'Try again' : 'Start Live Mirror'}
+          </button>
+        )}
       </section>
 
-      {/* 30-Second Session Completion Popup Modal */}
       {completionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-6">
-          <div className="rounded-2xl w-full max-w-xl border border-ink bg-canvas p-8 shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-line pb-4">
-              <div className="flex items-center gap-3">
-                <span className="flex h-12 w-12 items-center justify-center bg-success text-white">
-                  <CheckCircle2 className="h-6 w-6" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-success">
-                    30-Second Live Session Completed
-                  </p>
-                  <h3 className="mt-1 text-3xl font-bold text-ink">
-                    Loved How {selectedGarment.title} Looked?
-                  </h3>
-                </div>
+          <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-3xl font-bold text-ink">How did it look?</h3>
+                <p className="mt-1 text-lg text-muted">{selectedGarment.title} · {formatINR(selectedGarment.price)}</p>
               </div>
               <button
                 type="button"
+                aria-label="Close"
                 onClick={() => setCompletionModalOpen(false)}
-                className="flex h-12 w-12 items-center justify-center border border-line bg-white text-ink"
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl text-ink hover:bg-canvas"
               >
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6" />
               </button>
             </div>
 
             <div className="mt-6 grid gap-6 sm:grid-cols-[200px_1fr] sm:items-center">
-              <div className="rounded-2xl flex flex-col items-center border border-line bg-white p-3">
-                {qrDataUrl ? (
-                  <img
-                    src={qrDataUrl}
-                    alt="Continue on Mobile QR"
-                    className="h-40 w-40 object-contain"
-                  />
-                ) : (
-                  <QrCode className="h-24 w-24 text-ink" />
-                )}
-                <span className="mt-2 text-xs font-bold text-brand">
-                  Scan to Save Outfit
-                </span>
+              <div className="flex flex-col items-center rounded-2xl border border-line bg-canvas p-3">
+                {qrDataUrl
+                  ? <img src={qrDataUrl} alt="Scan to save your look" className="h-44 w-44 object-contain" />
+                  : <span className="flex h-44 w-44 items-center justify-center"><LoaderCircle className="h-12 w-12 animate-spin text-muted" /></span>}
               </div>
-
               <div className="space-y-4">
-                <p className="text-sm leading-relaxed text-muted">
-                  Your live session has finished. Scan the QR to save{' '}
-                  <strong>{selectedGarment.title}</strong> ({formatINR(selectedGarment.price)}) on your phone, or start another 60-second live session.
-                </p>
-                <p role="status" className="text-sm">{handoffMessage}</p>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={beginLiveCountdownAndConnect}
-                    className="rounded-xl inline-flex min-h-[56px] items-center gap-2 bg-brand px-6 py-3 text-xs font-bold text-[#FAF6EE]"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Start Another 60s Live Session
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCompletionModalOpen(false)}
-                    className="inline-flex min-h-[56px] items-center gap-2 border border-ink bg-white px-5 py-3 text-xs font-bold text-ink"
-                  >
-                    Back to Mirror
-                  </button>
-                </div>
+                <p className="text-lg text-ink">Scan with your phone camera to take your Live Mirror video home.</p>
+                {handoffMessage && <p role="status" className="text-base text-muted">{handoffMessage}</p>}
               </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3 [&>*]:flex-1">
+              <button type="button" onClick={() => setCompletionModalOpen(false)} className="tf-btn tf-btn-secondary !min-h-16 text-lg">
+                Back to mirror
+              </button>
+              <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary !min-h-16 text-lg">
+                <RefreshCw className="h-5 w-5" /> Another 60 seconds
+              </button>
             </div>
           </div>
         </div>

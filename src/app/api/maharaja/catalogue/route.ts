@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const catalogue = await listCatalogueProducts(
       Number.isFinite(offset) ? offset : 0,
       Number.isFinite(limit) ? limit : 60,
-      { includeInactive: requestedInactive }
+      { includeInactive: requestedInactive, videoOnly: req.nextUrl.searchParams.get('videoOnly') === 'true' }
     );
     const workspace = await getMaharajaWorkspace();
     return NextResponse.json(

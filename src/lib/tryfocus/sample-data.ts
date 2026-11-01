@@ -1,4 +1,4 @@
-export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'salwar-suits' | 'lehengas' | 'gowns' | 'blouses' | 'western-tops' | 'women-bottoms' | 'women-occasion' | 'formal-shirts' | 'casual-shirts' | 'tshirts' | 'trousers' | 'sherwanis' | 'blazers' | 'men-occasion' | 'boys-sherwani' | 'boys-jacket' | 'boys-shirt-trouser' | 'boys-festive' | 'boys-casual' | 'boys-dhoti' | 'boys-party' | 'girls-half-saree' | 'girls-kurti' | 'girls-salwar' | 'girls-gown' | 'girls-festive' | 'girls-party' | 'girls-anarkali' | 'shirts';
+export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'salwar-suits' | 'lehengas' | 'gowns' | 'blouses' | 'western-tops' | 'women-bottoms' | 'women-occasion' | 'formal-shirts' | 'casual-shirts' | 'tshirts' | 'trousers' | 'sherwanis' | 'blazers' | 'men-occasion' | 'boys-sherwani' | 'boys-jacket' | 'boys-shirt-trouser' | 'boys-festive' | 'boys-casual' | 'boys-dhoti' | 'boys-party' | 'girls-half-saree' | 'girls-kurti' | 'girls-salwar' | 'girls-gown' | 'girls-festive' | 'girls-party' | 'girls-anarkali' | 'anarkali' | 'shirts';
 import { maharajaClientSamples } from './maharaja-client-samples';
 
 export type CatalogueAudience = 'women' | 'men' | 'boys' | 'girls';
@@ -12,6 +12,8 @@ export type TryFocusProduct = {
   price: number;
   sku: string;
   imageUrl: string;
+  /** Small preview for grids (see catalogue.ts); falls back to imageUrl. */
+  thumbnailUrl?: string;
   garmentReferenceUrl?: string;
   fabricNote?: string;
   badge?: 'BEST SELLER' | 'NEW ARRIVAL' | 'ROYAL SILK' | 'FESTIVE PICK';
@@ -28,6 +30,7 @@ export const catalogueCategories = [
   { id: 'kurtis', label: 'Kurtis', description: 'South Indian silk & cotton kurtis', subtitle: 'South Indian silk & cotton kurtis', audience: 'Women', gender: 'women', garmentType: 'salwar' },
   { id: 'salwar-suits', label: 'Salwar Suits', description: 'Salwar Suits', subtitle: 'Salwar Suits', audience: 'Women', gender: 'women', garmentType: 'salwar' },
   { id: 'lehengas', label: 'Lehengas', description: 'Lehengas', subtitle: 'Lehengas', audience: 'Women', gender: 'women', garmentType: 'lehenga' },
+  { id: 'anarkali', label: 'Anarkali', description: 'Anarkali suits', subtitle: 'Anarkali suits', audience: 'Women', gender: 'women', garmentType: 'salwar' },
   { id: 'gowns', label: 'Gowns & Dresses', description: 'Gowns & Dresses', subtitle: 'Gowns & Dresses', audience: 'Women', gender: 'women', garmentType: 'lehenga' },
   { id: 'blouses', label: 'Blouses', description: 'Blouses', subtitle: 'Blouses', audience: 'Women', gender: 'women', garmentType: 'salwar' },
   { id: 'western-tops', label: 'Tops & Shirts', description: 'Tops & Shirts', subtitle: 'Tops & Shirts', audience: 'Women', gender: 'women', garmentType: 'shirt_pant' },

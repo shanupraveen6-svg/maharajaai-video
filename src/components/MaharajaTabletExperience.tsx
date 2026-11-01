@@ -48,8 +48,16 @@ export default function MaharajaTabletExperience() {
   const catalogueItems = useStoreCatalogue();
   // The counter runs on the signed-in client's laptop or tablet; show that client's name.
   const [clientName, setClientName] = useState('');
+  // Without the tablet (a TV-only store) this page is the biller's AI Video gift QR, on a phone or computer.
+  const [counterTryOn, setCounterTryOn] = useState(true);
   useEffect(() => {
-    void fetchCatalogueSettings().then((settings) => setClientName(settings.clientName));
+    void fetchCatalogueSettings().then((settings) => {
+      setClientName(settings.clientName);
+      if (settings.access && !settings.access.counterTryOn) {
+        setCounterTryOn(false);
+        setCounterMode('video');
+      }
+    });
   }, []);
   const [guardianConsent, setGuardianConsent] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
@@ -333,27 +341,28 @@ export default function MaharajaTabletExperience() {
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-bold">{clientName}</h1>
-              <p className="text-sm text-muted">Counter</p>
+              <p className="text-sm text-muted">{counterTryOn ? 'Counter' : 'Billing counter'}</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Link href="/maharaja/workspace" className="flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-muted hover:text-ink">Workspace</Link>
-            <button type="button" onClick={resetCustomerSession} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">
+            {/* The AI Video QR card has its own New customer button, so the header shows this only for Try-On. */}
+            {counterMode === 'tryon' && <button type="button" onClick={resetCustomerSession} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">
               <RotateCcw className="h-4 w-4" /> New customer
-            </button>
+            </button>}
           </div>
         </div>
-        <div className="mx-auto max-w-6xl px-6">
+        {counterTryOn && <div className="mx-auto max-w-6xl px-6">
           <NavTabs
             label="Counter modes"
             value={counterMode}
             onChange={setCounterMode}
             options={[
               { value: 'tryon', label: <><Sparkles className="h-4 w-4" /> Try-On</> },
-              { value: 'video', label: <><QrCode className="h-4 w-4" /> AI Video QR</> },
+              { value: 'video', label: <><QrCode className="h-4 w-4" /> AI Video gift</> },
             ]}
           />
-        </div>
+        </div>}
       </header>
 
       <div className="mx-auto max-w-6xl space-y-6 px-6 pb-6 pt-5">
@@ -381,7 +390,7 @@ export default function MaharajaTabletExperience() {
                     >
                       {value === 'catalogue' ? (
                         <span className="grid h-56 grid-cols-3 gap-1 bg-[#F1EEE9] p-1">
-                          {catalogueItems.filter((item) => item.gender === 'women').slice(0, 3).map((item) => <img key={item.sku} src={item.imageUrl} alt="" className="h-full w-full rounded-2xl object-cover" />)}
+                          {catalogueItems.filter((item) => item.gender === 'women').slice(0, 3).map((item) => <img key={item.sku} src={item.thumbnailUrl || item.imageUrl} alt="" className="h-full w-full rounded-2xl object-cover" />)}
                         </span>
                       ) : (
                         <span className="flex h-56 items-center justify-center bg-canvas"><span className="flex h-28 w-28 items-center justify-center rounded-full bg-white shadow-sm"><Shirt className="h-14 w-14" strokeWidth={1.4} /></span></span>
@@ -527,7 +536,7 @@ export default function MaharajaTabletExperience() {
                             const picked = selectedProduct.sku === prod.sku;
                             return (
                               <button key={prod.sku} type="button" aria-pressed={picked} onClick={() => setSelectedProduct(prod)} className={`relative flex flex-col overflow-hidden rounded-2xl border text-left transition ${picked ? 'border-brand ring-2 ring-brand' : 'border-line bg-white hover:border-line-strong'}`}>
-                                <img src={prod.imageUrl} alt="" className="aspect-[3/4] w-full bg-[#F1EEE9] object-contain" />
+                                <img src={prod.thumbnailUrl || prod.imageUrl} alt="" loading="lazy" className="aspect-[3/4] w-full bg-[#F1EEE9] object-contain" />
                                 {picked && <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-white"><CheckCircle2 className="h-4 w-4" /></span>}
                                 <span className="block p-2">
                                   <span className="line-clamp-2 block text-[13px] font-semibold leading-snug">{prod.title}</span>

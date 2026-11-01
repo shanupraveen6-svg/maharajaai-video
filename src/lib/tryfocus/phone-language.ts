@@ -1,0 +1,105 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+/**
+ * English and Tamil for the customer's phone. The choice is remembered on that phone; a phone set to
+ * Tamil starts in Tamil. Product names and categories stay as the store wrote them.
+ * Tamil wording should be checked by a native speaker before each release.
+ */
+export type PhoneLanguage = 'en' | 'ta';
+
+const STORAGE_KEY = 'tryfocus:phone-language';
+
+const STRINGS = {
+  headerTag: { en: 'Private try-on on your phone', ta: 'உங்கள் போனில் தனிப்பட்ட ட்ரை-ஆன்' },
+  help: { en: 'Help', ta: 'உதவி' },
+  stepSource: { en: 'Store or own', ta: 'கடை அல்லது சொந்தம்' },
+  stepPhoto: { en: 'Your photo', ta: 'உங்கள் புகைப்படம்' },
+  stepYourOutfit: { en: 'Your outfit', ta: 'உங்கள் உடை' },
+  stepPickOutfit: { en: 'Pick outfit', ta: 'உடை தேர்வு' },
+  whatToTry: { en: 'What would you like to try?', ta: 'எதை அணிந்து பார்க்க விரும்புகிறீர்கள்?' },
+  storeCollection: { en: 'Store collection', ta: 'கடையின் கலெக்ஷன்' },
+  storeCollectionText: { en: 'Outfits from this store', ta: 'இந்தக் கடையின் உடைகள்' },
+  myOwnOutfit: { en: 'My own outfit', ta: 'என் சொந்த உடை' },
+  myOwnOutfitText: { en: 'Photograph an outfit you have', ta: 'உங்களிடம் உள்ள உடையைப் படம் எடுங்கள்' },
+  photoTitle: { en: 'Your photo', ta: 'உங்கள் புகைப்படம்' },
+  photoSubtitle: { en: 'Full body, standing straight, good light.', ta: 'முழு உடல், நேராக நின்று, நல்ல வெளிச்சத்தில்.' },
+  whoFor: { en: 'Who is it for?', ta: 'யாருக்காக?' },
+  women: { en: 'Women', ta: 'பெண்கள்' },
+  men: { en: 'Men', ta: 'ஆண்கள்' },
+  boys: { en: 'Boys', ta: 'சிறுவர்கள்' },
+  girls: { en: 'Girls', ta: 'சிறுமிகள்' },
+  guardianAgree: { en: 'I am the parent or guardian and approve using this child’s photo.', ta: 'நான் பெற்றோர் அல்லது பாதுகாவலர். இந்தக் குழந்தையின் புகைப்படத்தைப் பயன்படுத்த அனுமதிக்கிறேன்.' },
+  takePhoto: { en: 'Take or choose a photo', ta: 'புகைப்படம் எடுங்கள் அல்லது தேர்வு செய்யுங்கள்' },
+  changePhoto: { en: 'Change photo', ta: 'புகைப்படத்தை மாற்று' },
+  addPhoto: { en: 'Add photo', ta: 'புகைப்படம் சேர்' },
+  needPhoto: { en: 'Add your photo to continue', ta: 'தொடர உங்கள் புகைப்படத்தைச் சேருங்கள்' },
+  needGuardian: { en: 'A parent or guardian must agree first', ta: 'முதலில் பெற்றோர் அல்லது பாதுகாவலர் அனுமதி தேவை' },
+  addMyOutfit: { en: 'Add my outfit', ta: 'என் உடையைச் சேர்' },
+  pickAnOutfit: { en: 'Pick an outfit', ta: 'உடையைத் தேர்ந்தெடு' },
+  you: { en: 'You', ta: 'நீங்கள்' },
+  newLook: { en: 'New look', ta: 'புதிய தோற்றம்' },
+  savePhoto: { en: 'Save photo', ta: 'புகைப்படத்தைச் சேமி' },
+  tryAnother: { en: 'Try another', ta: 'வேறொன்றை முயற்சி செய்' },
+  yourOutfit: { en: 'Your outfit', ta: 'உங்கள் உடை' },
+  noStyles: { en: 'No styles in this category yet.', ta: 'இந்தப் பிரிவில் இன்னும் உடைகள் இல்லை.' },
+  layFlat: { en: 'Lay it flat or hang it, whole piece in frame', ta: 'உடையை விரித்து அல்லது தொங்கவிட்டு, முழுவதும் தெரியும்படி எடுங்கள்' },
+  changeOutfitPhoto: { en: 'Change outfit photo', ta: 'உடைப் புகைப்படத்தை மாற்று' },
+  addOutfitPhoto: { en: 'Add outfit photo', ta: 'உடைப் புகைப்படம் சேர்' },
+  creatingNote: { en: 'Creating your look. This takes about 20 seconds.', ta: 'உங்கள் தோற்றம் தயாராகிறது. சுமார் 20 வினாடிகள் ஆகும்.' },
+  needOutfitPhoto: { en: 'Add a photo of your outfit to continue', ta: 'தொடர உங்கள் உடையின் புகைப்படத்தைச் சேருங்கள்' },
+  creating: { en: 'Creating…', ta: 'தயாராகிறது…' },
+  createMyLook: { en: 'Create my look', ta: 'என் தோற்றத்தை உருவாக்கு' },
+  photoUnreadable: { en: 'This photo could not be read. Choose another photo.', ta: 'இந்தப் புகைப்படத்தைப் படிக்க முடியவில்லை. வேறொன்றைத் தேர்வு செய்யுங்கள்.' },
+  guardianFirst: { en: 'A parent or guardian must approve the child’s photo first.', ta: 'முதலில் பெற்றோர் அல்லது பாதுகாவலர் குழந்தையின் புகைப்படத்தை அனுமதிக்க வேண்டும்.' },
+  chooseFromCatalogue: { en: 'Choose a garment from this store’s catalogue.', ta: 'இந்தக் கடையின் கலெக்ஷனில் இருந்து ஒரு உடையைத் தேர்வு செய்யுங்கள்.' },
+  photoAndOutfitFirst: { en: 'Add your photo and choose an outfit first.', ta: 'முதலில் உங்கள் புகைப்படத்தைச் சேர்த்து ஒரு உடையைத் தேர்வு செய்யுங்கள்.' },
+  generationFailed: { en: 'Image generation failed. Please try again.', ta: 'படம் உருவாகவில்லை. மீண்டும் முயற்சி செய்யுங்கள்.' },
+  generationOffline: { en: 'Image generation could not connect. Please try again.', ta: 'இணைப்பு கிடைக்கவில்லை. மீண்டும் முயற்சி செய்யுங்கள்.' },
+  consentTryOn: {
+    en: 'By taking or adding a photo you agree that it is sent to our AI partners to create your look. It is not kept after your look is made. A parent or guardian must agree for a child.',
+    ta: 'புகைப்படம் எடுப்பதன் மூலம், உங்கள் தோற்றத்தை உருவாக்க அது எங்கள் AI கூட்டாளர்களுக்கு அனுப்பப்படுவதை ஏற்கிறீர்கள். தோற்றம் உருவான பிறகு அது வைத்திருக்கப்படாது. குழந்தைக்கு பெற்றோர் அல்லது பாதுகாவலர் அனுமதி தேவை.',
+  },
+  privacy: { en: 'Privacy', ta: 'தனியுரிமை' },
+  // AI Video gift: the two boxes after scanning the biller's QR (the store name goes before newCollection)
+  newCollection: { en: 'new collection', ta: 'புதிய கலெக்ஷன்' },
+  yourCollection: { en: 'Your collection', ta: 'உங்கள் கலெக்ஷன்' },
+  // Store collection outfit picker (after "new collection" on the gift QR, or from the TV)
+  chooseOutfit: { en: 'Choose your outfit', ta: 'உங்கள் உடையைத் தேர்ந்தெடுங்கள்' },
+  chooseOutfitText: { en: 'Pick an outfit, then add your photo. Your festive video is made in this outfit.', ta: 'ஒரு உடையைத் தேர்ந்தெடுத்து, உங்கள் புகைப்படத்தைச் சேருங்கள். இந்த உடையில் உங்கள் பண்டிகை வீடியோ உருவாகும்.' },
+  moreOutfits: { en: 'More outfits', ta: 'மேலும் உடைகள்' },
+  loadingOutfits: { en: 'Loading outfits…', ta: 'உடைகள் ஏற்றப்படுகின்றன…' },
+  continueWithOutfit: { en: 'Continue with this outfit', ta: 'இந்த உடையுடன் தொடருங்கள்' },
+  saving: { en: 'Saving…', ta: 'சேமிக்கிறது…' },
+  // Live Mirror video page
+  mirrorTitle: { en: 'Your Live Mirror video', ta: 'உங்கள் லைவ் மிரர் வீடியோ' },
+  downloadVideo: { en: 'Download video', ta: 'வீடியோவைப் பதிவிறக்கு' },
+  compareLooks: { en: 'Compare your looks', ta: 'உங்கள் தோற்றங்களை ஒப்பிடுங்கள்' },
+  compareLooksText: { en: 'Every outfit you tried, side by side. Tap one to save it.', ta: 'நீங்கள் அணிந்த எல்லா உடைகளும் அருகருகே. சேமிக்க ஒன்றைத் தொடுங்கள்.' },
+  loadingVideo: { en: 'Loading your video…', ta: 'உங்கள் வீடியோ ஏற்றப்படுகிறது…' },
+  videoUnavailable: { en: 'Video not available', ta: 'வீடியோ கிடைக்கவில்லை' },
+  linkWorksUntil: { en: 'This private link works until', ta: 'இந்தத் தனிப்பட்ட இணைப்பு செயல்படும் நேரம்:' },
+} as const;
+
+export type PhoneStringKey = keyof typeof STRINGS;
+
+export function usePhoneLanguage() {
+  const [language, setLanguageState] = useState<PhoneLanguage>('en');
+
+  useEffect(() => {
+    let saved: string | null = null;
+    try { saved = window.localStorage.getItem(STORAGE_KEY); } catch { /* private mode */ }
+    const preferred = saved === 'ta' || saved === 'en' ? saved : navigator.language?.toLowerCase().startsWith('ta') ? 'ta' : 'en';
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the phone's stored choice is only readable after mount
+    setLanguageState(preferred);
+  }, []);
+
+  function setLanguage(next: PhoneLanguage) {
+    setLanguageState(next);
+    try { window.localStorage.setItem(STORAGE_KEY, next); } catch { /* private mode */ }
+  }
+
+  const t = (key: PhoneStringKey) => STRINGS[key][language];
+  return { language, setLanguage, t };
+}

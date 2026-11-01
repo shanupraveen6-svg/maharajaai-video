@@ -2,7 +2,7 @@
 
 import { AlertTriangle, ArrowRight, Store } from 'lucide-react';
 import { creditStatuses } from '@/lib/maharaja/credits';
-import { resolveAccess } from '@/lib/maharaja/access';
+import { PACKAGES, packageOf, resolveAccess } from '@/lib/maharaja/access';
 
 type ModuleKey = 'image' | 'live' | 'video';
 
@@ -17,9 +17,16 @@ export type OverviewClient = {
   modules?: { image: boolean; live: boolean; video: boolean };
   usage: { image: number; live: number; video: number; passes?: number; goLive?: number; downloads?: number; scans?: number };
   limits: { image: number; live: number; video: number };
+  /** Estimated AI spend in rupees (see usage-ledger.ts). */
+  spend?: { todayInr: number; monthInr: number };
 };
 
-const MODULES: Array<[ModuleKey, string]> = [['image', 'Image Try-On'], ['live', 'Live Mirror'], ['video', 'AI Video']];
+/** Today's estimated AI spend across every client, with the daily caps. */
+export type PlatformSpend = { todayInr: number; clientCapInr: number | null; platformCapInr: number | null };
+
+const inr = (value: number) => `₹${Math.round(value).toLocaleString('en-IN')}`;
+
+const MODULES: Array<[ModuleKey, string]> = [['image', 'Try-On'], ['video', 'AI Video'], ['live', 'Live Mirror']];
 
 /** Effective credits: a module that is off, or whose device is off, counts as not in the plan. */
 function planLimit(client: OverviewClient, key: ModuleKey) {
@@ -30,7 +37,7 @@ function planLimit(client: OverviewClient, key: ModuleKey) {
  * TryFocus platform view shown when no client is selected: totals across every workspace, what needs
  * attention (credits, WhatsApp requests, missing logins, paused stores) and a row per client.
  */
-export default function PlatformOverview({ clients, onSelect }: { clients: OverviewClient[]; onSelect: (clientId: string) => void }) {
+export default function PlatformOverview({ clients, platform, onSelect }: { clients: OverviewClient[]; platform?: PlatformSpend | null; onSelect: (clientId: string) => void }) {
   const active = clients.filter((item) => item.status === 'Active').length;
   const sum = (pick: (item: OverviewClient) => number) => clients.reduce((total, item) => total + pick(item), 0);
   const credits = (item: OverviewClient) => creditStatuses(
@@ -45,6 +52,9 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
       else if (status.level === 'critical' || status.level === 'low') attention.push({ client: item, text: `${status.label}: ${status.limit - status.used} credits left`, tone: 'amber' });
     }
     if (!item.logins?.length) attention.push({ client: item, text: 'No client login yet', tone: 'amber' });
+    const clientCap = platform?.clientCapInr;
+    if (clientCap && item.spend && item.spend.todayInr >= clientCap) attention.push({ client: item, text: 'Daily AI spending cap reached; AI is paused until midnight', tone: 'red' });
+    else if (clientCap && item.spend && item.spend.todayInr >= clientCap * 0.8) attention.push({ client: item, text: `${inr(item.spend.todayInr)} of the ${inr(clientCap)} daily AI cap used`, tone: 'amber' });
     if (item.status === 'Paused') attention.push({ client: item, text: 'Workspace paused', tone: 'amber' });
   }
 
@@ -54,15 +64,22 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
     ['AI videos', sum((item) => item.usage.video).toLocaleString('en-IN'), `${sum((item) => item.usage.passes || 0).toLocaleString('en-IN')} video passes issued`],
     ['Go Live plays queued', sum((item) => item.usage.goLive || 0).toLocaleString('en-IN'), `${sum((item) => item.usage.downloads || 0).toLocaleString('en-IN')} downloads`],
     ['Live Mirror sessions', sum((item) => item.usage.live).toLocaleString('en-IN'), '60-second sessions'],
+    ['AI cost today (est.)', inr(platform?.todayInr || 0), platform?.platformCapInr ? `Cap ${inr(platform.platformCapInr)} a day` : 'No daily cap set'],
+    ['AI cost this month (est.)', inr(sum((item) => item.spend?.monthInr || 0)), 'From the AI_COST_* estimates'],
     ['Needs attention', String(attention.length), attention.length ? 'See the list below' : 'All clients healthy'],
   ];
+  if (clients[0] && platform?.platformCapInr && platform.todayInr >= platform.platformCapInr) {
+    attention.unshift({ client: clients[0], text: 'Platform daily AI cap reached: every store is paused until midnight', tone: 'red' });
+  }
 
   const adoption = MODULES.map(([key, label]) => [label, clients.filter((item) => planLimit(item, key) > 0).length] as const);
-  const devices = (['tv', 'tablet', 'mobile'] as const).map((key) => [key === 'tv' ? 'TV' : key === 'tablet' ? 'Tablet / laptop' : 'Mobile', clients.filter((item) => item.devices[key]).length] as const);
+  const packages = (['tv', 'tablet', 'tv-tablet', 'phone'] as const)
+    .map((id) => [PACKAGES[id].label, clients.filter((item) => packageOf(item.devices) === id).length] as const)
+    .filter(([label, count]) => label !== PACKAGES.phone.label || count > 0);
 
   return (
     <div className="space-y-6">
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map(([label, value, note]) => (
           <article key={label} className="tf-card p-5">
             <p className="text-[13px] font-medium text-muted">{label}</p>
@@ -101,8 +118,8 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
           {adoption.map(([label, count]) => (
             <p key={label} className="mt-1 flex justify-between text-sm"><span>{label}</span><span className="tabular-nums font-bold">{count} / {clients.length}</span></p>
           ))}
-          <p className="mt-4 text-xs font-bold text-muted">Devices</p>
-          {devices.map(([label, count]) => (
+          <p className="mt-4 text-xs font-bold text-muted">Packages</p>
+          {packages.map(([label, count]) => (
             <p key={label} className="mt-1 flex justify-between text-sm"><span>{label}</span><span className="tabular-nums font-bold">{count} / {clients.length}</span></p>
           ))}
         </article>
@@ -115,6 +132,7 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Status</th>
               {MODULES.map(([, label]) => <th key={label} className="px-4 py-3">{label}</th>)}
+              <th className="px-4 py-3">AI cost (month)</th>
               <th className="px-4 py-3">WhatsApp</th>
               <th className="px-4 py-3" />
             </tr>
@@ -128,6 +146,7 @@ export default function PlatformOverview({ clients, onSelect }: { clients: Overv
                   const limit = planLimit(item, key);
                   return <td key={key} className="px-4 py-3 tabular-nums text-xs">{limit > 0 ? `${item.usage[key].toLocaleString('en-IN')} / ${limit.toLocaleString('en-IN')}` : '—'}</td>;
                 })}
+                <td className="px-4 py-3 tabular-nums text-xs">{item.spend ? inr(item.spend.monthInr) : '—'}</td>
                 <td className="px-4 py-3 text-xs">{item.whatsappConnected ? 'Connected' : '—'}</td>
                 <td className="px-4 py-3 text-right">
                   <button type="button" onClick={() => onSelect(item.id)} className="tf-btn tf-btn-dark !min-h-10 px-4 text-sm">Manage</button>

@@ -23,6 +23,9 @@ import {
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import { compressImage } from '@/lib/utils/image';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
+import TvIdleLoop from '@/components/TvIdleLoop';
+import TvOfflineNotice from '@/components/TvOfflineNotice';
+import { isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import PhonePhotoTransfer from '@/components/PhonePhotoTransfer';
 import {
   catalogueCategories,
@@ -50,6 +53,9 @@ export default function TryFocusTvExperience() {
   // Live Mirror and AI Video show only while the store has them (module on and the devices they need on).
   const [liveOn, setLiveOn] = useState(true);
   const [videoOn, setVideoOn] = useState(true);
+  // With Go Live, an idle TV plays recent Go Live videos until someone taps it.
+  const [goLiveOn, setGoLiveOn] = useState(false);
+  const [idleLoop, setIdleLoop] = useState(false);
   const [catalogueItems, setCatalogueItems] = useState<TryFocusProduct[]>([]);
 
   // Catalogue filtering
@@ -89,6 +95,7 @@ export default function TryFocusTvExperience() {
           audience: item.audience || (item.gender === 'men' ? 'Men' : item.gender === 'boys' ? 'Boys' : item.gender === 'girls' ? 'Girls' : 'Women'),
           gender: item.gender === 'men' || item.gender === 'boys' || item.gender === 'girls' ? item.gender : 'women',
           imageUrl: item.imageUrl,
+          thumbnailUrl: item.thumbnailUrl,
           garmentReferenceUrl: item.garmentReferenceUrl || item.imageUrl,
           fabricNote: item.fabricNote || 'Maharaja Collection',
           badge: item.newArrival ? 'NEW ARRIVAL' : item.badge,
@@ -110,6 +117,7 @@ export default function TryFocusTvExperience() {
         if (settings.access) {
           setLiveOn(settings.access.modules.live);
           setVideoOn(settings.access.catalogueVideo);
+          setGoLiveOn(settings.access.goLive);
         }
       })
       .catch(() => undefined);
@@ -810,7 +818,7 @@ export default function TryFocusTvExperience() {
       if (idleResetRef.current !== null) window.clearTimeout(idleResetRef.current);
       idleResetRef.current = window.setTimeout(() => {
         if (generationBusyRef.current) restart();
-        else resetAllSession();
+        else { resetAllSession(); setIdleLoop(true); }
       }, 3 * 60 * 1000);
     };
     for (const event of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(event, restart, { passive: true });
@@ -825,6 +833,8 @@ export default function TryFocusTvExperience() {
 
   return (
     <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-ink">
+      {idleLoop && goLiveOn && <TvIdleLoop clientName={clientName} onWake={() => setIdleLoop(false)} />}
+      <TvOfflineNotice />
       <header className="tv-main-header sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md">
         <div className="tv-main-brand mx-auto flex max-w-[1080px] items-center justify-between gap-4 px-8 pb-4 pt-5">
           <div className="flex min-w-0 items-center gap-4">
@@ -873,7 +883,7 @@ export default function TryFocusTvExperience() {
                   >
                     <span className="grid min-h-0 flex-1 grid-cols-3 gap-1 overflow-hidden bg-[#F1EEE9] p-1">
                       {(catalogueItems.length ? catalogueItems : sampleCatalogue).filter((item) => item.gender === 'women').slice(0, 3).map((item) => (
-                        <img key={item.sku} src={item.imageUrl} alt="" className="h-full w-full rounded-2xl object-cover" />
+                        <img key={item.sku} src={item.thumbnailUrl || item.imageUrl} alt="" className="h-full w-full rounded-2xl object-cover" />
                       ))}
                     </span>
                     <span className="flex items-center justify-between gap-4 p-7">
@@ -1064,7 +1074,7 @@ export default function TryFocusTvExperience() {
                               className={`tv-product-card group relative flex flex-col overflow-hidden rounded-2xl border bg-white text-left transition disabled:opacity-50 ${picked ? 'border-brand ring-2 ring-brand' : 'border-line hover:border-line-strong'}`}
                             >
                               <span className="tv-product-image relative block w-full overflow-hidden">
-                                <img src={item.imageUrl} alt="" className="h-full w-full object-contain" />
+                                <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain" />
                                 <span className={`absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold shadow ${picked ? 'bg-brand text-white' : 'bg-white/90 text-ink'}`}>
                                   {picked ? selectedLooks.findIndex((look) => look.sku === item.sku) + 1 : '+'}
                                 </span>
@@ -1089,7 +1099,7 @@ export default function TryFocusTvExperience() {
                     <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex -space-x-3">
-                          {selectedLooks.map((look) => <img key={look.sku} src={look.imageUrl} alt="" className="h-14 w-11 rounded-lg border-2 border-white bg-canvas object-cover" />)}
+                          {selectedLooks.map((look) => <img key={look.sku} src={look.thumbnailUrl || look.imageUrl} alt="" className="h-14 w-11 rounded-lg border-2 border-white bg-canvas object-cover" />)}
                         </div>
                         <p className="text-lg font-semibold">{selectedLooks.length ? `${selectedLooks.length} of 5 selected` : 'Tap outfits to select'}</p>
                       </div>
@@ -1280,11 +1290,21 @@ export default function TryFocusTvExperience() {
            ========================================================= */}
         {mode === 'live-tryon' && (
           <LucyLiveMirror
-            catalogue={catalogueItems.filter((item) => item.price > 10000 && (item.eligibleForLive === true || item.sku.startsWith('TF-')))}
+            catalogue={catalogueItems.filter(isLiveMirrorReady)}
             garmentPrompt={`Person wearing ${selectedProduct.title}, ${selectedProduct.fabricNote}`}
             garmentTitle={selectedProduct.title}
             selectedProduct={selectedProduct.price > 0 && (selectedProduct.eligibleForLive || selectedProduct.sku.startsWith('TF-')) ? selectedProduct : catalogueItems.find((item) => item.eligibleForLive === true)}
             onSelectProduct={setSelectedProduct}
+            onUsePhotoTryOn={(product) => {
+              // Live Mirror could not connect: the same outfit continues as a photo Try-On.
+              navigateTo('image-tryon');
+              setImageSource('catalogue');
+              setGenderFilter(product.gender);
+              setActiveCategory(product.category);
+              setSelectedProduct(product);
+              setSelectedLooks([product]);
+              setTryOnStage(customerPhoto ? 'browse' : 'photo');
+            }}
           />
         )}
 
@@ -1341,8 +1361,9 @@ export default function TryFocusTvExperience() {
                     >
                       <div className="tv-product-image relative aspect-[3/4] w-full overflow-hidden bg-line">
                         <img
-                          src={item.imageUrl}
+                          src={item.thumbnailUrl || item.imageUrl}
                           alt={item.title}
+                          loading="lazy"
                           className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
                         />
                       </div>

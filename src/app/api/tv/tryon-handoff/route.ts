@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { verifyTvRequest } from '@/lib/auth/display';
+import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId } from '@/lib/maharaja/server';
 
@@ -36,6 +38,10 @@ function decodeImage(image: string) {
 export async function POST(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   try {
+    // Only the store's paired TV or a signed-in counter can store looks for a customer's phone.
+    if (!await verifyTvRequest(req) && !verifyOperatorRequest(req)) {
+      return NextResponse.json({ error: 'Sign in or pair this display first.' }, { status: 401 });
+    }
     const rate = await enforceRateLimit(req, 'tv-tryon-handoff', 6, 10 * 60 * 1000);
     if (!rate.allowed) return NextResponse.json({ error: 'Too many handoffs. Please wait before trying again.' }, { status: 429 });
     const body = await req.json();

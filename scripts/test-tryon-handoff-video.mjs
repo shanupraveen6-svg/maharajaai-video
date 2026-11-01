@@ -8,6 +8,7 @@ for (const key of ['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRI
 }
 process.env.ALLOW_MOCK_BACKEND = 'true';
 process.env.NODE_ENV = 'test';
+process.env.OPERATOR_AUTH_SECRET = 'test_secret';
 
 const { NextRequest } = await import('next/server.js');
 const { getMockStore } = await import('../src/lib/firebase/admin.ts');
@@ -22,9 +23,9 @@ console.log('--- TESTING TRY-ON HANDOFF & AI VIDEO ROUTE ---');
 const testBase64Png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 const sampleGarmentUrl = 'https://tryfocus.in/images/sarees/kanchivaram-ruby.jpg';
 
-const createReq = new NextRequest('http://localhost/api/tv/tryon-handoff', {
+const handoffBody = (headers) => new NextRequest('http://localhost/api/tv/tryon-handoff', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', ...headers },
   body: JSON.stringify({
     looks: [{
       sku: 'TF-SAR-01',
@@ -38,7 +39,9 @@ const createReq = new NextRequest('http://localhost/api/tv/tryon-handoff', {
   }),
 });
 
-const createRes = await createHandoff(createReq);
+// Only the paired TV or a signed-in counter can store looks.
+assert.equal((await createHandoff(handoffBody({}))).status, 401, 'An unsigned handoff upload is refused');
+const createRes = await createHandoff(handoffBody({ 'x-operator-key': 'test_secret' }));
 assert.equal(createRes.status, 200, 'Handoff creation failed');
 const createData = await createRes.json();
 assert.ok(createData.token, 'Token must be returned');
@@ -69,7 +72,7 @@ async function requestPass(handoffToken, imageIndex) {
 async function newHandoffToken(sku = 'OWN-123456') {
   const res = await createHandoff(new NextRequest('http://localhost/api/tv/tryon-handoff', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-operator-key': 'test_secret' },
     body: JSON.stringify({ looks: [{ sku, title: 'Customer Saree', image: testBase64Png, category: 'saree', garmentType: 'saree', gender: 'women', garmentReferenceUrl: testBase64Png }] }),
   }));
   return (await res.json()).token;
@@ -126,7 +129,7 @@ console.log('✓ Video credits and mobile switch enforced before a pass is issue
 {
   const tabletHandoff = async (sku) => (await (await createHandoff(new NextRequest('http://localhost/api/tv/tryon-handoff', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-operator-key': 'test_secret' },
     body: JSON.stringify({ source: 'tablet', looks: [{ sku, title: 'Look', image: testBase64Png, category: 'sarees', garmentType: 'saree', gender: 'women', garmentReferenceUrl: testBase64Png }] }),
   }))).json()).token;
   const catalogueFromTablet = await requestPass(await tabletHandoff('TF-SAR-01'), 0);

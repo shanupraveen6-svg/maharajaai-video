@@ -45,3 +45,10 @@ next-env.d.ts
 *.zip
 /silk_sarees_collages/
 
+
+# Bridal quality-check reports contain customer photos
+quality-check-*.html
+
+# Playwright
+/test-results/
+/playwright-report/

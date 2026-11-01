@@ -11,6 +11,10 @@ export type MaharajaCatalogueProduct = {
   garmentType: TryFocusProduct['garmentType'];
   storagePath: string;
   garmentReferencePath?: string;
+  /** Small WebP preview for grids, made from storagePath when the garment is saved. */
+  thumbnailPath?: string;
+  /** The storagePath the thumbnail was made from; a new photo makes a new thumbnail. */
+  thumbnailSource?: string;
   fabricNote?: string;
   badge?: TryFocusProduct['badge'];
   newArrival: boolean;
@@ -24,9 +28,11 @@ export type MaharajaCatalogueProduct = {
   updatedAt?: string;
 };
 
-export type PublicCatalogueProduct = Omit<MaharajaCatalogueProduct, 'storagePath' | 'garmentReferencePath'> & {
+export type PublicCatalogueProduct = Omit<MaharajaCatalogueProduct, 'storagePath' | 'garmentReferencePath' | 'thumbnailPath' | 'thumbnailSource'> & {
   id: string;
   imageUrl: string;
+  /** Small preview for grids; falls back to imageUrl. */
+  thumbnailUrl?: string;
   garmentReferenceUrl?: string;
   accent: string;
 };

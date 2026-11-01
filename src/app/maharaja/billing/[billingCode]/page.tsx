@@ -15,7 +15,7 @@ export default function MaharajaBillingPage() {
             TF
           </span>
           <div>
-            <h1 className="text-xl font-bold text-ink">AI Video QR for customers</h1>
+            <h1 className="text-xl font-bold text-ink">AI Video gift</h1>
           </div>
         </div>
       </header>

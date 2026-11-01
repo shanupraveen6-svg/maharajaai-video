@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CREDIT_PACKAGES, type CreditPackageId } from '@/lib/maharaja/access';
 import Image from 'next/image';
 import {
   ArrowRight, BarChart3, Camera, Check, ChevronDown, CirclePlay,
@@ -13,6 +14,33 @@ const capabilities = [
   ['03', 'Showroom live', 'Move approved customer films into a managed television queue and an always-on replay library.', MonitorPlay],
   ['04', 'Store intelligence', 'Track scans, successful generations, retries, downloads and participation from one workspace.', BarChart3],
 ] as const;
+
+type CreditPlan = (typeof CREDIT_PACKAGES)[CreditPackageId];
+
+/** The two products (rules in access.ts). Each is sold as Package 1 or 2; the customer's phone comes with both. */
+const offers: Array<{ name: string; text: string; includes: string[]; credits: (plan: CreditPlan) => string; addOn?: string }> = [
+  {
+    name: 'TV',
+    text: 'A portrait TV in your showroom.',
+    includes: [
+      'Try-On: customers see your outfits on themselves',
+      'AI Video: a festive video of the customer, with Go Live on your LED or wall screen',
+      'The customer’s phone: Try-On from your wall QR and the AI Video gift QR',
+    ],
+    credits: (plan) => `${plan.image.toLocaleString('en-IN')} Try-On images · ${plan.video.toLocaleString('en-IN')} AI Videos · ${plan.live.toLocaleString('en-IN')} Live Mirror sessions`,
+    addOn: 'The bride sees the saree move with her on the TV, live, and takes the video home.',
+  },
+  {
+    name: 'Tablet',
+    text: 'At your counter, run by your team.',
+    includes: [
+      'Try-On: your team shows customers in your outfits',
+      'AI Video: the after-sales gift QR, with Go Live on your LED or wall screen',
+      'The customer’s phone: Try-On from your wall QR and the AI Video gift QR',
+    ],
+    credits: (plan) => `${plan.image.toLocaleString('en-IN')} Try-On images · ${plan.video.toLocaleString('en-IN')} AI Videos`,
+  },
+];
 
 const principles = [
   'Client-isolated workspaces',
@@ -184,31 +212,48 @@ export default function LandingPage() {
       </section>
 
       <section id="pricing" className="border-b border-line bg-canvas">
-        <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
+        <div className="mx-auto max-w-5xl px-5 py-16 md:px-8 md:py-20">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl text-ink">
-              Choose only the AI modules your store needs.
-            </h2>
-            <p className="mt-4 text-sm sm:text-base leading-7 text-muted">
-              Start with Image Try-On, Live Mirror or AI Video. Every module runs on the same TryFocus platform and can be activated on mobile, tablet, TV or the complete store setup.
-            </p>
+            <h2 className="text-3xl font-bold leading-tight text-ink sm:text-4xl">Do you want a TV or a tablet?</h2>
+            <p className="mt-4 text-sm leading-7 text-muted sm:text-base">Pick your screen, then a package. Your customers’ phones are always included.</p>
           </div>
 
-          <div className="mx-auto mt-12 grid max-w-5xl gap-6 lg:grid-cols-2">
-            <PricingPlan title="Standard" label="For a focused store launch" items={[
-              ['Try-On', '4,000 generations', '₹50,000', '₹40,000'],
-              ['Live Mirror', '500 × 60-second sessions', '₹50,000', '₹40,000'],
-              ['AI Video', '500 video journeys', '₹50,000', '₹40,000'],
-            ]} />
-            <PricingPlan featured title="Pro" label="For a complete flagship experience" items={[
-              ['Try-On', '6,000 generations', '₹99,999', '₹80,000'],
-              ['Live Mirror', '1,000 × 60-second sessions', '₹99,999', '₹80,000'],
-              ['AI Video', '1,000 video journeys', '₹99,999', '₹80,000'],
-            ]} />
+          <div className="mt-12 grid gap-6 md:grid-cols-2">
+            {offers.map(({ name, text, includes, credits, addOn }) => (
+              <article key={name} className="tf-card flex flex-col p-6">
+                <h3 className="text-2xl font-bold text-ink">{name}</h3>
+                <p className="mt-1 text-sm text-muted">{text}</p>
+                <ul className="mt-5 space-y-2.5 text-sm">
+                  {includes.map((item) => (
+                    <li key={item} className="flex gap-2.5 text-ink"><Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />{item}</li>
+                  ))}
+                </ul>
+                <p className="mt-6 text-sm font-semibold text-muted">Choose a package</p>
+                <ul className="mt-2 space-y-2">
+                  {(Object.keys(CREDIT_PACKAGES) as CreditPackageId[]).map((id) => {
+                    const plan = CREDIT_PACKAGES[id];
+                    return (
+                      <li key={id} className="rounded-2xl border border-line p-4">
+                        <p className="font-bold text-ink">{plan.label}</p>
+                        <p className="mt-0.5 text-sm tabular-nums text-muted">{credits(plan)}</p>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {addOn && (
+                  <div className="mt-4 rounded-2xl border border-ink p-4">
+                    <p className="font-bold text-ink">Add-on: Live Mirror</p>
+                    <p className="mt-1 text-sm text-muted">{addOn}</p>
+                  </div>
+                )}
+              </article>
+            ))}
           </div>
-          <div className="rounded-2xl mx-auto mt-6 grid max-w-5xl gap-4 border border-line bg-white p-5 text-sm text-muted md:grid-cols-[1fr_auto] md:items-center">
-            <div><p className="font-bold text-ink">One platform. Activate only the surfaces you purchase.</p><p className="mt-1 leading-6">Mobile, tablet, TV/standee and wall player access are configured per client. AI image and AI video include a 15% retry allowance; Live Mirror has no retry.</p></div>
-            <div className="border-l-0 border-[#E3D7C3] pt-3 md:border-l md:pl-5 md:pt-0"><p className="text-xs font-bold text-brand">Hardware</p><p className="mt-1 font-bold text-ink">Works on any portrait TV</p><p className="text-sm font-semibold text-muted">Buy the TV from your preferred store. We set it up and brand it for you.</p></div>
+
+          <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-4 rounded-2xl border border-line bg-white p-6 text-center">
+            <p className="text-lg font-bold text-ink">Call us to discuss your store and the right package.</p>
+            <a href="tel:9994837342" className="tf-btn tf-btn-primary !min-h-12 px-6"><Phone className="h-4 w-4" /> Call us: 9994837342</a>
+            <p className="text-sm text-muted">Phone only platform, without a TV or tablet? <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">Contact us</a>.</p>
           </div>
         </div>
       </section>
@@ -246,35 +291,5 @@ export default function LandingPage() {
         </div>
       </footer>
     </main>
-  );
-}
-
-function PricingPlan({
-  title,
-  label,
-  items,
-  featured = false,
-}: {
-  title: string;
-  label: string;
-  items: Array<[string, string, string, string]>;
-  featured?: boolean;
-}) {
-  return (
-    <article className={`rounded-2xl relative border bg-white p-6 shadow-sm sm:p-8 ${featured ? 'border border-brand shadow-[0_20px_50px_rgba(122,20,40,0.10)]': 'border-line'}`}>
-      {featured && <span className="absolute -top-3.5 left-6 inline-flex items-center gap-1.5 bg-brand px-3.5 py-1 text-xs font-bold text-white shadow-sm"><Sparkles className="h-3 w-3 text-[#E8B878]" /> Most complete</span>}
-      <p className={`text-xs font-bold ${featured ? 'text-brand': 'text-[#6B7570]'}`}>{label}</p>
-      <h3 className="mt-2 text-3xl font-bold text-ink">{title} Modules</h3>
-      <div className="mt-7 divide-y divide-[#E5E8E4] border-y border-[#E5E8E4]">
-        {items.map(([module, volume, oldPrice, offerPrice]) => (
-          <div key={module} className="grid gap-2 py-5 sm:grid-cols-[1fr_auto] sm:items-center">
-            <div><p className="font-bold text-ink">{module}</p><p className="mt-1 text-xs font-semibold text-[#626A66]">{volume}</p></div>
-            <div className="text-left sm:text-right"><p className="text-sm font-bold text-[#858D88] line-through">{oldPrice}</p><p className="text-2xl font-bold text-brand">{offerPrice}</p></div>
-          </div>
-        ))}
-      </div>
-      <p className="mt-5 text-xs leading-5 text-muted">Each module is selected independently. AI Video and Live access can be restricted by your retailer’s campaign conditions.</p>
-      <a href="tel:9994837342" className={`rounded-xl mt-6 flex min-h-12 w-full items-center justify-center gap-2 px-4 text-xs font-bold transition ${featured ? 'bg-brand text-white hover:bg-[#5D0F1F]': 'border border-brand text-brand hover:bg-brand hover:text-white'}`}><Phone className="h-4 w-4" />Contact: 9994837342</a>
-    </article>
   );
 }

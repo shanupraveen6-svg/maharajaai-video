@@ -77,6 +77,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ token:
     phone: '',
     phoneMasked: '',
     experienceType: catalogueLook ? 'catalogue-gift' : 'purchased-garment',
+    // The look already fixes the garment, so the phone skips the gift QR's first choice.
+    giftChoice: catalogueLook ? 'catalogue' : 'own',
     ...(catalogueLook && product ? {
       catalogueSku: product.sku,
       catalogueTitle: product.title,

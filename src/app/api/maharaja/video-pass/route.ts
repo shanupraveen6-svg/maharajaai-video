@@ -1,16 +1,14 @@
 import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { NextRequest, NextResponse } from 'next/server';
-import { AI_VIDEO_MIN_PURCHASE, ENFORCE_REPEAT_LIMITS, isEventId } from '@/lib/maharaja/config';
+import { ENFORCE_REPEAT_LIMITS, isEventId } from '@/lib/maharaja/config';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import {
   videoLimitSet,
-  getVideoPass,
-  savePosterDevicePass,
-  readPosterDevicePass, moduleLimit, resolveRequestClientId,
+  moduleLimit, resolveRequestClientId,
   resolveWorkspaceByAccessCode,
   incrementMaharajaUsage,
   type MaharajaVideoPass,
@@ -90,24 +88,10 @@ export async function POST(req: NextRequest) {
     if (!isKioskHandoff && body.billingCode !== workspace.billingCode) {
       return NextResponse.json({ success: false, error: 'Invalid Maharaja billing-counter link.' }, { status: 403 });
     }
-    // With a minimum bill set, a printed poster would let anyone skip the bill, so only counter QRs work.
-    if (isPosterHandoff && (workspace.videoMinPurchase ?? AI_VIDEO_MIN_PURCHASE) > 0) {
+    // AI Video QRs come only from the billing counter, one per customer; an old printed poster would let
+    // anyone skip the bill, so it no longer opens a pass.
+    if (isPosterHandoff) {
       return NextResponse.json({ success: false, error: 'Ask the billing counter for your AI Video QR.' }, { status: 403 });
-    }
-    // A shared poster photo cannot mint passes from one phone: the same phone gets the same pass all day.
-    const posterDeviceKey = isPosterHandoff && typeof body.deviceId === 'string' && /^[A-Za-z0-9_-]{16,80}$/.test(body.deviceId)
-      ? crypto.createHash('sha256').update(`${workspace.clientId}:${body.deviceId}:${new Date().toISOString().slice(0, 10)}`).digest('hex').slice(0, 40)
-      : '';
-    if (posterDeviceKey) {
-      const existingCode = await readPosterDevicePass(posterDeviceKey);
-      const existing = existingCode ? await getVideoPass(existingCode) : null;
-      if (existing && existing.status === 'active' && existing.expiresAtMs > Date.now()) {
-        return NextResponse.json({
-          success: true,
-          reused: true,
-          pass: { code: existing.code, clientId: existing.clientId, phoneMasked: existing.phoneMasked, eventId: existing.eventId, experienceType: existing.experienceType, expiresAt: existing.expiresAt, link: getPublicAppUrl(`/maharaja/video/${existing.code}`) },
-        });
-      }
     }
     const rawPhone = cleanPhone(body.phone);
     // QR customers do not share a made-up phone number or campaign entitlement.
@@ -230,7 +214,6 @@ export async function POST(req: NextRequest) {
     ]);
     const allowances = getCustomerServiceAllowances(entitlement);
 
-    if (posterDeviceKey) await savePosterDevicePass(posterDeviceKey, pass.code);
     const link = getPublicAppUrl(experienceType === 'catalogue-gift'
       ? `/maharaja/catalogue/${pass.code}`
       : `/maharaja/video/${pass.code}`);

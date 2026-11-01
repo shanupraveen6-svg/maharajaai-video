@@ -15,15 +15,20 @@ export async function POST(req: NextRequest) {
     if (access.pass.experienceType !== 'catalogue-gift') return NextResponse.json({ success: false, error: 'This link is not a catalogue gift.' }, { status: 403 });
     const product = await getCatalogueProduct(sku);
     if (!product) return NextResponse.json({ success: false, error: 'That catalogue product is unavailable.' }, { status: 404 });
+    // AI Video uses only the pieces the store switched on for it (its higher-value collection).
+    if (!product.eligibleForVideo && !product.sku.startsWith('TF-')) {
+      return NextResponse.json({ success: false, error: 'This outfit is not available for AI Video. Choose another.' }, { status: 400 });
+    }
     const db = getDb();
     if (!db) {
       const store = getMockStore();
-      const existing = store.customerPasses.get(access.pass.code) as Record<string, any> | undefined;
+      const passKey = `${activeClientId()}:${access.pass.code}`;
+      const existing = store.customerPasses.get(passKey) as Record<string, any> | undefined;
       if (!existing || existing.experienceType !== 'catalogue-gift') {
         return NextResponse.json({ success: false, error: 'Gift link is invalid.' }, { status: 403 });
       }
       if (!existing.videoMasterDone && !existing.videoGenerating && !existing.videoDone) {
-        store.customerPasses.set(access.pass.code, {
+        store.customerPasses.set(passKey, {
           ...existing,
           catalogueSku: product.sku,
           catalogueTitle: product.title,

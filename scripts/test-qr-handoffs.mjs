@@ -17,17 +17,12 @@ assert.ok([307, 308].includes(privatePage.status), 'TV setup requires staff sign
 const workspaceResponse = await fetch(`${base}/api/maharaja/workspace`, { headers: { cookie } });
 const { workspace } = await workspaceResponse.json();
 assert.ok(workspace?.openVideoCode);
-const posterOne = await request('/api/maharaja/video-pass', { source: 'video-poster', billingCode: workspace.openVideoCode });
-const posterData = await posterOne.json();
-assert.equal(posterOne.status, 200, JSON.stringify(posterData));
-assert.ok(posterData.pass?.code && posterData.pass?.link);
-const access = await (await fetch(`${base}/api/maharaja/access/${posterData.pass.code}?service=ai-video`)).json();
-assert.equal(access.access.experienceType, 'purchased-garment');
-const expiry = new Date(access.access.expiresAt).getTime();
-assert.ok(expiry > Date.now() + 23 * 60 * 60 * 1000 && expiry <= Date.now() + 24 * 60 * 60 * 1000, 'Poster creates a private 24-hour session.');
-const posterTwo = await (await request('/api/maharaja/video-pass', { source: 'video-poster', billingCode: workspace.openVideoCode })).json();
-assert.notEqual(posterTwo.pass.code, posterData.pass.code, 'Two scans of the same poster create separate customer sessions.');
-console.log('PASS: permanent video QR creates independent 24-hour sessions.');
+// AI Video QRs come only from the billing counter; an old printed poster no longer opens a session.
+const poster = await request('/api/maharaja/video-pass', { source: 'video-poster', billingCode: workspace.openVideoCode });
+const posterData = await poster.json();
+assert.equal(poster.status, 403, JSON.stringify(posterData));
+assert.match(posterData.error, /billing counter/);
+console.log('PASS: a printed AI Video poster is refused; customers get their QR at the billing counter.');
 
 const handoff = await request('/api/tv/tryon-handoff', { looks: [{ sku: 'QA-SAMPLE', title: 'Private sample look', image: `data:image/jpeg;base64,${image.toString('base64')}` }] }, true);
 const handoffData = await handoff.json();

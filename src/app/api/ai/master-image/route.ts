@@ -7,6 +7,7 @@ import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
 import { type CustomerCategory, GARMENT_TYPE_RULES, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
+import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { generateFalTryOn } from '@/lib/maharaja/try-on-provider';
@@ -140,6 +141,9 @@ export async function POST(req: NextRequest) {
     if (access.workspace.devices?.[surface] === false) {
       const surfaceLabel = surface === 'mobile' ? 'Mobile' : surface === 'tablet' ? 'Counter tablet' : 'Interactive TV';
       return NextResponse.json({ success: false, error: `${surfaceLabel} experience is currently turned off for this store.` }, { status: 403 });
+    }
+    if (!await spendAllowed()) {
+      return NextResponse.json({ success: false, error: SPEND_CAP_MESSAGE }, { status: 503 });
     }
     if (service === 'try-on') {
       // Reserved now and returned in finally if this request does not deliver an image.
@@ -411,6 +415,7 @@ ${roleInstructions}
         }
         imageReadyAt = Date.now();
         if (rawBuffer) {
+          await recordAiCost(service === 'try-on' ? 'try-on' : 'video-portrait');
           const finalBuffer = service === 'try-on'
             ? await applyMaharajaWatermark(rawBuffer)
             : await sharp(rawBuffer).rotate().jpeg({ quality: 95, chromaSubsampling: '4:4:4' }).toBuffer();
