@@ -4,6 +4,8 @@
 
 - [ ] **Vercel environment:** fill every key in `.env.example` (Project → Settings → Environment Variables).
       `CRON_SECRET` is required, or the daily privacy cleanup will not run.
+- [ ] **Customer limits (go-live day):** set `ENFORCE_REPEAT_LIMITS=true`, then redeploy. Until then any device can try,
+      retry and make images and videos without limit (store credits and the daily spend cap still apply).
 - [ ] **Rupee rate:** `USD_TO_INR=98` (about ₹94 plus a ₹4 buffer; the admin spend and profit figures use it).
 - [ ] **Engines:** `TRYON_ENGINE_ORDER` and `VIDEO_ENGINE_ORDER` stay empty for the defaults
       (Try-On GenLook → fal → FASHN → Gemini; AI Video H3 Max → Gemini Omni Flash as the ultimate backup).

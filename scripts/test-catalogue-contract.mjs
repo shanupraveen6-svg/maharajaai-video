@@ -5,6 +5,7 @@ import { register } from 'node:module';
 register('./ts-alias-loader.mjs', import.meta.url);
 
 process.env.ALLOW_MOCK_BACKEND = 'true';
+process.env.ENFORCE_REPEAT_LIMITS = 'true';
 process.env.OPERATOR_AUTH_SECRET = 'catalogue-contract-test-secret';
 delete process.env.FIREBASE_PROJECT_ID;
 delete process.env.FIREBASE_CLIENT_EMAIL;

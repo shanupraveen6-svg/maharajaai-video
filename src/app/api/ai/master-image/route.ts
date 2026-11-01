@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, GARMENT_TYPE_RULES, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType } from '@/lib/maharaja/config';
+import { type CustomerCategory, GARMENT_TYPE_RULES, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType, customerRateLimit } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
     }
     const rateIdentity = access.pass?.code || (typeof body.deviceId === 'string' ? body.deviceId : sessionId);
     // A shopper commonly tries five or more looks in one visit; video masters stay tighter.
-    const rate = await enforceRateLimit(req, `master-image:${service}`, service === 'try-on' ? 12 : 4, 10 * 60 * 1000, rateIdentity);
+    const rate = await enforceRateLimit(req, `master-image:${service}`, customerRateLimit(service === 'try-on' ? 12 : 4), 10 * 60 * 1000, rateIdentity);
     if (!rate.allowed) {
       return NextResponse.json({ success: false, error: 'Image generation is temporarily limited for this customer. Please wait and try again.' }, {
         status: 429,

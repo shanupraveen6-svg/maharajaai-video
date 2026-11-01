@@ -278,6 +278,19 @@ export function getCustomerServiceAllowances(entitlement: CustomerCampaignEntitl
   };
 }
 
+/** A catalogue gift pass has no phone number, so its tries are counted on the pass itself (no Try-On). */
+export function catalogueGiftAllowances(pass: MaharajaVideoPass): CustomerServiceAllowances {
+  const imagesUsed = Number(pass.usage?.imagesGenerated || 0);
+  const videosUsed = Number(pass.usage?.videosGenerated || 0);
+  const max = ENFORCE_REPEAT_LIMITS ? 2 : 999;
+  return {
+    enforceRepeatLimits: ENFORCE_REPEAT_LIMITS,
+    tryOn: { used: 0, max: 0, remaining: 0 },
+    masterImage: { used: Math.min(max, imagesUsed), max, remaining: Math.max(0, max - imagesUsed) },
+    video: { used: Math.min(max, videosUsed), max, remaining: Math.max(0, max - videosUsed) },
+  };
+}
+
 function deviceHash(deviceId: string) {
   return crypto.createHash('sha256').update(`${activeClientId()}:${deviceId}`).digest('hex');
 }
@@ -564,8 +577,9 @@ export async function chooseGiftGarment(code: string, choice: 'catalogue' | 'own
   return result !== 'locked';
 }
 
-/** Locks a pass to the first phone that opens it. Returns false when another phone already owns it. */
+/** Locks a pass to the first phone that opens it (only while repeat limits are on). Returns false when another phone already owns it. */
 export async function claimPassDevice(code: string, deviceId: string) {
+  if (!ENFORCE_REPEAT_LIMITS) return true;
   const deviceHash = crypto.createHash('sha256').update(`${code}:${deviceId}`).digest('hex').slice(0, 32);
   const db = getDb();
   if (db) {
@@ -1262,7 +1276,7 @@ export async function acquireServiceGenerationLock(
   const targetPass = await getVideoPass(phoneOrCode);
   if (targetPass?.experienceType === 'catalogue-gift') {
     const used = service === 'video' ? Number(targetPass.usage?.videosGenerated || 0) : Number(targetPass.usage?.imagesGenerated || 0);
-    if (used >= 2) return { ok: false, error: 'AI Video Gift Link allowance exhausted (2/2 completed).' };
+    if (ENFORCE_REPEAT_LIMITS && used >= 2) return { ok: false, error: 'AI Video Gift Link allowance exhausted (2/2 completed).' };
     return { ok: true, generationId: options?.generationId };
   }
   const phone = await resolvePhoneFromTarget(phoneOrCode);
@@ -2148,12 +2162,7 @@ export async function enablePassCustomerRetry(
   const retryPass = await getVideoPass(code);
   const entitlement = await getCampaignEntitlementForPass(code);
   const allowances = retryPass?.experienceType === 'catalogue-gift'
-    ? {
-        enforceRepeatLimits: true,
-        tryOn: { used: 0, max: 0, remaining: 0 },
-        masterImage: { used: Math.min(2, Number(retryPass.usage?.imagesGenerated || 0)), max: 2, remaining: Math.max(0, 2 - Number(retryPass.usage?.imagesGenerated || 0)) },
-        video: { used: Math.min(2, Number(retryPass.usage?.videosGenerated || 0)), max: 2, remaining: Math.max(0, 2 - Number(retryPass.usage?.videosGenerated || 0)) },
-      }
+    ? catalogueGiftAllowances(retryPass)
     : getCustomerServiceAllowances(entitlement);
 
   if (target === 'video') {
@@ -2697,12 +2706,7 @@ export async function verifyMaharajaAccess(
   }
 
   const allowances = pass?.experienceType === 'catalogue-gift'
-    ? {
-        enforceRepeatLimits: true,
-        tryOn: { used: 0, max: 0, remaining: 0 },
-        masterImage: { used: Math.min(2, Number(pass.usage?.imagesGenerated || 0)), max: 2, remaining: Math.max(0, 2 - Number(pass.usage?.imagesGenerated || 0)) },
-        video: { used: Math.min(2, Number(pass.usage?.videosGenerated || 0)), max: 2, remaining: Math.max(0, 2 - Number(pass.usage?.videosGenerated || 0)) },
-      }
+    ? catalogueGiftAllowances(pass)
     : getCustomerServiceAllowances(entitlement);
 
   if (service === 'try-on') {

@@ -5,6 +5,7 @@ import { validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server'
 import { getOperatorSession, verifyOperatorRequest } from '@/lib/auth/operator';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
+import { customerRateLimit } from '@/lib/maharaja/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (!isAllowed) {
       return NextResponse.json({ success: false, error: 'Unauthorized media upload request.' }, { status: 401 });
     }
-    const rate = await enforceRateLimit(req, 'media-upload', 12, 10 * 60 * 1000, `${accessCode || 'operator'}:${sessionId}`);
+    const rate = await enforceRateLimit(req, 'media-upload', customerRateLimit(12), 10 * 60 * 1000, `${accessCode || 'operator'}:${sessionId}`);
     if (!rate.allowed) {
       return NextResponse.json({ success: false, error: 'Too many media uploads. Wait briefly and try again.' }, {
         status: 429,

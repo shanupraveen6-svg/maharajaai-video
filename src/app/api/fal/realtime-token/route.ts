@@ -4,6 +4,7 @@ import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { bindClient } from '@/lib/maharaja/client-context';
 import { SPEND_CAP_MESSAGE, spendAllowed } from '@/lib/maharaja/usage-ledger';
+import { customerRateLimit } from '@/lib/maharaja/config';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   if (body?.app !== LUCY_VTON_APP) return new NextResponse('Unsupported realtime app.', { status: 400 });
   const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const rate = await enforceRateLimit(req, 'fal-lucy-realtime-token', 8, 10 * 60 * 1000, forwarded);
+  const rate = await enforceRateLimit(req, 'fal-lucy-realtime-token', customerRateLimit(8), 10 * 60 * 1000, forwarded);
   if (!rate.allowed) {
     return new NextResponse('Too many Live AI Mirror sessions. Please wait.', {
       status: 429,

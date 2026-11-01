@@ -6,9 +6,17 @@ export const AI_VIDEO_MIN_PURCHASE = 5000;
 export const FESTIVE_TIER_MIN = Number(process.env.MAHARAJA_FESTIVE_TIER_MIN) || 500;
 export const LUXURY_TIER_MIN = Number(process.env.MAHARAJA_LUXURY_TIER_MIN) || 3000;
 
-export const ENFORCE_REPEAT_LIMITS = process.env.ENFORCE_REPEAT_LIMITS === 'false'
-  ? false
-  : process.env.NODE_ENV === 'production';
+/**
+ * Per-customer and per-device limits (one phone per pass, 2 tries per customer, one Try-On per device).
+ * Off until launch so any device can try, retry, and make images and videos any number of times.
+ * Set ENFORCE_REPEAT_LIMITS=true on Vercel to switch them on. Store credits and the spend cap still apply.
+ */
+export const ENFORCE_REPEAT_LIMITS = process.env.ENFORCE_REPEAT_LIMITS === 'true';
+
+/** A customer rate limit, raised tenfold while repeat limits are off. */
+export function customerRateLimit(limit: number) {
+  return ENFORCE_REPEAT_LIMITS ? limit : limit * 10;
+}
 
 export const EVENT_IDS = ['diwali', 'new-year', 'pongal', 'christmas', 'ramadan', 'birthday'] as const;
 export type EventId = (typeof EVENT_IDS)[number];

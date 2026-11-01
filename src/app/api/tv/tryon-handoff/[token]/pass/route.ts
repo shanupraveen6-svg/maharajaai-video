@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
-import { resolveGarmentType, type CustomerCategory } from '@/lib/maharaja/config';
+import { resolveGarmentType, type CustomerCategory, customerRateLimit } from '@/lib/maharaja/config';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import { moduleLimit,
   getMaharajaWorkspace,
@@ -27,7 +27,7 @@ const CATEGORY_BY_GENDER: Record<string, CustomerCategory> = { women: 'women', m
  */
 export async function POST(req: NextRequest, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
-  const rate = await enforceRateLimit(req, 'tryon-look-pass', 10, 10 * 60 * 1000, token);
+  const rate = await enforceRateLimit(req, 'tryon-look-pass', customerRateLimit(10), 10 * 60 * 1000, token);
   if (!rate.allowed) {
     return NextResponse.json({ success: false, error: 'Too many requests. Please wait a moment.' }, { status: 429 });
   }

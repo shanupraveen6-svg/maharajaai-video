@@ -116,6 +116,23 @@ assert(videoExhausted === false, 'Frontend: videoExhausted is false');
 assert(canRetryVideo === true, 'Frontend: canRetryVideo is true');
 assert(canRetryImage === true, 'Frontend: canRetryImage is true');
 
+// 7. Any phone can open a pass, a gift link has no 2-try cap, and customer rate limits are raised
+assert(await server.claimPassDevice(code, 'device_one_000000000000') === true, 'First phone opens the pass');
+assert(await server.claimPassDevice(code, 'device_two_000000000000') === true, 'A second phone opens the same pass');
+const giftCode = 'gift_unlimited_test';
+await saveVideoPass({
+  id: giftCode, code: giftCode, clientId: 'maharaja', phone: '', phoneMasked: '', experienceType: 'catalogue-gift',
+  billLast4: '', eventId: 'diwali', status: 'active', createdAt: new Date().toISOString(),
+  expiresAt: new Date(Date.now() + 86400000).toISOString(), expiresAtMs: Date.now() + 86400000,
+  usage: { scans: 0, imagesGenerated: 5, videosGenerated: 5, goLive: 0 },
+});
+const giftLock = await acquireServiceGenerationLock(giftCode, 'video');
+assert(giftLock.ok === true, 'Gift link makes a sixth video');
+const giftAccess = await verifyMaharajaAccess({ headers: new Headers() }, giftCode, 'ai-video');
+assert(giftAccess.allowances.enforceRepeatLimits === false && giftAccess.allowances.video.remaining > 0, 'Gift link shows tries left');
+const { customerRateLimit } = await import('../src/lib/maharaja/config.ts');
+assert(customerRateLimit(4) === 40, 'Customer rate limits are raised tenfold');
+
 console.log('\n========================================================================');
 console.log('ALL UNLIMITED RETRY & REPEAT LIMIT TESTS PASSED!');
 console.log('========================================================================\n');

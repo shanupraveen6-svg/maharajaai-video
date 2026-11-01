@@ -6,6 +6,7 @@ import { verifyTvRequest } from '@/lib/auth/display';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId } from '@/lib/maharaja/server';
+import { customerRateLimit } from '@/lib/maharaja/config';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (!await verifyTvRequest(req) && !verifyOperatorRequest(req)) {
       return NextResponse.json({ error: 'Sign in or pair this display first.' }, { status: 401 });
     }
-    const rate = await enforceRateLimit(req, 'tv-tryon-handoff', 6, 10 * 60 * 1000);
+    const rate = await enforceRateLimit(req, 'tv-tryon-handoff', customerRateLimit(6), 10 * 60 * 1000);
     if (!rate.allowed) return NextResponse.json({ error: 'Too many handoffs. Please wait before trying again.' }, { status: 429 });
     const body = await req.json();
     if (!Array.isArray(body.looks) || body.looks.length < 1 || body.looks.length > 5) {

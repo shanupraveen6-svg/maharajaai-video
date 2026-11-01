@@ -7,6 +7,7 @@ import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 import { countLeadDownload, verifyLeadToken } from '@/lib/maharaja/leads';
+import { customerRateLimit } from '@/lib/maharaja/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
     const { url, watermark, sessionId, accessCode, jobId, kind, leadToken } = await req.json();
     // The customer's code (or staff login) decides whose files may be downloaded.
     bindClient(await resolveRequestClientId(req, accessCode));
-    const rate = await enforceRateLimit(req, 'asset-download', 20, 10 * 60 * 1000, typeof accessCode === 'string' ? accessCode : undefined);
+    const rate = await enforceRateLimit(req, 'asset-download', customerRateLimit(20), 10 * 60 * 1000, typeof accessCode === 'string' ? accessCode : undefined);
     if (!rate.allowed) {
       return NextResponse.json({ success: false, error: 'Too many download requests. Please wait and try again.' }, {
         status: 429,
