@@ -6,8 +6,8 @@ import { NOVEMBER_OFFER_ENDS_AT, novemberOfferActive } from '@/lib/tryfocus/nove
 
 
 const SALES_PHONE = '9994837342';
-// The Phone package price customers see, including GST (₹20,000 + 18%).
-const PHONE_SOFTWARE_FEE = '₹23,600';
+// The Phone package price customers see: ₹20,000, GST included.
+const PHONE_SOFTWARE_FEE = '₹20,000';
 
 /**
  * November offer for the Phone platform: a strip at the top of the landing page and a highlighted card in

@@ -19,7 +19,8 @@ export const PLATFORMS: Platform[] = ['tv', 'tablet', 'phone'];
 
 export const PLATFORM_LABELS: Record<Platform, string> = { tv: 'TV', tablet: 'Tablet', phone: 'Phone' };
 
-export const SOFTWARE_FEE: Record<Platform, number> = { tv: 80000, tablet: 50000, phone: 20000 };
+/** Before GST. Phone is its package fee, ₹20,000 including GST (see PHONE_PACKAGE). */
+export const SOFTWARE_FEE: Record<Platform, number> = { tv: 80000, tablet: 50000, phone: 16949 };
 
 /** Modules each platform includes. Every included module must be bought. */
 export const PLATFORM_MODULES: Record<Platform, Record<CreditModule, boolean>> = {
@@ -54,7 +55,9 @@ const PRICE_BANDS: Record<CreditModule, Array<[number, number]>> = {
  * The Phone package: one ₹20,000 payment that includes 1,000 Try-Ons plus 15% for customer retries
  * (1,150 in all). Top-ups are a flat ₹10 per Try-On, at least 500 at a time.
  */
-export const PHONE_PACKAGE = { fee: 20000, credits: 1000, retryPercent: 15 } as const;
+/** ₹20,000 is the full price including 18% GST: the fee before GST is ₹16,949 (+ ₹3,051 GST = ₹20,000). */
+export const PHONE_PACKAGE_PRICE_INCLUDING_GST = 20000;
+export const PHONE_PACKAGE = { fee: Math.round(PHONE_PACKAGE_PRICE_INCLUDING_GST / 1.18), credits: 1000, retryPercent: 15 } as const;
 export const PHONE_PACKAGE_CREDITS = Math.round(PHONE_PACKAGE.credits * (1 + PHONE_PACKAGE.retryPercent / 100));
 /** Phone top-ups: a flat ₹10 per Try-On, at least 500 at a time, in steps of 500 (0 = no top-up). */
 export const PHONE_TOPUP_PRICE = 10;

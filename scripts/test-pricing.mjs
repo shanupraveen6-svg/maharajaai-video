@@ -13,7 +13,7 @@ const {
 const { quoteMargin, unitCostInr } = await import('../src/lib/maharaja/pricing-costs.ts');
 
 // Software, one time per platform.
-assert.deepEqual(SOFTWARE_FEE, { tv: 80000, tablet: 50000, phone: 20000 });
+assert.deepEqual(SOFTWARE_FEE, { tv: 80000, tablet: 50000, phone: 16949 });
 
 // Minimums and maximums: images 2,000, AI Video 500, Live Mirror 500; up to 6,000 in steps of 500.
 assert.deepEqual(CREDIT_RANGE.image, { min: 2000, max: 6000, step: 500 });
@@ -97,7 +97,8 @@ console.log('pricing: all checks passed');
   const pricing = await import('../src/lib/maharaja/pricing.ts');
   assert.equal(pricing.PHONE_PACKAGE_CREDITS, 1150);
   const base = pricing.quote('phone', { image: pricing.PHONE_PACKAGE_CREDITS });
-  assert.equal(base.softwareFee, 20000);
+  assert.equal(base.softwareFee, 16949);
+  assert.equal(base.total, 20000, 'The Phone package is ₹20,000 in all, GST included');
   assert.equal(base.creditsTotal, 0, 'The package credits come with the ₹20,000');
   assert.equal(pricing.clampCredits('phone', { image: 100 }).image, 1150, 'Phone never goes below the package');
   const extra = pricing.quote('phone', { image: 1150 + 500 });
