@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Phone, Smartphone, Sparkles, X } from 'lucide-react';
-import { novemberOfferActive } from '@/lib/tryfocus/november-offer';
+import { ArrowRight, Check, Clock, Phone, Smartphone, Sparkles, X } from 'lucide-react';
+import { NOVEMBER_OFFER_ENDS_AT, novemberOfferActive } from '@/lib/tryfocus/november-offer';
 
 
 const SALES_PHONE = '9994837342';
@@ -16,9 +16,17 @@ const PHONE_SOFTWARE_FEE = '₹20,000';
 export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(true);
-  // The page is cached for a minute, so the browser checks the end date too.
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- the browser's clock is only read after mount
-  useEffect(() => { if (!novemberOfferActive()) setActive(false); }, []);
+  // Days left until 30 November ends (India time); read in the browser so the page cache never shows a stale count.
+  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  useEffect(() => {
+    const update = () => {
+      if (!novemberOfferActive()) { setActive(false); return; }
+      setDaysLeft(Math.max(1, Math.ceil((NOVEMBER_OFFER_ENDS_AT - Date.now()) / 86_400_000)));
+    };
+    update();
+    const timer = window.setInterval(update, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     if (!open) return;
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
@@ -28,26 +36,63 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
   if (!active) return null;
 
   const trigger = variant === 'strip' ? (
-    <button type="button" onClick={() => setOpen(true)} className="flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-4 py-2 text-center text-xs font-bold text-[#2A060C] sm:text-sm">
-      <Sparkles className="h-4 w-4 shrink-0" />
-      <span>November offer: the Phone platform is free this month, with 60 Try-On credits.</span>
-      <span className="hidden underline underline-offset-4 sm:inline">See the offer</span>
+    <button type="button" onClick={() => setOpen(true)} className="tf-offer-strip relative flex w-full items-center justify-center gap-2 overflow-hidden bg-gradient-to-r from-[#B8860B] via-[#F3D36B] to-[#B8860B] px-4 py-2.5 text-center text-xs font-bold text-[#2A060C] sm:text-sm">
+      <span className="relative flex h-2.5 w-2.5 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7A1428] opacity-75" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#7A1428]" /></span>
+      <span>Free in November: the Phone Try-On platform for ₹0 + 60 free Try-Ons.</span>
+      {daysLeft !== null && <span className="hidden rounded-full bg-[#2A060C] px-2.5 py-0.5 text-[#F3E5AB] sm:inline">{daysLeft === 1 ? 'Last day' : `${daysLeft} days left`}</span>}
+      <span className="hidden underline underline-offset-4 md:inline">Claim it</span>
     </button>
   ) : (
     <button
       type="button"
       onClick={() => setOpen(true)}
-      className="relative mx-auto mt-8 flex w-full max-w-3xl flex-col items-start gap-4 overflow-hidden rounded-3xl bg-[#2A060C] p-6 text-left text-white shadow-xl ring-2 ring-[#D4AF37] transition hover:-translate-y-0.5 sm:flex-row sm:items-center sm:p-7"
+      className="tf-offer-card group relative mx-auto mt-8 block w-full max-w-4xl overflow-hidden rounded-[2rem] bg-[radial-gradient(120%_140%_at_0%_0%,#5C0E1E_0%,#2A060C_55%,#160307_100%)] p-6 text-left text-white shadow-[0_24px_60px_-20px_rgba(122,20,40,0.65)] ring-2 ring-[#D4AF37] transition hover:-translate-y-1 sm:p-9"
     >
-      <span className="absolute right-4 top-4 rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-bold text-[#2A060C]">November offer</span>
-      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#D4AF37]/15 text-[#F3E5AB]"><Smartphone className="h-7 w-7" /></span>
-      <span className="min-w-0 flex-1 pr-24 sm:pr-28">
-        <span className="block text-2xl font-bold">Phone platform free in November</span>
-        <span className="mt-1 block text-sm text-[#F3E5AB]/85">
-          No {PHONE_SOFTWARE_FEE} software charge this month, plus 60 free Try-On credits. Your customers try outfits on their own phones through your Wall QR.
+      {/* A gold shine sweeps across the card. */}
+      <span aria-hidden="true" className="tf-offer-shine pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 skew-x-[-20deg] bg-gradient-to-r from-transparent via-[#F3E5AB]/25 to-transparent" />
+      <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#D4AF37]/15 blur-2xl" />
+
+      <span className="relative flex flex-wrap items-center gap-2">
+        <span className="tf-offer-pulse inline-flex items-center gap-1.5 rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[#2A060C]">
+          <Sparkles className="h-3.5 w-3.5" /> Limited November offer
+        </span>
+        {daysLeft !== null && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#D4AF37]/60 px-3 py-1 text-xs font-bold text-[#F3E5AB]">
+            <Clock className="h-3.5 w-3.5" /> {daysLeft === 1 ? 'Ends tonight' : `Only ${daysLeft} days left`}
+          </span>
+        )}
+      </span>
+
+      <span className="relative mt-5 grid items-center gap-6 sm:grid-cols-[1fr_auto]">
+        <span>
+          <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-6xl font-extrabold leading-none text-[#F3D36B] drop-shadow sm:text-7xl">₹0</span>
+            <span className="text-2xl font-bold text-white/55 line-through decoration-[#D4AF37] decoration-2">{PHONE_SOFTWARE_FEE}</span>
+          </span>
+          <span className="mt-3 block text-2xl font-extrabold leading-tight sm:text-3xl">Phone Try-On free all November</span>
+          <span className="mt-2 block max-w-xl text-[15px] text-[#F3E5AB]/85">Your customers scan your Wall QR and see your outfits on themselves, on their own phones. Start free today.</span>
+          <span className="mt-5 flex flex-wrap gap-2">
+            {['No service charge', '60 free Try-Ons', 'Top up anytime'].map((chip) => (
+              <span key={chip} className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-sm font-semibold text-white ring-1 ring-white/15">
+                <Check className="h-4 w-4 text-[#F3D36B]" /> {chip}
+              </span>
+            ))}
+          </span>
+        </span>
+        <span className="flex flex-col items-start gap-2 sm:items-center">
+          <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#D4AF37]/15 text-[#F3D36B] ring-1 ring-[#D4AF37]/40"><Smartphone className="h-10 w-10" /></span>
+          <span className="inline-flex min-h-14 items-center gap-2 rounded-2xl bg-[#F3D36B] px-6 text-base font-extrabold text-[#2A060C] shadow-lg transition group-hover:bg-white">
+            Claim free November <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
+          </span>
         </span>
       </span>
-      <span className="inline-flex min-h-12 shrink-0 items-center rounded-xl bg-[#D4AF37] px-5 text-sm font-bold text-[#2A060C]">See the offer</span>
+      <style>{`
+        @keyframes tf-offer-shine { 0% { transform: translateX(0) skewX(-20deg); } 60%, 100% { transform: translateX(450%) skewX(-20deg); } }
+        @keyframes tf-offer-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.6); } 50% { box-shadow: 0 0 0 8px rgba(212, 175, 55, 0); } }
+        .tf-offer-shine { animation: tf-offer-shine 3.6s ease-in-out infinite; }
+        .tf-offer-pulse { animation: tf-offer-pulse 2s ease-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .tf-offer-shine, .tf-offer-pulse { animation: none; } }
+      `}</style>
     </button>
   );
 
@@ -60,7 +105,8 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="inline-block rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-bold text-[#2A060C]">November offer</span>
-                <h2 id="november-offer-title" className="mt-3 text-2xl font-bold">Phone platform, free in November</h2>
+                <h2 id="november-offer-title" className="mt-3 text-2xl font-extrabold"><span className="text-brand">₹0</span> · Phone Try-On free all November</h2>
+                {daysLeft !== null && <p className="mt-1 text-sm font-semibold text-muted">{daysLeft === 1 ? 'Ends tonight' : `Only ${daysLeft} days left`}</p>}
               </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line-strong"><X className="h-5 w-5" /></button>
             </div>
