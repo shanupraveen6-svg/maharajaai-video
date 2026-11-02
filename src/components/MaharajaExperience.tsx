@@ -159,7 +159,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [deviceId, setDeviceId] = useState('');
   const [tryOnGrant, setTryOnGrant] = useState('');
   const [tryOnUsed, setTryOnUsed] = useState(false);
-  const [retryUsed, setRetryUsed] = useState(false);
+  const [, setRetryUsed] = useState(false);
   const [showImageRetryMenu, setShowImageRetryMenu] = useState(false);
   const [allowances, setAllowances] = useState<{
     enforceRepeatLimits?: boolean;
@@ -196,7 +196,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const resumedVideoJobRef = useRef('');
   // Each tab shows its own image: plain Try-On vs. festival video master.
   const isTryOn = activeService === 'try-on';
-  const maxGarmentPhotos = isTryOn ? (allowances.tryOn.used > 0 || (service === 'try-on' && retryUsed) ? 3 : 1) : 2;
+  // Try-On uses one outfit photo (retries too); the AI Video portrait may use two.
+  const maxGarmentPhotos = isTryOn ? 1 : 2;
   const visibleGarmentPhotos = garmentPhotos.slice(0, maxGarmentPhotos);
   const masterImageUrl = isTryOn ? tryOnImageUrl : videoMasterUrl;
   const isCatalogueGift = access?.access.experienceType === 'catalogue-gift';
@@ -1116,7 +1117,6 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
                           {GARMENT_TYPE_OPTIONS[category].map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
                         <span className="mt-1 block normal-case font-medium text-brand">Confirm the garment type first. The reference roles below are sent to AI.</span>
-                        {garmentType === 'saree' && isTryOn && maxGarmentPhotos === 3 && <span className="mt-1 block normal-case font-medium text-brand">On the Gemini retry, a blouse photo may be the third reference.</span>}
                       </label>
 
                       {garmentPhotos.length === 0 ? (

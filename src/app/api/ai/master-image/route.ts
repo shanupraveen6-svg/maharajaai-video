@@ -234,13 +234,12 @@ export async function POST(req: NextRequest) {
       ? await getTryOnDeviceStatus(body.deviceId)
       : null;
     const tryOnRetry = service === 'try-on' && (Number(access.allowances.tryOn.used || 0) > 0 || deviceStatus?.retryUsed === true);
-    const maxGarmentPhotos = service === 'ai-video' ? 2 : tryOnRetry ? 3 : 1;
+    // Try-On uses only the one try-on garment photo (retries too); the AI Video portrait may use two.
+    const maxGarmentPhotos = service === 'ai-video' ? 2 : 1;
     if (garmentInputs.length > maxGarmentPhotos) {
       return NextResponse.json({
         success: false,
-        error: service === 'ai-video'
-          ? 'Upload up to 2 garment photos max for AI Video.'
-          : tryOnRetry ? 'Upload up to 3 garment photos max for the Gemini retry.' : 'The first Try-On uses exactly one garment photo.',
+        error: service === 'ai-video' ? 'Use up to 2 outfit photos for AI Video.' : 'Try-On uses one outfit photo.',
       }, { status: 400 });
     }
 
