@@ -1,6 +1,6 @@
 import 'server-only';
 import { usdToInr } from './usage-ledger';
-import { type Credits, type Quote } from './pricing';
+import { type Credits, type Quote, PHONE_PACKAGE, PHONE_PACKAGE_CREDITS } from './pricing';
 
 /**
  * Our AI cost behind each credit, for TryFocus admin only (never sent to a store's screens). Each figure is
@@ -34,6 +34,15 @@ export type QuoteMargin = { aiCost: number; creditProfit: number; creditMargin: 
 /** AI cost and profit of a quote if the store uses every credit (unused credits only add profit). */
 export function quoteMargin(value: Quote): QuoteMargin {
   const unit = unitCostInr();
+  if (value.platform === 'phone') {
+    // Phone: the ₹20,000 package pays for its 1,000 Try-Ons (the 15% retries are already in the unit cost);
+    // extra credits are priced on top.
+    const extra = Math.max(0, value.credits.image - PHONE_PACKAGE_CREDITS);
+    const aiCost = Math.round((PHONE_PACKAGE.credits + extra) * unit.image);
+    const revenue = PHONE_PACKAGE.fee + value.creditsTotal;
+    const creditProfit = revenue - aiCost;
+    return { aiCost, creditProfit, creditMargin: creditProfit / revenue, softwareFee: value.softwareFee };
+  }
   const aiCost = Math.round(value.credits.image * unit.image + value.credits.video * unit.video + value.credits.live * unit.live);
   const creditProfit = value.creditsTotal - aiCost;
   return {

@@ -19,6 +19,10 @@ export type PricingCalculatorConfig = {
   presets: Record<PresetId, { label: string } & Credits>;
   gstRate: number;
   validityMonths: number;
+  /** Phone is one package: the fee includes these credits; extra credits are added from `extraTotals`. */
+  phonePackage: { fee: number; credits: number; retryPercent: number; totalCredits: number; extraRange: { min: number; max: number; step: number }; extraTotals: Record<number, number> };
+  /** November offer: no software charge and 60 free Try-On credits on Phone. */
+  novemberOffer: boolean;
 };
 
 const PLATFORM_TEXT: Record<Platform, { Icon: typeof Tv; text: string }> = {
@@ -34,7 +38,9 @@ const MODULES: CreditModule[] = ['image', 'video', 'live'];
 const rupees = (value: number) => `₹${Math.round(value).toLocaleString('en-IN')}`;
 
 export default function PricingCalculator({ config }: { config: PricingCalculatorConfig }) {
-  const [platform, setPlatform] = useState<Platform>('tv');
+  // Phone Try-On is what we promote first.
+  const [platform, setPlatform] = useState<Platform>('phone');
+  const [phoneExtra, setPhoneExtra] = useState(0);
   const [credits, setCredits] = useState<Credits>({
     image: config.presets.standard.image,
     video: config.presets.standard.video,
@@ -42,16 +48,17 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
   });
 
   const included = config.platformModules[platform];
+  const isPhone = platform === 'phone';
   const summary = useMemo(() => {
     const moduleTotal = (module: CreditModule) => (included[module] ? config.totals[module][credits[module]] ?? 0 : 0);
-    const creditsTotal = MODULES.reduce((sum, module) => sum + moduleTotal(module), 0);
-    const software = config.softwareFee[platform];
+    const creditsTotal = isPhone ? config.phonePackage.extraTotals[phoneExtra] ?? 0 : MODULES.reduce((sum, module) => sum + moduleTotal(module), 0);
+    const software = isPhone ? config.phonePackage.fee : config.softwareFee[platform];
     const subtotal = creditsTotal + software;
     const gst = Math.round(subtotal * config.gstRate);
     const preset = (Object.keys(config.presets) as PresetId[]).find((id) =>
       MODULES.every((module) => !included[module] || config.presets[id][module] === credits[module]));
     return { creditsTotal, software, subtotal, gst, total: subtotal + gst, preset };
-  }, [config, credits, included, platform]);
+  }, [config, credits, included, platform, isPhone, phoneExtra]);
 
   function setCredit(module: CreditModule, value: number) {
     const { min, max, step } = config.ranges[module];
@@ -94,12 +101,46 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
                   );
                 })}
               </span>
-              <span className="mt-4 text-sm text-muted">Software, one time: <b className="text-ink">{rupees(config.softwareFee[id])}</b></span>
+              {id === 'phone' ? (
+                <span className="mt-4 text-sm text-muted">
+                  Package: <b className="text-ink">{rupees(config.phonePackage.fee)}</b> with {config.phonePackage.credits.toLocaleString('en-IN')} Try-On + {config.phonePackage.retryPercent}% retries
+                  {config.novemberOffer && <span className="mt-2 block w-fit rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-bold text-[#2A060C]">November: free, 60 Try-On</span>}
+                </span>
+              ) : (
+                <span className="mt-4 text-sm text-muted">Software, one time: <b className="text-ink">{rupees(config.softwareFee[id])}</b></span>
+              )}
             </button>
           );
         })}
       </div>
 
+      {isPhone ? (
+      <div className="tf-card p-5 sm:p-6">
+        <h3 className="text-xl font-bold text-ink">Phone package</h3>
+        <p className="mt-1 text-sm text-muted">{rupees(config.phonePackage.fee)} includes {config.phonePackage.credits.toLocaleString('en-IN')} Try-On credits plus {config.phonePackage.retryPercent}% for customer retries ({config.phonePackage.totalCredits.toLocaleString('en-IN')} in all). Need more? Add extra credits, pay as you go.</p>
+        <div className="mt-6">
+          <div className="flex items-baseline justify-between gap-3">
+            <label htmlFor="pricing-phone-extra" className="font-semibold text-ink">Extra Try-On credits (optional)</label>
+            <span className="tabular-nums text-lg font-bold text-ink">{phoneExtra.toLocaleString('en-IN')}</span>
+          </div>
+          <input
+            id="pricing-phone-extra"
+            type="range"
+            min={config.phonePackage.extraRange.min}
+            max={config.phonePackage.extraRange.max}
+            step={config.phonePackage.extraRange.step}
+            value={phoneExtra}
+            onChange={(event) => setPhoneExtra(Number(event.target.value))}
+            className="mt-2 w-full accent-[var(--color-ink)]"
+            aria-valuetext={`${phoneExtra} extra Try-On credits`}
+          />
+          <div className="flex justify-between text-xs text-muted tabular-nums">
+            <span>None</span>
+            <span>{config.phonePackage.extraRange.max.toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+      </div>
+      ) : (
       <div className="tf-card p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -153,17 +194,27 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
           })}
         </div>
       </div>
+      )}
 
       <div className="tf-card p-5 sm:p-6" aria-live="polite">
         <dl className="space-y-3 text-base">
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="font-semibold text-ink">Your package{summary.preset ? ` · ${config.presets[summary.preset].label}` : ''}</dt>
-            <dd className="tabular-nums text-2xl font-bold text-ink">{rupees(summary.creditsTotal)}</dd>
+            <dt className="font-semibold text-ink">{isPhone ? `Phone package · ${config.phonePackage.totalCredits.toLocaleString('en-IN')} Try-On credits` : `Your package${summary.preset ? ` · ${config.presets[summary.preset].label}` : ''}`}</dt>
+            <dd className="tabular-nums text-2xl font-bold text-ink">{rupees(isPhone ? summary.software : summary.creditsTotal)}</dd>
           </div>
-          <div className="flex items-baseline justify-between gap-4 text-muted">
-            <dt>Software for {config.platformLabels[platform]}, one time</dt>
-            <dd className="tabular-nums">{rupees(summary.software)}</dd>
-          </div>
+          {isPhone ? (
+            phoneExtra > 0 && (
+              <div className="flex items-baseline justify-between gap-4 text-muted">
+                <dt>{phoneExtra.toLocaleString('en-IN')} extra Try-On credits</dt>
+                <dd className="tabular-nums">{rupees(summary.creditsTotal)}</dd>
+              </div>
+            )
+          ) : (
+            <div className="flex items-baseline justify-between gap-4 text-muted">
+              <dt>Software for {config.platformLabels[platform]}, one time</dt>
+              <dd className="tabular-nums">{rupees(summary.software)}</dd>
+            </div>
+          )}
           <div className="flex items-baseline justify-between gap-4 text-muted">
             <dt>GST ({Math.round(config.gstRate * 100)}%)</dt>
             <dd className="tabular-nums">{rupees(summary.gst)}</dd>
@@ -173,7 +224,10 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
             <dd className="tabular-nums text-3xl font-bold text-ink">{rupees(summary.total)}</dd>
           </div>
         </dl>
-        <p className="mt-3 text-sm text-muted">Paid upfront. When your credits run low, top up with a new package. Your TV or tablet is your own; ask us if you need one.</p>
+        {isPhone && config.novemberOffer && (
+          <p className="mt-3 rounded-2xl bg-[#2A060C] p-3 text-sm font-semibold text-[#F3E5AB]">November offer: no service charge this month and 60 Try-On credits free. Top-ups available, pay as you go. Valid till 30 November.</p>
+        )}
+        <p className="mt-3 text-sm text-muted">{isPhone ? 'Paid upfront. When your credits run low, top up any time: pay as you go.' : 'Paid upfront. When your credits run low, top up with a new package. Your TV or tablet is your own; ask us if you need one.'}</p>
         <a href="tel:9994837342" className="tf-btn tf-btn-primary mt-5 !min-h-12 w-full"><Phone className="h-4 w-4" /> Call us to start: 9994837342</a>
       </div>
     </div>

@@ -21,7 +21,7 @@ assert.deepEqual(clampCredits('tv', { image: 100, video: 0, live: 99999 }), { im
 assert.deepEqual(clampCredits('tv', { image: 2740, video: 760, live: 1240 }), { image: 2500, video: 1000, live: 1000 }, 'Snaps to steps of 500');
 // Every module a platform includes is required; the others are 0.
 assert.deepEqual(clampCredits('tablet', { image: 3000, video: 0, live: 2000 }), { image: 3000, video: 500, live: 0 });
-assert.deepEqual(clampCredits('phone', { image: 3000, video: 2000, live: 2000 }), { image: 3000, video: 0, live: 0 }, 'Phone has no AI Video');
+assert.deepEqual(clampCredits('phone', { image: 3150, video: 2000, live: 2000 }), { image: 3150, video: 0, live: 0 }, 'Phone has no AI Video');
 
 // Banded totals: the first 2,000 images at ₹10, the next 2,000 at ₹9.4, the rest at ₹8.9.
 assert.equal(moduleTotal('image', 2000), 20000);
@@ -46,13 +46,13 @@ for (const module of ['image', 'video', 'live']) {
 const standardTv = quote('tv', PRESETS.standard, { includeSoftware: false });
 assert.equal(standardTv.creditsTotal, 103000);
 assert.equal(quote('tablet', PRESETS.standard, { includeSoftware: false }).creditsTotal, 65000);
-assert.equal(quote('phone', PRESETS.standard, { includeSoftware: false }).creditsTotal, 20000);
+
 assert.equal(quote('tv', PRESETS.pro, { includeSoftware: false }).creditsTotal, 195400);
 assert.equal(quote('tablet', PRESETS.pro, { includeSoftware: false }).creditsTotal, 119400);
-assert.equal(quote('phone', PRESETS.pro, { includeSoftware: false }).creditsTotal, 29400);
+
 assert.equal(quote('tv', PRESETS.premium, { includeSoftware: false }).creditsTotal, 378600);
 assert.equal(quote('tablet', PRESETS.premium, { includeSoftware: false }).creditsTotal, 230600);
-assert.equal(quote('phone', PRESETS.premium, { includeSoftware: false }).creditsTotal, 56600);
+
 
 // First payment for a TV store: software + Standard + 18% GST.
 const firstTv = quote('tv', PRESETS.standard);
@@ -91,3 +91,17 @@ assert.ok(everyChoice() >= 0.15, `lowest margin at ₹94 ${everyChoice()}`);
 process.env.USD_TO_INR = '98';
 
 console.log('pricing: all checks passed');
+
+// Phone package: ₹20,000 includes 1,000 Try-On credits + 15% retries (1,150); extra credits in 500s, pay as you go.
+{
+  const pricing = await import('../src/lib/maharaja/pricing.ts');
+  assert.equal(pricing.PHONE_PACKAGE_CREDITS, 1150);
+  const base = pricing.quote('phone', { image: pricing.PHONE_PACKAGE_CREDITS });
+  assert.equal(base.softwareFee, 20000);
+  assert.equal(base.creditsTotal, 0, 'The package credits come with the ₹20,000');
+  assert.equal(pricing.clampCredits('phone', { image: 100 }).image, 1150, 'Phone never goes below the package');
+  const extra = pricing.quote('phone', { image: 1150 + 500 });
+  assert.equal(extra.credits.image, 1650);
+  assert.equal(extra.creditsTotal, pricing.moduleTotal('image', 500), 'Extra credits are priced at the Try-On rate');
+  console.log('✓ Phone package: ₹20,000 with 1,150 Try-On credits, extras pay as you go');
+}

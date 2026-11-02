@@ -50,6 +50,21 @@ const PRICE_BANDS: Record<CreditModule, Array<[number, number]>> = {
   live: [[1000, 76], [3000, 72], [6000, 68]],
 };
 
+/**
+ * The Phone package: one ₹20,000 payment (the software service charge) that includes 1,000 Try-On
+ * credits plus 15% for customer retries (1,150 in all). Extra credits are pay as you go at the Try-On rate.
+ */
+export const PHONE_PACKAGE = { fee: 20000, credits: 1000, retryPercent: 15 } as const;
+export const PHONE_PACKAGE_CREDITS = Math.round(PHONE_PACKAGE.credits * (1 + PHONE_PACKAGE.retryPercent / 100));
+export const PHONE_EXTRA_RANGE = { min: 0, max: 5000, step: 500 } as const;
+
+/** Rupees for extra Phone credits beyond the package, for each allowed count. */
+export function phoneExtraTotalsTable() {
+  const table: Record<number, number> = {};
+  for (let count = PHONE_EXTRA_RANGE.min; count <= PHONE_EXTRA_RANGE.max; count += PHONE_EXTRA_RANGE.step) table[count] = moduleTotal('image', count);
+  return table;
+}
+
 /** A new client's free start: Try-On credits only, paid for out of TryFocus's GenLook balance. */
 export const FREE_TRIAL_IMAGE_CREDITS = 60;
 
@@ -70,6 +85,11 @@ export function platformOfPackage(id: PackageId): Platform {
 /** A credit count for a module on a platform: 0 where the platform has no such module, otherwise snapped to a step within range. */
 export function clampCredit(platform: Platform, module: CreditModule, value: number) {
   if (!PLATFORM_MODULES[platform][module]) return 0;
+  if (platform === 'phone' && module === 'image') {
+    // The package's 1,150 credits, plus extra credits in steps of 500.
+    const extra = Math.round(Math.max(0, (Number(value) || 0) - PHONE_PACKAGE_CREDITS) / PHONE_EXTRA_RANGE.step) * PHONE_EXTRA_RANGE.step;
+    return PHONE_PACKAGE_CREDITS + Math.min(PHONE_EXTRA_RANGE.max, extra);
+  }
   const { min, max, step } = CREDIT_RANGE[module];
   const number = Number.isFinite(Number(value)) ? Number(value) : min;
   const snapped = Math.round(number / step) * step;
@@ -120,7 +140,8 @@ export type Quote = {
 export function quote(platform: Platform, credits: Partial<Credits>, { includeSoftware = true } = {}): Quote {
   const clean = clampCredits(platform, credits);
   const moduleTotals: Credits = {
-    image: clean.image ? moduleTotal('image', clean.image) : 0,
+    // Phone: the package's credits come with the ₹20,000; only extra credits are added.
+    image: platform === 'phone' ? moduleTotal('image', clean.image - PHONE_PACKAGE_CREDITS) : clean.image ? moduleTotal('image', clean.image) : 0,
     video: clean.video ? moduleTotal('video', clean.video) : 0,
     live: clean.live ? moduleTotal('live', clean.live) : 0,
   };

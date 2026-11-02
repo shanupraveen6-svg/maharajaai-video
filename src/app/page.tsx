@@ -1,15 +1,15 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   ArrowRight, BarChart3, Camera, Check, ChevronDown, CirclePlay,
   LockKeyhole, MonitorPlay, Phone, ShieldCheck, Sparkles, Store,
 } from 'lucide-react';
 import PricingCalculator, { type PricingCalculatorConfig } from '@/components/PricingCalculator';
+import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import NovemberOffer from '@/components/NovemberOffer';
 import { novemberOfferActive } from '@/lib/tryfocus/november-offer';
 import {
   CREDIT_LABELS, CREDIT_RANGE, CREDIT_VALIDITY_MONTHS, GST_RATE, PLATFORMS, PLATFORM_LABELS, PLATFORM_MODULES,
-  PRESETS, SOFTWARE_FEE, moduleTotalsTable,
+  PRESETS, SOFTWARE_FEE, moduleTotalsTable, PHONE_PACKAGE, PHONE_PACKAGE_CREDITS, PHONE_EXTRA_RANGE, phoneExtraTotalsTable,
 } from '@/lib/maharaja/pricing';
 import { listClientWorkspaces } from '@/lib/maharaja/server';
 
@@ -46,6 +46,8 @@ const pricingConfig: PricingCalculatorConfig = {
   presets: PRESETS,
   gstRate: GST_RATE,
   validityMonths: CREDIT_VALIDITY_MONTHS,
+  phonePackage: { ...PHONE_PACKAGE, totalCredits: PHONE_PACKAGE_CREDITS, extraRange: PHONE_EXTRA_RANGE, extraTotals: phoneExtraTotalsTable() },
+  novemberOffer: false,
 };
 
 const principles = [
@@ -125,23 +127,18 @@ export default async function LandingPage() {
                 </span>
               </div>
 
-              {/* Real Model & AR Try-On Image */}
-              <div className="relative overflow-hidden bg-[#FAF6F0] max-h-[250px] sm:max-h-[270px]">
-                <Image
-                  src="/images/hero-tryon.jpg"
-                  alt="TryFocus in-store retail virtual try-on and AR experience"
-                  width={1024}
-                  height={897}
-                  priority
-                  className="h-[240px] sm:h-[265px] w-full object-cover object-top transition-transform duration-700 ease-out hover:scale-[1.01]"
+              {/* Before and after: the same customer, churidar to saree, with a drag handle. */}
+              <div className="relative bg-[#FAF6F0]">
+                <BeforeAfterSlider
+                  beforeImage="/images/catalogue-demo/salwar-model-2-ruby.jpg"
+                  afterImage="/images/catalogue-demo/saree-model-2-crimson.jpg"
+                  beforeLabel="Churidar"
+                  afterLabel="Saree · AI Try-On"
+                  frameClassName="h-[300px] sm:h-[340px] w-full"
                 />
-                {/* Floating AR pill overlay */}
-                <div className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full border border-white/40 bg-black/65 px-2.5 py-0.5 text-xs font-bold text-white shadow-lg backdrop-blur-md">
+                <div className="pointer-events-none absolute left-2.5 top-9 flex items-center gap-1 rounded-full border border-white/40 bg-black/65 px-2.5 py-0.5 text-xs font-bold text-white shadow-lg backdrop-blur-md">
                   <Camera className="h-3 w-3 text-[#D9A9B4]" />
-                  <span>Instant Ethnic & Bridal Fitting</span>
-                </div>
-                <div className="absolute bottom-2.5 right-2.5 rounded border border-white/50 bg-white/90 px-2 py-0.5 text-[8.5px] font-bold text-brand shadow-md backdrop-blur-sm">
-                  Showroom Mode
+                  <span>Phone Try-On in seconds</span>
                 </div>
               </div>
 
@@ -230,7 +227,7 @@ export default async function LandingPage() {
 
           {offerOn && <NovemberOffer variant="card" />}
 
-          <PricingCalculator config={pricingConfig} />
+          <PricingCalculator config={{ ...pricingConfig, novemberOffer: offerOn }} />
         </div>
       </section>
 
