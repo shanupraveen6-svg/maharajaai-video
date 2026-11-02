@@ -9,8 +9,21 @@ import {
   CREDIT_LABELS, CREDIT_RANGE, CREDIT_VALIDITY_MONTHS, GST_RATE, PLATFORMS, PLATFORM_LABELS, PLATFORM_MODULES,
   PRESETS, SOFTWARE_FEE, moduleTotalsTable,
 } from '@/lib/maharaja/pricing';
+import { listClientWorkspaces } from '@/lib/maharaja/server';
 
-const stores = [{ id: 'maharaja', name: 'Majestic Maharaja', location: 'Thanjavur, Tamil Nadu' }];
+// Every workspace TryFocus admin created, refreshed each minute, so a new store appears without a release.
+export const revalidate = 60;
+
+async function storeList(): Promise<Array<{ id: string; name: string; location: string }>> {
+  try {
+    const workspaces = await listClientWorkspaces();
+    return workspaces
+      .map((workspace) => ({ id: workspace.clientId, name: workspace.clientName.replace(/^The\s+/i, ''), location: workspace.branch || '' }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  } catch {
+    return [{ id: 'maharaja', name: 'Majestic Maharaja', location: 'Thanjavur, Tamil Nadu' }];
+  }
+}
 
 const capabilities = [
   ['01', 'Virtual try-on', 'Turn a shopper photo and garment reference into an immediate, downloadable retail try-on.', Camera],
@@ -40,7 +53,8 @@ const principles = [
   'Automatic media retention rules',
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const stores = await storeList();
   return (
     <main className="min-h-screen bg-[#F4F5F2] text-ink">
       <header className="border-b border-line bg-[#F4F5F2]/90 backdrop-blur-md sticky top-0 z-50">
@@ -147,14 +161,14 @@ export default function LandingPage() {
                     <select
                       id="store-select"
                       name="store"
-                      defaultValue="maharaja"
+                      defaultValue=""
                       required
                       className="min-h-10 w-full appearance-none rounded-none border border-[#ABB3AD] bg-white pl-9 pr-9 text-xs sm:text-sm font-bold text-ink outline-none transition hover:border-brand focus:border-brand focus:ring-1 focus:ring-brand cursor-pointer"
                     >
                       <option value="" disabled>Select your store</option>
                       {stores.map((store) => (
                         <option key={store.id} value={store.id}>
-                          {store.name} · {store.location}
+                          {store.location ? `${store.name} · ${store.location}` : store.name}
                         </option>
                       ))}
                     </select>
