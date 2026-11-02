@@ -205,8 +205,24 @@ export type MaharajaTryOnGrant = {
   retryUsed?: boolean;
   /** When this phone first opened the store's Wall QR. */
   firstScannedAt?: string;
+  /** When the customer saved their look to this phone (the stored copy is deleted then). */
+  downloadedAt?: string;
   processingAtMs?: number;
 };
+
+/** The customer saved their look: a reload now shows Follow us and Share, not the (deleted) look. */
+export async function markTryOnDeviceDownloaded(deviceId: string) {
+  const hash = deviceHash(deviceId);
+  const update = { downloadedAt: new Date().toISOString() };
+  const db = getDb();
+  if (db) {
+    await db.collection('clientWorkspaces').doc(activeClientId()).collection('tryOnDevices').doc(hash).set(update, { merge: true });
+    return;
+  }
+  const key = `${activeClientId()}:${hash}`;
+  const grant = getMockStore().tryOnGrants.get(key) as MaharajaTryOnGrant | undefined;
+  if (grant) getMockStore().tryOnGrants.set(key, { ...grant, ...update });
+}
 
 /** A generation that never reported back (closed tab, crashed function) frees the phone after this long. */
 const TRY_ON_PROCESSING_STALE_MS = 5 * 60 * 1000;
@@ -533,6 +549,7 @@ export async function finishTryOnGrant(deviceId: string, sessionId: string, comp
         status: 'used' as const,
         sessionId,
         completedAt: new Date().toISOString(),
+        downloadedAt: '',
       }
     : { status: 'active' as const, sessionId: '' };
   const db = getDb();

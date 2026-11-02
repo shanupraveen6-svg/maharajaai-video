@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { bindClient } from '@/lib/maharaja/client-context';
-import { validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { markTryOnDeviceDownloaded, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { deletePhoneLook, readPhoneLook } from '@/lib/maharaja/phone-looks';
 
 export const dynamic = 'force-dynamic';
@@ -31,5 +31,6 @@ export async function DELETE(req: NextRequest) {
   if (!access.allowed || access.pass || accessCode !== access.workspace.tryOnCode) return NextResponse.json({ success: false }, { status: 404 });
   bindClient(access.clientId);
   await deletePhoneLook(access.clientId, deviceId);
+  await markTryOnDeviceDownloaded(deviceId);
   return NextResponse.json({ success: true });
 }

@@ -81,10 +81,12 @@ export async function recordLead({ phone, marketingConsent, source, clientId = a
   const id = leadId(clientId, phone);
   const nowIso = new Date().toISOString();
   const db = getDb();
+  let alreadyRegistered = false;
   if (db) {
     const ref = db.collection('clientWorkspaces').doc(clientId).collection('leads').doc(id);
     await db.runTransaction(async (transaction) => {
       const existing = (await transaction.get(ref)).data() as CustomerLead | undefined;
+      alreadyRegistered = Boolean(existing);
       transaction.set(ref, {
         id,
         phone,
@@ -100,6 +102,7 @@ export async function recordLead({ phone, marketingConsent, source, clientId = a
     const store = getMockStore().leads;
     const key = `${clientId}:${id}`;
     const existing = store.get(key) as CustomerLead | undefined;
+    alreadyRegistered = Boolean(existing);
     store.set(key, {
       id,
       phone,
@@ -111,7 +114,8 @@ export async function recordLead({ phone, marketingConsent, source, clientId = a
       lastSeenAt: nowIso,
     });
   }
-  return { leadId: id, token: issueLeadToken(clientId, id) };
+  // A number this store already has: the phone says so (the customer still gets their download).
+  return { leadId: id, token: issueLeadToken(clientId, id), alreadyRegistered };
 }
 
 /** Counts a download against the customer's lead. */

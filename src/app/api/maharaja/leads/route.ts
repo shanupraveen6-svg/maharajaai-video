@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
   bindClient(clientId);
   const lead = await recordLead({ phone, marketingConsent: body?.marketingConsent === true, source, clientId });
-  return NextResponse.json({ success: true, token: lead.token, phoneMasked: maskMobile(phone) }, { headers: { 'Cache-Control': 'private, no-store' } });
+  return NextResponse.json({ success: true, token: lead.token, phoneMasked: maskMobile(phone), alreadyRegistered: lead.alreadyRegistered }, { headers: { 'Cache-Control': 'private, no-store' } });
 }
 
 /** The store's customer list for its staff: JSON, or a CSV file with `?format=csv`. */

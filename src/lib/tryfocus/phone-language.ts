@@ -75,6 +75,8 @@ const STRINGS = {
   followInstagram: { en: 'Follow us on Instagram', ta: 'இன்ஸ்டாகிராமில் எங்களைப் பின்தொடருங்கள்' },
   shareWhatsApp: { en: 'Share on WhatsApp', ta: 'வாட்ஸ்அப்பில் பகிருங்கள்' },
   shareText: { en: 'My new look from', ta: 'என் புதிய தோற்றம் -' },
+  savedTitle: { en: 'Your look is saved on your phone', ta: 'உங்கள் தோற்றம் உங்கள் போனில் சேமிக்கப்பட்டது' },
+  savedText: { en: 'Find it in your gallery. Follow us and share it with your friends.', ta: 'உங்கள் கேலரியில் பாருங்கள். எங்களைப் பின்தொடர்ந்து நண்பர்களுடன் பகிருங்கள்.' },
   doneTitle: { en: 'You have made your look', ta: 'உங்கள் தோற்றம் உருவாகிவிட்டது' },
   doneText: { en: 'Each phone gets one free Try-On. Ask our staff to try more outfits.', ta: 'ஒவ்வொரு போனுக்கும் ஒரு இலவச ட்ரை-ஆன். மேலும் உடைகளை முயற்சிக்க எங்கள் ஊழியர்களிடம் கேளுங்கள்.' },
   // Store collection outfit picker (after "new collection" on the gift QR, or from the TV)
@@ -98,6 +100,7 @@ const STRINGS = {
   leadNumber: { en: 'WhatsApp number', ta: 'வாட்ஸ்அப் எண்' },
   leadOffers: { en: 'Send me this store’s offers on WhatsApp', ta: 'இந்தக் கடையின் சலுகைகளை வாட்ஸ்அப்பில் எனக்கு அனுப்பவும்' },
   leadSubmit: { en: 'Download', ta: 'பதிவிறக்கு' },
+  leadAlreadyRegistered: { en: 'This number is already registered. Downloading your look…', ta: 'இந்த எண் ஏற்கனவே பதிவு செய்யப்பட்டுள்ளது. உங்கள் தோற்றம் பதிவிறக்கப்படுகிறது…' },
   leadInvalid: { en: 'Enter a 10-digit WhatsApp number.', ta: '10 இலக்க வாட்ஸ்அப் எண்ணை உள்ளிடுங்கள்.' },
   leadPrivacy: { en: 'The store uses your number only as you choose here.', ta: 'நீங்கள் இங்கே தேர்வு செய்தபடி மட்டுமே கடை உங்கள் எண்ணைப் பயன்படுத்தும்.' },
   cancel: { en: 'Cancel', ta: 'ரத்து' },

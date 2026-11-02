@@ -51,6 +51,9 @@ export default function PrivateLooksPage() {
   const [downloadError, setDownloadError] = useState('');
   const [downloaded, setDownloaded] = useState(false);
   const [store, setStore] = useState({ name: '', instagramUrl: '' });
+  // This phone already saved its looks (the link is wiped soon after): Follow us and Share remain.
+  const [savedEarlier, setSavedEarlier] = useState(false);
+  const savedKey = `tryfocus:looks-saved:${token || ''}`;
   // Nothing downloads on its own: Save asks for the customer's WhatsApp number first.
   const leadGate = useLeadGate({ kind: 'looks', ref: token || '', source: 'tv-looks' });
   // Back or close asks first: this private link is the only copy of the customer's looks.
@@ -75,6 +78,13 @@ export default function PrivateLooksPage() {
       setVideoOff(data.videoOff === true);
       setStore({ name: typeof data.clientName === 'string' ? data.clientName : '', instagramUrl: typeof data.instagramUrl === 'string' ? data.instagramUrl : '' });
     } catch (caught) {
+      let saved: { name?: string; instagramUrl?: string } | null = null;
+      try { saved = JSON.parse(window.localStorage.getItem(`tryfocus:looks-saved:${token || ''}`) || 'null'); } catch { saved = null; }
+      if (saved) {
+        setStore({ name: saved.name || '', instagramUrl: saved.instagramUrl || '' });
+        setSavedEarlier(true);
+        return;
+      }
       setError(caught instanceof Error ? caught.message : 'These looks are unavailable.');
     } finally {
       setLoading(false);
@@ -107,6 +117,7 @@ export default function PrivateLooksPage() {
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
       setDownloaded(true);
+      try { window.localStorage.setItem(savedKey, JSON.stringify(store)); } catch { /* private mode */ }
     } catch (caught) {
       setDownloadError(caught instanceof Error ? caught.message : 'This look could not be saved. Please try again.');
     } finally {
@@ -193,6 +204,21 @@ export default function PrivateLooksPage() {
           <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
             <LoaderCircle className="h-10 w-10 animate-spin text-brand" />
             <p className="mt-4 tracking-tight text-lg">Opening your private looks…</p>
+          </div>
+        )}
+
+        {savedEarlier && !loading && (
+          <div className="space-y-3 rounded-2xl border border-line bg-white p-6 text-center shadow-sm">
+            <h2 className="text-xl font-bold text-ink">Your looks are saved on your phone</h2>
+            <p className="text-sm text-muted">Find them in your gallery. Follow us and share them with your friends.</p>
+            {store.instagramUrl && (
+              <a href={store.instagramUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+                <AtSign className="h-4 w-4" /> Follow us on Instagram
+              </a>
+            )}
+            <button type="button" onClick={() => void shareLook(undefined, store.name)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-ink bg-white px-5 text-sm font-semibold text-ink">
+              <MessageCircle className="h-4 w-4" /> Share on WhatsApp
+            </button>
           </div>
         )}
 

@@ -54,7 +54,10 @@ async function uploadImage(base64: string, apiKey: string, label: string) {
     response = await fetch(`${GENLOOK_BASE_URL}/images/upload`, { method: 'POST', headers: { 'x-api-key': apiKey }, body: form, signal: AbortSignal.timeout(30_000), cache: 'no-store' });
   } catch { throw new GenlookProviderError('GenLook photo upload did not complete.', false); }
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok || typeof payload?.imageId !== 'string') throw new GenlookProviderError(`GenLook rejected the ${label} image.`, true);
+  if (!response.ok || typeof payload?.imageId !== 'string') {
+    console.warn(`GenLook rejected the ${label} image: ${response.status} ${payload?.code || ''} ${payload?.message || ''}`);
+    throw new GenlookProviderError(`GenLook rejected the ${label} image.`, true);
+  }
   return payload.imageId as string;
 }
 
@@ -74,7 +77,8 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
   const garmentMime = imageMime(garmentBase64, garmentBytes);
   const form = new FormData();
   const garmentId = `${product.externalId.slice(0, 60)}-${createHash('sha256').update(garmentBytes).digest('hex').slice(0, 20)}`;
-  form.set('data', JSON.stringify({ products: [{ externalId: garmentId, title: product.title, description: product.description, images: [{ source: { fileKey: 'product' } }] }], person: { image: { source: { id: personImageId } } } }));
+  // GenLook's own account logo is off: every store's look carries only that store's logo (added by us).
+  form.set('data', JSON.stringify({ products: [{ externalId: garmentId, title: product.title, description: product.description, images: [{ source: { fileKey: 'product' } }] }], person: { image: { source: { id: personImageId } } }, output: { watermark: false } }));
   form.set('product', new Blob([new Uint8Array(garmentBytes)], { type: garmentMime }), `garment.${garmentMime === 'image/png' ? 'png' : garmentMime === 'image/webp' ? 'webp' : 'jpg'}`);
   let response: Response;
   try {
@@ -85,7 +89,11 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
     });
   } catch { throw new GenlookProviderError('GenLook generation outcome is uncertain.', false); }
   let payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new GenlookProviderError('GenLook could not create this try-on.', response.status < 500);
+  if (!response.ok) {
+    // GenLook's own reason (for example INVALID_IMAGE) is what tells us why the backup engine was used.
+    console.warn(`GenLook try-on refused: ${response.status} ${payload?.code || ''} ${payload?.message || ''}`);
+    throw new GenlookProviderError('GenLook could not create this try-on.', response.status < 500);
+  }
   // The sync endpoint may return 202 after 90 seconds while generation continues.
   if (response.status === 202 && typeof payload?.generationId === 'string') {
     const generationId = encodeURIComponent(payload.generationId);

@@ -114,6 +114,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         phoneLookUrl: phoneTryOn && validTryOnDeviceId(deviceId) && await hasPhoneLook(access.clientId, deviceId)
           ? `/api/maharaja/phone-look?access=${encodeURIComponent(code)}&deviceId=${encodeURIComponent(deviceId)}&t=${Date.now()}`
           : null,
+        lookDownloaded: phoneTryOn && Boolean(deviceStatus?.downloadedAt),
         retryUsed: phoneTryOn
           ? Boolean(deviceStatus?.retryUsed)
           : ENFORCE_REPEAT_LIMITS ? Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed) : false,

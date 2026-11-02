@@ -34,6 +34,7 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
   const [offers, setOffers] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const pending = useRef<((token: string) => void | Promise<void>) | null>(null);
 
   /** Runs `action` with the lead token, asking for the number first when this link has none yet. */
@@ -69,6 +70,12 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.token) throw new Error(data?.error || t('leadInvalid'));
       try { window.sessionStorage.setItem(storageKey(kind, ref), JSON.stringify({ token: data.token, savedAt: Date.now() })); } catch { /* private mode */ }
+      // A number the store already has: say so for a moment, then the download continues.
+      if (data.alreadyRegistered) {
+        setNotice(t('leadAlreadyRegistered'));
+        await new Promise((resolve) => window.setTimeout(resolve, 1600));
+        setNotice('');
+      }
       setOpen(false);
       const action = pending.current;
       pending.current = null;
@@ -109,6 +116,7 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
           <span>{t('leadOffers')}</span>
         </label>
         {error && <p role="alert" className="mt-3 rounded-xl bg-danger-soft p-3 text-sm font-semibold text-danger">{error}</p>}
+        {notice && <p role="status" className="mt-3 rounded-xl bg-warn-soft p-3 text-sm font-semibold text-ink">{notice}</p>}
         <button type="submit" disabled={busy} className="tf-btn tf-btn-primary mt-5 !min-h-12 w-full text-base">
           {busy ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />} {t('leadSubmit')}
         </button>

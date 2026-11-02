@@ -327,11 +327,18 @@ export async function POST(req: NextRequest) {
         const [personBase64, ...garmentBase64s] = preparedReferences.map((image) => image.toString('base64'));
         // GenLook keeps the customer's own framing (no 9:16 crop) and gets sharper photos than Gemini needs.
         const genlookSources = service === 'try-on'
-          ? await Promise.all(sourceReferences.slice(0, 2).map((source) => sharp(Buffer.from(source, 'base64')).rotate()
-            .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 90, progressive: true })
-            .toBuffer()
-            .then((image) => image.toString('base64'))))
+          ? await Promise.all(sourceReferences.slice(0, 2).map(async (source) => {
+            // GenLook refuses photos it finds too small ("resolution too low"): small store images and
+            // compressed phone photos are enlarged to at least 1200 px on the long side, large ones capped at 1600.
+            const image = sharp(Buffer.from(source, 'base64')).rotate();
+            const { width = 0, height = 0 } = await image.metadata();
+            const longSide = Math.max(width, height);
+            const target = longSide < 1200 ? 1200 : Math.min(1600, longSide);
+            return image.resize(target, target, { fit: 'inside', kernel: 'lanczos3' })
+              .jpeg({ quality: 90, progressive: true })
+              .toBuffer()
+              .then((buffer) => buffer.toString('base64'));
+          }))
           : [];
         if (service === 'ai-video') {
           videoPersonPath = `clients/${activeClientId()}/sessions/${sessionId}/person/reference.jpg`;
@@ -399,7 +406,8 @@ ${roleInstructions}
                 genlookGarment,
                 key,
                 {
-                  externalId: typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `customer-${garmentType}`,
+                  // Prefixed with the store, so GenLook keeps every store's products apart.
+                  externalId: `${activeClientId()}-${typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `customer-${garmentType}`}`,
                   // A store piece keeps its own name; a customer's own outfit is named by its type.
                   title: (typeof body.catalogueProductId === 'string' && typeof body.catalogueProductTitle === 'string'
                     ? body.catalogueProductTitle
@@ -418,7 +426,7 @@ ${roleInstructions}
               }
               await releaseGenlookCredit().catch(() => undefined);
               lastEngineError = error;
-              console.warn('GenLook Try-On failed explicitly; using the next image engine.');
+              console.warn(`GenLook Try-On failed (${error instanceof Error ? error.message : 'unknown'}); using the next image engine.`);
             }
           } else if (engine === 'fal') {
             const key = process.env.FAL_KEY?.trim();
@@ -679,7 +687,7 @@ ${roleInstructions}
 async function describeGarmentForGenlook(ai: ReturnType<typeof getGenAIClient>, garmentBase64: string, garmentType: GarmentType): Promise<string> {
   const fallback = GENLOOK_GARMENT_DESCRIPTIONS[garmentType].description;
   if (!ai) return fallback;
-  const hash = createHash('sha256').update(garmentBase64).digest('hex').slice(0, 40);
+  const hash = `${activeClientId()}-${createHash('sha256').update(garmentBase64).digest('hex').slice(0, 40)}`;
   const db = getDb();
   const cacheRef = db ? db.collection('genlookGarmentDescriptions').doc(hash) : null;
   try {

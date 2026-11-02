@@ -91,7 +91,11 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
         if (typeof data.access?.phoneLookUrl === 'string') {
           setResultUrl(data.access.phoneLookUrl);
           setStage('result');
-        } else if (data.access?.tryOnUsed) setStage('done');
+        } else if (data.access?.tryOnUsed) {
+          // Already saved to the phone: Follow us and Share are what is left to do.
+          setDownloaded(Boolean(data.access.lookDownloaded));
+          setStage('done');
+        }
       })
       .catch(() => undefined);
     fetchCatalogueSettings(accessCode).then((settings) => {
@@ -229,6 +233,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   async function shareLook() {
     const text = `${t('shareText')} ${clientName}`;
     try {
+      if (!resultUrl) throw new Error('no image');
       const blob = await (await fetch(resultUrl)).blob();
       const file = new File([blob], 'my-look.jpg', { type: 'image/jpeg' });
       if (navigator.canShare?.({ files: [file] })) {
@@ -238,7 +243,8 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
     }
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+    // Without the image on this page (after a reload), the store's Try-On link goes instead.
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${window.location.href}`)}`, '_blank', 'noopener');
   }
 
   const back: Partial<Record<Stage, Stage>> = {
@@ -457,13 +463,16 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
 
         {stage === 'done' && (
           <div className="space-y-4">
-            <PageTitle title={t('doneTitle')} subtitle={t('doneText')} />
+            <PageTitle title={downloaded ? t('savedTitle') : t('doneTitle')} subtitle={downloaded ? t('savedText') : t('doneText')} />
             {note && <p role="alert" className="rounded-2xl bg-danger-soft p-3 text-sm font-semibold text-danger">{note}</p>}
             {instagramUrl && (
               <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
                 <AtSign className="h-5 w-5" /> {t('followInstagram')}
               </a>
             )}
+            <button type="button" onClick={() => void shareLook()} className="tf-btn tf-btn-secondary !min-h-14 w-full text-base">
+              <MessageCircle className="h-5 w-5" /> {t('shareWhatsApp')}
+            </button>
           </div>
         )}
       </div>
