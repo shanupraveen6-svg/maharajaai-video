@@ -391,6 +391,25 @@ ${roleInstructions}
         // portrait uses Gemini.
         const engines = service === 'try-on' ? tryOnEngineOrder() : ['gemini' as const];
         let lastEngineError: unknown = null;
+        // The outfit photo and its product name for GenLook. A set (two or three pieces in one photo) is split
+        // into its pieces first, so every engine dresses each piece as itself.
+        const genlookGarment = genlookSources[1] || garmentBase64s[0];
+        const baseProduct = {
+          // Prefixed with the store, so GenLook keeps every store's products apart.
+          externalId: `${activeClientId()}-${typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `customer-${garmentType}`}`,
+          // A store piece keeps its own name; a customer's own outfit is named by its type.
+          title: (typeof body.catalogueProductId === 'string' && typeof body.catalogueProductTitle === 'string'
+            ? body.catalogueProductTitle
+            : GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title).slice(0, 120),
+        };
+        let setPieces: GenlookPiece[] | null = null;
+        let detectedSingle: GenlookPiece | null = null;
+        if (service === 'try-on' && genlookGarment) {
+          // What is really in the photo decides, not only the category the customer tapped.
+          const found = await prepareGenlookPieces(ai, genlookGarment, garmentType, baseProduct, typeof body.catalogueProductId !== 'string');
+          if (found.length > 1) setPieces = found;
+          else detectedSingle = found[0] || null;
+        }
         for (const engine of engines) {
           if (rawBuffer) break;
           if (engine === 'genlook') {
@@ -399,24 +418,17 @@ ${roleInstructions}
             // GenLook runs only on this store's own GenLook credits; with none left the next engine is used.
             if (!await reserveGenlookCredit()) continue;
             genlookAttempted = true;
+            let genlookExtraCredit = false;
             try {
-              const genlookGarment = genlookSources[1] || garmentBase64s[0];
-              rawBuffer = await generateGenlookTryOn(
-                genlookSources[0] || personBase64,
-                genlookGarment,
-                key,
-                {
-                  // Prefixed with the store, so GenLook keeps every store's products apart.
-                  externalId: `${activeClientId()}-${typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `customer-${garmentType}`}`,
-                  // A store piece keeps its own name; a customer's own outfit is named by its type.
-                  title: (typeof body.catalogueProductId === 'string' && typeof body.catalogueProductTitle === 'string'
-                    ? body.catalogueProductTitle
-                    : GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title).slice(0, 120),
-                  // GenLook reads the description to get cut, sleeves and pockets right: Gemini writes it from
-                  // the photo, with the garment type's own line as the fallback.
-                  description: (await describeGarmentForGenlook(ai, genlookGarment, garmentType)).slice(0, 500),
-                },
-              );
+              // A set (shirt and veshti, kurta and pyjama...) goes to GenLook as one product per piece, each with
+              // its own description, so no piece borrows another's print. Two pieces cost 2 GenLook credits.
+              let pieces: GenlookPiece[] = setPieces || (detectedSingle ? [detectedSingle] : await prepareGenlookPieces(ai, genlookGarment, garmentType, baseProduct));
+              if (pieces.length > 1 && !await reserveGenlookCredit()) {
+                pieces = [{ image: genlookGarment, product: { ...baseProduct, description: (await describeGarmentForGenlook(ai, genlookGarment, garmentType)).slice(0, 500) } }];
+              } else if (pieces.length > 1) {
+                genlookExtraCredit = true;
+              }
+              rawBuffer = await generateGenlookTryOn(genlookSources[0] || personBase64, pieces, key);
               imageProvider = 'genlook-try-on';
             } catch (error) {
               if (!canFallbackFromGenlook(error)) {
@@ -425,12 +437,13 @@ ${roleInstructions}
                 throw error;
               }
               await releaseGenlookCredit().catch(() => undefined);
+              if (genlookExtraCredit) await releaseGenlookCredit().catch(() => undefined);
               lastEngineError = error;
               console.warn(`GenLook Try-On failed (${error instanceof Error ? error.message : 'unknown'}); using the next image engine.`);
             }
           } else if (engine === 'fal') {
             const key = process.env.FAL_KEY?.trim();
-            if (!key) continue;
+            if (!key || setPieces) continue;
             falTryOnAttempted = true;
             try {
               rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], key);
@@ -441,7 +454,7 @@ ${roleInstructions}
             }
           } else if (engine === 'fashn') {
             const key = process.env.FASHN_API_KEY?.trim();
-            if (!key) continue;
+            if (!key || setPieces) continue;
             try {
               rawBuffer = await generateFashnTryOn(personBase64, garmentBase64s[0], key, { timeoutMs: Math.max(20_000, Math.min(60_000, startedAt + 200_000 - Date.now())) });
               imageProvider = 'fashn-tryon-v1.6';
@@ -454,7 +467,21 @@ ${roleInstructions}
             // Stay inside the 300 s function limit so the credit and pass lock are always released in finally.
             const geminiBudgetMs = Math.min(150_000, startedAt + 280_000 - Date.now());
             if (geminiBudgetMs < 25_000) throw new Error('The image service is busy right now. Please try again in a moment.');
-            contents.push(prompt);
+            if (setPieces) {
+              // A set GenLook would not take (for example a folded veshti): Gemini gets each piece as its own
+              // labelled garment image, instead of the one photo of the whole set.
+              contents.splice(1);
+              setPieces.forEach((piece) => contents.push({ inlineData: { mimeType: 'image/jpeg', data: piece.image } }));
+              const setType = garmentTypeFromPieces(setPieces.map((piece) => piece.product.title), garmentType);
+              const setPrompt = setType === garmentType ? prompt : prompt.replace(GARMENT_TYPE_RULES[garmentType], GARMENT_TYPE_RULES[setType]);
+              contents.push(`${setPrompt}
+
+THIS OUTFIT IS A SET OF SEPARATE PIECES, one garment image each. Dress the customer in every piece, each exactly as its own image shows:
+${setPieces.map((piece, index) => `- Garment Image ${index + 1} = ${piece.product.title.toUpperCase()}: ${piece.product.description}`).join('\n')}
+- Never copy one piece's print, colour or border onto another piece.`);
+            } else {
+              contents.push(prompt);
+            }
             geminiAttempted = true;
             const genResponse = await ai.models.generateContent({
               model: AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
@@ -707,5 +734,79 @@ async function describeGarmentForGenlook(ai: ReturnType<typeof getGenAIClient>, 
     return text;
   } catch {
     return fallback;
+  }
+}
+
+/** The outfit type a set's pieces show (a veshti makes it a veshti set, whatever category was tapped). */
+function garmentTypeFromPieces(names: string[], fallback: GarmentType): GarmentType {
+  const text = names.join(' ').toLowerCase();
+  if (/veshti|dhoti|lungi|mundu/.test(text)) return 'dhoti_veshti';
+  if (/saree|sari\b/.test(text)) return 'saree';
+  if (/pavadai/.test(text)) return 'pattu_pavadai';
+  if (/lehenga|ghagra|skirt/.test(text)) return 'lehenga';
+  if (/kurta|pyjama|pajama|sherwani/.test(text)) return 'kurta_dhoti';
+  if (/salwar|churidar|kurti|leggings|dupatta/.test(text)) return 'salwar';
+  if (/t-?shirt|tee\b/.test(text)) return 'tshirt_bottom';
+  if (/shirt|trouser|pant|jeans/.test(text)) return 'shirt_pant';
+  return fallback;
+}
+
+type GenlookPiece = { image: string; product: { externalId: string; title: string; description: string } };
+
+/**
+ * GenLook products for one outfit photo. A set laid out piece by piece (a shirt beside a veshti) is found by
+ * Gemini, each piece cut out with its own exact description; one garment (or an on-model photo) stays one
+ * product. Anything unexpected falls back to one product with one description. Saved per photo.
+ */
+async function prepareGenlookPieces(ai: ReturnType<typeof getGenAIClient>, garmentBase64: string, garmentType: GarmentType, base: { externalId: string; title: string }, ownOutfit = false): Promise<GenlookPiece[]> {
+  const single = async () => [{ image: garmentBase64, product: { ...base, description: (await describeGarmentForGenlook(ai, garmentBase64, garmentType)).slice(0, 500) } }];
+  if (!ai) return single();
+  const hash = `${activeClientId()}-${createHash('sha256').update(garmentBase64).digest('hex').slice(0, 40)}`;
+  const db = getDb();
+  const cacheRef = db ? db.collection('genlookGarmentPieces').doc(hash) : null;
+  try {
+    type Found = { name: string; box: number[]; description: string };
+    let found: Found[] | undefined = cacheRef ? (await cacheRef.get()).data()?.pieces : undefined;
+    if (!found) {
+      const response = await ai.models.generateContent({
+        model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
+        contents: [
+          { inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } },
+          `This is a product photo of a ${GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title.toLowerCase()} for a virtual try-on. Find each separate garment piece shown (for example a shirt and a veshti laid side by side). Ignore labels, props, lamps, leaves, and any cloth that is only background decoration. If it is one garment, or a person wearing the outfit, return one piece. Return JSON: {"pieces":[{"name":"shirt","box":[ymin,xmin,ymax,xmax],"description":"..."}]} with the box on a 0-1000 scale around the whole piece. Each description is one plain sentence of at most 40 words: the main body colour first, then where any print or pattern sits (all over, or only on a border, strip or band), and for a top its sleeves, collar, pockets and closure. Never give one piece the print of another.`,
+        ],
+        config: { responseMimeType: 'application/json', abortSignal: AbortSignal.timeout(12_000) },
+      });
+      const parsed = JSON.parse(response.text || '{}');
+      found = Array.isArray(parsed?.pieces) ? parsed.pieces : [];
+      if (cacheRef) await cacheRef.set({ pieces: found, garmentType, createdAt: new Date().toISOString() }).catch(() => undefined);
+    }
+    const valid = (found || []).filter((piece) => Array.isArray(piece.box) && piece.box.length === 4 && piece.box.every((n) => Number.isFinite(n))
+      && piece.box[2] - piece.box[0] > 80 && piece.box[3] - piece.box[1] > 80 && typeof piece.description === 'string').slice(0, 3);
+    if (valid.length < 2) {
+      // One garment: a customer's own outfit is named by what it is (kurta, saree...), not the category tapped.
+      const detected = String(valid[0]?.name || '').trim();
+      const title = ownOutfit && detected ? detected.charAt(0).toUpperCase() + detected.slice(1, 60) : base.title;
+      return [{ image: garmentBase64, product: { ...base, title, description: (valid[0]?.description || (await describeGarmentForGenlook(ai, garmentBase64, garmentType))).slice(0, 500) } }];
+    }
+    const source = sharp(Buffer.from(garmentBase64, 'base64'));
+    const { width = 0, height = 0 } = await source.metadata();
+    return await Promise.all(valid.map(async (piece, index) => {
+      const [ymin, xmin, ymax, xmax] = piece.box.map((n) => Math.min(1000, Math.max(0, n)));
+      const padX = (xmax - xmin) * 0.04;
+      const padY = (ymax - ymin) * 0.04;
+      const left = Math.max(0, Math.floor(((xmin - padX) / 1000) * width));
+      const top = Math.max(0, Math.floor(((ymin - padY) / 1000) * height));
+      const cropWidth = Math.min(width - left, Math.ceil(((xmax - xmin + padX * 2) / 1000) * width));
+      const cropHeight = Math.min(height - top, Math.ceil(((ymax - ymin + padY * 2) / 1000) * height));
+      const crop = await sharp(Buffer.from(garmentBase64, 'base64')).extract({ left, top, width: cropWidth, height: cropHeight })
+        .resize(1200, 1200, { fit: 'inside', kernel: 'lanczos3' }).jpeg({ quality: 90 }).toBuffer();
+      const name = String(piece.name || `piece ${index + 1}`).slice(0, 40);
+      return {
+        image: crop.toString('base64'),
+        product: { externalId: `${base.externalId}-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, title: name.charAt(0).toUpperCase() + name.slice(1), description: piece.description.slice(0, 500) },
+      };
+    }));
+  } catch {
+    return single();
   }
 }

@@ -185,13 +185,30 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
     }
   }
 
+  /** A retry starts from the very beginning: new Who, category, piece and photos; nothing is kept. */
+  function startFresh() {
+    setSource('catalogue');
+    setAudienceChosen(false);
+    setCategory(null);
+    setOwnType('');
+    setProduct(null);
+    setPersonPhoto('');
+    setOutfitPhoto('');
+    setGuardianConsent(false);
+    setResultUrl('');
+    setDownloaded(false);
+    setNote('');
+    setStage('source');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   /** The hidden second try: the server allows it once per phone, then the same choices run again. */
   async function tryOnceMore() {
     setMenuOpen(false);
     setNote('');
     // The retry was already granted on an earlier visit: start it again without asking the server.
     if (retryPending) {
-      setStage('source');
+      startFresh();
       return;
     }
     try {
@@ -204,12 +221,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
       if (!response.ok || !data?.success) throw new Error(data?.error || t('generationFailed'));
       setRetryUsed(true);
       setRetryPending(true);
-      if (stage === 'done' || !personPhoto) {
-        setStage('source');
-        return;
-      }
-      setResultUrl('');
-      await createLook();
+      startFresh();
     } catch (error) {
       setNote(error instanceof Error ? error.message : t('generationFailed'));
     }
@@ -496,7 +508,8 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
         )}
       </div>
       {generating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/95 p-6 backdrop-blur-sm">
+        // Under the store's header (z-30), which stays visible while the look is made.
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-canvas/95 p-6 backdrop-blur-sm">
           <DressLoader size="lg" title={t('creating')} />
         </div>
       )}

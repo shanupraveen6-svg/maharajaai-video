@@ -878,6 +878,13 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     void generateCatalogueVideoMasterOnTv();
   }
 
+  /** Try-On from the very beginning for this customer; the tablet keeps its tab (store or own outfit). */
+  function restartTryOn() {
+    const source = imageSource;
+    resetAllSession();
+    setImageSource(source);
+  }
+
   function resetAllSession() {
     batchRunRef.current += 1;
     firstReadyRunRef.current = 0;
@@ -1315,18 +1322,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       </button>
                       {showLookMenu && (
                         <div className="absolute right-0 top-[4.5rem] z-40 w-80 overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
-                          {imageSource === 'catalogue' && generatedLooks.some((look) => look.url) && (
-                            <button type="button" onClick={() => { setShowLookMenu(false); void runCatalogueBatch(customerPhoto); }} className="flex min-h-16 w-full items-center gap-3 px-5 text-left text-lg font-semibold">
-                              <RefreshCw className="h-5 w-5" /> Create these looks again
-                            </button>
-                          )}
-                          {imageSource === 'own-garment' && (
-                            <button type="button" onClick={() => { setShowLookMenu(false); void runTryOnGeneration(customerPhoto, ownGarmentPhoto); }} className="flex min-h-16 w-full items-center gap-3 px-5 text-left text-lg font-semibold">
-                              <RefreshCw className="h-5 w-5" /> Create my look again
-                            </button>
-                          )}
-                          <button type="button" onClick={() => { setShowLookMenu(false); setTryOnStage('browse'); setTryOnMobileQr(''); }} className="flex min-h-16 w-full items-center gap-3 border-t border-line px-5 text-left text-lg font-semibold">
-                            <RotateCcw className="h-5 w-5" /> {imageSource === 'own-garment' ? 'Try another outfit' : 'Pick other outfits'}
+                          {/* A retry always starts fresh: new Who, outfit and photos, nothing kept from this try. */}
+                          <button type="button" onClick={() => { setShowLookMenu(false); restartTryOn(); }} className="flex min-h-16 w-full items-center gap-3 px-5 text-left text-lg font-semibold">
+                            <RotateCcw className="h-5 w-5" /> Start again
                           </button>
                         </div>
                       )}
@@ -1634,7 +1632,13 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       {cameraOpen && (
         <div className="fixed inset-0 z-50 flex flex-col bg-black/95 p-4 text-white sm:p-6" role="dialog" aria-modal="true" aria-label={cameraTarget === 'own-garment' ? 'Photograph your outfit' : 'Take your photo'}>
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4">
-            <p className="text-2xl font-bold">{cameraTarget === 'own-garment' ? 'Your outfit' : 'Your photo'}</p>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white/70">{clientName}</p>
+                <p className="text-2xl font-bold">{cameraTarget === 'own-garment' ? 'Your outfit' : 'Your photo'}</p>
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => {

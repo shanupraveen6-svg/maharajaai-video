@@ -69,17 +69,27 @@ function safeResultUrl(value: unknown) {
   return url;
 }
 
-export async function generateGenlookTryOn(personBase64: string, garmentBase64: string, apiKey: string, product: ProductDetails): Promise<Buffer> {
+/**
+ * One try-on with GenLook. `garmentBase64` is one product photo, or several pieces of a set (shirt and
+ * veshti, kurta and pyjama...), each sent as its own product so GenLook dresses every piece as itself.
+ * GenLook charges 1 credit for one product and 2 for several.
+ */
+export async function generateGenlookTryOn(personBase64: string, garmentBase64: string | Array<{ image: string; product: ProductDetails }>, apiKey: string, product?: ProductDetails): Promise<Buffer> {
   const deadline = Date.now() + 220_000;
   const personImageId = await uploadImage(personBase64, apiKey, 'customer');
-  const garmentBytes = decodeBase64(garmentBase64);
-  if (!garmentBytes.length || garmentBytes.length > 10 * 1024 * 1024) throw new GenlookProviderError('Garment photo is invalid or too large.', true);
-  const garmentMime = imageMime(garmentBase64, garmentBytes);
+  const pieces = Array.isArray(garmentBase64) ? garmentBase64.slice(0, 4) : [{ image: garmentBase64, product: product! }];
   const form = new FormData();
-  const garmentId = `${product.externalId.slice(0, 60)}-${createHash('sha256').update(garmentBytes).digest('hex').slice(0, 20)}`;
+  const products = pieces.map((piece, index) => {
+    const bytes = decodeBase64(piece.image);
+    if (!bytes.length || bytes.length > 10 * 1024 * 1024) throw new GenlookProviderError('Garment photo is invalid or too large.', true);
+    const mime = imageMime(piece.image, bytes);
+    const fileKey = `product${index}`;
+    form.set(fileKey, new Blob([new Uint8Array(bytes)], { type: mime }), `garment-${index}.${mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg'}`);
+    const externalId = `${piece.product.externalId.slice(0, 60)}-${createHash('sha256').update(bytes).digest('hex').slice(0, 20)}`;
+    return { externalId, title: piece.product.title, description: piece.product.description, images: [{ source: { fileKey } }] };
+  });
   // GenLook's own account logo is off: every store's look carries only that store's logo (added by us).
-  form.set('data', JSON.stringify({ products: [{ externalId: garmentId, title: product.title, description: product.description, images: [{ source: { fileKey: 'product' } }] }], person: { image: { source: { id: personImageId } } }, output: { watermark: false } }));
-  form.set('product', new Blob([new Uint8Array(garmentBytes)], { type: garmentMime }), `garment.${garmentMime === 'image/png' ? 'png' : garmentMime === 'image/webp' ? 'webp' : 'jpg'}`);
+  form.set('data', JSON.stringify({ products, person: { image: { source: { id: personImageId } } }, output: { watermark: false } }));
   let response: Response;
   try {
     response = await fetch(`${GENLOOK_BASE_URL}/try-on/sync`, {

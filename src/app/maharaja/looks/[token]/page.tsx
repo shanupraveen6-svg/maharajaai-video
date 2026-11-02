@@ -164,13 +164,12 @@ export default function PrivateLooksPage() {
       <header className="sticky top-0 z-30 border-b border-line bg-[#F4F5F2]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center border border-ink bg-ink tabular-nums text-xs font-bold text-[#FAF6EE]">
-              TF
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">
+              {(store.name || 'T').replace(/^The\s+/i, '').charAt(0)}
             </span>
-            <div>
-              <h1 className="text-base font-bold leading-none text-ink">
-                Your Private Looks
-              </h1>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight text-ink">{store.name || 'Your looks'}</h1>
+              <p className="text-[13px] text-muted">Your looks</p>
             </div>
           </div>
 
