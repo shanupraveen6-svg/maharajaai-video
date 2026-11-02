@@ -162,17 +162,18 @@ export default async function LandingPage() {
             </div>
           </div>
 
-          {/* Before and after: the customer's own photo, then the AI Try-On, shown whole in a 3:4 portrait. */}
-          <div className="relative self-center bg-[#E8EBE7]">
+          {/* Before and after: the AI Try-On on the left, the customer's own photo on the right. On large screens it
+              fills the first screen under the header (cropped from the top); on phones it fills about three quarters of the screen. */}
+          <div className="relative bg-[#E8EBE7]">
             <BeforeAfterSlider
-              beforeImage="/images/landing/tryon-customer.jpg"
-              afterImage="/images/landing/tryon-generated.jpg"
-              beforeLabel="Your photo"
-              afterLabel="AI Try-On"
-              fit="contain"
+              beforeImage="/images/landing/tryon-generated.jpg"
+              afterImage="/images/landing/tryon-customer.jpg"
+              beforeLabel="AI Try-On"
+              afterLabel="Your photo"
+              fit="cover"
               labelsInside
               className=""
-              frameClassName="aspect-[3/4] w-full"
+              frameClassName="h-[min(75dvh,133vw)] w-full lg:h-[calc(100dvh-108px)] lg:min-h-[520px]"
             />
             <div className="pointer-events-none absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full border border-white/40 bg-black/65 px-3 py-1 text-xs font-bold text-white shadow-lg backdrop-blur-md">
               <Camera className="h-3.5 w-3.5 text-[#D9A9B4]" />
