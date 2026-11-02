@@ -90,6 +90,9 @@ type Client = {
   };
 };
 
+/** This browser's copy of the client list, shown instantly while the live list loads. */
+const CLIENTS_CACHE_KEY = 'tryfocus:admin-clients';
+
 const initialClients: Client[] = [
   {
     id: 'maharaja',
@@ -127,15 +130,17 @@ export default function TryFocusAdmin() {
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
   const [newStoreName, setNewStoreName] = useState<string>('');
   const [newStoreBranch, setNewStoreBranch] = useState<string>('');
-  const [newPackage, setNewPackage] = useState<PackageId>('tv');
+  // Phone Try-On is what we sell first: the form opens on Phone with the November offer.
+  const [newPackage, setNewPackage] = useState<PackageId>('phone');
   // 'trial' = the free start for a new client: 60 Try-On credits, no AI Video or Live Mirror.
-  const [newPreset, setNewPreset] = useState<PresetId | 'trial' | 'phone-package'>('standard');
+  const [newPreset, setNewPreset] = useState<PresetId | 'trial' | 'phone-package'>('trial');
   const [creatingClient, setCreatingClient] = useState<boolean>(false);
 
   const loadClients = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/clients', { cache: 'no-store' });
       if (res.status === 401) {
+        try { window.localStorage.removeItem(CLIENTS_CACHE_KEY); } catch { /* private mode */ }
         setAuthRequired(true);
         return;
       }
@@ -143,6 +148,7 @@ export default function TryFocusAdmin() {
       const data = await res.json();
       if (res.ok && data?.success && Array.isArray(data.clients) && data.clients.length > 0) {
         setClients(data.clients);
+        try { window.localStorage.setItem(CLIENTS_CACHE_KEY, JSON.stringify({ clients: data.clients, platform: data.platform || null })); } catch { /* private mode */ }
       }
       if (data?.platform) setPlatformSpend(data.platform);
     } catch {
@@ -152,7 +158,17 @@ export default function TryFocusAdmin() {
     }
   }, []);
 
+  // The last client list shows at once (this browser's copy); the live list replaces it a moment later.
   useEffect(() => {
+    try {
+      const cached = JSON.parse(window.localStorage.getItem(CLIENTS_CACHE_KEY) || 'null');
+      if (cached && Array.isArray(cached.clients) && cached.clients.length > 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- the browser's saved copy is only readable after mount
+        setClients(cached.clients);
+        if (cached.platform) setPlatformSpend(cached.platform);
+        setLoading(false);
+      }
+    } catch { /* private mode or an old copy */ }
     void loadClients();
   }, [loadClients]);
 
