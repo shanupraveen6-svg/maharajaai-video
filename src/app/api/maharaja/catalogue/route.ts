@@ -8,7 +8,7 @@ import {
   updateCatalogueProduct,
   upsertCatalogueProduct,
 } from '@/lib/maharaja/catalogue';
-import { videoLimitSet, resolveRequestClientId, getMaharajaWorkspace, logMaharajaActivity } from '@/lib/maharaja/server';
+import { videoLimitSet, resolveRequestClientId, getMaharajaWorkspace, logMaharajaActivity, instagramUrlFor } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     );
     const workspace = await getMaharajaWorkspace();
     return NextResponse.json(
-      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access: resolveAccess(workspace.devices, workspace.modules) },
+      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access: resolveAccess(workspace.devices, workspace.modules), categoryLists: workspace.categoryLists || {}, instagramUrl: instagramUrlFor(workspace) },
       {
         headers: {
           'Cache-Control': 'no-store',

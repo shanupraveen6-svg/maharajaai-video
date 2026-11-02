@@ -94,6 +94,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: 'An image retry is available only after the first AI image is completed.' }, { status: 403 });
           }
         }
+        // The Wall QR on a phone always allows exactly one retry, whatever the launch limits are.
+        if (target === 'image' && !access.pass && service === 'try-on' && deviceStatus?.retryUsed) {
+          return NextResponse.json({ success: false, error: 'You have already used your second try on this phone.' }, { status: 403 });
+        }
         if (target === 'image' && !access.pass && service === 'try-on' && deviceStatus?.status !== 'used') {
           return NextResponse.json({ success: false, error: 'An image retry is available only after the first AI Try-On is completed.' }, { status: 403 });
         }

@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import TabletVideoHandoff from '@/components/TabletVideoHandoff';
+import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
+import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import { NavTabs, Segmented, StatusPill } from '@/components/ui';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
 import {
@@ -46,6 +48,7 @@ type WorkspaceData = {
   tryOnMinPurchase?: number;
   minimumsLockedUntil?: { tryOn?: number; video?: number };
   instagramUrl?: string;
+  categoryLists?: StoreCategoryLists;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   whatsappEnabled?: boolean;
@@ -247,6 +250,7 @@ export default function MaharajaAdminDashboard({
         | 'videoMinPurchase'
         | 'tryOnMinPurchase'
         | 'instagramUrl'
+        | 'categoryLists'
       >
     >
   ) {
@@ -534,27 +538,53 @@ export default function MaharajaAdminDashboard({
         )}
 
         {section === 'overview' && <>
+        {limits.video > 0 && (
         <section className="tf-card p-6">
-          <h2 className="text-lg font-bold">Festival theme</h2>
-          <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b></p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {EVENT_OPTIONS.map((ev) => {
-              const selected = workspace.defaultEvent === ev.id;
-              const isDiwali = ev.id === 'diwali';
-              return (
-                <button
-                  key={ev.id}
-                  type="button"
-                  disabled={saving || !isDiwali}
-                  onClick={() => selectDefaultEvent(ev.id)}
-                  className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : isDiwali ? 'border border-line bg-white hover:border-ink' : 'border border-dashed border-line text-subtle'}`}
-                >
-                  {ev.label}{!isDiwali && <span className="ml-1.5 text-xs font-medium">Soon</span>}
-                </button>
-              );
-            })}
+            <h2 className="text-lg font-bold">Festival theme</h2>
+            <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b></p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {EVENT_OPTIONS.map((ev) => {
+                const selected = workspace.defaultEvent === ev.id;
+                const isDiwali = ev.id === 'diwali';
+                return (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    disabled={saving || !isDiwali}
+                    onClick={() => selectDefaultEvent(ev.id)}
+                    className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : isDiwali ? 'border border-line bg-white hover:border-ink' : 'border border-dashed border-line text-subtle'}`}
+                  >
+                    {ev.label}{!isDiwali && <span className="ml-1.5 text-xs font-medium">Soon</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        <form
+          className="tf-card p-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const value = new FormData(event.currentTarget).get('instagram');
+            void savePatch({ instagramUrl: typeof value === 'string' ? value : '' });
+          }}
+        >
+          <label htmlFor="store-instagram" className="block text-lg font-bold">Instagram</label>
+          <p className="mt-1 text-sm text-muted">Customers see Follow us on Instagram after they download a look.</p>
+          <div className="mt-4 flex gap-2">
+            <input
+              id="store-instagram"
+              name="instagram"
+              key={workspace.instagramUrl || ''}
+              defaultValue={workspace.instagramUrl || ''}
+              placeholder="@yourstore"
+              className="min-h-11 min-w-0 flex-1 border border-line px-3 text-sm outline-none focus:border-brand"
+            />
+            <button type="submit" disabled={saving} className="tf-btn tf-btn-dark !min-h-11 px-4 text-sm">Save</button>
           </div>
-        </section>
+        </form>
+
 
         <section>
           <h2 className="text-lg font-bold">{monthName} so far</h2>
@@ -619,6 +649,8 @@ export default function MaharajaAdminDashboard({
         </>}
 
         {section === 'catalogue' && (
+          <div className="space-y-6">
+          <StoreCategoriesEditor lists={workspace.categoryLists} saving={saving} onSave={(categoryLists) => void savePatch({ categoryLists })} />
           <section className="tf-card p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -738,6 +770,7 @@ export default function MaharajaAdminDashboard({
               </>
             )}
           </section>
+          </div>
         )}
 
         {section === 'qr' && (
@@ -814,33 +847,9 @@ export default function MaharajaAdminDashboard({
               <div className="mt-4"><ClientVideoLibrary embedded /></div>
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
-              <div className="tf-card p-6">
-                <h2 className="text-lg font-bold">Promo videos</h2>
-                <div className="mt-4"><GoLivePromoManager /></div>
-              </div>
-
-              <form
-                className="tf-card self-start p-6"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const value = new FormData(event.currentTarget).get('instagram');
-                  void savePatch({ instagramUrl: typeof value === 'string' ? value : '' });
-                }}
-              >
-                <label htmlFor="store-instagram" className="block text-lg font-bold">Instagram</label>
-                <div className="mt-4 flex gap-2">
-                  <input
-                    id="store-instagram"
-                    name="instagram"
-                    key={workspace.instagramUrl || ''}
-                    defaultValue={workspace.instagramUrl || ''}
-                    placeholder="@yourstore"
-                    className="min-h-11 min-w-0 flex-1 border border-line px-3 text-sm outline-none focus:border-brand"
-                  />
-                  <button type="submit" disabled={saving} className="tf-btn tf-btn-dark !min-h-11 px-4 text-sm">Save</button>
-                </div>
-              </form>
+            <section className="tf-card max-w-2xl p-6">
+              <h2 className="text-lg font-bold">Promo videos</h2>
+              <div className="mt-4"><GoLivePromoManager /></div>
             </section>
           </div>
         ) : (

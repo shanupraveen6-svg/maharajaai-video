@@ -9,6 +9,7 @@ import {
   incrementPassUsage,
   passAllowsGoLive,
   publicWorkspaceView,
+  registerTryOnDevice,
   verifyMaharajaAccess,
   validTryOnDeviceId,
 } from '@/lib/maharaja/server';
@@ -35,6 +36,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
     if (service === 'ai-video' && access.pass && validTryOnDeviceId(deviceId) && !await claimPassDevice(access.pass.code, deviceId)) {
       return NextResponse.json({ success: false, error: 'This video pass is already in use on another phone.' }, { status: 403 });
     }
+    // The first scan of the Wall QR records this phone; its one Try-On belongs to it.
+    const phoneTryOn = service === 'try-on' && !access.pass && code === workspace.tryOnCode;
+    if (phoneTryOn && validTryOnDeviceId(deviceId)) await registerTryOnDevice(deviceId);
     const deviceStatus = validTryOnDeviceId(deviceId) ? await getTryOnDeviceStatus(deviceId) : null;
     let recoveryJob: { id: string; sessionId: string } | null = null;
     if (service === 'ai-video' && access.pass && !access.pass.videoDone) {
@@ -90,7 +94,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
           price: access.pass.cataloguePrice,
         } : null,
         expiresAt: access.pass?.expiresAt || null,
-        tryOnUsed: ENFORCE_REPEAT_LIMITS && (deviceStatus?.status === 'used' || access.allowances.tryOn.used >= 2),
+        tryOnUsed: phoneTryOn
+          ? deviceStatus?.status === 'used'
+          : ENFORCE_REPEAT_LIMITS && (deviceStatus?.status === 'used' || access.allowances.tryOn.used >= 2),
         tryOnImageDone: access.pass?.tryOnImageDone || false,
         tryOnImageUrl: access.pass?.tryOnImageUrl || null,
         videoMasterDone: access.pass?.videoMasterDone || false,
@@ -103,7 +109,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         videoDone: access.pass?.videoDone || false,
         videoReferenceSessionId: recoveryJob?.sessionId || access.pass?.videoReferenceSessionId || null,
         activeVideoJobId: recoveryJob?.id || access.pass?.activeVideoJobId || null,
-        retryUsed: ENFORCE_REPEAT_LIMITS ? Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed) : false,
+        retryUsed: phoneTryOn
+          ? Boolean(deviceStatus?.retryUsed)
+          : ENFORCE_REPEAT_LIMITS ? Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed) : false,
         allowances: access.allowances,
       },
     });

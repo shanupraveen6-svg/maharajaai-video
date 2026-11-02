@@ -76,6 +76,27 @@ export const GARMENT_TYPE_RULES: Record<GarmentType, string> = {
   unset: 'GARMENT AS SHOWN: copy only the supplied garment references exactly; do not reinterpret them as a different traditional, western, formal or casual garment.',
 };
 
+/**
+ * GenLook takes a product title and description, not instructions: it reads them as the shop's product
+ * listing. Each one says plainly what the garment is and how it is worn.
+ */
+export const GENLOOK_GARMENT_DESCRIPTIONS: Record<GarmentType, { title: string; description: string }> = {
+  saree: { title: 'Saree', description: 'A traditional Indian saree with matching blouse, worn with neat front pleats at the waist, the body wrapped once around and the decorated pallu draped over the left shoulder. Keep the exact border, pallu motifs, weave and colours.' },
+  lehenga: { title: 'Lehenga choli', description: 'A lehenga set: a flared ankle-length skirt with an embroidered hem, a fitted choli blouse and a dupatta draped as shown. Keep the exact embroidery, colours and flare.' },
+  salwar: { title: 'Kurti / salwar suit', description: 'A kurti or salwar suit: a long tunic with its exact neckline, sleeves and side slits, worn over matching salwar, churidar or leggings, with the dupatta only if shown. Keep the exact length, print and colours.' },
+  one_piece: { title: 'Dress', description: 'A single-piece dress, gown or frock with its exact neckline, sleeves, waistline, flare and hem length. Keep the exact print, fabric and colours.' },
+  two_piece: { title: 'Top and bottom set', description: 'A two-piece outfit: the shown top worn with the shown bottom, each with its exact length, fit, print and colours.' },
+  three_piece: { title: 'Three-piece set', description: 'A three-piece outfit: inner top, outer layer (jacket, shrug or dupatta) and bottom, layered as shown. Keep every piece and its exact colours.' },
+  shirt_pant: { title: 'Shirt and pant', description: 'A collared shirt with buttons, worn with full-length trousers (formal pants or jeans). Keep the exact shirt colour, print, collar and sleeve length, and the trouser colour and fit.' },
+  tshirt_bottom: { title: 'T-shirt and pant', description: 'A casual T-shirt with its exact neckline, print and sleeve length, worn with jeans, trousers or shorts as shown. Keep the exact colours and graphics.' },
+  dhoti_veshti: { title: 'Veshti and shirt', description: 'A South Indian veshti (dhoti) wrapped at the waist and falling to the ankles, with its gold or coloured border along the hem and front edge, worn with the shown shirt. Keep the exact border and colours.' },
+  kurta_dhoti: { title: 'Kurta set', description: 'A kurta with its exact length, collar, placket and sleeves, worn with the shown pyjama, churidar or dhoti. Keep the exact fabric, embroidery and colours.' },
+  pattu_pavadai: { title: 'Pattu pavadai', description: "A girl's traditional silk pattu pavadai: a full flared ankle-length silk skirt with a zari border and a matching blouse. Keep the exact border, motifs and colours." },
+  boy_ethnic: { title: "Boy's ethnic set", description: "A boy's ethnic outfit: kurta with pyjama, sherwani, or shirt with veshti, as shown. Keep the exact fabric, embroidery and colours." },
+  generic: { title: 'Outfit', description: 'The outfit exactly as shown in the photo, with every piece, its colours, print and fabric.' },
+  unset: { title: 'Outfit', description: 'The outfit exactly as shown in the photo, with every piece, its colours, print and fabric.' },
+};
+
 /** Finer detail for named styles within a garment type, matched from the catalogue category or title. */
 const GARMENT_STYLE_DETAILS: Array<{ match: RegExp; types: readonly GarmentType[]; detail: string }> = [
   { match: /kanchi|kanjiv|silk saree|pattu saree|bridal/, types: ['saree'], detail: 'Silk saree detail: keep the heavy silk lustre, the contrast zari border and the woven pallu motifs crisp and unbroken.' },

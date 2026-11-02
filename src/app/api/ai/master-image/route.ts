@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, GARMENT_TYPE_RULES, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType, customerRateLimit } from '@/lib/maharaja/config';
+import { type CustomerCategory, GARMENT_TYPE_RULES, GENLOOK_GARMENT_DESCRIPTIONS, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType, customerRateLimit } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
@@ -154,7 +154,10 @@ export async function POST(req: NextRequest) {
     if (service === 'try-on') {
       // Reserved now and returned in finally if this request does not deliver an image.
       if (!await reserveMaharajaUsage('tryOnGenerated', moduleLimit(access.workspace, 'image'))) {
-        return NextResponse.json({ success: false, error: 'AI Try-On is paused right now. Please ask our staff for help.' }, { status: 403 });
+        return NextResponse.json({
+          success: false,
+          error: surface === 'mobile' ? 'Try-On is not available right now. Please contact 9994837342.' : 'AI Try-On is paused right now. Please ask our staff for help.',
+        }, { status: 403 });
       }
       reservedTryOnCredit = true;
     } else {
@@ -248,12 +251,13 @@ export async function POST(req: NextRequest) {
       if (!validTryOnDeviceId(body.deviceId)) return NextResponse.json({ success: false, error: 'Reload this page to prepare your private session.' }, { status: 400 });
       let token = typeof body.tryOnGrant === 'string' ? body.tryOnGrant : '';
       if (!requirePriceTag && !token) {
-        const grant = await issueTryOnGrant(body.deviceId, 0);
+        // The Wall QR on a phone: one Try-On (and one hidden retry) per phone, always.
+        const grant = await issueTryOnGrant(body.deviceId, 0, true);
         if (!grant.allowed) return NextResponse.json({ success: false, error: grant.error }, { status: 409 });
         token = grant.token;
       }
       if (!token) return NextResponse.json({ success: false, error: 'Scan and verify a garment price tag of ₹500 or above first.' }, { status: 403 });
-      const reservation = await reserveTryOnGrant(body.deviceId, token, sessionId);
+      const reservation = await reserveTryOnGrant(body.deviceId, token, sessionId, true);
       if (!reservation.allowed) return NextResponse.json({ success: false, error: reservation.error }, { status: 409 });
       reservedDeviceId = body.deviceId; reservedSessionId = sessionId;
     }
@@ -383,9 +387,12 @@ ${roleInstructions}
                 garmentBase64s[0],
                 key,
                 {
-                  externalId: typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `maharaja-${garmentType}`,
-                  title: typeof body.catalogueProductTitle === 'string' ? body.catalogueProductTitle : `Maharaja ${garmentType.replace(/_/g, ' ')}`,
-                  description: `${GARMENT_TYPE_RULES[garmentType]} Preserve its exact structure, fabric, colours, borders and details.`.slice(0, 500),
+                  externalId: typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `customer-${garmentType}`,
+                  // A store piece keeps its own name; a customer's own outfit is named by its type.
+                  title: (typeof body.catalogueProductId === 'string' && typeof body.catalogueProductTitle === 'string'
+                    ? body.catalogueProductTitle
+                    : GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title).slice(0, 120),
+                  description: GENLOOK_GARMENT_DESCRIPTIONS[garmentType].description.slice(0, 500),
                 },
               );
               imageProvider = 'genlook-try-on';

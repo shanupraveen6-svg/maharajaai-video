@@ -1,3 +1,4 @@
+import { sanitizeCategoryLists } from '@/lib/tryfocus/store-categories';
 import { NextRequest, NextResponse } from 'next/server';
 import { monthlyReport } from '@/lib/maharaja/usage-ledger';
 import { getOperatorSession, verifyAdminRequest, verifyOperatorRequest } from '@/lib/auth/operator';
@@ -447,6 +448,13 @@ export async function PATCH(req: NextRequest) {
     if (body.deliveryMode === 'whatsapp' || body.deliveryMode === 'qr') {
       settings.deliveryMode = body.deliveryMode;
     }
+    // Credits, screens and WhatsApp are part of what the client pays for: only TryFocus admin changes them.
+    const changesPaidSettings = typeof body.whatsappConnected === 'boolean'
+      || (body.devices && typeof body.devices === 'object')
+      || (body.limits && typeof body.limits === 'object');
+    if (changesPaidSettings && !isAdmin) {
+      return NextResponse.json({ success: false, error: 'Credits, screens and WhatsApp are set by TryFocus. Call 9994837342.' }, { status: 403 });
+    }
     if (typeof body.whatsappConnected === 'boolean') {
       settings.whatsappConnected = body.whatsappConnected;
     }
@@ -455,6 +463,11 @@ export async function PATCH(req: NextRequest) {
     }
     if (body.limits && typeof body.limits === 'object') {
       settings.limits = body.limits;
+    }
+    if (body.categoryLists !== undefined) {
+      const lists = sanitizeCategoryLists(body.categoryLists);
+      if (!lists) return NextResponse.json({ success: false, error: 'Keep at least one category for each audience.' }, { status: 400 });
+      settings.categoryLists = lists;
     }
     if (body.regenerateOpenVideoCode === true) {
       settings.regenerateOpenVideoCode = true;

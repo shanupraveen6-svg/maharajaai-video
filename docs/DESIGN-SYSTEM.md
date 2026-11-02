@@ -29,7 +29,15 @@ Tablet, three tabs, with New customer in the header:
 - AI Video: the customer's QR only, with New customer under it. The customer picks the piece and makes the
   video on their phone.
 
-Phone: Try-On only, opened from the Wall QR the store downloads from the workspace and pastes in the store.
+Phone: Try-On only, opened from the store's permanent Wall QR (downloaded from the workspace and pasted in
+the store). Store collection or My own outfit → Who → What type (the store's categories; own outfit adds
+Other) → pick a piece (store collection) → Your photo (Camera or Upload) → Your outfit (own outfit, Camera
+or Upload) → Your look. One free look per phone, counted from the phone's first scan, plus one retry kept in
+the ⋯ menu. Nothing is stored; Download asks for WhatsApp, then offers Follow us on Instagram and Share on
+WhatsApp (the same after downloading from the TV/tablet look QR).
+
+Each workspace chooses the categories customers see, per audience (Catalogue → Categories customers see);
+TV, tablet and phone all follow that list.
 
 The camera opens full screen as soon as the source is known. The customer's photo has an upload QR
 beside the camera (send a photo from the phone); the outfit photo is taken with the camera only, no QR.

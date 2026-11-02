@@ -1,174 +1,241 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStoreCatalogue } from '@/lib/maharaja/use-store-catalogue';
+import { fetchCatalogueSettings } from '@/lib/maharaja/catalogue-client';
 import {
   ArrowLeft,
   ArrowRight,
   Camera,
   Check,
   Download,
+  AtSign,
   LoaderCircle,
+  MessageCircle,
+  MoreVertical,
+  RotateCcw,
   Shirt,
   Sparkles,
   Upload,
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import { compressImage } from '@/lib/utils/image';
-import {
-  catalogueCategories,
-  sampleCatalogue,
-  type CatalogueCategoryId,
-  type TryFocusProduct,
-} from '@/lib/tryfocus/sample-data';
+import type { CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { ActionBar, PageTitle, Segmented } from '@/components/ui';
-import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { useLeadGate } from '@/components/LeadGate';
+import { categoriesFor, type StoreCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
+
+type Source = 'catalogue' | 'own-garment';
+type Stage = 'source' | 'who' | 'type' | 'pick' | 'photo' | 'outfit' | 'result' | 'done';
+
+const DEVICE_KEY = 'tryfocus:maharaja:device-id';
+/** The "Other" choice for a customer's own outfit: the model copies the photo as it is. */
+const OTHER_TYPE = 'other';
 
 /**
- * What the wall QR opens: Try-On on the customer's own phone. AI Video is not offered here; it comes only
- * from the biller's per-customer QR, so it stays tied to a bill.
+ * What the store's Wall QR opens: Try-On on the customer's phone. Each phone gets one free look (and one
+ * retry, kept in the ⋯ menu). Steps: Store collection or My own outfit → Who → What type → (pick a piece)
+ * → your photo (camera or upload) → (your outfit, camera or upload) → your look. Nothing is stored: the
+ * look comes back to the phone only. Download asks for WhatsApp, then offers Instagram and sharing.
  */
 export default function MaharajaMobileExperience({ accessCode, clientName = 'The Majestic Maharaja' }: { accessCode: string; clientName?: string }) {
   const { language, setLanguage, t } = usePhoneLanguage();
-  // Nothing downloads on its own: Save asks for the customer's WhatsApp number first.
   const leadGate = useLeadGate({ kind: 'pass', ref: accessCode, source: 'try-on' });
-  const [sourceMode, setSourceMode] = useState<'catalogue' | 'own-garment'>('catalogue');
-  const [stage, setStage] = useState<'source' | 'photo' | 'outfit'>('source');
-  const [genderFilter, setGenderFilter] = useState<TryFocusProduct['gender']>('women');
-  const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
-  const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue.find((item) => item.category === 'sarees') || sampleCatalogue[0]);
-
-  // Image 1 = Customer Photo, Image 2 = Garment Photo
-  const [personPhoto, setPersonPhoto] = useState<string>('');
-  const [ownGarmentPhoto, setOwnGarmentPhoto] = useState<string>('');
-  const [ownGarmentType, setOwnGarmentType] = useState(OWN_GARMENT_TYPES.women[0].id);
-
-  // Generation state
-  const [generatingImage, setGeneratingImage] = useState<boolean>(false);
-  const [resultImageUrl, setResultImageUrl] = useState<string>('');
-  const [statusNote, setStatusNote] = useState<string>('');
-
-  // Video + Go Live state
-  const [deviceId, setDeviceId] = useState('');
-  useEffect(() => { const key = 'tryfocus:maharaja:device-id'; const value = localStorage.getItem(key) || crypto.randomUUID().replace(/-/g, ''); localStorage.setItem(key, value); setDeviceId(value); }, []);
-
   const catalogueItems = useStoreCatalogue(accessCode);
+
+  const [stage, setStage] = useState<Stage>('source');
+  const [source, setSource] = useState<Source>('catalogue');
+  const [audience, setAudience] = useState<CatalogueAudience>('women');
+  const [category, setCategory] = useState<StoreCategory | null>(null);
+  const [ownType, setOwnType] = useState<string>('');
+  const [product, setProduct] = useState<TryFocusProduct | null>(null);
+  const [personPhoto, setPersonPhoto] = useState('');
+  const [outfitPhoto, setOutfitPhoto] = useState('');
   const [guardianConsent, setGuardianConsent] = useState(false);
-  const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
-  const categoryProducts = catalogueItems.filter((item) => item.category === activeCategory);
 
+  const [generating, setGenerating] = useState(false);
+  const [resultUrl, setResultUrl] = useState('');
+  const [note, setNote] = useState('');
+  const [downloaded, setDownloaded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const [deviceId, setDeviceId] = useState('');
+  // The phone's one hidden retry: false until used (the server checks it too).
+  const [retryUsed, setRetryUsed] = useState(false);
+  const [categoryLists, setCategoryLists] = useState<StoreCategoryLists>({});
+  const [instagramUrl, setInstagramUrl] = useState('');
+
+  // This phone's id, then the first-scan record and whether it already made its look.
   useEffect(() => {
-    const first = catalogueItems.find((item) => item.category === activeCategory && item.gender === genderFilter);
-    if (first) setSelectedProduct(first);
-    setGuardianConsent(false);
-  }, [activeCategory, genderFilter, catalogueItems]);
-
-  useEffect(() => { setOwnGarmentType(OWN_GARMENT_TYPES[genderFilter][0].id); }, [genderFilter]);
-
-  const saveLook = () => leadGate.withLead(async () => {
-    const filename = `tryfocus-look-${selectedProduct.sku.toLowerCase().replace(/[^a-z0-9_-]/g, '')}.jpg`;
-    try {
-      const blobUrl = URL.createObjectURL(await (await fetch(resultImageUrl, { cache: 'no-store' })).blob());
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
-    } catch {
-      // Some phones block saving a file from another site: show the photo to save it by holding it.
-      window.open(resultImageUrl, '_blank', 'noopener');
+    let id = '';
+    try { id = localStorage.getItem(DEVICE_KEY) || ''; } catch { /* private mode */ }
+    if (!id) {
+      id = crypto.randomUUID().replace(/-/g, '');
+      try { localStorage.setItem(DEVICE_KEY, id); } catch { /* private mode */ }
     }
-  });
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the phone's stored id is only readable after mount
+    setDeviceId(id);
+    fetch(`/api/maharaja/access/${encodeURIComponent(accessCode)}?service=try-on&deviceId=${encodeURIComponent(id)}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data?.success) return;
+        setRetryUsed(Boolean(data.access?.retryUsed));
+        if (data.access?.tryOnUsed) setStage('done');
+      })
+      .catch(() => undefined);
+    fetchCatalogueSettings(accessCode).then((settings) => {
+      setCategoryLists(settings.categoryLists);
+      setInstagramUrl(settings.instagramUrl);
+    });
+  }, [accessCode]);
 
-  // Phone photos are often 4-8 MB; resizing keeps requests under the 4.5 MB serverless body limit.
-  function handleFileRead(setter: (val: string) => void, file?: File | null) {
-    if (!file) return;
-    compressImage(file, 1280, 0.85)
-      .then(({ dataUrl }) => setter(dataUrl))
-      .catch((error) => setStatusNote(error instanceof Error ? error.message : t('photoUnreadable')));
+  const isChild = audience === 'boys' || audience === 'girls';
+  const storeCategories = categoriesFor(categoryLists, audience);
+  // Store collection: only categories with pieces. My own outfit: every store category, plus Other.
+  const typeChoices = source === 'catalogue'
+    ? storeCategories.filter((cat) => catalogueItems.some((item) => item.category === cat.id && item.gender === audience))
+    : storeCategories;
+  const categoryProducts = category ? catalogueItems.filter((item) => item.category === category.id && item.gender === audience) : [];
+  const garmentType = source === 'catalogue' ? product?.garmentType : ownType === OTHER_TYPE ? 'generic' : category?.garmentType;
+  const garmentLabel = source === 'catalogue' ? product?.title : ownType === OTHER_TYPE ? t('otherType') : category?.label;
+
+  function chooseSource(next: Source) {
+    setSource(next);
+    setCategory(null);
+    setProduct(null);
+    setStage('who');
   }
 
-  async function runMobileGeneration() {
-    if ((genderFilter === 'boys' || genderFilter === 'girls') && !guardianConsent) { setStatusNote(t('guardianFirst')); return; }
-    if (sourceMode === 'catalogue' && !catalogueItems.some((item) => item.sku === selectedProduct.sku)) {
-      setStatusNote(t('chooseFromCatalogue'));
-      return;
-    }
-    const garmentImg =
-      sourceMode === 'own-garment'
-        ? ownGarmentPhoto
-        : selectedProduct.garmentReferenceUrl || selectedProduct.imageUrl;
+  function chooseType(next: StoreCategory | null) {
+    setCategory(next);
+    setOwnType(next ? next.id : OTHER_TYPE);
+    setProduct(null);
+    setStage(source === 'catalogue' ? 'pick' : 'photo');
+  }
 
-    if (!personPhoto || !garmentImg) {
-      setStatusNote(t('photoAndOutfitFirst'));
-      return;
-    }
+  // Phone photos are often 4-8 MB; resizing keeps requests under the 4.5 MB serverless body limit.
+  function readPhoto(setter: (value: string) => void, file?: File | null) {
+    if (!file) return;
+    setNote('');
+    compressImage(file, 1280, 0.85)
+      .then(({ dataUrl }) => setter(dataUrl))
+      .catch((error) => setNote(error instanceof Error ? error.message : t('photoUnreadable')));
+  }
 
-    setGeneratingImage(true);
-    setStatusNote('');
-    const sessionId = `mobile_image-tryon_${Date.now()}`;
-
+  async function createLook() {
+    if (isChild && !guardianConsent) { setNote(t('guardianFirst')); return; }
+    const garmentImage = source === 'own-garment' ? outfitPhoto : product?.garmentReferenceUrl || product?.imageUrl;
+    if (!personPhoto || !garmentImage) { setNote(t('photoAndOutfitFirst')); return; }
+    setGenerating(true);
+    setNote('');
     try {
-      const res = await fetch('/api/ai/master-image', {
+      const response = await fetch('/api/ai/master-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sessionId,
+          sessionId: `mobile_image-tryon_${Date.now()}`,
           accessCode,
           deviceId,
           service: 'try-on',
-          templateId: genderFilter === 'boys' ? 'boy' : genderFilter === 'girls' ? 'girl' : genderFilter,
+          templateId: audience === 'boys' ? 'boy' : audience === 'girls' ? 'girl' : audience,
           guardianProcessingConsent: guardianConsent,
-          catalogueProductId: sourceMode === 'catalogue' ? selectedProduct.sku : undefined,
-          catalogueProductTitle: sourceMode === 'catalogue' ? selectedProduct.title : `Customer ${OWN_GARMENT_TYPES[genderFilter].find((type) => type.id === ownGarmentType)?.label || 'outfit'}`,
-          garmentType: sourceMode === 'catalogue' ? selectedProduct.garmentType : ownGarmentType,
+          catalogueProductId: source === 'catalogue' ? product?.sku : undefined,
+          catalogueProductTitle: source === 'catalogue' ? product?.title : undefined,
+          catalogueProductCategory: category?.id,
+          garmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,
           consentVersion: '2026-11-privacy-v4',
           personPhoto,
-          garmentPhotos: [garmentImg],
+          garmentPhotos: [garmentImage],
           garmentRoles: ['Primary Garment Reference'],
-          garmentAnalysis: sourceMode === 'catalogue' ? `${selectedProduct.title} (${selectedProduct.fabricNote})` : `Customer's own ${OWN_GARMENT_TYPES[genderFilter].find((type) => type.id === ownGarmentType)?.label || 'outfit'}`,
+          garmentAnalysis: source === 'catalogue' ? `${product?.title} (${product?.fabricNote || ''})` : `Customer's own ${garmentLabel || 'outfit'}`,
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.masterImageUrl) {
-        setResultImageUrl(data.masterImageUrl);
-        setStatusNote('');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        // Best-effort automatic save of the finished look (an in-memory image, never stored on the server).
-        const anchor = document.createElement('a');
-        anchor.href = data.masterImageUrl;
-        anchor.download = `tryfocus-look-${Date.now()}.jpg`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-      } else {
-        setResultImageUrl('');
-        setStatusNote(data?.error || t('generationFailed'));
-      }
-    } catch {
-      setResultImageUrl('');
-      setStatusNote(t('generationOffline'));
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.masterImageUrl) throw new Error(data?.error || t('generationFailed'));
+      setResultUrl(data.masterImageUrl);
+      setDownloaded(false);
+      setStage('result');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      setNote(error instanceof Error && error.message !== 'Failed to fetch' ? error.message : t('generationOffline'));
     } finally {
-      setGeneratingImage(false);
+      setGenerating(false);
     }
   }
 
-  const garmentReady = sourceMode === 'own-garment' ? Boolean(ownGarmentPhoto) : Boolean(selectedProduct);
-  const needsGuardian = (genderFilter === 'boys' || genderFilter === 'girls') && !guardianConsent;
-  const canCreate = Boolean(personPhoto) && garmentReady && !needsGuardian && !generatingImage;
-  const ownTypes = OWN_GARMENT_TYPES[genderFilter];
+  /** The hidden second try: the server allows it once per phone, then the same choices run again. */
+  async function tryOnceMore() {
+    setMenuOpen(false);
+    setNote('');
+    try {
+      const response = await fetch('/api/maharaja/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'retry', target: 'image', service: 'try-on', accessCode, deviceId, label: 'Phone Try-On retry' }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.success) throw new Error(data?.error || t('generationFailed'));
+      setRetryUsed(true);
+      if (stage === 'done' || !personPhoto) {
+        setStage('source');
+        return;
+      }
+      setResultUrl('');
+      await createLook();
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : t('generationFailed'));
+    }
+  }
+
+  const saveLook = () => leadGate.withLead(async () => {
+    const link = document.createElement('a');
+    link.href = resultUrl;
+    link.download = `${clientName.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-look.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setDownloaded(true);
+    void fetch('/api/maharaja/activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'download', accessCode, label: 'Phone Try-On download' }),
+    }).catch(() => undefined);
+  });
+
+  async function shareLook() {
+    const text = `${t('shareText')} ${clientName}`;
+    try {
+      const blob = await (await fetch(resultUrl)).blob();
+      const file = new File([blob], 'my-look.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text });
+        return;
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  }
+
+  const back: Partial<Record<Stage, Stage>> = {
+    who: 'source',
+    type: 'who',
+    pick: 'type',
+    photo: source === 'catalogue' ? 'pick' : 'type',
+    outfit: 'photo',
+  };
+  const backTo = back[stage];
+  const needsOutfitStep = source === 'own-garment';
+  const photoReady = Boolean(personPhoto) && !(isChild && !guardianConsent);
 
   return (
-    <main className="mobile-workspace min-h-screen bg-canvas text-ink">
-      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 px-4 pt-3 backdrop-blur-md">
+    <main className="mobile-workspace min-h-screen bg-canvas pb-28 text-ink">
+      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur-md">
         <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
@@ -189,134 +256,242 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
       </header>
 
       <div className="mx-auto max-w-xl space-y-5 px-4 pt-4">
-        <>
-          {(stage === 'photo' || stage === 'outfit') && (
-            <button type="button" onClick={() => setStage(stage === 'photo' ? 'source' : 'photo')} className="-ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-1 text-sm font-semibold text-muted hover:text-ink">
-              <ArrowLeft className="h-4 w-4" /> {t('back')}
-            </button>
-          )}
-          {stage === 'source' && (
-            <div className="space-y-4">
-              <PageTitle title={t('whatToTry')} />
-              {([
-                ['catalogue', t('storeCollection'), t('storeCollectionText')],
-                ['own-garment', t('myOwnOutfit'), t('myOwnOutfitText')],
-              ] as const).map(([value, title, text]) => (
-                <button key={value} type="button" onClick={() => { setSourceMode(value); setStage(personPhoto ? 'outfit' : 'photo'); }} className="tf-card group flex w-full items-center gap-4 overflow-hidden p-0 text-left transition hover:border-ink">
-                  {value === 'catalogue'
-                    ? <span className="grid h-28 w-28 shrink-0 grid-cols-2 gap-0.5 bg-[#F1EEE9]">{catalogueItems.filter((item) => item.gender === 'women').slice(0, 4).map((item) => <img key={item.sku} src={item.thumbnailUrl || item.imageUrl} alt="" className="h-full w-full object-cover" />)}</span>
-                    : <span className="flex h-28 w-28 shrink-0 items-center justify-center bg-canvas"><Shirt className="h-10 w-10" strokeWidth={1.4} /></span>}
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-lg font-bold">{title}</span>
-                    <span className="mt-0.5 block text-sm text-muted">{text}</span>
-                  </span>
-                  <ArrowRight className="mr-4 h-5 w-5 shrink-0 transition group-hover:translate-x-1" />
-                </button>
+        {backTo && (
+          <button type="button" onClick={() => { setNote(''); setStage(backTo); }} className="-ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-1 text-sm font-semibold text-muted hover:text-ink">
+            <ArrowLeft className="h-4 w-4" /> {t('back')}
+          </button>
+        )}
+
+        {stage === 'source' && (
+          <div className="space-y-4">
+            <PageTitle title={t('whatToTry')} />
+            {([
+              ['catalogue', t('storeCollection'), t('storeCollectionText')],
+              ['own-garment', t('myOwnOutfit'), t('myOwnOutfitText')],
+            ] as const).map(([value, title, text]) => (
+              <button key={value} type="button" onClick={() => chooseSource(value)} className="tf-card group flex w-full items-center gap-4 overflow-hidden p-0 text-left transition hover:border-ink">
+                {value === 'catalogue'
+                  ? <span className="grid h-28 w-28 shrink-0 grid-cols-2 gap-0.5 bg-[#F1EEE9]">{catalogueItems.slice(0, 4).map((item) => <img key={item.sku} src={item.thumbnailUrl || item.imageUrl} alt="" className="h-full w-full object-cover" />)}</span>
+                  : <span className="flex h-28 w-28 shrink-0 items-center justify-center bg-white"><Shirt className="h-10 w-10" strokeWidth={1.4} /></span>}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-lg font-bold">{title}</span>
+                  <span className="mt-0.5 block text-sm text-muted">{text}</span>
+                </span>
+                <ArrowRight className="mr-4 h-5 w-5 shrink-0 transition group-hover:translate-x-1" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {stage === 'who' && (
+          <div className="space-y-4">
+            <PageTitle title={t('whoFor')} />
+            <Segmented
+              label={t('whoFor')}
+              value={audience}
+              onChange={(next) => { setAudience(next); setGuardianConsent(false); setStage('type'); }}
+              options={(['women', 'men', 'boys', 'girls'] as const).map((value) => ({ value, label: t(value) }))}
+            />
+          </div>
+        )}
+
+        {stage === 'type' && (
+          <div className="space-y-4">
+            <PageTitle title={t('whatType')} />
+            <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white">
+              {typeChoices.map((cat) => (
+                <li key={cat.id}>
+                  <button type="button" onClick={() => chooseType(cat)} className="flex min-h-14 w-full items-center justify-between gap-3 px-4 text-left text-base font-semibold">
+                    {cat.label} <ArrowRight className="h-4 w-4 text-muted" />
+                  </button>
+                </li>
               ))}
-            </div>
-          )}
-
-          {stage === 'photo' && (
-            <div className="space-y-4">
-              <PageTitle title={t('photoTitle')} subtitle={t('photoSubtitle')} />
-              <div className="space-y-2">
-                <p className="tf-label">{t('whoFor')}</p>
-                <Segmented
-                  size="sm"
-                  label="Who is it for"
-                  value={genderFilter}
-                  onChange={(audience) => { setGenderFilter(audience); const ordered = catalogueCategories.filter((cat) => cat.gender === audience); setActiveCategory((ordered.find((cat) => catalogueItems.some((item) => item.category === cat.id)) || ordered[0]).id); }}
-                  options={(['women', 'men', 'boys', 'girls'] as const).map((value) => ({ value, label: t(value) }))}
-                />
-              </div>
-              {(genderFilter === 'boys' || genderFilter === 'girls') && (
-                <label className="flex items-start gap-3 rounded-2xl bg-warn-soft p-3 text-[13px] text-ink">
-                  <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
-                  {t('guardianAgree')}
-                </label>
+              {source === 'own-garment' && (
+                <li>
+                  <button type="button" onClick={() => chooseType(null)} className="flex min-h-14 w-full items-center justify-between gap-3 px-4 text-left text-base font-semibold">
+                    {t('otherType')} <ArrowRight className="h-4 w-4 text-muted" />
+                  </button>
+                </li>
               )}
-              <label className="tf-card flex cursor-pointer flex-col items-center gap-3 p-5 text-center transition hover:border-ink">
-                {personPhoto
-                  ? <img src={personPhoto} alt="Your photo" className="aspect-[9/16] h-72 rounded-xl object-cover" />
-                  : <span className="flex aspect-[9/16] h-56 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line-strong bg-canvas text-muted"><Camera className="h-9 w-9" /><span className="px-4 text-sm">{t('takePhoto')}</span></span>}
-                <span className="text-[15px] font-semibold text-brand">{personPhoto ? t('changePhoto') : t('addPhoto')}</span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileRead(setPersonPhoto, e.target.files?.[0])} />
+            </ul>
+            {typeChoices.length === 0 && source === 'catalogue' && <p className="rounded-2xl bg-white p-6 text-center text-sm text-muted">{t('noStyles')}</p>}
+          </div>
+        )}
+
+        {stage === 'pick' && (
+          <div className="space-y-4">
+            <PageTitle title={category?.label || t('pickAnOutfit')} />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {categoryProducts.map((item) => {
+                const picked = product?.sku === item.sku;
+                return (
+                  <button key={item.sku} type="button" aria-pressed={picked} onClick={() => setProduct(item)} className={`relative overflow-hidden rounded-2xl border bg-white text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line'}`}>
+                    <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="aspect-[3/4] w-full bg-[#F1EEE9] object-contain" />
+                    {picked && <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-ink text-white"><Check className="h-4 w-4" /></span>}
+                    <span className="line-clamp-2 block p-2.5 text-[13px] font-semibold leading-snug">{item.title}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {categoryProducts.length === 0 && <p className="rounded-2xl bg-white p-6 text-center text-sm text-muted">{t('noStyles')}</p>}
+            <ActionBar>
+              <button type="button" disabled={!product} onClick={() => setStage('photo')} className="tf-btn tf-btn-primary !min-h-14 text-base">
+                {t('continueBtn')} <ArrowRight className="h-5 w-5" />
+              </button>
+            </ActionBar>
+          </div>
+        )}
+
+        {stage === 'photo' && (
+          <div className="space-y-4">
+            <PageTitle title={t('photoTitle')} subtitle={t('photoSubtitle')} />
+            <PhotoBox image={personPhoto} aspect="aspect-[9/16]" placeholder={<Camera className="h-9 w-9" />} />
+            <CameraOrUpload cameraLabel={t('camera')} uploadLabel={t('upload')} onFile={(file) => readPhoto(setPersonPhoto, file)} />
+            {isChild && (
+              <label className="flex items-start gap-3 rounded-2xl bg-warn-soft p-3 text-[13px] text-ink">
+                <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
+                {t('guardianAgree')}
               </label>
-              {language === 'ta'
-                ? <p className="text-[13px] leading-relaxed text-muted">{t('consentTryOn')} <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">{t('privacy')}</a></p>
-                : <PhotoConsentNotice kind="try-on" />}
-              <ActionBar note={!personPhoto ? t('needPhoto') : needsGuardian ? t('needGuardian') : undefined}>
-                <button type="button" disabled={!personPhoto || needsGuardian} onClick={() => setStage('outfit')} className="tf-btn tf-btn-primary !min-h-14 text-base">
-                  {sourceMode === 'own-garment' ? t('addMyOutfit') : t('pickAnOutfit')} <ArrowRight className="h-5 w-5" />
+            )}
+            {language === 'ta'
+              ? <p className="text-[13px] leading-relaxed text-muted">{t('consentTryOn')} <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">{t('privacy')}</a></p>
+              : <PhotoConsentNotice kind="try-on" />}
+            <ActionBar note={note || (generating ? t('creatingNote') : !personPhoto ? t('needPhoto') : isChild && !guardianConsent ? t('needGuardian') : undefined)}>
+              {needsOutfitStep ? (
+                <button type="button" disabled={!photoReady} onClick={() => setStage('outfit')} className="tf-btn tf-btn-primary !min-h-14 text-base">
+                  {t('continueBtn')} <ArrowRight className="h-5 w-5" />
                 </button>
-              </ActionBar>
-            </div>
-          )}
-
-          {stage === 'outfit' && (
-            <div className="space-y-4">
-              {resultImageUrl && (
-                <section id="mobile-result" className="tf-card overflow-hidden">
-                  <BeforeAfterSlider beforeImage={personPhoto || selectedProduct.imageUrl} afterImage={resultImageUrl} beforeLabel={t('you')} afterLabel={t('newLook')} />
-                  <div className="flex gap-3 p-4">
-                    <button type="button" onClick={() => void saveLook()} className="tf-btn tf-btn-dark flex-1"><Download className="h-4 w-4" /> {t('savePhoto')}</button>
-                    <button type="button" onClick={() => { setResultImageUrl(''); setStatusNote(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="tf-btn tf-btn-secondary flex-1">{t('tryAnother')}</button>
-                  </div>
-                </section>
-              )}
-              <PageTitle
-                title={sourceMode === 'own-garment' ? t('yourOutfit') : t('pickAnOutfit')}
-                action={personPhoto && <button type="button" onClick={() => setStage('photo')} className="shrink-0"><img src={personPhoto} alt="Change your photo" className="aspect-[9/16] h-12 rounded-lg object-cover" /></button>}
-              />
-
-              {sourceMode === 'catalogue' ? (
-                <>
-                  <div className="-mx-4 flex gap-1 overflow-x-auto border-b border-line px-4 [scrollbar-width:none]">
-                    {filteredCategories.map((cat) => (
-                      <button key={cat.id} type="button" aria-pressed={activeCategory === cat.id} onClick={() => setActiveCategory(cat.id)} className={`min-h-11 shrink-0 rounded-none border-b-2 px-2 text-sm transition ${activeCategory === cat.id ? 'border-ink font-bold text-ink' : 'border-transparent font-medium text-muted'}`}>{cat.label}</button>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {categoryProducts.map((item) => {
-                      const picked = selectedProduct.sku === item.sku;
-                      return (
-                        <button key={item.sku} type="button" aria-pressed={picked} onClick={() => setSelectedProduct(item)} className={`relative overflow-hidden rounded-2xl border bg-white text-left transition ${picked ? 'border-brand ring-2 ring-brand' : 'border-line'}`}>
-                          <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="aspect-[3/4] w-full bg-[#F1EEE9] object-contain" />
-                          {picked && <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-white"><Check className="h-4 w-4" /></span>}
-                          <span className="line-clamp-2 block p-2.5 text-[13px] font-semibold leading-snug">{item.title}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {categoryProducts.length === 0 && <p className="rounded-2xl bg-white p-6 text-center text-sm text-muted">{t('noStyles')}</p>}
-                </>
               ) : (
-                <>
-                  <div className="-mx-4 flex gap-1 overflow-x-auto border-b border-line px-4 [scrollbar-width:none]">
-                    {ownTypes.map((type) => (
-                      <button key={type.id} type="button" aria-pressed={ownGarmentType === type.id} onClick={() => setOwnGarmentType(type.id)} className={`min-h-11 shrink-0 rounded-none border-b-2 px-2 text-sm transition ${ownGarmentType === type.id ? 'border-ink font-bold text-ink' : 'border-transparent font-medium text-muted'}`}>{type.label}</button>
-                    ))}
-                  </div>
-                  <label className="tf-card flex cursor-pointer flex-col items-center gap-3 p-5 text-center transition hover:border-ink">
-                    {ownGarmentPhoto
-                      ? <img src={ownGarmentPhoto} alt="Your outfit" className="aspect-[3/4] h-72 rounded-xl bg-canvas object-contain" />
-                      : <span className="flex aspect-[3/4] h-56 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line-strong bg-canvas text-muted"><Upload className="h-9 w-9" /><span className="px-4 text-sm">{t('layFlat')}</span></span>}
-                    <span className="text-[15px] font-semibold text-brand">{ownGarmentPhoto ? t('changeOutfitPhoto') : t('addOutfitPhoto')}</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileRead(setOwnGarmentPhoto, e.target.files?.[0])} />
-                  </label>
-                </>
-              )}
-
-              <ActionBar note={statusNote || (generatingImage ? t('creatingNote') : !garmentReady ? t('needOutfitPhoto') : undefined)}>
-                <button type="button" disabled={!canCreate} onClick={() => void runMobileGeneration()} className="tf-btn tf-btn-primary !min-h-14 text-base">
-                  {generatingImage ? <><LoaderCircle className="h-5 w-5 animate-spin" /> {t('creating')}</> : <><Sparkles className="h-5 w-5" /> {t('createMyLook')}</>}
+                <button type="button" disabled={!photoReady || generating} onClick={() => void createLook()} className="tf-btn tf-btn-primary !min-h-14 text-base">
+                  {generating ? <><LoaderCircle className="h-5 w-5 animate-spin" /> {t('creating')}</> : <><Sparkles className="h-5 w-5" /> {t('createMyLook')}</>}
                 </button>
-              </ActionBar>
-            </div>
-          )}
-        </>
+              )}
+            </ActionBar>
+          </div>
+        )}
+
+        {stage === 'outfit' && (
+          <div className="space-y-4">
+            <PageTitle title={t('yourOutfit')} subtitle={t('layFlat')} />
+            <PhotoBox image={outfitPhoto} aspect="aspect-[3/4]" placeholder={<Shirt className="h-9 w-9" />} contain />
+            <CameraOrUpload cameraLabel={t('camera')} uploadLabel={t('upload')} onFile={(file) => readPhoto(setOutfitPhoto, file)} />
+            <ActionBar note={note || (generating ? t('creatingNote') : !outfitPhoto ? t('needOutfitPhoto') : undefined)}>
+              <button type="button" disabled={!outfitPhoto || !photoReady || generating} onClick={() => void createLook()} className="tf-btn tf-btn-primary !min-h-14 text-base">
+                {generating ? <><LoaderCircle className="h-5 w-5 animate-spin" /> {t('creating')}</> : <><Sparkles className="h-5 w-5" /> {t('createMyLook')}</>}
+              </button>
+            </ActionBar>
+          </div>
+        )}
+
+        {stage === 'result' && (
+          <div className="space-y-4">
+            <PageTitle
+              title={t('yourLook')}
+              action={!retryUsed ? (
+                <div className="relative">
+                  <button type="button" aria-label={t('moreOptions')} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-white">
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                  {menuOpen && (
+                    <div className="absolute right-0 top-12 z-20 w-56 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
+                      <button type="button" disabled={generating} onClick={() => void tryOnceMore()} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold disabled:opacity-50">
+                        <RotateCcw className="h-4 w-4" /> {t('tryOnceMore')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : undefined}
+            />
+            {generating ? (
+              <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-3 rounded-2xl bg-white text-muted">
+                <LoaderCircle className="h-8 w-8 animate-spin" /> {t('creatingNote')}
+              </div>
+            ) : (
+              // The look can be saved only through Download (WhatsApp number first): no long-press save.
+              <div className="select-none overflow-hidden rounded-2xl [-webkit-touch-callout:none] [&_img]:pointer-events-none" onContextMenu={(event) => event.preventDefault()}>
+                <BeforeAfterSlider beforeImage={personPhoto} afterImage={resultUrl} beforeLabel={t('you')} afterLabel={t('newLook')} />
+              </div>
+            )}
+            {note && <p role="alert" className="rounded-2xl bg-danger-soft p-3 text-sm font-semibold text-danger">{note}</p>}
+            {!generating && (
+              downloaded ? (
+                <div className="space-y-3">
+                  {instagramUrl && (
+                    <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
+                      <AtSign className="h-5 w-5" /> {t('followInstagram')}
+                    </a>
+                  )}
+                  <button type="button" onClick={() => void shareLook()} className="tf-btn tf-btn-secondary !min-h-14 w-full text-base">
+                    <MessageCircle className="h-5 w-5" /> {t('shareWhatsApp')}
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => void saveLook()} className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
+                  <Download className="h-5 w-5" /> {t('savePhoto')}
+                </button>
+              )
+            )}
+          </div>
+        )}
+
+        {stage === 'done' && (
+          <div className="space-y-4">
+            <PageTitle
+              title={t('doneTitle')}
+              subtitle={t('doneText')}
+              action={!retryUsed ? (
+                <div className="relative">
+                  <button type="button" aria-label={t('moreOptions')} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-white">
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                  {menuOpen && (
+                    <div className="absolute right-0 top-12 z-20 w-56 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
+                      <button type="button" onClick={() => void tryOnceMore()} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold">
+                        <RotateCcw className="h-4 w-4" /> {t('tryOnceMore')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : undefined}
+            />
+            {note && <p role="alert" className="rounded-2xl bg-danger-soft p-3 text-sm font-semibold text-danger">{note}</p>}
+            {instagramUrl && (
+              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
+                <AtSign className="h-5 w-5" /> {t('followInstagram')}
+              </a>
+            )}
+          </div>
+        )}
       </div>
       {leadGate.dialog}
     </main>
+  );
+}
+
+function PhotoBox({ image, aspect, placeholder, contain = false }: { image: string; aspect: string; placeholder: ReactNode; contain?: boolean }) {
+  return (
+    <div className="flex justify-center rounded-2xl border border-line bg-white p-4">
+      {image
+        ? <img src={image} alt="" className={`${aspect} h-72 rounded-xl bg-canvas ${contain ? 'object-contain' : 'object-cover'}`} />
+        : <span className={`flex ${aspect} h-56 items-center justify-center rounded-xl border border-dashed border-line-strong bg-canvas text-muted`}>{placeholder}</span>}
+    </div>
+  );
+}
+
+/** Two clear choices: the camera opens straight away, or a photo comes from the gallery. */
+function CameraOrUpload({ cameraLabel, uploadLabel, onFile }: { cameraLabel: string; uploadLabel: string; onFile: (file?: File | null) => void }) {
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <button type="button" onClick={() => cameraRef.current?.click()} className="tf-btn tf-btn-secondary !min-h-14 text-base">
+        <Camera className="h-5 w-5" /> {cameraLabel}
+      </button>
+      <button type="button" onClick={() => uploadRef.current?.click()} className="tf-btn tf-btn-secondary !min-h-14 text-base">
+        <Upload className="h-5 w-5" /> {uploadLabel}
+      </button>
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => { onFile(event.target.files?.[0]); event.target.value = ''; }} />
+      <input ref={uploadRef} type="file" accept="image/*" className="hidden" onChange={(event) => { onFile(event.target.files?.[0]); event.target.value = ''; }} />
+    </div>
   );
 }

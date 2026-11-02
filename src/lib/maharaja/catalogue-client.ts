@@ -1,3 +1,4 @@
+import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import type { WorkspaceAccess } from '@/lib/maharaja/access';
 import type { PublicCatalogueProduct } from './catalogue-types';
 
@@ -19,16 +20,19 @@ export async function fetchCompleteCatalogue(includeInactive = false, accessCode
   return [...initial.products, ...pages.flat()];
 }
 
-export async function fetchCatalogueSettings(): Promise<{ tvBillSuffixRequired: boolean; clientName: string; access: WorkspaceAccess | null }> {
+export async function fetchCatalogueSettings(accessCode = ''): Promise<{ tvBillSuffixRequired: boolean; clientName: string; access: WorkspaceAccess | null; categoryLists: StoreCategoryLists; instagramUrl: string }> {
   try {
-    const res = await fetch('/api/maharaja/catalogue?offset=0&limit=1', { cache: 'no-store' });
+    const access = accessCode ? `&access=${encodeURIComponent(accessCode)}` : '';
+    const res = await fetch(`/api/maharaja/catalogue?offset=0&limit=1${access}`, { cache: 'no-store' });
     const data = await res.json();
     return {
       tvBillSuffixRequired: data?.tvBillSuffixRequired !== false,
       clientName: typeof data?.clientName === 'string' ? data.clientName : '',
       access: data?.access && typeof data.access === 'object' ? data.access as WorkspaceAccess : null,
+      categoryLists: data?.categoryLists && typeof data.categoryLists === 'object' ? data.categoryLists as StoreCategoryLists : {},
+      instagramUrl: typeof data?.instagramUrl === 'string' ? data.instagramUrl : '',
     };
   } catch {
-    return { tvBillSuffixRequired: true, clientName: '', access: null };
+    return { tvBillSuffixRequired: true, clientName: '', access: null, categoryLists: {}, instagramUrl: '' };
   }
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStorageBucket } from '@/lib/firebase/admin';
 
 import { lookVideoAvailable, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
-import { getClientWorkspaceById, moduleLimit } from '@/lib/maharaja/server';
+import { getClientWorkspaceById, instagramUrlFor, moduleLimit } from '@/lib/maharaja/server';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { countLeadDownload, verifyLeadToken } from '@/lib/maharaja/leads';
@@ -48,6 +48,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
   return NextResponse.json({
     expiresAt: new Date(handoff.expiresAtMs).toISOString(),
     videoOff,
+    // Shown after a download: Follow us on Instagram and Share on WhatsApp.
+    clientName: workspace.clientName,
+    instagramUrl: instagramUrlFor(workspace),
     looks: handoff.looks.map((look, index) => ({
       sku: look.sku,
       title: look.title,

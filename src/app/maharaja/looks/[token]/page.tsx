@@ -7,7 +7,9 @@ import {
   ArrowLeft,
   ArrowRight,
   Clock,
+  AtSign,
   Download,
+  MessageCircle,
   Film,
   LoaderCircle,
   MoreVertical,
@@ -46,6 +48,8 @@ export default function PrivateLooksPage() {
 
   const [downloadingManual, setDownloadingManual] = useState(false);
   const [downloadError, setDownloadError] = useState('');
+  const [downloaded, setDownloaded] = useState(false);
+  const [store, setStore] = useState({ name: '', instagramUrl: '' });
   // Nothing downloads on its own: Save asks for the customer's WhatsApp number first.
   const leadGate = useLeadGate({ kind: 'looks', ref: token || '', source: 'tv-looks' });
 
@@ -66,6 +70,7 @@ export default function PrivateLooksPage() {
       setLooks(data.looks || []);
       setExpiresAt(data.expiresAt || '');
       setVideoOff(data.videoOff === true);
+      setStore({ name: typeof data.clientName === 'string' ? data.clientName : '', instagramUrl: typeof data.instagramUrl === 'string' ? data.instagramUrl : '' });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'These looks are unavailable.');
     } finally {
@@ -98,6 +103,7 @@ export default function PrivateLooksPage() {
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+      setDownloaded(true);
     } catch (caught) {
       setDownloadError(caught instanceof Error ? caught.message : 'This look could not be saved. Please try again.');
     } finally {
@@ -297,6 +303,18 @@ export default function PrivateLooksPage() {
                       {downloadingManual ? 'Saving…' : 'Download this look'}
                     </button>
                     {downloadError && <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm font-semibold text-danger">{downloadError}</p>}
+                    {downloaded && (
+                      <div className="space-y-2">
+                        {store.instagramUrl && (
+                          <a href={store.instagramUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white">
+                            <AtSign className="h-4 w-4" /> Follow us on Instagram
+                          </a>
+                        )}
+                        <button type="button" onClick={() => void shareLook(current, store.name)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-ink bg-white px-5 text-sm font-semibold text-ink">
+                          <MessageCircle className="h-4 w-4" /> Share on WhatsApp
+                        </button>
+                      </div>
+                    )}
                 </div>
             </div>
 
@@ -374,4 +392,22 @@ async function toDataUrl(url: string): Promise<string> {
     reader.onerror = () => reject(new Error('Could not read the look.'));
     reader.readAsDataURL(blob);
   });
+}
+
+/** Shares the look image (WhatsApp is one tap away in the phone's share sheet); falls back to a WhatsApp text. */
+async function shareLook(look: { imageUrl: string } | undefined, storeName: string) {
+  const text = `My new look${storeName ? ` from ${storeName}` : ''}`;
+  if (look) {
+    try {
+      const blob = await (await fetch(look.imageUrl, { cache: 'no-store' })).blob();
+      const file = new File([blob], 'my-look.jpg', { type: blob.type || 'image/jpeg' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text });
+        return;
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+    }
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }

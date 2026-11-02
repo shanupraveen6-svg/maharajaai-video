@@ -16,7 +16,7 @@ import {
 import { CREDIT_BAR_COLOURS, creditStatuses } from '@/lib/maharaja/credits';
 import PlatformOverview, { type PlatformSpend } from '@/components/PlatformOverview';
 import { OFFERED_PACKAGES, PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, type PackageId } from '@/lib/maharaja/access';
-import { PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage, presetFor, type Credits, type Platform, type PresetId } from '@/lib/maharaja/pricing';
+import { FREE_TRIAL_IMAGE_CREDITS, PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage, presetFor, type Credits, type Platform, type PresetId } from '@/lib/maharaja/pricing';
 
 /** The platforms a store can book; device and module rules for each live in access.ts. */
 const PACKAGE_CARDS: Array<{ id: PackageId; Icon: typeof Tv; text: string }> = [
@@ -125,7 +125,8 @@ export default function TryFocusAdmin() {
   const [newStoreName, setNewStoreName] = useState<string>('');
   const [newStoreBranch, setNewStoreBranch] = useState<string>('');
   const [newPackage, setNewPackage] = useState<PackageId>('tv');
-  const [newPreset, setNewPreset] = useState<PresetId>('standard');
+  // 'trial' = the free start for a new client: 60 Try-On credits, no AI Video or Live Mirror.
+  const [newPreset, setNewPreset] = useState<PresetId | 'trial'>('standard');
   const [creatingClient, setCreatingClient] = useState<boolean>(false);
 
   const loadClients = useCallback(async () => {
@@ -289,7 +290,7 @@ export default function TryFocusAdmin() {
   const clientAccess = resolveAccess(client.devices, client.modules);
   const currentPreset = presetFor(currentPlatform, client.limits);
   const newPlatform = platformOfPackage(newPackage);
-  const newCredits = clampCredits(newPlatform, PRESETS[newPreset]);
+  const newCredits = newPreset === 'trial' ? { image: FREE_TRIAL_IMAGE_CREDITS, video: 0, live: 0 } : clampCredits(newPlatform, PRESETS[newPreset]);
   const [topUpPreset, setTopUpPreset] = useState<PresetId>('standard');
   const topUpCredits = clampCredits(currentPlatform, PRESETS[topUpPreset]);
 
@@ -496,7 +497,7 @@ export default function TryFocusAdmin() {
                 Platform
                 <select
                   value={newPackage}
-                  onChange={(e) => setNewPackage(e.target.value as PackageId)}
+                  onChange={(e) => { const next = e.target.value as PackageId; setNewPackage(next); setNewPreset(next === 'phone' ? 'trial' : 'standard'); }}
                   className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                 >
                   {[...OFFERED_PACKAGES, 'tv-tablet' as const].map((key) => <option key={key} value={key}>{PACKAGES[key].label}</option>)}
@@ -504,9 +505,10 @@ export default function TryFocusAdmin() {
                 <select
                   aria-label="Credit package"
                   value={newPreset}
-                  onChange={(e) => setNewPreset(e.target.value as PresetId)}
+                  onChange={(e) => setNewPreset(e.target.value as PresetId | 'trial')}
                   className="mt-2 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                 >
+                  <option value="trial">Free trial · {FREE_TRIAL_IMAGE_CREDITS} Try-On</option>
                   {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
                 </select>
                 <span className="mt-2 block font-normal tabular-nums">
@@ -514,8 +516,12 @@ export default function TryFocusAdmin() {
                 </span>
               </label>
               <div className="sm:col-span-2 lg:col-span-3 rounded-2xl bg-canvas p-4">
-                <p className="mb-2 text-xs font-bold text-muted">{PLATFORM_LABELS[newPlatform]} · {PRESETS[newPreset].label}, with software</p>
-                <PackageQuote platform={newPlatform} credits={newCredits} software />
+                {newPreset === 'trial'
+                  ? <p className="text-sm text-muted">Free trial: {FREE_TRIAL_IMAGE_CREDITS} Try-On credits, no charge. Top up from the client&apos;s card when they buy.</p>
+                  : <>
+                    <p className="mb-2 text-xs font-bold text-muted">{PLATFORM_LABELS[newPlatform]} · {PRESETS[newPreset].label}, with software</p>
+                    <PackageQuote platform={newPlatform} credits={newCredits} software />
+                  </>}
               </div>
               <div className="flex items-end">
                 <button

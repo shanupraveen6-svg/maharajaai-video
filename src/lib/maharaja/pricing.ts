@@ -50,6 +50,9 @@ const PRICE_BANDS: Record<CreditModule, Array<[number, number]>> = {
   live: [[1000, 76], [3000, 72], [6000, 68]],
 };
 
+/** A new client's free start: Try-On credits only, paid for out of TryFocus's GenLook balance. */
+export const FREE_TRIAL_IMAGE_CREDITS = 60;
+
 export type PresetId = 'standard' | 'pro' | 'premium';
 
 /** Starting points the calculator opens on; the store can then move each slider. */

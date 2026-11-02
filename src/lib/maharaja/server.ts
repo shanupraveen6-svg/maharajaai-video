@@ -1,3 +1,4 @@
+import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
@@ -40,6 +41,8 @@ export type MaharajaWorkspace = {
   whatsappRequestedAt?: string;
   /** Store Instagram profile shown as "Follow" after an AI video (part of the AI Video module). */
   instagramUrl?: string;
+  /** Categories this store shows customers, per audience and in its order (TV, tablet and phone). */
+  categoryLists?: StoreCategoryLists;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   devices?: {
@@ -190,7 +193,38 @@ export type MaharajaTryOnGrant = {
   sessionId?: string;
   completedAt?: string;
   retryUsed?: boolean;
+  /** When this phone first opened the store's Wall QR. */
+  firstScannedAt?: string;
+  processingAtMs?: number;
 };
+
+/** A generation that never reported back (closed tab, crashed function) frees the phone after this long. */
+const TRY_ON_PROCESSING_STALE_MS = 5 * 60 * 1000;
+const isStaleProcessing = (grant: Pick<MaharajaTryOnGrant, 'status' | 'processingAtMs'>) =>
+  grant.status === 'processing' && Date.now() - Number(grant.processingAtMs || 0) > TRY_ON_PROCESSING_STALE_MS;
+
+/** Records the first time a phone opens the Wall QR; the phone's one Try-On belongs to it from then on. */
+export async function registerTryOnDevice(deviceId: string) {
+  const hash = deviceHash(deviceId);
+  const now = new Date().toISOString();
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('tryOnDevices').doc(hash);
+    await db.runTransaction(async (tx) => {
+      const snapshot = await tx.get(ref);
+      if (snapshot.exists) {
+        if (!snapshot.data()?.firstScannedAt) tx.set(ref, { firstScannedAt: now }, { merge: true });
+        return;
+      }
+      tx.set(ref, { deviceHash: hash, tokenHash: '', status: 'active', amount: 0, createdAt: now, expiresAtMs: 0, firstScannedAt: now });
+    });
+    return;
+  }
+  const key = `${activeClientId()}:${hash}`;
+  if (!getMockStore().tryOnGrants.has(key)) {
+    getMockStore().tryOnGrants.set(key, { deviceHash: hash, tokenHash: '', status: 'active', amount: 0, createdAt: now, expiresAtMs: 0, firstScannedAt: now });
+  }
+}
 
 export type ServiceAllowanceCounter = {
   used: number; // 0, 1, or 2 (maximum 2 successful outputs when limits enforced)
@@ -423,13 +457,17 @@ export async function markTagUsedForTryOn(barcodeOrText: string, sessionId?: str
   }
 }
 
-export async function issueTryOnGrant(deviceId: string, amount: number) {
-  if (ENFORCE_REPEAT_LIMITS) {
+/**
+ * `enforce` is on for the store's Wall QR on a phone (one Try-On and one hidden retry per phone), and
+ * otherwise follows ENFORCE_REPEAT_LIMITS.
+ */
+export async function issueTryOnGrant(deviceId: string, amount: number, enforce = ENFORCE_REPEAT_LIMITS) {
+  if (enforce) {
     const existing = await getTryOnDeviceStatus(deviceId);
     if (existing?.status === 'used') {
-      return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
+      return { allowed: false as const, error: 'You have already made your free look on this phone.' };
     }
-    if (existing?.status === 'processing') return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
+    if (existing?.status === 'processing' && !isStaleProcessing(existing)) return { allowed: false as const, error: 'Your look is already being made. Please wait.' };
   }
   
   const token = crypto.randomBytes(24).toString('base64url');
@@ -444,15 +482,17 @@ export async function issueTryOnGrant(deviceId: string, amount: number) {
   };
   const db = getDb();
   if (db) {
+    // Merge, so the phone keeps its first-scan time and whether it used its retry.
     await db.collection('clientWorkspaces').doc(activeClientId())
-      .collection('tryOnDevices').doc(grant.deviceHash).set(grant);
+      .collection('tryOnDevices').doc(grant.deviceHash).set(grant, { merge: true });
   } else {
-    getMockStore().tryOnGrants.set(`${activeClientId()}:${grant.deviceHash}`, grant);
+    const key = `${activeClientId()}:${grant.deviceHash}`;
+    getMockStore().tryOnGrants.set(key, { ...(getMockStore().tryOnGrants.get(key) as object | undefined), ...grant });
   }
   return { allowed: true as const, token, expiresAtMs: grant.expiresAtMs };
 }
 
-export async function reserveTryOnGrant(deviceId: string, token: string, sessionId: string) {
+export async function reserveTryOnGrant(deviceId: string, token: string, sessionId: string, enforce = ENFORCE_REPEAT_LIMITS) {
   const hash = deviceHash(deviceId);
   const db = getDb();
   if (db) {
@@ -461,18 +501,18 @@ export async function reserveTryOnGrant(deviceId: string, token: string, session
       const snapshot = await transaction.get(ref);
       const grant = snapshot.exists ? snapshot.data() as MaharajaTryOnGrant : null;
       if (!grant || grant.tokenHash !== grantTokenHash(token) || grant.expiresAtMs < Date.now()) return { allowed: false as const, error: 'Scan the price tag again to start Try-On.' };
-      if (ENFORCE_REPEAT_LIMITS && grant.status === 'used') return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
-      if (ENFORCE_REPEAT_LIMITS && grant.status === 'processing' && grant.sessionId !== sessionId) return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
-      transaction.set(ref, { status: 'processing', sessionId }, { merge: true });
+      if (enforce && grant.status === 'used') return { allowed: false as const, error: 'You have already made your free look on this phone.' };
+      if (enforce && grant.status === 'processing' && grant.sessionId !== sessionId && !isStaleProcessing(grant)) return { allowed: false as const, error: 'Your look is already being made. Please wait.' };
+      transaction.set(ref, { status: 'processing', sessionId, processingAtMs: Date.now() }, { merge: true });
       return { allowed: true as const };
     });
   }
   const key = `${activeClientId()}:${hash}`;
   const grant = getMockStore().tryOnGrants.get(key) as MaharajaTryOnGrant | undefined;
   if (!grant || grant.tokenHash !== grantTokenHash(token) || grant.expiresAtMs < Date.now()) return { allowed: false as const, error: 'Scan the price tag again to start Try-On.' };
-  if (ENFORCE_REPEAT_LIMITS && grant.status === 'used') return { allowed: false as const, error: 'This device has already completed its Maharaja AI Try-On.' };
-  if (ENFORCE_REPEAT_LIMITS && grant.status === 'processing' && grant.sessionId !== sessionId) return { allowed: false as const, error: 'A Try-On is already being generated on this device.' };
-  getMockStore().tryOnGrants.set(key, { ...grant, status: 'processing', sessionId });
+  if (enforce && grant.status === 'used') return { allowed: false as const, error: 'You have already made your free look on this phone.' };
+  if (enforce && grant.status === 'processing' && grant.sessionId !== sessionId && !isStaleProcessing(grant)) return { allowed: false as const, error: 'Your look is already being made. Please wait.' };
+  getMockStore().tryOnGrants.set(key, { ...grant, status: 'processing', sessionId, processingAtMs: Date.now() });
   return { allowed: true as const };
 }
 
@@ -784,6 +824,7 @@ export async function updateMaharajaSettings(
       | 'minimumsLockedUntil'
       | 'whatsappRequestedAt'
       | 'instagramUrl'
+      | 'categoryLists'
       | 'deliveryMode'
       | 'whatsappConnected'
       | 'devices'

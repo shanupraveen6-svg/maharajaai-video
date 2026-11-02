@@ -29,7 +29,6 @@ import Link from 'next/link';
 import { isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import PhonePhotoTransfer from '@/components/PhonePhotoTransfer';
 import {
-  catalogueCategories,
   events,
   sampleCatalogue,
   type CatalogueCategoryId,
@@ -39,6 +38,7 @@ import {
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { PageTitle, Segmented } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
+import { categoriesFor, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 
 type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video' | 'gift';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
@@ -71,6 +71,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [goLiveOn, setGoLiveOn] = useState(false);
   const [idleLoop, setIdleLoop] = useState(false);
   const [catalogueItems, setCatalogueItems] = useState<TryFocusProduct[]>([]);
+  // The store's own categories per audience, from its workspace.
+  const [categoryLists, setCategoryLists] = useState<StoreCategoryLists>({});
 
   // Catalogue filtering
   const [genderFilter, setGenderFilter] = useState<CatalogueAudience>('women');
@@ -128,6 +130,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         if (!active) return;
         setTvBillSuffixRequired(settings.tvBillSuffixRequired);
         if (settings.clientName) setClientName(settings.clientName);
+        setCategoryLists(settings.categoryLists);
         if (settings.access) {
           // Live Mirror needs the TV's camera stream; the tablet never runs it.
           setLiveOn(!isTablet && settings.access.modules.live);
@@ -201,7 +204,13 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [tvBillLast4, setTvBillLast4] = useState('');
   const [tvBillEntered, setTvBillEntered] = useState(false);
 
-  const filteredCategories = catalogueCategories.filter((cat) => cat.gender === genderFilter);
+  const filteredCategories = categoriesFor(categoryLists, genderFilter);
+  // A category the store removed (or one this audience lacks) moves to the store's first category with pieces.
+  useEffect(() => {
+    if (filteredCategories.some((cat) => cat.id === activeCategory)) return;
+    const next = filteredCategories.find((cat) => catalogueItems.some((item) => item.category === cat.id)) || filteredCategories[0];
+    if (next) setActiveCategory(next.id);
+  }, [filteredCategories, activeCategory, catalogueItems]);
   const browseProducts = catalogueItems.filter((item) => item.gender === genderFilter &&
     (showClientCollection ? item.sku.startsWith('MAH-')
       : showNewArrivals ? (genderFilter === 'women' || genderFilter === 'men') && item.badge === 'NEW ARRIVAL'
@@ -211,7 +220,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * TV_PAGE_SIZE, (cataloguePage + 1) * TV_PAGE_SIZE);
   // AI Video uses only the pieces the store switched on for it.
   const videoAudienceProducts = catalogueItems.filter((item) => item.price > 0 && (item.eligibleForVideo === true || item.sku.startsWith('TF-') || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === videoAudience);
-  const videoCategories = catalogueCategories.filter((cat) => cat.gender === videoAudience && videoAudienceProducts.some((item) => item.category === cat.id));
+  const videoCategories = categoriesFor(categoryLists, videoAudience).filter((cat) => videoAudienceProducts.some((item) => item.category === cat.id));
   const activeVideoCategory = videoCategories.some((cat) => cat.id === videoCategory) ? videoCategory : videoCategories[0]?.id || '';
   const videoBrowseProducts = videoAudienceProducts.filter((item) => !activeVideoCategory || item.category === activeVideoCategory);
   const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / TV_PAGE_SIZE));
@@ -222,7 +231,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     if (gender === genderFilter) return;
     setGenderFilter(gender);
     // The first category, in the shared order, that has pieces in this store.
-    const ordered = catalogueCategories.filter((cat) => cat.gender === gender);
+    const ordered = categoriesFor(categoryLists, gender);
     setActiveCategory((ordered.find((cat) => catalogueItems.some((item) => item.category === cat.id)) || ordered[0]).id);
     setShowNewArrivals(false);
     setShowClientCollection(gender === 'women' || gender === 'men');
