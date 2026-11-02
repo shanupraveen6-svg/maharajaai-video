@@ -46,6 +46,9 @@ async function uploadImage(base64: string, apiKey: string, label: string) {
   const mime = imageMime(base64, bytes);
   const form = new FormData();
   form.set('file', new Blob([new Uint8Array(bytes)], { type: mime }), `${label}.${mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg'}`);
+  // GenLook's default crops to 4:5 around the person and invents what the photo does not show (legs,
+  // shoes). Keeping the customer's own framing makes the look match the photo they took.
+  form.set('crop', 'false');
   let response: Response;
   try {
     response = await fetch(`${GENLOOK_BASE_URL}/images/upload`, { method: 'POST', headers: { 'x-api-key': apiKey }, body: form, signal: AbortSignal.timeout(30_000), cache: 'no-store' });

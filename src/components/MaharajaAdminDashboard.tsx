@@ -26,6 +26,7 @@ import {
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import TabletVideoHandoff from '@/components/TabletVideoHandoff';
 import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
+import StoreLogoCard from '@/components/StoreLogoCard';
 import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import { NavTabs, Segmented, StatusPill } from '@/components/ui';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
@@ -623,6 +624,8 @@ export default function MaharajaAdminDashboard({
           </div>
         </section>
 
+
+        <StoreLogoCard />
 
         <form
           className="tf-card p-6"

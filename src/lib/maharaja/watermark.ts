@@ -1,17 +1,50 @@
-import fs from 'fs';
-import path from 'path';
 import sharp from 'sharp';
+import { activeClientId } from '@/lib/maharaja/client-context';
+import { maharajaDefaultLogo, readStoreLogo } from '@/lib/maharaja/store-logo';
 
 /**
- * Permanently embeds the Maharaja official logo as an unremovable watermark onto the Try-On image.
+ * Puts the store's own logo on a Try-On image (bottom right). A store with an uploaded logo gets it on a
+ * white rounded card; the Maharaja demo keeps its round gold badge; a store with no logo gets none, so a
+ * customer never downloads a look carrying another store's brand.
  */
-export async function applyMaharajaWatermark(inputImageBuffer: Buffer): Promise<Buffer> {
+export async function applyMaharajaWatermark(inputImageBuffer: Buffer, clientId = activeClientId()): Promise<Buffer> {
   try {
-    const logoPath = path.join(process.cwd(), 'public', 'maharaja-logo.png');
-    if (!fs.existsSync(logoPath)) {
-      console.warn('Maharaja logo not found at:', logoPath);
-      return inputImageBuffer;
-    }
+    const uploaded = await readStoreLogo(clientId);
+    if (uploaded) return await applyCardLogo(inputImageBuffer, uploaded);
+    const fallback = maharajaDefaultLogo(clientId);
+    if (!fallback) return inputImageBuffer;
+    return await applyRoundBadge(inputImageBuffer, fallback);
+  } catch (error) {
+    console.warn('Store logo could not be added:', error);
+    return inputImageBuffer;
+  }
+}
+
+async function applyCardLogo(inputImageBuffer: Buffer, logo: Buffer): Promise<Buffer> {
+  const metadata = await sharp(inputImageBuffer).metadata();
+  const width = metadata.width || 768;
+  const height = metadata.height || 1024;
+  const maxW = Math.round(width * 0.26);
+  const maxH = Math.round(height * 0.09);
+  const inner = await sharp(logo).resize(maxW, maxH, { fit: 'inside' }).png().toBuffer();
+  const innerMeta = await sharp(inner).metadata();
+  const pad = Math.max(8, Math.round(width * 0.012));
+  const cardW = (innerMeta.width || maxW) + pad * 2;
+  const cardH = (innerMeta.height || maxH) + pad * 2;
+  const radius = Math.round(Math.min(cardW, cardH) * 0.22);
+  const card = await sharp(Buffer.from(`<svg width="${cardW}" height="${cardH}"><rect width="${cardW}" height="${cardH}" rx="${radius}" ry="${radius}" fill="#ffffff" fill-opacity="0.92"/></svg>`))
+    .composite([{ input: inner, top: pad, left: pad }])
+    .png()
+    .toBuffer();
+  const margin = Math.max(16, Math.round(width * 0.035));
+  return sharp(inputImageBuffer)
+    .composite([{ input: card, top: height - cardH - margin, left: width - cardW - margin }])
+    .jpeg({ quality: 92 })
+    .toBuffer();
+}
+
+async function applyRoundBadge(inputImageBuffer: Buffer, logoPath: Buffer): Promise<Buffer> {
+  try {
 
     const metadata = await sharp(inputImageBuffer).metadata();
     const width = metadata.width || 768;

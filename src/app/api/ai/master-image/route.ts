@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { savePhoneLook } from '@/lib/maharaja/phone-looks';
 import { resultExpiresAtIso, resultExpiresAtMs } from '@/lib/maharaja/retention';
 import fs from 'fs/promises';
@@ -7,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, GARMENT_TYPE_RULES, GENLOOK_GARMENT_DESCRIPTIONS, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType, customerRateLimit } from '@/lib/maharaja/config';
+import { type CustomerCategory, type GarmentType, GARMENT_TYPE_RULES, GENLOOK_GARMENT_DESCRIPTIONS, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType, customerRateLimit } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
@@ -328,6 +329,14 @@ export async function POST(req: NextRequest) {
           })
         );
         const [personBase64, ...garmentBase64s] = preparedReferences.map((image) => image.toString('base64'));
+        // GenLook keeps the customer's own framing (no 9:16 crop) and gets sharper photos than Gemini needs.
+        const genlookSources = service === 'try-on'
+          ? await Promise.all(sourceReferences.slice(0, 2).map((source) => sharp(Buffer.from(source, 'base64')).rotate()
+            .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 90, progressive: true })
+            .toBuffer()
+            .then((image) => image.toString('base64'))))
+          : [];
         if (service === 'ai-video') {
           videoPersonPath = `clients/${activeClientId()}/sessions/${sessionId}/person/reference.jpg`;
           videoGarmentPaths = garmentBase64s.map((_, index) => `clients/${activeClientId()}/sessions/${sessionId}/garment/reference-${index}.jpg`);
@@ -386,9 +395,10 @@ ${roleInstructions}
             if (!await reserveGenlookCredit()) continue;
             genlookAttempted = true;
             try {
+              const genlookGarment = genlookSources[1] || garmentBase64s[0];
               rawBuffer = await generateGenlookTryOn(
-                personBase64,
-                garmentBase64s[0],
+                genlookSources[0] || personBase64,
+                genlookGarment,
                 key,
                 {
                   externalId: typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `customer-${garmentType}`,
@@ -396,7 +406,9 @@ ${roleInstructions}
                   title: (typeof body.catalogueProductId === 'string' && typeof body.catalogueProductTitle === 'string'
                     ? body.catalogueProductTitle
                     : GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title).slice(0, 120),
-                  description: GENLOOK_GARMENT_DESCRIPTIONS[garmentType].description.slice(0, 500),
+                  // GenLook reads the description to get cut, sleeves and pockets right: Gemini writes it from
+                  // the photo, with the garment type's own line as the fallback.
+                  description: (await describeGarmentForGenlook(ai, genlookGarment, garmentType)).slice(0, 500),
                 },
               );
               imageProvider = 'genlook-try-on';
@@ -659,5 +671,35 @@ ${roleInstructions}
     if (lockedPassCode && !imageCompleted) {
       await releasePassImageLock(lockedPassCode, boundGenerationId).catch((err) => console.error('Image lock release failed:', err));
     }
+  }
+}
+
+/**
+ * One exact sentence about the garment in the photo for GenLook's product listing: sleeves, pockets,
+ * collar, closure, print and colours. Saved per photo, so a store piece is described only once.
+ */
+async function describeGarmentForGenlook(ai: ReturnType<typeof getGenAIClient>, garmentBase64: string, garmentType: GarmentType): Promise<string> {
+  const fallback = GENLOOK_GARMENT_DESCRIPTIONS[garmentType].description;
+  if (!ai) return fallback;
+  const hash = createHash('sha256').update(garmentBase64).digest('hex').slice(0, 40);
+  const db = getDb();
+  const cacheRef = db ? db.collection('genlookGarmentDescriptions').doc(hash) : null;
+  try {
+    const cached = cacheRef ? (await cacheRef.get()).data()?.description : undefined;
+    if (typeof cached === 'string' && cached) return cached;
+    const response = await ai.models.generateContent({
+      model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
+      contents: [
+        { inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } },
+        `This photo shows a ${GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title.toLowerCase()} for a virtual try-on product listing. In one plain sentence of at most 45 words, describe only the garment as it is: garment type, sleeve length, collar or neckline, how many pockets and where, closure, print or pattern, colours, fit and length. Do not mention the background, floor, hanger, person or anything not visible. No marketing words.`,
+      ],
+      config: { abortSignal: AbortSignal.timeout(8_000) },
+    });
+    const text = (response.text || '').replace(/\s+/g, ' ').trim();
+    if (text.length < 15) return fallback;
+    if (cacheRef) await cacheRef.set({ description: text, garmentType, createdAt: new Date().toISOString() }).catch(() => undefined);
+    return text;
+  } catch {
+    return fallback;
   }
 }
