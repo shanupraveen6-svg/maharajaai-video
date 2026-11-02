@@ -70,6 +70,8 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   const [deviceId, setDeviceId] = useState('');
   // The phone's one hidden retry: false until used (the server checks it too).
   const [retryUsed, setRetryUsed] = useState(false);
+  // The retry was granted but not finished: ⋯ Try once more simply starts it again.
+  const [retryPending, setRetryPending] = useState(false);
   const [categoryLists, setCategoryLists] = useState<StoreCategoryLists>({});
   const [instagramUrl, setInstagramUrl] = useState('');
 
@@ -89,11 +91,12 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
         if (!data?.success) return;
         setRetryUsed(Boolean(data.access?.retryUsed));
         // Made a look within the last hour: that look is the only screen.
+        setRetryPending(Boolean(data.access?.retryPending));
+        // A phone that already made a look never starts over from a re-scan.
         if (typeof data.access?.phoneLookUrl === 'string') {
           setResultUrl(data.access.phoneLookUrl);
           setStage('result');
-        } else if (data.access?.tryOnUsed) {
-          // Already saved to the phone: Follow us and Share are what is left to do.
+        } else if (data.access?.tryOnUsed || data.access?.lookMade) {
           setDownloaded(Boolean(data.access.lookDownloaded));
           setStage('done');
         }
@@ -172,6 +175,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
       if (!response.ok || !data?.masterImageUrl) throw new Error(data?.error || t('generationFailed'));
       setResultUrl(data.masterImageUrl);
       setDownloaded(false);
+      setRetryPending(false);
       setStage('result');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
@@ -185,6 +189,11 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   async function tryOnceMore() {
     setMenuOpen(false);
     setNote('');
+    // The retry was already granted on an earlier visit: start it again without asking the server.
+    if (retryPending) {
+      setStage('source');
+      return;
+    }
     try {
       const response = await fetch('/api/maharaja/activity', {
         method: 'POST',
@@ -194,6 +203,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.success) throw new Error(data?.error || t('generationFailed'));
       setRetryUsed(true);
+      setRetryPending(true);
       if (stage === 'done' || !personPhoto) {
         setStage('source');
         return;
@@ -232,7 +242,9 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   });
 
   async function shareLook() {
-    const text = `${t('shareText')} ${clientName}`;
+    // Every share brings friends to this store's own Try-On (the Wall QR link).
+    const link = `${window.location.origin}/maharaja/mobile/experience?access=${encodeURIComponent(accessCode)}`;
+    const text = `${t('shareText')} ${clientName}. ${t('shareInvite')} ${link}`;
     try {
       if (!resultUrl) throw new Error('no image');
       const blob = await (await fetch(resultUrl)).blob();
@@ -245,7 +257,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
       if (error instanceof DOMException && error.name === 'AbortError') return;
     }
     // Without the image on this page (after a reload), the store's Try-On link goes instead.
-    window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${window.location.href}`)}`, '_blank', 'noopener');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   }
 
   const back: Partial<Record<Stage, Stage>> = {
@@ -281,7 +293,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
             </div>
             <Link href="/maharaja/try-on" className="flex min-h-10 items-center rounded-xl px-2 text-sm font-semibold text-muted hover:text-ink">{t('help')}</Link>
             {/* The one retry lives here, top right, never as a button on the page. */}
-            {(stage === 'result' || stage === 'done') && !retryUsed && (
+            {(stage === 'result' || stage === 'done') && (!retryUsed || retryPending) && (
               <div className="relative">
                 <button type="button" aria-label={t('moreOptions')} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="flex h-10 w-10 items-center justify-center rounded-xl text-ink hover:bg-line/60">
                   <MoreVertical className="h-5 w-5" />
@@ -454,9 +466,15 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
                   </button>
                 </div>
               ) : (
-                <button type="button" onClick={() => void saveLook()} className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
-                  <Download className="h-5 w-5" /> {t('savePhoto')}
-                </button>
+                <div className="space-y-3">
+                  <button type="button" onClick={() => void saveLook()} className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
+                    <Download className="h-5 w-5" /> {t('savePhoto')}
+                  </button>
+                  {/* Sharing the look spreads the store; it asks for the WhatsApp number first, like Download. */}
+                  <button type="button" onClick={() => void leadGate.withLead(() => shareLook())} className="tf-btn tf-btn-secondary !min-h-14 w-full text-base">
+                    <MessageCircle className="h-5 w-5" /> {t('shareWhatsApp')}
+                  </button>
+                </div>
               )
             )}
           </div>

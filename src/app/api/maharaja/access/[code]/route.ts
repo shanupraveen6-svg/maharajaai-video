@@ -115,6 +115,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
           ? `/api/maharaja/phone-look?access=${encodeURIComponent(code)}&deviceId=${encodeURIComponent(deviceId)}&t=${Date.now()}`
           : null,
         lookDownloaded: phoneTryOn && Boolean(deviceStatus?.downloadedAt),
+        // This phone already made a look: a re-scan never starts over, it shows the look or Follow and Share.
+        lookMade: phoneTryOn && Boolean(deviceStatus?.completedAt),
+        // The ⋯ retry was opened but not finished: it can be picked up again from the ⋯ menu.
+        retryPending: phoneTryOn && deviceStatus?.status === 'active' && deviceStatus?.retryUsed === true,
         retryUsed: phoneTryOn
           ? Boolean(deviceStatus?.retryUsed)
           : ENFORCE_REPEAT_LIMITS ? Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed) : false,
