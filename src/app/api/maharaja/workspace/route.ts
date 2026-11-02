@@ -353,7 +353,7 @@ async function workspaceForSession(req: NextRequest, requestedCode: string | nul
 export async function GET(req: NextRequest) {
   await verifyClientSessionCurrent(req);
   if (!verifyOperatorRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized Maharaja session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
 
   try {
@@ -380,7 +380,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   await verifyClientSessionCurrent(req);
   if (!verifyOperatorRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized Maharaja session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
 
   try {

@@ -26,9 +26,9 @@ export type PricingCalculatorConfig = {
 };
 
 const PLATFORM_TEXT: Record<Platform, { Icon: typeof Tv; text: string }> = {
-  tv: { Icon: Tv, text: 'A portrait TV in your showroom. Your customers’ phones are included.' },
-  tablet: { Icon: Tablet, text: 'A tablet at your counter. Your customers’ phones are included.' },
-  phone: { Icon: Smartphone, text: 'Your customers use their own phones from your wall QR.' },
+  tv: { Icon: Tv, text: 'A portrait TV in your showroom. Phone Try-On included.' },
+  tablet: { Icon: Tablet, text: 'A tablet at your counter. Phone Try-On included.' },
+  phone: { Icon: Smartphone, text: 'Shoppers use their own phones through your Wall QR.' },
 };
 
 const MODULE_NAMES: Record<CreditModule, string> = { image: 'Try-On', video: 'AI Video with Go Live', live: 'Live Mirror' };
@@ -104,7 +104,7 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
               {id === 'phone' ? (
                 <span className="mt-4 text-sm text-muted">
                   Package: <b className="text-ink">{rupees(config.phonePackage.fee)}</b> with {config.phonePackage.credits.toLocaleString('en-IN')} Try-On + {config.phonePackage.retryPercent}% retries
-                  {config.novemberOffer && <span className="mt-2 block w-fit rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-bold text-[#2A060C]">November: free, 60 Try-On</span>}
+                  {config.novemberOffer && <span className="mt-2 block w-fit rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-bold text-[#2A060C]">Free in November · 60 Try-Ons</span>}
                 </span>
               ) : (
                 <span className="mt-4 text-sm text-muted">Software, one time: <b className="text-ink">{rupees(config.softwareFee[id])}</b></span>
@@ -225,10 +225,10 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
           </div>
         </dl>
         {isPhone && config.novemberOffer && (
-          <p className="mt-3 rounded-2xl bg-[#2A060C] p-3 text-sm font-semibold text-[#F3E5AB]">November offer: no service charge this month and 60 Try-On credits free. Top-ups available, pay as you go. Valid till 30 November.</p>
+          <p className="mt-3 rounded-2xl bg-[#2A060C] p-3 text-sm font-semibold text-[#F3E5AB]">November offer: no software fee this month and 60 Try-Ons included. Top up anytime, pay as you go. Valid until 30 November.</p>
         )}
-        <p className="mt-3 text-sm text-muted">{isPhone ? 'Paid upfront. When your credits run low, top up any time: pay as you go.' : 'Paid upfront. When your credits run low, top up with a new package. Your TV or tablet is your own; ask us if you need one.'}</p>
-        <a href="tel:9994837342" className="tf-btn tf-btn-primary mt-5 !min-h-12 w-full"><Phone className="h-4 w-4" /> Call us to start: 9994837342</a>
+        <p className="mt-3 text-sm text-muted">{isPhone ? 'Paid upfront. Top up anytime; you pay only for what you use.' : 'Paid upfront. When your credits run low, top up with a new package. Your TV or tablet is your own; ask us if you need one.'}</p>
+        <a href="tel:9994837342" className="tf-btn tf-btn-primary mt-5 !min-h-12 w-full"><Phone className="h-4 w-4" /> Talk to sales: 9994837342</a>
       </div>
     </div>
   );

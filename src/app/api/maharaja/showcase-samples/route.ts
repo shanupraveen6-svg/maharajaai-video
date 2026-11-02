@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   try {
     if (!verifyOperatorRequest(req)) {
-      return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
     }
 
     const form = await req.formData();
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     const bucket = getStorageBucket();
-    if (!bucket) return NextResponse.json({ success: false, error: 'Firebase Storage is unavailable.' }, { status: 503 });
+    if (!bucket) return NextResponse.json({ success: false, error: 'Storage is unavailable right now. Please try again shortly.' }, { status: 503 });
 
     const sampleId = `showcase_${randomUUID()}`;
     const extension = uploaded.type === 'video/quicktime' ? 'mov' : 'mp4';

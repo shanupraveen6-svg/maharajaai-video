@@ -27,11 +27,11 @@ import {
   showcasePrefixesFor,
 } from '@/lib/maharaja/go-live-library';
 
-const FALLBACK_NAME = 'Maharaja Guest';
+const FALLBACK_NAME = 'Guest';
 const MAX_PAGE_ITEMS = 200;
 const REMOVED_TV_NAMES = new Set(['செந்தில்', 'senthil', 'கீர்த்தனா', 'keerthana']);
 const TV_LOCALITY = 'தஞ்சாவூர்';
-const SHOWCASE_NAME = 'Maharaja Festival Showcase';
+const SHOWCASE_NAME = 'Festival Showcase';
 
 function getMillis(value: any): number {
   if (!value) return 0;
@@ -92,7 +92,7 @@ type StoreLabels = { showcaseName: string; showroomName: string; locality: strin
 
 function storeLabels(workspace: { clientId: string; clientName: string; branch?: string }): StoreLabels {
   if (workspace.clientId === MAHARAJA_CLIENT_ID) {
-    return { showcaseName: SHOWCASE_NAME, showroomName: 'Maharaja Showroom', locality: TV_LOCALITY };
+    return { showcaseName: SHOWCASE_NAME, showroomName: 'Showroom', locality: TV_LOCALITY };
   }
   const name = workspace.clientName.replace(/^The\s+/i, '').trim() || 'Our store';
   const city = String(workspace.branch || '').split('·')[0].trim();
@@ -351,7 +351,7 @@ export async function GET(req: NextRequest) {
     const offset = cleanOffset(req.nextUrl.searchParams.get('offset'));
     const includeUnpublished = req.nextUrl.searchParams.get('includeUnpublished') === '1';
     if (includeUnpublished && !verifyOperatorRequest(req)) {
-      return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
     }
     const labels = storeLabels(await getMaharajaWorkspace());
     const db = getDb();
@@ -415,13 +415,13 @@ export async function POST(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   try {
     if (!verifyOperatorRequest(req)) {
-      return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
     }
     const body = await req.json();
     const storagePath = typeof body.storagePath === 'string' ? body.storagePath.trim() : '';
     if (!storagePath) return NextResponse.json({ success: false, error: 'A stored video path is required.' }, { status: 400 });
     const bucket = getStorageBucket();
-    if (!bucket) return NextResponse.json({ success: false, error: 'Firebase Storage is unavailable.' }, { status: 503 });
+    if (!bucket) return NextResponse.json({ success: false, error: 'Storage is unavailable right now. Please try again shortly.' }, { status: 503 });
     const file = bucket.file(storagePath);
     const [exists] = await file.exists();
     if (!exists) return NextResponse.json({ success: false, error: 'Stored video was not found.' }, { status: 404 });
@@ -442,7 +442,7 @@ export async function DELETE(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   // Deleting a customer's Go Live media is a staff action, limited to the signed-in workspace.
   if (!verifyOperatorRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
   try {
     const body = await req.json().catch(() => ({}));

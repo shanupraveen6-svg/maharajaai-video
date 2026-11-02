@@ -68,7 +68,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const isTablet = device === 'tablet';
   const [mode, setMode] = useState<TvMode>('image-tryon');
   const [showLookMenu, setShowLookMenu] = useState(false);
-  const [clientName, setClientName] = useState('The Majestic Maharaja');
+  const [clientName, setClientName] = useState('');
   // Live Mirror and AI Video show only while the store has them (module on and the devices they need on).
   const [liveOn, setLiveOn] = useState(!isTablet);
   const [videoOn, setVideoOn] = useState(true);
@@ -121,7 +121,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           imageUrl: item.imageUrl,
           thumbnailUrl: item.thumbnailUrl,
           garmentReferenceUrl: item.garmentReferenceUrl || item.imageUrl,
-          fabricNote: item.fabricNote || 'Maharaja Collection',
+          fabricNote: item.fabricNote || 'Store collection',
           badge: item.newArrival ? 'NEW ARRIVAL' : item.badge,
           accent: item.accent || 'from-[#FAF6F0] to-[#EFE8DC]',
           eligibleForVideo: item.eligibleForVideo !== false,
@@ -554,7 +554,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   async function runCatalogueBatch(personImg: string) {
     if (!personImg) {
-      setTryOnError('Please capture or upload a customer photo in Step 1 first.');
+      setTryOnError('Please add your photo first.');
       setTryOnStage('photo');
       return;
     }
@@ -643,7 +643,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   async function createImageHandoff(looks: Array<{ product: TryFocusProduct; url: string }>) {
     const runId = batchRunRef.current;
-    setHandoffStatus('Preparing your private mobile QR…');
+    setHandoffStatus('Preparing your QR…');
     try {
       const handoffLooks = await Promise.all(looks.map(async (look) => {
         const image = await new Promise<string>((resolve, reject) => {
@@ -682,7 +682,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       const qr = await QRCode.toDataURL(url, { width: 260, margin: 1, color: { dark: '#161918', light: '#FAFBF8' } });
       if (runId !== batchRunRef.current) return;
       setTryOnMobileQr(qr);
-      setHandoffStatus('Scan to view and download your generated looks. Link works for 1 hour.');
+      setHandoffStatus('Scan to save your looks on your phone. The link works for 1 hour.');
     } catch (error) {
       if (runId !== batchRunRef.current) return;
       setHandoffStatus(error instanceof Error ? error.message : 'Mobile handoff unavailable');
@@ -830,7 +830,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoMasterUrl('');
     setVideoPassQr('');
     const runId = ++batchRunRef.current;
-    setVideoStatusNote('Creating your portrait in the selected piece…');
+    setVideoStatusNote('Creating your portrait…');
     const sessionId = `tv_vidmaster_${Date.now()}`;
     const conceptId = selectedProduct.gender === 'men' ? 'men-heritage-passage' : selectedProduct.gender === 'boys' ? 'boy-heritage-entrance' : selectedProduct.gender === 'girls' ? 'girl-garden-lights' : 'women-golden-courtyard';
 
@@ -1056,7 +1056,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <span className="flex items-center justify-between gap-4 p-7">
                       <span>
                         <span className="block text-4xl font-bold text-ink">My own outfit</span>
-                        <span className="mt-2 block text-xl text-muted">Photograph an outfit you have and see it on you</span>
+                        <span className="mt-2 block text-xl text-muted">Use a garment you already have</span>
                       </span>
                       <ArrowRight className="h-9 w-9 shrink-0 text-ink transition group-hover:translate-x-1" />
                     </span>
@@ -1210,7 +1210,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                         );
                       })}
                     </div>
-                    {browseProducts.length === 0 && <div className="tf-card p-10 text-center"><p className="text-2xl font-bold">No styles here yet</p><p className="mt-2 text-muted">Choose another category or ask our staff.</p></div>}
+                    {browseProducts.length === 0 && <div className="tf-card p-10 text-center"><p className="text-2xl font-bold">No pieces here yet</p><p className="mt-2 text-muted">Choose another category or ask our staff.</p></div>}
                     {cataloguePageCount > 1 && (
                       <div className="tv-catalogue-pagination flex items-center justify-between gap-4">
                         <button type="button" disabled={cataloguePage === 0} onClick={() => turnCataloguePage(cataloguePage - 1)} className="tf-btn tf-btn-secondary !min-h-14 px-6 text-lg">← Previous</button>
@@ -1406,7 +1406,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     </button>
                   )}
                 </div>
-                <button type="button" onClick={resetAllSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">Done · next customer</button>
+                <button type="button" onClick={resetAllSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">Done · New customer</button>
               </section>
             )}
           </div>
@@ -1441,7 +1441,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         {mode === 'catalogue-video' && !isTablet && tvBillSuffixRequired && !tvBillEntered && (
           <section className="tf-card mx-auto max-w-2xl space-y-6 p-8 text-center">
             <h2 className="text-4xl font-bold">Enter the last four digits of your bill</h2>
-            <p className="text-lg text-muted">Your biller will tell you which four digits to enter.</p>
+            <p className="text-lg text-muted">Our staff will tell you which four digits to enter.</p>
             <input value={tvBillLast4} onChange={(event) => setTvBillLast4(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="off" maxLength={4} aria-label="Last four digits of bill number" className="mx-auto block min-h-20 w-full max-w-sm rounded-2xl border border-ink bg-canvas text-center tabular-nums text-4xl" />
             <button type="button" disabled={tvBillLast4.length !== 4} onClick={() => setTvBillEntered(true)} className="tf-btn tf-btn-primary !min-h-16 w-full max-w-sm text-lg">Continue to AI Video</button>
           </section>
@@ -1619,7 +1619,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <button type="button" onClick={() => void generateCatalogueVideoMasterOnTv()} className="tf-btn tf-btn-primary !min-h-16 px-8 text-lg"><RefreshCw className="h-5 w-5" /> Try again</button>
                   </div>
                 )}
-                {videoMasterUrl && <button type="button" onClick={resetAllSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">Done · next customer</button>}
+                {videoMasterUrl && <button type="button" onClick={resetAllSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">Done · New customer</button>}
               </section>
             )}
           </div>

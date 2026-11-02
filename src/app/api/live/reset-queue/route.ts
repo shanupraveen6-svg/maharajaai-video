@@ -7,7 +7,7 @@ import { resolveRequestClientId } from '@/lib/maharaja/server';
 export async function POST(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   try {
-    if (!verifyOperatorRequest(req)) return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
+    if (!verifyOperatorRequest(req)) return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
     const force = body.force === true;
     const db = getDb();

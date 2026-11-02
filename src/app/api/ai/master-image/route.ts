@@ -51,21 +51,21 @@ function formatGeminiImageError(error: any) {
   const lower = raw.toLowerCase();
 
   if (lower.includes('resource_exhausted') || lower.includes('quota') || lower.includes('free tier')) {
-    return 'Image generation is temporarily unavailable because the service limit was reached. Please ask Maharaja staff for assistance.';
+    return 'Image generation is temporarily unavailable because the service limit was reached. Please ask our staff for help.';
   }
 
   if (lower.includes('api key') || lower.includes('permission') || lower.includes('unauthenticated')) {
-    return 'Image generation needs attention from Maharaja staff. Please try again after staff check the service.';
+    return 'Try-On needs attention from our staff. Please try again in a moment.';
   }
 
   if (lower.includes('model') || lower.includes('not found')) {
-    return 'The image service is temporarily unavailable. Please ask Maharaja staff for assistance.';
+    return 'The image service is temporarily unavailable. Please ask our staff for help.';
   }
 
   if (/safety|blocked|policy/.test(lower)) return 'These photos could not be processed. Please use a clear, appropriate customer and garment photo.';
   if (/timeout|timed out|deadline|abort/.test(lower)) return 'Image generation took too long. Please check your connection and try again.';
   if (/photo|source/.test(lower)) return 'The uploaded photos could not be read. Please add them again and retry.';
-  return 'Your image could not be completed. Please try again or ask Maharaja staff for assistance.';
+  return 'We couldn’t create your look. Please try again, or ask our staff for help.';
 }
 
 async function resolveImageBase64(input: unknown, bucket: any, sessionId: string, allowedCataloguePath = ''): Promise<string> {
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, garmentRoles, conceptPrompt, templateId, accessCode } = body;
     const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
     if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{8,120}$/.test(sessionId)) {
-      return NextResponse.json({ success: false, error: 'Reload the page to start a valid photo session.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Please reload the page and try again.' }, { status: 400 });
     }
     // A screen left open across a release still sends the previous version; both are accepted and recorded.
     const consentVersion = CONSENT_VERSIONS.includes(body.consentVersion) ? String(body.consentVersion) : '';
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: access.error }, { status: 401 });
     }
     if (access.pass && validTryOnDeviceId(body.deviceId) && !await claimPassDevice(access.pass.code, body.deviceId)) {
-      return NextResponse.json({ success: false, error: 'This video pass is already in use on another phone.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'This QR is already open on another phone.' }, { status: 403 });
     }
     // Customer QR codes and passes are phone sessions; kiosk sessions say whether they are the TV or the tablet.
     const codeAccess = Boolean(access.pass) || (typeof accessCode === 'string' && accessCode.trim() !== '' && accessCode.trim() === access.workspace.tryOnCode);
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
 
     if (service === 'try-on' && !access.pass && accessCode === access.workspace.tryOnCode) {
       const requirePriceTag = tryOnMinimumFor(access.workspace) > 0;
-      if (!validTryOnDeviceId(body.deviceId)) return NextResponse.json({ success: false, error: 'Reload this page to prepare your private session.' }, { status: 400 });
+      if (!validTryOnDeviceId(body.deviceId)) return NextResponse.json({ success: false, error: 'Please reload the page and try again.' }, { status: 400 });
       let token = typeof body.tryOnGrant === 'string' ? body.tryOnGrant : '';
       if (!requirePriceTag && !token) {
         // The Wall QR on a phone: one Try-On (and one hidden retry) per phone, always.
@@ -266,7 +266,7 @@ export async function POST(req: NextRequest) {
     if (!ai && (service === 'ai-video' || (!AI_CONFIG.GENLOOK_API_KEY?.trim() && !process.env.FAL_KEY?.trim()))) {
       if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(
-        { success: false, error: 'Gemini image generation is not configured.' },
+        { success: false, error: 'Try-On is unavailable right now. Please try again shortly.' },
         { status: 503 }
       );
     }
@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
     if (!bucket) {
       if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(
-        { success: false, error: 'Maharaja secure media storage is unavailable. Please ask staff for assistance.' },
+        { success: false, error: 'Try-On is unavailable right now. Please ask our staff.' },
         { status: 503 }
       );
     }
@@ -485,7 +485,7 @@ ${roleInstructions}
           }
         }
         if (!rawBuffer && !geminiAttempted) {
-          throw lastEngineError || new Error('No Try-On image service is available. Please ask Maharaja staff for assistance.');
+          throw lastEngineError || new Error('No Try-On image service is available. Please ask our staff for help.');
         }
         imageReadyAt = Date.now();
         if (rawBuffer) {

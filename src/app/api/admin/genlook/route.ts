@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 /** TryFocus admin only: GenLook's balance, the credits locked to each store, and what is still free. */
 export async function GET(req: NextRequest) {
   if (!verifyAdminRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in to TryFocus admin.' }, { status: 401 });
   }
   // Credits still locked to stores: each store's GenLook allowance minus what it used.
   const workspaces = await listClientWorkspaces();

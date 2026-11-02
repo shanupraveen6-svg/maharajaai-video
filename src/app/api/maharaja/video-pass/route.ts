@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     const hasValidBillingCode = body.billingCode === workspace.billingCode;
     if (!verifyOperatorRequest(req) && !hasValidBillingCode && !isKioskHandoff) {
       return NextResponse.json(
-        { success: false, error: 'Authenticated biller or kiosk access is required to generate customer passes.' },
+        { success: false, error: 'Please sign in to create a customer QR.' },
         { status: 401 }
       );
     }
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'AI Video is paused right now. Please ask our staff for help.' }, { status: 403 });
     }
     if (!isKioskHandoff && body.billingCode !== workspace.billingCode) {
-      return NextResponse.json({ success: false, error: 'Invalid Maharaja billing-counter link.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'This counter link is no longer valid. Ask TryFocus for a new one.' }, { status: 403 });
     }
     // AI Video QRs come only from the billing counter, one per customer; an old printed poster would let
     // anyone skip the bill, so it no longer opens a pass.

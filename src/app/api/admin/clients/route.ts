@@ -100,7 +100,7 @@ async function applyLogin(clientId: string, body: { loginUsername?: unknown; log
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in to TryFocus admin.' }, { status: 401 });
   }
   try {
     const clientId = req.nextUrl.searchParams.get('clientId');
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!verifyAdminRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in to TryFocus admin.' }, { status: 401 });
   }
   try {
     const body = await req.json();
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   if (!verifyAdminRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in to TryFocus admin.' }, { status: 401 });
   }
   try {
     const body = await req.json();

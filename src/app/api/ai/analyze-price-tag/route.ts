@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     if (ENFORCE_REPEAT_LIMITS) {
       const existing = await getTryOnDeviceStatus(body.deviceId);
-      if (existing?.status === 'used') return NextResponse.json({ success: false, error: 'This device has already completed its Maharaja AI Try-On.' }, { status: 409 });
+      if (existing?.status === 'used') return NextResponse.json({ success: false, error: 'You’ve used your free look on this phone.' }, { status: 409 });
       if (existing?.status === 'processing') return NextResponse.json({ success: false, error: 'A Try-On is already being generated on this device.' }, { status: 409 });
     }
 

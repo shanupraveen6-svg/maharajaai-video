@@ -24,7 +24,7 @@ function cleanDisplayText(value: unknown, fallback: string): string {
 export async function POST(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized operator session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
 
   const body = await req.json().catch(() => null);
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         const session = sessionDoc.data();
         const job = jobDoc.data();
         if (!session || !job || job.sessionId !== sessionId || job.status !== 'ready' || !job.videoStoragePath) {
-          throw new Error('Only an already completed stored video can be recovered to Maharaja TV.');
+          throw new Error('Only a finished video can be restored to the Go Live screen.');
         }
         if (queueDoc.exists) {
           const existing = queueDoc.data() || {};
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
         const liveStoragePath = String(job.liveVideoStoragePath || session.liveVideoStoragePath || videoDoc.data()?.liveStoragePath || '');
         const hasFinalLiveAsset = Boolean(liveStoragePath);
         const nextQueueNumber = Number(screenDoc.data()?.lastQueueNumber || 0) + 1;
-        const customerName = cleanDisplayText(session.customerName, 'Maharaja Guest');
+        const customerName = cleanDisplayText(session.customerName, 'Guest');
         const customerLocality = cleanDisplayText(session.customerLocality, 'தஞ்சாவூர்');
 
         transaction.set(videoRef, {
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
       const session = store.sessions.get(sessionId);
       const job = store.sessions.get(`video_test_${jobId}`);
       if (!session || !job || job.sessionId !== sessionId || job.status !== 'ready' || !job.videoStoragePath) {
-        return NextResponse.json({ success: false, error: 'Only an already completed stored video can be recovered to Maharaja TV.' }, { status: 409 });
+        return NextResponse.json({ success: false, error: 'Only a finished video can be restored to the Go Live screen.' }, { status: 409 });
       }
       const existing = store.liveQueue.find((item: any) => item.id === queueId) as any;
       if (existing) {
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (created) {
-      await logMaharajaActivity('go-live', `Operator recovery queued for Maharaja TV #${queueNumber || '?'}`, {
+      await logMaharajaActivity('go-live', `Restored to the Go Live screen #${queueNumber || '?'}`, {
         sessionId,
         jobId,
         queueId,

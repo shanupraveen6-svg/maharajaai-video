@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     const bucket = getStorageBucket();
-    if (!bucket) return NextResponse.json({ success: false, error: 'Firebase Storage is unavailable.' }, { status: 503 });
+    if (!bucket) return NextResponse.json({ success: false, error: 'Storage is unavailable right now. Please try again shortly.' }, { status: 503 });
     const image = decodeJpeg(body?.dataUrl);
     await bucket.file(storagePath).save(image, {
       resumable: false,

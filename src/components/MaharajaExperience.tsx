@@ -405,7 +405,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         setStage('ready');
       } catch (caught) {
         if (!active) return;
-        setError(customerError(caught, 'Unable to verify this Maharaja QR.'));
+        setError(customerError(caught, 'We couldn’t open this QR. Please ask the store for a new one.'));
         setStage('ready');
       }
     }
@@ -712,7 +712,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       setGenerationProgress(100);
       await new Promise((resolve) => window.setTimeout(resolve, 450));
     } catch (caught) {
-      setError(customerError(caught, 'The AI image could not be generated. Please ask Maharaja staff for assistance.'));
+      setError(customerError(caught, 'We couldn’t create your image. Please try again, or ask our staff for help.'));
     } finally {
       progressTimers.forEach((timer) => window.clearTimeout(timer));
       setStage('ready');
@@ -808,7 +808,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       if (data.status === 'ready' && data.videoUrl) {
         setVideoTestUrl(data.videoUrl);
         setGenerationProgress(100);
-        setMessage('Your cinematic video is ready. Review, download or send it to Maharaja TV.');
+        setMessage('Your video is ready. Watch it, download it, or send it to the store’s Go Live screen.');
         await new Promise((resolve) => window.setTimeout(resolve, 500));
         setStage('result');
         return;

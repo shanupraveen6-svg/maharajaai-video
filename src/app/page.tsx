@@ -28,10 +28,10 @@ async function storeList(): Promise<Array<{ id: string; name: string; location: 
 }
 
 const capabilities = [
-  ['01', 'Virtual try-on', 'Turn a shopper photo and garment reference into an immediate, downloadable retail try-on.', Camera],
-  ['02', 'Cinematic retail video', 'Create event-led customer films with controlled identity, garment detail and brand presentation.', CirclePlay],
-  ['03', 'Showroom live', 'Move approved customer films into a managed television queue and an always-on replay library.', MonitorPlay],
-  ['04', 'Store intelligence', 'Track scans, successful generations, retries, downloads and participation from one workspace.', BarChart3],
+  ['01', 'Try-On', 'A shopper’s photo and your garment become a realistic, downloadable look in seconds.', Camera],
+  ['02', 'AI Video', 'A short festive film of the shopper in your piece, made on their own phone.', CirclePlay],
+  ['03', 'Go Live', 'Customer videos play on your showroom screen, between your own promos, with their consent.', MonitorPlay],
+  ['04', 'Insights', 'Scans, looks, downloads and customer leads, in one workspace.', BarChart3],
 ] as const;
 
 /** The calculator gets only package totals per credit count (rules in pricing.ts), never per-credit prices. */
@@ -51,10 +51,10 @@ const pricingConfig: PricingCalculatorConfig = {
 };
 
 const principles = [
-  'Client-isolated workspaces',
-  'Consent-led showroom publishing',
-  'Usage and retry controls',
-  'Automatic media retention rules',
+  'A private workspace for every store',
+  'Customer consent before anything is shown',
+  'Credit and retry controls',
+  'Photos deleted after download',
 ];
 
 export default async function LandingPage() {
@@ -96,24 +96,24 @@ export default async function LandingPage() {
         <div className="mx-auto grid max-w-7xl grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div className="flex flex-col justify-center border-line px-5 py-6 sm:py-8 md:px-8 lg:border-r lg:py-6 xl:py-8">
             <h1 className="mt-3 max-w-3xl text-3xl font-bold leading-[1.08] sm:text-4xl lg:text-[2.65rem] xl:text-[3.1rem] tracking-tight">
-              TryFocus turns a store visit into a customer experience.
+              Let every shopper see your collection on themselves.
             </h1>
             <p className="mt-3.5 max-w-2xl text-sm sm:text-base leading-6 sm:leading-7 text-muted">
-              A client-managed platform for virtual try-on, personalized retail films, QR journeys and showroom screens. Designed for fashion stores that want measurable engagement without adding friction at the counter.
+              Virtual try-on for fashion retail. Shoppers scan your QR, see your outfits on their own photo in seconds, and share the look. You get engagement, customer leads and clear numbers, in one workspace.
             </p>
             <div className="mt-6 xl:mt-8 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-4 text-xs font-bold text-muted">
-              <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /> Client-isolated</span>
-              <span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-brand" /> Consent-led</span>
-              <span className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-brand" /> Usage-controlled</span>
+              <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /> Private by design</span>
+              <span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-brand" /> Consent first</span>
+              <span className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-brand" /> Pay as you go</span>
             </div>
           {/* Store selector: staff open their own workspace. */}
           <div id="client-access" className="mt-6 max-w-md rounded-2xl border border-line bg-white p-4 shadow-sm">
               <div className="mb-2 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xs sm:text-sm font-bold text-ink">Select your store workspace</h2>
+                  <h2 className="text-xs sm:text-sm font-bold text-ink">Store sign-in</h2>
                 </div>
                 <span className="inline-flex items-center gap-1 rounded border border-[#D0D6D0] bg-white px-2 py-0.5 text-xs font-bold text-muted">
-                  <LockKeyhole className="h-2.5 w-2.5 text-brand" /> Staff Access
+                  <LockKeyhole className="h-2.5 w-2.5 text-brand" /> Staff only
                 </span>
               </div>
 
@@ -146,17 +146,17 @@ export default async function LandingPage() {
                   id="continue-to-login-btn"
                   className="rounded-xl flex min-h-10 w-full items-center justify-center gap-2 bg-brand px-4 text-xs sm:text-sm font-bold text-white shadow-sm transition hover:bg-[#5D0F1F] active:scale-[0.99] cursor-pointer"
                 >
-                  <span>Open Store Workspace</span>
+                  <span>Continue</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </form>
 
               <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 border-t border-[#E4E8E4] pt-2 text-xs sm:text-xs font-medium text-[#68716C]">
                 <span className="flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5 text-[#3D8A5E]" /> Client-isolated data
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#3D8A5E]" /> Your data stays yours
                 </span>
                 <span className="flex items-center gap-1">
-                  <MonitorPlay className="h-3.5 w-3.5 text-brand" /> TV showroom connected
+                  <MonitorPlay className="h-3.5 w-3.5 text-brand" /> Phone, tablet and TV
                 </span>
               </div>
             </div>
@@ -185,8 +185,8 @@ export default async function LandingPage() {
       <section id="platform" className="border-b border-line bg-white">
         <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
           <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr]">
-            <div><p className="text-xs font-bold text-brand">One operating system</p><h2 className="mt-4 max-w-md text-4xl font-bold leading-tight">From fitting-room curiosity to measurable retail engagement.</h2></div>
-            <p className="max-w-2xl self-end text-base leading-7 text-muted">TryFocus connects the shopper experience, billing counter, client workspace and showroom display. Each part works as one controlled flow instead of a collection of disconnected AI tools.</p>
+            <div><p className="text-xs font-bold text-brand">One platform</p><h2 className="mt-4 max-w-md text-4xl font-bold leading-tight">From curiosity to purchase, measured.</h2></div>
+            <p className="max-w-2xl self-end text-base leading-7 text-muted">TryFocus connects the shopper’s phone, your counter, your showroom screen and your workspace in one flow, not a set of disconnected AI tools.</p>
           </div>
           <div className="mt-12 grid grid-cols-1 border-l border-t border-line sm:grid-cols-2 lg:grid-cols-4">
             {capabilities.map(([number, title, copy, Icon]) => (
@@ -202,8 +202,8 @@ export default async function LandingPage() {
       <section id="pricing" className="border-b border-line bg-canvas">
         <div className="mx-auto max-w-5xl px-5 py-16 md:px-8 md:py-20">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl font-bold leading-tight text-ink sm:text-4xl">TV, tablet or phone?</h2>
-            <p className="mt-4 text-sm leading-7 text-muted sm:text-base">Pick your platform, choose your credits and see your total. Software is a one-time payment; credits are pay as you go.</p>
+            <h2 className="text-3xl font-bold leading-tight text-ink sm:text-4xl">Choose your platform</h2>
+            <p className="mt-4 text-sm leading-7 text-muted sm:text-base">Pick a platform and credits to see your total. Software is a one-time payment; credits are pay as you go.</p>
           </div>
 
           {offerOn && <NovemberOffer variant="card" />}
@@ -214,7 +214,7 @@ export default async function LandingPage() {
 
       <section id="operations" className="border-b border-[#303633] bg-[#171B19] text-white">
         <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-2">
-          <div><p className="text-xs font-bold text-[#D9A9B4]">Built for store operations</p><h2 className="mt-4 max-w-xl text-4xl font-bold leading-tight">Customer-facing creativity. Manager-level control.</h2><p className="mt-5 max-w-xl text-base leading-7 text-[#B8C0BB]">Every client receives a separate workspace for campaign status, permanent try-on QR, customer video access, usage, retries and approved showroom content.</p></div>
+          <div><p className="text-xs font-bold text-[#D9A9B4]">Built for store operations</p><h2 className="mt-4 max-w-xl text-4xl font-bold leading-tight">Customer-facing creativity. Manager-level control.</h2><p className="mt-5 max-w-xl text-base leading-7 text-[#B8C0BB]">Every store gets its own workspace: Wall QR, catalogue, credits, customer leads and showroom content.</p></div>
           <div className="grid gap-px bg-[#3A423E] sm:grid-cols-2">
             {principles.map((item) => <div key={item} className="flex min-h-28 items-center gap-3 bg-[#171B19] p-5"><Check className="h-4 w-4 shrink-0 text-[#D9A9B4]" /><p className="text-sm font-bold">{item}</p></div>)}
           </div>
@@ -224,8 +224,8 @@ export default async function LandingPage() {
       <section className="border-b border-line bg-white">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-5 py-14 text-center md:flex-row md:px-8 md:text-left">
           <div>
-            <h2 className="mt-2 text-2xl sm:text-3xl font-bold leading-tight text-ink">Ready to open your store workspace?</h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-muted">Access is restricted to approved retail store operators and management staff.</p>
+            <h2 className="mt-2 text-2xl sm:text-3xl font-bold leading-tight text-ink">Already a TryFocus store?</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-muted">Sign in to your workspace. For store staff only.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <a href="#client-access" className="rounded-xl inline-flex min-h-12 items-center gap-2 bg-brand px-6 text-sm font-bold text-white transition hover:bg-[#5D0F1F] shadow-sm">

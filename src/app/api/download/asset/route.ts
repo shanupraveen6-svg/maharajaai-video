@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, leadRequired: true, error: 'Enter your WhatsApp number to download.' }, { status: 428 });
       }
       void countLeadDownload(lead.leadId).catch(() => undefined);
+      // Files are named after the store that made them, never another store.
+      const fileStem = `${(access.workspace.clientName || 'tryfocus').replace(/^The\s+/i, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'tryfocus'}-${String(sessionId).slice(-8)}`;
 
       if (kind === 'bundle') {
         if (typeof jobId !== 'string' || !jobId) return NextResponse.json({ success: false, error: 'A completed video job is required.' }, { status: 400 });
@@ -117,14 +119,14 @@ export async function POST(req: NextRequest) {
         }
         const image = Buffer.from(await applyMaharajaWatermark(Buffer.from(storedImage)));
         const zip = createStoredZip([
-          { name: `Maharaja-${sessionId}.jpg`, data: image },
-          { name: `Maharaja-${sessionId}.mp4`, data: Buffer.from(storedVideo) },
+          { name: `${fileStem}.jpg`, data: image },
+          { name: `${fileStem}.mp4`, data: Buffer.from(storedVideo) },
         ]);
         // Downloaded: the QR and its media are wiped within minutes (Go Live keeps its own day).
         runAfter(() => expirePassAfterDownload(access.pass!.code, sessionId).catch(() => undefined));
         return new NextResponse(zip as any, { headers: {
           'Content-Type': 'application/zip',
-          'Content-Disposition': `attachment; filename="Maharaja-${sessionId}.zip"`,
+          'Content-Disposition': `attachment; filename="${fileStem}.zip"`,
           'Cache-Control': 'private, no-store',
           'X-Content-Type-Options': 'nosniff',
         } });
@@ -164,7 +166,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse(buffer as any, {
         headers: {
           'Content-Type': contentType,
-          'Content-Disposition': `attachment; filename="Maharaja-${sessionId}.${extension}"`,
+          'Content-Disposition': `attachment; filename="${fileStem}.${extension}"`,
           'Cache-Control': 'private, no-store',
           'X-Content-Type-Options': 'nosniff',
         },
@@ -183,7 +185,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Download host is not allowed.' }, { status: 400 });
     }
     if (!parsed.hostname.includes('localhost') && !isMaharajaAsset(parsed)) {
-      return NextResponse.json({ success: false, error: 'Download asset is outside the Maharaja workspace.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'This file does not belong to your store.' }, { status: 403 });
     }
     const upstream = await fetch(parsed.toString(), { cache: 'no-store' });
     if (!upstream.ok || !upstream.body) {

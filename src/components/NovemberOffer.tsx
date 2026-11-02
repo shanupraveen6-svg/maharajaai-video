@@ -38,9 +38,9 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
   const trigger = variant === 'strip' ? (
     <button type="button" onClick={() => setOpen(true)} className="tf-offer-strip relative flex w-full items-center justify-center gap-2 overflow-hidden bg-gradient-to-r from-[#B8860B] via-[#F3D36B] to-[#B8860B] px-4 py-2.5 text-center text-xs font-bold text-[#2A060C] sm:text-sm">
       <span className="relative flex h-2.5 w-2.5 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7A1428] opacity-75" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#7A1428]" /></span>
-      <span>Free in November: the Phone Try-On platform for ₹0 + 60 free Try-Ons.</span>
-      {daysLeft !== null && <span className="hidden rounded-full bg-[#2A060C] px-2.5 py-0.5 text-[#F3E5AB] sm:inline">{daysLeft === 1 ? 'Last day' : `${daysLeft} days left`}</span>}
-      <span className="hidden underline underline-offset-4 md:inline">Claim it</span>
+      <span>November offer: Phone Try-On is free this month, with 60 Try-Ons included.</span>
+      {daysLeft !== null && <span className="hidden rounded-full bg-[#2A060C] px-2.5 py-0.5 text-[#F3E5AB] sm:inline">{daysLeft === 1 ? 'Ends today' : `${daysLeft} days left`}</span>}
+      <span className="hidden underline underline-offset-4 md:inline">See offer</span>
     </button>
   ) : (
     <button
@@ -54,11 +54,11 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
 
       <span className="relative flex flex-wrap items-center gap-2">
         <span className="tf-offer-pulse inline-flex items-center gap-1.5 rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[#2A060C]">
-          <Sparkles className="h-3.5 w-3.5" /> Limited November offer
+          <Sparkles className="h-3.5 w-3.5" /> November offer
         </span>
         {daysLeft !== null && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#D4AF37]/60 px-3 py-1 text-xs font-bold text-[#F3E5AB]">
-            <Clock className="h-3.5 w-3.5" /> {daysLeft === 1 ? 'Ends tonight' : `Only ${daysLeft} days left`}
+            <Clock className="h-3.5 w-3.5" /> {daysLeft === 1 ? 'Ends today' : `${daysLeft} days left`}
           </span>
         )}
       </span>
@@ -69,10 +69,10 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
             <span className="text-6xl font-extrabold leading-none text-[#F3D36B] drop-shadow sm:text-7xl">₹0</span>
             <span className="text-2xl font-bold text-white/55 line-through decoration-[#D4AF37] decoration-2">{PHONE_SOFTWARE_FEE}</span>
           </span>
-          <span className="mt-3 block text-2xl font-extrabold leading-tight sm:text-3xl">Phone Try-On free all November</span>
-          <span className="mt-2 block max-w-xl text-[15px] text-[#F3E5AB]/85">Your customers scan your Wall QR and see your outfits on themselves, on their own phones. Start free today.</span>
+          <span className="mt-3 block text-2xl font-extrabold leading-tight sm:text-3xl">Phone Try-On, free through November</span>
+          <span className="mt-2 block max-w-xl text-[15px] text-[#F3E5AB]/85">Shoppers scan your Wall QR and see your collection on themselves, on their own phones. Start today at no cost.</span>
           <span className="mt-5 flex flex-wrap gap-2">
-            {['No service charge', '60 free Try-Ons', 'Top up anytime'].map((chip) => (
+            {['No software fee', '60 Try-Ons included', 'Top up anytime'].map((chip) => (
               <span key={chip} className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-sm font-semibold text-white ring-1 ring-white/15">
                 <Check className="h-4 w-4 text-[#F3D36B]" /> {chip}
               </span>
@@ -82,7 +82,7 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
         <span className="flex flex-col items-start gap-2 sm:items-center">
           <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#D4AF37]/15 text-[#F3D36B] ring-1 ring-[#D4AF37]/40"><Smartphone className="h-10 w-10" /></span>
           <span className="inline-flex min-h-14 items-center gap-2 rounded-2xl bg-[#F3D36B] px-6 text-base font-extrabold text-[#2A060C] shadow-lg transition group-hover:bg-white">
-            Claim free November <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
+            Start free <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
           </span>
         </span>
       </span>
@@ -105,16 +105,16 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="inline-block rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-bold text-[#2A060C]">November offer</span>
-                <h2 id="november-offer-title" className="mt-3 text-2xl font-extrabold"><span className="text-brand">₹0</span> · Phone Try-On free all November</h2>
-                {daysLeft !== null && <p className="mt-1 text-sm font-semibold text-muted">{daysLeft === 1 ? 'Ends tonight' : `Only ${daysLeft} days left`}</p>}
+                <h2 id="november-offer-title" className="mt-3 text-2xl font-extrabold">Phone Try-On, free through November</h2>
+                {daysLeft !== null && <p className="mt-1 text-sm font-semibold text-muted">{daysLeft === 1 ? 'Ends today' : `${daysLeft} days left`}</p>}
               </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line-strong"><X className="h-5 w-5" /></button>
             </div>
             <ul className="mt-5 space-y-3 text-[15px]">
               {[
-                `No software service charge in November (usually ${PHONE_SOFTWARE_FEE}).`,
-                '60 Try-On credits free to use.',
-                'After the 60, top up any time: credits are pay as you go.',
+                `No software fee in November (regularly ${PHONE_SOFTWARE_FEE}).`,
+                '60 Try-Ons included.',
+                'Need more? Top up anytime and pay only for what you use.',
               ].map((line) => (
                 <li key={line} className="flex gap-3">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success-soft text-success"><Check className="h-4 w-4" /></span>
@@ -122,11 +122,11 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
                 </li>
               ))}
             </ul>
-            <p className="mt-4 text-sm text-muted">From December, the Phone platform&apos;s {PHONE_SOFTWARE_FEE} software service charge applies.</p>
+            <p className="mt-4 text-sm text-muted">From December, the standard {PHONE_SOFTWARE_FEE} Phone package applies.</p>
             <a href={`tel:${SALES_PHONE}`} className="tf-btn tf-btn-primary mt-6 !min-h-14 w-full text-base">
-              <Phone className="h-5 w-5" /> Call now: {SALES_PHONE}
+              <Phone className="h-5 w-5" /> Call sales: {SALES_PHONE}
             </a>
-            <p className="mt-2 text-center text-xs text-muted">Contact sales to start your free November.</p>
+            <p className="mt-2 text-center text-xs text-muted">Our team sets up your store and Wall QR for you.</p>
           </div>
         </div>
       )}

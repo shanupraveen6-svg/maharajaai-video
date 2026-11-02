@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     const limit = Number(req.nextUrl.searchParams.get('limit') || '60');
     const requestedInactive = req.nextUrl.searchParams.get('includeInactive') === 'true';
     if (requestedInactive && !verifyOperatorRequest(req)) {
-      return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
     }
     const catalogue = await listCatalogueProducts(
       Number.isFinite(offset) ? offset : 0,
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
   try {
     const body = await req.json();
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
   try {
     const body = await req.json();
@@ -106,7 +106,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized Maharaja operator session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
   try {
     const sku = req.nextUrl.searchParams.get('sku') || '';

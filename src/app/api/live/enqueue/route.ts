@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
     await Promise.allSettled([
       incrementPassUsage(accessCode, 'goLive'),
       incrementMaharajaUsage('goLive'),
-      logMaharajaActivity('go-live', `AI Video queued for Maharaja TV #${queueNumber || '?'}`, {
+      logMaharajaActivity('go-live', `AI Video queued for the Go Live screen #${queueNumber || '?'}`, {
         sessionId,
         jobId,
         queueId,

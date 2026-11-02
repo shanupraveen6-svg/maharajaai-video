@@ -270,7 +270,7 @@ export default function MaharajaAdminDashboard({
         throw new Error(data.error || 'Unable to update Maharaja settings.');
       }
       setWorkspace(data.workspace);
-      setNotice('Store configuration saved.');
+      setNotice('Saved.');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to update settings.');
     } finally {
@@ -407,7 +407,7 @@ export default function MaharajaAdminDashboard({
             Sign in to manage your store
           </h1>
           <p className="mt-3 text-sm text-muted">
-            Access devices, QR handoffs, catalogue publishing, campaigns and the video library from one private workspace.
+            Your Wall QR, catalogue, credits and customer videos, in one private workspace.
           </p>
           <button
             type="button"
@@ -433,10 +433,10 @@ export default function MaharajaAdminDashboard({
       <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-ink">
         <div className="rounded-2xl max-w-md border border-line bg-canvas p-8 text-center">
           <h1 className="mt-2 text-3xl font-bold">
-            Workspace Not Found
+            Workspace not found
           </h1>
           <p className="mt-3 text-sm text-muted">
-            Check the workspace URL with your TryFocus administrator.
+            Check the link with TryFocus.
           </p>
         </div>
       </main>
@@ -584,7 +584,7 @@ export default function MaharajaAdminDashboard({
         <section className="grid gap-6 lg:grid-cols-[1fr_1fr] [&>*]:min-w-0">
           <div className="tf-card p-6">
             <h2 className="text-lg font-bold">Credits left</h2>
-            <p className="mt-1 text-sm text-muted">Your plan’s allowance for each experience.</p>
+            <p className="mt-1 text-sm text-muted">What’s left in your plan.</p>
             <div className="mt-5 space-y-5">
               {credits.filter((item) => item.level !== 'none').map(({ label, used, limit, pct, level }) => (
                 <div key={label}>

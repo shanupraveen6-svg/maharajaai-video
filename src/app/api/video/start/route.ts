@@ -20,9 +20,9 @@ const MAX_VIDEO_REFERENCE_BYTES = 12 * 1024 * 1024;
 
 async function downloadValidatedReference(sourcePath: string, label: string, allowedCataloguePath = '') {
   const expectedPrefix = `clients/${activeClientId()}/sessions/`;
-  if (!sourcePath.startsWith(expectedPrefix) && sourcePath !== allowedCataloguePath) throw new Error(`${label} path is outside this Maharaja session.`);
+  if (!sourcePath.startsWith(expectedPrefix) && sourcePath !== allowedCataloguePath) throw new Error(`This ${label.toLowerCase()} does not belong to this session.`);
   const bucket = getStorageBucket();
-  if (!bucket) throw new Error('Firebase Storage is unavailable.');
+  if (!bucket) throw new Error('Storage is unavailable right now. Please try again shortly.');
   const file = bucket.file(sourcePath);
   const [objectMetadata] = await file.getMetadata();
   const contentType = String(objectMetadata.contentType || '').toLowerCase();

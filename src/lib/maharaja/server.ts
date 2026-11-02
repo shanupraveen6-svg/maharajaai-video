@@ -2674,7 +2674,7 @@ function evaluateImageLock(
   now: number,
   forceRegenerate: boolean = false
 ): ImageLockResult {
-  if (!pass) return { ok: false, error: 'This Maharaja experience link is invalid or expired.' };
+  if (!pass) return { ok: false, error: 'This link has expired. Please ask the store for a new QR.' };
   if (!forceRegenerate) {
     if (service === 'try-on' && pass.tryOnImageDone && pass.tryOnImageUrl) {
       return { ok: true, existingUrl: pass.tryOnImageUrl };
@@ -2910,13 +2910,13 @@ export async function verifyMaharajaAccess(
     }
     if (pass) {
       if (pass.expiresAtMs < Date.now()) {
-        return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
+        return { allowed: false as const, error: 'This link has expired. Please ask the store for a new QR.' };
       }
       return { allowed: true as const, clientId: resolvedClientId, pass, workspace, entitlement, allowances };
     }
     return (req?.headers && await verifyTvRequest(req))
       ? { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances }
-      : { allowed: false as const, error: 'This Maharaja Try-On QR is invalid or expired. Please scan the Maharaja QR again.' };
+      : { allowed: false as const, error: 'This Try-On link is not valid. Please scan the store’s QR again.' };
   }
 
   // service === 'ai-video'
@@ -2925,7 +2925,7 @@ export async function verifyMaharajaAccess(
 
   if (pass) {
     if (pass.expiresAtMs < Date.now()) {
-      return { allowed: false as const, error: 'This Maharaja AI experience link has expired. Please contact the billing counter.' };
+      return { allowed: false as const, error: 'This link has expired. Please ask the store for a new QR.' };
     }
     // Note: Do not block access if pass has completed video (pass.status === 'used' or videoDone);
     // Customer retains the right to view, download, or use an included retry.

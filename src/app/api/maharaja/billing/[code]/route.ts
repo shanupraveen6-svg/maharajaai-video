@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
   bindClient(await resolveRequestClientId(req, code));
   const workspace = await resolveWorkspaceByAccessCode(code);
   if (code !== workspace.billingCode) {
-    return NextResponse.json({ success: false, error: 'Invalid Maharaja billing-counter link.' }, { status: 403 });
+    return NextResponse.json({ success: false, error: 'This counter link is no longer valid. Ask TryFocus for a new one.' }, { status: 403 });
   }
   const authenticated = verifyOperatorRequest(req);
   return NextResponse.json({

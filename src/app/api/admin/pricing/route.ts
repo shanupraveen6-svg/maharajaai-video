@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(req: NextRequest) {
   if (!verifyAdminRequest(req)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized TryFocus admin session.' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please sign in to TryFocus admin.' }, { status: 401 });
   }
   const params = req.nextUrl.searchParams;
   const platform = params.get('platform') as Platform;

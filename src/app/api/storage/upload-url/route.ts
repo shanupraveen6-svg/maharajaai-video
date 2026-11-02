@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!/^maharaja_[a-zA-Z0-9_-]{8,100}$/.test(sessionId)) {
-      return NextResponse.json({ success: false, error: 'Invalid media session.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Please reload the page and try again.' }, { status: 400 });
     }
 
     if (!['image/jpeg', 'image/png'].includes(contentType)) {

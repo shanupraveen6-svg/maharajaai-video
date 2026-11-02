@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
     const deviceId = req.nextUrl.searchParams.get('deviceId');
     // A video pass belongs to the first phone that opens it.
     if (service === 'ai-video' && access.pass && validTryOnDeviceId(deviceId) && !await claimPassDevice(access.pass.code, deviceId)) {
-      return NextResponse.json({ success: false, error: 'This video pass is already in use on another phone.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'This QR is already open on another phone.' }, { status: 403 });
     }
     // The first scan of the Wall QR records this phone; its one Try-On belongs to it.
     const phoneTryOn = service === 'try-on' && !access.pass && code === workspace.tryOnCode;

@@ -33,7 +33,7 @@ export default function MaharajaCatalogueGiftPage() {
     ])
       .then(([catalogue, access]) => {
         if (access.access.experienceType !== 'catalogue-gift') {
-          throw new Error('This is not a Maharaja Catalogue / Giveaway link.');
+          throw new Error('This link is not valid. Please ask the store for a new one.');
         }
         setProducts(catalogue.products || []);
         setTotalProducts(Number(catalogue.total || 0));
