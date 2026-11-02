@@ -5,6 +5,8 @@ import {
   LockKeyhole, MonitorPlay, Phone, ShieldCheck, Sparkles, Store,
 } from 'lucide-react';
 import PricingCalculator, { type PricingCalculatorConfig } from '@/components/PricingCalculator';
+import NovemberOffer from '@/components/NovemberOffer';
+import { novemberOfferActive } from '@/lib/tryfocus/november-offer';
 import {
   CREDIT_LABELS, CREDIT_RANGE, CREDIT_VALIDITY_MONTHS, GST_RATE, PLATFORMS, PLATFORM_LABELS, PLATFORM_MODULES,
   PRESETS, SOFTWARE_FEE, moduleTotalsTable,
@@ -55,8 +57,11 @@ const principles = [
 
 export default async function LandingPage() {
   const stores = await storeList();
+  // The November Phone offer shows until 30 November 2026 (India time).
+  const offerOn = novemberOfferActive();
   return (
     <main className="min-h-screen bg-[#F4F5F2] text-ink">
+      {offerOn && <NovemberOffer variant="strip" />}
       <header className="border-b border-line bg-[#F4F5F2]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-between px-5 md:px-8">
           <Link href="/" className="rounded-xl flex items-center gap-3" aria-label="TryFocus home">
@@ -222,6 +227,8 @@ export default async function LandingPage() {
             <h2 className="text-3xl font-bold leading-tight text-ink sm:text-4xl">TV, tablet or phone?</h2>
             <p className="mt-4 text-sm leading-7 text-muted sm:text-base">Pick your platform, choose your credits and see your total. Software is a one-time payment; credits are pay as you go.</p>
           </div>
+
+          {offerOn && <NovemberOffer variant="card" />}
 
           <PricingCalculator config={pricingConfig} />
         </div>
