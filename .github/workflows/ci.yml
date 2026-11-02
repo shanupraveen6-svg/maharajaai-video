@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Tests run against the in-memory mock backend; no production credentials are used.
+      ALLOW_MOCK_BACKEND: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint (errors fail the build)
+        run: npx eslint src
+      - name: Test scripts
+        run: |
+          # These need a running server with real credentials and are run manually.
+          skip="test-e2e-flow test-live-provider test-qr-handoffs"
+          for file in scripts/test-*.mjs; do
+            name=$(basename "$file" .mjs)
+            case " $skip " in *" $name "*) echo "skip $name"; continue;; esac
+            echo "::group::$name"
+            node "$file"
+            echo "::endgroup::"
+          done
