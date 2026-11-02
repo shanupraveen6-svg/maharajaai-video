@@ -51,17 +51,25 @@ const PRICE_BANDS: Record<CreditModule, Array<[number, number]>> = {
 };
 
 /**
- * The Phone package: one ₹20,000 payment (the software service charge) that includes 1,000 Try-On
- * credits plus 15% for customer retries (1,150 in all). Extra credits are pay as you go at the Try-On rate.
+ * The Phone package: one ₹20,000 payment that includes 1,000 Try-Ons plus 15% for customer retries
+ * (1,150 in all). Top-ups are a flat ₹10 per Try-On, at least 500 at a time.
  */
 export const PHONE_PACKAGE = { fee: 20000, credits: 1000, retryPercent: 15 } as const;
 export const PHONE_PACKAGE_CREDITS = Math.round(PHONE_PACKAGE.credits * (1 + PHONE_PACKAGE.retryPercent / 100));
+/** Phone top-ups: a flat ₹10 per Try-On, at least 500 at a time, in steps of 500 (0 = no top-up). */
+export const PHONE_TOPUP_PRICE = 10;
+export const PHONE_TOPUP_MIN = 500;
 export const PHONE_EXTRA_RANGE = { min: 0, max: 5000, step: 500 } as const;
 
-/** Rupees for extra Phone credits beyond the package, for each allowed count. */
+/** Rupees for Phone top-up credits: a flat ₹10 each. */
+export function phoneTopUpTotal(count: number) {
+  return Math.max(0, Math.round(count)) * PHONE_TOPUP_PRICE;
+}
+
+/** Rupees for each allowed top-up size, for the calculator. */
 export function phoneExtraTotalsTable() {
   const table: Record<number, number> = {};
-  for (let count = PHONE_EXTRA_RANGE.min; count <= PHONE_EXTRA_RANGE.max; count += PHONE_EXTRA_RANGE.step) table[count] = moduleTotal('image', count);
+  for (let count = PHONE_EXTRA_RANGE.min; count <= PHONE_EXTRA_RANGE.max; count += PHONE_EXTRA_RANGE.step) table[count] = phoneTopUpTotal(count);
   return table;
 }
 
@@ -86,8 +94,10 @@ export function platformOfPackage(id: PackageId): Platform {
 export function clampCredit(platform: Platform, module: CreditModule, value: number) {
   if (!PLATFORM_MODULES[platform][module]) return 0;
   if (platform === 'phone' && module === 'image') {
-    // The package's 1,150 credits, plus extra credits in steps of 500.
-    const extra = Math.round(Math.max(0, (Number(value) || 0) - PHONE_PACKAGE_CREDITS) / PHONE_EXTRA_RANGE.step) * PHONE_EXTRA_RANGE.step;
+    // The package's 1,150 credits, plus top-ups of at least 500, in steps of 500.
+    const asked = Math.max(0, (Number(value) || 0) - PHONE_PACKAGE_CREDITS);
+    // Any top-up is rounded up to the next 500, so it is never below the 500 minimum.
+    const extra = asked > 0 ? Math.max(PHONE_TOPUP_MIN, Math.ceil(asked / PHONE_EXTRA_RANGE.step) * PHONE_EXTRA_RANGE.step) : 0;
     return PHONE_PACKAGE_CREDITS + Math.min(PHONE_EXTRA_RANGE.max, extra);
   }
   const { min, max, step } = CREDIT_RANGE[module];
@@ -141,7 +151,7 @@ export function quote(platform: Platform, credits: Partial<Credits>, { includeSo
   const clean = clampCredits(platform, credits);
   const moduleTotals: Credits = {
     // Phone: the package's credits come with the ₹20,000; only extra credits are added.
-    image: platform === 'phone' ? moduleTotal('image', clean.image - PHONE_PACKAGE_CREDITS) : clean.image ? moduleTotal('image', clean.image) : 0,
+    image: platform === 'phone' ? phoneTopUpTotal(clean.image - PHONE_PACKAGE_CREDITS) : clean.image ? moduleTotal('image', clean.image) : 0,
     video: clean.video ? moduleTotal('video', clean.video) : 0,
     live: clean.live ? moduleTotal('live', clean.live) : 0,
   };

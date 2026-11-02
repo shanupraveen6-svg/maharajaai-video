@@ -117,10 +117,10 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
       {isPhone ? (
       <div className="tf-card p-5 sm:p-6">
         <h3 className="text-xl font-bold text-ink">Phone package</h3>
-        <p className="mt-1 text-sm text-muted">{rupees(config.phonePackage.fee)} includes {config.phonePackage.credits.toLocaleString('en-IN')} Try-On credits plus {config.phonePackage.retryPercent}% for customer retries ({config.phonePackage.totalCredits.toLocaleString('en-IN')} in all). Need more? Add extra credits, pay as you go.</p>
+        <p className="mt-1 text-sm text-muted">{rupees(config.phonePackage.fee)} includes {config.phonePackage.credits.toLocaleString('en-IN')} Try-Ons plus {config.phonePackage.retryPercent}% for customer retries ({config.phonePackage.totalCredits.toLocaleString('en-IN')} in all). Need more? Top up at ₹10 per Try-On, from 500.</p>
         <div className="mt-6">
           <div className="flex items-baseline justify-between gap-3">
-            <label htmlFor="pricing-phone-extra" className="font-semibold text-ink">Extra Try-On credits (optional)</label>
+            <label htmlFor="pricing-phone-extra" className="font-semibold text-ink">Top-up Try-Ons (optional, ₹10 each)</label>
             <span className="tabular-nums text-lg font-bold text-ink">{phoneExtra.toLocaleString('en-IN')}</span>
           </div>
           <input
@@ -135,7 +135,7 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
             aria-valuetext={`${phoneExtra} extra Try-On credits`}
           />
           <div className="flex justify-between text-xs text-muted tabular-nums">
-            <span>None</span>
+            <span>None · minimum 500</span>
             <span>{config.phonePackage.extraRange.max.toLocaleString('en-IN')}</span>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
           {isPhone ? (
             phoneExtra > 0 && (
               <div className="flex items-baseline justify-between gap-4 text-muted">
-                <dt>{phoneExtra.toLocaleString('en-IN')} extra Try-On credits</dt>
+                <dt>{phoneExtra.toLocaleString('en-IN')} top-up Try-Ons × ₹10</dt>
                 <dd className="tabular-nums">{rupees(summary.creditsTotal)}</dd>
               </div>
             )

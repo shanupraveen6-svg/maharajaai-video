@@ -103,5 +103,9 @@ console.log('pricing: all checks passed');
   const extra = pricing.quote('phone', { image: 1150 + 500 });
   assert.equal(extra.credits.image, 1650);
   assert.equal(extra.creditsTotal, pricing.moduleTotal('image', 500), 'Extra credits are priced at the Try-On rate');
-  console.log('✓ Phone package: ₹20,000 with 1,150 Try-On credits, extras pay as you go');
+  // Top-ups: a flat ₹10 per Try-On, at least 500.
+  assert.equal(pricing.quote('phone', { image: 1150 + 500 }).creditsTotal, 5000);
+  assert.equal(pricing.quote('phone', { image: 1150 + 3000 }).creditsTotal, 30000, 'Flat ₹10, no bands');
+  assert.equal(pricing.clampCredits('phone', { image: 1150 + 200 }).image, 1650, 'A top-up is at least 500');
+  console.log('✓ Phone package: ₹20,000 with 1,150 Try-Ons; top-ups ₹10 each, from 500');
 }
