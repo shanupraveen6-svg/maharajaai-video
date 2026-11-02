@@ -56,11 +56,12 @@ const bucket = {
   deleteFiles: async ({ prefix }) => { deletions.push(prefix); },
 };
 const result = await cleanupExpiredSessions(db, bucket);
-assert.equal(result.deleted, 1);
-assert.equal(result.retainedForPromotion, 505);
+// Nothing is kept for promotion any more: expired Go Live videos are deleted after their day.
+assert.equal(result.deleted, 506);
+assert.equal(result.retainedForPromotion, 0);
 assert.equal(result.preservedLive, 2);
 assert.equal(result.failed, 0);
-assert.deepEqual(goLiveDeletes, ['maharaja/goLive/video_private-expired'], 'A deleted video also leaves its store\'s Go Live library');
+assert.ok(goLiveDeletes.includes('maharaja/goLive/video_private-expired') && goLiveDeletes.length === 506, 'A deleted video also leaves its store\'s Go Live library');
 assert.equal(handoffs.size, 0, 'Expired phone handoff records are deleted.');
 assert.equal(mirrorRecordings.size, 0, 'Expired Live Mirror videos are deleted.');
 assert.ok(deletions.includes('clients/sri-readymade/mirror-recordings/expired-mirror-video/'), 'A Live Mirror video is deleted from its own client folder.');

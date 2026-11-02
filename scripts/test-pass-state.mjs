@@ -83,8 +83,8 @@ const request = () => new NextRequest('http://localhost/api/live/enqueue', {
 });
 assert.equal((await enqueue(request())).status, 200);
 const liveExpiry = store.sessions.get(liveSession).expiresAt;
-assert.ok(new Date(liveExpiry).getTime() > Date.now() + 47 * 60 * 60 * 1000, 'One-minute pass still grants a full two-day live replay window.');
-assert.ok(new Date(liveExpiry).getTime() <= Date.now() + 48 * 60 * 60 * 1000, 'Live replay retention never exceeds two days.');
+assert.ok(new Date(liveExpiry).getTime() > Date.now() + 23 * 60 * 60 * 1000, 'A Go Live video gets its full one-day replay window.');
+assert.ok(new Date(liveExpiry).getTime() <= Date.now() + 24 * 60 * 60 * 1000, 'Go Live retention never exceeds one day.');
 assert.equal(store.sessions.get(liveSession).retentionPolicyVersion, 'live-v2');
 assert.equal((await enqueue(request())).status, 200);
 assert.equal(store.sessions.get(liveSession).expiresAt, liveExpiry, 'Duplicate Go Live must not extend retention.');

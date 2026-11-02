@@ -45,7 +45,7 @@ console.log('Fal Try-On input and no-double-call error paths passed without prov
   assert.deepEqual(tryOnEngineOrder('gemini,unknown,fal,fal'), ['gemini', 'fal'], 'Unknown and repeated names are ignored');
   const route = fs.readFileSync(new URL('../src/app/api/ai/master-image/route.ts', import.meta.url), 'utf8');
   assert.match(route, /tryOnEngineOrder\(\)/, 'The Try-On route follows the engine order');
-  assert.match(route, /if \(!canFallbackFromGenlook\(error\)\) \{\s*genlookOutcomeUncertain = true;\s*throw error;/, 'An uncertain GenLook outcome never falls through (no double charge)');
+  assert.match(route, /if \(!canFallbackFromGenlook\(error\)\) \{\s*(?:\/\/[^\n]*\s*)*genlookOutcomeUncertain = true;\s*throw error;/, 'An uncertain GenLook outcome never falls through (no double charge)');
   assert.match(route, /CONSENT_VERSIONS = \['2026-11-privacy-v4', '2026-10-privacy-v3'\]/, 'Screens open across a release keep working');
   const policy = fs.readFileSync(new URL('../src/app/privacy/page.tsx', import.meta.url), 'utf8');
   assert.match(policy, /GenLook, Fal\.ai or FASHN/);

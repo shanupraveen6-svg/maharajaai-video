@@ -26,7 +26,7 @@ await runWithClient('maharaja', async () => {
 
   const record = await recordings.confirmMirrorRecording(start.id, start.contentType, 'Kanchivaram saree · Lehenga');
   assert.equal(record.clientId, 'maharaja');
-  assert.ok(record.expiresAtMs > Date.now() + 23 * 60 * 60 * 1000, 'The video link lasts 1 day');
+  assert.ok(record.expiresAtMs > Date.now() + 55 * 60 * 1000 && record.expiresAtMs <= Date.now() + 60 * 60 * 1000, 'The video link lasts 1 hour');
 
   const read = await recordings.readMirrorRecording(start.id);
   assert.equal(read?.garmentTitle, 'Kanchivaram saree · Lehenga');
