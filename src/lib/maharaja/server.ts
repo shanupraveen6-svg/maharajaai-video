@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { FREE_TRIAL_IMAGE_CREDITS } from '@/lib/maharaja/pricing';
 import { getGenlookCredits } from '@/lib/maharaja/genlook-provider';
+import { resultExpiresAtIso, resultExpiresAtMs } from '@/lib/maharaja/retention';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { getOperatorSession, markClientSession, verifyOperatorRequest } from '@/lib/auth/operator';
@@ -2166,13 +2167,18 @@ export async function markPassVideoReady(code: string, jobId?: string) {
         console.warn(`Ignoring video ready from non-active job ${jobId}; active job is ${pass.activeVideoJobId || 'none'}`);
         return false;
       }
+      // The video is kept one hour: the customer's QR works until then (or its own earlier expiry).
+      const expiresAtMs = Math.min(Number(pass.expiresAtMs || Infinity), resultExpiresAtMs());
       tx.update(ref, {
         videoDone: true,
         videoGenerating: false,
         providerAccepted: false,
         lastVideoFailed: false,
+        expiresAtMs,
+        expiresAt: new Date(expiresAtMs).toISOString(),
         activeVideoJobId: FieldValue.delete(),
       });
+      tx.set(db.collection('customerPassIndex').doc(code), { expiresAtMs }, { merge: true });
       return true;
     });
     if (!markedReady) return;
@@ -2194,6 +2200,7 @@ export async function markPassVideoReady(code: string, jobId?: string) {
     videoGenerating: false,
     providerAccepted: false,
     lastVideoFailed: false,
+    expiresAtMs: Math.min(Number(pass.expiresAtMs || Infinity), resultExpiresAtMs()),
   };
   delete (copy as any).activeVideoJobId;
   getMockStore().customerPasses.set(key, copy);
@@ -2486,8 +2493,8 @@ export async function finalizeCompletedVideo({
           },
         });
 
-      const sUrlRes = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }).catch(() => null);
-      const lUrlRes = liveVideo ? await liveFile.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 }).catch(() => null) : null;
+      const sUrlRes = await file.getSignedUrl({ action: 'read', expires: resultExpiresAtMs() }).catch(() => null);
+      const lUrlRes = liveVideo ? await liveFile.getSignedUrl({ action: 'read', expires: resultExpiresAtMs() }).catch(() => null) : null;
       if (sUrlRes?.[0]) signedUrl = sUrlRes[0];
       if (lUrlRes?.[0]) liveSignedUrl = lUrlRes[0];
       const [customerExists] = await file.exists();
@@ -2540,7 +2547,7 @@ export async function finalizeCompletedVideo({
         videoUrl: signedUrl,
         videoStoragePath: storagePath,
         ...(liveVideo ? { liveVideoUrl: liveSignedUrl, liveVideoStoragePath: liveStoragePath } : {}),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        expiresAt: resultExpiresAtIso(),
         updatedAt: nowIso,
       }, { merge: true }),
     ]);
@@ -2568,7 +2575,7 @@ export async function finalizeCompletedVideo({
       videoUrl: signedUrl,
       videoStoragePath: storagePath,
       ...(liveVideo ? { liveVideoUrl: liveSignedUrl, liveVideoStoragePath: liveStoragePath } : {}),
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: resultExpiresAtIso(),
       updatedAt: nowIso,
     });
   }

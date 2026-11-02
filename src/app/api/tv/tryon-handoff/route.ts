@@ -1,3 +1,4 @@
+import { RESULT_LIFETIME_MS } from '@/lib/maharaja/retention';
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
@@ -11,7 +12,8 @@ import { customerRateLimit } from '@/lib/maharaja/config';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const LIFETIME_MS = 15 * 60 * 1000;
+// Kept one hour, the TryFocus standard for everything generated.
+const LIFETIME_MS = RESULT_LIFETIME_MS;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 
 type IncomingLook = {

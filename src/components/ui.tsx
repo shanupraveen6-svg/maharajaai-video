@@ -10,7 +10,8 @@ import type { ReactNode } from 'react';
 
 export function NavTabs<T extends string>({ options, value, onChange, label, size = 'md' }: {
   options: Array<{ value: T; label: ReactNode }>;
-  value: T;
+  /** null until the person picks one: nothing is pre-selected for them. */
+  value: T | null;
   onChange: (value: T) => void;
   label: string;
   size?: 'md' | 'lg';
@@ -34,7 +35,8 @@ export function NavTabs<T extends string>({ options, value, onChange, label, siz
 
 export function Segmented<T extends string>({ options, value, onChange, size = 'md', label }: {
   options: Array<{ value: T; label: ReactNode }>;
-  value: T;
+  /** null until the person picks one: nothing is pre-selected for them. */
+  value: T | null;
   onChange: (value: T) => void;
   size?: 'sm' | 'md' | 'lg';
   label?: string;

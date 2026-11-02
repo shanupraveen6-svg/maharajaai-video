@@ -50,6 +50,8 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   const [stage, setStage] = useState<Stage>('source');
   const [source, setSource] = useState<Source>('catalogue');
   const [audience, setAudience] = useState<CatalogueAudience>('women');
+  // Nothing is pre-selected: Who stays empty until the customer taps one.
+  const [audienceChosen, setAudienceChosen] = useState(false);
   const [category, setCategory] = useState<StoreCategory | null>(null);
   const [ownType, setOwnType] = useState<string>('');
   const [product, setProduct] = useState<TryFocusProduct | null>(null);
@@ -84,7 +86,11 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
       .then((data) => {
         if (!data?.success) return;
         setRetryUsed(Boolean(data.access?.retryUsed));
-        if (data.access?.tryOnUsed) setStage('done');
+        // Made a look within the last hour: that look is the only screen.
+        if (typeof data.access?.phoneLookUrl === 'string') {
+          setResultUrl(data.access.phoneLookUrl);
+          setStage('result');
+        } else if (data.access?.tryOnUsed) setStage('done');
       })
       .catch(() => undefined);
     fetchCatalogueSettings(accessCode).then((settings) => {
@@ -292,8 +298,8 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
             <PageTitle title={t('whoFor')} />
             <Segmented
               label={t('whoFor')}
-              value={audience}
-              onChange={(next) => { setAudience(next); setGuardianConsent(false); setStage('type'); }}
+              value={audienceChosen ? audience : null}
+              onChange={(next) => { setAudience(next); setAudienceChosen(true); setGuardianConsent(false); setStage('type'); }}
               options={(['women', 'men', 'boys', 'girls'] as const).map((value) => ({ value, label: t(value) }))}
             />
           </div>
@@ -413,7 +419,9 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
             ) : (
               // The look can be saved only through Download (WhatsApp number first): no long-press save.
               <div className="select-none overflow-hidden rounded-2xl [-webkit-touch-callout:none] [&_img]:pointer-events-none" onContextMenu={(event) => event.preventDefault()}>
-                <BeforeAfterSlider beforeImage={personPhoto} afterImage={resultUrl} beforeLabel={t('you')} afterLabel={t('newLook')} />
+                {personPhoto
+                  ? <BeforeAfterSlider beforeImage={personPhoto} afterImage={resultUrl} beforeLabel={t('you')} afterLabel={t('newLook')} />
+                  : <img src={resultUrl} alt={t('yourLook')} draggable={false} className="w-full rounded-2xl bg-white object-contain" />}
               </div>
             )}
             {note && <p role="alert" className="rounded-2xl bg-danger-soft p-3 text-sm font-semibold text-danger">{note}</p>}

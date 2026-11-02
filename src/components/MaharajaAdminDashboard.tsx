@@ -177,6 +177,7 @@ export default function MaharajaAdminDashboard({
   const [catalogue, setCatalogue] = useState<ManagedCatalogueItem[]>([]);
   const [catalogueLoading, setCatalogueLoading] = useState<boolean>(true);
   const [catGender, setCatGender] = useState<CatalogueAudience>('women');
+  const [catGenderChosen, setCatGenderChosen] = useState(false);
   const [catExperience, setCatExperience] = useState<CatalogueExperience>('tryon');
   const [catFilter, setCatFilter] = useState<CatalogueCategoryId>('sarees');
   const [cataloguePage, setCataloguePage] = useState(0);
@@ -382,8 +383,8 @@ export default function MaharajaAdminDashboard({
   const catCategories = useMemo(() => categoryOptionsFor(shownExperience, catGender), [shownExperience, catGender]);
   const activeCatFilter = catCategories.some((cat) => cat.id === catFilter) ? catFilter : catCategories[0]?.id;
   const filteredCatalogue = useMemo(
-    () => catalogue.filter((item) => item.gender === catGender && item.category === activeCatFilter),
-    [catalogue, catGender, activeCatFilter]
+    () => (catGenderChosen ? catalogue.filter((item) => item.gender === catGender && item.category === activeCatFilter) : []),
+    [catalogue, catGender, catGenderChosen, activeCatFilter]
   );
   const catalogueTotalPages = Math.max(1, Math.ceil(filteredCatalogue.length / CATALOGUE_PAGE_SIZE));
 
@@ -676,14 +677,14 @@ export default function MaharajaAdminDashboard({
               <Segmented
                 size="sm"
                 label="Who is it for?"
-                value={catGender}
-                onChange={(g) => { setCatGender(g); setCatFilter(categoryOptionsFor(shownExperience, g)[0]?.id ?? 'sarees'); }}
+                value={catGenderChosen ? catGender : null}
+                onChange={(g) => { setCatGenderChosen(true); setCatGender(g); setCatFilter(categoryOptionsFor(shownExperience, g)[0]?.id ?? 'sarees'); }}
                 options={([['women', 'Women'], ['men', 'Men'], ['boys', 'Boys'], ['girls', 'Girls']] as const).map(([value, label]) => ({ value, label }))}
               />
             </div>
 
             <div role="group" aria-label="Category" className="mt-3 flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]">
-              {catCategories.map((cat) => (
+              {catGenderChosen && catCategories.map((cat) => (
                 <button
                   key={cat.id}
                   type="button"
@@ -696,7 +697,7 @@ export default function MaharajaAdminDashboard({
               ))}
             </div>
 
-            {shownExperience === 'video' && (
+            {shownExperience === 'video' && catGenderChosen && (
               <div className="mt-4">
                 <p className="text-sm font-semibold text-ink">Video shots for {catGender}</p>
                 <p className="mt-0.5 text-sm text-muted">Every AI Video for {catGender} uses one of these scenes. The customer’s outfit stays exactly as it is.</p>
@@ -718,7 +719,7 @@ export default function MaharajaAdminDashboard({
                 <LoaderCircle className="mr-2 h-5 w-5 animate-spin" /> Loading catalogue…
               </div>
             ) : filteredCatalogue.length === 0 ? (
-              <p className="py-12 text-center text-sm text-muted">No garments in this category yet. Use Add garments to upload some.</p>
+              <p className="py-12 text-center text-sm text-muted">{catGenderChosen ? 'No garments in this category yet. Use Add garments to upload some.' : 'Tap Women, Men, Boys or Girls to see your garments.'}</p>
             ) : (
               <>
                 <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

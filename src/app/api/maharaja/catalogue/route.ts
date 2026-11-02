@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
+import { getDb, getStorageBucket } from '@/lib/firebase/admin';
+import { maybeSweepExpired } from '@/lib/maharaja/privacy-cleanup';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { bindClient } from '@/lib/maharaja/client-context';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
@@ -13,6 +15,14 @@ import { videoLimitSet, resolveRequestClientId, getMaharajaWorkspace, logMaharaj
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  // TVs and workspaces read this every few minutes: it also starts the 10-minute privacy cleanup.
+  try {
+    after(async () => {
+      const db = getDb();
+      const bucket = getStorageBucket();
+      if (db && bucket) await maybeSweepExpired(db, bucket).catch((error) => console.warn('Privacy sweep failed:', error));
+    });
+  } catch { /* outside a request scope (build) */ }
   try {
     // Customer pages pass their QR or pass code; staff pages are bound by their login.
     bindClient(await resolveRequestClientId(req, req.nextUrl.searchParams.get('access')));

@@ -1331,7 +1331,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       <div className="mx-auto mt-6 max-w-5xl border-t border-[#D8C49B] px-4 py-5 text-center text-xs leading-5 text-muted">
         {activeService === 'try-on'
           ? 'Your photos are temporarily processed to create this Try-On and are removed from Maharaja storage after generation. The downloaded result remains on your device.'
-          : 'AI Video media is temporarily retained for delivery, expires after one day, and is cleared by scheduled cleanup unless an adult separately permits promotional use. Anonymous usage totals may be retained.'}{' '}
+          : 'AI Video media is kept for one hour for delivery, then deleted. A video sent to the store’s Go Live screen is kept for one day, then deleted. Anonymous usage totals may be retained.'}{' '}
         <Link href="/privacy" className="rounded-xl inline-block py-3 font-bold text-brand underline underline-offset-2">Privacy &amp; Data Use</Link>
         <span className="px-1.5">·</span>
         <Link href="/terms" className="rounded-xl inline-block py-3 font-bold text-brand underline underline-offset-2">Terms</Link>

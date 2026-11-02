@@ -76,6 +76,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   // Catalogue filtering
   const [genderFilter, setGenderFilter] = useState<CatalogueAudience>('women');
+  // Who starts empty for each customer, on Try-On and AI Video alike, until they tap one.
+  const [whoChosen, setWhoChosen] = useState(false);
+  const [videoWhoChosen, setVideoWhoChosen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [showNewArrivals, setShowNewArrivals] = useState(false);
   const [showClientCollection, setShowClientCollection] = useState(true);
@@ -674,7 +677,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       const qr = await QRCode.toDataURL(url, { width: 260, margin: 1, color: { dark: '#161918', light: '#FAFBF8' } });
       if (runId !== batchRunRef.current) return;
       setTryOnMobileQr(qr);
-      setHandoffStatus('Scan to view and download your generated looks. Link expires in 15 minutes.');
+      setHandoffStatus('Scan to view and download your generated looks. Link works for 1 hour.');
     } catch (error) {
       if (runId !== batchRunRef.current) return;
       setHandoffStatus(error instanceof Error ? error.message : 'Mobile handoff unavailable');
@@ -894,6 +897,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setGeneratedLooks([]);
     setTryOnError('');
     setTryOnStage('who');
+    setWhoChosen(false);
+    setVideoWhoChosen(false);
     setOwnGarmentType(OWN_GARMENT_TYPES.women[0].id);
     setVideoStage('who');
     setVideoCategory('');
@@ -998,8 +1003,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 <Segmented
                   size="lg"
                   label="Who is it for"
-                  value={genderFilter}
-                  onChange={(audience) => { selectGender(audience); if (isTablet) chooseTryOnSource(imageSource); else setTryOnStage('source'); }}
+                  value={whoChosen ? genderFilter : null}
+                  onChange={(audience) => { setWhoChosen(true); selectGender(audience); if (isTablet) chooseTryOnSource(imageSource); else setTryOnStage('source'); }}
                   options={AUDIENCE_OPTIONS}
                 />
               </div>
@@ -1382,7 +1387,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   </div>
                 )}
                 <div className="tf-card flex flex-wrap items-center justify-between gap-5 p-6">
-                  <div className="flex-1"><h3 className="text-2xl font-bold">Take your {imageSource === 'own-garment' ? 'look' : 'looks'} home</h3><p className="mt-1 text-base text-muted">Scan this private QR. It expires in 15 minutes.</p><p className="mt-2 text-sm text-muted">{handoffStatus || (imageSource === 'catalogue' && batchDone < selectedLooks.length ? 'Your QR will appear when all looks finish.' : 'Tap Show QR when you are ready.')}</p></div>
+                  <div className="flex-1"><h3 className="text-2xl font-bold">Take your {imageSource === 'own-garment' ? 'look' : 'looks'} home</h3><p className="mt-1 text-base text-muted">Scan this private QR. It works for 1 hour.</p><p className="mt-2 text-sm text-muted">{handoffStatus || (imageSource === 'catalogue' && batchDone < selectedLooks.length ? 'Your QR will appear when all looks finish.' : 'Tap Show QR when you are ready.')}</p></div>
                   {tryOnMobileQr ? <img src={tryOnMobileQr} alt="Scan to save your looks" className="h-44 w-44 object-contain" /> : (
                     <button
                       type="button"
@@ -1442,7 +1447,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {videoStage === 'who' && (
               <div className="flex flex-col gap-6">
                 <PageTitle size="lg" title="Who is the video for?" subtitle="A short AI Video of you in a piece from our collection." />
-                <Segmented size="lg" label="Who is the video for" value={videoAudience} onChange={chooseVideoAudience} options={AUDIENCE_OPTIONS} />
+                <Segmented size="lg" label="Who is the video for" value={videoWhoChosen ? videoAudience : null} onChange={(audience) => { setVideoWhoChosen(true); chooseVideoAudience(audience); }} options={AUDIENCE_OPTIONS} />
               </div>
             )}
 

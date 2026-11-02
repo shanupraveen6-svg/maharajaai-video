@@ -1,3 +1,4 @@
+import { RESULT_LIFETIME_MS } from '@/lib/maharaja/retention';
 import crypto from 'crypto';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { activeClientId } from './client-context';
@@ -20,7 +21,7 @@ export type MirrorRecording = {
 
 export const MIRROR_RECORDING = {
   maxBytes: 60 * 1024 * 1024,
-  lifetimeMs: 24 * 60 * 60 * 1000,
+  lifetimeMs: RESULT_LIFETIME_MS,
   types: { 'video/webm': 'webm', 'video/mp4': 'mp4' } as Record<string, string>,
   maxLooks: 6,
   maxLookBytes: 600 * 1024,

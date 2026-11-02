@@ -2,8 +2,9 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { FieldPath, FieldValue } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import { MAHARAJA_CLIENT_ID } from './config';
+import { cleanupPhoneLooks } from './phone-looks';
 
-export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
+export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket, { budgetMs = 180_000 }: { budgetMs?: number } = {}) {
   const nowIso = new Date().toISOString();
   let expiredTvHandoffs = 0;
   const photoTransfers = await db.collection('tvPhotoTransfers').where('expiresAtMs', '<=', Date.now()).limit(100).get();
@@ -17,12 +18,13 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
     await handoff.ref.delete();
     expiredTvHandoffs += 1;
   }
-  // Live Mirror session videos live for 1 day.
+  // Live Mirror session videos live for 1 hour.
   const mirrorRecordings = await db.collection('tvMirrorRecordings').where('expiresAtMs', '<=', Date.now()).limit(100).get();
   for (const recording of mirrorRecordings.docs) {
     await bucket.deleteFiles({ prefix: `clients/${recording.data?.()?.clientId || MAHARAJA_CLIENT_ID}/mirror-recordings/${recording.id}/`, force: true });
     await recording.ref.delete();
   }
+  const expiredPhoneLooks = await cleanupPhoneLooks();
   let expiredRateLimits = 0;
   const rateDeadline = Date.now() + 20_000;
   // Also handles old records without Timestamp expiry while Cloud TTL is pending.
@@ -44,7 +46,7 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
   let retainedForPromotion = 0;
   let preservedLive = 0;
   let failed = 0;
-  const deadline = Date.now() + 180_000;
+  const deadline = Date.now() + budgetMs;
 
   while (Date.now() < deadline) {
     let query = db
@@ -97,39 +99,8 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
             hasStoredLiveVideo);
         if (legacyLive) {
           preservedLive += 1;
-        } else if (session.promotionConsent === true) {
-          await Promise.all([
-            bucket.deleteFiles({
-              prefix: `clients/${ownerId}/sessions/${sessionId}/person/`,
-              force: true,
-            }),
-            bucket.deleteFiles({
-              prefix: `clients/${ownerId}/sessions/${sessionId}/garment/`,
-              force: true,
-            }),
-            bucket.deleteFiles({
-              prefix: `clients/${ownerId}/sessions/${sessionId}/master/`,
-              force: true,
-            }),
-            bucket.deleteFiles({
-              prefix: `clients/${ownerId}/sessions/${sessionId}/video-tests/`,
-              force: true,
-            }),
-          ]);
-          await doc.ref.set(
-            {
-              accessCode: null,
-              personPhotoStoragePath: null,
-              garmentPhotoStoragePaths: [],
-              masterStoragePath: null,
-              sourceMediaDeletedAt: nowIso,
-              retainedForPromotion: true,
-              expiresAt: FieldValue.delete(),
-              updatedAt: nowIso,
-            },
-            { merge: true },
-          );
-          retainedForPromotion += 1;
+        // One hour for everything generated, one day for Go Live (retention.ts): then it is all deleted,
+        // including videos the customer allowed for promotion.
         } else {
           await bucket.deleteFiles({
             prefix: `clients/${ownerId}/sessions/${sessionId}/`,
@@ -158,6 +129,7 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
   return {
     success: failed === 0,
     expiredTvHandoffs,
+    expiredPhoneLooks,
     deleted,
     retainedForPromotion,
     preservedLive,
@@ -165,4 +137,23 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket) {
     checkedAt: nowIso,
     expiredRateLimits,
   };
+}
+
+const SWEEP_EVERY_MS = 10 * 60 * 1000;
+
+/**
+ * The daily cron is the only schedule this Vercel plan allows, so normal traffic also starts a short
+ * cleanup at most every 10 minutes (one server at a time). Nothing older than its hour is ever shown
+ * either way: every link checks its own expiry.
+ */
+export async function maybeSweepExpired(db: Firestore, bucket: Bucket) {
+  const ref = db.doc('appControl/privacy-sweep');
+  const claimed = await db.runTransaction(async (tx) => {
+    const last = Number((await tx.get(ref)).data()?.lastRunAtMs || 0);
+    if (Date.now() - last < SWEEP_EVERY_MS) return false;
+    tx.set(ref, { lastRunAtMs: Date.now() }, { merge: true });
+    return true;
+  });
+  if (!claimed) return;
+  await cleanupExpiredSessions(db, bucket, { budgetMs: 25_000 });
 }

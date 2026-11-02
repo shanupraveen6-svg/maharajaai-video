@@ -1,3 +1,4 @@
+import { GO_LIVE_LIFETIME_MS } from '@/lib/maharaja/retention';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
@@ -37,7 +38,8 @@ export async function POST(req: NextRequest) {
   const nowIso = now.toISOString();
   const queueId = `live_${sessionId}`;
   const videoId = `video_${sessionId}`;
-  const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString();
+  // A Go Live video plays on the Go Live screen for one day, then it is deleted.
+  const expiresAt = new Date(now.getTime() + GO_LIVE_LIFETIME_MS).toISOString();
   const db = getDb();
 
   try {

@@ -1,3 +1,4 @@
+import { hasPhoneLook } from '@/lib/maharaja/phone-looks';
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getDb } from '@/lib/firebase/admin';
 import { getEventOption, ENFORCE_REPEAT_LIMITS } from '@/lib/maharaja/config';
@@ -109,6 +110,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         videoDone: access.pass?.videoDone || false,
         videoReferenceSessionId: recoveryJob?.sessionId || access.pass?.videoReferenceSessionId || null,
         activeVideoJobId: recoveryJob?.id || access.pass?.activeVideoJobId || null,
+        // A phone that made its look within the last hour opens straight on it.
+        phoneLookUrl: phoneTryOn && validTryOnDeviceId(deviceId) && await hasPhoneLook(access.clientId, deviceId)
+          ? `/api/maharaja/phone-look?access=${encodeURIComponent(code)}&deviceId=${encodeURIComponent(deviceId)}&t=${Date.now()}`
+          : null,
         retryUsed: phoneTryOn
           ? Boolean(deviceStatus?.retryUsed)
           : ENFORCE_REPEAT_LIMITS ? Boolean(access.pass?.retryUsed || deviceStatus?.retryUsed) : false,

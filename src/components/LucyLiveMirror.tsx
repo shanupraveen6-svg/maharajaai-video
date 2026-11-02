@@ -65,6 +65,8 @@ export default function LucyLiveMirror({
   const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
 
   const [gender, setGender] = useState<TryFocusProduct['gender']>(externalProduct?.gender || 'women');
+  // Who starts empty until the customer taps one (unless a piece was already chosen for them).
+  const [genderChosen, setGenderChosen] = useState(Boolean(externalProduct));
   const [category, setCategory] = useState<CatalogueCategoryId>(externalProduct?.category || LIVE_CATEGORIES.women[0].id);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedGarment, setSelectedGarment] = useState<TryFocusProduct>(
@@ -512,7 +514,7 @@ export default function LucyLiveMirror({
           if (!blob) throw new Error('no recording');
           const link = await saveRecording(blob);
           setQrDataUrl(await QRCode.toDataURL(link, { width: 360, margin: 2 }));
-          setHandoffMessage('Scan to download your whole Live Mirror video. The link works for 1 day.');
+          setHandoffMessage('Scan to download your whole Live Mirror video. The link works for 1 hour.');
         })
         .catch(async () => {
           if (!snapshot) { setHandoffMessage('Your video could not be saved this time. Ask a store assistant for help.'); return; }
@@ -579,8 +581,9 @@ export default function LucyLiveMirror({
         label="Who is it for?"
         size="lg"
         options={[...AUDIENCES]}
-        value={gender}
+        value={genderChosen ? gender : null}
         onChange={(g) => {
+          setGenderChosen(true);
           setGender(g);
           setPageIndex(0);
           const first = LIVE_CATEGORIES[g]
@@ -590,14 +593,16 @@ export default function LucyLiveMirror({
         }}
       />
 
-      {(gender === 'boys' || gender === 'girls') && (
+      {!genderChosen && <p className="rounded-2xl bg-white p-6 text-center text-xl text-muted">Tap Women, Men, Boys or Girls to see the outfits.</p>}
+
+      {genderChosen && (gender === 'boys' || gender === 'girls') && (
         <label className="flex min-h-16 items-center gap-3 rounded-2xl bg-warn-soft p-4 text-lg text-ink">
           <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6 accent-brand" />
           I am the parent or guardian and approve this child’s Live Mirror session.
         </label>
       )}
 
-      <div className="tv-live-row grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(380px,460px)_1fr]">
+      <div className={`tv-live-row grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(380px,460px)_1fr] ${genderChosen ? '' : 'hidden'}`}>
         <aside className="tv-live-menu flex min-w-0 flex-col rounded-2xl border border-line bg-white p-4">
           <div role="group" aria-label="Category" className="tv-live-category-list border-b border-line">
             {visibleCategories.map((cat) => (

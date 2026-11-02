@@ -1,3 +1,4 @@
+import { GO_LIVE_LIFETIME_MS } from '@/lib/maharaja/retention';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getLiveAudioTrack } from '@/lib/maharaja/audio';
@@ -53,7 +54,8 @@ export async function POST(req: NextRequest) {
   const queueId = `live_${sessionId}`;
   const videoId = `video_${sessionId}`;
   const eventId = isEventId(access.pass.eventId) ? access.pass.eventId : 'diwali';
-  const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString();
+  // A Go Live video plays on the Go Live screen for one day, then it is deleted.
+  const expiresAt = new Date(now.getTime() + GO_LIVE_LIFETIME_MS).toISOString();
   const customerName = cleanDisplayText(body?.customerName) || cleanDisplayText(access.pass.customerName);
   // Maharaja's screens show Thanjavur; another store shows the city of its branch.
   const storeLocality = activeClientId() === MAHARAJA_CLIENT_ID ? 'தஞ்சாவூர்' : cleanDisplayText(String(goLiveWorkspace.branch || '').split('·')[0]);

@@ -17,11 +17,12 @@ export default function StoreCategoriesEditor({ lists, saving, onSave }: {
   saving: boolean;
   onSave: (next: StoreCategoryLists) => void;
 }) {
-  const [audience, setAudience] = useState<CatalogueAudience>('women');
-  const shown = categoriesFor(lists, audience);
-  const hidden = allCategoriesFor(audience).filter((cat) => !shown.some((item) => item.id === cat.id));
+  const [audience, setAudience] = useState<CatalogueAudience | null>(null);
+  const shown = audience ? categoriesFor(lists, audience) : [];
+  const hidden = audience ? allCategoriesFor(audience).filter((cat) => !shown.some((item) => item.id === cat.id)) : [];
 
   function save(ids: CatalogueCategoryId[]) {
+    if (!audience) return;
     // Every audience is saved explicitly, so changing one never resets another.
     const next: StoreCategoryLists = {};
     for (const key of AUDIENCES) next[key] = categoriesFor(lists, key).map((cat) => cat.id as CatalogueCategoryId);
@@ -36,7 +37,8 @@ export default function StoreCategoriesEditor({ lists, saving, onSave }: {
       <div className="mt-4 max-w-md">
         <Segmented size="sm" label="Who is it for?" value={audience} onChange={setAudience} options={AUDIENCES.map((value) => ({ value, label: AUDIENCE_LABELS[value] }))} />
       </div>
-      <ul className="mt-4 flex flex-wrap gap-2" aria-label={`${AUDIENCE_LABELS[audience]} categories shown`}>
+      {!audience && <p className="mt-4 text-sm text-muted">Tap Women, Men, Boys or Girls to change their categories.</p>}
+      <ul className="mt-4 flex flex-wrap gap-2" aria-label={audience ? `${AUDIENCE_LABELS[audience]} categories shown` : undefined}>
         {shown.map((cat) => (
           <li key={cat.id} className="inline-flex min-h-10 items-center gap-1 rounded-full bg-ink pl-4 pr-1 text-sm font-semibold text-white">
             {cat.label}

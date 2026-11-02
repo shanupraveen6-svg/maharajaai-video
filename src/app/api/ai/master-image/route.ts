@@ -1,3 +1,5 @@
+import { savePhoneLook } from '@/lib/maharaja/phone-looks';
+import { resultExpiresAtIso, resultExpiresAtMs } from '@/lib/maharaja/retention';
 import fs from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
@@ -465,13 +467,15 @@ ${roleInstructions}
 
           try {
             if (service === 'try-on') {
-              // Try-On is returned directly to the browser and is not retained as a cloud result.
+              // Try-On is returned straight to the browser. A phone's Wall QR look is also kept for one
+              // hour, so scanning the QR again shows it.
               masterImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
+              if (reservedDeviceId) await savePhoneLook(activeClientId(), reservedDeviceId, finalBuffer);
             } else {
               const storagePath = `clients/${activeClientId()}/sessions/${sessionId}/master/master.jpg`;
               const file = bucket.file(storagePath);
               await file.save(finalBuffer, { contentType: 'image/jpeg', public: false });
-              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 24 * 60 * 60 * 1000 });
+              const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: resultExpiresAtMs() });
               masterImageUrl = signedUrl;
             }
             storageReadyAt = Date.now();
@@ -525,7 +529,8 @@ ${roleInstructions}
 
     // Protect Firestore against 1MB document size limit if Storage was bypassed
     const safeImageFields: Record<string, unknown> = { ...imageFields };
-    safeImageFields.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    // Everything generated is kept one hour (see retention.ts).
+    safeImageFields.expiresAt = resultExpiresAtIso();
     if (db && service === 'ai-video' && masterImageUrl.startsWith('data:') && masterImageUrl.length > 700000) {
       console.warn('Image data URI exceeds 700KB; truncating Firestore document cache to avoid 1MB document size limit.');
       safeImageFields.masterImageUrl = masterImageUrl.slice(0, 500) + '...[truncated-data-url-use-storage]';

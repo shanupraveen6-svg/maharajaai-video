@@ -45,6 +45,11 @@ beside the camera (send a photo from the phone); the outfit photo is taken with 
 Retry is never a button on the page: it lives in the ⋯ menu in the header of the result (Try-On looks,
 AI Video portrait and video).
 
+Retention: everything generated (Try-On looks, AI Video portraits and videos, Live Mirror videos) is kept for
+1 hour, and scanning the same QR again within that hour shows it (a phone's Wall QR look opens straight on the
+look). Only a video sent to Go Live is kept for 1 day, for the Go Live screen. Then everything is deleted.
+Who (Women, Men, Boys, Girls) starts with nothing selected on every surface.
+
 Downloads never start on their own. Every Download asks once for the customer's WhatsApp number
 (`useLeadGate`), with an optional, unticked "Send me this store's offers" box.
 
