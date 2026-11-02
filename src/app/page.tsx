@@ -162,17 +162,17 @@ export default async function LandingPage() {
             </div>
           </div>
 
-          {/* Before and after, edge to edge: the same customer in two shirts. */}
-          <div className="relative min-h-[460px] bg-[#E8EBE7] sm:min-h-[560px]">
+          {/* Before and after: the customer's own photo, then the AI Try-On, shown whole in a 3:4 portrait. */}
+          <div className="relative self-center bg-[#E8EBE7]">
             <BeforeAfterSlider
-              beforeImage="/images/landing/tryon-left.jpg"
-              afterImage="/images/landing/tryon-right.jpg"
-              beforeLabel="AI Try-On"
-              afterLabel="Original"
-              fit="cover"
+              beforeImage="/images/landing/tryon-customer.jpg"
+              afterImage="/images/landing/tryon-generated.jpg"
+              beforeLabel="Your photo"
+              afterLabel="AI Try-On"
+              fit="contain"
               labelsInside
-              className="absolute inset-0"
-              frameClassName="h-full w-full"
+              className=""
+              frameClassName="aspect-[3/4] w-full"
             />
             <div className="pointer-events-none absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full border border-white/40 bg-black/65 px-3 py-1 text-xs font-bold text-white shadow-lg backdrop-blur-md">
               <Camera className="h-3.5 w-3.5 text-[#D9A9B4]" />
