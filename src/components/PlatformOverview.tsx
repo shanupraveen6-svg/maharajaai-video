@@ -190,7 +190,7 @@ function GenlookCredits() {
       <dl className="mt-3 grid grid-cols-3 gap-3">
         <div><dt className="text-[13px] text-muted">GenLook balance</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.balance)}</dd></div>
         <div><dt className="text-[13px] text-muted">Locked for stores</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.locked)}</dd></div>
-        <div><dt className="text-[13px] text-muted">Free to give</dt><dd className={`mt-1 text-3xl font-bold tabular-nums ${(state?.free ?? 0) < 0 ? 'text-danger' : ''}`}>{state === null ? '…' : number(state.free)}</dd></div>
+        <div><dt className="text-[13px] text-muted">Free (the demo uses this)</dt><dd className={`mt-1 text-3xl font-bold tabular-nums ${(state?.free ?? 0) < 0 ? 'text-danger' : ''}`}>{state === null ? '…' : number(state.free)}</dd></div>
       </dl>
       {state?.error && <p className="mt-3 text-sm font-semibold text-danger">{state.error}</p>}
       {(state?.free ?? 0) < 0 && <p className="mt-3 text-sm font-semibold text-danger">GenLook has fewer credits than stores are promised. Top up GenLook.</p>}

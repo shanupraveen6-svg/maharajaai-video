@@ -2,6 +2,7 @@ import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { FREE_TRIAL_IMAGE_CREDITS } from '@/lib/maharaja/pricing';
+import { getGenlookCredits } from '@/lib/maharaja/genlook-provider';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { getOperatorSession, markClientSession, verifyOperatorRequest } from '@/lib/auth/operator';
@@ -1744,7 +1745,34 @@ export async function reserveMaharajaUsage(field: 'tryOnGenerated' | 'videosGene
   return true;
 }
 
-/** GenLook credits locked to a store (see `genlookCredits`). */
+/**
+ * The Maharaja demo has no credits of its own: it uses the free part of the GenLook balance, what is
+ * left after every client's locked credits. Setting `genlookCredits` on it gives it a fixed number instead.
+ */
+export function usesFreeGenlookPool(workspace: Pick<MaharajaWorkspace, 'clientId' | 'genlookCredits'>) {
+  return workspace.clientId === MAHARAJA_CLIENT_ID && typeof workspace.genlookCredits !== 'number';
+}
+
+let genlookBalanceCache: { value: number; at: number } | null = null;
+
+/**
+ * GenLook's free credits: its live balance minus what every store still has locked. A balance read is
+ * cached for 30 seconds so a busy demo does not call GenLook before every look.
+ */
+export async function freeGenlookCredits(): Promise<{ balance: number; locked: number; free: number } | null> {
+  const key = process.env.GENLOOK_API_KEY?.trim();
+  if (!key) return null;
+  if (!genlookBalanceCache || Date.now() - genlookBalanceCache.at > 30_000) {
+    const result = await getGenlookCredits(key);
+    if (!result.ok) return null;
+    genlookBalanceCache = { value: result.creditBalance, at: Date.now() };
+  }
+  const workspaces = await listClientWorkspaces();
+  const locked = workspaces.reduce((sum, workspace) => sum + Math.max(0, genlookAllowance(workspace) - Number(workspace.usage?.genlookUsed || 0)), 0);
+  return { balance: genlookBalanceCache.value, locked, free: genlookBalanceCache.value - locked };
+}
+
+/** GenLook credits locked to a store (see `genlookCredits`); 0 for the demo, which uses the free pool. */
 export function genlookAllowance(workspace: Pick<MaharajaWorkspace, 'clientId' | 'genlookCredits'>) {
   if (typeof workspace.genlookCredits === 'number' && Number.isFinite(workspace.genlookCredits)) return Math.max(0, Math.floor(workspace.genlookCredits));
   return workspace.clientId === MAHARAJA_CLIENT_ID ? 0 : FREE_TRIAL_IMAGE_CREDITS;
@@ -1756,6 +1784,15 @@ export function genlookAllowance(workspace: Pick<MaharajaWorkspace, 'clientId' |
  */
 export async function reserveGenlookCredit() {
   const clientId = activeClientId();
+  const current = clientId === MAHARAJA_CLIENT_ID ? await getMaharajaWorkspace() : null;
+  if (current && usesFreeGenlookPool(current)) {
+    // The demo takes only what no client has locked.
+    const pool = await freeGenlookCredits();
+    if (!pool || pool.free <= 0) return false;
+    genlookBalanceCache = genlookBalanceCache && { ...genlookBalanceCache, value: genlookBalanceCache.value - 1 };
+    await incrementMaharajaUsage('genlookUsed');
+    return true;
+  }
   const db = getDb();
   if (db) {
     const ref = db.collection('clientWorkspaces').doc(clientId);
@@ -1780,6 +1817,7 @@ export async function reserveGenlookCredit() {
 /** Gives a GenLook credit back when GenLook clearly did not make (or charge for) the image. */
 export async function releaseGenlookCredit() {
   const clientId = activeClientId();
+  if (genlookBalanceCache && clientId === MAHARAJA_CLIENT_ID) genlookBalanceCache = { ...genlookBalanceCache, value: genlookBalanceCache.value + 1 };
   const db = getDb();
   if (db) {
     await db.collection('clientWorkspaces').doc(clientId).set({ usage: { genlookUsed: FieldValue.increment(-1) } }, { merge: true });

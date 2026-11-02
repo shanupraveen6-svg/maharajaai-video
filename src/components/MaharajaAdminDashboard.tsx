@@ -562,30 +562,6 @@ export default function MaharajaAdminDashboard({
           </section>
         )}
 
-        <form
-          className="tf-card p-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const value = new FormData(event.currentTarget).get('instagram');
-            void savePatch({ instagramUrl: typeof value === 'string' ? value : '' });
-          }}
-        >
-          <label htmlFor="store-instagram" className="block text-lg font-bold">Instagram</label>
-          <p className="mt-1 text-sm text-muted">Customers see Follow us on Instagram after they download a look.</p>
-          <div className="mt-4 flex gap-2">
-            <input
-              id="store-instagram"
-              name="instagram"
-              key={workspace.instagramUrl || ''}
-              defaultValue={workspace.instagramUrl || ''}
-              placeholder="@yourstore"
-              className="min-h-11 min-w-0 flex-1 border border-line px-3 text-sm outline-none focus:border-brand"
-            />
-            <button type="submit" disabled={saving} className="tf-btn tf-btn-dark !min-h-11 px-4 text-sm">Save</button>
-          </div>
-        </form>
-
-
         <section>
           <h2 className="text-lg font-bold">{monthName} so far</h2>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -645,6 +621,30 @@ export default function MaharajaAdminDashboard({
             </p>
           </div>
         </section>
+
+
+        <form
+          className="tf-card p-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const value = new FormData(event.currentTarget).get('instagram');
+            void savePatch({ instagramUrl: typeof value === 'string' ? value : '' });
+          }}
+        >
+          <label htmlFor="store-instagram" className="block text-lg font-bold">Instagram</label>
+          <p className="mt-1 text-sm text-muted">Customers see Follow us on Instagram after they download a look.</p>
+          <div className="mt-4 flex gap-2">
+            <input
+              id="store-instagram"
+              name="instagram"
+              key={workspace.instagramUrl || ''}
+              defaultValue={workspace.instagramUrl || ''}
+              placeholder="@yourstore"
+              className="min-h-11 min-w-0 flex-1 border border-line px-3 text-sm outline-none focus:border-brand"
+            />
+            <button type="submit" disabled={saving} className="tf-btn tf-btn-dark !min-h-11 px-4 text-sm">Save</button>
+          </div>
+        </form>
 
         </>}
 
