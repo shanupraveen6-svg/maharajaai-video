@@ -54,6 +54,8 @@ const MAX_LOOKS = 3;
 const isPersonTarget = (target: CameraTarget) => target !== 'own-garment';
 const AUDIENCE_LABELS = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' } as const;
 const PHOTO_GUIDE: [string, string] = ['Take a full-length photo, not a selfie.', 'Stand in good light and face the camera straight.'];
+// TryFocus rule: one garment per Try-On, always one piece.
+const OUTFIT_GUIDE: [string, string] = ['One garment at a time, not a full set.', 'Lay it flat or hang it, the whole piece in the frame, in good light.'];
 
 /**
  * The store screen: the portrait TV, or the tablet (`device="tablet"`), at a different scale.
@@ -1245,7 +1247,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {tryOnStage === 'browse' && imageSource === 'own-garment' && (
               <div className="space-y-5">
                 <div className="flex items-center justify-between gap-4">
-                  <PageTitle size="lg" title="Your outfit" subtitle="Photograph it with the camera, then tell us what it is." />
+                  <PageTitle size="lg" title="Your outfit" subtitle="Photograph one garment with the camera, then tell us what it is." />
                   {customerPhoto && (
                     <button type="button" onClick={() => setTryOnStage('photo')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
                       <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-16 rounded-lg object-cover" />
@@ -1253,6 +1255,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     </button>
                   )}
                 </div>
+                <PhotoGuide size="lg" lines={OUTFIT_GUIDE} />
                 <div className="tv-catalogue-shell grid gap-5">
                   <aside className="tv-category-sidebar tf-card p-3" aria-label="What is your outfit">
                     <p className="px-2 pb-2 text-base font-semibold text-muted">What is it?</p>
@@ -1268,7 +1271,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <div className="tf-card flex flex-col items-center gap-6 p-8 text-center">
                       {ownGarmentPhoto
                         ? <img src={ownGarmentPhoto} alt="Your outfit" className="aspect-[3/4] h-[560px] max-w-full rounded-2xl bg-canvas object-contain" />
-                        : <span className="flex aspect-[3/4] h-[560px] max-w-full flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-line-strong bg-canvas p-8 text-muted"><Shirt className="h-16 w-16" strokeWidth={1.4} /><span className="text-xl">Hold the whole outfit up to the camera, or lay it flat</span></span>}
+                        : <span className="flex aspect-[3/4] h-[560px] max-w-full flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-line-strong bg-canvas p-8 text-muted"><Shirt className="h-16 w-16" strokeWidth={1.4} /><span className="text-xl">Hold one garment up to the camera, or lay it flat</span></span>}
                       <button type="button" onClick={() => void openCameraFor('own-garment')} className="tf-btn tf-btn-dark !min-h-16 w-full max-w-md text-lg"><Camera className="h-5 w-5" /> {ownGarmentPhoto ? 'Retake' : 'Open the camera'}</button>
                     </div>
                     {tryOnError && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{tryOnError}</p>}

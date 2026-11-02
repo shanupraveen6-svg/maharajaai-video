@@ -4,27 +4,27 @@ import type { TryFocusProduct } from '@/lib/tryfocus/sample-data';
  * What a shopper's own outfit is, per audience. The try-on prompt needs the garment structure, so
  * every surface (TV, tablet, phone) asks this instead of guessing it from a store item.
  */
-/** In order of what South Indian shoppers wear most, per audience. */
+/** One garment per Try-On, so each type is a single piece. In order of what South Indian shoppers wear most. */
 export const OWN_GARMENT_TYPES: Record<TryFocusProduct['gender'], Array<{ id: string; label: string }>> = {
   women: [
-    { id: 'saree', label: 'Saree / Silk Saree' },
-    { id: 'salwar', label: 'Kurti / Salwar / Anarkali' },
-    { id: 'two_piece', label: 'Top & Jeans / Two-Piece Set' },
-    { id: 'one_piece', label: 'Gown / Dress' },
-    { id: 'lehenga', label: 'Lehenga Choli' },
+    { id: 'saree', label: 'Saree' },
+    { id: 'salwar', label: 'Kurti / salwar' },
+    { id: 'two_piece', label: 'Top' },
+    { id: 'one_piece', label: 'Gown / dress' },
+    { id: 'lehenga', label: 'Lehenga' },
   ],
   men: [
-    { id: 'shirt_pant', label: 'Shirt & Pant' },
-    { id: 'dhoti_veshti', label: 'Veshti & Shirt' },
-    { id: 'kurta_dhoti', label: 'Kurta & Dhoti / Pyjama' },
+    { id: 'shirt_pant', label: 'Shirt' },
+    { id: 'dhoti_veshti', label: 'Veshti / dhoti' },
+    { id: 'kurta_dhoti', label: 'Kurta' },
   ],
   girls: [
-    { id: 'one_piece', label: 'Frock / Dress' },
+    { id: 'one_piece', label: 'Frock / dress' },
     { id: 'pattu_pavadai', label: 'Pattu Pavadai' },
     { id: 'lehenga', label: 'Kids Lehenga' },
   ],
   boys: [
-    { id: 'shirt_pant', label: 'Shirt & Trousers' },
-    { id: 'boy_ethnic', label: 'Kurta Pyjama / Dhoti Set' },
+    { id: 'shirt_pant', label: 'Shirt' },
+    { id: 'boy_ethnic', label: 'Kurta' },
   ],
 };

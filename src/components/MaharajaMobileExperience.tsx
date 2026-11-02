@@ -441,6 +441,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
         {stage === 'outfit' && (
           <div className="space-y-4">
             <PageTitle title={t('yourOutfit')} subtitle={t('layFlat')} />
+            <PhotoGuide lines={[t('outfitGuide1'), t('outfitGuide2')]} />
             <PhotoBox image={outfitPhoto} aspect="aspect-[3/4]" placeholder={<Shirt className="h-9 w-9" />} contain />
             <CameraOrUpload cameraLabel={t('camera')} uploadLabel={t('upload')} onFile={(file) => readPhoto(setOutfitPhoto, file)} />
             <ActionBar note={note || (generating ? t('creatingNote') : !outfitPhoto ? t('needOutfitPhoto') : undefined)}>
