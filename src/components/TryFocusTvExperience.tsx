@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import DressLoader from '@/components/DressLoader';
+import AudienceCards, { PhotoGuide } from '@/components/AudienceCards';
 import { compressImage } from '@/lib/utils/image';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
 import TvIdleLoop from '@/components/TvIdleLoop';
@@ -37,7 +38,7 @@ import {
   type TryFocusProduct,
 } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
-import { PageTitle, Segmented } from '@/components/ui';
+import { PageTitle } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 import { categoriesFor, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 
@@ -50,8 +51,9 @@ type VideoAudience = CatalogueAudience;
 
 /** Looks a customer can create at once from the store collection. */
 const MAX_LOOKS = 3;
-const AUDIENCE_OPTIONS = ([['women', 'Women'], ['men', 'Men'], ['boys', 'Boys'], ['girls', 'Girls']] as const).map(([value, label]) => ({ value, label }));
 const isPersonTarget = (target: CameraTarget) => target !== 'own-garment';
+const AUDIENCE_LABELS = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' } as const;
+const PHOTO_GUIDE: [string, string] = ['Take a full-length photo, not a selfie.', 'Stand in good light and face the camera straight.'];
 
 /**
  * The store screen: the portrait TV, or the tablet (`device="tablet"`), at a different scale.
@@ -999,15 +1001,16 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           <div className="space-y-6">
             {tryOnBack && <BackButton onClick={tryOnBack} />}
             {tryOnStage === 'who' && (
-              <div className="flex flex-col gap-6">
+              <div className={`flex flex-col gap-6 ${isTablet ? '' : 'tv-who-screen min-h-[calc(100dvh-240px)]'}`}>
                 <PageTitle size="lg" title="Who is it for?" subtitle="Tap one to start." />
-                <Segmented
+                <AudienceCards
                   size="lg"
-                  label="Who is it for"
                   value={whoChosen ? genderFilter : null}
                   onChange={(audience) => { setWhoChosen(true); selectGender(audience); if (isTablet) chooseTryOnSource(imageSource); else setTryOnStage('source'); }}
-                  options={AUDIENCE_OPTIONS}
+                  labels={AUDIENCE_LABELS}
                 />
+                <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
+                {!isTablet && <StoreLogoBand clientName={clientName} />}
               </div>
             )}
 
@@ -1446,9 +1449,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           <div className="space-y-6">
             {videoBack && <BackButton onClick={videoBack} />}
             {videoStage === 'who' && (
-              <div className="flex flex-col gap-6">
+              <div className="tv-who-screen flex min-h-[calc(100dvh-240px)] flex-col gap-6">
                 <PageTitle size="lg" title="Who is the video for?" subtitle="A short AI Video of you in a piece from our collection." />
-                <Segmented size="lg" label="Who is the video for" value={videoWhoChosen ? videoAudience : null} onChange={(audience) => { setVideoWhoChosen(true); chooseVideoAudience(audience); }} options={AUDIENCE_OPTIONS} />
+                <AudienceCards size="lg" value={videoWhoChosen ? videoAudience : null} onChange={(audience) => { setVideoWhoChosen(true); chooseVideoAudience(audience); }} labels={AUDIENCE_LABELS} />
+                <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
+                <StoreLogoBand clientName={clientName} />
               </div>
             )}
 
@@ -1729,5 +1734,24 @@ function BackButton({ onClick }: { onClick: () => void }) {
     <button type="button" onClick={onClick} className="-ml-2 inline-flex min-h-14 items-center gap-2 rounded-xl px-2 text-lg font-semibold text-muted hover:text-ink">
       <ArrowLeft className="h-6 w-6" /> Back
     </button>
+  );
+}
+
+/** The bottom of the TV's first screen: the store's own logo (from its workspace), or its name. */
+function StoreLogoBand({ clientName }: { clientName: string }) {
+  const [logo, setLogo] = useState('');
+  useEffect(() => {
+    let url = '';
+    fetch('/api/maharaja/logo', { cache: 'no-store' })
+      .then(async (response) => { if (response.ok) { url = URL.createObjectURL(await response.blob()); setLogo(url); } })
+      .catch(() => undefined);
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, []);
+  return (
+    <div className="mt-auto flex min-h-[180px] items-center justify-center rounded-3xl border border-line bg-white p-8">
+      {logo
+        ? <img src={logo} alt={clientName} className="max-h-[160px] max-w-[70%] object-contain" />
+        : <p className="text-4xl font-bold text-ink">{clientName}</p>}
+    </div>
   );
 }

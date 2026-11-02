@@ -11,7 +11,7 @@ reused for another level, so a shopper can always tell which choice matters more
 | Level | Question | Options | Control |
 |---|---|---|---|
 | 0 | Which experience? | TV: Try-On · AI Video · Live Mirror. Tablet: Store collection · My own outfit · AI Video | `NavTabs` (underlined tabs in the header) |
-| 1 | Who is it for? | Women · Men · Boys · Girls | `Segmented` (grey track, white pill), only for this; the first step |
+| 1 | Who is it for? | Women · Men · Boys · Girls | `AudienceCards`: four illustrated cards, 2 × 2, nothing pre-selected, with the two-line `PhotoGuide` box under them (full-length, not a selfie; good light, face the camera). On the portrait TV the store's logo fills the bottom of this screen |
 | 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV and phone; on the tablet it is the level 0 tab |
 | 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Plain text list (sidebar on TV and tablet, underlined text row on phone) |
 | 4 | Which piece? | Product cards | Image cards with a 1–3 badge, the only image tiles |

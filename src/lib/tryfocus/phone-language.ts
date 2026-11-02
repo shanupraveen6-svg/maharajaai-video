@@ -64,6 +64,8 @@ const STRINGS = {
   exitVideoTitle: { en: 'Are you sure you want to exit AI Video?', ta: 'AI வீடியோவில் இருந்து வெளியேற விரும்புகிறீர்களா?' },
   exitText: { en: 'Your photo and look on this page will be lost.', ta: 'இந்தப் பக்கத்தில் உள்ள உங்கள் புகைப்படமும் தோற்றமும் இழக்கப்படும்.' },
   exitBtn: { en: 'Exit', ta: 'வெளியேறு' },
+  guideLine1: { en: 'Take a full-length photo, not a selfie.', ta: 'செல்ஃபி வேண்டாம், முழு உடல் தெரியும்படி படம் எடுங்கள்.' },
+  guideLine2: { en: 'Stand in good light and face the camera straight.', ta: 'நல்ல வெளிச்சத்தில் நின்று, கேமராவை நேராகப் பாருங்கள்.' },
   whatType: { en: 'What are you trying?', ta: 'எந்த வகை உடை?' },
   otherType: { en: 'Other', ta: 'மற்றவை' },
   camera: { en: 'Camera', ta: 'கேமரா' },

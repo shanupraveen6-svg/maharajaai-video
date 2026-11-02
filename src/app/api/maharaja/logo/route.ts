@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { verifyTvRequest } from '@/lib/auth/display';
 import { bindClient, activeClientId } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId } from '@/lib/maharaja/server';
 import { deleteStoreLogo, readStoreLogo, saveStoreLogo } from '@/lib/maharaja/store-logo';
@@ -15,9 +16,11 @@ async function signedIn(req: NextRequest) {
   return true;
 }
 
-/** The store's own logo (for the workspace preview). */
+/** The store's own logo: the workspace preview, and the bottom of the TV's first screen (paired TV). */
 export async function GET(req: NextRequest) {
-  if (!await signedIn(req)) return NextResponse.json({ error: 'Sign in to the workspace.' }, { status: 401 });
+  const allowed = verifyOperatorRequest(req) || await verifyTvRequest(req);
+  if (!allowed) return NextResponse.json({ error: 'Sign in to the workspace.' }, { status: 401 });
+  bindClient(await resolveRequestClientId(req));
   const logo = await readStoreLogo(activeClientId());
   if (!logo) return NextResponse.json({ error: 'No logo yet.' }, { status: 404 });
   return new NextResponse(new Uint8Array(logo), { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store' } });

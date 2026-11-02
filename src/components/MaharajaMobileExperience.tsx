@@ -21,10 +21,11 @@ import {
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import DressLoader from '@/components/DressLoader';
+import AudienceCards, { PhotoGuide } from '@/components/AudienceCards';
 import { compressImage } from '@/lib/utils/image';
 import type { CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
-import { ActionBar, PageTitle, Segmented } from '@/components/ui';
+import { ActionBar, PageTitle } from '@/components/ui';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { useLeadGate } from '@/components/LeadGate';
 import { useExitGuard } from '@/components/ExitGuard';
@@ -329,12 +330,12 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
         {stage === 'who' && (
           <div className="space-y-4">
             <PageTitle title={t('whoFor')} />
-            <Segmented
-              label={t('whoFor')}
+            <AudienceCards
               value={audienceChosen ? audience : null}
               onChange={(next) => { setAudience(next); setAudienceChosen(true); setGuardianConsent(false); setStage('type'); }}
-              options={(['women', 'men', 'boys', 'girls'] as const).map((value) => ({ value, label: t(value) }))}
+              labels={{ women: t('women'), men: t('men'), boys: t('boys'), girls: t('girls') }}
             />
+            <PhotoGuide lines={[t('guideLine1'), t('guideLine2')]} />
           </div>
         )}
 
