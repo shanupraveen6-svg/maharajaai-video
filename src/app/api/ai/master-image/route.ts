@@ -8,7 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import { type CustomerCategory, GARMENT_TYPE_RULES, GENLOOK_GARMENT_DESCRIPTIONS, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType, customerRateLimit } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
-import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { tryOnEngineOrder, generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
@@ -380,6 +380,8 @@ ${roleInstructions}
           if (engine === 'genlook') {
             const key = AI_CONFIG.GENLOOK_API_KEY?.trim();
             if (!key) continue;
+            // GenLook runs only on this store's own GenLook credits; with none left the next engine is used.
+            if (!await reserveGenlookCredit()) continue;
             genlookAttempted = true;
             try {
               rawBuffer = await generateGenlookTryOn(
@@ -398,9 +400,11 @@ ${roleInstructions}
               imageProvider = 'genlook-try-on';
             } catch (error) {
               if (!canFallbackFromGenlook(error)) {
+                // GenLook may still have made and charged for the image: the store's credit stays used.
                 genlookOutcomeUncertain = true;
                 throw error;
               }
+              await releaseGenlookCredit().catch(() => undefined);
               lastEngineError = error;
               console.warn('GenLook Try-On failed explicitly; using the next image engine.');
             }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminRequest } from '@/lib/auth/operator';
 import { disableClientAccount, listClientLoginUsernames, setClientAccount } from '@/lib/auth/client-accounts';
 import {
+  genlookAllowance,
   getClientWorkspaceById,
   getWorkspaceLinks,
   listClientWorkspaces,
@@ -49,6 +50,9 @@ function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = [], spend:
       scans: Number(ws.usage?.tryOnScans || 0),
       retries: Number(ws.usage?.retries || 0),
     },
+    // GenLook credits locked to this store, and how many it has used.
+    genlookCredits: genlookAllowance(ws),
+    genlookUsed: Number(ws.usage?.genlookUsed || 0),
     limits: {
       image: Number(ws.limits?.image ?? 4000),
       live: Number(ws.limits?.live ?? 500),

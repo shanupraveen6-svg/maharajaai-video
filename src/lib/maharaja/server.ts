@@ -1,6 +1,7 @@
 import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
+import { FREE_TRIAL_IMAGE_CREDITS } from '@/lib/maharaja/pricing';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { getOperatorSession, markClientSession, verifyOperatorRequest } from '@/lib/auth/operator';
@@ -41,6 +42,11 @@ export type MaharajaWorkspace = {
   whatsappRequestedAt?: string;
   /** Store Instagram profile shown as "Follow" after an AI video (part of the AI Video module). */
   instagramUrl?: string;
+  /**
+   * GenLook Try-On credits locked to this store out of TryFocus's shared GenLook balance. No other
+   * workspace can use them. Unset: a client gets the free trial (60), the Maharaja demo gets none.
+   */
+  genlookCredits?: number;
   /** Categories this store shows customers, per audience and in its order (TV, tablet and phone). */
   categoryLists?: StoreCategoryLists;
   deliveryMode?: 'whatsapp' | 'qr';
@@ -79,6 +85,8 @@ export type MaharajaWorkspace = {
     goLive: number;
     retries: number;
     downloads: number;
+    /** Try-On images made with GenLook from this store's own GenLook allowance. */
+    genlookUsed?: number;
   };
 };
 
@@ -825,6 +833,7 @@ export async function updateMaharajaSettings(
       | 'whatsappRequestedAt'
       | 'instagramUrl'
       | 'categoryLists'
+      | 'genlookCredits'
       | 'deliveryMode'
       | 'whatsappConnected'
       | 'devices'
@@ -949,6 +958,7 @@ export async function upsertClientWorkspace(input: {
   devices?: Partial<{ tv: boolean; tablet: boolean; mobile: boolean; led: boolean }>;
   limits?: Partial<{ image: number; live: number; video: number }>;
   modules?: Partial<{ image: boolean; live: boolean; video: boolean }>;
+  genlookCredits?: number;
 }): Promise<MaharajaWorkspace> {
   const rawId = input.id || input.clientId || input.name || input.clientName || '';
   const cleanId = String(rawId)
@@ -1006,6 +1016,9 @@ export async function upsertClientWorkspace(input: {
               video: Math.max(0, Number(input.limits.video ?? existing.limits?.video ?? 500)),
             },
           }
+        : {}),
+      ...(typeof input.genlookCredits === 'number' && Number.isFinite(input.genlookCredits)
+        ? { genlookCredits: Math.max(0, Math.floor(input.genlookCredits)) }
         : {}),
     },
     cleanId
@@ -1729,6 +1742,54 @@ export async function reserveMaharajaUsage(field: 'tryOnGenerated' | 'videosGene
   getMockStore().clientWorkspaces.set(activeClientId(), { ...workspace, usage: { ...workspace.usage, [field]: used + 1 } });
   await recordUsage(field);
   return true;
+}
+
+/** GenLook credits locked to a store (see `genlookCredits`). */
+export function genlookAllowance(workspace: Pick<MaharajaWorkspace, 'clientId' | 'genlookCredits'>) {
+  if (typeof workspace.genlookCredits === 'number' && Number.isFinite(workspace.genlookCredits)) return Math.max(0, Math.floor(workspace.genlookCredits));
+  return workspace.clientId === MAHARAJA_CLIENT_ID ? 0 : FREE_TRIAL_IMAGE_CREDITS;
+}
+
+/**
+ * Claims one of this store's own GenLook credits before calling GenLook. False when the store has none
+ * left: the Try-On then uses the next engine, so a store never spends another store's GenLook credits.
+ */
+export async function reserveGenlookCredit() {
+  const clientId = activeClientId();
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(clientId);
+    return db.runTransaction(async (transaction) => {
+      const data = (await transaction.get(ref)).data() || {};
+      const allowance = genlookAllowance({ clientId, genlookCredits: data.genlookCredits });
+      const used = Number(data.usage?.genlookUsed || 0);
+      if (used >= allowance) return false;
+      transaction.set(ref, { usage: { genlookUsed: used + 1 } }, { merge: true });
+      return true;
+    });
+  }
+  const fallback = defaultWorkspace(clientId);
+  const stored = getMockStore().clientWorkspaces.get(clientId) as MaharajaWorkspace | undefined;
+  const workspace = stored ? normalizeWorkspace(stored, fallback) : fallback;
+  const used = Number(workspace.usage.genlookUsed || 0);
+  if (used >= genlookAllowance(workspace)) return false;
+  getMockStore().clientWorkspaces.set(clientId, { ...workspace, usage: { ...workspace.usage, genlookUsed: used + 1 } });
+  return true;
+}
+
+/** Gives a GenLook credit back when GenLook clearly did not make (or charge for) the image. */
+export async function releaseGenlookCredit() {
+  const clientId = activeClientId();
+  const db = getDb();
+  if (db) {
+    await db.collection('clientWorkspaces').doc(clientId).set({ usage: { genlookUsed: FieldValue.increment(-1) } }, { merge: true });
+    return;
+  }
+  const workspace = await getMaharajaWorkspace();
+  getMockStore().clientWorkspaces.set(clientId, {
+    ...workspace,
+    usage: { ...workspace.usage, genlookUsed: Math.max(0, Number(workspace.usage.genlookUsed || 0) - 1) },
+  });
 }
 
 /** Returns a reserved credit when the generation it was reserved for did not complete. */

@@ -167,23 +167,43 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
   );
 }
 
-/** The Try-On engine's own balance, read live from GenLook (1 credit per Try-On image). */
+/** GenLook (the Try-On engine): its balance, the credits locked to stores, and what is left to give out. */
 function GenlookCredits() {
-  const [state, setState] = useState<{ balance?: number; error?: string } | null>(null);
+  type Store = { clientId: string; name: string; allowance: number; used: number; left: number };
+  const [state, setState] = useState<{ balance?: number; locked?: number; free?: number; stores?: Store[]; error?: string } | null>(null);
   useEffect(() => {
     fetch('/api/admin/genlook', { cache: 'no-store' })
       .then((response) => response.json())
-      .then((data) => setState(typeof data?.creditBalance === 'number' ? { balance: data.creditBalance } : { error: data?.error || 'GenLook is not connected.' }))
+      .then((data) => setState({
+        balance: typeof data?.creditBalance === 'number' ? data.creditBalance : undefined,
+        locked: typeof data?.locked === 'number' ? data.locked : undefined,
+        free: typeof data?.free === 'number' ? data.free : undefined,
+        stores: Array.isArray(data?.stores) ? data.stores : [],
+        error: data?.error,
+      }))
       .catch(() => setState({ error: 'GenLook could not be checked.' }));
   }, []);
+  const number = (value?: number) => (value === undefined ? '—' : value.toLocaleString('en-IN'));
   return (
-    <section className="tf-card flex flex-wrap items-center justify-between gap-3 p-5">
-      <div>
-        <p className="text-[13px] font-medium text-muted">GenLook credits left (Try-On engine)</p>
-        <p className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : state.balance !== undefined ? state.balance.toLocaleString('en-IN') : '—'}</p>
-      </div>
-      {state?.error && <p className="text-sm font-semibold text-danger">{state.error}</p>}
-      {state?.balance !== undefined && state.balance < 20 && <p className="text-sm font-semibold text-warn">Low: top up GenLook before stores run out.</p>}
+    <section className="tf-card p-5">
+      <h2 className="text-lg font-bold">GenLook Try-On credits</h2>
+      <dl className="mt-3 grid grid-cols-3 gap-3">
+        <div><dt className="text-[13px] text-muted">GenLook balance</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.balance)}</dd></div>
+        <div><dt className="text-[13px] text-muted">Locked for stores</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.locked)}</dd></div>
+        <div><dt className="text-[13px] text-muted">Free to give</dt><dd className={`mt-1 text-3xl font-bold tabular-nums ${(state?.free ?? 0) < 0 ? 'text-danger' : ''}`}>{state === null ? '…' : number(state.free)}</dd></div>
+      </dl>
+      {state?.error && <p className="mt-3 text-sm font-semibold text-danger">{state.error}</p>}
+      {(state?.free ?? 0) < 0 && <p className="mt-3 text-sm font-semibold text-danger">GenLook has fewer credits than stores are promised. Top up GenLook.</p>}
+      {state?.stores && state.stores.length > 0 && (
+        <ul className="mt-4 divide-y divide-line text-sm">
+          {state.stores.map((store) => (
+            <li key={store.clientId} className="flex justify-between gap-3 py-2">
+              <span className="font-semibold">{store.name}</span>
+              <span className="tabular-nums text-muted">{store.used} of {store.allowance} used · {store.left} left</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

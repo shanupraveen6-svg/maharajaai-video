@@ -75,6 +75,9 @@ type Client = {
   devices: { tv: boolean; tablet: boolean; mobile: boolean; led: boolean };
   usage: { image: number; live: number; video: number; passes?: number; goLive?: number; downloads?: number; scans?: number };
   limits: { image: number; live: number; video: number };
+  /** GenLook Try-On credits locked to this store out of TryFocus's GenLook balance, and how many it used. */
+  genlookCredits?: number;
+  genlookUsed?: number;
   spend?: { todayInr: number; monthInr: number };
   /** Modules this client bought; a module that is off is blocked even with credits left. */
   modules?: { image: boolean; live: boolean; video: boolean };
@@ -257,6 +260,7 @@ export default function TryFocusAdmin() {
           devices: mergedClient.devices,
           limits: mergedClient.limits,
           modules: mergedClient.modules,
+          ...(typeof mergedClient.genlookCredits === 'number' ? { genlookCredits: mergedClient.genlookCredits } : {}),
         }),
       });
       if (res.status === 401) {
@@ -351,6 +355,7 @@ export default function TryFocusAdmin() {
           devices: PACKAGES[newPackage].devices,
           modules: modulesForPackage(newPackage),
           limits: newCredits,
+          genlookCredits: newPreset === 'trial' ? FREE_TRIAL_IMAGE_CREDITS : undefined,
         }),
       });
       if (res.status === 401) {
@@ -822,6 +827,19 @@ export default function TryFocusAdmin() {
                 </article>
               );
             })}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-canvas p-4">
+            <label htmlFor="genlook-credits" className="text-sm font-semibold text-ink">GenLook credits locked to this store</label>
+            <input
+              id="genlook-credits"
+              type="number"
+              min={0}
+              value={client.genlookCredits ?? 0}
+              onChange={(e) => { const value = Math.max(0, Number(e.target.value) || 0); setClients((items) => items.map((item) => (item.id === client.id ? { ...item, genlookCredits: value } : item))); }}
+              onBlur={() => void saveCurrentConfiguration()}
+              className="h-10 w-28 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
+            />
+            <span className="text-sm text-muted">{(client.genlookUsed ?? 0).toLocaleString('en-IN')} used. No other store can use these. With none left, Try-On uses the backup engine.</span>
           </div>
         </section>
 
