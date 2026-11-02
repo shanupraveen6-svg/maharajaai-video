@@ -93,7 +93,7 @@ export default async function LandingPage() {
       </header>
 
       <section className="border-b border-line">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div className="flex flex-col justify-center border-line px-5 py-6 sm:py-8 md:px-8 lg:border-r lg:py-6 xl:py-8">
             <h1 className="mt-3 max-w-3xl text-3xl font-bold leading-[1.08] sm:text-4xl lg:text-[2.65rem] xl:text-[3.1rem] tracking-tight">
               TryFocus turns a store visit into a customer experience.
@@ -106,96 +106,77 @@ export default async function LandingPage() {
               <span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-brand" /> Consent-led</span>
               <span className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-brand" /> Usage-controlled</span>
             </div>
-          </div>
-
-          <div className="flex items-center justify-center bg-[#E8EBE7] px-4 py-2.5 sm:px-6 md:px-8 lg:py-3">
-            <div id="client-access" className="rounded-2xl w-full max-w-[420px] xl:max-w-[440px] overflow-hidden border border-[#BAC3BA] bg-canvas shadow-[0_18px_50px_rgba(21,28,24,0.12)]">
-              {/* Header Status Bar */}
-              <div className="flex items-center justify-between border-b border-line bg-white px-3.5 py-2 sm:px-4">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3D8A5E] opacity-75"></span>
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#3D8A5E]"></span>
-                  </span>
-                  <div>
-                    <p className="text-xs font-bold text-brand">Live AR Try-On</p>
-                    <p className="text-xs font-bold text-ink">In-Store Customer Fitting</p>
-                  </div>
+          {/* Store selector: staff open their own workspace. */}
+          <div id="client-access" className="mt-6 max-w-md rounded-2xl border border-line bg-white p-4 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xs sm:text-sm font-bold text-ink">Select your store workspace</h2>
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#D0D6D0] bg-[#F4F5F2] px-2 py-0.5 text-[8.5px] font-bold text-muted">
-                  <Sparkles className="h-2.5 w-2.5 text-brand" /> Multi-Look AI
+                <span className="inline-flex items-center gap-1 rounded border border-[#D0D6D0] bg-white px-2 py-0.5 text-xs font-bold text-muted">
+                  <LockKeyhole className="h-2.5 w-2.5 text-brand" /> Staff Access
                 </span>
               </div>
 
-              {/* Before and after: the same customer, churidar to saree, with a drag handle. */}
-              <div className="relative bg-[#FAF6F0]">
-                <BeforeAfterSlider
-                  beforeImage="/images/catalogue-demo/salwar-model-2-ruby.jpg"
-                  afterImage="/images/catalogue-demo/saree-model-2-crimson.jpg"
-                  beforeLabel="Churidar"
-                  afterLabel="Saree · AI Try-On"
-                  frameClassName="h-[300px] sm:h-[340px] w-full"
-                />
-                <div className="pointer-events-none absolute left-2.5 top-9 flex items-center gap-1 rounded-full border border-white/40 bg-black/65 px-2.5 py-0.5 text-xs font-bold text-white shadow-lg backdrop-blur-md">
-                  <Camera className="h-3 w-3 text-[#D9A9B4]" />
-                  <span>Phone Try-On in seconds</span>
-                </div>
-              </div>
-
-              {/* Integrated Store Selector Form */}
-              <div className="border-t border-line bg-canvas p-3 sm:p-3.5">
-                <div className="mb-2 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xs sm:text-sm font-bold text-ink">Select your store workspace</h2>
+              <form action="/login" method="get" className="space-y-2">
+                <input type="hidden" name="next" value="/maharaja/workspace" />
+                <label htmlFor="store-select" className="sr-only">Retail workspace</label>
+                <div className="relative">
+                  <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand">
+                    <Store className="h-3.5 w-3.5" />
                   </div>
-                  <span className="inline-flex items-center gap-1 rounded border border-[#D0D6D0] bg-white px-2 py-0.5 text-xs font-bold text-muted">
-                    <LockKeyhole className="h-2.5 w-2.5 text-brand" /> Staff Access
-                  </span>
-                </div>
-
-                <form action="/login" method="get" className="space-y-2">
-                  <input type="hidden" name="next" value="/maharaja/workspace" />
-                  <label htmlFor="store-select" className="sr-only">Retail workspace</label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand">
-                      <Store className="h-3.5 w-3.5" />
-                    </div>
-                    <select
-                      id="store-select"
-                      name="store"
-                      defaultValue=""
-                      required
-                      className="min-h-10 w-full appearance-none rounded-none border border-[#ABB3AD] bg-white pl-9 pr-9 text-xs sm:text-sm font-bold text-ink outline-none transition hover:border-brand focus:border-brand focus:ring-1 focus:ring-brand cursor-pointer"
-                    >
-                      <option value="" disabled>Select your store</option>
-                      {stores.map((store) => (
-                        <option key={store.id} value={store.id}>
-                          {store.location ? `${store.name} · ${store.location}` : store.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#68716C]" />
-                  </div>
-
-                  <button
-                    type="submit"
-                    id="continue-to-login-btn"
-                    className="rounded-xl flex min-h-10 w-full items-center justify-center gap-2 bg-brand px-4 text-xs sm:text-sm font-bold text-white shadow-sm transition hover:bg-[#5D0F1F] active:scale-[0.99] cursor-pointer"
+                  <select
+                    id="store-select"
+                    name="store"
+                    defaultValue=""
+                    required
+                    className="min-h-10 w-full appearance-none rounded-none border border-[#ABB3AD] bg-white pl-9 pr-9 text-xs sm:text-sm font-bold text-ink outline-none transition hover:border-brand focus:border-brand focus:ring-1 focus:ring-brand cursor-pointer"
                   >
-                    <span>Open Store Workspace</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
-                </form>
-
-                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 border-t border-[#E4E8E4] pt-2 text-xs sm:text-xs font-medium text-[#68716C]">
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck className="h-3.5 w-3.5 text-[#3D8A5E]" /> Client-isolated data
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MonitorPlay className="h-3.5 w-3.5 text-brand" /> TV showroom connected
-                  </span>
+                    <option value="" disabled>Select your store</option>
+                    {stores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.location ? `${store.name} · ${store.location}` : store.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#68716C]" />
                 </div>
+
+                <button
+                  type="submit"
+                  id="continue-to-login-btn"
+                  className="rounded-xl flex min-h-10 w-full items-center justify-center gap-2 bg-brand px-4 text-xs sm:text-sm font-bold text-white shadow-sm transition hover:bg-[#5D0F1F] active:scale-[0.99] cursor-pointer"
+                >
+                  <span>Open Store Workspace</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </form>
+
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 border-t border-[#E4E8E4] pt-2 text-xs sm:text-xs font-medium text-[#68716C]">
+                <span className="flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#3D8A5E]" /> Client-isolated data
+                </span>
+                <span className="flex items-center gap-1">
+                  <MonitorPlay className="h-3.5 w-3.5 text-brand" /> TV showroom connected
+                </span>
               </div>
+            </div>
+          </div>
+
+          {/* Before and after, edge to edge: the same customer in two shirts. */}
+          <div className="relative min-h-[460px] bg-[#E8EBE7] sm:min-h-[560px]">
+            <BeforeAfterSlider
+              beforeImage="/images/landing/tryon-left.jpg"
+              afterImage="/images/landing/tryon-right.jpg"
+              beforeLabel="AI Try-On"
+              afterLabel="Original"
+              fit="cover"
+              labelsInside
+              className="absolute inset-0"
+              frameClassName="h-full w-full"
+            />
+            <div className="pointer-events-none absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full border border-white/40 bg-black/65 px-3 py-1 text-xs font-bold text-white shadow-lg backdrop-blur-md">
+              <Camera className="h-3.5 w-3.5 text-[#D9A9B4]" />
+              <span>Phone Try-On in seconds</span>
             </div>
           </div>
         </div>
