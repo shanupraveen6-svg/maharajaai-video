@@ -103,10 +103,12 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
           <input
             id="lead-gate-phone"
             value={phone}
-            onChange={(event) => setPhone(event.target.value.replace(/[^\d ]/g, '').slice(0, 12))}
-            inputMode="tel"
+            onChange={(event) => setPhone(tenDigits(event.target.value))}
+            inputMode="numeric"
+            maxLength={10}
+            pattern="[0-9]{10}"
             autoComplete="tel-national"
-            placeholder="98765 43210"
+            placeholder="9876543210"
             autoFocus
             className="min-h-12 min-w-0 flex-1 bg-transparent px-2 text-lg tabular-nums outline-none"
           />
@@ -126,4 +128,12 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
   ) : null;
 
   return { withLead, forgetLead, dialog };
+}
+
+/** A WhatsApp number as 10 digits: +91 or a leading 0 from a pasted number is dropped. */
+function tenDigits(value: string) {
+  let digits = value.replace(/\D/g, '');
+  if (digits.length > 10 && digits.startsWith('91')) digits = digits.slice(2);
+  else if (digits.length > 10 && digits.startsWith('0')) digits = digits.slice(1);
+  return digits.slice(0, 10);
 }

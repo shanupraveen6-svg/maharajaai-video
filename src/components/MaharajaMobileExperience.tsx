@@ -231,9 +231,9 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
     // The file is read fully first, so the stored copy can be wiped the moment it is on the phone.
     let blobUrl = '';
     try {
-      blobUrl = URL.createObjectURL(await (await fetch(resultUrl, { cache: 'no-store' })).blob());
+      blobUrl = URL.createObjectURL(await lookBlob(resultUrl));
     } catch {
-      setNote(t('generationFailed'));
+      setNote(t('saveFailed'));
       return;
     }
     const link = document.createElement('a');
@@ -259,7 +259,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
     const text = `${t('shareText')} ${clientName}. ${t('shareInvite')} ${link}`;
     try {
       if (!resultUrl) throw new Error('no image');
-      const blob = await (await fetch(resultUrl)).blob();
+      const blob = await lookBlob(resultUrl);
       const file = new File([blob], 'my-look.jpg', { type: 'image/jpeg' });
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text });
@@ -546,4 +546,21 @@ function CameraOrUpload({ cameraLabel, uploadLabel, onFile }: { cameraLabel: str
       <input ref={uploadRef} type="file" accept="image/*" className="hidden" onChange={(event) => { onFile(event.target.files?.[0]); event.target.value = ''; }} />
     </div>
   );
+}
+
+/**
+ * The look as a file. A fresh look is a data: address and is decoded here directly (no network fetch,
+ * which the site's security policy would treat as a connection); a saved look is fetched from this site.
+ */
+async function lookBlob(url: string): Promise<Blob> {
+  const match = url.match(/^data:([^;,]+);base64,(.*)$/);
+  if (match) {
+    const binary = atob(match[2]);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return new Blob([bytes], { type: match[1] });
+  }
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) throw new Error('The look could not be read.');
+  return response.blob();
 }

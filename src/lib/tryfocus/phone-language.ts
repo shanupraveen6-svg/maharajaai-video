@@ -50,6 +50,7 @@ const STRINGS = {
   needOutfitPhoto: { en: 'Add a photo of your garment to continue.', ta: 'தொடர உங்கள் உடையின் புகைப்படத்தைச் சேருங்கள்' },
   creating: { en: 'Creating your look…', ta: 'உங்கள் தோற்றம் தயாராகிறது…' },
   createMyLook: { en: 'Create my look', ta: 'என் தோற்றத்தை உருவாக்கு' },
+  saveFailed: { en: 'We couldn’t save your look. Please try again.', ta: 'உங்கள் தோற்றத்தைச் சேமிக்க முடியவில்லை. மீண்டும் முயற்சி செய்யுங்கள்.' },
   photoUnreadable: { en: 'We couldn’t read this photo. Please choose another.', ta: 'இந்தப் புகைப்படத்தைப் படிக்க முடியவில்லை. வேறொன்றைத் தேர்வு செய்யுங்கள்.' },
   guardianFirst: { en: 'A parent or guardian must approve the child’s photo first.', ta: 'முதலில் பெற்றோர் அல்லது பாதுகாவலர் குழந்தையின் புகைப்படத்தை அனுமதிக்க வேண்டும்.' },
   chooseFromCatalogue: { en: 'Choose a garment from this store’s catalogue.', ta: 'இந்தக் கடையின் கலெக்ஷனில் இருந்து ஒரு உடையைத் தேர்வு செய்யுங்கள்.' },
