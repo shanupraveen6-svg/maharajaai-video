@@ -6,7 +6,8 @@ import { NOVEMBER_OFFER_ENDS_AT, novemberOfferActive } from '@/lib/tryfocus/nove
 
 
 const SALES_PHONE = '9994837342';
-const PHONE_SOFTWARE_FEE = '₹20,000';
+// The Phone package price customers see, including GST (₹20,000 + 18%).
+const PHONE_SOFTWARE_FEE = '₹23,600';
 
 /**
  * November offer for the Phone platform: a strip at the top of the landing page and a highlighted card in
@@ -112,7 +113,7 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
             </div>
             <ul className="mt-5 space-y-3 text-[15px]">
               {[
-                `No software fee in November (regularly ${PHONE_SOFTWARE_FEE}).`,
+                `No software fee in November (regularly ${PHONE_SOFTWARE_FEE} including GST).`,
                 '60 Try-Ons included.',
                 'Need more? Top up anytime, from 500 Try-Ons.',
               ].map((line) => (
@@ -122,7 +123,7 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
                 </li>
               ))}
             </ul>
-            <p className="mt-4 text-sm text-muted">From December, the standard {PHONE_SOFTWARE_FEE} Phone package applies.</p>
+            <p className="mt-4 text-sm text-muted">From December, the standard {PHONE_SOFTWARE_FEE} Phone package (including GST) applies.</p>
             <a href={`tel:${SALES_PHONE}`} className="tf-btn tf-btn-primary mt-6 !min-h-14 w-full text-base">
               <Phone className="h-5 w-5" /> Call sales: {SALES_PHONE}
             </a>

@@ -37,6 +37,10 @@ const MODULES: CreditModule[] = ['image', 'video', 'live'];
 
 const rupees = (value: number) => `₹${Math.round(value).toLocaleString('en-IN')}`;
 
+/** Shoppers see one final price: every amount here includes GST (no separate GST line). */
+const GST_INCLUDED = 1.18;
+const withGst = (value: number) => Math.round(value * GST_INCLUDED);
+
 export default function PricingCalculator({ config }: { config: PricingCalculatorConfig }) {
   // Phone Try-On is what we promote first.
   const [platform, setPlatform] = useState<Platform>('phone');
@@ -103,11 +107,11 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
               </span>
               {id === 'phone' ? (
                 <span className="mt-4 text-sm text-muted">
-                  Package: <b className="text-ink">{rupees(config.phonePackage.fee)}</b> with {config.phonePackage.credits.toLocaleString('en-IN')} Try-On + {config.phonePackage.retryPercent}% retries
+                  Package: <b className="text-ink">{rupees(withGst(config.phonePackage.fee))}</b> including GST, with {config.phonePackage.credits.toLocaleString('en-IN')} Try-On + {config.phonePackage.retryPercent}% retries
                   {config.novemberOffer && <span className="mt-2 block w-fit rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-bold text-[#2A060C]">Free in November · 60 Try-Ons</span>}
                 </span>
               ) : (
-                <span className="mt-4 text-sm text-muted">Software, one time: <b className="text-ink">{rupees(config.softwareFee[id])}</b></span>
+                <span className="mt-4 text-sm text-muted">Software, one time: <b className="text-ink">{rupees(withGst(config.softwareFee[id]))}</b> including GST</span>
               )}
             </button>
           );
@@ -117,7 +121,7 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
       {isPhone ? (
       <div className="tf-card p-5 sm:p-6">
         <h3 className="text-xl font-bold text-ink">Phone package</h3>
-        <p className="mt-1 text-sm text-muted">{rupees(config.phonePackage.fee)} includes {config.phonePackage.credits.toLocaleString('en-IN')} Try-Ons plus {config.phonePackage.retryPercent}% for customer retries ({config.phonePackage.totalCredits.toLocaleString('en-IN')} in all). Need more? Top up anytime, from 500 Try-Ons.</p>
+        <p className="mt-1 text-sm text-muted">{rupees(withGst(config.phonePackage.fee))} (including GST) includes {config.phonePackage.credits.toLocaleString('en-IN')} Try-Ons plus {config.phonePackage.retryPercent}% for customer retries ({config.phonePackage.totalCredits.toLocaleString('en-IN')} in all). Need more? Top up anytime, from 500 Try-Ons.</p>
         <div className="mt-6">
           <div className="flex items-baseline justify-between gap-3">
             <label htmlFor="pricing-phone-extra" className="font-semibold text-ink">Top-up Try-Ons (optional)</label>
@@ -200,27 +204,23 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
         <dl className="space-y-3 text-base">
           <div className="flex items-baseline justify-between gap-4">
             <dt className="font-semibold text-ink">{isPhone ? `Phone package · ${config.phonePackage.totalCredits.toLocaleString('en-IN')} Try-On credits` : `Your package${summary.preset ? ` · ${config.presets[summary.preset].label}` : ''}`}</dt>
-            <dd className="tabular-nums text-2xl font-bold text-ink">{rupees(isPhone ? summary.software : summary.creditsTotal)}</dd>
+            <dd className="tabular-nums text-2xl font-bold text-ink">{rupees(withGst(isPhone ? summary.software : summary.creditsTotal))}</dd>
           </div>
           {isPhone ? (
             phoneExtra > 0 && (
               <div className="flex items-baseline justify-between gap-4 text-muted">
                 <dt>{phoneExtra.toLocaleString('en-IN')} top-up Try-Ons</dt>
-                <dd className="tabular-nums">{rupees(summary.creditsTotal)}</dd>
+                <dd className="tabular-nums">{rupees(withGst(summary.creditsTotal))}</dd>
               </div>
             )
           ) : (
             <div className="flex items-baseline justify-between gap-4 text-muted">
               <dt>Software for {config.platformLabels[platform]}, one time</dt>
-              <dd className="tabular-nums">{rupees(summary.software)}</dd>
+              <dd className="tabular-nums">{rupees(withGst(summary.software))}</dd>
             </div>
           )}
-          <div className="flex items-baseline justify-between gap-4 text-muted">
-            <dt>GST ({Math.round(config.gstRate * 100)}%)</dt>
-            <dd className="tabular-nums">{rupees(summary.gst)}</dd>
-          </div>
           <div className="flex items-baseline justify-between gap-4 border-t border-line pt-3">
-            <dt className="text-lg font-bold text-ink">Total to pay</dt>
+            <dt className="text-lg font-bold text-ink">Total, including GST</dt>
             <dd className="tabular-nums text-3xl font-bold text-ink">{rupees(summary.total)}</dd>
           </div>
         </dl>
