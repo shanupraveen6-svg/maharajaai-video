@@ -27,6 +27,19 @@ function imageMime(value: string, bytes: Buffer) {
   throw new GenlookProviderError('Please use a JPEG, PNG or WebP photo.', true);
 }
 
+/** The GenLook account's remaining credits (1 credit per standard Try-On image). */
+export async function getGenlookCredits(apiKey: string): Promise<{ ok: true; creditBalance: number } | { ok: false; error: string }> {
+  try {
+    const response = await fetch(`${GENLOOK_BASE_URL}/account/credits`, { headers: { 'x-api-key': apiKey }, signal: AbortSignal.timeout(10_000), cache: 'no-store' });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) return { ok: false, error: 'The GenLook key is invalid or inactive.' };
+    if (!response.ok || typeof data?.creditBalance !== 'number') return { ok: false, error: 'GenLook did not return a credit balance.' };
+    return { ok: true, creditBalance: data.creditBalance };
+  } catch {
+    return { ok: false, error: 'GenLook could not be reached.' };
+  }
+}
+
 async function uploadImage(base64: string, apiKey: string, label: string) {
   const bytes = decodeBase64(base64);
   if (!bytes.length || bytes.length > 10 * 1024 * 1024) throw new GenlookProviderError(`${label} image is invalid or too large for GenLook.`, true);

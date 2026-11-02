@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, Store } from 'lucide-react';
 import { creditStatuses } from '@/lib/maharaja/credits';
 import { PACKAGES, packageOf, resolveAccess } from '@/lib/maharaja/access';
@@ -84,6 +85,7 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
 
   return (
     <div className="space-y-6">
+      <GenlookCredits />
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map(([label, value, note]) => (
           <article key={label} className="tf-card p-5">
@@ -162,5 +164,26 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
         </table>
       </section>
     </div>
+  );
+}
+
+/** The Try-On engine's own balance, read live from GenLook (1 credit per Try-On image). */
+function GenlookCredits() {
+  const [state, setState] = useState<{ balance?: number; error?: string } | null>(null);
+  useEffect(() => {
+    fetch('/api/admin/genlook', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => setState(typeof data?.creditBalance === 'number' ? { balance: data.creditBalance } : { error: data?.error || 'GenLook is not connected.' }))
+      .catch(() => setState({ error: 'GenLook could not be checked.' }));
+  }, []);
+  return (
+    <section className="tf-card flex flex-wrap items-center justify-between gap-3 p-5">
+      <div>
+        <p className="text-[13px] font-medium text-muted">GenLook credits left (Try-On engine)</p>
+        <p className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : state.balance !== undefined ? state.balance.toLocaleString('en-IN') : '—'}</p>
+      </div>
+      {state?.error && <p className="text-sm font-semibold text-danger">{state.error}</p>}
+      {state?.balance !== undefined && state.balance < 20 && <p className="text-sm font-semibold text-warn">Low: top up GenLook before stores run out.</p>}
+    </section>
   );
 }

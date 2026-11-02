@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendMode, getDb, getStorageBucket, isRealFirebaseAvailable } from '@/lib/firebase/admin';
 import { isSupportedVideoPath } from '@/lib/maharaja/video-playback';
+import { AI_CONFIG } from '@/lib/ai/config';
+import { getGenlookCredits } from '@/lib/maharaja/genlook-provider';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,9 +37,13 @@ export async function GET(req: NextRequest) {
           return isSupportedVideoPath(path) || contentType.startsWith('video/');
         }).length
       : undefined;
+    // The Try-On engine's key: ok, invalid or missing (never the balance, which is admin-only).
+    const genlookKey = AI_CONFIG.GENLOOK_API_KEY;
+    const genlook = !genlookKey ? 'missing' : (await getGenlookCredits(genlookKey)).ok ? 'ok' : 'invalid';
     return NextResponse.json({
       success: true,
       status: 'healthy',
+      genlook,
       backend: getBackendMode(),
       firebase: true,
       storage: true,
