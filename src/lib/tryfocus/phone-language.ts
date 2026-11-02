@@ -14,6 +14,7 @@ const STORAGE_KEY = 'tryfocus:phone-language';
 const STRINGS = {
   headerTag: { en: 'Private try-on on your phone', ta: 'உங்கள் போனில் தனிப்பட்ட ட்ரை-ஆன்' },
   help: { en: 'Help', ta: 'உதவி' },
+  back: { en: 'Back', ta: 'பின்செல்' },
   whatToTry: { en: 'What would you like to try?', ta: 'எதை அணிந்து பார்க்க விரும்புகிறீர்கள்?' },
   storeCollection: { en: 'Store collection', ta: 'கடையின் கலெக்ஷன்' },
   storeCollectionText: { en: 'Outfits from this store', ta: 'இந்தக் கடையின் உடைகள்' },

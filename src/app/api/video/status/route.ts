@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   const job = db
     ? (await db.collection('videoTestJobs').doc(jobId).get()).data()
     : getMockStore().sessions.get(`video_test_${jobId}`);
-  if (!job || job.accessCode !== accessCode) return NextResponse.json({ success: false, error: 'Video test job not found.' }, { status: 404 });
+  if (!job || job.accessCode !== accessCode) return NextResponse.json({ success: false, error: 'This video could not be found.' }, { status: 404 });
 
   if (job.status === 'ready') {
     const videoUrl = job.videoStoragePath ? await getSignedPlaybackUrl(job.videoStoragePath) : job.videoUrl;

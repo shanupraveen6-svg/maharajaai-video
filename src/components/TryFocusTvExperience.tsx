@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { fetchCatalogueSettings, fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
+  ArrowLeft,
   ArrowRight,
   Camera,
   CheckCircle2,
@@ -220,7 +221,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   function selectGender(gender: CatalogueAudience) {
     if (gender === genderFilter) return;
     setGenderFilter(gender);
-    setActiveCategory(gender === 'women' ? 'sarees' : gender === 'men' ? 'veshti' : gender === 'boys' ? 'boys-veshti' : 'girls-pavadai');
+    // The first category, in the shared order, that has pieces in this store.
+    const ordered = catalogueCategories.filter((cat) => cat.gender === gender);
+    setActiveCategory((ordered.find((cat) => catalogueItems.some((item) => item.category === cat.id)) || ordered[0]).id);
     setShowNewArrivals(false);
     setShowClientCollection(gender === 'women' || gender === 'men');
     setCataloguePage(0);
@@ -917,6 +920,16 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // One step back, in place of a progress bar. The tablet's tab already chose the source, so its photo
+  // step goes back to Who.
+  const tryOnBack = tryOnStage === 'source' ? () => setTryOnStage('who')
+    : tryOnStage === 'photo' ? () => setTryOnStage(isTablet ? 'who' : 'source')
+    : tryOnStage === 'browse' ? () => setTryOnStage('photo')
+    : null;
+  const videoBack = videoStage === 'photo' ? () => setVideoStage('who')
+    : videoStage === 'pick' ? () => setVideoStage('photo')
+    : null;
+
   return (
     <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-ink">
       {idleLoop && goLiveOn && !isTablet && <TvIdleLoop clientName={clientName} onWake={() => setIdleLoop(false)} />}
@@ -969,6 +982,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
            ========================================================= */}
         {mode === 'image-tryon' && (
           <div className="space-y-6">
+            {tryOnBack && <BackButton onClick={tryOnBack} />}
             {tryOnStage === 'who' && (
               <div className="flex flex-col gap-6">
                 <PageTitle size="lg" title="Who is it for?" subtitle="Tap one to start." />
@@ -1415,6 +1429,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         )}
         {mode === 'catalogue-video' && !isTablet && (!tvBillSuffixRequired || tvBillEntered) && (
           <div className="space-y-6">
+            {videoBack && <BackButton onClick={videoBack} />}
             {videoStage === 'who' && (
               <div className="flex flex-col gap-6">
                 <PageTitle size="lg" title="Who is the video for?" subtitle="A short AI Video of you in a piece from our collection." />
@@ -1590,7 +1605,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           </div>
         )}
 
-        {mode === 'gift' && isTablet && <TabletVideoHandoff qrOnly />}
+        {mode === 'gift' && isTablet && <TabletVideoHandoff qrOnly autoShow />}
       </div>
 
       {/* =========================================================
@@ -1692,5 +1707,13 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         </div>
       )}
     </main>
+  );
+}
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="-ml-2 inline-flex min-h-14 items-center gap-2 rounded-xl px-2 text-lg font-semibold text-muted hover:text-ink">
+      <ArrowLeft className="h-6 w-6" /> Back
+    </button>
   );
 }

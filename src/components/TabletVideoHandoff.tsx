@@ -23,10 +23,11 @@ const PAGE_SIZE = 100;
  * it. AI Video uses the store collection: the biller may tap the piece the customer bought, so the
  * customer's phone opens with it chosen; otherwise the customer picks from the collection.
  */
-export default function TabletVideoHandoff({ billingCode, qrOnly = false }: {
+export default function TabletVideoHandoff({ billingCode, qrOnly = false, autoShow = false }: {
   billingCode?: string;
-  /** The tablet's AI Video tab: the QR shows straight away, with only New customer under it. The customer
-   *  picks the piece on their phone. */
+  /** Shows the first QR without a tap (the tablet). Each QR counts as one given, so the workspace waits for a tap. */
+  autoShow?: boolean;
+  /** Only the QR and New customer: the customer picks the piece on their phone. */
   qrOnly?: boolean;
 }) {
   const [config, setConfig] = useState<CounterConfig | null>(null);
@@ -142,10 +143,10 @@ export default function TabletVideoHandoff({ billingCode, qrOnly = false }: {
 
   // The tablet shows the first customer's QR as soon as the store settings load.
   useEffect(() => {
-    if (qrOnly && config && !passQr) void issuePass();
+    if (autoShow && config && !passQr) void issuePass();
   // Runs once, when the settings arrive.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qrOnly, config]);
+  }, [autoShow, config]);
 
   const minimum = config?.videoMinPurchase ?? 5000;
   const storeName = config?.clientName || 'the store';

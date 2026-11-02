@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       const job = jobDoc.data();
       if (!session || session.accessCode !== accessCode) throw new Error('This session does not belong to this AI Video pass.');
       if (!job || job.status !== 'ready' || job.sessionId !== sessionId || job.accessCode !== accessCode || !job.videoStoragePath) {
-        throw new Error('Only the completed approved H3 video can be sent live.');
+        throw new Error('Only a finished video can go live.');
       }
       if (queueDoc.exists) {
         const existing = queueDoc.data() || {};
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
     const session = store.sessions.get(sessionId);
     const job = store.sessions.get(`video_test_${jobId}`);
     if (!session || session.accessCode !== accessCode || !job || job.status !== 'ready' || job.sessionId !== sessionId || !job.videoStoragePath) {
-      return NextResponse.json({ success: false, error: 'Only the completed approved H3 video can be sent live.' }, { status: 409 });
+      return NextResponse.json({ success: false, error: 'Only a finished video can go live.' }, { status: 409 });
     }
     const existing = store.liveQueue.find((item) => item.id === queueId) as any;
     if (existing) {

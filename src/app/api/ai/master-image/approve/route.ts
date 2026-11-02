@@ -32,13 +32,13 @@ export async function POST(req: NextRequest) {
     if (access.pass) {
       if (!access.pass.videoMasterDone || !access.pass.videoMasterUrl) {
         return NextResponse.json(
-          { success: false, error: 'No festival master image exists to approve. Generate the image first.' },
+          { success: false, error: 'Make your portrait first.' },
           { status: 400 }
         );
       }
       if (targetUrl && access.pass.videoMasterUrl !== targetUrl) {
         return NextResponse.json(
-          { success: false, error: 'Master image version mismatch: This image was superseded by another generation.' },
+          { success: false, error: 'A newer portrait was made. Approve the newest one.' },
           { status: 409 }
         );
       }

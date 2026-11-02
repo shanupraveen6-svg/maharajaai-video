@@ -16,7 +16,7 @@ reused for another level, so a shopper can always tell which choice matters more
 | 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Plain text list (sidebar on TV and tablet, underlined text row on phone) |
 | 4 | Which piece? | Product cards | Image cards with a 1–3 badge, the only image tiles |
 
-There is no step progress bar on any surface. Each screen has one title and one next action.
+There is no step progress bar on any surface. Each screen has one title, one next action and a small Back to the step before it. Categories and outfit types are listed in the order South Indian shoppers wear them most (men and boys start with shirt and pant).
 
 TV, three tabs:
 - Try-On: Who → Store collection or My own outfit → Your photo → Pick outfits (up to 3) or Your outfit → Your looks.

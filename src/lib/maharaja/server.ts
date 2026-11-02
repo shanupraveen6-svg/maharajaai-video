@@ -2589,12 +2589,12 @@ const VIDEO_LOCK_STALE_MS = 3 * 60 * 1000;
 type VideoLockResult = { ok: true } | { ok: false; error: string };
 
 function evaluateVideoLock(pass: MaharajaVideoPass | undefined | null, now: number): VideoLockResult {
-  if (!pass) return { ok: false, error: 'This Maharaja AI Video pass is invalid or expired.' };
+  if (!pass) return { ok: false, error: 'This QR has expired. Ask the store for a new one.' };
   if (!pass.videoMasterDone || !pass.videoMasterUrl) {
     return { ok: false, error: 'Create the AI Video image first, then generate the video.' };
   }
   if (!pass.videoMasterApproved) {
-    return { ok: false, error: 'Customer approval required: Please review and approve the master image before starting H3 video generation.' };
+    return { ok: false, error: 'Approve your portrait first, then make the video.' };
   }
   if (pass.videoGenerating) {
     // If provider has accepted the job and activeVideoJobId exists, it is actively rendering with the provider.
@@ -2744,7 +2744,7 @@ export async function verifyMaharajaAccess(
 
   return (req?.headers && await verifyTvRequest(req))
     ? { allowed: true as const, clientId: resolvedClientId, pass: null, workspace, entitlement, allowances }
-    : { allowed: false as const, error: 'This Maharaja AI Video pass is invalid or expired.' };
+    : { allowed: false as const, error: 'This QR has expired. Ask the store for a new one.' };
 }
 
 /**

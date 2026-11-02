@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
             if (access.allowances.video.used >= 2) {
               return NextResponse.json({
                 success: false,
-                error: 'A retry has already used this quota. H3 Cinematic Video allowance exhausted (2/2 completed). Maximum 2 generations reached.',
+                error: 'You have used both videos for this QR.',
               }, { status: 403 });
             }
           } else if (target === 'image') {
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
               if (access.allowances.masterImage.used >= 2) {
                 return NextResponse.json({
                   success: false,
-                  error: 'A retry has already used this quota. Celebration Gemini Master Image allowance exhausted (2/2 completed). Maximum 2 generations reached.',
+                  error: 'You have used both portraits for this QR.',
                 }, { status: 403 });
               }
             }

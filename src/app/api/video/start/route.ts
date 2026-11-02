@@ -106,16 +106,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Create the AI Video image first.' }, { status: 409 });
   }
   if (access.pass.rejectedMasterUrls?.includes(access.pass.videoMasterUrl)) {
-    return NextResponse.json({ success: false, error: 'This master image was rejected. Generate and approve a new festival image.' }, { status: 409 });
+    return NextResponse.json({ success: false, error: 'This portrait was not approved. Make a new portrait first.' }, { status: 409 });
   }
   if (!access.pass.videoMasterApproved || access.pass.videoMasterApprovedUrl !== access.pass.videoMasterUrl) {
     return NextResponse.json({ success: false, error: 'Customer approval required before generating the AI video.' }, { status: 403 });
   }
   if (access.pass.videoPromptArchitectureVersion !== VIDEO_PROMPT_ARCHITECTURE_VERSION) {
-    return NextResponse.json({ success: false, error: 'This approved image predates the updated cinematic direction. Create and approve a fresh festival image before starting a paid video.' }, { status: 409 });
+    return NextResponse.json({ success: false, error: 'Please make a new portrait, then make the video.' }, { status: 409 });
   }
   if (access.pass.videoReferenceSessionId && access.pass.videoReferenceSessionId !== sessionId) {
-    return NextResponse.json({ success: false, error: 'The approved master belongs to a different session.' }, { status: 409 });
+    return NextResponse.json({ success: false, error: 'This portrait belongs to another session. Make a new portrait.' }, { status: 409 });
   }
 
   const db = getDb();
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     ? (await db.collection('sessions').doc(sessionId).get()).data()
     : getMockStore().sessions.get(sessionId);
   if (!session || session.accessCode !== accessCode || session.masterStoragePath !== `clients/${activeClientId()}/sessions/${sessionId}/master/master.jpg`) {
-    return NextResponse.json({ success: false, error: 'The approved master image session could not be verified.' }, { status: 403 });
+    return NextResponse.json({ success: false, error: 'Your portrait could not be found. Make a new portrait.' }, { status: 403 });
   }
 
   const jobId = `vtest_${crypto.randomUUID()}`;
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
       const message = error instanceof Error ? error.message : '';
       if (message.startsWith('ACTIVE_VIDEO_TEST:')) {
         await markPassVideoFailed(passCode, jobId);
-        return NextResponse.json({ success: false, error: 'A video test is already running for this image. Please wait.', jobId: message.split(':')[1] }, { status: 409 });
+        return NextResponse.json({ success: false, error: 'Your video is already being made. Please wait.', jobId: message.split(':')[1] }, { status: 409 });
       }
       await markPassVideoFailed(passCode, jobId);
       throw error;
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
     const activeJob = activeJobId ? getMockStore().sessions.get(`video_test_${activeJobId}`) : null;
     if (activeJob && ['preparing', 'submitted', 'processing', 'unknown'].includes(activeJob.status)) {
       await markPassVideoFailed(passCode, jobId);
-      return NextResponse.json({ success: false, error: 'A video test is already running for this image. Please wait.', jobId: activeJobId }, { status: 409 });
+      return NextResponse.json({ success: false, error: 'Your video is already being made. Please wait.', jobId: activeJobId }, { status: 409 });
     }
     getMockStore().sessions.set(`video_test_${jobId}`, jobBase);
     getMockStore().sessions.set(sessionId, { ...session, activeVideoTestJobId: jobId, updatedAt: createdAt });

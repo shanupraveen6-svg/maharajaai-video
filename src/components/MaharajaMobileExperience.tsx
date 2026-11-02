@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useStoreCatalogue } from '@/lib/maharaja/use-store-catalogue';
 import {
+  ArrowLeft,
   ArrowRight,
   Camera,
   Check,
@@ -189,6 +190,11 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
 
       <div className="mx-auto max-w-xl space-y-5 px-4 pt-4">
         <>
+          {(stage === 'photo' || stage === 'outfit') && (
+            <button type="button" onClick={() => setStage(stage === 'photo' ? 'source' : 'photo')} className="-ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-1 text-sm font-semibold text-muted hover:text-ink">
+              <ArrowLeft className="h-4 w-4" /> {t('back')}
+            </button>
+          )}
           {stage === 'source' && (
             <div className="space-y-4">
               <PageTitle title={t('whatToTry')} />
@@ -219,7 +225,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
                   size="sm"
                   label="Who is it for"
                   value={genderFilter}
-                  onChange={(audience) => { setGenderFilter(audience); setActiveCategory(catalogueCategories.find((cat) => cat.gender === audience)!.id); }}
+                  onChange={(audience) => { setGenderFilter(audience); const ordered = catalogueCategories.filter((cat) => cat.gender === audience); setActiveCategory((ordered.find((cat) => catalogueItems.some((item) => item.category === cat.id)) || ordered[0]).id); }}
                   options={(['women', 'men', 'boys', 'girls'] as const).map((value) => ({ value, label: t(value) }))}
                 />
               </div>
