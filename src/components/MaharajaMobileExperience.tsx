@@ -20,6 +20,7 @@ import {
   Upload,
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
+import DressLoader from '@/components/DressLoader';
 import { compressImage } from '@/lib/utils/image';
 import type { CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
@@ -200,13 +201,24 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   }
 
   const saveLook = () => leadGate.withLead(async () => {
+    // The file is read fully first, so the stored copy can be wiped the moment it is on the phone.
+    let blobUrl = '';
+    try {
+      blobUrl = URL.createObjectURL(await (await fetch(resultUrl, { cache: 'no-store' })).blob());
+    } catch {
+      setNote(t('generationFailed'));
+      return;
+    }
     const link = document.createElement('a');
-    link.href = resultUrl;
+    link.href = blobUrl;
     link.download = `${clientName.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-look.jpg`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     setDownloaded(true);
+    // Keep the downloaded image for Share on WhatsApp on this page; the server copy is deleted now.
+    setResultUrl(blobUrl);
+    void fetch(`/api/maharaja/phone-look?access=${encodeURIComponent(accessCode)}&deviceId=${encodeURIComponent(deviceId)}`, { method: 'DELETE' }).catch(() => undefined);
     void fetch('/api/maharaja/activity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -261,6 +273,21 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
               ))}
             </div>
             <Link href="/maharaja/try-on" className="flex min-h-10 items-center rounded-xl px-2 text-sm font-semibold text-muted hover:text-ink">{t('help')}</Link>
+            {/* The one retry lives here, top right, never as a button on the page. */}
+            {(stage === 'result' || stage === 'done') && !retryUsed && (
+              <div className="relative">
+                <button type="button" aria-label={t('moreOptions')} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="flex h-10 w-10 items-center justify-center rounded-xl text-ink hover:bg-line/60">
+                  <MoreVertical className="h-5 w-5" />
+                </button>
+                {menuOpen && (
+                  <div className="absolute right-0 top-12 z-40 w-56 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
+                    <button type="button" disabled={generating} onClick={() => void tryOnceMore()} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold disabled:opacity-50">
+                      <RotateCcw className="h-4 w-4" /> {t('tryOnceMore')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -395,27 +422,9 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
 
         {stage === 'result' && (
           <div className="space-y-4">
-            <PageTitle
-              title={t('yourLook')}
-              action={!retryUsed ? (
-                <div className="relative">
-                  <button type="button" aria-label={t('moreOptions')} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-white">
-                    <MoreVertical className="h-5 w-5" />
-                  </button>
-                  {menuOpen && (
-                    <div className="absolute right-0 top-12 z-20 w-56 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
-                      <button type="button" disabled={generating} onClick={() => void tryOnceMore()} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold disabled:opacity-50">
-                        <RotateCcw className="h-4 w-4" /> {t('tryOnceMore')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : undefined}
-            />
+            <PageTitle title={t('yourLook')} />
             {generating ? (
-              <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-3 rounded-2xl bg-white text-muted">
-                <LoaderCircle className="h-8 w-8 animate-spin" /> {t('creatingNote')}
-              </div>
+              <div className="flex aspect-[9/16] w-full items-center justify-center rounded-2xl bg-white" />
             ) : (
               // The look can be saved only through Download (WhatsApp number first): no long-press save.
               <div className="select-none overflow-hidden rounded-2xl [-webkit-touch-callout:none] [&_img]:pointer-events-none" onContextMenu={(event) => event.preventDefault()}>
@@ -448,24 +457,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
 
         {stage === 'done' && (
           <div className="space-y-4">
-            <PageTitle
-              title={t('doneTitle')}
-              subtitle={t('doneText')}
-              action={!retryUsed ? (
-                <div className="relative">
-                  <button type="button" aria-label={t('moreOptions')} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-white">
-                    <MoreVertical className="h-5 w-5" />
-                  </button>
-                  {menuOpen && (
-                    <div className="absolute right-0 top-12 z-20 w-56 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
-                      <button type="button" onClick={() => void tryOnceMore()} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold">
-                        <RotateCcw className="h-4 w-4" /> {t('tryOnceMore')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : undefined}
-            />
+            <PageTitle title={t('doneTitle')} subtitle={t('doneText')} />
             {note && <p role="alert" className="rounded-2xl bg-danger-soft p-3 text-sm font-semibold text-danger">{note}</p>}
             {instagramUrl && (
               <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
@@ -475,6 +467,11 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
           </div>
         )}
       </div>
+      {generating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/95 p-6 backdrop-blur-sm">
+          <DressLoader size="lg" title={t('creating')} />
+        </div>
+      )}
       {leadGate.dialog}
       {exitGuard.dialog}
     </main>

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { runAfter } from '@/lib/maharaja/run-after';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { applyMaharajaVideoWatermark } from '@/lib/maharaja/video-processor';
-import { resolveRequestClientId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { expirePassAfterDownload, resolveRequestClientId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
@@ -119,6 +120,8 @@ export async function POST(req: NextRequest) {
           { name: `Maharaja-${sessionId}.jpg`, data: image },
           { name: `Maharaja-${sessionId}.mp4`, data: Buffer.from(storedVideo) },
         ]);
+        // Downloaded: the QR and its media are wiped within minutes (Go Live keeps its own day).
+        runAfter(() => expirePassAfterDownload(access.pass!.code, sessionId).catch(() => undefined));
         return new NextResponse(zip as any, { headers: {
           'Content-Type': 'application/zip',
           'Content-Disposition': `attachment; filename="Maharaja-${sessionId}.zip"`,
@@ -156,6 +159,8 @@ export async function POST(req: NextRequest) {
       let buffer = Buffer.from(stored);
       if (kind === 'image') buffer = Buffer.from(await applyMaharajaWatermark(buffer));
       const extension = kind === 'image' ? 'jpg' : 'mp4';
+      // The video is the last thing a customer saves: once downloaded it is wiped within minutes.
+      if (kind === 'video') runAfter(() => expirePassAfterDownload(access.pass!.code, sessionId).catch(() => undefined));
       return new NextResponse(buffer as any, {
         headers: {
           'Content-Type': contentType,

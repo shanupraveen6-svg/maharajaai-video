@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { FREE_TRIAL_IMAGE_CREDITS } from '@/lib/maharaja/pricing';
 import { getGenlookCredits } from '@/lib/maharaja/genlook-provider';
-import { resultExpiresAtIso, resultExpiresAtMs } from '@/lib/maharaja/retention';
+import { afterDownloadExpiresAtMs, resultExpiresAtIso, resultExpiresAtMs } from '@/lib/maharaja/retention';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { getOperatorSession, markClientSession, verifyOperatorRequest } from '@/lib/auth/operator';
@@ -1829,6 +1829,36 @@ export async function releaseGenlookCredit() {
     ...workspace,
     usage: { ...workspace.usage, genlookUsed: Math.max(0, Number(workspace.usage.genlookUsed || 0) - 1) },
   });
+}
+
+/**
+ * The customer downloaded their AI Video: the QR and its media are wiped within minutes. A video sent to
+ * Go Live keeps its own one-day replay (its session already carries that later expiry).
+ */
+export async function expirePassAfterDownload(code: string, sessionId?: string) {
+  const until = afterDownloadExpiresAtMs();
+  const db = getDb();
+  if (db) {
+    const passRef = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);
+    await db.runTransaction(async (tx) => {
+      const pass = (await tx.get(passRef)).data() as MaharajaVideoPass | undefined;
+      if (!pass) return;
+      const expiresAtMs = Math.min(Number(pass.expiresAtMs || until), until);
+      tx.set(passRef, { expiresAtMs, expiresAt: new Date(expiresAtMs).toISOString() }, { merge: true });
+      tx.set(db.collection('customerPassIndex').doc(code), { expiresAtMs }, { merge: true });
+    });
+    if (sessionId) {
+      const sessionRef = db.collection('sessions').doc(sessionId);
+      const session = (await sessionRef.get()).data();
+      if (session && session.liveConsent !== true) await sessionRef.set({ expiresAt: new Date(until).toISOString() }, { merge: true });
+    }
+    return;
+  }
+  const key = `${activeClientId()}:${code}`;
+  const pass = getMockStore().customerPasses.get(key) as MaharajaVideoPass | undefined;
+  if (pass) getMockStore().customerPasses.set(key, { ...pass, expiresAtMs: Math.min(Number(pass.expiresAtMs || until), until) });
+  const session = sessionId ? getMockStore().sessions.get(sessionId) : null;
+  if (sessionId && session && session.liveConsent !== true) getMockStore().sessions.set(sessionId, { ...session, expiresAt: new Date(until).toISOString() });
 }
 
 /** Returns a reserved credit when the generation it was reserved for did not complete. */

@@ -20,6 +20,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
+import DressLoader from '@/components/DressLoader';
 import { compressImage } from '@/lib/utils/image';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
 import TvIdleLoop from '@/components/TvIdleLoop';
@@ -1283,7 +1284,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                         <div className="relative aspect-[9/16] bg-canvas">
                           <img src={look.imageUrl} alt="" className={`h-full w-full object-contain ${state === 'generating' ? 'opacity-40' : ''}`} />
                           <span className="absolute inset-0 flex items-center justify-center">
-                            {state === 'failed' ? <span className="rounded-full bg-danger px-3 py-1 text-sm font-semibold text-white">Not created</span> : <LoaderCircle className="h-10 w-10 animate-spin text-brand" />}
+                            {state === 'failed' ? <span className="rounded-full bg-danger px-3 py-1 text-sm font-semibold text-white">Not created</span> : state === 'generating' ? <span className="rounded-2xl bg-white/85 p-3"><DressLoader size="sm" caption={false} /></span> : null}
                           </span>
                         </div>
                         <p className="truncate p-3 text-sm font-semibold">{look.title}</p>
@@ -1291,7 +1292,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     );
                   })}
                 </div>
-                {imageSource === 'own-garment' && <div className="flex justify-center py-16"><LoaderCircle className="h-14 w-14 animate-spin text-brand" /></div>}
+                {imageSource === 'own-garment' && <div className="flex justify-center py-16"><DressLoader size="lg" /></div>}
               </section>
             )}
 
@@ -1586,8 +1587,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 </div>
                 {videoGeneratingMaster ? (
                   <div className="tf-card flex min-h-[420px] flex-col items-center justify-center gap-4 p-8 text-center">
-                    <LoaderCircle className="h-16 w-16 animate-spin text-brand" />
-                    <p className="text-2xl font-bold">Dressing you in {selectedProduct.title}</p>
+                    <DressLoader size="lg" title={`Dressing you in ${selectedProduct.title}`} />
                   </div>
                 ) : videoMasterUrl ? (
                   <div className="grid items-center gap-5 sm:grid-cols-[1fr_auto]">

@@ -22,6 +22,7 @@ import {
 import { compressImage } from '@/lib/utils/image';
 import { LOOK_PREFILL_KEY, type LookPrefill } from '@/lib/maharaja/look-prefill';
 import { useLeadGate } from '@/components/LeadGate';
+import DressLoader from '@/components/DressLoader';
 import { useExitGuard } from '@/components/ExitGuard';
 import {
   EVENT_OPTIONS,
@@ -894,11 +895,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       {(stage === 'image' || stage === 'video') && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#21090E]/90 p-5 text-center text-white backdrop-blur-sm" role="alert" aria-live="assertive">
           <div className="w-full max-w-sm border border-[#D4AF37]/55 bg-[#2A060C] p-6 shadow-2xl">
-            <div className="relative mx-auto mb-5 h-20 w-20">
-              <span className="absolute inset-0 animate-ping rounded-full border border-[#D4AF37]/45" />
-              <span className="absolute inset-2 animate-spin rounded-full border border-transparent border-t-[#D4AF37] border-r-[#D4AF37]" />
-              <span className="absolute inset-0 flex items-center justify-center text-3xl">🪔</span>
-            </div>
+            <div className="mx-auto mb-5"><DressLoader tone="dark" caption={false} /></div>
             <p className="tracking-tight text-xl font-bold text-[#F3E5AB]">{stage === 'image' ? 'Creating your Diwali portrait' : 'Rendering your Diwali film'}</p>
             <p className="mt-2 min-h-12 text-sm leading-6 text-[#F3E5AB]/85">{generationStatus}</p>
             {stage === 'image' ? <div className="mt-5" aria-label={`Generation progress ${generationProgress}%`}>

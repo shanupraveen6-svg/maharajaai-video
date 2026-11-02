@@ -11,7 +11,7 @@ import { GoogleGenAI } from '@google/genai';
 import { type CustomerCategory, type GarmentType, GARMENT_TYPE_RULES, GENLOOK_GARMENT_DESCRIPTIONS, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType, customerRateLimit } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
-import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, getTryOnDeviceStatus, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { tryOnEngineOrder, generateFalTryOn } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
@@ -236,10 +236,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const deviceStatus = service === 'try-on' && validTryOnDeviceId(body.deviceId)
-      ? await getTryOnDeviceStatus(body.deviceId)
-      : null;
-    const tryOnRetry = service === 'try-on' && (Number(access.allowances.tryOn.used || 0) > 0 || deviceStatus?.retryUsed === true);
     // Try-On uses only the one try-on garment photo (retries too); the AI Video portrait may use two.
     const maxGarmentPhotos = service === 'ai-video' ? 2 : 1;
     if (garmentInputs.length > maxGarmentPhotos) {
@@ -267,7 +263,7 @@ export async function POST(req: NextRequest) {
 
     const nowIso = new Date().toISOString();
     const ai = getGenAIClient();
-    if (!ai && (service === 'ai-video' || tryOnRetry || (!AI_CONFIG.GENLOOK_API_KEY?.trim() && !process.env.FAL_KEY?.trim()))) {
+    if (!ai && (service === 'ai-video' || (!AI_CONFIG.GENLOOK_API_KEY?.trim() && !process.env.FAL_KEY?.trim()))) {
       if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(
         { success: false, error: 'Gemini image generation is not configured.' },
@@ -382,9 +378,11 @@ ${roleInstructions}
 
         let rawBuffer: Buffer | null = null;
         // Try-On engines in order (TRYON_ENGINE_ORDER, default GenLook → fal → FASHN → Gemini); one that is not
-        // configured is skipped. A customer retry and the AI Video portrait use Gemini only. An engine whose
+        // configured is skipped. An engine whose
         // outcome is uncertain (it may still have made and billed the image) stops the chain: no double charge.
-        const engines = service === 'try-on' && !tryOnRetry ? tryOnEngineOrder() : ['gemini' as const];
+        // Every Try-On, the customer's retry included, uses the same engines (GenLook first); the AI Video
+        // portrait uses Gemini.
+        const engines = service === 'try-on' ? tryOnEngineOrder() : ['gemini' as const];
         let lastEngineError: unknown = null;
         for (const engine of engines) {
           if (rawBuffer) break;

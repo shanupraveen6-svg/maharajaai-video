@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { mirrorRecordingUrls, readMirrorRecording } from '@/lib/maharaja/mirror-recordings';
+import { runAfter } from '@/lib/maharaja/run-after';
+import { mirrorRecordingUrls, readMirrorRecording, expireMirrorRecordingAfterDownload } from '@/lib/maharaja/mirror-recordings';
 import { getClientWorkspaceById } from '@/lib/maharaja/server';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { countLeadDownload, verifyLeadToken } from '@/lib/maharaja/leads';
@@ -16,7 +17,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   if (!record) return NextResponse.json({ success: false, error: 'This Live Mirror video has expired.' }, { status: 404, headers: { 'Cache-Control': 'private, no-store' } });
   const [urls, workspace] = await Promise.all([mirrorRecordingUrls(record), getClientWorkspaceById(record.clientId)]);
   const lead = verifyLeadToken(req.nextUrl.searchParams.get('lead'), record.clientId || MAHARAJA_CLIENT_ID);
-  if (lead && req.nextUrl.searchParams.get('download') === '1') void countLeadDownload(lead.leadId, record.clientId || MAHARAJA_CLIENT_ID).catch(() => undefined);
+  if (lead && req.nextUrl.searchParams.get('download') === '1') {
+    void countLeadDownload(lead.leadId, record.clientId || MAHARAJA_CLIENT_ID).catch(() => undefined);
+    // Downloaded: wiped within minutes; the hour was only the grace period to download.
+    runAfter(() => expireMirrorRecordingAfterDownload(id).catch(() => undefined));
+  }
   return NextResponse.json({
     success: true,
     ...urls,

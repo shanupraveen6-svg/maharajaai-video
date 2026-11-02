@@ -68,3 +68,14 @@ export async function cleanupPhoneLooks() {
   }
   return expired.size;
 }
+
+/** The customer downloaded their look: it is deleted at once (the image is already on their phone). */
+export async function deletePhoneLook(clientId: string, deviceId: string) {
+  const id = lookId(clientId, deviceId);
+  const record = await readRecord(id);
+  const bucket = getStorageBucket();
+  if (record?.path && bucket) await bucket.file(record.path).delete().catch(() => undefined);
+  const db = getDb();
+  if (db) await db.collection(COLLECTION).doc(id).delete().catch(() => undefined);
+  else getMockStore().sessions.delete(`${COLLECTION}_${id}`);
+}

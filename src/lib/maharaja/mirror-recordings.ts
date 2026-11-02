@@ -1,4 +1,4 @@
-import { RESULT_LIFETIME_MS } from '@/lib/maharaja/retention';
+import { RESULT_LIFETIME_MS, afterDownloadExpiresAtMs } from '@/lib/maharaja/retention';
 import crypto from 'crypto';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { activeClientId } from './client-context';
@@ -156,4 +156,14 @@ async function deleteMirrorFile(storagePath: string) {
   const bucket = realBucket();
   if (bucket) await bucket.file(storagePath).delete({ ignoreNotFound: true }).catch(() => undefined);
   else getMockStore().sessions.delete(`mock_blob_${storagePath}`);
+}
+
+/** The customer downloaded: the recording is wiped within minutes instead of at the end of its hour. */
+export async function expireMirrorRecordingAfterDownload(id: string) {
+  const record = await readMirrorRecording(id);
+  if (!record) return;
+  const expiresAtMs = Math.min(record.expiresAtMs, afterDownloadExpiresAtMs());
+  const db = getDb();
+  if (db) await db.collection(COLLECTION).doc(id).set({ expiresAtMs }, { merge: true });
+  else getMockStore().sessions.set(`mirror_recording_${id}`, { ...record, expiresAtMs });
 }

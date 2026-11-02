@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { runAfter } from '@/lib/maharaja/run-after';
 import { getStorageBucket } from '@/lib/firebase/admin';
 
-import { lookVideoAvailable, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
+import { lookVideoAvailable, markHandoffLookDownloaded, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
 import { getClientWorkspaceById, instagramUrlFor, moduleLimit } from '@/lib/maharaja/server';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
@@ -31,6 +32,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
       const lead = verifyLeadToken(req.nextUrl.searchParams.get('lead'), handoff.clientId || MAHARAJA_CLIENT_ID);
       if (!lead) return NextResponse.json({ error: 'Enter your WhatsApp number to save your look.', leadRequired: true }, { status: 428 });
       void countLeadDownload(lead.leadId, handoff.clientId || MAHARAJA_CLIENT_ID).catch(() => undefined);
+      // Once every look is downloaded, the link and its looks are wiped within minutes.
+      runAfter(() => markHandoffLookDownloaded(token, index).catch(() => undefined));
     }
     const extension = look.contentType === 'image/png' ? 'png' : look.contentType === 'image/webp' ? 'webp' : 'jpg';
     return new NextResponse(new Uint8Array(bytes), { headers: {

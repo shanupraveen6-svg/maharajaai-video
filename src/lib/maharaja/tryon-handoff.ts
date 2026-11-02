@@ -1,4 +1,5 @@
 import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { afterDownloadExpiresAtMs } from '@/lib/maharaja/retention';
 
 export type StoredLook = {
   sku: string;
@@ -19,6 +20,8 @@ export type StoredHandoff = {
   source?: 'tv' | 'tablet';
   expiresAtMs: number;
   looks: StoredLook[];
+  /** Look indexes the customer has downloaded; once all are, the link ends within minutes. */
+  downloaded?: number[];
   /** Festival video pass issued for each look, keyed by look index. */
   lookPassCodes?: Record<string, string>;
 };
@@ -43,4 +46,27 @@ export async function readTryOnHandoff(token: string): Promise<StoredHandoff | n
     : getMockStore().sessions.get(`tv_handoff_${token}`);
   if (!record || Number(record.expiresAtMs) <= Date.now() || !Array.isArray(record.looks)) return null;
   return record as StoredHandoff;
+}
+
+/** Records a downloaded look; when every look is downloaded the handoff is wiped within minutes. */
+export async function markHandoffLookDownloaded(token: string, index: number) {
+  if (!isHandoffToken(token)) return;
+  const db = getDb();
+  if (db) {
+    const ref = db.collection('tvTryOnHandoffs').doc(token);
+    await db.runTransaction(async (tx) => {
+      const record = (await tx.get(ref)).data() as StoredHandoff | undefined;
+      if (!record) return;
+      const downloaded = Array.from(new Set([...(record.downloaded || []), index]));
+      const done = downloaded.length >= record.looks.length;
+      tx.set(ref, { downloaded, ...(done ? { expiresAtMs: Math.min(record.expiresAtMs, afterDownloadExpiresAtMs()) } : {}) }, { merge: true });
+    });
+    return;
+  }
+  const key = `tv_handoff_${token}`;
+  const record = getMockStore().sessions.get(key) as StoredHandoff | undefined;
+  if (!record) return;
+  const downloaded = Array.from(new Set([...(record.downloaded || []), index]));
+  const done = downloaded.length >= record.looks.length;
+  getMockStore().sessions.set(key, { ...record, downloaded, ...(done ? { expiresAtMs: Math.min(record.expiresAtMs, afterDownloadExpiresAtMs()) } : {}) });
 }
