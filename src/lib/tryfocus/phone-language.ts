@@ -60,6 +60,10 @@ const STRINGS = {
   },
   privacy: { en: 'Privacy', ta: 'தனியுரிமை' },
   // Wall QR Try-On steps
+  exitTitle: { en: 'Are you sure you want to exit Try-On?', ta: 'ட்ரை-ஆனில் இருந்து வெளியேற விரும்புகிறீர்களா?' },
+  exitVideoTitle: { en: 'Are you sure you want to exit AI Video?', ta: 'AI வீடியோவில் இருந்து வெளியேற விரும்புகிறீர்களா?' },
+  exitText: { en: 'Your photo and look on this page will be lost.', ta: 'இந்தப் பக்கத்தில் உள்ள உங்கள் புகைப்படமும் தோற்றமும் இழக்கப்படும்.' },
+  exitBtn: { en: 'Exit', ta: 'வெளியேறு' },
   whatType: { en: 'What are you trying?', ta: 'எந்த வகை உடை?' },
   otherType: { en: 'Other', ta: 'மற்றவை' },
   camera: { en: 'Camera', ta: 'கேமரா' },

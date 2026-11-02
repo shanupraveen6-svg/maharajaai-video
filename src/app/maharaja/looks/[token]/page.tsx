@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { LOOK_PREFILL_KEY, type LookPrefill } from '@/lib/maharaja/look-prefill';
 import { useLeadGate } from '@/components/LeadGate';
+import { useExitGuard } from '@/components/ExitGuard';
 
 type Look = {
   sku: string;
@@ -52,6 +53,8 @@ export default function PrivateLooksPage() {
   const [store, setStore] = useState({ name: '', instagramUrl: '' });
   // Nothing downloads on its own: Save asks for the customer's WhatsApp number first.
   const leadGate = useLeadGate({ kind: 'looks', ref: token || '', source: 'tv-looks' });
+  // Back or close asks first: this private link is the only copy of the customer's looks.
+  const exitGuard = useExitGuard({});
 
   // Retry lives in the header ⋯ menu.
   const [showMenu, setShowMenu] = useState(false);
@@ -335,6 +338,7 @@ export default function PrivateLooksPage() {
       </div>
 
       {leadGate.dialog}
+      {exitGuard.dialog}
 
       {/* Retry, from the header ⋯ menu */}
       {showRetryImageModal && (

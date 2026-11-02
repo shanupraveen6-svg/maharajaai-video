@@ -26,6 +26,7 @@ import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { ActionBar, PageTitle, Segmented } from '@/components/ui';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { useLeadGate } from '@/components/LeadGate';
+import { useExitGuard } from '@/components/ExitGuard';
 import { categoriesFor, type StoreCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 
 type Source = 'catalogue' | 'own-garment';
@@ -230,6 +231,16 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
     outfit: 'photo',
   };
   const backTo = back[stage];
+  // The phone's back button steps back through the flow; at the start or on the look it asks first.
+  const exitGuard = useExitGuard({
+    onBack: () => {
+      if (!backTo || generating) return false;
+      setNote('');
+      setStage(backTo);
+      return true;
+    },
+    protect: Boolean(personPhoto || resultUrl) && stage !== 'done',
+  });
   const needsOutfitStep = source === 'own-garment';
   const photoReady = Boolean(personPhoto) && !(isChild && !guardianConsent);
 
@@ -464,6 +475,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
         )}
       </div>
       {leadGate.dialog}
+      {exitGuard.dialog}
     </main>
   );
 }

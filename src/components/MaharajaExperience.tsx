@@ -22,6 +22,7 @@ import {
 import { compressImage } from '@/lib/utils/image';
 import { LOOK_PREFILL_KEY, type LookPrefill } from '@/lib/maharaja/look-prefill';
 import { useLeadGate } from '@/components/LeadGate';
+import { useExitGuard } from '@/components/ExitGuard';
 import {
   EVENT_OPTIONS,
   GARMENT_TYPE_VALUES,
@@ -184,6 +185,8 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
   const [stage, setStage] = useState<'loading' | 'ready' | 'analyzing' | 'image' | 'video' | 'result'>('loading');
   // Nothing downloads on its own: Download asks for the customer's WhatsApp number first.
   const leadGate = useLeadGate({ kind: 'pass', ref: accessCode, source: service === 'ai-video' ? 'ai-video' : 'try-on' });
+  // Back or close asks first: the customer's QR session, photo and portrait live on this page.
+  const exitGuard = useExitGuard({ what: service === 'ai-video' ? 'video' : 'tryOn' });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [processingConsent, setProcessingConsent] = useState(false);
@@ -1334,6 +1337,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
         <Link href="/terms" className="rounded-xl inline-block py-3 font-bold text-brand underline underline-offset-2">Terms</Link>
       </div>
       {leadGate.dialog}
+      {exitGuard.dialog}
     </main>
   );
 }
