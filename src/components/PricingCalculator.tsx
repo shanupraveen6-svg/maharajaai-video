@@ -117,10 +117,10 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
       {isPhone ? (
       <div className="tf-card p-5 sm:p-6">
         <h3 className="text-xl font-bold text-ink">Phone package</h3>
-        <p className="mt-1 text-sm text-muted">{rupees(config.phonePackage.fee)} includes {config.phonePackage.credits.toLocaleString('en-IN')} Try-Ons plus {config.phonePackage.retryPercent}% for customer retries ({config.phonePackage.totalCredits.toLocaleString('en-IN')} in all). Need more? Top up at ₹10 per Try-On, from 500.</p>
+        <p className="mt-1 text-sm text-muted">{rupees(config.phonePackage.fee)} includes {config.phonePackage.credits.toLocaleString('en-IN')} Try-Ons plus {config.phonePackage.retryPercent}% for customer retries ({config.phonePackage.totalCredits.toLocaleString('en-IN')} in all). Need more? Top up anytime, from 500 Try-Ons.</p>
         <div className="mt-6">
           <div className="flex items-baseline justify-between gap-3">
-            <label htmlFor="pricing-phone-extra" className="font-semibold text-ink">Top-up Try-Ons (optional, ₹10 each)</label>
+            <label htmlFor="pricing-phone-extra" className="font-semibold text-ink">Top-up Try-Ons (optional)</label>
             <span className="tabular-nums text-lg font-bold text-ink">{phoneExtra.toLocaleString('en-IN')}</span>
           </div>
           <input
@@ -205,7 +205,7 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
           {isPhone ? (
             phoneExtra > 0 && (
               <div className="flex items-baseline justify-between gap-4 text-muted">
-                <dt>{phoneExtra.toLocaleString('en-IN')} top-up Try-Ons × ₹10</dt>
+                <dt>{phoneExtra.toLocaleString('en-IN')} top-up Try-Ons</dt>
                 <dd className="tabular-nums">{rupees(summary.creditsTotal)}</dd>
               </div>
             )

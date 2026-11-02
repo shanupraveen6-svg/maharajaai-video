@@ -114,7 +114,7 @@ export default function NovemberOffer({ variant }: { variant: 'strip' | 'card' }
               {[
                 `No software fee in November (regularly ${PHONE_SOFTWARE_FEE}).`,
                 '60 Try-Ons included.',
-                'Need more? Top up anytime at ₹10 per Try-On, from 500.',
+                'Need more? Top up anytime, from 500 Try-Ons.',
               ].map((line) => (
                 <li key={line} className="flex gap-3">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success-soft text-success"><Check className="h-4 w-4" /></span>
