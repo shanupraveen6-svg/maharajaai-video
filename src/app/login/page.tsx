@@ -12,6 +12,16 @@ function MaharajaLoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // The store chosen on the main page: the login must belong to it.
+  const store = searchParams.get('store') || '';
+  const [storeName, setStoreName] = useState('');
+  React.useEffect(() => {
+    if (!store) return;
+    fetch(`/api/operator/login?store=${encodeURIComponent(store)}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => { if (data?.name) setStoreName(data.branch ? `${data.name} · ${data.branch}` : data.name); })
+      .catch(() => undefined);
+  }, [store]);
 
   const nextPath = useMemo(() => {
     const next = searchParams.get('next') || '/maharaja/workspace';
@@ -38,7 +48,7 @@ function MaharajaLoginForm() {
       const res = await fetch('/api/operator/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, ...(store ? { store } : {}) }),
         credentials: 'same-origin',
         signal: controller.signal,
       });
@@ -52,7 +62,8 @@ function MaharajaLoginForm() {
 
       const data = await res.json().catch(() => null);
       // Client logins never open TryFocus admin; they land on their own workspace.
-      window.location.assign(data?.role === 'client' && nextPath.startsWith('/admin') ? '/maharaja/client-admin' : nextPath);
+      // TryFocus admin signing in from a store's sign-in opens that store's workspace.
+      window.location.assign(typeof data?.next === 'string' && data.next.startsWith('/maharaja/') ? data.next : data?.role === 'client' && nextPath.startsWith('/admin') ? '/maharaja/client-admin' : nextPath);
     } catch (caught) {
       setError(caught instanceof DOMException && caught.name === 'AbortError'
         ? 'Login is taking too long. Please check your connection and try again.'
@@ -81,8 +92,8 @@ function MaharajaLoginForm() {
             {isAdmin ? <LockKeyhole className="h-6 w-6" /> : <Store className="h-6 w-6" />}
           </span>
           <div>
-            <h1 className="text-2xl font-bold">{isAdmin ? 'TryFocus admin' : 'Store sign in'}</h1>
-            <p className="text-[15px] text-muted">{isAdmin ? 'Manage clients, devices and credits.' : 'Your QR codes, catalogue, videos and usage.'}</p>
+            <h1 className="text-2xl font-bold">{isAdmin ? 'TryFocus admin' : storeName ? `Sign in to ${storeName}` : 'Store sign in'}</h1>
+            <p className="text-[15px] text-muted">{isAdmin ? 'Manage clients, devices and credits.' : storeName ? <>Use this store&apos;s login. <Link href="/" className="font-semibold text-ink underline underline-offset-4">Not your store?</Link></> : 'Your QR codes, catalogue, videos and usage.'}</p>
           </div>
         </div>
 
