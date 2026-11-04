@@ -60,6 +60,33 @@ Who (Women, Men, Boys, Girls) starts with nothing selected on every surface.
 Downloads never start on their own. Every Download asks once for the customer's WhatsApp number
 (`useLeadGate`), with an optional, unticked "Send me this store's offers" box.
 
+## TryFocus admin and the store workspace
+
+TryFocus admin sets up a store's plan; the store's workspace only shows it. A store never edits its plan.
+
+TryFocus admin, one client, in setup order (numbered headings, one section each):
+1. Platform: tick boxes TV · Tablet · Phone. Tick TV, Tablet or both and Phone is ticked and locked with
+   them; untick both and it is Phone on its own. The modules switch with the platforms.
+2. Credits: set a package, top up, or type a limit. Each card shows what is left and a status word.
+3. Store login: one username and password for the TV, tablet, Go Live player and workspace.
+4. Delivery: WhatsApp link and the Go Live player, each an On / Off switch.
+The store's Live for customers / Paused switch sits under its name. Without a client picked, admin shows
+every client's usage.
+
+Store workspace, Overview in this order:
+1. Your plan (read only): Platforms and Included as ticked chips, credits as a table (left, used, status),
+   and the TryFocus number to add credits or a platform.
+2. Your screens: the links to open once on each device (TV, tablet, Go Live player).
+3. This month: what customers did, against last month.
+4. Store settings: festival theme, logo, Instagram.
+
+Status is words, never a bar: Good · Running low · Almost finished · Finished (credits), Live for
+customers · Paused (store). No sliders, carousels or rows that scroll sideways on admin or workspace
+screens; lists wrap.
+
+The Go Live player asks for the store login once, then keeps the screen signed in. It is laid out for
+landscape LED walls and wall-mount TVs (store name, the portrait video in the middle, the greeting).
+
 ## Screen skeleton
 
 1. Header: store name (initial mark) + one global action (Start over / New customer).

@@ -14,7 +14,8 @@ import {
   Tv,
   Video,
 } from 'lucide-react';
-import { CREDIT_BAR_COLOURS, creditStatuses } from '@/lib/maharaja/credits';
+import { CREDIT_LEVEL_STATUS, creditStatuses } from '@/lib/maharaja/credits';
+import { StatusPill } from '@/components/ui';
 import PlatformOverview, { type PlatformSpend } from '@/components/PlatformOverview';
 import { PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, type PackageId } from '@/lib/maharaja/access';
 import { FREE_TRIAL_IMAGE_CREDITS, PHONE_PACKAGE, PHONE_PACKAGE_CREDITS, PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage, presetFor, type Credits, type Platform, type PresetId } from '@/lib/maharaja/pricing';
@@ -614,7 +615,7 @@ export default function TryFocusAdmin() {
         )}
 
         {/* Client Selector & Status */}
-        <section className={`grid gap-6 ${clientId ? 'lg:grid-cols-[1.2fr_0.8fr]': ''}`}>
+        <section>
           <div className="tf-card p-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -623,9 +624,21 @@ export default function TryFocusAdmin() {
                 </h2>
                 <p className="mt-2 max-w-xl text-sm text-muted">
                   {clientId
-                    ? 'Status, logins, devices, modules and credits for this client.'
+                    ? `${client.branch} · ${packageLabel(client.devices)}. Set up in order: platform, credits, store login, delivery.`
                     : 'Usage and alerts across every client. Pick one to manage it.'}
                 </p>
+                {clientId && (
+                  <button
+                    type="button"
+                    aria-pressed={client.status === 'Active'}
+                    onClick={() => updateClient({ status: client.status === 'Active' ? 'Paused' : 'Active' })}
+                    className={`mt-3 inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold ${client.status === 'Active' ? 'bg-success-soft text-success' : 'bg-line text-muted'}`}
+                    title={client.status === 'Active' ? 'Tap to pause every screen of this store' : 'Tap to turn this store back on'}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${client.status === 'Active' ? 'bg-success' : 'bg-subtle'}`} />
+                    {client.status === 'Active' ? 'Live for customers' : 'Paused'}
+                  </button>
+                )}
               </div>
               <div className="relative min-w-64">
                 <label className="mb-1.5 block text-xs font-bold text-muted">
@@ -652,60 +665,137 @@ export default function TryFocusAdmin() {
             </div>
           </div>
 
-          {clientId && <aside className="rounded-2xl flex flex-col justify-between border border-line bg-white p-6">
-            <div>
-              <div className="mt-3 flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-ink">{client.name}</p>
-                  <p className="text-xs text-muted">{client.branch}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateClient({ status: client.status === 'Active' ? 'Paused' : 'Active' })
-                  }
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold ${
- client.status === 'Active'
- ? 'bg-success-soft text-success'
- : 'bg-danger-soft text-danger'
- }`}
-                >
-                  {client.status}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-2 border-t border-line pt-4 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[#535A56]">WhatsApp Link Delivery:</span>
-                <button
-                  type="button"
-                  disabled={!client.whatsappConnected && !client.whatsappApiReady}
-                  onClick={() =>
-                    updateClient({
-                      whatsappConnected: !client.whatsappConnected,
-                      deliveryMode: client.whatsappConnected ? 'qr' : 'whatsapp',
-                    })
-                  }
-                  className="min-h-10 py-2 text-right tabular-nums font-bold text-brand underline disabled:cursor-not-allowed disabled:text-subtle disabled:no-underline"
-                >
-                  {client.whatsappConnected
-                    ? 'CONNECTED (Link + QR)'
-                    : client.whatsappApiReady
-                      ? 'NOT CONNECTED (QR Only)'
-                      : 'Not connected (QR only)'}
-                </button>
-              </div>
-            </div>
-          </aside>}
         </section>
 
         {!clientId && <PlatformOverview clients={clients} platform={platformSpend} onSelect={setClientId} />}
 
         {clientId && (<>
+
+        {/* What this client booked: a platform decides its modules (the phone comes with the TV and the tablet). */}
+        <section className="tf-card p-6">
+          <h2 className="text-2xl font-bold">1. Platform</h2>
+          <p className="mt-1 text-sm text-muted">Now: <b className="text-ink">{packageLabel(client.devices)}</b> · {['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}. Tick TV, Tablet or both; Phone comes with them, or book Phone alone. Modules switch with the platforms.</p>
+
+          <div className="mt-5"><PlatformPicker value={currentPackage} onChange={choosePackage} /></div>
+
+          <div className="mt-4 flex items-start gap-3.5 rounded-2xl bg-canvas p-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-ink"><Smartphone className="h-5 w-5" /></span>
+            <p className="text-sm text-muted">
+              <b className="text-ink">Included:</b> the workspace and, with the TV or the tablet, the customer’s phone (Wall QR Try-On, the photo upload QR and the AI Video on the phone) and Go Live on the store’s own LED or wall screen.
+            </p>
+          </div>
+
+        </section>
+
+        {/* Credits: limits are running totals; a top-up adds a package to them. */}
+        <section className="tf-card p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-bold">2. Credits</h2>
+              <p className="mt-1 text-sm text-muted">{currentPreset ? `Set to ${PRESETS[currentPreset].label}.` : 'Custom limits.'} Limits are running totals; a top-up adds a package to them.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(PRESETS) as PresetId[]).map((id) => {
+                const plan = clampCredits(currentPlatform, PRESETS[id]);
+                const selected = currentPreset === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => void persistClientPatch({ limits: plan })}
+                    className={`min-h-11 rounded-xl border px-4 text-left text-sm ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white hover:border-ink'}`}
+                  >
+                    <span className="block font-bold">Set to {PRESETS[id].label}</span>
+                    <span className={`block text-xs tabular-nums ${selected ? 'text-white/80' : 'text-muted'}`}>{plan.image.toLocaleString('en-IN')} images{plan.video ? ` · ${plan.video.toLocaleString('en-IN')} videos` : ''}{plan.live ? ` · ${plan.live.toLocaleString('en-IN')} live` : ''}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl bg-canvas p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="font-bold text-ink">Top up</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  aria-label="Top-up package"
+                  value={topUpPreset}
+                  onChange={(e) => setTopUpPreset(e.target.value as PresetId)}
+                  className="h-10 rounded-xl border border-line-strong bg-white px-3 text-sm text-ink"
+                >
+                  {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
+                </select>
+                <button type="button" disabled={saving} onClick={() => addTopUp(topUpCredits)} className="min-h-10 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50">
+                  Add {topUpCredits.image.toLocaleString('en-IN')} images{topUpCredits.video ? ` · ${topUpCredits.video.toLocaleString('en-IN')} videos` : ''}{topUpCredits.live ? ` · ${topUpCredits.live.toLocaleString('en-IN')} live` : ''}
+                </button>
+              </div>
+            </div>
+            <div className="mt-3"><PackageQuote platform={currentPlatform} credits={topUpCredits} software={false} /></div>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            {plans.map((plan) => {
+              const key = plan.key;
+              const used = client.usage[key];
+              const limit = client.limits[key];
+              const percent = limit ? Math.min(100, Math.round((used / limit) * 100)) : 100;
+              const level = percent >= 100 ? 'exhausted' as const : percent >= 95 ? 'critical' as const : percent >= 80 ? 'low' as const : 'ok' as const;
+              const Icon = plan.icon;
+              const running = clientAccess.modules[key];
+              return (
+                <article key={key} className={`rounded-2xl border p-5 ${running ? 'border-line bg-canvas' : 'border-dashed border-line-strong bg-white'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-white">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="tabular-nums text-xs font-semibold text-muted">
+                      {used.toLocaleString('en-IN')} used
+                    </span>
+                  </div>
+                  <h3 className="mt-3 text-xl font-bold text-ink">{plan.label}</h3>
+                  {!running && <p className="mt-1 text-xs text-muted">Not on the {PLATFORM_LABELS[currentPlatform]} platform.</p>}
+                  <div className="mt-3 flex items-center gap-3">
+                    <input
+                      aria-label={`${plan.label} limit`}
+                      type="number"
+                      value={limit}
+                      onChange={(e) => setLimit(key, Number(e.target.value))}
+                      onBlur={() => void saveCurrentConfiguration()}
+                      className="h-10 w-32 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
+                    />
+                    <span className="text-xs text-muted">limit</span>
+                  </div>
+                  {resolveAccess(client.devices, client.modules).blockedBy[key] && (
+                    <p className="mt-2 text-xs font-semibold text-danger">{resolveAccess(client.devices, client.modules).blockedBy[key]}</p>
+                  )}
+                  <div className="mt-4 flex items-center justify-between gap-2">
+                    <p className="tabular-nums text-sm text-muted"><b className="text-ink">{Math.max(0, limit - used).toLocaleString('en-IN')}</b> left</p>
+                    {running && limit > 0 && <StatusPill tone={CREDIT_LEVEL_STATUS[level].tone}>{CREDIT_LEVEL_STATUS[level].text}</StatusPill>}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-canvas p-4">
+            <label htmlFor="genlook-credits" className="text-sm font-semibold text-ink">GenLook credits locked to this store</label>
+            <input
+              id="genlook-credits"
+              type="number"
+              min={0}
+              value={client.genlookCredits ?? 0}
+              onChange={(e) => { const value = Math.max(0, Number(e.target.value) || 0); setClients((items) => items.map((item) => (item.id === client.id ? { ...item, genlookCredits: value } : item))); }}
+              onBlur={() => void saveCurrentConfiguration()}
+              className="h-10 w-28 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
+            />
+            <span className="text-sm text-muted">{(client.genlookUsed ?? 0).toLocaleString('en-IN')} used. No other store can use these. With none left, Try-On uses the backup engine.</span>
+          </div>
+        </section>
+
+
         {/* Client staff login */}
-        <section className="rounded-2xl border border-line bg-white p-6">
-          <h2 className="mt-1 text-2xl font-bold text-ink">{client.name} login</h2>
+        <section className="tf-card p-6">
+          <h2 className="text-2xl font-bold text-ink">3. Store login</h2>
           <p className="mt-1 text-sm text-muted">
             This login opens only {client.name}&apos;s workspace, counter and devices. It cannot open TryFocus admin or another client.
           </p>
@@ -756,24 +846,35 @@ export default function TryFocusAdmin() {
               {loginExists ? 'Reset password' : 'Create login'}
             </button>
           </form>
-          <p className="mt-2 text-xs text-muted">{loginExists ? 'Type a different username to add a second login.' : 'The client signs in with this on the TV, counter and workspace.'}</p>
+          <p className="mt-2 text-xs text-muted">{loginExists ? 'Type a different username to add a second login.' : 'The store signs in once with this on the TV, tablet, Go Live player and workspace.'}</p>
         </section>
 
-        {/* What this client booked: a platform decides its modules (the phone comes with the TV and the tablet). */}
+        {/* How customers get what they made: QR always, WhatsApp link when connected, Go Live on the store screen. */}
         <section className="tf-card p-6">
-          <h2 className="text-2xl font-bold">Platform</h2>
-          <p className="mt-1 text-sm text-muted">Now: <b className="text-ink">{packageLabel(client.devices)}</b> · {['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}. Tick TV, Tablet or both; Phone comes with them, or book Phone alone. Modules switch with the platforms.</p>
-
-          <div className="mt-5"><PlatformPicker value={currentPackage} onChange={choosePackage} /></div>
-
-          <div className="mt-4 flex items-start gap-3.5 rounded-2xl bg-canvas p-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-ink"><Smartphone className="h-5 w-5" /></span>
-            <p className="text-sm text-muted">
-              <b className="text-ink">Included:</b> the workspace and, with the TV or the tablet, the customer’s phone (Wall QR Try-On, the photo upload QR and the AI Video on the phone) and Go Live on the store’s own LED or wall screen.
-            </p>
-          </div>
-
-          {clientAccess.modules.video && <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <h2 className="text-2xl font-bold">4. Delivery</h2>
+          <p className="mt-1 text-sm text-muted">Customers always get a QR. These add to it.</p>
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-line p-4">
+              <div>
+                <p className="font-bold text-ink">WhatsApp link</p>
+                <p className="mt-1 text-sm text-muted">{client.whatsappApiReady || client.whatsappConnected ? 'Sends the look or video link on WhatsApp as well as the QR.' : 'WhatsApp is not set up for this store yet, so customers get the QR only.'}</p>
+              </div>
+                <button
+                  type="button"
+                  aria-pressed={Boolean(client.whatsappConnected)}
+                  disabled={!client.whatsappConnected && !client.whatsappApiReady}
+                  onClick={() =>
+                    updateClient({
+                      whatsappConnected: !client.whatsappConnected,
+                      deliveryMode: client.whatsappConnected ? 'qr' : 'whatsapp',
+                    })
+                  }
+                  className={`min-h-10 shrink-0 rounded-full px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${client.whatsappConnected ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}
+                >
+                  {client.whatsappConnected ? 'On' : 'Off'}
+                </button>
+            </div>
+            {clientAccess.modules.video && <>
             <div className="flex items-start justify-between gap-4 rounded-2xl border border-line p-4">
               <div>
                 <p className="font-bold text-ink">Go Live player</p>
@@ -788,113 +889,7 @@ export default function TryFocusAdmin() {
                 {client.devices.led ? 'On' : 'Off'}
               </button>
             </div>
-          </div>}
-        </section>
-
-        {/* Credits: limits are running totals; a top-up adds a package to them. */}
-        <section className="tf-card p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-bold">Credits</h2>
-              <p className="mt-1 text-sm text-muted">{currentPreset ? `Set to ${PRESETS[currentPreset].label}.` : 'Custom limits.'} Limits are running totals; a top-up adds a package to them.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(PRESETS) as PresetId[]).map((id) => {
-                const plan = clampCredits(currentPlatform, PRESETS[id]);
-                const selected = currentPreset === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => void persistClientPatch({ limits: plan })}
-                    className={`min-h-11 rounded-xl border px-4 text-left text-sm ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white hover:border-ink'}`}
-                  >
-                    <span className="block font-bold">Set to {PRESETS[id].label}</span>
-                    <span className={`block text-xs tabular-nums ${selected ? 'text-white/80' : 'text-muted'}`}>{plan.image.toLocaleString('en-IN')} images{plan.video ? ` · ${plan.video.toLocaleString('en-IN')} videos` : ''}{plan.live ? ` · ${plan.live.toLocaleString('en-IN')} live` : ''}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mt-5 rounded-2xl bg-canvas p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="font-bold text-ink">Top up</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  aria-label="Top-up package"
-                  value={topUpPreset}
-                  onChange={(e) => setTopUpPreset(e.target.value as PresetId)}
-                  className="h-10 rounded-xl border border-line-strong bg-white px-3 text-sm text-ink"
-                >
-                  {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
-                </select>
-                <button type="button" disabled={saving} onClick={() => addTopUp(topUpCredits)} className="min-h-10 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50">
-                  Add {topUpCredits.image.toLocaleString('en-IN')} images{topUpCredits.video ? ` · ${topUpCredits.video.toLocaleString('en-IN')} videos` : ''}{topUpCredits.live ? ` · ${topUpCredits.live.toLocaleString('en-IN')} live` : ''}
-                </button>
-              </div>
-            </div>
-            <div className="mt-3"><PackageQuote platform={currentPlatform} credits={topUpCredits} software={false} /></div>
-          </div>
-
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
-            {plans.map((plan) => {
-              const key = plan.key;
-              const used = client.usage[key];
-              const limit = client.limits[key];
-              const percent = limit ? Math.min(100, Math.round((used / limit) * 100)) : 100;
-              const level = percent >= 100 ? 'exhausted' : percent >= 95 ? 'critical' : percent >= 80 ? 'low' : 'ok';
-              const Icon = plan.icon;
-              const running = clientAccess.modules[key];
-              return (
-                <article key={key} className={`rounded-2xl border p-5 ${running ? 'border-line bg-canvas' : 'border-dashed border-line-strong bg-white'}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-white">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="tabular-nums text-xs font-semibold text-muted">
-                      {used.toLocaleString('en-IN')} used
-                    </span>
-                  </div>
-                  <h3 className="mt-3 text-xl font-bold text-ink">{plan.label}</h3>
-                  {!running && <p className="mt-1 text-xs text-muted">Not on the {PLATFORM_LABELS[currentPlatform]} platform.</p>}
-                  <div className="mt-3 flex items-center gap-3">
-                    <input
-                      aria-label={`${plan.label} limit`}
-                      type="number"
-                      value={limit}
-                      onChange={(e) => setLimit(key, Number(e.target.value))}
-                      onBlur={() => void saveCurrentConfiguration()}
-                      className="h-10 w-32 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
-                    />
-                    <span className="text-xs text-muted">limit</span>
-                  </div>
-                  {resolveAccess(client.devices, client.modules).blockedBy[key] && (
-                    <p className="mt-2 text-xs font-semibold text-danger">{resolveAccess(client.devices, client.modules).blockedBy[key]}</p>
-                  )}
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-line">
-                    <div className={`h-full ${CREDIT_BAR_COLOURS[level]}`} style={{ width: `${percent}%` }} />
-                  </div>
-                  <p className="mt-2 tabular-nums text-xs text-muted">
-                    {Math.max(0, limit - used).toLocaleString('en-IN')} remaining · {percent}% used
-                  </p>
-                </article>
-              );
-            })}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-canvas p-4">
-            <label htmlFor="genlook-credits" className="text-sm font-semibold text-ink">GenLook credits locked to this store</label>
-            <input
-              id="genlook-credits"
-              type="number"
-              min={0}
-              value={client.genlookCredits ?? 0}
-              onChange={(e) => { const value = Math.max(0, Number(e.target.value) || 0); setClients((items) => items.map((item) => (item.id === client.id ? { ...item, genlookCredits: value } : item))); }}
-              onBlur={() => void saveCurrentConfiguration()}
-              className="h-10 w-28 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
-            />
-            <span className="text-sm text-muted">{(client.genlookUsed ?? 0).toLocaleString('en-IN')} used. No other store can use these. With none left, Try-On uses the backup engine.</span>
+            </>}
           </div>
         </section>
 

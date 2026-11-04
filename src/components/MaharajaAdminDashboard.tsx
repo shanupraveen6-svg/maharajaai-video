@@ -3,17 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
-import { CREDIT_BAR_COLOURS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
+import { CREDIT_LEVEL_STATUS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
 import GoLivePromoManager from '@/components/GoLivePromoManager';
 import ClientVideoLibrary from '@/components/ClientVideoLibrary';
 import LockedAmountField from '@/components/LockedAmountField';
-import { packageLabel, resolveAccess } from '@/lib/maharaja/access';
+import { resolveAccess } from '@/lib/maharaja/access';
 import { conceptsForCategory } from '@/lib/maharaja/video-concepts';
 import type { CustomerCategory } from '@/lib/maharaja/config';
 import { LIVE_CATEGORIES, isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
+  Check,
   Download,
+  Minus,
   ExternalLink,
   LoaderCircle,
   Monitor,
@@ -484,6 +486,18 @@ export default function MaharajaAdminDashboard({
     devices.tablet && { key: 'tablet', title: 'Tablet', href: '/maharaja/tablet/experience', desc: limits.video > 0 ? 'Try-On from the collection or your own outfit, and the AI Video QR' : 'Try-On from the collection or your own outfit', Icon: Tablet },
     goLiveOn && { key: 'golive', title: 'Go Live player', href: workspace.links.goLive, desc: 'Plays your customers’ AI Videos, and your promos', Icon: Monitor },
   ].filter((screen) => screen !== false);
+  // Your plan, in the words of the pricing page. The phone comes with the TV and the tablet.
+  const planPlatforms = [
+    { label: 'TV', on: Boolean(devices.tv) },
+    { label: 'Tablet', on: Boolean(devices.tablet) },
+    { label: 'Phone', on: true },
+  ];
+  const planModules = [
+    { label: 'Try-On', on: limits.image > 0 },
+    { label: 'AI Video', on: limits.video > 0 },
+    { label: 'Live Mirror', on: limits.live > 0 },
+    { label: 'Go Live player', on: goLiveOn },
+  ];
   const creditAlerts = credits.filter((item) => item.level !== 'ok' && item.level !== 'none');
 
   return (
@@ -540,9 +554,106 @@ export default function MaharajaAdminDashboard({
         )}
 
         {section === 'overview' && <>
+        {/* Your plan: what TryFocus set up for the store and how much is left. Read only; TryFocus changes it. */}
+        <section className="tf-card p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold">Your plan</h2>
+              <p className="mt-1 text-sm text-muted">Set up by TryFocus. To add credits or a platform, call <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">9994837342</a>.</p>
+            </div>
+            <StatusPill tone={workspace.campaignEnabled ? 'success' : 'neutral'}>{workspace.campaignEnabled ? 'Live for customers' : 'Paused'}</StatusPill>
+          </div>
+
+          <dl className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl bg-canvas p-4">
+              <dt className="text-sm font-semibold text-muted">Platforms</dt>
+              <dd className="mt-2 flex flex-wrap gap-2">
+                {planPlatforms.map(({ label, on }) => (
+                  <span key={label} className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold ${on ? 'bg-ink text-white' : 'border border-dashed border-line-strong text-subtle'}`}>
+                    {on ? <Check className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}{label}
+                  </span>
+                ))}
+              </dd>
+            </div>
+            <div className="rounded-2xl bg-canvas p-4">
+              <dt className="text-sm font-semibold text-muted">Included</dt>
+              <dd className="mt-2 flex flex-wrap gap-2">
+                {planModules.map(({ label, on }) => (
+                  <span key={label} className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold ${on ? 'bg-ink text-white' : 'border border-dashed border-line-strong text-subtle'}`}>
+                    {on ? <Check className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}{label}
+                  </span>
+                ))}
+              </dd>
+            </div>
+          </dl>
+
+          <table className="mt-5 w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-line text-muted">
+                <th scope="col" className="py-2 font-semibold">Credits</th>
+                <th scope="col" className="py-2 text-right font-semibold">Left</th>
+                <th scope="col" className="hidden py-2 text-right font-semibold sm:table-cell">Used</th>
+                <th scope="col" className="py-2 text-right font-semibold">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {credits.filter((item) => item.level !== 'none').map(({ label, used, limit, level }) => (
+                <tr key={label}>
+                  <th scope="row" className="py-3 font-semibold text-ink">{label}</th>
+                  <td className="py-3 text-right tabular-nums"><b className="text-ink">{Math.max(0, limit - used).toLocaleString('en-IN')}</b><span className="text-muted"> of {limit.toLocaleString('en-IN')}</span></td>
+                  <td className="hidden py-3 text-right tabular-nums text-muted sm:table-cell">{used.toLocaleString('en-IN')}</td>
+                  <td className="py-3 text-right"><StatusPill tone={CREDIT_LEVEL_STATUS[level].tone}>{CREDIT_LEVEL_STATUS[level].text}</StatusPill></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+          <section className="tf-card p-6">
+            <h2 className="text-lg font-bold">Your screens</h2>
+            <p className="mt-1 text-sm text-muted">Open each screen once on the device it runs on. It stays signed in.</p>
+            <ul className="mt-4 divide-y divide-line">
+              {screens.map(({ key, title, href, desc, Icon }) => (
+                <li key={key} className="flex items-center gap-3 py-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand"><Icon className="h-5 w-5" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">{title}</span>
+                    <span className="block text-sm text-muted">{desc}</span>
+                  </span>
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-secondary !min-h-10 shrink-0 px-3 text-sm">
+                    Open <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 border-t border-line pt-3 text-sm text-muted">
+              {limits.image > 0 && 'Customers try outfits on their own phones through the Wall QR. '}
+              {limits.video > 0 && 'Give the AI Video gift QR after a purchase from the AI Video gift tab.'}
+            </p>
+          </section>
+
+        <section>
+          <h2 className="text-lg font-bold">{monthName} so far</h2>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {monthTiles.map(([label, key]) => {
+              const value = Number(monthCounts[key] || 0);
+              const last = Number(lastMonthCounts[key] || 0);
+              return (
+                <div key={key} className="tf-card p-4">
+                  <p className="text-[13px] font-medium text-muted">{label}</p>
+                  <p className="mt-1 text-3xl font-bold tabular-nums">{value.toLocaleString('en-IN')}</p>
+                  <p className="mt-0.5 text-xs text-subtle tabular-nums">Last month {last.toLocaleString('en-IN')} · All time {Number(workspace.usage[key] || 0).toLocaleString('en-IN')}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-lg font-bold">Store settings</h2>
         {limits.video > 0 && (
         <section className="tf-card p-6">
-            <h2 className="text-lg font-bold">Festival theme</h2>
+            <h3 className="text-lg font-bold">Festival theme</h3>
             <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b></p>
             <div className="mt-4 flex flex-wrap gap-2">
               {EVENT_OPTIONS.map((ev) => {
@@ -563,67 +674,6 @@ export default function MaharajaAdminDashboard({
             </div>
           </section>
         )}
-
-        <section>
-          <h2 className="text-lg font-bold">{monthName} so far</h2>
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {monthTiles.map(([label, key]) => {
-              const value = Number(monthCounts[key] || 0);
-              const last = Number(lastMonthCounts[key] || 0);
-              return (
-                <div key={key} className="tf-card p-4">
-                  <p className="text-[13px] font-medium text-muted">{label}</p>
-                  <p className="mt-1 text-3xl font-bold tabular-nums">{value.toLocaleString('en-IN')}</p>
-                  <p className="mt-0.5 text-xs text-subtle tabular-nums">Last month {last.toLocaleString('en-IN')} · All time {Number(workspace.usage[key] || 0).toLocaleString('en-IN')}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[1fr_1fr] [&>*]:min-w-0">
-          <div className="tf-card p-6">
-            <h2 className="text-lg font-bold">Credits left</h2>
-            <p className="mt-1 text-sm text-muted">What’s left in your plan.</p>
-            <div className="mt-5 space-y-5">
-              {credits.filter((item) => item.level !== 'none').map(({ label, used, limit, pct, level }) => (
-                <div key={label}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-semibold">{label}</span>
-                    <span className="text-sm text-muted"><b className="text-ink tabular-nums">{Math.max(0, limit - used).toLocaleString('en-IN')}</b> of {limit.toLocaleString('en-IN')} left</span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-line">
-                    <div className={`h-full rounded-full ${CREDIT_BAR_COLOURS[level]}`} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="tf-card p-6">
-            <h2 className="text-lg font-bold">Your screens</h2>
-            <p className="mt-1 text-sm text-muted">Package: {packageLabel(devices)}. Open each screen on the device it runs on.</p>
-            <ul className="mt-4 divide-y divide-line">
-              {screens.map(({ key, title, href, desc, Icon }) => (
-                <li key={key} className="flex items-center gap-3 py-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand"><Icon className="h-5 w-5" /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-semibold">{title}</span>
-                    <span className="block text-sm text-muted">{desc}</span>
-                  </span>
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-secondary !min-h-10 shrink-0 px-3 text-sm">
-                    Open <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 border-t border-line pt-3 text-sm text-muted">
-              {limits.image > 0 && 'Customers try outfits on their own phones through the Wall QR. '}
-              {limits.video > 0 && 'Give the AI Video gift QR after a purchase from the AI Video gift tab.'}
-            </p>
-          </div>
-        </section>
-
 
         <StoreLogoCard />
 
@@ -650,6 +700,7 @@ export default function MaharajaAdminDashboard({
           </div>
         </form>
 
+        </section>
         </>}
 
         {section === 'catalogue' && (
@@ -686,7 +737,7 @@ export default function MaharajaAdminDashboard({
               />
             </div>
 
-            <div role="group" aria-label="Category" className="mt-3 flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]">
+            <div role="group" aria-label="Category" className="mt-3 flex flex-wrap gap-x-1 border-b border-line">
               {catGenderChosen && catCategories.map((cat) => (
                 <button
                   key={cat.id}

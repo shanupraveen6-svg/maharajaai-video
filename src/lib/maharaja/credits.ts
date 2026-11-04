@@ -32,3 +32,12 @@ export const CREDIT_BAR_COLOURS: Record<CreditLevel, string> = {
   critical: 'bg-[#B42318]',
   exhausted: 'bg-[#B42318]',
 };
+
+/** The word and pill tone shown for a credit level: stores read a status, not a bar. */
+export const CREDIT_LEVEL_STATUS: Record<CreditLevel, { text: string; tone: 'neutral' | 'success' | 'warn' | 'danger' }> = {
+  none: { text: 'Not in plan', tone: 'neutral' },
+  ok: { text: 'Good', tone: 'success' },
+  low: { text: 'Running low', tone: 'warn' },
+  critical: { text: 'Almost finished', tone: 'danger' },
+  exhausted: { text: 'Finished', tone: 'danger' },
+};
