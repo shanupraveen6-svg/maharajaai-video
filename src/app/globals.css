@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Go Live player: any landscape screen (LED wall, wall-mount TV) gets the side-by-side layout. */
+@custom-variant wall (@media (orientation: landscape) and (min-width: 640px));
+
 /*
  * TryFocus design tokens. Every surface (site, admin, client workspace, TV, tablet, phone) uses one
  * typeface, one colour set and one radius scale, so a screen reads the same wherever it opens.

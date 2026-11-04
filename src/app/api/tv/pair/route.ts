@@ -3,6 +3,7 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import {
   DISPLAY_COOKIE,
   DISPLAY_MAX_AGE,
+  displayClientId,
   issueDisplayToken,
   revokeDisplayTokens,
 } from '@/lib/auth/display';
@@ -11,7 +12,9 @@ import { resolveRequestClientId } from '@/lib/maharaja/server';
 
 export async function POST(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
-  if (!verifyOperatorRequest(req))
+  // Staff login pairs a screen; an already paired screen of the same workspace renews itself.
+  const renewing = (await displayClientId(req)) === activeClientId();
+  if (!verifyOperatorRequest(req) && !renewing)
     return NextResponse.json(
       {
         success: false,

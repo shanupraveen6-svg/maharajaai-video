@@ -49,8 +49,12 @@ function liveFetch(input: string, init: RequestInit = {}) {
 
 export default function TvPlayerPage() {
   useEffect(() => {
-    // Staff login pairs this browser once; a Go Live link needs no pairing.
-    if (!goLiveScreenCode()) void fetch('/api/tv/pair', { method: 'POST' }).catch(() => undefined);
+    // One login pairs this screen to its workspace. The player renews the pairing every 12 hours while it
+    // runs, so an LED wall or wall-mount TV left on never asks for the login again.
+    const pair = () => void liveFetch('/api/tv/pair', { method: 'POST' }).catch(() => undefined);
+    pair();
+    const timer = window.setInterval(pair, 12 * 60 * 60 * 1000);
+    return () => window.clearInterval(timer);
   }, []);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const promosRef = useRef<PlaybackItem[]>([]);
@@ -1094,39 +1098,39 @@ export default function TvPlayerPage() {
       : 'தீபாவளி';
 
   return (
-    <main className="relative min-h-[100dvh] w-full overflow-x-hidden bg-[#4A0707] text-[#F8E8A8] select-none lg:fixed lg:inset-0 lg:h-[100dvh] lg:w-[100dvw] lg:overflow-hidden">
+    <main className="relative min-h-[100dvh] w-full overflow-x-hidden bg-[#4A0707] text-[#F8E8A8] select-none wall:fixed wall:inset-0 wall:h-[100dvh] wall:w-[100dvw] wall:overflow-hidden">
       <audio ref={audioRef} preload="auto" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_20%,rgba(246,211,106,0.15),transparent_26%),radial-gradient(circle_at_82%_72%,rgba(255,241,168,0.12),transparent_30%),linear-gradient(135deg,#320405_0%,#5D0B09_42%,#210202_100%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:linear-gradient(0deg,rgba(255,255,255,0.18)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:9px_9px]" />
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1920px] flex-col items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-6 lg:grid lg:h-full lg:grid-cols-[minmax(180px,1fr)_auto_minmax(220px,1fr)] lg:gap-8 lg:px-10 lg:py-8 xl:px-14 xl:py-10">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1920px] flex-col items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-6 wall:grid wall:h-full wall:grid-cols-[minmax(180px,1fr)_auto_minmax(220px,1fr)] wall:gap-8 wall:px-10 wall:py-8 xl:px-14 xl:py-10">
         {/* Left / Top Brand Section */}
-        <section className="flex w-full items-center justify-center gap-3.5 lg:h-full lg:flex-col lg:gap-5">
+        <section className="flex w-full items-center justify-center gap-3.5 wall:h-full wall:flex-col wall:gap-5">
           {screenBrand.clientId === 'maharaja' ? <img
             src="/maharaja-logo.png"
             alt="Majestic Maharaja"
-            className="h-14 w-14 shrink-0 rounded-lg border border-[#F6D36A]/45 object-cover shadow-[0_12px_40px_rgba(0,0,0,0.42)] sm:h-20 sm:w-20 lg:h-auto lg:w-[78%] lg:max-w-[300px]"
-          /> : <p className="tracking-tight text-2xl font-bold text-[#FFF1A8] lg:text-center">{screenBrand.clientName}</p>}
-          <div className="text-left lg:text-center">
-            <p className="tracking-tight text-xl font-bold text-[#FFF1A8] sm:text-2xl lg:text-[clamp(1.65rem,2.4vw,2.5rem)]">
+            className="h-14 w-14 shrink-0 rounded-lg border border-[#F6D36A]/45 object-cover shadow-[0_12px_40px_rgba(0,0,0,0.42)] sm:h-20 sm:w-20 wall:h-auto wall:w-[78%] wall:max-w-[300px]"
+          /> : <p className="tracking-tight text-2xl font-bold text-[#FFF1A8] wall:text-center">{screenBrand.clientName}</p>}
+          <div className="text-left wall:text-center">
+            <p className="tracking-tight text-xl font-bold text-[#FFF1A8] sm:text-2xl wall:text-[clamp(1.65rem,2.4vw,2.5rem)]">
               AI Diwali
             </p>
-            <p className="mt-0.5 text-xs font-bold text-[#F6D36A]/85 sm:text-xs lg:mt-2 lg:text-sm">
+            <p className="mt-0.5 text-xs font-bold text-[#F6D36A]/85 sm:text-xs wall:mt-2 wall:text-sm">
               Fashion Film
             </p>
           </div>
         </section>
 
         {/* Center 9:16 Video Player */}
-        <section className="flex w-full flex-1 items-center justify-center lg:h-full">
-          <div className="relative aspect-[9/16] h-[54dvh] max-h-[640px] w-auto max-w-[86vw] overflow-hidden rounded-lg border-[3px] border-[#F6D36A] bg-black shadow-[0_0_58px_rgba(246,211,106,0.22),0_22px_70px_rgba(0,0,0,0.52)] sm:h-[60dvh] sm:max-h-[760px] lg:h-[min(86dvh,calc(42vw*16/9))] lg:max-h-[88dvh]">
+        <section className="flex w-full flex-1 items-center justify-center wall:h-full">
+          <div className="relative aspect-[9/16] h-[54dvh] max-h-[640px] w-auto max-w-[86vw] overflow-hidden rounded-lg border-[3px] border-[#F6D36A] bg-black shadow-[0_0_58px_rgba(246,211,106,0.22),0_22px_70px_rgba(0,0,0,0.52)] sm:h-[60dvh] sm:max-h-[760px] wall:h-[min(86dvh,calc(42vw*16/9))] wall:max-h-[88dvh]">
             {renderVideoSlot('a')}
             {renderVideoSlot('b')}
 
             {!currentPlayback && (
               <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center bg-[#120203] p-5 text-center sm:p-7">
                 <Sparkles className="mb-4 h-10 w-10 animate-pulse text-[#F6D36A] sm:mb-5 sm:h-14 sm:w-14" />
-                <p className="tracking-tight text-xl font-bold leading-tight text-[#FFF1A8] sm:text-2xl lg:text-3xl">
+                <p className="tracking-tight text-xl font-bold leading-tight text-[#FFF1A8] sm:text-2xl wall:text-3xl">
                   {!replayLibraryLoaded
                     ? 'Loading videos'
                     : pendingSlot
@@ -1159,29 +1163,29 @@ export default function TvPlayerPage() {
         </section>
 
         {/* Right / Bottom Tamil Greeting & Customer Details */}
-        <section className="flex w-full min-w-0 flex-col items-center justify-center text-center lg:h-full lg:items-start lg:text-left">
-          <div className="w-full max-w-md border-t border-[#F6D36A]/35 pt-3 lg:max-w-none lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0 xl:pl-8">
+        <section className="flex w-full min-w-0 flex-col items-center justify-center text-center wall:h-full wall:items-start wall:text-left">
+          <div className="w-full max-w-md border-t border-[#F6D36A]/35 pt-3 wall:max-w-none wall:border-l wall:border-t-0 wall:pl-6 wall:pt-0 xl:pl-8">
             <h1
-              className="break-words text-[clamp(1.35rem,4.5vw,2.2rem)] font-bold leading-[1.12] text-[#FFF1A8] [text-shadow:0_5px_22px_rgba(0,0,0,0.55)] lg:text-[clamp(1.75rem,3.3vw,4.4rem)] lg:leading-[1.08]"
+              className="break-words text-[clamp(1.35rem,4.5vw,2.2rem)] font-bold leading-[1.12] text-[#FFF1A8] [text-shadow:0_5px_22px_rgba(0,0,0,0.55)] wall:text-[clamp(1.75rem,3.3vw,4.4rem)] wall:leading-[1.08]"
               style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
             >
               இனிய{' '}
-              <br className="hidden lg:inline" />
+              <br className="hidden wall:inline" />
               {festivalTitle}{' '}
-              <br className="hidden lg:inline" />
+              <br className="hidden wall:inline" />
               நல்வாழ்த்துக்கள்
             </h1>
 
-            <div className="mx-auto mt-3 h-px w-3/4 bg-gradient-to-r from-transparent via-[#F6D36A] to-transparent lg:mx-0 lg:mt-6 lg:w-4/5 lg:from-[#F6D36A] lg:to-transparent" />
+            <div className="mx-auto mt-3 h-px w-3/4 bg-gradient-to-r from-transparent via-[#F6D36A] to-transparent wall:mx-0 wall:mt-6 wall:w-4/5 wall:from-[#F6D36A] wall:to-transparent" />
 
             <p
-              className="mt-3 break-words text-[clamp(1.1rem,3.5vw,1.6rem)] font-bold leading-tight text-white lg:mt-6 lg:text-[clamp(1.3rem,2.1vw,2.5rem)]"
+              className="mt-3 break-words text-[clamp(1.1rem,3.5vw,1.6rem)] font-bold leading-tight text-white wall:mt-6 wall:text-[clamp(1.3rem,2.1vw,2.5rem)]"
               style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
             >
               {displayCustomerName(currentPlayback)}
             </p>
             <p
-              className="mt-1 break-words text-[clamp(0.95rem,2.8vw,1.25rem)] font-bold text-[#F6D36A] lg:mt-2.5 lg:text-[clamp(1.05rem,1.6vw,1.9rem)]"
+              className="mt-1 break-words text-[clamp(0.95rem,2.8vw,1.25rem)] font-bold text-[#F6D36A] wall:mt-2.5 wall:text-[clamp(1.05rem,1.6vw,1.9rem)]"
               style={{ fontFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', Latha, 'Tamil Sangam MN', serif" }}
             >
               {displayCustomerLocality(currentPlayback)}
