@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Check,
   ChevronDown,
   LoaderCircle,
   Monitor,
@@ -15,16 +16,63 @@ import {
 } from 'lucide-react';
 import { CREDIT_BAR_COLOURS, creditStatuses } from '@/lib/maharaja/credits';
 import PlatformOverview, { type PlatformSpend } from '@/components/PlatformOverview';
-import { OFFERED_PACKAGES, PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, type PackageId } from '@/lib/maharaja/access';
+import { PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, type PackageId } from '@/lib/maharaja/access';
 import { FREE_TRIAL_IMAGE_CREDITS, PHONE_PACKAGE, PHONE_PACKAGE_CREDITS, PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage, presetFor, type Credits, type Platform, type PresetId } from '@/lib/maharaja/pricing';
 
-/** The platforms a store can book; device and module rules for each live in access.ts. */
-const PACKAGE_CARDS: Array<{ id: PackageId; Icon: typeof Tv; text: string }> = [
-  { id: 'tv', Icon: Tv, text: 'Try-On, AI Video and Live Mirror on the showroom TV.' },
-  { id: 'tablet', Icon: Tablet, text: 'Try-On and the AI Video QR on the tablet.' },
-  { id: 'phone', Icon: Smartphone, text: 'Try-On on the customer’s phone from the wall QR. No AI Video.' },
-  { id: 'tv-tablet', Icon: Monitor, text: 'The TV in the showroom and a tablet. Priced as TV.' },
-];
+/**
+ * The platforms a store can book, ticked in any mix: TV, Tablet, both, or Phone on its own. The phone
+ * always comes with the TV and the tablet, so it is ticked and locked whenever either is ticked.
+ * Device and module rules for each mix live in access.ts.
+ */
+const PLATFORM_PICKS = [
+  { key: 'tv', Icon: Tv, title: 'TV', text: 'Try-On, AI Video and Live Mirror on the showroom TV, with the Go Live player.' },
+  { key: 'tablet', Icon: Tablet, title: 'Tablet', text: 'Try-On and the AI Video QR at the counter, with the Go Live player.' },
+  { key: 'phone', Icon: Smartphone, title: 'Phone', text: 'Try-On on the customer’s phone from the Wall QR. No AI Video.' },
+] as const;
+
+type PlatformPick = (typeof PLATFORM_PICKS)[number]['key'];
+
+/** The package a tick-box change leads to. Unticking everything leaves Phone, which can be booked alone. */
+function togglePlatform(current: PackageId, pick: PlatformPick): PackageId {
+  const d = PACKAGES[current].devices;
+  if (pick === 'phone') return current;
+  const tv = pick === 'tv' ? !d.tv : d.tv;
+  const tablet = pick === 'tablet' ? !d.tablet : d.tablet;
+  return tv ? (tablet ? 'tv-tablet' : 'tv') : tablet ? 'tablet' : 'phone';
+}
+
+function PlatformPicker({ value, onChange, compact = false }: { value: PackageId; onChange: (next: PackageId) => void; compact?: boolean }) {
+  const d = PACKAGES[value].devices;
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {PLATFORM_PICKS.map(({ key, Icon, title, text }) => {
+        const ticked = key === 'phone' ? true : d[key];
+        const locked = key === 'phone';
+        const note = key === 'phone' ? (d.tv || d.tablet ? 'Included with TV and Tablet' : 'Booked on its own') : null;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="checkbox"
+            aria-checked={ticked}
+            aria-disabled={locked}
+            onClick={() => { if (!locked) onChange(togglePlatform(value, key)); }}
+            className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition ${ticked ? 'border-ink bg-white ring-1 ring-ink' : 'border-line bg-white hover:border-line-strong'} ${locked ? 'cursor-default' : ''}`}
+          >
+            <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${ticked ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white'}`}>
+              {ticked && <Check className="h-3.5 w-3.5" />}
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-center gap-2 text-base font-bold text-ink"><Icon className="h-4 w-4" />{title}</span>
+              {!compact && <span className="mt-1 block text-sm font-normal text-muted">{text}</span>}
+              {note && <span className="mt-1 block text-xs font-semibold text-muted">{note}</span>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 type PricingAnswer = {
   quote: { creditsTotal: number; softwareFee: number; gst: number; total: number; credits: Credits };
@@ -519,15 +567,9 @@ export default function TryFocusAdmin() {
                   className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                 />
               </label>
-              <label className="block text-xs font-bold text-muted">
-                Platform
-                <select
-                  value={newPackage}
-                  onChange={(e) => { const next = e.target.value as PackageId; setNewPackage(next); setNewPreset(next === 'phone' ? 'trial' : 'standard'); }}
-                  className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
-                >
-                  {[...OFFERED_PACKAGES, 'tv-tablet' as const].map((key) => <option key={key} value={key}>{PACKAGES[key].label}</option>)}
-                </select>
+              <div className="block text-xs font-bold text-muted sm:col-span-2">
+                <p>Platform · tick TV, Tablet or both (Phone comes with them), or Phone alone</p>
+                <div className="mt-1.5 font-normal"><PlatformPicker compact value={newPackage} onChange={(next) => { setNewPackage(next); setNewPreset(next === 'phone' ? 'trial' : 'standard'); }} /></div>
                 <select
                   aria-label="Credit package"
                   value={newPreset}
@@ -549,7 +591,7 @@ export default function TryFocusAdmin() {
                 <span className="mt-2 block font-normal tabular-nums">
                   {newCredits.image.toLocaleString('en-IN')} images{newCredits.video ? ` · ${newCredits.video.toLocaleString('en-IN')} AI Videos` : ''}{newCredits.live ? ` · ${newCredits.live.toLocaleString('en-IN')} Live Mirror` : ''}
                 </span>
-              </label>
+              </div>
               <div className="sm:col-span-2 lg:col-span-3 rounded-2xl bg-canvas p-4">
                 {newPreset === 'trial'
                   ? <p className="text-sm text-muted">{newPackage === 'phone' ? 'November offer (till 30 November): ' : 'Free trial: '}{FREE_TRIAL_IMAGE_CREDITS} Try-On credits and {FREE_TRIAL_IMAGE_CREDITS} GenLook credits locked to the store, no charge. Top up from the client&apos;s card when they buy.</p>
@@ -720,26 +762,9 @@ export default function TryFocusAdmin() {
         {/* What this client booked: a platform decides its modules (the phone comes with the TV and the tablet). */}
         <section className="tf-card p-6">
           <h2 className="text-2xl font-bold">Platform</h2>
-          <p className="mt-1 text-sm text-muted">Now: <b className="text-ink">{packageLabel(client.devices)}</b> · {['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}. Tap a platform to change it; its modules switch with it.</p>
+          <p className="mt-1 text-sm text-muted">Now: <b className="text-ink">{packageLabel(client.devices)}</b> · {['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}. Tick TV, Tablet or both; Phone comes with them, or book Phone alone. Modules switch with the platforms.</p>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {PACKAGE_CARDS.map(({ id, Icon, text }) => {
-              const selected = currentPackage === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => choosePackage(id)}
-                  className={`flex flex-col items-start gap-3 rounded-2xl border p-4 text-left transition ${selected ? 'border-ink bg-white ring-1 ring-ink' : 'border-line bg-white hover:border-line-strong'}`}
-                >
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${selected ? 'bg-ink text-white' : 'bg-canvas text-ink'}`}><Icon className="h-5 w-5" /></span>
-                  <span className="text-base font-bold text-ink">{PACKAGES[id].label}</span>
-                  <span className="text-sm text-muted">{text}</span>
-                </button>
-              );
-            })}
-          </div>
+          <div className="mt-5"><PlatformPicker value={currentPackage} onChange={choosePackage} /></div>
 
           <div className="mt-4 flex items-start gap-3.5 rounded-2xl bg-canvas p-4">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-ink"><Smartphone className="h-5 w-5" /></span>
