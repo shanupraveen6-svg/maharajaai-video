@@ -64,10 +64,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // A workspace Go Live link plays without a login; its playback APIs check the screen code.
-  if (request.nextUrl.pathname === '/tv' && /^[A-Za-z0-9_-]{24}$/.test(request.nextUrl.searchParams.get('screen') || '')) {
-    return NextResponse.next();
-  }
+  // The Go Live player link (/tv?screen=…) asks for the store's login like the other screens.
 
   const role = await sessionRole(request);
   if (role === 'client' && request.nextUrl.pathname.startsWith('/admin')) {
@@ -83,7 +80,8 @@ export async function proxy(request: NextRequest) {
   }
 
   const loginUrl = new URL('/login', request.url);
-  loginUrl.searchParams.set('next', request.nextUrl.pathname);
+  // Keep the query (the Go Live player's screen code) so sign-in returns to the same screen.
+  loginUrl.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search);
   return NextResponse.redirect(loginUrl);
 }
 

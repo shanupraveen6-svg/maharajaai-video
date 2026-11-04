@@ -1098,7 +1098,7 @@ export function getWorkspaceLinks(workspace: MaharajaWorkspace) {
   // A poster is permanent; every scan must mint a separate, expiring customer pass.
   const openVideoUrl = getPublicAppUrl(`/maharaja/video-poster?code=${encodeURIComponent(workspace.openVideoCode)}`);
   const tvUrl = getPublicAppUrl('/maharaja/tv');
-  // Opens this workspace's Go Live wall on any TV browser, without a login.
+  // Opens this workspace's Go Live wall on any TV browser, after the store's login.
   const goLiveUrl = getPublicAppUrl(`/tv?screen=${goLiveCodeFor(workspace.clientId)}`);
   return {
     adminUrl,
