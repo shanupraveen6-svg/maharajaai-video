@@ -183,6 +183,8 @@ export default function MaharajaAdminDashboard({
   const [catGenderChosen, setCatGenderChosen] = useState(false);
   const [catExperience, setCatExperience] = useState<CatalogueExperience>('tryon');
   const [catFilter, setCatFilter] = useState<CatalogueCategoryId>('sarees');
+  // Go Live videos still kept (one day), as counted by the Went live list.
+  const [goLiveCount, setGoLiveCount] = useState<number | null>(null);
   const [cataloguePage, setCataloguePage] = useState(0);
   const [showAddGarment, setShowAddGarment] = useState<boolean>(false);
 
@@ -898,8 +900,9 @@ export default function MaharajaAdminDashboard({
         {section === 'golive' && (goLiveOn ? (
           <div className="space-y-6">
             <section className="tf-card p-6">
-              <h2 className="text-lg font-bold">Went live ({goLiveList.length.toLocaleString('en-IN')})</h2>
-              <div className="mt-4"><ClientVideoLibrary embedded /></div>
+              <h2 className="text-lg font-bold">Went live ({(goLiveCount ?? goLiveList.length).toLocaleString('en-IN')})</h2>
+              <p className="mt-1 text-sm text-muted">Each video is kept for 1 day, then deleted. This list updates itself.</p>
+              <div className="mt-4"><ClientVideoLibrary embedded onCount={setGoLiveCount} /></div>
             </section>
 
             <section className="tf-card max-w-2xl p-6">

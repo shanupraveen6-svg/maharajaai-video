@@ -20,6 +20,16 @@ import {
 } from '@/lib/maharaja/server';
 import { EVENT_IDS, FESTIVE_TIER_MIN, LUXURY_TIER_MIN, isEventId } from '@/lib/maharaja/config';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
+import { GO_LIVE_LIFETIME_MS } from '@/lib/maharaja/retention';
+
+/** A stored time (ISO text, Firestore Timestamp or milliseconds) as ISO text, or null. */
+function isoOf(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') return Number.isFinite(Date.parse(value)) ? value : null;
+  if (typeof value === 'number') return new Date(value).toISOString();
+  const withDate = value as { toDate?: () => Date };
+  return typeof withDate.toDate === 'function' ? withDate.toDate().toISOString() : null;
+}
 import { bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 
 export const dynamic = 'force-dynamic';
@@ -241,7 +251,7 @@ async function buildHydratedWorkspacePayload(targetWorkspace?: MaharajaWorkspace
           status: String(matchedQueue?.status || 'ready'),
           liveConsent: true,
           loopConsent: true,
-          expiresAt: null,
+          expiresAt: isoOf(matchedQueue?.expiresAt),
           phone,
           phoneMasked,
           videoUrl,
@@ -266,7 +276,7 @@ async function buildHydratedWorkspacePayload(targetWorkspace?: MaharajaWorkspace
           status: String(q.status || 'ready'),
           liveConsent: true,
           loopConsent: true,
-          expiresAt: null,
+          expiresAt: isoOf(q.expiresAt),
           phone: '',
           phoneMasked: 'Customer',
           videoUrl,
@@ -278,8 +288,19 @@ async function buildHydratedWorkspacePayload(targetWorkspace?: MaharajaWorkspace
     }
   });
 
+  // A Go Live video is kept for one day, then deleted: the workspace lists only the ones still kept,
+  // each with the time it goes (from the queue, or one day after it went live).
+  const nowMs = Date.now();
+  const keptAudit = rawAudit
+    .map((item) => {
+      const fromQueue = item.expiresAt ? Date.parse(item.expiresAt) : NaN;
+      const expiresMs = Number.isFinite(fromQueue) ? fromQueue : Date.parse(item.createdAt) + GO_LIVE_LIFETIME_MS;
+      return { ...item, expiresAt: Number.isFinite(expiresMs) ? new Date(expiresMs).toISOString() : null };
+    })
+    .filter((item) => item.expiresAt !== null && Date.parse(item.expiresAt) > nowMs);
+
   const resolvedGoLiveAudit = await Promise.all(
-    rawAudit.map(async (item) => {
+    keptAudit.map(async (item) => {
       let videoUrl = item.videoUrl;
       if (videoUrl.startsWith('sessions/') || videoUrl.startsWith('clients/')) {
         try {
