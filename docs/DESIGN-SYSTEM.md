@@ -20,6 +20,9 @@ There is no step progress bar on any surface. Each screen has one title, one nex
 
 TV, three tabs:
 - Try-On: Who → Store collection or My own outfit → Your photo → Pick outfits (up to 3) or Your outfit → Your looks.
+  The picks can come from any category of the chosen Who (a shirt, a veshti and a kurta…); each is one garment
+  and its own look, all made at the same time. Your looks shows one look full size at a time: swipe, Previous /
+  Next or tap a small look to move between them (a single look keeps the before/after slider).
 - AI Video (store collection only): Who → Your photo → Pick a piece → Your portrait, with the QR that makes
   the video on the phone, where the customer can also Go Live.
 - Live Mirror: pick a catalogue piece switched on for Live Mirror → Start live → 5-second countdown → 30 seconds live.

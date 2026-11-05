@@ -487,7 +487,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     lastLookTouchRef.current = { sku: product.sku, at: now };
     setSelectedLooks((current) => {
       if (current.some((item) => item.sku === product.sku)) return current.filter((item) => item.sku !== product.sku);
-      if (current.length >= MAX_LOOKS || (current.length > 0 && current[0].category !== product.category)) return current;
+      // Picks can come from any category of the chosen Who (shirt, veshti, kurta…); each is its own look.
+      if (current.length >= MAX_LOOKS) return current;
       return [...current, product];
     });
   }
@@ -688,6 +689,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       setHandoffStatus(error instanceof Error ? error.message : 'Mobile handoff unavailable');
     }
   }
+
+  // Two or more store looks: shown full size one at a time, swiped through.
+  const multiLook = imageSource === 'catalogue' && selectedLooks.length > 1;
 
   function showGeneratedLook(index: number) {
     const look = generatedLooks[index];
@@ -1149,7 +1153,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {tryOnStage === 'browse' && imageSource === 'catalogue' && (
               <div className="space-y-5">
                 <div className="flex items-center justify-between gap-4">
-                  <PageTitle size="lg" title={`Pick up to ${MAX_LOOKS} outfits`} subtitle="We create a look for each one at the same time." />
+                  <PageTitle size="lg" title={`Pick up to ${MAX_LOOKS} outfits`} subtitle="From any category. We create a look for each one at the same time." />
                   {customerPhoto && (
                     <button type="button" onClick={() => setTryOnStage('photo')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
                       <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-16 rounded-lg object-cover" />
@@ -1335,13 +1339,14 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   </div>
                 </div>
                 <div className="rounded-2xl overflow-hidden border border-line bg-white" onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
-                  // The before/after slider uses horizontal drags, so look switching stays on the buttons there.
-                  if (swipeStartX.current === null || (customerPhoto && tryOnResultUrl)) return;
+                  // With several looks a swipe moves between them; a single look keeps the before/after slider,
+                  // which uses horizontal drags itself.
+                  if (swipeStartX.current === null || !multiLook) return;
                   const distance = (event.changedTouches[0]?.clientX ?? swipeStartX.current) - swipeStartX.current;
                   swipeStartX.current = null;
                   if (Math.abs(distance) > 60) moveGeneratedLook(distance < 0 ? 1 : -1);
                 }}>
-                  {customerPhoto && tryOnResultUrl ? (
+                  {customerPhoto && tryOnResultUrl && !multiLook ? (
                     <div className="bg-ink px-4 pb-4 pt-3">
                       <BeforeAfterSlider
                         key={`${activeLookIndex}-${tryOnResultUrl.slice(-24)}`}
@@ -1355,14 +1360,14 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     </div>
                   ) : (
                     <div className="bg-[#161918]">
-                      <img src={tryOnResultUrl || selectedProduct.imageUrl} alt={selectedProduct.title} className="mx-auto max-h-[900px] w-full object-contain" />
+                      <img src={tryOnResultUrl || selectedProduct.imageUrl} alt={selectedProduct.title} draggable={false} className="mx-auto aspect-[9/16] max-h-[900px] w-full object-contain" />
                     </div>
                   )}
                   <p className="border-t border-line bg-white px-6 py-4 text-2xl font-bold text-ink">{imageSource === 'own-garment' ? 'Your outfit' : selectedProduct.title}</p>
                 </div>
                 {imageSource === 'catalogue' && selectedLooks.length > 1 && <div className="flex items-center justify-between gap-4">
                   <button type="button" onClick={() => moveGeneratedLook(-1)} className="tf-btn tf-btn-secondary !min-h-14 min-w-40 text-lg">← Previous</button>
-                  <p className="text-center text-sm text-muted">{customerPhoto ? 'Drag the line to compare · tap a look below' : 'Swipe the image to see your looks'}</p>
+                  <p className="text-center text-sm text-muted">Swipe to see your looks, or tap one below</p>
                   <button type="button" onClick={() => moveGeneratedLook(1)} className="tf-btn tf-btn-secondary !min-h-14 min-w-40 text-lg">Next →</button>
                 </div>}
                 {imageSource === 'catalogue' && selectedLooks.length > 1 && (
