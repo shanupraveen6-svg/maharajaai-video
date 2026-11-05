@@ -9,14 +9,16 @@ export const OWN_GARMENT_TYPES: Record<TryFocusProduct['gender'], Array<{ id: st
   women: [
     { id: 'saree', label: 'Saree' },
     { id: 'salwar', label: 'Kurti / salwar' },
-    { id: 'two_piece', label: 'Top' },
+    { id: 'top', label: 'Top' },
     { id: 'one_piece', label: 'Gown / dress' },
     { id: 'lehenga', label: 'Lehenga' },
   ],
   men: [
     { id: 'shirt_pant', label: 'Shirt' },
+    { id: 'trousers', label: 'Pant / jeans' },
     { id: 'dhoti_veshti', label: 'Veshti / dhoti' },
     { id: 'kurta_dhoti', label: 'Kurta' },
+    { id: 'tshirt_bottom', label: 'T-shirt' },
   ],
   girls: [
     { id: 'one_piece', label: 'Frock / dress' },
@@ -25,6 +27,7 @@ export const OWN_GARMENT_TYPES: Record<TryFocusProduct['gender'], Array<{ id: st
   ],
   boys: [
     { id: 'shirt_pant', label: 'Shirt' },
+    { id: 'trousers', label: 'Pant / jeans' },
     { id: 'boy_ethnic', label: 'Kurta' },
   ],
 };

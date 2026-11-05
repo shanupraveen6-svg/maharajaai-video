@@ -43,10 +43,10 @@ export type CustomerCategory = 'men' | 'women' | 'boy' | 'girl';
 /** Production virtual try-on prompt. Festival styling belongs only to the AI Video master flow. */
 /** Garment types that make sense for each customer category; anything else is treated as generic. */
 const GARMENT_TYPES_BY_CATEGORY: Record<CustomerCategory, readonly GarmentType[]> = {
-  women: ['saree', 'lehenga', 'salwar', 'one_piece', 'two_piece', 'three_piece', 'shirt_pant', 'tshirt_bottom', 'generic'],
-  men: ['kurta_dhoti', 'dhoti_veshti', 'shirt_pant', 'tshirt_bottom', 'two_piece', 'three_piece', 'generic'],
-  girl: ['pattu_pavadai', 'lehenga', 'salwar', 'one_piece', 'two_piece', 'three_piece', 'tshirt_bottom', 'generic'],
-  boy: ['boy_ethnic', 'kurta_dhoti', 'dhoti_veshti', 'shirt_pant', 'tshirt_bottom', 'two_piece', 'three_piece', 'generic'],
+  women: ['saree', 'lehenga', 'salwar', 'one_piece', 'top', 'trousers', 'jacket', 'two_piece', 'three_piece', 'shirt_pant', 'tshirt_bottom', 'generic'],
+  men: ['kurta_dhoti', 'dhoti_veshti', 'shirt_pant', 'tshirt_bottom', 'trousers', 'jacket', 'two_piece', 'three_piece', 'generic'],
+  girl: ['pattu_pavadai', 'lehenga', 'salwar', 'one_piece', 'top', 'trousers', 'two_piece', 'three_piece', 'tshirt_bottom', 'generic'],
+  boy: ['boy_ethnic', 'kurta_dhoti', 'dhoti_veshti', 'shirt_pant', 'tshirt_bottom', 'trousers', 'jacket', 'two_piece', 'three_piece', 'generic'],
 };
 
 /**
@@ -66,8 +66,11 @@ export const GARMENT_TYPE_RULES: Record<GarmentType, string> = {
   one_piece: 'ONE-PIECE (gown, dress or frock): preserve the exact single-garment silhouette, neckline, sleeves, waistline, flare and hem length. Do not add a dupatta, jacket, second piece or saree drape.',
   two_piece: 'TWO-PIECE SET: preserve the supplied top and bottom as two separate pieces with their exact lengths, fit and prints. Do not add a third layer, dupatta or saree drape.',
   three_piece: 'THREE-PIECE SET: preserve the exact inner top, outer layer (jacket, shrug, waistcoat or dupatta) and bottom, layered in the order shown. Do not remove or invent a layer.',
-  shirt_pant: 'SHIRT AND TROUSERS: preserve the exact shirt collar, placket, buttons, sleeves and print, and the supplied trousers with waistband and hem resting above the footwear. Never convert either piece to a kurta, dhoti or ethnic wear.',
-  tshirt_bottom: 'T-SHIRT / CASUAL TOP AND BOTTOM: preserve the exact knit or casual top with its neckline, print and sleeve length (no collar or buttons unless shown) and the supplied bottom (jeans, trousers, shorts or skirt). Never add a jacket or convert it to formal or ethnic wear.',
+  shirt_pant: 'SHIRT: dress the customer in the supplied shirt only, with its exact collar, placket, buttons, pockets, cuffs, sleeve length, print and colours, tucked or untucked as the shirt is styled. Keep the customer\'s own trousers, veshti or bottom exactly as in Image 1. Never convert it to a kurta, T-shirt or ethnic wear.',
+  tshirt_bottom: 'T-SHIRT: dress the customer in the supplied T-shirt only, with its exact neckline, sleeve length, knit, print, graphics and colours (no collar or buttons unless shown). Keep the customer\'s own bottom exactly as in Image 1. Never add a jacket or convert it to a shirt or ethnic wear.',
+  top: 'TOP / BLOUSE: dress the customer in the supplied top only, with its exact neckline, sleeves, length, fit, print and colours. Keep the customer\'s own bottom exactly as in Image 1. Never extend it into a kurti, dress or set.',
+  trousers: 'TROUSERS / JEANS: dress the customer in the supplied trousers, jeans or bottom only, with the exact waistband, fly, pockets, wash or colour, fit and length, the hem resting naturally above the footwear. Keep the customer\'s own shirt or top exactly as in Image 1. Never convert it to a veshti, dhoti, skirt or shorts.',
+  jacket: 'JACKET / BLAZER / WAISTCOAT: dress the customer in the supplied outer layer only, with its exact lapels or collar, buttons, pockets, shoulder line, length and colours, worn over the customer\'s own clothes from Image 1. Never add a matching bottom or tie that is not shown.',
   dhoti_veshti: 'VESHTI / DHOTI: dress the customer in the supplied veshti, wrapped at the waist to the ankles with front pleats and crisp natural folds, keeping its own main body colour (usually plain white or cream) and its own border exactly as shown (colour, width, print and where it sits). Keep the customer\'s own shirt unless a shirt is part of the supplied garment. Never add a gold or zari border that is not shown, never print the veshti with another garment\'s pattern, and add an angavastram only if shown. Never convert it to trousers or a saree.',
   kurta_dhoti: 'KURTA WITH DHOTI OR PYJAMA: preserve the exact kurta length, collar, placket, buttons, sleeves and fabric weave, and the dhoti, veshti or pyjama drape shown. If the reference is a modern shirt and trousers, keep them as shirt and trousers.',
   pattu_pavadai: 'PATTU PAVADAI: a girl\'s traditional silk skirt with matching blouse. Preserve the full flared silk skirt, the zari border and the blouse sleeves and neckline in modest child styling. No adult saree drape.',
@@ -89,6 +92,9 @@ export const GENLOOK_GARMENT_DESCRIPTIONS: Record<GarmentType, { title: string; 
   three_piece: { title: 'Three-piece set', description: 'A three-piece outfit: inner top, outer layer (jacket, shrug or dupatta) and bottom, layered as shown. Keep every piece and its exact colours.' },
   shirt_pant: { title: 'Shirt', description: 'A collared button shirt. Use its exact sleeve length, collar, pockets, buttons, print and colours from the photo.' },
   tshirt_bottom: { title: 'T-shirt', description: 'A casual T-shirt. Use its exact neckline, sleeve length, print, graphics and colours from the photo.' },
+  top: { title: 'Top', description: "A women's top or blouse worn on the upper body. Use its exact neckline, sleeves, length, fit, print and colours from the photo." },
+  trousers: { title: 'Trousers', description: 'Trousers or jeans worn from the waist to the ankles. Use the exact waistband, pockets, fit, length, wash and colours from the photo.' },
+  jacket: { title: 'Jacket', description: 'A jacket, blazer or waistcoat worn as the outer layer. Use its exact collar or lapels, buttons, pockets, length and colours from the photo.' },
   dhoti_veshti: { title: 'Veshti (dhoti)', description: 'A South Indian veshti (dhoti) wrapped at the waist and falling to the ankles. It keeps its own body colour and its own border exactly as shown.' },
   kurta_dhoti: { title: 'Kurta set', description: 'A kurta with its exact length, collar, placket and sleeves, worn with the shown pyjama, churidar or dhoti. Keep the exact fabric, embroidery and colours.' },
   pattu_pavadai: { title: 'Pattu pavadai', description: "A girl's traditional silk pattu pavadai: a full flared ankle-length silk skirt with a zari border and a matching blouse. Keep the exact border, motifs and colours." },
@@ -114,7 +120,10 @@ const GARMENT_KEYWORD_TYPES: Array<{ match: RegExp; type: GarmentType }> = [
   { match: /salwar|anarkali|kurti|churidar/, type: 'salwar' },
   { match: /veshti|dhoti/, type: 'dhoti_veshti' },
   { match: /t-?shirt|tee\b/, type: 'tshirt_bottom' },
-  { match: /shirt|trouser|pant/, type: 'shirt_pant' },
+  { match: /blazer|jacket|waistcoat|coat\b/, type: 'jacket' },
+  { match: /trouser|pant|jean|chino|bottom/, type: 'trousers' },
+  { match: /blouse|\btop\b|tops\b/, type: 'top' },
+  { match: /shirt/, type: 'shirt_pant' },
   { match: /gown|frock|dress/, type: 'one_piece' },
 ];
 
@@ -194,6 +203,9 @@ export type GarmentType =
   | 'three_piece'
   | 'shirt_pant'
   | 'tshirt_bottom'
+  | 'top'
+  | 'trousers'
+  | 'jacket'
   | 'dhoti_veshti'
   | 'kurta_dhoti'
   | 'pattu_pavadai'
@@ -202,7 +214,7 @@ export type GarmentType =
 
 export const GARMENT_TYPE_VALUES: readonly GarmentType[] = [
   'unset', 'saree', 'lehenga', 'salwar', 'one_piece', 'two_piece', 'three_piece',
-  'shirt_pant', 'tshirt_bottom', 'dhoti_veshti', 'kurta_dhoti', 'pattu_pavadai',
+  'shirt_pant', 'tshirt_bottom', 'top', 'trousers', 'jacket', 'dhoti_veshti', 'kurta_dhoti', 'pattu_pavadai',
   'boy_ethnic', 'generic',
 ];
 

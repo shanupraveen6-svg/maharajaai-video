@@ -21,7 +21,7 @@ export type TryFocusProduct = {
   eligibleForVideo: boolean;
   eligibleForLive?: boolean;
   newArrivalOnly?: boolean;
-  garmentType: 'saree' | 'salwar' | 'lehenga' | 'kurta_dhoti' | 'dhoti_veshti' | 'shirt_pant';
+  garmentType: 'saree' | 'salwar' | 'lehenga' | 'kurta_dhoti' | 'dhoti_veshti' | 'shirt_pant' | 'tshirt_bottom' | 'top' | 'trousers' | 'jacket' | 'one_piece' | 'pattu_pavadai';
 };
 
 export const catalogueCategories = [
@@ -30,21 +30,21 @@ export const catalogueCategories = [
   { id: 'kurtis', label: 'Kurtis', description: 'South Indian silk & cotton kurtis', subtitle: 'South Indian silk & cotton kurtis', audience: 'Women', gender: 'women', garmentType: 'salwar' },
   { id: 'salwar-suits', label: 'Salwar Suits', description: 'Salwar Suits', subtitle: 'Salwar Suits', audience: 'Women', gender: 'women', garmentType: 'salwar' },
   { id: 'half-sarees', label: 'Half Sarees', description: 'Langa voni & festive drapes', subtitle: 'Langa voni & festive drapes', audience: 'Women', gender: 'women', garmentType: 'saree' },
-  { id: 'western-tops', label: 'Tops & Shirts', description: 'Tops & Shirts', subtitle: 'Tops & Shirts', audience: 'Women', gender: 'women', garmentType: 'shirt_pant' },
-  { id: 'women-bottoms', label: 'Jeans & Bottoms', description: 'Jeans & Bottoms', subtitle: 'Jeans & Bottoms', audience: 'Women', gender: 'women', garmentType: 'shirt_pant' },
-  { id: 'blouses', label: 'Blouses', description: 'Blouses', subtitle: 'Blouses', audience: 'Women', gender: 'women', garmentType: 'salwar' },
+  { id: 'western-tops', label: 'Tops & Shirts', description: 'Tops & Shirts', subtitle: 'Tops & Shirts', audience: 'Women', gender: 'women', garmentType: 'top' },
+  { id: 'women-bottoms', label: 'Jeans & Bottoms', description: 'Jeans & Bottoms', subtitle: 'Jeans & Bottoms', audience: 'Women', gender: 'women', garmentType: 'trousers' },
+  { id: 'blouses', label: 'Blouses', description: 'Blouses', subtitle: 'Blouses', audience: 'Women', gender: 'women', garmentType: 'top' },
   { id: 'anarkali', label: 'Anarkali', description: 'Anarkali suits', subtitle: 'Anarkali suits', audience: 'Women', gender: 'women', garmentType: 'salwar' },
-  { id: 'gowns', label: 'Gowns & Dresses', description: 'Gowns & Dresses', subtitle: 'Gowns & Dresses', audience: 'Women', gender: 'women', garmentType: 'lehenga' },
+  { id: 'gowns', label: 'Gowns & Dresses', description: 'Gowns & Dresses', subtitle: 'Gowns & Dresses', audience: 'Women', gender: 'women', garmentType: 'one_piece' },
   { id: 'lehengas', label: 'Lehengas', description: 'Lehengas', subtitle: 'Lehengas', audience: 'Women', gender: 'women', garmentType: 'lehenga' },
   { id: 'women-occasion', label: 'Occasion Sets', description: 'Occasion Sets', subtitle: 'Occasion Sets', audience: 'Women', gender: 'women', garmentType: 'lehenga' },
   { id: 'formal-shirts', label: 'Formal Shirts', description: 'Formal Shirts', subtitle: 'Formal Shirts', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
   { id: 'casual-shirts', label: 'Casual Shirts', description: 'Casual Shirts', subtitle: 'Casual Shirts', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
-  { id: 'trousers', label: 'Trousers & Jeans', description: 'Trousers & Jeans', subtitle: 'Trousers & Jeans', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
-  { id: 'tshirts', label: 'T-Shirts', description: 'T-Shirts', subtitle: 'T-Shirts', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
+  { id: 'trousers', label: 'Trousers & Jeans', description: 'Trousers & Jeans', subtitle: 'Trousers & Jeans', audience: 'Men', gender: 'men', garmentType: 'trousers' },
+  { id: 'tshirts', label: 'T-Shirts', description: 'T-Shirts', subtitle: 'T-Shirts', audience: 'Men', gender: 'men', garmentType: 'tshirt_bottom' },
   { id: 'veshti', label: 'Veshti', description: 'Kasavu dhoti & angavastram sets', subtitle: 'Kasavu dhoti & angavastram sets', audience: 'Men', gender: 'men', garmentType: 'dhoti_veshti' },
   { id: 'kurta', label: 'Kurta', description: 'Brocade kurtas & wedding wear', subtitle: 'Brocade kurtas & wedding wear', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
   { id: 'angavastram', label: 'Angavastram Sets', description: 'Wedding silk & draped shawl sets', subtitle: 'Wedding silk & draped shawl sets', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
-  { id: 'blazers', label: 'Suits & Blazers', description: 'Suits & Blazers', subtitle: 'Suits & Blazers', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' },
+  { id: 'blazers', label: 'Suits & Blazers', description: 'Suits & Blazers', subtitle: 'Suits & Blazers', audience: 'Men', gender: 'men', garmentType: 'jacket' },
   { id: 'sherwanis', label: 'Sherwanis', description: 'Sherwanis', subtitle: 'Sherwanis', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
   { id: 'men-occasion', label: 'Occasion Sets', description: 'Occasion Sets', subtitle: 'Occasion Sets', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
   { id: 'boys-shirt-trouser', label: 'Shirts & Trousers', description: 'Shirts & Trousers', subtitle: 'Shirts & Trousers', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' },
@@ -55,12 +55,12 @@ export const catalogueCategories = [
   { id: 'boys-dhoti', label: 'Dhoti Sets', description: 'Dhoti Sets', subtitle: 'Dhoti Sets', audience: 'Boys', gender: 'boys', garmentType: 'dhoti_veshti' },
   { id: 'boys-kurta', label: 'Ethnic Kurta', description: 'Festive kurtas for boys', subtitle: 'Festive kurtas for boys', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti' },
   { id: 'boys-festive', label: 'Festive Sets', description: 'Festive Sets', subtitle: 'Festive Sets', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti' },
-  { id: 'boys-jacket', label: 'Jackets & Waistcoats', description: 'Jackets & Waistcoats', subtitle: 'Jackets & Waistcoats', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' },
+  { id: 'boys-jacket', label: 'Jackets & Waistcoats', description: 'Jackets & Waistcoats', subtitle: 'Jackets & Waistcoats', audience: 'Boys', gender: 'boys', garmentType: 'jacket' },
   { id: 'boys-sherwani', label: 'Sherwanis', description: 'Sherwanis', subtitle: 'Sherwanis', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti' },
-  { id: 'girls-frock', label: 'Silk Frocks', description: 'Silk occasion dresses for girls', subtitle: 'Silk occasion dresses for girls', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
-  { id: 'girls-party', label: 'Party Dresses', description: 'Party Dresses', subtitle: 'Party Dresses', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
-  { id: 'girls-pavadai', label: 'Pattu Pavadai', description: 'Silk skirt sets for girls', subtitle: 'Silk skirt sets for girls', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
-  { id: 'girls-gown', label: 'Gowns', description: 'Gowns', subtitle: 'Gowns', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
+  { id: 'girls-frock', label: 'Silk Frocks', description: 'Silk occasion dresses for girls', subtitle: 'Silk occasion dresses for girls', audience: 'Girls', gender: 'girls', garmentType: 'one_piece' },
+  { id: 'girls-party', label: 'Party Dresses', description: 'Party Dresses', subtitle: 'Party Dresses', audience: 'Girls', gender: 'girls', garmentType: 'one_piece' },
+  { id: 'girls-pavadai', label: 'Pattu Pavadai', description: 'Silk skirt sets for girls', subtitle: 'Silk skirt sets for girls', audience: 'Girls', gender: 'girls', garmentType: 'pattu_pavadai' },
+  { id: 'girls-gown', label: 'Gowns', description: 'Gowns', subtitle: 'Gowns', audience: 'Girls', gender: 'girls', garmentType: 'one_piece' },
   { id: 'girls-kurti', label: 'Kurti Sets', description: 'Kurti Sets', subtitle: 'Kurti Sets', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
   { id: 'girls-salwar', label: 'Salwar Suits', description: 'Salwar Suits', subtitle: 'Salwar Suits', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
   { id: 'girls-half-saree', label: 'Half Sarees', description: 'Half Sarees', subtitle: 'Half Sarees', audience: 'Girls', gender: 'girls', garmentType: 'saree' },

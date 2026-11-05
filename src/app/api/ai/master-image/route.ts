@@ -19,6 +19,26 @@ import { generateFashnTryOn } from '@/lib/maharaja/fashn-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
+import { catalogueCategories } from '@/lib/tryfocus/sample-data';
+
+/**
+ * Catalogue pieces saved before the categories were corrected still carry the old default type (trousers,
+ * T-shirts and blazers as "shirt", gowns and frocks as "lehenga" or "salwar"…). A piece whose stored type is
+ * still that old default takes its category's corrected type; a type the store chose itself is kept.
+ */
+const OLD_CATEGORY_DEFAULTS: Record<string, string> = {
+  'western-tops': 'shirt_pant', 'women-bottoms': 'shirt_pant', blouses: 'salwar', gowns: 'lehenga',
+  trousers: 'shirt_pant', tshirts: 'shirt_pant', blazers: 'shirt_pant', 'boys-jacket': 'shirt_pant',
+  'girls-frock': 'salwar', 'girls-party': 'lehenga', 'girls-pavadai': 'lehenga', 'girls-gown': 'lehenga',
+};
+function correctedGarmentType(categoryId: unknown, storedValue: unknown): string | undefined {
+  const stored = typeof storedValue === 'string' ? storedValue : undefined;
+  if (typeof categoryId !== 'string') return stored;
+  const category = catalogueCategories.find((item) => item.id === categoryId);
+  if (!category) return stored;
+  if (!stored || stored === 'unset' || stored === 'generic' || stored === OLD_CATEGORY_DEFAULTS[categoryId]) return category.garmentType;
+  return stored;
+}
 
 
 /** Photo-processing consent texts the server accepts: the current one first. */
@@ -287,7 +307,7 @@ export async function POST(req: NextRequest) {
     if (body.garmentTypeConfirmed !== true) {
       return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
     }
-    const garmentType = compatibleGarmentType(customerCategory, resolveGarmentType(customerCategory, body.garmentType, garmentAnalysis, garmentRoles));
+    const garmentType = compatibleGarmentType(customerCategory, resolveGarmentType(customerCategory, correctedGarmentType(body.catalogueProductCategory, body.garmentType), garmentAnalysis, garmentRoles));
     const concept = service === 'ai-video' ? getVideoConcept(body.conceptId) : null;
     if (service === 'ai-video' && (!concept || concept.category !== customerCategory)) {
       return NextResponse.json({ success: false, error: 'Select one film concept for the chosen customer category before generating.' }, { status: 400 });
@@ -730,7 +750,9 @@ async function describeGarmentForGenlook(ai: ReturnType<typeof getGenAIClient>, 
   const db = getDb();
   const cacheRef = db ? db.collection('genlookGarmentDescriptions').doc(hash) : null;
   try {
-    const cached = cacheRef ? (await cacheRef.get()).data()?.description : undefined;
+    // A saved description is reused only for the same garment type (one made under an old, wrong type is redone).
+    const saved = cacheRef ? (await cacheRef.get()).data() : undefined;
+    const cached = saved?.garmentType === garmentType ? saved?.description : undefined;
     if (typeof cached === 'string' && cached) return cached;
     const response = await ai.models.generateContent({
       model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
@@ -764,7 +786,8 @@ async function prepareGenlookPieces(ai: ReturnType<typeof getGenAIClient>, garme
   const cacheRef = db ? db.collection('genlookGarmentPieces').doc(hash) : null;
   try {
     type Found = { name: string; box: number[]; description: string };
-    let found: Found[] | undefined = cacheRef ? (await cacheRef.get()).data()?.pieces : undefined;
+    const savedPieces = cacheRef ? (await cacheRef.get()).data() : undefined;
+    let found: Found[] | undefined = savedPieces?.garmentType === garmentType ? savedPieces?.pieces : undefined;
     if (!found) {
       const response = await ai.models.generateContent({
         model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
