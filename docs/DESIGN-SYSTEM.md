@@ -44,8 +44,9 @@ TV, tablet and phone all follow that list.
 
 **One garment per Try-On (TryFocus rule).** Every Try-On dresses the customer in exactly one garment, sent to
 the engine as one piece: a shirt, a veshti, a saree, a kurti… never a shirt-and-veshti set in one photo. The
-outfit step says so in a guide box ("One garment at a time, not a full set." / "Lay it flat or hang it, the
-whole piece in the frame, in good light."), own-outfit types are single garments, and a customer photo that
+outfit step says so in a guide box ("One garment at a time, not a full set." / "Hold it up, lay it flat or hang
+it, the whole piece in the frame, in good light."; a held garment is cut out of the photo before it is sent,
+so no engine sees the person holding it), own-outfit types are single garments, and a customer photo that
 shows more than one garment is refused before anything is made (no credit used). The outfit's type and title
 follow what is actually in the photo, not only the category tapped.
 
