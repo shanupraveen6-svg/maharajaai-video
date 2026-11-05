@@ -282,6 +282,7 @@ export async function POST(req: NextRequest) {
     let masterImageUrl = '';
     let videoPersonPath: string | undefined;
     let videoGarmentPaths: string[] = [];
+    let referenceSaving: Promise<unknown> | null = null;
     const customerCategory: CustomerCategory = ['women', 'men', 'girl', 'boy'].includes(templateId) ? templateId : 'women';
     if (body.garmentTypeConfirmed !== true) {
       return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
@@ -343,10 +344,21 @@ export async function POST(req: NextRequest) {
         if (service === 'ai-video') {
           videoPersonPath = `clients/${activeClientId()}/sessions/${sessionId}/person/reference.jpg`;
           videoGarmentPaths = garmentBase64s.map((_, index) => `clients/${activeClientId()}/sessions/${sessionId}/garment/reference-${index}.jpg`);
-          await Promise.all([videoPersonPath, ...videoGarmentPaths].map((referencePath, index) => bucket.file(referencePath).save(preparedReferences[index], { contentType: 'image/jpeg', public: false, metadata: { cacheControl: 'private, no-store' } })));
+          // Saved while Gemini draws the portrait (awaited after it), not before: the customer waits for one, not both.
+          referenceSaving = Promise.all([videoPersonPath, ...videoGarmentPaths].map((referencePath, index) => bucket.file(referencePath).save(preparedReferences[index], { contentType: 'image/jpeg', public: false, metadata: { cacheControl: 'private, no-store' } })));
+          referenceSaving.catch(() => undefined);
         }
         if (personBase64) contents.push({ inlineData: { mimeType: 'image/jpeg', data: personBase64 } });
-        garmentBase64s.forEach((garmentBase64) => {
+        // The portrait's outfit photos go to Gemini at 1280 px (as Try-On does): less to upload and read, the
+        // garment detail Gemini uses is kept. The saved references stay full size for the video render.
+        const geminiGarments = service === 'ai-video'
+          ? await Promise.all(preparedReferences.slice(1).map((buffer) => sharp(buffer)
+            .resize(1280, 1280, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 90, chromaSubsampling: '4:4:4' })
+            .toBuffer()
+            .then((small) => small.toString('base64'))))
+          : garmentBase64s;
+        geminiGarments.forEach((garmentBase64) => {
           if (garmentBase64) contents.push({ inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } });
         });
         referencesReadyAt = Date.now();
@@ -468,15 +480,28 @@ ${roleInstructions}
             if (geminiBudgetMs < 25_000) throw new Error('The image service is busy right now. Please try again in a moment.');
             contents.push(prompt);
             geminiAttempted = true;
-            const genResponse = await ai.models.generateContent({
+            const geminiDeadline = Date.now() + geminiBudgetMs;
+            const askGemini = (responseModalities: string[]) => ai.models.generateContent({
               model: AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
               contents,
               config: {
-                responseModalities: ['TEXT', 'IMAGE'],
+                responseModalities,
                 imageConfig: { aspectRatio: '9:16' },
-                abortSignal: AbortSignal.timeout(geminiBudgetMs),
+                abortSignal: AbortSignal.timeout(Math.max(1_000, geminiDeadline - Date.now())),
               },
             });
+            let genResponse;
+            try {
+              // Image only: asking for text as well makes Gemini write before it draws.
+              genResponse = await askGemini(['IMAGE']);
+            } catch (modalityError: any) {
+              // A model that refuses image-only answers 400 straight away (nothing made, nothing billed):
+              // ask again the old way, text and image, within the same time budget.
+              const status = Number(modalityError?.status || modalityError?.code || 0);
+              if (status !== 400) throw modalityError;
+              console.warn('Gemini refused image-only output; asking for text and image.', String(modalityError?.message || '').slice(0, 200));
+              genResponse = await askGemini(['TEXT', 'IMAGE']);
+            }
             const part = genResponse.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
             if (part?.inlineData?.data) {
               rawBuffer = Buffer.from(part.inlineData.data, 'base64');
@@ -488,6 +513,8 @@ ${roleInstructions}
           throw lastEngineError || new Error('No Try-On image service is available. Please ask our staff for help.');
         }
         imageReadyAt = Date.now();
+        // The AI Video references must be saved before the portrait is handed on to the video step.
+        if (referenceSaving) await referenceSaving;
         if (rawBuffer) {
           await recordAiCost(service === 'try-on' ? 'try-on' : 'video-portrait');
           const finalBuffer = service === 'try-on'
