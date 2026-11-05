@@ -43,7 +43,7 @@ const STRINGS = {
   noStyles: { en: 'No pieces in this category yet.', ta: 'இந்தப் பிரிவில் இன்னும் உடைகள் இல்லை.' },
   layFlat: { en: 'Photograph one garment at a time.', ta: 'ஒரு நேரத்தில் ஒரு உடையை மட்டும் படம் எடுங்கள்.' },
   outfitGuide1: { en: 'One garment at a time, not a full set.', ta: 'ஒரு நேரத்தில் ஒரு உடை மட்டும், முழு செட் வேண்டாம்.' },
-  outfitGuide2: { en: 'Lay it flat or hang it, the whole piece in the frame, in good light.', ta: 'விரித்து அல்லது தொங்கவிட்டு, முழு உடையும் தெரியும்படி, நல்ல வெளிச்சத்தில் எடுங்கள்.' },
+  outfitGuide2: { en: 'Hold it up, lay it flat or hang it, the whole piece in the frame, in good light.', ta: 'கையில் பிடித்து, விரித்து அல்லது தொங்கவிட்டு, முழு உடையும் தெரியும்படி, நல்ல வெளிச்சத்தில் எடுங்கள்.' },
   changeOutfitPhoto: { en: 'Change outfit photo', ta: 'உடைப் புகைப்படத்தை மாற்று' },
   addOutfitPhoto: { en: 'Add outfit photo', ta: 'உடைப் புகைப்படம் சேர்' },
   creatingNote: { en: 'Creating your look. This takes about 20 seconds.', ta: 'உங்கள் தோற்றம் தயாராகிறது. சுமார் 20 வினாடிகள் ஆகும்.' },

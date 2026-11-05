@@ -160,7 +160,7 @@ export function buildTryOnPrompt(
     .map((item) => `- ${item.detail}`)
     .join('\n');
 
-  return `Create a photorealistic vertical 9:16 full-body virtual try-on photograph of the real ${subject}.
+  return `Edit Image 1, a real photo of a ${subject}, into a photorealistic virtual try-on: change only the garment, keep everything else in the photo as it is.
 
 GARMENT TYPE:
 - ${GARMENT_TYPE_RULES[garmentType]}${styleDetails ? `\n${styleDetails}` : ''}
@@ -178,16 +178,15 @@ IDENTITY AND NATURAL-SKIN LOCK:
 GARMENT LOCK:
 - Dress the customer in the exact garment from the supplied garment references; combine their details into one outfit.
 - Preserve its exact colours, colour transitions, fabric, weave, prints, embroidery, borders, neckline, sleeves, drape, pieces and silhouette.
-- Ignore the garment photo's mannequin, hanger, rack, stand, model and background. Transfer only the garment.
+- Ignore the garment photo's mannequin, hanger, rack, stand, model, the hands or person holding it, and its background. Transfer only the garment.
 - Keep the customer's own footwear unless the references show footwear as part of the outfit.
 - Use realistic cloth gravity, folds and contact shadows without changing the customer's body.
 
-FRAMING AND LIGHT:
-- One customer standing naturally, facing the camera, with the full head and both feet visible.
+KEEP THE PHOTO:
+- Change only the area the garment covers. Keep Image 1's background, framing, crop, camera angle, pose, hands, lighting and colour balance exactly; do not extend, crop, zoom or re-light the photo, and do not invent body parts the photo does not show.
+- Keep every piece of the customer's own clothing that the supplied garment does not replace exactly as in Image 1.
 - Two natural arms and hands with no duplicated or distorted anatomy.
 - ${safety}
-- Use a clean neutral fashion studio with a large soft key light, gentle neutral fill, subtle rim separation, neutral white balance and realistic exposure.
-- Keep natural skin highlights without glow, bloom, beauty lighting or cosmetic retouching.
 - No festival environment, props, text, logos or watermarks.
 
 The only purpose is to show clearly and realistically how this exact garment looks on this exact customer.`;

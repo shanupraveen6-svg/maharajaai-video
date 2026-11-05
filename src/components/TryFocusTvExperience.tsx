@@ -55,7 +55,7 @@ const isPersonTarget = (target: CameraTarget) => target !== 'own-garment';
 const AUDIENCE_LABELS = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' } as const;
 const PHOTO_GUIDE: [string, string] = ['Take a full-length photo, not a selfie.', 'Stand in good light and face the camera straight.'];
 // TryFocus rule: one garment per Try-On, always one piece.
-const OUTFIT_GUIDE: [string, string] = ['One garment at a time, not a full set.', 'Lay it flat or hang it, the whole piece in the frame, in good light.'];
+const OUTFIT_GUIDE: [string, string] = ['One garment at a time, not a full set.', 'Hold it up, lay it flat or hang it, the whole piece in the frame, in good light.'];
 
 /**
  * The store screen: the portrait TV, or the tablet (`device="tablet"`), at a different scale.

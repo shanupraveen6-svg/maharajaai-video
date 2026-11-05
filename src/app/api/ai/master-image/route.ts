@@ -448,6 +448,12 @@ ${roleInstructions}
             }, { status: 422 });
           }
           detectedSingle = found.length === 1 ? found[0] : null;
+          // fal, FASHN and Gemini get the same cut-out own garment GenLook gets.
+          if (ownOutfit && detectedSingle && detectedSingle.image !== genlookGarment) {
+            garmentBase64s[0] = detectedSingle.image;
+            const garmentPart = contents[1];
+            if (garmentPart?.inlineData) garmentPart.inlineData.data = detectedSingle.image;
+          }
         }
         for (const engine of engines) {
           if (rawBuffer) break;
@@ -773,6 +779,26 @@ async function describeGarmentForGenlook(ai: ReturnType<typeof getGenAIClient>, 
 
 type GenlookPiece = { image: string; product: { externalId: string; title: string; description: string } };
 
+/** The garment cut out of its photo (box on a 0-1000 scale, 4% margin), at least 1200 px for GenLook. A box
+ * that already fills almost the whole photo leaves it as it is. */
+async function cropToPiece(garmentBase64: string, box: number[]): Promise<string> {
+  const [ymin, xmin, ymax, xmax] = box.map((n) => Math.min(1000, Math.max(0, n)));
+  if ((ymax - ymin) * (xmax - xmin) > 0.85 * 1000 * 1000) return garmentBase64;
+  const source = Buffer.from(garmentBase64, 'base64');
+  const { width = 0, height = 0 } = await sharp(source).metadata();
+  if (!width || !height) return garmentBase64;
+  const padX = (xmax - xmin) * 0.04;
+  const padY = (ymax - ymin) * 0.04;
+  const left = Math.max(0, Math.floor(((xmin - padX) / 1000) * width));
+  const top = Math.max(0, Math.floor(((ymin - padY) / 1000) * height));
+  const cropWidth = Math.min(width - left, Math.ceil(((xmax - xmin + padX * 2) / 1000) * width));
+  const cropHeight = Math.min(height - top, Math.ceil(((ymax - ymin + padY * 2) / 1000) * height));
+  if (cropWidth < 64 || cropHeight < 64) return garmentBase64;
+  const crop = await sharp(source).extract({ left, top, width: cropWidth, height: cropHeight })
+    .resize(1200, 1200, { fit: 'inside', kernel: 'lanczos3' }).jpeg({ quality: 90 }).toBuffer();
+  return crop.toString('base64');
+}
+
 /**
  * GenLook products for one outfit photo. A set laid out piece by piece (a shirt beside a veshti) is found by
  * Gemini, each piece cut out with its own exact description; one garment (or an on-model photo) stays one
@@ -793,7 +819,7 @@ async function prepareGenlookPieces(ai: ReturnType<typeof getGenAIClient>, garme
         model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
         contents: [
           { inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } },
-          `This is a product photo of a ${GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title.toLowerCase()} for a virtual try-on. Find each separate garment piece shown (for example a shirt and a veshti laid side by side). Ignore labels, props, lamps, leaves, and any cloth that is only background decoration. If it is one garment, or a person wearing the outfit, return one piece. Return JSON: {"pieces":[{"name":"shirt","box":[ymin,xmin,ymax,xmax],"description":"..."}]} with the box on a 0-1000 scale around the whole piece. Each description is one plain sentence of at most 40 words: the main body colour first, then where any print or pattern sits (all over, or only on a border, strip or band), and for a top its sleeves, collar, pockets and closure. Never give one piece the print of another.`,
+          `This is a product photo of a ${GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title.toLowerCase()} for a virtual try-on. Find each separate garment piece shown (for example a shirt and a veshti laid side by side). Ignore labels, props, lamps, leaves, and any cloth that is only background decoration. If a person is holding the garment up in front of them, return only the held garment, never the person, their own clothes or hands. If it is one garment, or a person wearing the outfit, return one piece. Return JSON: {"pieces":[{"name":"shirt","box":[ymin,xmin,ymax,xmax],"description":"..."}]} with the box on a 0-1000 scale around the whole piece. Each description is one plain sentence of at most 40 words: the main body colour first, then where any print or pattern sits (all over, or only on a border, strip or band), and for a top its sleeves, collar, pockets and closure. Never give one piece the print of another.`,
         ],
         config: { responseMimeType: 'application/json', abortSignal: AbortSignal.timeout(12_000) },
       });
@@ -809,23 +835,16 @@ async function prepareGenlookPieces(ai: ReturnType<typeof getGenAIClient>, garme
       // One garment: a customer's own outfit is named by what it is (kurta, saree...), not the category tapped.
       const detected = String(valid[0]?.name || '').trim();
       const title = ownOutfit && detected ? detected.charAt(0).toUpperCase() + detected.slice(1, 60) : base.title;
-      return [{ image: garmentBase64, product: { ...base, title, description: (valid[0]?.description || (await describeGarmentForGenlook(ai, garmentBase64, garmentType))).slice(0, 500) } }];
+      // A customer's own garment held up in the hand (or with room around it) is cut out first, so the
+      // engines see only the garment, not the person, hands or room holding it.
+      const image = ownOutfit && valid[0] ? await cropToPiece(garmentBase64, valid[0].box) : garmentBase64;
+      return [{ image, product: { ...base, title, description: (valid[0]?.description || (await describeGarmentForGenlook(ai, garmentBase64, garmentType))).slice(0, 500) } }];
     }
-    const source = sharp(Buffer.from(garmentBase64, 'base64'));
-    const { width = 0, height = 0 } = await source.metadata();
     return await Promise.all(valid.map(async (piece, index) => {
-      const [ymin, xmin, ymax, xmax] = piece.box.map((n) => Math.min(1000, Math.max(0, n)));
-      const padX = (xmax - xmin) * 0.04;
-      const padY = (ymax - ymin) * 0.04;
-      const left = Math.max(0, Math.floor(((xmin - padX) / 1000) * width));
-      const top = Math.max(0, Math.floor(((ymin - padY) / 1000) * height));
-      const cropWidth = Math.min(width - left, Math.ceil(((xmax - xmin + padX * 2) / 1000) * width));
-      const cropHeight = Math.min(height - top, Math.ceil(((ymax - ymin + padY * 2) / 1000) * height));
-      const crop = await sharp(Buffer.from(garmentBase64, 'base64')).extract({ left, top, width: cropWidth, height: cropHeight })
-        .resize(1200, 1200, { fit: 'inside', kernel: 'lanczos3' }).jpeg({ quality: 90 }).toBuffer();
+      const crop = await cropToPiece(garmentBase64, piece.box);
       const name = String(piece.name || `piece ${index + 1}`).slice(0, 40);
       return {
-        image: crop.toString('base64'),
+        image: crop,
         product: { externalId: `${base.externalId}-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, title: name.charAt(0).toUpperCase() + name.slice(1), description: piece.description.slice(0, 500) },
       };
     }));
