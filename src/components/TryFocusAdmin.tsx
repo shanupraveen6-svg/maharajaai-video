@@ -113,6 +113,132 @@ function PackageQuote({ platform, credits, software }: { platform: Platform; cre
  * One client's settings at a glance, each tile with the step that changes it. Read top-down, it answers:
  * what did they book, what is left, can they sign in, how do customers get results, how is it going.
  */
+/** What the store did in its own workspace (from /api/admin/clients?clientId=). */
+type StoreDetail = {
+  catalogue: { total: number; showing: number; video: number; live: number };
+  hasLogo: boolean;
+  instagramUrl: string;
+  customCategories: boolean;
+  tryOnMinimum: number;
+  videoMinimum: number;
+  festival: string;
+  report: { month: string; counts: Record<string, number>; lastCounts: Record<string, number> } | null;
+  activity: Array<{ id: string; label: string; createdAt: string }>;
+};
+
+const MONTH_COUNTS = [
+  ['Wall QR scans', 'tryOnScans', 'image'],
+  ['Try-On looks', 'tryOnGenerated', 'image'],
+  ['AI Video QRs given', 'videoPasses', 'video'],
+  ['AI Videos made', 'videosGenerated', 'video'],
+  ['Go Live plays', 'goLive', 'video'],
+  ['Live Mirror sessions', 'liveSessions', 'live'],
+  ['Downloads', 'downloads', null],
+  ['Retries', 'retries', null],
+] as const;
+
+/**
+ * What is happening in the store's own workspace: what is working for customers, what the store has set up
+ * and switched on, this month against last month, and the latest activity. Read only for TryFocus.
+ */
+function StoreActivity({ client, detail }: { client: Client; detail: StoreDetail | null | 'error' }) {
+  const access = resolveAccess(client.devices, client.modules);
+  if (detail === 'error') return <section className="tf-card p-6"><h2 className="text-2xl font-bold">In the store&apos;s workspace</h2><p className="mt-2 text-sm text-danger">Could not load the store&apos;s workspace. Refresh to try again.</p></section>;
+  if (!detail) return <section className="tf-card p-6"><h2 className="text-2xl font-bold">In the store&apos;s workspace</h2><p className="mt-2 flex items-center gap-2 text-sm text-muted"><LoaderCircle className="h-4 w-4 animate-spin" /> Loading what the store has set up…</p></section>;
+  const live = client.status === 'Active';
+  const levelOf = (label: string) => creditStatuses({ tryOnGenerated: client.usage.image, liveSessions: client.usage.live, videosGenerated: client.usage.video }, client.limits).find((item) => item.label === label)?.level;
+  type Tone = 'success' | 'warn' | 'danger' | 'neutral';
+  const status = (label: string, pieces: number, empty: string): [string, Tone] => {
+    if (!live) return ['Paused', 'neutral'];
+    if (levelOf(label) === 'exhausted') return ['Credits finished', 'danger'];
+    if (pieces === 0) return [empty, 'warn'];
+    return ['Working', 'success'];
+  };
+  const working: Array<[string, string, [string, Tone]]> = [
+    ['Try-On', `${[client.devices.tv && 'TV', client.devices.tablet && 'Tablet', 'Phone (Wall QR)'].filter(Boolean).join(' · ')} · ${detail.catalogue.showing} garments showing`, status('Try-On', detail.catalogue.showing, 'Own outfit only')],
+    ...(access.modules.video ? [['AI Video', `${detail.catalogue.video} garments on AI Video`, status('AI Video', detail.catalogue.video, 'No garments on')] as [string, string, [string, Tone]]] : []),
+    ...(access.modules.live ? [['Live Mirror', `TV · ${detail.catalogue.live} garments on Live Mirror`, status('Live Mirror', detail.catalogue.live, 'No garments on')] as [string, string, [string, Tone]]] : []),
+    ...(access.modules.video ? [['Go Live player', 'LED or wall screen', (client.devices.led ? (live ? ['Working', 'success'] : ['Paused', 'neutral']) : ['Off', 'neutral']) as [string, Tone]] as [string, string, [string, Tone]]] : []),
+  ];
+  const setup: Array<[string, string, boolean | null]> = [
+    ['Garments', `${detail.catalogue.showing} of ${detail.catalogue.total} showing to customers`, detail.catalogue.showing > 0],
+    ['Categories customers see', detail.customCategories ? 'The store chose its own list' : 'Standard list (not chosen yet)', detail.customCategories],
+    ...(access.modules.video ? [['AI Video garments', `${detail.catalogue.video} switched on`, detail.catalogue.video > 0] as [string, string, boolean]] : []),
+    ...(access.modules.live ? [['Live Mirror garments', `${detail.catalogue.live} switched on`, detail.catalogue.live > 0] as [string, string, boolean]] : []),
+    ['Logo', detail.hasLogo ? 'Uploaded, on every downloaded look' : 'Not uploaded', detail.hasLogo],
+    ['Instagram', detail.instagramUrl || 'Not added', Boolean(detail.instagramUrl)],
+    ['Wall QR price tag', detail.tryOnMinimum ? `Scan a tag of ₹${detail.tryOnMinimum.toLocaleString('en-IN')} or more first` : 'Off: anyone who scans can try', null],
+    ...(access.modules.video ? [
+      ['AI Video gift', detail.videoMinimum ? `For bills from ₹${detail.videoMinimum.toLocaleString('en-IN')}` : 'For every bill', null] as [string, string, null],
+      ['Festival theme', detail.festival, null] as [string, string, null],
+    ] : []),
+  ];
+  const toDo = setup.filter(([, , done]) => done === false).length;
+  const counts = detail.report?.counts || {};
+  const last = detail.report?.lastCounts || {};
+  const monthName = detail.report?.month ? new Date(`${detail.report.month}-15T00:00:00Z`).toLocaleString('en-IN', { month: 'long' }) : 'This month';
+  const tiles = MONTH_COUNTS.filter(([, , module]) => module === null || access.modules[module]);
+  return (
+    <section className="tf-card p-6">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h2 className="text-2xl font-bold">In the store&apos;s workspace</h2>
+        <p className="text-sm text-muted">What {client.name} sees and has done. Read only.</p>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div>
+          <h3 className="font-bold text-ink">Working now</h3>
+          <ul className="mt-2 divide-y divide-line">
+            {working.map(([title, where, [text, tone]]) => (
+              <li key={title} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <span className="min-w-0"><span className="block font-semibold text-ink">{title}</span><span className="block text-muted">{where}</span></span>
+                <StatusPill tone={tone}>{text}</StatusPill>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h3 className="font-bold text-ink">Set up by the store <span className="font-normal text-muted">· {toDo ? `${toDo} to do` : 'all done'}</span></h3>
+          <ul className="mt-2 divide-y divide-line">
+            {setup.map(([title, text, done]) => (
+              <li key={title} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <span className="flex min-w-0 items-center gap-2">
+                  {done === true ? <Check className="h-4 w-4 shrink-0 text-success" /> : done === false ? <span className="ml-1 h-2 w-2 shrink-0 rounded-full bg-warn" /> : <span className="ml-1 h-2 w-2 shrink-0 rounded-full bg-line-strong" />}
+                  <span className="font-semibold text-ink">{title}</span>
+                </span>
+                <span className="min-w-0 text-right text-muted">{text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <h3 className="mt-6 font-bold text-ink">{monthName} so far</h3>
+      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {tiles.map(([label, key]) => (
+          <div key={key} className="rounded-2xl bg-canvas p-4">
+            <p className="text-[13px] font-medium text-muted">{label}</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums">{Number(counts[key] || 0).toLocaleString('en-IN')}</p>
+            <p className="mt-0.5 text-xs tabular-nums text-subtle">Last month {Number(last[key] || 0).toLocaleString('en-IN')}</p>
+          </div>
+        ))}
+      </div>
+
+      <h3 className="mt-6 font-bold text-ink">Latest activity</h3>
+      {detail.activity.length === 0
+        ? <p className="mt-2 text-sm text-muted">Nothing yet.</p>
+        : <ul className="mt-2 divide-y divide-line text-sm">
+            {detail.activity.map((item) => (
+              <li key={item.id} className="flex justify-between gap-3 py-2">
+                <span className="min-w-0 text-ink">{item.label}</span>
+                <span className="shrink-0 tabular-nums text-muted">{new Date(item.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+              </li>
+            ))}
+          </ul>}
+    </section>
+  );
+}
+
 function ClientStatus({ client }: { client: Client }) {
   const access = resolveAccess(client.devices, client.modules);
   const credits = creditStatuses({ tryOnGenerated: client.usage.image, liveSessions: client.usage.live, videosGenerated: client.usage.video }, {
@@ -130,7 +256,10 @@ function ClientStatus({ client }: { client: Client }) {
   const creditsWarn = credits.some((status) => status.level !== 'ok');
   return (
     <section className="tf-card p-6">
-      <h2 className="text-2xl font-bold">Status</h2>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h2 className="text-2xl font-bold">Set up by TryFocus</h2>
+        <p className="text-sm text-muted">What this store is given. Change it in the steps below.</p>
+      </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {tile('setup-platform', 'Platform', <>
           <p className="font-bold">{packageLabel(client.devices)}</p>
@@ -154,11 +283,10 @@ function ClientStatus({ client }: { client: Client }) {
           <li className="flex justify-between gap-2"><span>WhatsApp link</span><span className="font-semibold">{client.whatsappConnected ? 'On' : 'Off'}</span></li>
           {access.modules.video && <li className="flex justify-between gap-2"><span>Go Live player</span><span className="font-semibold">{client.devices.led ? 'On' : 'Off'}</span></li>}
         </ul>)}
-        {tile('', 'So far', <ul className="space-y-1">
-          <li className="flex justify-between gap-2"><span>Try-On looks</span><span className="tabular-nums font-semibold">{client.usage.image.toLocaleString('en-IN')}</span></li>
-          {access.modules.video && <li className="flex justify-between gap-2"><span>AI Videos</span><span className="tabular-nums font-semibold">{client.usage.video.toLocaleString('en-IN')}</span></li>}
-          <li className="flex justify-between gap-2"><span>Downloads</span><span className="tabular-nums font-semibold">{(client.usage.downloads || 0).toLocaleString('en-IN')}</span></li>
-          <li className="flex justify-between gap-2"><span>AI cost this month</span><span className="tabular-nums font-semibold">{client.spend ? formatRupees(client.spend.monthInr) : '—'}</span></li>
+        {tile('', 'AI cost (TryFocus only)', <ul className="space-y-1">
+          <li className="flex justify-between gap-2"><span>Today</span><span className="tabular-nums font-semibold">{client.spend ? formatRupees(client.spend.todayInr) : '—'}</span></li>
+          <li className="flex justify-between gap-2"><span>This month</span><span className="tabular-nums font-semibold">{client.spend ? formatRupees(client.spend.monthInr) : '—'}</span></li>
+          <li className="flex justify-between gap-2"><span>All time looks · videos</span><span className="tabular-nums font-semibold">{client.usage.image.toLocaleString('en-IN')} · {client.usage.video.toLocaleString('en-IN')}</span></li>
         </ul>)}
         {tile('', 'Store screens', client.links?.workspace
           ? <><a href={client.links.workspace} target="_blank" rel="noreferrer" className="font-semibold underline">Open workspace</a><p className="mt-1 text-muted">The TV, tablet and Go Live player links are in the workspace.</p></>
@@ -285,6 +413,18 @@ export default function TryFocusAdmin() {
     () => clients.find((item) => item.id === clientId) || clients[0],
     [clients, clientId]
   );
+
+  // What the picked store did in its own workspace; loaded each time a client is picked.
+  const [storeDetail, setStoreDetail] = useState<{ id: string; detail: StoreDetail | 'error' } | null>(null);
+  useEffect(() => {
+    if (!clientId) return;
+    let active = true;
+    fetch(`/api/admin/clients?clientId=${encodeURIComponent(clientId)}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => { if (active) setStoreDetail({ id: clientId, detail: data?.success && data.detail ? data.detail : 'error' }); })
+      .catch(() => { if (active) setStoreDetail({ id: clientId, detail: 'error' }); });
+    return () => { active = false; };
+  }, [clientId]);
 
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -762,6 +902,8 @@ export default function TryFocusAdmin() {
         {!clientId && <PlatformOverview clients={clients} platform={platformSpend} onSelect={setClientId} />}
 
         {clientId && (<>
+
+        <StoreActivity client={client} detail={storeDetail?.id === clientId ? storeDetail.detail : null} />
 
         <ClientStatus client={client} />
 

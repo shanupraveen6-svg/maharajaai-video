@@ -74,8 +74,12 @@ TryFocus admin, one client, in setup order (numbered headings, one section each)
 2. Credits: set a package, top up, or type a limit. Each card shows what is left and a status word.
 3. Store login: one username and password for the TV, tablet, Go Live player and workspace.
 4. Delivery: WhatsApp link and the Go Live player, each an On / Off switch.
-The store's Live for customers / Paused switch sits under its name. Without a client picked, admin shows
-every client's usage.
+The store's Live for customers / Paused switch sits under its name. Above the four steps, one picked
+client shows "In the store's workspace" (read only: Working now per feature, what the store set up
+with done / to do, the month's counts against last month, latest activity) and "Set up by TryFocus"
+(platform, credits, store login, delivery, AI cost, each with a Change link to its step). Delete
+workspace sits last. Without a client picked, admin is a status board: four totals, Needs action, and
+one card per client.
 
 Store workspace, Overview in this order, showing only this store's own things:
 1. Your plan (read only): what TryFocus allotted. Booked platforms and included features as ticked chips

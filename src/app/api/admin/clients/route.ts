@@ -6,12 +6,19 @@ import {
   genlookAllowance,
   getClientWorkspaceById,
   getWorkspaceLinks,
+  instagramUrlFor,
   listClientWorkspaces,
+  listMaharajaActivity,
   logMaharajaActivity,
+  tryOnMinimumFor,
   type MaharajaWorkspace,
   upsertClientWorkspace,
 } from '@/lib/maharaja/server';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
+import { listCatalogueProducts } from '@/lib/maharaja/catalogue';
+import { readStoreLogo } from '@/lib/maharaja/store-logo';
+import { runWithClient } from '@/lib/maharaja/client-context';
+import { AI_VIDEO_MIN_PURCHASE, EVENT_OPTIONS } from '@/lib/maharaja/config';
 import { monthlyReport, spendToday, usdToInr } from '@/lib/maharaja/usage-ledger';
 
 export const dynamic = 'force-dynamic';
@@ -91,6 +98,38 @@ async function platformSpend() {
   };
 }
 
+/**
+ * What the store itself has done in its workspace, for TryFocus admin: catalogue, the settings the store
+ * changes (categories, logo, Instagram, price tags, festival theme), this month's counts and recent activity.
+ */
+async function storeDetail(ws: MaharajaWorkspace) {
+  return runWithClient(ws.clientId, async () => {
+    const [catalogue, logo, report, activity] = await Promise.all([
+      listCatalogueProducts(0, 10_000, { includeInactive: true }).catch(() => ({ products: [], total: 0 })),
+      readStoreLogo(ws.clientId).catch(() => null),
+      monthlyReport(ws.clientId).catch(() => null),
+      listMaharajaActivity(8).catch(() => []),
+    ]);
+    const showing = catalogue.products.filter((item) => item.active);
+    return {
+      catalogue: {
+        total: catalogue.products.length,
+        showing: showing.length,
+        video: showing.filter((item) => item.eligibleForVideo).length,
+        live: showing.filter((item) => item.eligibleForLive === true).length,
+      },
+      hasLogo: Boolean(logo),
+      instagramUrl: instagramUrlFor(ws),
+      customCategories: Boolean(ws.categoryLists && Object.keys(ws.categoryLists).length),
+      tryOnMinimum: tryOnMinimumFor(ws),
+      videoMinimum: ws.videoMinPurchase ?? AI_VIDEO_MIN_PURCHASE,
+      festival: (EVENT_OPTIONS.find((item) => item.id === ws.defaultEvent) || EVENT_OPTIONS[0]).label,
+      report: report ? { month: report.month, counts: report.counts, lastCounts: report.lastCounts } : null,
+      activity: activity.map((item) => ({ id: item.id, label: item.label, createdAt: item.createdAt })),
+    };
+  });
+}
+
 /** Creates or resets a client's own staff login when TryFocus admin supplies one. */
 async function applyLogin(clientId: string, body: { loginUsername?: unknown; loginPassword?: unknown; disableLogin?: unknown }) {
   // Disabling a login signs out every device using it immediately.
@@ -107,10 +146,8 @@ export async function GET(req: NextRequest) {
     const clientId = req.nextUrl.searchParams.get('clientId');
     if (clientId) {
       const ws = await getClientWorkspaceById(clientId);
-      return NextResponse.json({
-        success: true,
-        client: (await withLogins([ws]))[0],
-      });
+      const [client, detail] = await Promise.all([withLogins([ws]).then((items) => items[0]), storeDetail(ws)]);
+      return NextResponse.json({ success: true, client, detail });
     }
 
     const workspaces = await listClientWorkspaces();
