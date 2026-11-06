@@ -205,7 +205,7 @@ function mildGesture(category: CustomerCategory, garmentType: GarmentType) {
 }
 
 const garmentNouns: Record<GarmentType, string> = {
-  saree: 'silk saree', lehenga: 'lehenga choli', salwar: 'salwar suit', one_piece: 'dress', two_piece: 'two-piece outfit',
+  saree: 'silk saree', half_saree: 'half saree', lehenga: 'lehenga choli', salwar: 'salwar suit', one_piece: 'dress', two_piece: 'two-piece outfit',
   three_piece: 'three-piece outfit', shirt_pant: 'shirt', tshirt_bottom: 'T-shirt', top: 'top', trousers: 'trousers', jacket: 'jacket', dhoti_veshti: 'veshti and shirt',
   kurta_dhoti: 'kurta set', pattu_pavadai: 'pattu pavadai', boy_ethnic: 'ethnic set', generic: 'outfit', unset: 'outfit',
 };

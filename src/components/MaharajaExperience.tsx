@@ -71,6 +71,7 @@ type Analysis = Record<string, unknown> & {
 const GARMENT_ROLE_OPTIONS: Record<GarmentType, string[]> = {
   unset: ['Garment piece 1', 'Garment piece 2', 'Garment detail'],
   saree: ['Saree body', 'Pallu / border', 'Blouse'],
+  half_saree: ['Pavadai skirt', 'Dhavani / drape', 'Blouse'],
   lehenga: ['Lehenga skirt', 'Choli / blouse', 'Dupatta / detail'],
   salwar: ['Kameez / top', 'Salwar / churidar', 'Dupatta / detail'],
   one_piece: ['Front view', 'Back / side view', 'Fabric detail'],

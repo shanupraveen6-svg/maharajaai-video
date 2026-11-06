@@ -10,7 +10,8 @@
     "catalogue:upload": "node --env-file=.env.local scripts/upload-maharaja-catalogue.mjs",
     "test:server": "node scripts/run-server-tests.mjs",
     "catalogue:thumbnails": "node --env-file=.env.local scripts/backfill-catalogue-thumbnails.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "eval:prompts": "node scripts/eval-garment-prompts.mjs && node scripts/test-prompts.mjs"
   },
   "dependencies": {
     "@fal-ai/client": "^1.10.1",

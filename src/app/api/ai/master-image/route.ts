@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, type GarmentType, GARMENT_TYPE_RULES, GENLOOK_GARMENT_DESCRIPTIONS, compatibleGarmentType, isEventId, buildTryOnPrompt, resolveGarmentType, customerRateLimit } from '@/lib/maharaja/config';
+import { type CustomerCategory, type GarmentType, GARMENT_TYPE_RULES, GENLOOK_GARMENT_DESCRIPTIONS, isEventId, buildTryOnPrompt, customerRateLimit } from '@/lib/maharaja/config';
 import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
@@ -19,27 +19,7 @@ import { generateFashnTryOn } from '@/lib/maharaja/fashn-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
-import { catalogueCategories } from '@/lib/tryfocus/sample-data';
-
-/**
- * Catalogue pieces saved before the categories were corrected still carry the old default type (trousers,
- * T-shirts and blazers as "shirt", gowns and frocks as "lehenga" or "salwar"…). A piece whose stored type is
- * still that old default takes its category's corrected type; a type the store chose itself is kept.
- */
-const OLD_CATEGORY_DEFAULTS: Record<string, string> = {
-  'western-tops': 'shirt_pant', 'women-bottoms': 'shirt_pant', blouses: 'salwar', gowns: 'lehenga',
-  trousers: 'shirt_pant', tshirts: 'shirt_pant', blazers: 'shirt_pant', 'boys-jacket': 'shirt_pant',
-  'girls-frock': 'salwar', 'girls-party': 'lehenga', 'girls-pavadai': 'lehenga', 'girls-gown': 'lehenga',
-};
-function correctedGarmentType(categoryId: unknown, storedValue: unknown): string | undefined {
-  const stored = typeof storedValue === 'string' ? storedValue : undefined;
-  if (typeof categoryId !== 'string') return stored;
-  const category = catalogueCategories.find((item) => item.id === categoryId);
-  if (!category) return stored;
-  if (!stored || stored === 'unset' || stored === 'generic' || stored === OLD_CATEGORY_DEFAULTS[categoryId]) return category.garmentType;
-  return stored;
-}
-
+import { garmentTypeFor } from '@/lib/maharaja/garment-type';
 
 /** Photo-processing consent texts the server accepts: the current one first. */
 const CONSENT_VERSIONS = ['2026-11-privacy-v4', '2026-10-privacy-v3'];
@@ -307,7 +287,7 @@ export async function POST(req: NextRequest) {
     if (body.garmentTypeConfirmed !== true) {
       return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
     }
-    const garmentType = compatibleGarmentType(customerCategory, resolveGarmentType(customerCategory, correctedGarmentType(body.catalogueProductCategory, body.garmentType), garmentAnalysis, garmentRoles));
+    const garmentType = garmentTypeFor({ audience: customerCategory, categoryId: body.catalogueProductCategory, storedType: body.garmentType, title: body.catalogueProductTitle, analysis: garmentAnalysis, roles: garmentRoles });
     const concept = service === 'ai-video' ? getVideoConcept(body.conceptId) : null;
     if (service === 'ai-video' && (!concept || concept.category !== customerCategory)) {
       return NextResponse.json({ success: false, error: 'Select one film concept for the chosen customer category before generating.' }, { status: 400 });
@@ -387,13 +367,14 @@ export async function POST(req: NextRequest) {
           ? sanitizedGarmentRoles.map((role: string, idx: number) => `- Garment Image ${idx + 1} = ${role.toUpperCase()}`).join('\n')
           : '- Garment Image 1 is the exact uploaded garment reference.';
 
-        // The Try-On prompt states the garment rule itself; the festival master prompt adds it here.
-        const categoryGarmentLine = service === 'try-on' ? '' : `- ${GARMENT_TYPE_RULES[garmentType]}`;
+        // The AI Video portrait's garment block (the Try-On prompt carries its own and gets nothing appended).
+        const categoryGarmentLine = `- ${GARMENT_TYPE_RULES[garmentType]}`;
 
         const garmentFidelityRules = `EXACT GARMENT ROLE & COLOR INSTRUCTIONS:
 ${roleInstructions}
 - Preserve every garment colour, dye hue, and colour transition exactly as shown in the uploaded garment references without color shift. Do not introduce, remove, shift, warm, cool, desaturate, or reinterpret any garment colour.
-- Never shift colors or alter clothing into unrequested garments or added embroidery.${categoryGarmentLine ? `\n${categoryGarmentLine}` : ''}
+- Never shift colors or alter clothing into unrequested garments or added embroidery.
+${categoryGarmentLine}
 - Professional model lighting must enhance clarity, contrast, and depth without altering the true dye color of any garment.`;
 
         let prompt = '';
@@ -403,7 +384,7 @@ ${roleInstructions}
             categoryId: typeof body.catalogueProductCategory === 'string' ? body.catalogueProductCategory : (typeof body.category === 'string' ? body.category : undefined),
             garmentType,
             productTitle: typeof body.catalogueProductTitle === 'string' ? body.catalogueProductTitle : undefined,
-          })}\n\n${garmentFidelityRules}`;
+          })}`;
         } else {
           const referenceHierarchy = `REFERENCE PRIORITY:
 - The first image (original customer photograph) is the authoritative identity reference.

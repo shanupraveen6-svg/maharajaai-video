@@ -40,12 +40,11 @@ export function getEventOption(eventId: EventId) {
 
 export type CustomerCategory = 'men' | 'women' | 'boy' | 'girl';
 
-/** Production virtual try-on prompt. Festival styling belongs only to the AI Video master flow. */
 /** Garment types that make sense for each customer category; anything else is treated as generic. */
 const GARMENT_TYPES_BY_CATEGORY: Record<CustomerCategory, readonly GarmentType[]> = {
-  women: ['saree', 'lehenga', 'salwar', 'one_piece', 'top', 'trousers', 'jacket', 'two_piece', 'three_piece', 'shirt_pant', 'tshirt_bottom', 'generic'],
+  women: ['saree', 'half_saree', 'lehenga', 'salwar', 'one_piece', 'top', 'trousers', 'jacket', 'two_piece', 'three_piece', 'shirt_pant', 'tshirt_bottom', 'generic'],
   men: ['kurta_dhoti', 'dhoti_veshti', 'shirt_pant', 'tshirt_bottom', 'trousers', 'jacket', 'two_piece', 'three_piece', 'generic'],
-  girl: ['pattu_pavadai', 'lehenga', 'salwar', 'one_piece', 'top', 'trousers', 'two_piece', 'three_piece', 'tshirt_bottom', 'generic'],
+  girl: ['pattu_pavadai', 'half_saree', 'lehenga', 'salwar', 'one_piece', 'top', 'trousers', 'two_piece', 'three_piece', 'tshirt_bottom', 'generic'],
   boy: ['boy_ethnic', 'kurta_dhoti', 'dhoti_veshti', 'shirt_pant', 'tshirt_bottom', 'trousers', 'jacket', 'two_piece', 'three_piece', 'generic'],
 };
 
@@ -61,6 +60,7 @@ export function compatibleGarmentType(category: CustomerCategory, garmentType: G
 /** One rule per garment type, shared by the Try-On and festival master image prompts. */
 export const GARMENT_TYPE_RULES: Record<GarmentType, string> = {
   saree: 'SAREE: an authentic Indian saree. Preserve the exact saree body, pallu, border finish, motif geometry and blouse construction, with neat front waist pleats, a clean diagonal body wrap and the pallu falling naturally from the shoulder. Never convert it into a salwar, churidar, lehenga or one-piece garment.',
+  half_saree: 'HALF SAREE (LANGA VONI / DHAVANI): a flared ankle-length skirt (pavadai), a fitted blouse and a half-length drape (dhavani) pleated at the waist and taken over the left shoulder, exactly as shown. It is not a full saree: no full body wrap.',
   lehenga: 'LEHENGA CHOLI: preserve the exact flared skirt and kalis, embroidered hem border, choli neckline and sleeves, and the dupatta drape as shown. No saree pleats or pallu.',
   salwar: 'SALWAR / ANARKALI: preserve the exact tunic length and flare, neckline, side slits, salwar or churidar bottom and dupatta drape. No saree pleats or pallu.',
   one_piece: 'ONE-PIECE (gown, dress or frock): preserve the exact single-garment silhouette, neckline, sleeves, waistline, flare and hem length. Do not add a dupatta, jacket, second piece or saree drape.',
@@ -72,9 +72,9 @@ export const GARMENT_TYPE_RULES: Record<GarmentType, string> = {
   trousers: 'TROUSERS / JEANS: dress the customer in the supplied trousers, jeans or bottom only, with the exact waistband, fly, pockets, wash or colour, fit and length, the hem resting naturally above the footwear. Keep the customer\'s own shirt or top exactly as in Image 1. Never convert it to a veshti, dhoti, skirt or shorts.',
   jacket: 'JACKET / BLAZER / WAISTCOAT: dress the customer in the supplied outer layer only, with its exact lapels or collar, buttons, pockets, shoulder line, length and colours, worn over the customer\'s own clothes from Image 1. Never add a matching bottom or tie that is not shown.',
   dhoti_veshti: 'VESHTI / DHOTI: dress the customer in the supplied veshti, wrapped at the waist to the ankles with front pleats and crisp natural folds, keeping its own main body colour (usually plain white or cream) and its own border exactly as shown (colour, width, print and where it sits). Keep the customer\'s own shirt unless a shirt is part of the supplied garment. Never add a gold or zari border that is not shown, never print the veshti with another garment\'s pattern, and add an angavastram only if shown. Never convert it to trousers or a saree.',
-  kurta_dhoti: 'KURTA WITH DHOTI OR PYJAMA: preserve the exact kurta length, collar, placket, buttons, sleeves and fabric weave, and the dhoti, veshti or pyjama drape shown. If the reference is a modern shirt and trousers, keep them as shirt and trousers.',
+  kurta_dhoti: 'KURTA: preserve the exact kurta length, collar, placket, buttons, sleeves and fabric weave. Dress the customer in its pyjama, churidar, dhoti or sherwani layer only if the garment reference shows one; otherwise keep the customer\'s own bottom exactly as in Image 1.',
   pattu_pavadai: 'PATTU PAVADAI: a girl\'s traditional silk skirt with matching blouse. Preserve the full flared silk skirt, the zari border and the blouse sleeves and neckline in modest child styling. No adult saree drape.',
-  boy_ethnic: 'BOY\'S ETHNIC SET: preserve the exact kurta-pyjama, sherwani or shirt-and-dhoti set as shown, with child proportions and comfortable fit. If the reference is a modern shirt or T-shirt with trousers, keep it modern.',
+  boy_ethnic: 'BOY\'S KURTA OR ETHNIC WEAR: preserve the exact kurta, sherwani or ethnic top with child proportions and a comfortable fit. Add a pyjama, dhoti or other piece only if the garment reference shows it; otherwise keep the boy\'s own bottom exactly as in Image 1.',
   generic: 'GARMENT AS SHOWN: copy only the supplied garment references exactly; do not reinterpret them as a different traditional, western, formal or casual garment.',
   unset: 'GARMENT AS SHOWN: copy only the supplied garment references exactly; do not reinterpret them as a different traditional, western, formal or casual garment.',
 };
@@ -85,6 +85,7 @@ export const GARMENT_TYPE_RULES: Record<GarmentType, string> = {
  */
 export const GENLOOK_GARMENT_DESCRIPTIONS: Record<GarmentType, { title: string; description: string }> = {
   saree: { title: 'Saree', description: 'A traditional Indian saree with matching blouse, worn with neat front pleats at the waist, the body wrapped once around and the decorated pallu draped over the left shoulder. Keep the exact border, pallu motifs, weave and colours.' },
+  half_saree: { title: 'Half saree', description: 'A half saree (langa voni): a flared ankle-length skirt with a fitted blouse and a half-length drape pleated at the waist and taken over the left shoulder. Keep the exact border, motifs and colours.' },
   lehenga: { title: 'Lehenga choli', description: 'A lehenga set: a flared ankle-length skirt with an embroidered hem, a fitted choli blouse and a dupatta draped as shown. Keep the exact embroidery, colours and flare.' },
   salwar: { title: 'Kurti / salwar suit', description: 'A kurti or salwar suit: a long tunic with its exact neckline, sleeves and side slits, worn over matching salwar, churidar or leggings, with the dupatta only if shown. Keep the exact length, print and colours.' },
   one_piece: { title: 'Dress', description: 'A single-piece dress, gown or frock with its exact neckline, sleeves, waistline, flare and hem length. Keep the exact print, fabric and colours.' },
@@ -96,9 +97,9 @@ export const GENLOOK_GARMENT_DESCRIPTIONS: Record<GarmentType, { title: string; 
   trousers: { title: 'Trousers', description: 'Trousers or jeans worn from the waist to the ankles. Use the exact waistband, pockets, fit, length, wash and colours from the photo.' },
   jacket: { title: 'Jacket', description: 'A jacket, blazer or waistcoat worn as the outer layer. Use its exact collar or lapels, buttons, pockets, length and colours from the photo.' },
   dhoti_veshti: { title: 'Veshti (dhoti)', description: 'A South Indian veshti (dhoti) wrapped at the waist and falling to the ankles. It keeps its own body colour and its own border exactly as shown.' },
-  kurta_dhoti: { title: 'Kurta set', description: 'A kurta with its exact length, collar, placket and sleeves, worn with the shown pyjama, churidar or dhoti. Keep the exact fabric, embroidery and colours.' },
+  kurta_dhoti: { title: 'Kurta', description: 'A kurta with its exact length, collar, placket and sleeves, with a pyjama, churidar or dhoti only if the photo shows one. Keep the exact fabric, embroidery and colours.' },
   pattu_pavadai: { title: 'Pattu pavadai', description: "A girl's traditional silk pattu pavadai: a full flared ankle-length silk skirt with a zari border and a matching blouse. Keep the exact border, motifs and colours." },
-  boy_ethnic: { title: "Boy's ethnic set", description: "A boy's ethnic outfit: kurta with pyjama, sherwani, or shirt with veshti, as shown. Keep the exact fabric, embroidery and colours." },
+  boy_ethnic: { title: "Boy's kurta", description: "A boy's kurta, sherwani or ethnic top, with a pyjama or dhoti only if the photo shows one. Keep the exact fabric, embroidery and colours." },
   generic: { title: 'Outfit', description: 'The outfit exactly as shown in the photo, with every piece, its colours, print and fabric.' },
   unset: { title: 'Outfit', description: 'The outfit exactly as shown in the photo, with every piece, its colours, print and fabric.' },
 };
@@ -113,20 +114,37 @@ const GARMENT_STYLE_DETAILS: Array<{ match: RegExp; types: readonly GarmentType[
   { match: /blazer|suit/, types: ['three_piece', 'shirt_pant', 'generic'], detail: 'Tailored detail: keep the lapels, shoulder line and button stance of the jacket exactly.' },
 ];
 
+/**
+ * The one keyword table every path uses (catalogue category, product title, staff analysis), checked in
+ * order: the more specific garment first (half saree before saree, kurti before kurta, kurta before dhoti).
+ */
 const GARMENT_KEYWORD_TYPES: Array<{ match: RegExp; type: GarmentType }> = [
-  { match: /saree|sari\b/, type: 'saree' },
-  { match: /lehenga|ghagra/, type: 'lehenga' },
-  { match: /pavadai|langa/, type: 'pattu_pavadai' },
-  { match: /salwar|anarkali|kurti|churidar/, type: 'salwar' },
-  { match: /veshti|dhoti/, type: 'dhoti_veshti' },
-  { match: /t-?shirt|tee\b/, type: 'tshirt_bottom' },
-  { match: /blazer|jacket|waistcoat|coat\b/, type: 'jacket' },
+  { match: /half[- ]?saree|langa[- ]?voni|dhavani|davani/, type: 'half_saree' },
+  { match: /pavadai|langa\b/, type: 'pattu_pavadai' },
+  { match: /\bsarees?\b|\bsaris?\b|kanchi|kanjiv|banarasi|pallu/, type: 'saree' },
+  { match: /lehenga|ghagra|chaniya/, type: 'lehenga' },
+  { match: /salwar|anarkali|kurti|churidar|kameez/, type: 'salwar' },
+  { match: /kurta|sherwani|pyjama|pajama/, type: 'kurta_dhoti' },
+  { match: /veshti|dhoti|angavastram|mundu/, type: 'dhoti_veshti' },
+  { match: /t-?shirt|\btee\b/, type: 'tshirt_bottom' },
+  { match: /blazer|jacket|waistcoat|\bcoat\b/, type: 'jacket' },
   { match: /trouser|pant|jean|chino|bottom/, type: 'trousers' },
   { match: /blouse|\btop\b|tops\b/, type: 'top' },
   { match: /shirt/, type: 'shirt_pant' },
   { match: /gown|frock|dress/, type: 'one_piece' },
 ];
 
+/** The garment type named by keywords in a category, product title or analysis, or generic. */
+export function garmentTypeFromText(text: string): GarmentType {
+  const lower = text.toLowerCase();
+  return GARMENT_KEYWORD_TYPES.find((item) => item.match.test(lower))?.type || 'generic';
+}
+
+/**
+ * Gemini's Try-On prompt (GenLook, fal and FASHN take the photos and a product listing instead). The garment
+ * type arrives already resolved by garmentTypeFor; the category and title only pick the style details.
+ * Sections: what to do, the garment, the customer, the photo. One garment per Try-On.
+ */
 export function buildTryOnPrompt(
   category: CustomerCategory,
   details?: {
@@ -144,57 +162,44 @@ export function buildTryOnPrompt(
         ? 'young boy'
         : 'young girl';
   const isChild = category === 'boy' || category === 'girl';
-  const safety = isChild
-    ? 'Use child-safe, age-appropriate, natural modest styling with no adult glamour, makeup or mature posing.'
-    : 'Use modest, family-friendly, natural styling.';
-
   const text = `${details?.categoryId || ''} ${details?.productTitle || ''}`.toLowerCase();
-  const explicitType = GARMENT_TYPE_VALUES.includes(details?.garmentType as GarmentType) ? details?.garmentType as GarmentType : 'generic';
-  // The garment type chosen by staff or the catalogue wins; keywords only help when none was chosen.
-  const inferredType = explicitType === 'generic' || explicitType === 'unset'
-    ? GARMENT_KEYWORD_TYPES.find((item) => item.match.test(text))?.type || 'generic'
-    : explicitType;
-  const garmentType = compatibleGarmentType(category, inferredType);
+  const chosen = GARMENT_TYPE_VALUES.includes(details?.garmentType as GarmentType) ? details?.garmentType as GarmentType : 'generic';
+  const garmentType = compatibleGarmentType(category, chosen === 'generic' || chosen === 'unset' ? garmentTypeFromText(text) : chosen);
   const styleDetails = GARMENT_STYLE_DETAILS
     .filter((item) => item.types.includes(garmentType) && item.match.test(text))
-    .map((item) => `- ${item.detail}`)
-    .join('\n');
+    .map((item) => item.detail)
+    .join(' ');
 
-  return `Edit Image 1, a real photo of a ${subject}, into a photorealistic virtual try-on: change only the garment, keep everything else in the photo as it is.
+  return `<task>
+Edit Image 1, a real photo of a ${subject}, into a photorealistic virtual try-on: dress them in the one garment shown in Images 2 onward and change nothing else in the photo.
+</task>
 
-GARMENT TYPE:
-- ${GARMENT_TYPE_RULES[garmentType]}${styleDetails ? `\n${styleDetails}` : ''}
-- Fit the garment to this ${subject}'s real body with natural ease${isChild ? ' and comfortable child proportions' : ''}; never change the body to fit the garment.
+<garment>
+${GARMENT_TYPE_RULES[garmentType]}${styleDetails ? `
+${styleDetails}` : ''}
+Images 2 onward are views of this same one garment. Copy its exact colours, fabric, weave, print, embroidery, borders, neckline, sleeves, length and drape; take only the garment, not the hanger, mannequin, model, hands holding it or background.
+Fit it to this ${subject}'s real body with natural ease, realistic cloth weight, folds and contact shadows${isChild ? ', in comfortable child proportions' : ''}.
+</garment>
 
-REFERENCE AUTHORITY:
-- Image 1 is the authoritative customer identity reference.
-- Images 2 onwards show the same garment or its explicitly labelled pieces and details. Use all supplied garment references together.
+<customer>
+Image 1 is the customer. Keep their face and its natural asymmetry, skin tone and real skin texture, hair, facial hair, glasses, age and body proportions exactly as photographed: unretouched, with no makeup, filter or reshaping.
+Keep every piece of their own clothing and footwear that this garment does not replace.
+</customer>
 
-IDENTITY AND NATURAL-SKIN LOCK:
-- Preserve the exact face, natural asymmetry, eyes, nose, lips, jawline, ears, skin tone, hairstyle, hairline, facial hair, glasses, age appearance and body proportions from Image 1.
-- Keep real pores, fine lines, under-eye detail, moles and natural skin texture.
-- Do not add makeup, foundation, lipstick, eyeliner, contouring, false lashes, skin whitening, glamour styling, beauty filters, facial reshaping, symmetry correction, airbrushing, waxy skin, plastic skin, porcelain texture, CGI or a doll-like appearance.
+<photo>
+Change only the area the garment covers. Keep Image 1's background, framing, crop, camera angle, pose, hands, lighting and colours exactly; do not extend, crop, zoom or re-light the photo or add body parts it does not show.
+${isChild ? 'Keep it child-safe and age-appropriate, with no adult glamour or mature posing.' : 'Modest, family-friendly styling.'} No festival scene, props, text or logo.
+</photo>
 
-GARMENT LOCK:
-- Dress the customer in the exact garment from the supplied garment references; combine their details into one outfit.
-- Preserve its exact colours, colour transitions, fabric, weave, prints, embroidery, borders, neckline, sleeves, drape, pieces and silhouette.
-- Ignore the garment photo's mannequin, hanger, rack, stand, model, the hands or person holding it, and its background. Transfer only the garment.
-- Keep the customer's own footwear unless the references show footwear as part of the outfit.
-- Use realistic cloth gravity, folds and contact shadows without changing the customer's body.
-
-KEEP THE PHOTO:
-- Change only the area the garment covers. Keep Image 1's background, framing, crop, camera angle, pose, hands, lighting and colour balance exactly; do not extend, crop, zoom or re-light the photo, and do not invent body parts the photo does not show.
-- Keep every piece of the customer's own clothing that the supplied garment does not replace exactly as in Image 1.
-- Two natural arms and hands with no duplicated or distorted anatomy.
-- ${safety}
-- No festival environment, props, text, logos or watermarks.
-
-The only purpose is to show clearly and realistically how this exact garment looks on this exact customer.`;
+<output>
+One image: this exact customer in this exact garment, in their own photo.
+</output>`;
 }
 
 export type GarmentType =
   | 'unset'
   | 'saree'
+  | 'half_saree'
   | 'lehenga'
   | 'salwar'
   | 'one_piece'
@@ -212,7 +217,7 @@ export type GarmentType =
   | 'generic';
 
 export const GARMENT_TYPE_VALUES: readonly GarmentType[] = [
-  'unset', 'saree', 'lehenga', 'salwar', 'one_piece', 'two_piece', 'three_piece',
+  'unset', 'saree', 'half_saree', 'lehenga', 'salwar', 'one_piece', 'two_piece', 'three_piece',
   'shirt_pant', 'tshirt_bottom', 'top', 'trousers', 'jacket', 'dhoti_veshti', 'kurta_dhoti', 'pattu_pavadai',
   'boy_ethnic', 'generic',
 ];
@@ -226,13 +231,6 @@ export function resolveGarmentType(
   if (typeof explicitType === 'string' && GARMENT_TYPE_VALUES.includes(explicitType as GarmentType) && explicitType !== 'unset') {
     return explicitType as GarmentType;
   }
-  const text = `${explicitType || ''} ${garmentAnalysis || ''} ${(garmentRoles || []).join(' ')}`.toLowerCase();
-  if (text.includes('dhoti') || text.includes('veshti') || text.includes('kurta') || text.includes('pyjama') || text.includes('pajama')) {
-    return category === 'boy' ? 'boy_ethnic' : 'kurta_dhoti';
-  }
-  if (text.includes('pattu pavadai') || text.includes('pavadai') || text.includes('langa voni')) return 'pattu_pavadai';
-  if (text.includes('lehenga') || text.includes('ghagra') || text.includes('chaniya')) return 'lehenga';
-  if (text.includes('salwar') || text.includes('anarkali') || text.includes('kameez') || text.includes('churidar') || text.includes('kurti')) return 'salwar';
-  if (text.includes('saree') || text.includes('sari') || text.includes('kanchi') || text.includes('banarasi') || text.includes('pallu')) return 'saree';
-  return 'generic';
+  const type = garmentTypeFromText(`${explicitType || ''} ${garmentAnalysis || ''} ${(garmentRoles || []).join(' ')}`);
+  return category === 'boy' && type === 'kurta_dhoti' ? 'boy_ethnic' : type;
 }

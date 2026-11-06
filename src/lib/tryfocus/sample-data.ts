@@ -21,7 +21,7 @@ export type TryFocusProduct = {
   eligibleForVideo: boolean;
   eligibleForLive?: boolean;
   newArrivalOnly?: boolean;
-  garmentType: 'saree' | 'salwar' | 'lehenga' | 'kurta_dhoti' | 'dhoti_veshti' | 'shirt_pant' | 'tshirt_bottom' | 'top' | 'trousers' | 'jacket' | 'one_piece' | 'pattu_pavadai';
+  garmentType: 'saree' | 'half_saree' | 'salwar' | 'lehenga' | 'kurta_dhoti' | 'dhoti_veshti' | 'shirt_pant' | 'tshirt_bottom' | 'top' | 'trousers' | 'jacket' | 'one_piece' | 'pattu_pavadai';
 };
 
 export const catalogueCategories = [
@@ -29,7 +29,7 @@ export const catalogueCategories = [
   { id: 'sarees', label: 'Sarees', description: 'Kanchivaram silk & bridal drapes', subtitle: 'Kanchivaram silk & bridal drapes', audience: 'Women', gender: 'women', garmentType: 'saree' },
   { id: 'kurtis', label: 'Kurtis', description: 'South Indian silk & cotton kurtis', subtitle: 'South Indian silk & cotton kurtis', audience: 'Women', gender: 'women', garmentType: 'salwar' },
   { id: 'salwar-suits', label: 'Salwar Suits', description: 'Salwar Suits', subtitle: 'Salwar Suits', audience: 'Women', gender: 'women', garmentType: 'salwar' },
-  { id: 'half-sarees', label: 'Half Sarees', description: 'Langa voni & festive drapes', subtitle: 'Langa voni & festive drapes', audience: 'Women', gender: 'women', garmentType: 'saree' },
+  { id: 'half-sarees', label: 'Half Sarees', description: 'Langa voni & festive drapes', subtitle: 'Langa voni & festive drapes', audience: 'Women', gender: 'women', garmentType: 'half_saree' },
   { id: 'western-tops', label: 'Tops & Shirts', description: 'Tops & Shirts', subtitle: 'Tops & Shirts', audience: 'Women', gender: 'women', garmentType: 'top' },
   { id: 'women-bottoms', label: 'Jeans & Bottoms', description: 'Jeans & Bottoms', subtitle: 'Jeans & Bottoms', audience: 'Women', gender: 'women', garmentType: 'trousers' },
   { id: 'blouses', label: 'Blouses', description: 'Blouses', subtitle: 'Blouses', audience: 'Women', gender: 'women', garmentType: 'top' },
@@ -43,7 +43,7 @@ export const catalogueCategories = [
   { id: 'tshirts', label: 'T-Shirts', description: 'T-Shirts', subtitle: 'T-Shirts', audience: 'Men', gender: 'men', garmentType: 'tshirt_bottom' },
   { id: 'veshti', label: 'Veshti', description: 'Kasavu dhoti & angavastram sets', subtitle: 'Kasavu dhoti & angavastram sets', audience: 'Men', gender: 'men', garmentType: 'dhoti_veshti' },
   { id: 'kurta', label: 'Kurta', description: 'Brocade kurtas & wedding wear', subtitle: 'Brocade kurtas & wedding wear', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
-  { id: 'angavastram', label: 'Angavastram Sets', description: 'Wedding silk & draped shawl sets', subtitle: 'Wedding silk & draped shawl sets', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
+  { id: 'angavastram', label: 'Angavastram Sets', description: 'Wedding silk & draped shawl sets', subtitle: 'Wedding silk & draped shawl sets', audience: 'Men', gender: 'men', garmentType: 'dhoti_veshti' },
   { id: 'blazers', label: 'Suits & Blazers', description: 'Suits & Blazers', subtitle: 'Suits & Blazers', audience: 'Men', gender: 'men', garmentType: 'jacket' },
   { id: 'sherwanis', label: 'Sherwanis', description: 'Sherwanis', subtitle: 'Sherwanis', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
   { id: 'men-occasion', label: 'Occasion Sets', description: 'Occasion Sets', subtitle: 'Occasion Sets', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' },
@@ -63,7 +63,7 @@ export const catalogueCategories = [
   { id: 'girls-gown', label: 'Gowns', description: 'Gowns', subtitle: 'Gowns', audience: 'Girls', gender: 'girls', garmentType: 'one_piece' },
   { id: 'girls-kurti', label: 'Kurti Sets', description: 'Kurti Sets', subtitle: 'Kurti Sets', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
   { id: 'girls-salwar', label: 'Salwar Suits', description: 'Salwar Suits', subtitle: 'Salwar Suits', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
-  { id: 'girls-half-saree', label: 'Half Sarees', description: 'Half Sarees', subtitle: 'Half Sarees', audience: 'Girls', gender: 'girls', garmentType: 'saree' },
+  { id: 'girls-half-saree', label: 'Half Sarees', description: 'Half Sarees', subtitle: 'Half Sarees', audience: 'Girls', gender: 'girls', garmentType: 'half_saree' },
   { id: 'girls-lehenga', label: 'Kids Lehenga', description: 'Festive lehengas for girls', subtitle: 'Festive lehengas for girls', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
   { id: 'girls-anarkali', label: 'Anarkali Sets', description: 'Anarkali Sets', subtitle: 'Anarkali Sets', audience: 'Girls', gender: 'girls', garmentType: 'salwar' },
   { id: 'girls-festive', label: 'Festive Sets', description: 'Festive Sets', subtitle: 'Festive Sets', audience: 'Girls', gender: 'girls', garmentType: 'lehenga' },
@@ -537,16 +537,16 @@ const newCatalogueGroups: Array<{
   premium?: boolean;
   arrivalOnly?: boolean;
 }> = [
-  { category: 'half-sarees', audience: 'Women', gender: 'women', garmentType: 'saree', titles: ['Ruby Silk Langa Voni', 'Peacock Blue Half Saree', 'Emerald Silk Half Saree', 'Antique Gold Langa Voni', 'Violet Zari Half Saree'] },
+  { category: 'half-sarees', audience: 'Women', gender: 'women', garmentType: 'half_saree', titles: ['Ruby Silk Langa Voni', 'Peacock Blue Half Saree', 'Emerald Silk Half Saree', 'Antique Gold Langa Voni', 'Violet Zari Half Saree'] },
   { category: 'kurtis', audience: 'Women', gender: 'women', garmentType: 'salwar', titles: ['Maroon Silk Kurti', 'Teal Festive Kurti', 'Mustard Cotton Silk Kurti', 'Peacock Blue Embroidered Kurti', 'Ivory Temple Border Kurti'] },
-  { category: 'angavastram', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti', premium: true, titles: ['Ivory Gold Wedding Angavastram Set', 'Maroon Silk Angavastram Set', 'Royal Blue Heritage Angavastram Set', 'Emerald Zari Angavastram Set', 'Sandal Gold Wedding Angavastram Set'] },
+  { category: 'angavastram', audience: 'Men', gender: 'men', garmentType: 'dhoti_veshti', premium: true, titles: ['Ivory Gold Wedding Angavastram Set', 'Maroon Silk Angavastram Set', 'Royal Blue Heritage Angavastram Set', 'Emerald Zari Angavastram Set', 'Sandal Gold Wedding Angavastram Set'] },
   { category: 'boys-veshti', audience: 'Boys', gender: 'boys', garmentType: 'dhoti_veshti', titles: ['Emerald Shirt Pattu Veshti', 'Maroon Border Pattu Veshti', 'Green Zari Pattu Veshti', 'Royal Blue Shirt Pattu Veshti', 'Copper Border Pattu Veshti'] },
   { category: 'boys-kurta', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti', titles: ['Saffron Silk Kurta Set', 'Royal Blue Brocade Kurta Set', 'Forest Green Silk Kurta Set', 'Maroon Jacquard Kurta Set', 'Mustard Wedding Kurta Set'] },
   { category: 'boys-silk-shirt', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant', titles: ['Cream Silk Shirt Set', 'Peacock Blue Silk Shirt Set', 'Burgundy Silk Shirt Set', 'Pale Gold Silk Shirt Set', 'Emerald Silk Shirt Set'] },
   { category: 'girls-pavadai', audience: 'Girls', gender: 'girls', garmentType: 'lehenga', titles: ['Ruby Pattu Pavadai', 'Emerald Temple Pattu Pavadai', 'Royal Blue Pattu Pavadai', 'Purple Gold Pattu Pavadai', 'Mustard Maroon Pattu Pavadai'] },
   { category: 'girls-lehenga', audience: 'Girls', gender: 'girls', garmentType: 'lehenga', titles: ['Rose Pink Silk Lehenga', 'Peacock Blue Silk Lehenga', 'Maroon Wedding Lehenga', 'Emerald Festive Lehenga', 'Saffron Gold Lehenga'] },
   { category: 'girls-frock', audience: 'Girls', gender: 'girls', garmentType: 'salwar', titles: ['Royal Blue Silk Frock', 'Ruby Temple Border Frock', 'Emerald Embroidered Frock', 'Violet Brocade Frock', 'Golden Maroon Silk Frock'] },
-  { category: 'angavastram', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti', arrivalOnly: true, titles: ['New Wedding Silk Set', 'New Royal Maroon Ensemble', 'New Peacock Blue Ceremony Set', 'New Emerald Silk Wedding Set', 'New Gold Zari Festive Set'] },
+  { category: 'angavastram', audience: 'Men', gender: 'men', garmentType: 'dhoti_veshti', arrivalOnly: true, titles: ['New Wedding Silk Set', 'New Royal Maroon Ensemble', 'New Peacock Blue Ceremony Set', 'New Emerald Silk Wedding Set', 'New Gold Zari Festive Set'] },
 ];
 
 const generatedCatalogue: TryFocusProduct[] = newCatalogueGroups.flatMap((group) =>
