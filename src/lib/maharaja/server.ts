@@ -7,7 +7,7 @@ import { afterDownloadExpiresAtMs, resultExpiresAtIso, resultExpiresAtMs } from 
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { NextRequest } from 'next/server';
 import { getOperatorSession, markClientSession, verifyOperatorRequest } from '@/lib/auth/operator';
-import { isClientSessionCurrent } from '@/lib/auth/client-accounts';
+import { deleteClientAccounts, isClientSessionCurrent } from '@/lib/auth/client-accounts';
 import { displayClientId, verifyTvRequest } from '@/lib/auth/display';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
@@ -939,6 +939,33 @@ export async function listClientWorkspaces(): Promise<MaharajaWorkspace[]> {
     }
   }
   return Array.from(byId.values());
+}
+
+/**
+ * Deletes a client's workspace for good: its settings, catalogue, looks, videos, leads and logs
+ * (everything under clientWorkspaces/<id>), its files (clients/<id>/), its pass index and its logins.
+ * The TryFocus demo workspace (Majestic Maharaja) cannot be deleted.
+ */
+export async function deleteClientWorkspace(clientId: string) {
+  const cleanId = String(clientId || '').trim().toLowerCase();
+  if (!cleanId) throw new Error('Pick a client to delete.');
+  if (cleanId === MAHARAJA_CLIENT_ID) throw new Error('The TryFocus demo workspace cannot be deleted.');
+  const db = getDb();
+  const bucket = getStorageBucket();
+  if (db) {
+    const ref = db.collection('clientWorkspaces').doc(cleanId);
+    if (!(await ref.get()).exists) throw new Error('This workspace no longer exists.');
+    await db.recursiveDelete(ref);
+    const passes = await db.collection('customerPassIndex').where('clientId', '==', cleanId).get();
+    await Promise.all(passes.docs.map((doc) => doc.ref.delete()));
+  } else {
+    const store = getMockStore();
+    if (!store.clientWorkspaces.has(cleanId)) throw new Error('This workspace no longer exists.');
+    store.clientWorkspaces.delete(cleanId);
+    for (const map of [store.goLive, store.leads]) for (const key of map.keys()) if (key.startsWith(`${cleanId}:`)) map.delete(key);
+  }
+  if (bucket) await bucket.deleteFiles({ prefix: `clients/${cleanId}/`, force: true }).catch(() => undefined);
+  await deleteClientAccounts(cleanId);
 }
 
 export async function getClientWorkspaceByWorkspaceCode(workspaceCode?: string | null): Promise<MaharajaWorkspace | null> {

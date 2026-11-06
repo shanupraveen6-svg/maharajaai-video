@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminRequest } from '@/lib/auth/operator';
 import { disableClientAccount, listClientLoginUsernames, setClientAccount } from '@/lib/auth/client-accounts';
 import {
+  deleteClientWorkspace,
   genlookAllowance,
   getClientWorkspaceById,
   getWorkspaceLinks,
@@ -188,3 +189,23 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
+
+/** Deletes a client's workspace, files and logins for good (TryFocus admin only). */
+export async function DELETE(req: NextRequest) {
+  if (!verifyAdminRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Please sign in to TryFocus admin.' }, { status: 401 });
+  }
+  try {
+    const clientId = String(req.nextUrl.searchParams.get('clientId') || '').trim().toLowerCase();
+    const before = await getClientWorkspaceById(clientId);
+    await deleteClientWorkspace(clientId);
+    await logMaharajaActivity('campaign', `TryFocus admin deleted client workspace: ${clientId} (${before.clientName})`, { clientId }).catch(() => undefined);
+    const all = await listClientWorkspaces();
+    return NextResponse.json({ success: true, deleted: clientId, clients: await withLogins(all) });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Unable to delete the client workspace.' },
+      { status: 400 }
+    );
+  }
+}

@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Smartphone,
   Tablet,
+  Trash2,
   Tv,
   Video,
 } from 'lucide-react';
@@ -105,6 +106,65 @@ function PackageQuote({ platform, credits, software }: { platform: Platform; cre
       <div className="flex justify-between gap-3"><dt className="text-muted">Our AI cost (all credits used)</dt><dd className="tabular-nums">{formatRupees(margin.aiCost)}</dd></div>
       <div className="flex justify-between gap-3"><dt className="text-muted">Credit profit</dt><dd className="tabular-nums font-semibold text-success">{formatRupees(margin.creditProfit)} · {Math.round(margin.creditMargin * 100)}%</dd></div>
     </dl>
+  );
+}
+
+/**
+ * One client's settings at a glance, each tile with the step that changes it. Read top-down, it answers:
+ * what did they book, what is left, can they sign in, how do customers get results, how is it going.
+ */
+function ClientStatus({ client }: { client: Client }) {
+  const access = resolveAccess(client.devices, client.modules);
+  const credits = creditStatuses({ tryOnGenerated: client.usage.image, liveSessions: client.usage.live, videosGenerated: client.usage.video }, {
+    image: access.modules.image ? client.limits.image : 0,
+    live: access.modules.live ? client.limits.live : 0,
+    video: access.modules.video ? client.limits.video : 0,
+  }).filter((status) => status.level !== 'none');
+  const tile = (id: string, title: string, body: React.ReactNode, warn = false) => (
+    <article className={`flex flex-col rounded-2xl border p-4 ${warn ? 'border-warn/50 bg-warn-soft/40' : 'border-line bg-white'}`}>
+      <p className="text-[13px] font-semibold text-muted">{title}</p>
+      <div className="mt-2 flex-1 text-sm text-ink">{body}</div>
+      {id && <a href={`#${id}`} className="mt-3 text-sm font-semibold text-ink underline">Change</a>}
+    </article>
+  );
+  const creditsWarn = credits.some((status) => status.level !== 'ok');
+  return (
+    <section className="tf-card p-6">
+      <h2 className="text-2xl font-bold">Status</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {tile('setup-platform', 'Platform', <>
+          <p className="font-bold">{packageLabel(client.devices)}</p>
+          <p className="mt-1 text-muted">{['Try-On', access.modules.video && 'AI Video', access.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}</p>
+        </>)}
+        {tile('setup-credits', 'Credits', credits.length ? (
+          <ul className="space-y-1.5">
+            {credits.map((status) => (
+              <li key={status.label} className="flex items-center justify-between gap-2">
+                <span>{status.label} <span className="tabular-nums text-muted">· {Math.max(0, status.limit - status.used).toLocaleString('en-IN')} left</span></span>
+                <StatusPill tone={CREDIT_LEVEL_STATUS[status.level].tone}>{CREDIT_LEVEL_STATUS[status.level].text}</StatusPill>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="text-warn">No credits set</p>, creditsWarn || !credits.length)}
+        {tile('setup-login', 'Store login', client.logins?.length
+          ? <><p className="font-bold">{client.logins.join(', ')}</p><p className="mt-1 text-muted">Opens TV, tablet, Go Live player and workspace</p></>
+          : <p className="text-warn">Not created yet. The store cannot sign in.</p>, !client.logins?.length)}
+        {tile('setup-delivery', 'Delivery', <ul className="space-y-1">
+          <li className="flex justify-between gap-2"><span>QR</span><span className="font-semibold">Always on</span></li>
+          <li className="flex justify-between gap-2"><span>WhatsApp link</span><span className="font-semibold">{client.whatsappConnected ? 'On' : 'Off'}</span></li>
+          {access.modules.video && <li className="flex justify-between gap-2"><span>Go Live player</span><span className="font-semibold">{client.devices.led ? 'On' : 'Off'}</span></li>}
+        </ul>)}
+        {tile('', 'So far', <ul className="space-y-1">
+          <li className="flex justify-between gap-2"><span>Try-On looks</span><span className="tabular-nums font-semibold">{client.usage.image.toLocaleString('en-IN')}</span></li>
+          {access.modules.video && <li className="flex justify-between gap-2"><span>AI Videos</span><span className="tabular-nums font-semibold">{client.usage.video.toLocaleString('en-IN')}</span></li>}
+          <li className="flex justify-between gap-2"><span>Downloads</span><span className="tabular-nums font-semibold">{(client.usage.downloads || 0).toLocaleString('en-IN')}</span></li>
+          <li className="flex justify-between gap-2"><span>AI cost this month</span><span className="tabular-nums font-semibold">{client.spend ? formatRupees(client.spend.monthInr) : '—'}</span></li>
+        </ul>)}
+        {tile('', 'Store screens', client.links?.workspace
+          ? <><a href={client.links.workspace} target="_blank" rel="noreferrer" className="font-semibold underline">Open workspace</a><p className="mt-1 text-muted">The TV, tablet and Go Live player links are in the workspace.</p></>
+          : <p className="text-muted">Links appear after the first save.</p>)}
+      </div>
+    </section>
   );
 }
 
@@ -393,6 +453,35 @@ export default function TryFocusAdmin() {
     );
   }
 
+  const [deleteName, setDeleteName] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  // Deletes the client's workspace, catalogue, looks, videos, files and logins for good.
+  async function deleteWorkspace() {
+    if (deleteName.trim().toLowerCase() !== client.name.trim().toLowerCase()) return;
+    if (!window.confirm(`Delete ${client.name} for good? Its screens stop working and nothing can be brought back.`)) return;
+    setDeleting(true);
+    setSavedNotice('');
+    setErrorNotice('');
+    try {
+      const res = await fetch(`/api/admin/clients?clientId=${encodeURIComponent(client.id)}`, { method: 'DELETE' });
+      if (res.status === 401) { setAuthRequired(true); return; }
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not delete the workspace.');
+      if (Array.isArray(data.clients)) {
+        setClients(data.clients);
+        try { window.localStorage.setItem(CLIENTS_CACHE_KEY, JSON.stringify({ clients: data.clients, platform: platformSpend })); } catch { /* private mode */ }
+      }
+      setSavedNotice(`${client.name} and its workspace are deleted.`);
+      setDeleteName('');
+      setClientId('');
+    } catch (err) {
+      setErrorNotice(err instanceof Error ? err.message : 'Could not delete the workspace.');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function saveCurrentConfiguration() {
     await persistClientPatch({});
   }
@@ -624,20 +713,23 @@ export default function TryFocusAdmin() {
                 </h2>
                 <p className="mt-2 max-w-xl text-sm text-muted">
                   {clientId
-                    ? `${client.branch} · ${packageLabel(client.devices)}. Set up in order: platform, credits, store login, delivery.`
-                    : 'Usage and alerts across every client. Pick one to manage it.'}
+                    ? `${client.branch} · ${packageLabel(client.devices)}`
+                    : 'Status of every client. Pick one to see and change its settings.'}
                 </p>
                 {clientId && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     aria-pressed={client.status === 'Active'}
                     onClick={() => updateClient({ status: client.status === 'Active' ? 'Paused' : 'Active' })}
-                    className={`mt-3 inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold ${client.status === 'Active' ? 'bg-success-soft text-success' : 'bg-line text-muted'}`}
+                    className={`inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold ${client.status === 'Active' ? 'bg-success-soft text-success' : 'bg-line text-muted'}`}
                     title={client.status === 'Active' ? 'Tap to pause every screen of this store' : 'Tap to turn this store back on'}
                   >
                     <span className={`h-2 w-2 rounded-full ${client.status === 'Active' ? 'bg-success' : 'bg-subtle'}`} />
                     {client.status === 'Active' ? 'Live for customers' : 'Paused'}
                   </button>
+                  <button type="button" onClick={() => setClientId('')} className="min-h-10 px-1 text-sm font-semibold text-muted underline">All clients</button>
+                  </div>
                 )}
               </div>
               <div className="relative min-w-64">
@@ -671,8 +763,10 @@ export default function TryFocusAdmin() {
 
         {clientId && (<>
 
+        <ClientStatus client={client} />
+
         {/* What this client booked: a platform decides its modules (the phone comes with the TV and the tablet). */}
-        <section className="tf-card p-6">
+        <section id="setup-platform" className="tf-card scroll-mt-24 p-6">
           <h2 className="text-2xl font-bold">1. Platform</h2>
           <p className="mt-1 text-sm text-muted">Now: <b className="text-ink">{packageLabel(client.devices)}</b> · {['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}. Tick TV, Tablet or both; Phone comes with them, or book Phone alone. Modules switch with the platforms.</p>
 
@@ -688,7 +782,7 @@ export default function TryFocusAdmin() {
         </section>
 
         {/* Credits: limits are running totals; a top-up adds a package to them. */}
-        <section className="tf-card p-6">
+        <section id="setup-credits" className="tf-card scroll-mt-24 p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-2xl font-bold">2. Credits</h2>
@@ -794,7 +888,7 @@ export default function TryFocusAdmin() {
 
 
         {/* Client staff login */}
-        <section className="tf-card p-6">
+        <section id="setup-login" className="tf-card scroll-mt-24 p-6">
           <h2 className="text-2xl font-bold text-ink">3. Store login</h2>
           <p className="mt-1 text-sm text-muted">
             This login opens only {client.name}&apos;s workspace, counter and devices. It cannot open TryFocus admin or another client.
@@ -850,7 +944,7 @@ export default function TryFocusAdmin() {
         </section>
 
         {/* How customers get what they made: QR always, WhatsApp link when connected, Go Live on the store screen. */}
-        <section className="tf-card p-6">
+        <section id="setup-delivery" className="tf-card scroll-mt-24 p-6">
           <h2 className="text-2xl font-bold">4. Delivery</h2>
           <p className="mt-1 text-sm text-muted">Customers always get a QR. These add to it.</p>
           <div className="mt-5 grid gap-3 lg:grid-cols-2">
@@ -892,6 +986,32 @@ export default function TryFocusAdmin() {
             </>}
           </div>
         </section>
+
+        {client.id !== 'maharaja' && (
+          <section className="tf-card border-danger/40 p-6">
+            <h2 className="text-2xl font-bold">Delete workspace</h2>
+            <p className="mt-1 text-sm text-muted">Removes {client.name} for good: its settings, catalogue, looks, videos, leads, files and store logins. Its TV, tablet, Go Live player and Wall QR stop working. This cannot be undone.</p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <input
+                aria-label="Type the store name to confirm"
+                value={deleteName}
+                onChange={(event) => setDeleteName(event.target.value)}
+                placeholder={`Type ${client.name} to confirm`}
+                autoComplete="off"
+                className="min-h-11 w-full max-w-sm rounded-xl border border-line-strong bg-white px-3 text-sm outline-none focus:border-danger"
+              />
+              <button
+                type="button"
+                disabled={deleting || deleteName.trim().toLowerCase() !== client.name.trim().toLowerCase()}
+                onClick={() => void deleteWorkspace()}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-danger px-5 text-sm font-bold text-white disabled:opacity-40"
+              >
+                {deleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {deleting ? 'Deleting…' : 'Delete workspace'}
+              </button>
+            </div>
+          </section>
+        )}
 
         </>)}
       </div>

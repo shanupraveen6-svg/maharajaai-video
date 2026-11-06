@@ -75,3 +75,16 @@ export async function listClientLoginUsernames(clientId: string) {
     .filter(([key, value]) => key.startsWith('operator_account_') && (value as ClientAccount).clientId === clientId && (value as ClientAccount).active)
     .map(([, value]) => (value as ClientAccount).username);
 }
+
+/** Removes every login of a client (used when its workspace is deleted). */
+export async function deleteClientAccounts(clientId: string) {
+  const db = getDb();
+  if (db) {
+    const snap = await db.collection(COLLECTION).where('clientId', '==', clientId).get();
+    await Promise.all(snap.docs.map((doc) => doc.ref.delete()));
+    return;
+  }
+  for (const [key, value] of getMockStore().sessions.entries()) {
+    if (key.startsWith('operator_account_') && (value as ClientAccount).clientId === clientId) getMockStore().sessions.delete(key);
+  }
+}

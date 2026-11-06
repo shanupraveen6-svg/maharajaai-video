@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowRight, Store } from 'lucide-react';
-import { creditStatuses } from '@/lib/maharaja/credits';
+import { AlertTriangle, ArrowRight, CheckCircle2, Store } from 'lucide-react';
+import { CREDIT_LEVEL_STATUS, creditStatuses } from '@/lib/maharaja/credits';
+import { StatusPill } from '@/components/ui';
 import { PACKAGES, packageOf, resolveAccess } from '@/lib/maharaja/access';
 
 type ModuleKey = 'image' | 'live' | 'video';
@@ -29,65 +30,65 @@ const RETRY_ALLOWANCE = 0.15;
 
 const inr = (value: number) => `₹${Math.round(value).toLocaleString('en-IN')}`;
 
-const MODULES: Array<[ModuleKey, string]> = [['image', 'Try-On'], ['video', 'AI Video'], ['live', 'Live Mirror']];
-
 /** Effective credits: a module that is off, or whose device is off, counts as not in the plan. */
 function planLimit(client: OverviewClient, key: ModuleKey) {
   return resolveAccess(client.devices, client.modules).modules[key] ? client.limits[key] : 0;
 }
 
-/**
- * TryFocus platform view shown when no client is selected: totals across every workspace, what needs
- * attention (credits, WhatsApp requests, missing logins, paused stores) and a row per client.
- */
-export default function PlatformOverview({ clients, platform, onSelect }: { clients: OverviewClient[]; platform?: PlatformSpend | null; onSelect: (clientId: string) => void }) {
-  const active = clients.filter((item) => item.status === 'Active').length;
-  const sum = (pick: (item: OverviewClient) => number) => clients.reduce((total, item) => total + pick(item), 0);
-  const credits = (item: OverviewClient) => creditStatuses(
+/** What needs doing for one client, most urgent first, each with the action to take. */
+function clientAlerts(item: OverviewClient, platform?: PlatformSpend | null) {
+  const alerts: Array<{ text: string; tone: 'danger' | 'warn' }> = [];
+  for (const status of creditStatusesOf(item)) {
+    if (status.level === 'exhausted') alerts.push({ text: `${status.label} credits finished: top up`, tone: 'danger' });
+    else if (status.level === 'critical' || status.level === 'low') alerts.push({ text: `${status.label}: ${(status.limit - status.used).toLocaleString('en-IN')} credits left`, tone: 'warn' });
+  }
+  if (!item.logins?.length) alerts.push({ text: 'No store login yet: create one', tone: 'warn' });
+  const clientCap = platform?.clientCapInr;
+  if (clientCap && item.spend && item.spend.todayInr >= clientCap) alerts.push({ text: 'Daily AI cap reached, AI paused till midnight', tone: 'danger' });
+  else if (clientCap && item.spend && item.spend.todayInr >= clientCap * 0.8) alerts.push({ text: `${inr(item.spend.todayInr)} of the ${inr(clientCap)} daily AI cap used`, tone: 'warn' });
+  // Prices allow for about 15% retries; above that the store's credits cost us more than planned.
+  const results = item.usage.image + item.usage.video;
+  const retryRate = results >= 20 ? Number(item.usage.retries || 0) / results : 0;
+  if (retryRate > RETRY_ALLOWANCE) alerts.push({ text: `Retries at ${Math.round(retryRate * 100)}% (pricing allows 15%)`, tone: retryRate > 0.25 ? 'danger' : 'warn' });
+  return alerts;
+}
+
+function creditStatusesOf(item: OverviewClient) {
+  return creditStatuses(
     { tryOnGenerated: item.usage.image, liveSessions: item.usage.live, videosGenerated: item.usage.video },
     { image: planLimit(item, 'image'), live: planLimit(item, 'live'), video: planLimit(item, 'video') },
   );
+}
 
-  const attention: Array<{ client: OverviewClient; text: string; tone: 'red' | 'amber' }> = [];
-  for (const item of clients) {
-    for (const status of credits(item)) {
-      if (status.level === 'exhausted') attention.push({ client: item, text: `${status.label} credits used up`, tone: 'red' });
-      else if (status.level === 'critical' || status.level === 'low') attention.push({ client: item, text: `${status.label}: ${status.limit - status.used} credits left`, tone: 'amber' });
-    }
-    if (!item.logins?.length) attention.push({ client: item, text: 'No client login yet', tone: 'amber' });
-    const clientCap = platform?.clientCapInr;
-    if (clientCap && item.spend && item.spend.todayInr >= clientCap) attention.push({ client: item, text: 'Daily AI spending cap reached; AI is paused until midnight', tone: 'red' });
-    else if (clientCap && item.spend && item.spend.todayInr >= clientCap * 0.8) attention.push({ client: item, text: `${inr(item.spend.todayInr)} of the ${inr(clientCap)} daily AI cap used`, tone: 'amber' });
-    if (item.status === 'Paused') attention.push({ client: item, text: 'Workspace paused', tone: 'amber' });
-    // Prices allow for about 15% retries; above that the store's credits cost us more than planned.
-    const results = item.usage.image + item.usage.video;
-    const retryRate = results >= 20 ? Number(item.usage.retries || 0) / results : 0;
-    if (retryRate > RETRY_ALLOWANCE) attention.push({ client: item, text: `Retries at ${Math.round(retryRate * 100)}% (pricing allows 15%)`, tone: retryRate > 0.25 ? 'red' : 'amber' });
-  }
-
-  const kpis: Array<[string, string, string]> = [
-    ['Client workspaces', String(clients.length), `${active} active · ${clients.length - active} paused`],
-    ['Try-On images', sum((item) => item.usage.image).toLocaleString('en-IN'), `${sum((item) => item.usage.scans || 0).toLocaleString('en-IN')} QR opens`],
-    ['AI videos', sum((item) => item.usage.video).toLocaleString('en-IN'), `${sum((item) => item.usage.passes || 0).toLocaleString('en-IN')} video passes issued`],
-    ['Go Live plays queued', sum((item) => item.usage.goLive || 0).toLocaleString('en-IN'), `${sum((item) => item.usage.downloads || 0).toLocaleString('en-IN')} downloads`],
-    ['Live Mirror sessions', sum((item) => item.usage.live).toLocaleString('en-IN'), '30-second sessions'],
-    ['AI cost today (est.)', inr(platform?.todayInr || 0), platform?.platformCapInr ? `Cap ${inr(platform.platformCapInr)} a day` : 'No daily cap set'],
-    ['AI cost this month (est.)', inr(sum((item) => item.spend?.monthInr || 0)), 'From the AI_COST_* estimates'],
-    ['Needs attention', String(attention.length), attention.length ? 'See the list below' : 'All clients healthy'],
-  ];
+/**
+ * TryFocus admin status board, shown when no client is picked: four totals, what needs action, and one
+ * card per client with its status. Cards wrap; nothing scrolls sideways.
+ */
+export default function PlatformOverview({ clients, platform, onSelect }: { clients: OverviewClient[]; platform?: PlatformSpend | null; onSelect: (clientId: string) => void }) {
+  const live = clients.filter((item) => item.status === 'Active').length;
+  const sum = (pick: (item: OverviewClient) => number) => clients.reduce((total, item) => total + pick(item), 0);
+  const alertsById = new Map(clients.map((item) => [item.id, clientAlerts(item, platform)]));
+  const attention = clients.flatMap((item) => (alertsById.get(item.id) || []).map((alert) => ({ client: item, ...alert })));
   if (clients[0] && platform?.platformCapInr && platform.todayInr >= platform.platformCapInr) {
-    attention.unshift({ client: clients[0], text: 'Platform daily AI cap reached: every store is paused until midnight', tone: 'red' });
+    attention.unshift({ client: clients[0], text: 'Platform daily AI cap reached: every store is paused till midnight', tone: 'danger' });
   }
+  attention.sort((a, b) => (a.tone === b.tone ? 0 : a.tone === 'danger' ? -1 : 1));
 
-  const adoption = MODULES.map(([key, label]) => [label, clients.filter((item) => planLimit(item, key) > 0).length] as const);
-  const packages = (['tv', 'tablet', 'tv-tablet', 'phone'] as const)
-    .map((id) => [PACKAGES[id].label, clients.filter((item) => packageOf(item.devices) === id).length] as const);
+  const packages = (['tv-tablet', 'tv', 'tablet', 'phone'] as const)
+    .map((id) => [PACKAGES[id].label, clients.filter((item) => packageOf(item.devices) === id).length] as const)
+    .filter(([, count]) => count > 0);
+
+  const totals: Array<[string, string, string]> = [
+    ['Clients', String(clients.length), `${live} live · ${clients.length - live} paused`],
+    ['Try-On looks', sum((item) => item.usage.image).toLocaleString('en-IN'), `${sum((item) => item.usage.scans || 0).toLocaleString('en-IN')} QR opens · ${sum((item) => item.usage.downloads || 0).toLocaleString('en-IN')} downloads`],
+    ['AI Videos', sum((item) => item.usage.video).toLocaleString('en-IN'), `${sum((item) => item.usage.goLive || 0).toLocaleString('en-IN')} sent to Go Live · ${sum((item) => item.usage.live).toLocaleString('en-IN')} Live Mirror`],
+    ['AI cost this month', inr(sum((item) => item.spend?.monthInr || 0)), `${inr(platform?.todayInr || 0)} today${platform?.platformCapInr ? ` · cap ${inr(platform.platformCapInr)} a day` : ''}`],
+  ];
 
   return (
     <div className="space-y-6">
-      <GenlookCredits />
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {kpis.map(([label, value, note]) => (
+        {totals.map(([label, value, note]) => (
           <article key={label} className="tf-card p-5">
             <p className="text-[13px] font-medium text-muted">{label}</p>
             <p className="mt-1 text-3xl font-bold tabular-nums">{value}</p>
@@ -96,73 +97,69 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
         ))}
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <article className="tf-card p-5">
-          <h2 className="flex items-center gap-2 text-xl font-bold"><AlertTriangle className="h-5 w-5 text-warn" /> Needs attention</h2>
-          {attention.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">Nothing needs action right now.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-[#ECEEE9]">
-              {attention.map((item, index) => (
-                <li key={`${item.client.id}-${index}`} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="min-w-0">
-                    <span className="font-semibold">{item.client.name}</span>
-                    <span className={`ml-2 ${item.tone === 'red' ? 'text-[#B42318]' : 'text-[#7A4A0B]'}`}>
-                      {item.text}
-                    </span>
-                  </span>
-                  <button type="button" onClick={() => onSelect(item.client.id)} className="flex min-h-10 shrink-0 items-center gap-1 px-2 text-xs font-bold text-brand">
-                    Open <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
-        <article className="tf-card p-5">
-          <h2 className="text-xl font-bold">What clients bought</h2>
-          <p className="mt-3 text-[13px] font-semibold text-muted">Modules</p>
-          {adoption.map(([label, count]) => (
-            <p key={label} className="mt-1 flex justify-between text-sm"><span>{label}</span><span className="tabular-nums font-bold">{count} / {clients.length}</span></p>
-          ))}
-          <p className="mt-4 text-xs font-bold text-muted">Packages</p>
-          {packages.map(([label, count]) => (
-            <p key={label} className="mt-1 flex justify-between text-sm"><span>{label}</span><span className="tabular-nums font-bold">{count} / {clients.length}</span></p>
-          ))}
-        </article>
+      <section className="tf-card p-5">
+        <h2 className="flex items-center gap-2 text-xl font-bold">
+          {attention.length ? <AlertTriangle className="h-5 w-5 text-warn" /> : <CheckCircle2 className="h-5 w-5 text-success" />}
+          {attention.length ? `Needs action (${attention.length})` : 'All clients are fine'}
+        </h2>
+        {attention.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">Credits, logins and AI spend are in order for every client.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line">
+            {attention.map((item, index) => (
+              <li key={`${item.client.id}-${index}`} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="min-w-0">
+                  <span className="font-semibold">{item.client.name}</span>
+                  <span className={`ml-2 ${item.tone === 'danger' ? 'text-danger' : 'text-warn'}`}>{item.text}</span>
+                </span>
+                <button type="button" onClick={() => onSelect(item.client.id)} className="flex min-h-10 shrink-0 items-center gap-1 px-2 text-sm font-bold text-ink">
+                  Open <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
-      <section className="tf-card overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="bg-canvas text-[13px] font-semibold text-muted">
-            <tr>
-              <th className="px-4 py-3">Client</th>
-              <th className="px-4 py-3">Status</th>
-              {MODULES.map(([, label]) => <th key={label} className="px-4 py-3">{label}</th>)}
-              <th className="px-4 py-3">AI cost (month)</th>
-              <th className="px-4 py-3">WhatsApp</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {clients.map((item) => (
-              <tr key={item.id} className="border-t border-line">
-                <td className="px-4 py-3"><span className="flex items-center gap-2 font-semibold"><Store className="h-4 w-4 text-brand" />{item.name}</span><span className="text-xs text-muted">{item.branch}</span></td>
-                <td className="px-4 py-3"><span className={item.status === 'Active' ? 'text-[#256B45]' : 'text-[#7A4A0B]'}>{item.status}</span></td>
-                {MODULES.map(([key]) => {
-                  const limit = planLimit(item, key);
-                  return <td key={key} className="px-4 py-3 tabular-nums text-xs">{limit > 0 ? `${item.usage[key].toLocaleString('en-IN')} / ${limit.toLocaleString('en-IN')}` : '—'}</td>;
-                })}
-                <td className="px-4 py-3 tabular-nums text-xs">{item.spend ? inr(item.spend.monthInr) : '—'}</td>
-                <td className="px-4 py-3 text-xs">{item.whatsappConnected ? 'Connected' : '—'}</td>
-                <td className="px-4 py-3 text-right">
+      <section>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-xl font-bold">Clients</h2>
+          {packages.length > 0 && <p className="text-sm text-muted">{packages.map(([label, count]) => `${count} ${label}`).join(' · ')}</p>}
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {clients.map((item) => {
+            const alerts = alertsById.get(item.id) || [];
+            const statuses = creditStatusesOf(item).filter((status) => status.level !== 'none');
+            return (
+              <article key={item.id} className="tf-card flex flex-col p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-2 font-bold text-ink"><Store className="h-4 w-4 shrink-0 text-muted" /><span className="truncate">{item.name}</span></p>
+                    <p className="mt-0.5 truncate text-sm text-muted">{item.branch} · {PACKAGES[packageOf(item.devices)].label}</p>
+                  </div>
+                  <StatusPill tone={item.status === 'Active' ? 'success' : 'neutral'}>{item.status === 'Active' ? 'Live' : 'Paused'}</StatusPill>
+                </div>
+                <dl className="mt-4 space-y-1.5 text-sm">
+                  {statuses.map((status) => (
+                    <div key={status.label} className="flex items-center justify-between gap-3">
+                      <dt className="text-muted">{status.label}</dt>
+                      <dd className="flex items-center gap-2"><span className="tabular-nums">{Math.max(0, status.limit - status.used).toLocaleString('en-IN')} left</span><StatusPill tone={CREDIT_LEVEL_STATUS[status.level].tone}>{CREDIT_LEVEL_STATUS[status.level].text}</StatusPill></dd>
+                    </div>
+                  ))}
+                  <div className="flex justify-between gap-3"><dt className="text-muted">Store login</dt><dd>{item.logins?.length ? item.logins[0] : <span className="text-warn">Not set</span>}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted">AI cost this month</dt><dd className="tabular-nums">{item.spend ? inr(item.spend.monthInr) : '—'}</dd></div>
+                </dl>
+                <div className="mt-auto flex items-center justify-between gap-3 pt-4">
+                  <span className={`text-sm ${alerts.length ? 'text-warn' : 'text-success'}`}>{alerts.length ? `${alerts.length} to do` : 'All fine'}</span>
                   <button type="button" onClick={() => onSelect(item.id)} className="tf-btn tf-btn-dark !min-h-10 px-4 text-sm">Manage</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </section>
+
+      <GenlookCredits />
     </div>
   );
 }
@@ -186,7 +183,7 @@ function GenlookCredits() {
   const number = (value?: number) => (value === undefined ? '—' : value.toLocaleString('en-IN'));
   return (
     <section className="tf-card p-5">
-      <h2 className="text-lg font-bold">GenLook Try-On credits</h2>
+      <h2 className="text-lg font-bold">Try-On engine credits (GenLook)</h2>
       <dl className="mt-3 grid grid-cols-3 gap-3">
         <div><dt className="text-[13px] text-muted">GenLook balance</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.balance)}</dd></div>
         <div><dt className="text-[13px] text-muted">Locked for stores</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.locked)}</dd></div>
