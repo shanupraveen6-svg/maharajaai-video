@@ -169,10 +169,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const saved = await upsertClientWorkspace(body);
     await applyLogin(saved.clientId, body);
-    await logMaharajaActivity('campaign', `TryFocus admin created/updated client workspace: ${saved.clientId}`, {
-      clientId: saved.clientId,
-      campaignEnabled: saved.campaignEnabled,
-    }).catch(() => undefined);
+    await runWithClient(saved.clientId, () => logMaharajaActivity('campaign', 'TryFocus updated the plan or settings', { clientId: saved.clientId, campaignEnabled: saved.campaignEnabled })).catch(() => undefined);
 
     const all = await listClientWorkspaces();
     return NextResponse.json({
@@ -207,10 +204,7 @@ export async function PATCH(req: NextRequest) {
 
     const saved = await upsertClientWorkspace(body);
     await applyLogin(saved.clientId, body);
-    await logMaharajaActivity('campaign', `TryFocus admin updated client configuration: ${saved.clientId}`, {
-      clientId: saved.clientId,
-      campaignEnabled: saved.campaignEnabled,
-    }).catch(() => undefined);
+    await runWithClient(saved.clientId, () => logMaharajaActivity('campaign', 'TryFocus updated the plan or settings', { clientId: saved.clientId, campaignEnabled: saved.campaignEnabled })).catch(() => undefined);
 
     const all = await listClientWorkspaces();
     return NextResponse.json({
@@ -236,7 +230,7 @@ export async function DELETE(req: NextRequest) {
     const clientId = String(req.nextUrl.searchParams.get('clientId') || '').trim().toLowerCase();
     const before = await getClientWorkspaceById(clientId);
     await deleteClientWorkspace(clientId);
-    await logMaharajaActivity('campaign', `TryFocus admin deleted client workspace: ${clientId} (${before.clientName})`, { clientId }).catch(() => undefined);
+    console.info('TryFocus admin deleted client workspace', { clientId, name: before.clientName });
     const all = await listClientWorkspaces();
     return NextResponse.json({ success: true, deleted: clientId, clients: await withLogins(all) });
   } catch (error) {
