@@ -162,14 +162,14 @@ export default async function LandingPage() {
             </div>
           </div>
 
-          {/* Before and after: the AI Try-On on the left, the customer's own photo on the right. On large screens it
+          {/* Before and after: the customer's own photo on the left, the AI Try-On on the right. On large screens it
               fills the first screen under the header (cropped from the top); on phones it fills about three quarters of the screen. */}
           <div className="relative bg-[#E8EBE7]">
             <BeforeAfterSlider
-              beforeImage="/images/landing/tryon-generated.jpg"
-              afterImage="/images/landing/tryon-customer.jpg"
-              beforeLabel="AI Try-On"
-              afterLabel="Your photo"
+              beforeImage="/images/landing/tryon-customer.jpg"
+              afterImage="/images/landing/tryon-generated.jpg"
+              beforeLabel="Your photo"
+              afterLabel="AI Try-On"
               fit="cover"
               labelsInside
               className=""
