@@ -1,4 +1,4 @@
-import type { CustomerCategory, EventId, GarmentType } from './config';
+import { GARMENT_TYPE_RULES, type CustomerCategory, type EventId, type GarmentType } from './config';
 
 export const VIDEO_PROMPT_ARCHITECTURE_VERSION = 'festival-v8-grounded-performance';
 
@@ -190,15 +190,13 @@ const eventMotionGraphics: Record<EventId, { graphics: string; finale: string }>
   },
 };
 
-const DRAPED_GARMENTS = new Set<GarmentType>(['saree', 'lehenga', 'salwar']);
-
 /** One mild, graceful hand gesture per audience and garment; supported hands stay on their support. */
 function mildGesture(category: CustomerCategory, garmentType: GarmentType) {
   if (category === 'girl') return 'she gives a small cheerful nod over her Namaste';
   if (category === 'boy') return 'he gives a small confident nod over his Namaste';
-  if (category === 'women' && DRAPED_GARMENTS.has(garmentType)) {
-    return `the free hand gently lifts and smooths the ${garmentType === 'saree' ? 'pallu' : 'dupatta'} edge at hip height, then settles back`;
-  }
+  // Only the pallu and the half-saree drape are always there; a salwar or lehenga may have no dupatta.
+  if (category === 'women' && garmentType === 'saree') return 'the free hand gently lifts and smooths the pallu edge at hip height, then settles back';
+  if (category === 'women' && garmentType === 'half_saree') return 'the free hand gently smooths the drape edge at hip height, then settles back';
   return category === 'women'
     ? 'the free hand lightly brushes the side of the outfit at hip height, then settles back'
     : 'the free hand gives a relaxed open-palm turn at hip height, then settles back beside the thigh';
@@ -241,6 +239,22 @@ export function getVideoConcept(value: unknown): VideoConcept | null {
   return typeof value === 'string' ? VIDEO_CONCEPTS.find((concept) => concept.id === value) || null : null;
 }
 
+/**
+ * The garment block appended to the AI Video portrait prompt. Gemini reads images in order, so the outfit
+ * photos are named Image 2 and Image 3 (Image 1 is the customer), each with its role (top, bottom…).
+ */
+export function buildPortraitGarmentBlock(roles: string[], garmentType: GarmentType, garmentCount: number) {
+  const named = Array.from({ length: Math.max(1, garmentCount) }, (_, index) => {
+    const role = roles[index]?.trim();
+    return `- Image ${index + 2} = ${role ? role.toUpperCase() : 'the garment'}${garmentCount > 1 ? '' : ' (the exact garment reference)'}`;
+  }).join('\n');
+  return `GARMENT REFERENCES:
+${named}
+- ${GARMENT_TYPE_RULES[garmentType]}
+- Keep every garment colour, dye hue and colour transition exactly as in these photos, with only the embroidery and pieces they show.
+- Light the scene so the fabric reads clearly while its true dye colour stays unchanged.`;
+}
+
 export function buildVideoMasterPrompt(concept: VideoConcept, garmentType: GarmentType, eventId: EventId = 'diwali') {
   const event = eventFilmSettings[eventId];
   const anchor = handAnchors[concept.id];
@@ -260,8 +274,24 @@ export function buildVideoMasterPrompt(concept: VideoConcept, garmentType: Garme
   return `Create a photorealistic vertical 9:16 full-body ${event.label} fashion-film opening frame, composed to animate naturally for six seconds. Frame the customer from head to footwear with both hands and both feet completely visible; use a natural full-length portrait perspective, not a tight crop.\n\nREFERENCE ROLES: Image 1 is the real customer and the sole authority for face, hair, age, skin tone, body proportions and identity. Images 2 onward show only the exact ${garmentNouns[garmentType]} and its labelled details. Never borrow a face, body, pose or background from a garment reference.\n\nIDENTITY AND WARDROBE LOCK: Preserve the customer's recognizable facial geometry, natural asymmetry, age, body shape, hairline, skin tone and real skin texture. Keep the expression natural. No makeup, beauty filter, face reshaping, skin smoothing, waxy/plastic/doll finish or glamour retouch. Reproduce the exact garment pieces, silhouette, colour, print, weave, embroidery, borders, neckline and drape from the garment references. Do not redesign, recolour, simplify or replace any part of it.\n\nFILMABLE POSE: ${posePrompt} Keep the face toward camera with a composed, natural expression and a slight warm smile. Leave clear space around the silhouette, head and footwear.\n\nLAYERED ${event.label.toUpperCase()} SET: ${eventId === 'diwali' ? concept.masterScene : event.set} Place ${foreground} as a real near-plane element, the unobstructed customer in the middle plane, and detailed luxury architecture in the far plane. Keep face, full garment and both hands readable. ${supportScene} Use practical lights, reflective surfaces and event details visible in the frame; no text, graphic overlay, motion trail or invented object.\n\nLIGHT AND CAMERA: Natural portrait-lens perspective and realistic full-body proportions. Soft frontal key light reveals the real eyes and skin texture; neutral fill preserves skin tone and exact garment colour; a restrained warm rim separates fabric from the set. Keep textile weave and embroidery crisp. Let the architecture carry the festive glow, not a beauty filter on the customer. Photographic realism, grounded anatomy, believable hands, natural fabric weight. No logo or watermark. ${childSafety}`;
 }
 
+/**
+ * Camera moves for the non-Diwali events, in the shape of the two renders verified on Diwali: a reveal past the
+ * near-plane detail the event portrait was asked to include, one main move with parallax, then a settle on
+ * the full-body hero frame. They name only what that event's portrait contains (never Diwali lamps or props).
+ */
+const EVENT_CAMERA_MOVES = [
+  (near: string) => `CAMERA: 0-1s brisk stabilized horizontal reveal from behind ${near}. 1-4.5s continue the lateral track and gently dolly closer, with strong foreground-to-architecture parallax. 4.5-6s ease to a centered full-body hero frame; never crop hands, feet or the outfit.`,
+  (near: string) => `CAMERA: 0-1s reveal from behind ${near} at a modest elevated angle. 1-4s descend smoothly to eye level while dollying toward the customer, creating strong near-to-far parallax. 4-6s dolly back and settle into a centered full-body hero frame; keep hands and feet visible.`,
+  (near: string) => `CAMERA: 0-1s begin low beside ${near}. 1-4.5s rise smoothly to eye level while tracking sideways, revealing the far architecture with clear parallax. 4.5-6s settle at eye level in a full-body hero frame; keep head and feet visible.`,
+];
+
 /** Camera plan shared by both video models: tuned sample plan, then concept plan, then a lateral move. */
 function plannedCameraDirection(concept: VideoConcept, eventId: EventId) {
+  if (eventId !== 'diwali') {
+    const near = eventForegroundDetails[eventId] || 'a visible event decoration at the frame edge';
+    const index = conceptsForCategory(concept.category).findIndex((item) => item.id === concept.id);
+    return EVENT_CAMERA_MOVES[Math.max(0, index) % EVENT_CAMERA_MOVES.length](near);
+  }
   const foreground = eventId === 'diwali' ? foregroundDetails[concept.id] : eventForegroundDetails[eventId] || 'a visible event decoration at the frame edge';
   const camera = eventId === 'diwali'
     ? lateralShotPlans[concept.id]
@@ -273,6 +303,11 @@ function plannedCameraDirection(concept: VideoConcept, eventId: EventId) {
 /** Event background animation shared by both video models. */
 function plannedBackgroundDirection(concept: VideoConcept, eventId: EventId) {
   const event = eventFilmSettings[eventId];
+  if (eventId !== 'diwali') {
+    // Same three beats as the verified Diwali renders: set motion, event graphics, then the finale.
+    const graphics = eventMotionGraphics[eventId];
+    return `BACKGROUND + FX: Animate throughout. 0-2s ${event.motion} 2-4.5s ${graphics.graphics} 4.5-6s ${graphics.finale} ${event.finish} Every light and effect stays behind the subject, never over the face or outfit.`;
+  }
   const sample = eventId === 'diwali' ? sampleCinematicPlans[concept.id] : undefined;
   const background = eventId === 'diwali' ? `${concept.environmentMotion} ${concept.effectMotion}` : `${event.motion} ${event.finish}`;
   return sample?.background || `BACKGROUND: Animate only visible ${event.label} details throughout: ${background}`;
@@ -294,7 +329,7 @@ export function buildH3MotionPrompt(
   const samplePose = samplePoseDirections[concept.id];
   const isDhoti = garmentType === 'dhoti_veshti' || garmentType === 'kurta_dhoti';
   const isChild = concept.category === 'boy' || concept.category === 'girl';
-  const tested = TESTED_H3_CONCEPTS.has(concept.id);
+  const tested = TESTED_H3_CONCEPTS.has(concept.id) && eventId === 'diwali';
   const graphics = eventMotionGraphics[eventId];
   const poseDirection = isChild
     ? 'Keep the child in the same simple Namaste pose shown in the approved opening frame, palms gently together at mid-chest, elbows relaxed; no hand movement or held object.'
@@ -313,7 +348,8 @@ export function buildH3MotionPrompt(
   const groundedPerformance = isChild
     ? 'Keep both feet planted. Add one tiny natural weight settle through the knees and a subtle shoulder relaxation; no step, turn, sway or hand movement.'
     : 'Keep both feet planted. Add one small natural weight shift through the hips and knees plus a subtle shoulder release; no step, torso turn or uncontrolled sway.';
-  const handRule = isChild ? "Keep the child's Namaste pose unchanged; no other hand gesture." : tested ? 'Keep both hands below waist, away from chest and face.' : 'Keep both hands below waist, away from chest and face; the one gesture stays slow, small and anatomically natural.';
+  // A look with a verified pose (no gesture in it) keeps the verified hand line in every event.
+  const handRule = isChild ? "Keep the child's Namaste pose unchanged; no other hand gesture." : tested || samplePose ? 'Keep both hands below waist, away from chest and face.' : 'Keep both hands below waist, away from chest and face; the one gesture stays slow, small and anatomically natural.';
   const sizeLock = tested ? '' : ' Keep the exact body size, height and proportions; no slimming or reshaping.';
   return `${masterRef} is the approved exact opening frame and sole authority for the customer's face, natural skin, hair, body, outfit and composition. ${garmentReferences}\n\nSix-second vertical ${event.label} fashion film, one continuous real-time shot. Preserve the South Indian set from the opening frame, customer identity and exact garment colour, pattern, border and drape.${sizeLock} No makeup, face swap, plastic skin, wardrobe redesign, text or logo.\n\n${cameraDirection} Create distinct foreground-to-background parallax. Keep the customer's face and garment sharp; preserve full-body framing whenever the move allows. The customer gives one natural blink and a small warm smile with subtle breathing; head stays nearly level and toward camera. ${groundedPerformance}\n${backgroundDirection}\n\nPOSE: ${poseDirection} ${handRule} Avoid a rigid mannequin hold; use only the specific natural movement stated above. Preserve face, garment and natural anatomy. Effects stay behind the customer. No slow motion, freeze, digital zoom, uncontrolled orbit, shake, cut, transition or new prop.`;
 }
@@ -376,9 +412,9 @@ export function buildPixVerseMotionPrompt(
 }
 
 /**
- * 100% Fail-Proof Medium-Flat Video Prompt:
- * Eliminates aggressive camera motion, foreground occlusion, or complex parallax.
- * Uses a stable, eye-level medium-flat composition that guarantees zero anatomical or garment distortion.
+ * The backup video, used on a retry: the simplest film that cannot go wrong. The customer stands still and
+ * smiles, the camera makes one slow, small arc, and the event background glows and animates. Less wow, but
+ * nothing in it can distort the face, hands or outfit.
  */
 export function buildFailProofMediumFlatMotionPrompt(
   concept: VideoConcept,
@@ -389,12 +425,43 @@ export function buildFailProofMediumFlatMotionPrompt(
 ) {
   if (referenceStyle === 'pixverse') return buildPixVerseMotionPrompt(concept, referenceRoles.length, eventId, garmentType, true);
   const event = eventFilmSettings[eventId];
-  const masterRef = 'Image 1';
-  const garmentReferences = referenceRoles.map((role, index) => `Image ${index + 2} confirms ${role || `garment detail ${index + 1}`} only.`).join(' ');
-  const isChild = concept.category === 'boy' || concept.category === 'girl';
-
-  // Retry prompt: the customer stays still (the safest motion for identity and garment); the camera and
-  // the festival set still carry the film, so it never looks frozen.
   const graphics = eventMotionGraphics[eventId];
-  return `${masterRef} locks the approved opening identity, face, natural skin, hair, body size, outfit and composition. ${garmentReferences}\n\nSix-second vertical 9:16 ${event.label} cinematic fashion film, one continuous real-time shot.\n\nFAIL-PROOF PERFORMANCE:\n- The customer stands still, full-length, facing the camera, both feet planted. ${isChild ? "Keep the child's gentle Namaste pose unchanged." : 'Hands stay relaxed and still.'}\n- A natural light smile that grows into a soft, gentle laugh around 3s, one natural blink and subtle breathing. No walking, turning, spinning or arm gestures.\n- Fabric keeps realistic weight, rich authentic weave and gentle natural drape.\n\nCAMERA: eye-level and stabilized; a slow, smooth push-in from full-body to a slightly closer full-length hero frame, never cropping the head or feet. No cuts, shake or fast moves.\n\nBACKGROUND + FX: ${event.label} lights glow and shimmer softly behind the customer. ${graphics.graphics} 4.5-6s: ${graphics.finale} Effects stay behind the customer, never over face or garment.\n\n100% identity and garment preservation. No face change, makeup, plastic skin, body reshaping, extra limbs, text or logo.`;
+  const isChild = concept.category === 'boy' || concept.category === 'girl';
+  const garmentReferences = referenceRoles.map((role, index) => `Image ${index + 2} shows ${role || `garment detail ${index + 1}`} only.`).join(' ');
+  return `Image 1 is the approved opening frame: the customer's face, natural skin, hair, body, ${garmentNouns[garmentType]} and the set stay exactly as shown. ${garmentReferences}
+
+Six-second vertical 9:16 ${event.label} portrait film, one continuous shot.
+
+CUSTOMER: stands still, full-length, facing the camera, both feet planted. ${isChild ? 'The gentle Namaste stays exactly as in the opening frame.' : 'Both hands stay exactly where they are in the opening frame.'} A soft warm smile, one natural blink and gentle breathing; the face stays as in Image 1.
+
+CAMERA: eye level and steady; one slow, smooth arc of about 15 degrees around the customer, keeping head to feet in frame the whole time.
+
+BACKGROUND + FX: the ${event.label} background glows and shimmers softly behind the customer throughout. ${graphics.graphics} 4.5-6s: ${graphics.finale} Every effect stays behind the customer, never over the face or outfit.
+
+The outfit keeps its exact colour, border, weave and drape. No cut, shake, zoom, text or logo.`;
 }
+
+/**
+ * Gemini Omni Flash (the last engine) is prompted the way Google's guide asks: the role of each image in
+ * plain words, motion only (the opening image already holds the person, outfit and set), one focused
+ * moment, and what should be seen rather than a list of "no"s. It always makes the calm backup film.
+ */
+export function buildOmniMotionPrompt(concept: VideoConcept, garmentReferenceCount: number, eventId: EventId = 'diwali', garmentType: GarmentType = 'generic') {
+  const event = eventFilmSettings[eventId];
+  const graphics = eventMotionGraphics[eventId];
+  const isChild = concept.category === 'boy' || concept.category === 'girl';
+  const person = concept.category === 'women' ? 'woman' : concept.category === 'men' ? 'man' : concept.category === 'girl' ? 'girl' : 'boy';
+  const pronoun = concept.category === 'women' || concept.category === 'girl' ? 'her' : 'his';
+  const outfitImages = garmentReferenceCount === 0
+    ? ''
+    : ` The ${garmentReferenceCount === 1 ? 'second image shows' : 'second and third images show'} the ${garmentNouns[garmentType]} up close, so its colours, border and weave stay true.`;
+  const finale = graphics.finale.charAt(0).toLowerCase() + graphics.finale.slice(1);
+  return `The first image is the opening frame of this video: start exactly on it, with the same ${person}, outfit and ${event.label} setting.${outfitImages}
+
+A calm six-second vertical portrait shot. The ${person} stands still and full-length, facing the camera${isChild ? ', palms together in the same gentle Namaste' : `, ${pronoun} hands resting exactly as in the first image`}, and gives a soft warm smile, one natural blink and gentle breathing. The camera makes one slow, smooth arc shot of about 15 degrees at eye level, keeping the subject in frame from head to feet.
+
+Behind the subject, the ${event.label} background glows and shimmers: ${graphics.graphics} In the final seconds, ${finale}
+
+Steady camera, natural unretouched skin, the same face and outfit throughout, with every light effect staying in the background.`;
+}
+

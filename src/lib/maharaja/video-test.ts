@@ -1,6 +1,7 @@
 import {
   buildH3MotionPrompt,
   buildFailProofMediumFlatMotionPrompt,
+  buildOmniMotionPrompt,
   getVideoConcept,
   type VideoConceptId,
 } from './video-concepts';
@@ -93,9 +94,10 @@ export function buildVideoTestInput(
   }
 
   if (modelId === 'gemini-omni') {
-    // Gemini Omni reads the reference images in list order before the prompt, so "Image 1" is the master.
+    // Gemini Omni reads the images in list order before the prompt; its own prompt names them in words
+    // and always makes the calm backup film (it is the last engine).
     return {
-      prompt: motionPrompt,
+      prompt: buildOmniMotionPrompt(concept, garments.length, eventId, garmentType),
       image_urls: references,
       duration: 6,
       resolution: '720p',

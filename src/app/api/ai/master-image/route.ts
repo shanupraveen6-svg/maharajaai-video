@@ -8,8 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, type GarmentType, GARMENT_TYPE_RULES, GENLOOK_GARMENT_DESCRIPTIONS, isEventId, buildTryOnPrompt, customerRateLimit } from '@/lib/maharaja/config';
-import { buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
+import { type CustomerCategory, type GarmentType, GENLOOK_GARMENT_DESCRIPTIONS, isEventId, buildTryOnPrompt, customerRateLimit } from '@/lib/maharaja/config';
+import { buildPortraitGarmentBlock, buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
@@ -363,20 +363,6 @@ export async function POST(req: NextRequest) {
         });
         referencesReadyAt = Date.now();
 
-        const roleInstructions = sanitizedGarmentRoles.length
-          ? sanitizedGarmentRoles.map((role: string, idx: number) => `- Garment Image ${idx + 1} = ${role.toUpperCase()}`).join('\n')
-          : '- Garment Image 1 is the exact uploaded garment reference.';
-
-        // The AI Video portrait's garment block (the Try-On prompt carries its own and gets nothing appended).
-        const categoryGarmentLine = `- ${GARMENT_TYPE_RULES[garmentType]}`;
-
-        const garmentFidelityRules = `EXACT GARMENT ROLE & COLOR INSTRUCTIONS:
-${roleInstructions}
-- Preserve every garment colour, dye hue, and colour transition exactly as shown in the uploaded garment references without color shift. Do not introduce, remove, shift, warm, cool, desaturate, or reinterpret any garment colour.
-- Never shift colors or alter clothing into unrequested garments or added embroidery.
-${categoryGarmentLine}
-- Professional model lighting must enhance clarity, contrast, and depth without altering the true dye color of any garment.`;
-
         let prompt = '';
         if (service === 'try-on') {
           prompt = `${buildTryOnPrompt(customerCategory, {
@@ -386,14 +372,8 @@ ${categoryGarmentLine}
             productTitle: typeof body.catalogueProductTitle === 'string' ? body.catalogueProductTitle : undefined,
           })}`;
         } else {
-          const referenceHierarchy = `REFERENCE PRIORITY:
-- The first image (original customer photograph) is the authoritative identity reference.
-- The current garment photograph(s), identified by the explicit roles above, are the only authoritative garment-design references.
-- No previous Try-On result, previous master image or prior customer output is supplied or permitted as a reference.`;
-
-          const fullConcept = buildVideoMasterPrompt(concept!, garmentType, eventId);
-
-          prompt = `${fullConcept}\n\n${garmentFidelityRules}\n\n${referenceHierarchy}`;
+          // The portrait: the event scene, then the garment photos by number and role (top, bottom…).
+          prompt = `${buildVideoMasterPrompt(concept!, garmentType, eventId)}\n\n${buildPortraitGarmentBlock(sanitizedGarmentRoles, garmentType, geminiGarments.length)}`;
         }
 
         let rawBuffer: Buffer | null = null;

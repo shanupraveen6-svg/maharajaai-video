@@ -102,6 +102,55 @@ const nounLine = videoSource.match(/const garmentNouns[\s\S]*?\};/)?.[0] || '';
 // AI Video uses store pieces only; its veshti and kurta nouns are locked by renders verified in test-prompts.mjs.
 check('video noun', 'half saree has its own noun', /half_saree:/.test(nounLine));
 
+// 7. Video prompts, checked against each model's own documentation.
+const concepts = await import('../src/lib/maharaja/video-concepts.ts');
+const { buildVideoTestInput } = await import('../src/lib/maharaja/video-test.ts');
+const MASTER = 'https://x/master.jpg';
+const OUTFITS = ['https://x/top.jpg', 'https://x/bottom.jpg'];
+const DIWALI_PROPS = /kuthu vilakku|\bdiya\b|teak|rear lamps|marigold|kolam diya/i;
+const NEGATIVE_WORDS = /\b(no|not|never|don't|avoid)\b/i;
+const types = ['saree', 'half_saree', 'salwar', 'lehenga', 'shirt_pant', 'dhoti_veshti', 'kurta_dhoti', 'pattu_pavadai', 'boy_ethnic', 'generic'];
+const h3Bad = [], backupBad = [], omniBad = [], gestureBad = [];
+for (const concept of concepts.VIDEO_CONCEPTS) {
+  for (const eventId of config.EVENT_IDS) {
+    for (const raw of types) {
+      const type = config.compatibleGarmentType(concept.category, raw);
+      for (const count of [1, 2]) {
+        const roles = ['top', 'bottom'].slice(0, count);
+        const id = `${concept.id}/${eventId}/${type}/${count}`;
+        const h3 = buildVideoTestInput('h3-max', MASTER, OUTFITS.slice(0, count), concept.id, roles, eventId, type, false);
+        // H3 Max (fal docs): references named "Image N" in list order, image_url is the first frame, no expansion, ≤7000 chars.
+        const camera = h3.prompt.match(/CAMERA:[^\n]*/)?.[0] || '';
+        if (/\d-\d(\.\d)?s \d-\d/.test(h3.prompt)) h3Bad.push(`${id}: camera timeline written twice`);
+        if (eventId !== 'diwali' && DIWALI_PROPS.test(camera)) h3Bad.push(`${id}: camera names Diwali props`);
+        if (!/4\.5-6s/.test(h3.prompt.match(/BACKGROUND[^\n]*/)?.[0] || '') && eventId !== 'diwali') h3Bad.push(`${id}: no finale beat`);
+        if (h3.prompt.length > 7000) h3Bad.push(`${id}: over 7000 characters`);
+        if ((h3.prompt.match(/Image (\d+)/g) || []).some((ref) => Number(ref.split(' ')[1]) > h3.reference_image_urls.length)) h3Bad.push(`${id}: names a missing image`);
+        if (concept.category === 'women' && ['salwar', 'lehenga'].includes(type) && /dupatta/.test(h3.prompt)) gestureBad.push(`${id}: gesture invents a dupatta`);
+        // Backup: still, smile, slow arc, glowing background; nothing that moves the face.
+        const backup = buildVideoTestInput('h3-max', MASTER, OUTFITS.slice(0, count), concept.id, roles, eventId, type, true).prompt;
+        if (!/stands still/.test(backup) || !/smile/.test(backup) || !/arc of about 15 degrees/.test(backup) || !/glow/.test(backup)) backupBad.push(`${id}: missing still / smile / arc / glow`);
+        if (/laugh|walk|turn around|gesture/i.test(backup)) backupBad.push(`${id}: backup asks for risky motion`);
+        // Gemini Omni (Google guide): roles in words, motion only, no "no"/"don't", no control tags.
+        const omni = buildVideoTestInput('gemini-omni', MASTER, OUTFITS.slice(0, count), concept.id, roles, eventId, type, false).prompt;
+        if (/Image \d|<IMAGE_REF|@\w/.test(omni)) omniBad.push(`${id}: image named by number or tag`);
+        if (NEGATIVE_WORDS.test(omni)) omniBad.push(`${id}: uses negative wording "${omni.match(NEGATIVE_WORDS)[0]}"`);
+        if (!/first image is the opening frame/.test(omni)) omniBad.push(`${id}: opening frame not stated`);
+      }
+    }
+  }
+}
+check('h3 max', 'one clean timeline, event props only, finale, ≤7000 chars, image refs exist', h3Bad.length === 0, h3Bad.slice(0, 4).join('; '));
+check('h3 max', 'gesture never invents a dupatta', gestureBad.length === 0, gestureBad.slice(0, 3).join('; '));
+check('backup video', 'still, smile, 15° arc, glowing background only', backupBad.length === 0, backupBad.slice(0, 4).join('; '));
+check('gemini omni', 'images named in words, positive wording, opens on the portrait', omniBad.length === 0, omniBad.slice(0, 4).join('; '));
+
+// 8. AI Video portrait (Gemini image guide): images referred to by order; the outfit photos are Image 2 and 3.
+const block2 = concepts.buildPortraitGarmentBlock(['Shirt', 'Pant / trouser'], 'shirt_pant', 2);
+check('portrait', 'top and bottom are Image 2 and Image 3', /Image 2 = SHIRT/.test(block2) && /Image 3 = PANT \/ TROUSER/.test(block2) && !/Garment Image/.test(block2), block2.split('\n').slice(1, 3).join(' | '));
+const block1 = concepts.buildPortraitGarmentBlock([], 'saree', 1);
+check('portrait', 'one outfit photo is Image 2 with the garment rule', /Image 2 = the garment/.test(block1) && block1.includes(GARMENT_TYPE_RULES.saree));
+
 // Report.
 const groups = [...new Set(results.map((item) => item.group))];
 let failed = 0;
