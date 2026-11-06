@@ -153,6 +153,25 @@ for (const concept of concepts.VIDEO_CONCEPTS) {
     if (!/CAMERA:[^\n]*0-1s[^\n]*parallax/.test(h3) || !/BACKGROUND/.test(h3) || !/4\.5-6s/.test(h3.match(/BACKGROUND[\s\S]*/)?.[0] || '')) wowBad.push(`${concept.id}/${eventId}`);
   }
 }
+// Diwali: H3 opens exactly on the portrait, so every place the video names must be in that portrait.
+const SCENE_NOUNS = { colonnade: /colonnade/, veranda: /veranda/, kolam: /kolam|rangoli/, sky: /sky/, doorway: /doorway/, water: /water|tank/, corridor: /corridor/, garden: /garden/, balustrade: /balustrade|rail/, chair: /chair/, lantern: /lantern/, arch: /arch/ };
+const sceneBad = [];
+// The two looks proven on real renders keep their exact wording (locked in test-prompts.mjs).
+for (const concept of concepts.VIDEO_CONCEPTS.filter((item) => !['men-heritage-passage', 'women-golden-courtyard'].includes(item.id))) {
+  for (const type of ['saree', 'dhoti_veshti', 'pattu_pavadai', 'boy_ethnic', 'generic']) {
+    const garmentType = config.compatibleGarmentType(concept.category, type);
+    const master = concepts.buildVideoMasterPrompt(concept, garmentType, 'diwali').toLowerCase();
+    const video = buildVideoTestInput('h3-max', MASTER, OUTFITS.slice(0, 1), concept.id, ['top'], 'diwali', garmentType, false).prompt.toLowerCase();
+    const moving = `${video.match(/camera:[^\n]*/)?.[0] || ''} ${video.match(/^background[^\n]*/m)?.[0] || ''}`;
+    for (const [noun, pattern] of Object.entries(SCENE_NOUNS)) {
+      if (pattern.test(moving) && !pattern.test(master)) sceneBad.push(`${concept.id}: video names ${noun}, portrait has none`);
+    }
+    const first = video.match(/camera: 0-1s[^.]*/)?.[0] || '';
+    if (/distant [a-z ]+ at the frame edge/.test(first)) sceneBad.push(`${concept.id}: near-plane detail called distant`);
+    if (/smooths the pallu/.test(video) && /rest the left/.test(video)) sceneBad.push(`${concept.id}: right hand crosses to the pallu`);
+  }
+}
+check('diwali looks', 'everything the video names is in its portrait', sceneBad.length === 0, [...new Set(sceneBad)].join('; '));
 check('chosen look', "portrait keeps the look's own location in every event", locationBad.length === 0, locationBad.slice(0, 4).join('; '));
 check('chosen look', 'video: one small movement, smile and blink', movementBad.length === 0, movementBad.slice(0, 4).join('; '));
 check('chosen look', 'video wow: camera move, animated background, finale', wowBad.length === 0, wowBad.slice(0, 4).join('; '));

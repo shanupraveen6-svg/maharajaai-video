@@ -20,17 +20,17 @@ export type VideoConcept = {
 
 const concepts: VideoConcept[] = [
   { id: 'men-heritage-passage', category: 'men', title: 'Heritage Passage', mood: 'A composed arrival through warm heritage light.', masterScene: 'An expansive Thanjavur-inspired South Indian palace exterior at Diwali evening: carved granite colonnade, strong near-frame pillar, brass kuthu vilakku, kolam at the courtyard edge, banana-leaf torans, polished stone and clear sky for distant fireworks.', environmentMotion: 'Kuthu vilakku flames flicker at different depths; banana leaves stir; distant fireworks rise and bloom above the colonnade; warm reflections travel over polished stone.', effectMotion: 'A cinematic amber light beam sweeps the far pillars through faint haze; brief gold spark trails stay high in the sky and background, never over the customer.' },
-  { id: 'men-grand-arrival', category: 'men', title: 'Grand Arrival', mood: 'A confident festive arrival in a real courtyard.', masterScene: 'A South Indian palace courtyard inspired by Thanjavur stonework, with a broad Athangudi-tile approach, brass kuthu vilakku, banana leaves and distant festive fireworks.', environmentMotion: 'The kuthu vilakku flames flicker independently, banana leaves sway, a distant rocket rises and blooms above the roofline, and reflections travel across the tile floor.', effectMotion: 'A warm beam sweeps the far colonnade; brief gold sparks stay high in the sky and never cross the customer.' },
-  { id: 'men-royal-lounge', category: 'men', title: 'The Royal Lounge', mood: 'A quiet, polished portrait with cinematic depth.', masterScene: 'A Chettinad-inspired open-pillared veranda with a carved teak chair, brass kuthu vilakku, patterned Athangudi floor and deep garden beyond; the customer stands beside the chair.', environmentMotion: 'The lamp flame flickers, garden foliage moves in a light breeze, and warm reflections shift across the patterned floor.', effectMotion: 'A narrow amber light pass travels along the rear pillars; restrained lamp bloom and tiny gold flecks remain in the distant garden.' },
+  { id: 'men-grand-arrival', category: 'men', title: 'Grand Arrival', mood: 'A confident festive arrival in a real courtyard.', masterScene: 'A South Indian palace courtyard inspired by Thanjavur stonework, with a broad Athangudi-tile approach, a far stone colonnade, brass kuthu vilakku, banana leaves and distant festive fireworks in the evening sky.', environmentMotion: 'The kuthu vilakku flames flicker independently, banana leaves sway, a distant rocket rises and blooms above the roofline, and reflections travel across the tile floor.', effectMotion: 'A warm beam sweeps the far colonnade; brief gold sparks stay high in the sky and never cross the customer.' },
+  { id: 'men-royal-lounge', category: 'men', title: 'The Royal Lounge', mood: 'A quiet, polished portrait with cinematic depth.', masterScene: 'A Chettinad-inspired open-pillared veranda with a carved teak chair, brass kuthu vilakku, patterned Athangudi floor and a deep garden beyond under the Diwali night sky; the customer stands beside the chair.', environmentMotion: 'The lamp flame flickers, garden foliage moves in a light breeze, and warm reflections shift across the patterned floor.', effectMotion: 'A narrow amber light pass travels along the rear pillars; restrained lamp bloom and tiny gold flecks remain in the distant garden.' },
   { id: 'women-golden-courtyard', category: 'women', title: 'Golden Courtyard', mood: 'A luminous Diwali courtyard portrait.', masterScene: 'An expansive Chettinad-inspired South Indian palace exterior at Diwali evening, with a carved granite courtyard, tall brass kuthu vilakku in the near foreground, traditional kolam and marigolds behind the customer, banana-leaf torans and distant fireworks.', environmentMotion: 'Kuthu vilakku flames flicker independently; marigold strands and banana leaves sway; distant fireworks rise and bloom above the roofline; golden reflections ripple across the courtyard at separate depths.', effectMotion: 'A cinematic warm light sweep travels across the far pillars; brief gold spark trails and soft anamorphic flare catch the lamps, always behind the customer.' },
-  { id: 'women-heritage-balcony', category: 'women', title: 'Heritage Balcony', mood: 'A calm night portrait above a lighted garden.', masterScene: 'A South Indian heritage balcony with carved stone balustrade, brass lamps, jasmine and marigold garlands, overlooking a temple-tank garden at Diwali.', environmentMotion: 'Water reflections travel gently, a distant rocket rises and blooms above the tree line, jasmine strands stir, and brass lamp flames flicker.', effectMotion: 'A soft gold reflection sweeps across the water; firework glow stays behind the roofline and never changes the customer.' },
-  { id: 'women-grand-hall', category: 'women', title: 'The Grand Hall', mood: 'An elegant festive portrait in a real hall.', masterScene: 'A South Indian Chettinad celebration hall with polished Athangudi tiles, carved teak pillars, brass kuthu vilakku and marigold torans.', environmentMotion: 'Kuthu vilakku flames flicker at staggered depths, marigold torans sway lightly, and reflections move across the tiles.', effectMotion: 'A warm light sweep travels from the rear doorway across the far pillars; tiny gold particles remain near the distant lamps.' },
-  { id: 'girl-garden-lights', category: 'girl', title: 'Garden of Lights', mood: 'A bright, child-safe Diwali garden moment.', masterScene: 'A safe South Indian heritage garden with low brass lamps placed well away from the child, kolam at the path edge, jasmine and banana leaves.', environmentMotion: 'Low lamp flames flicker, banana leaves sway, and distant garden lights brighten one after another behind the child.', effectMotion: 'Small warm light points drift only in the distant garden; no sparks, flame or effect approaches the child.' },
-  { id: 'girl-festive-arch', category: 'girl', title: 'The Festive Arch', mood: 'A graceful portrait under a warm heritage arch.', masterScene: 'A South Indian carved granite entrance framed with marigold torans, brass lamps placed beyond reach, and a colourful kolam on the outer floor.', environmentMotion: 'Marigold strands sway gently, lamp flames flicker, and the far courtyard lights shimmer behind the child.', effectMotion: 'A restrained amber glow travels across the distant stone carving; a few gold flecks stay outside the child silhouette.' },
-  { id: 'girl-rangoli-evening', category: 'girl', title: 'Rangoli Evening', mood: 'A joyful Diwali portrait with colour and light.', masterScene: 'A South Indian courtyard with a large traditional kolam made from coloured rice flour, brass lamps positioned around its outer edge, and a carved-pillared veranda.', environmentMotion: 'Outer-edge diya flames flicker in sequence, flower petals stir in a faint breeze, and warm reflections shift across the empty floor.', effectMotion: 'A soft ring of background light travels around the far edge of the kolam; no animated element crosses the child.' },
-  { id: 'boy-heritage-entrance', category: 'boy', title: 'Heritage Entrance', mood: 'A confident festive arrival at a real gateway.', masterScene: 'A South Indian temple-town heritage gateway with carved granite, banana-leaf festoons, a kolam at the threshold and brass lamps placed safely to the sides.', environmentMotion: 'Banana leaves move in a light breeze, side lamps flicker, and distant fireworks bloom high beyond the gateway.', effectMotion: 'A brief warm firework glow reaches the upper stonework; all sparks remain distant and above the boy.' },
-  { id: 'boy-lantern-pathway', category: 'boy', title: 'Lantern Pathway', mood: 'A warm pathway portrait with rich Diwali depth.', masterScene: 'A South Indian garden pathway lined with low kolam motifs, jasmine vines, banana leaves and brass lamps placed well away from the child.', environmentMotion: 'Banana leaves sway, lamp flames flicker at separate depths, and pathway reflections shimmer toward the far veranda.', effectMotion: 'A warm beam travels between distant pillars and a few soft gold light points drift only in the far background.' },
-  { id: 'boy-lighted-corridor', category: 'boy', title: 'The Lighted Corridor', mood: 'A polished full-body portrait in heritage light.', masterScene: 'A South Indian pillared corridor with repeating brass kuthu vilakku, carved granite columns, Athangudi floor borders and marigold torans.', environmentMotion: 'Lamp flames brighten in sequence down the corridor, garlands move faintly, and floor reflections travel toward the far doorway.', effectMotion: 'A wave of warm illumination passes through the distant pillars; sparse gold particles remain in empty background space.' },
+  { id: 'women-heritage-balcony', category: 'women', title: 'Heritage Balcony', mood: 'A calm night portrait above a lighted garden.', masterScene: 'A South Indian heritage balcony with carved stone balustrade, brass lamps, jasmine and marigold garlands, overlooking a temple-tank garden under the Diwali night sky.', environmentMotion: 'Water reflections travel gently, a distant rocket rises and blooms above the tree line, jasmine strands stir, and brass lamp flames flicker.', effectMotion: 'A soft gold reflection sweeps across the water; firework glow stays behind the roofline and never changes the customer.' },
+  { id: 'women-grand-hall', category: 'women', title: 'The Grand Hall', mood: 'An elegant festive portrait in a real hall.', masterScene: 'A South Indian Chettinad celebration hall with polished Athangudi tiles, carved teak pillars, brass kuthu vilakku, marigold torans and a tall rear doorway glowing with lamplight.', environmentMotion: 'Kuthu vilakku flames flicker at staggered depths, marigold torans sway lightly, and reflections move across the tiles.', effectMotion: 'A warm light sweep travels from the rear doorway across the far pillars; tiny gold particles remain near the distant lamps.' },
+  { id: 'girl-garden-lights', category: 'girl', title: 'Garden of Lights', mood: 'A bright, child-safe Diwali garden moment.', masterScene: 'A safe South Indian heritage garden at Diwali evening with low brass lamps placed well away from the child, kolam at the path edge, jasmine and banana leaves under an open night sky.', environmentMotion: 'Low lamp flames flicker, banana leaves sway, and distant garden lights brighten one after another behind the child.', effectMotion: 'Small warm light points drift only in the distant garden; no sparks, flame or effect approaches the child.' },
+  { id: 'girl-festive-arch', category: 'girl', title: 'The Festive Arch', mood: 'A graceful portrait under a warm heritage arch.', masterScene: 'A South Indian carved granite entrance framed with marigold torans, brass lamps placed beyond reach, and a colourful kolam on the outer floor, with the Diwali night sky above the courtyard beyond.', environmentMotion: 'Marigold strands sway gently, lamp flames flicker, and the far courtyard lights shimmer behind the child.', effectMotion: 'A restrained amber glow travels across the distant stone carving; a few gold flecks stay outside the child silhouette.' },
+  { id: 'girl-rangoli-evening', category: 'girl', title: 'Rangoli Evening', mood: 'A joyful Diwali portrait with colour and light.', masterScene: 'A South Indian courtyard at Diwali evening with a large traditional kolam made from coloured rice flour, brass lamps positioned around its outer edge, a carved-pillared veranda and an open night sky.', environmentMotion: 'Outer-edge diya flames flicker in sequence, flower petals stir in a faint breeze, and warm reflections shift across the empty floor.', effectMotion: 'A soft ring of background light travels around the far edge of the kolam; no animated element crosses the child.' },
+  { id: 'boy-heritage-entrance', category: 'boy', title: 'Heritage Entrance', mood: 'A confident festive arrival at a real gateway.', masterScene: 'A South Indian temple-town heritage gateway with carved granite, banana-leaf festoons, a kolam at the threshold and brass lamps placed safely to the sides, under the Diwali night sky.', environmentMotion: 'Banana leaves move in a light breeze, side lamps flicker, and distant fireworks bloom high beyond the gateway.', effectMotion: 'A brief warm firework glow reaches the upper stonework; all sparks remain distant and above the boy.' },
+  { id: 'boy-lantern-pathway', category: 'boy', title: 'Lantern Pathway', mood: 'A warm pathway portrait with rich Diwali depth.', masterScene: 'A South Indian garden pathway lined with low kolam motifs, jasmine vines, banana leaves and brass lamps placed well away from the child, leading to a long pillared veranda under the Diwali night sky.', environmentMotion: 'Banana leaves sway, lamp flames flicker at separate depths, and pathway reflections shimmer toward the far veranda.', effectMotion: 'A warm beam travels between distant pillars and a few soft gold light points drift only in the far background.' },
+  { id: 'boy-lighted-corridor', category: 'boy', title: 'The Lighted Corridor', mood: 'A polished full-body portrait in heritage light.', masterScene: 'A South Indian pillared corridor with repeating brass kuthu vilakku, carved granite columns, Athangudi floor borders, marigold torans and a glowing far doorway.', environmentMotion: 'Lamp flames brighten in sequence down the corridor, garlands move faintly, and floor reflections travel toward the far doorway.', effectMotion: 'A wave of warm illumination passes through the distant pillars; sparse gold particles remain in empty background space.' },
 ];
 
 const lateralShotPlans: Record<VideoConceptId, string> = {
@@ -50,12 +50,12 @@ const lateralShotPlans: Record<VideoConceptId, string> = {
 
 const distinctCinematicPlans: Record<VideoConceptId, string> = {
   'men-heritage-passage': '',
-  'men-grand-arrival': 'CAMERA: 0-1s start slightly elevated behind a foreground kuthu vilakku. 1-4s crane down while tracking left toward the customer; reveal the kolam and create clear lamp-to-pillar parallax. 4-6s ease backward to a full-body hero frame.',
+  'men-grand-arrival': 'CAMERA: 0-1s start slightly elevated behind the brass lantern at the right frame edge. 1-4s crane down while tracking left toward the customer; reveal the tile approach and create clear lantern-to-colonnade parallax. 4-6s ease backward to a full-body hero frame.',
   'men-royal-lounge': 'CAMERA: 0-1s let the chair edge frame the foreground. 1-4s make a smooth low-to-eye-level rising move while tracking right; reveal the veranda depth. 4-6s settle in a full-length composition.',
   'women-golden-courtyard': '',
   'women-heritage-balcony': 'CAMERA: 0-1s begin low beside the carved balustrade. 1-4s rise in a short jib move while tracking left; reveal water and garden layers with distinct parallax. 4-6s settle at eye level, full body visible.',
-  'women-grand-hall': 'CAMERA: 0-1s frame through the near teak pillar. 1-4s glide laterally right, then make a gentle short push-in as the rear lamps emerge. 4-6s settle without cropping the saree or feet.',
-  'girl-garden-lights': 'CAMERA: 0-1s reveal from behind a distant garden lantern at the frame edge. 1-4s track right at the child\'s eye level with clear garden parallax. 4-6s ease to a steady full-body frame.',
+  'women-grand-hall': 'CAMERA: 0-1s frame through the carved arch edge at the right frame edge. 1-4s glide laterally left, then make a gentle short push-in as the rear lamps emerge. 4-6s settle without cropping the saree or feet.',
+  'girl-garden-lights': 'CAMERA: 0-1s reveal from behind the garden lantern at the left frame edge. 1-4s track right at the child\'s eye level with clear garden parallax. 4-6s ease to a steady full-body frame.',
   'girl-festive-arch': 'CAMERA: 0-1s use the marigold arch edge as a soft foreground frame. 1-4s make a gentle diagonal push while panning slightly left to reveal the courtyard. 4-6s settle at child eye level with full body visible.',
   'girl-rangoli-evening': 'CAMERA: 0-1s start just above the kolam edge. 1-4s make a smooth shallow arc of no more than 20 degrees while lowering to eye level; keep the child facing camera and the full kolam legible. 4-6s settle in a full-body frame.',
   'boy-heritage-entrance': 'CAMERA: 0-1s reveal from behind the gateway pillar. 1-4s make a brisk stabilized forward track at the boy\'s eye level; stone layers slide with clear parallax. 4-6s ease back to a full-body hero frame.',
@@ -196,6 +196,17 @@ const eventFilmSettings: Record<EventId, { label: string; set: string; motion: s
   },
 };
 
+/** Diwali finale for the looks without open sky (the default bursts in the far sky). */
+const indoorDiwaliFinale: Partial<Record<VideoConceptId, string>> = {
+  'women-grand-hall': 'A warm golden light burst blooms through the rear doorway with a gold glitter cascade and a soft lens flare behind the customer.',
+  'boy-lighted-corridor': 'A wave of golden light rushes down the corridor from the far doorway with a gentle gold glitter cascade behind the boy.',
+};
+
+/** The event finale for this look. */
+function finaleFor(concept: VideoConcept, eventId: EventId) {
+  return (eventId === 'diwali' && indoorDiwaliFinale[concept.id]) || eventMotionGraphics[eventId].finale;
+}
+
 /** Motion graphics and finale effects per event; always behind the customer, never over face or garment. */
 const eventMotionGraphics: Record<EventId, { graphics: string; finale: string }> = {
   diwali: {
@@ -225,11 +236,13 @@ const eventMotionGraphics: Record<EventId, { graphics: string; finale: string }>
 };
 
 /** One mild, graceful hand gesture per audience and garment; supported hands stay on their support. */
-function mildGesture(category: CustomerCategory, garmentType: GarmentType) {
+function mildGesture(category: CustomerCategory, garmentType: GarmentType, supportPose = '') {
+  const freeHand = /\bleft\b/i.test(supportPose) ? 'right' : 'left';
   if (category === 'girl') return 'she gives a small cheerful nod over her Namaste';
   if (category === 'boy') return 'he gives a small confident nod over his Namaste';
   // Only the pallu and the half-saree drape are always there; a salwar or lehenga may have no dupatta.
-  if (category === 'women' && garmentType === 'saree') return 'the free hand gently lifts and smooths the pallu edge at hip height, then settles back';
+  // The pallu falls on the left: a free left hand smooths it; a free right hand stays on its own side.
+  if (category === 'women' && garmentType === 'saree') return freeHand === 'left' ? 'the free hand gently lifts and smooths the pallu edge at hip height, then settles back' : 'the free hand lightly smooths the front pleats at the right hip, then settles back';
   if (category === 'women' && garmentType === 'half_saree') return 'the free hand gently smooths the drape edge at hip height, then settles back';
   return category === 'women'
     ? 'the free hand lightly brushes the side of the outfit at hip height, then settles back'
@@ -371,14 +384,14 @@ export function buildH3MotionPrompt(
       ? (concept.id === 'men-heritage-passage' && isDhoti
         ? samplePose.video.replace(/For trousers,[\s\S]*?Add a small natural weight shift/, 'For a dhoti or veshti, keep the right palm on the visible pillar and the left arm relaxed at the side. Add a small natural weight shift')
         : samplePose.video)
-      : `${anchor.pose} Keep the supported hand touching that same support throughout. Other hand relaxed beside outer thigh. Around 2-3s ${mildGesture(concept.category, garmentType)}.`;
+      : `${anchor.pose} Keep the supported hand touching that same support throughout. Other hand relaxed beside outer thigh. Around 2-3s ${mildGesture(concept.category, garmentType, anchor.pose)}.`;
   const garmentReferences = referenceRoles.map((role, index) => `${garmentRef(index)} confirms ${role || `garment detail ${index + 1}`} only.`).join(' ');
   const plannedCamera = plannedCameraDirection(concept, eventId);
   const cameraDirection = tested || garmentType === 'saree' ? plannedCamera : plannedCamera.replace(/\bsaree\b/g, garmentNouns[garmentType]);
   const plannedBackground = plannedBackgroundDirection(concept, eventId);
   const backgroundDirection = tested || plannedBackground.startsWith('BACKGROUND + FX')
     ? plannedBackground
-    : `${plannedBackground} MOTION GRAPHICS: ${graphics.graphics} 4.5-6s: ${graphics.finale}`;
+    : `${plannedBackground} MOTION GRAPHICS: ${graphics.graphics} 4.5-6s: ${finaleFor(concept, eventId)}`;
   const groundedPerformance = isChild
     ? 'Keep both feet planted. Add one tiny natural weight settle through the knees and a subtle shoulder relaxation; no step, turn, sway or hand movement.'
     : 'Keep both feet planted. Add one small natural weight shift through the hips and knees plus a subtle shoulder release; no step, torso turn or uncontrolled sway.';
@@ -425,10 +438,10 @@ export function buildPixVerseMotionPrompt(
     `@customer, the same ${person}, wears ${outfit}, standing full-length in ${scene}`,
     `Vertical 9:16 ${event.label} fashion film, one continuous six-second shot, photorealistic and cinematic.`,
     `LOCKED: face, identity, age, skin tone, hair, body size and proportions exactly as @customer; garment colour, border, weave, motifs and drape exactly as ${outfitRefs[0] || '@customer'}. Natural skin texture, no makeup or retouching.`,
-    `POSE: ${pose} Around 2-3s ${mildGesture(concept.category, garmentType)}. One natural blink, a small warm smile, subtle breathing.`,
+    `POSE: ${pose} Around 2-3s ${mildGesture(concept.category, garmentType, anchor.pose)}. One natural blink, a small warm smile, subtle breathing.`,
     camera,
     background,
-    `MOTION GRAPHICS: ${graphics.graphics} 4.5-6s: ${graphics.finale} All effects stay behind ${isChild ? 'the child' : 'the customer'}, never over face or garment.`,
+    `MOTION GRAPHICS: ${graphics.graphics} 4.5-6s: ${finaleFor(concept, eventId)} All effects stay behind ${isChild ? 'the child' : 'the customer'}, never over face or garment.`,
     'Full body visible head to feet throughout. Avoid: face change, body reshaping, outfit change, extra people, held objects, text, logo, cuts, slow motion, shaky camera.',
   ].map(asciiPrompt);
   // Optional detail is trimmed first if a long scene would exceed the byte limit.
@@ -439,7 +452,7 @@ export function buildPixVerseMotionPrompt(
     prompt = fit(sections);
   }
   if (Buffer.byteLength(prompt, 'utf8') > PIXVERSE_PROMPT_BYTES) {
-    sections[6] = asciiPrompt(`MOTION GRAPHICS: 4.5-6s: ${graphics.finale} All effects stay behind ${isChild ? 'the child' : 'the customer'}.`);
+    sections[6] = asciiPrompt(`MOTION GRAPHICS: 4.5-6s: ${finaleFor(concept, eventId)} All effects stay behind ${isChild ? 'the child' : 'the customer'}.`);
     prompt = fit(sections);
   }
   return prompt;
@@ -470,7 +483,7 @@ CUSTOMER: stands still, full-length, facing the camera, both feet planted. ${isC
 
 CAMERA: eye level and steady; one slow, smooth arc of about 15 degrees around the customer, keeping head to feet in frame the whole time.
 
-BACKGROUND + FX: the ${event.label} background glows and shimmers softly behind the customer throughout. ${graphics.graphics} 4.5-6s: ${graphics.finale} Every effect stays behind the customer, never over the face or outfit.
+BACKGROUND + FX: the ${event.label} background glows and shimmers softly behind the customer throughout. ${graphics.graphics} 4.5-6s: ${finaleFor(concept, eventId)} Every effect stays behind the customer, never over the face or outfit.
 
 The outfit keeps its exact colour, border, weave and drape. No cut, shake, zoom, text or logo.`;
 }
@@ -489,7 +502,7 @@ export function buildOmniMotionPrompt(concept: VideoConcept, garmentReferenceCou
   const outfitImages = garmentReferenceCount === 0
     ? ''
     : ` The ${garmentReferenceCount === 1 ? 'second image shows' : 'second and third images show'} the ${garmentNouns[garmentType]} up close, so its colours, border and weave stay true.`;
-  const finale = graphics.finale.charAt(0).toLowerCase() + graphics.finale.slice(1);
+  const finale = finaleFor(concept, eventId).charAt(0).toLowerCase() + finaleFor(concept, eventId).slice(1);
   return `The first image is the opening frame of this video: start exactly on it, with the same ${person}, outfit and ${event.label} setting.${outfitImages}
 
 A calm six-second vertical portrait shot. The ${person} stands still and full-length, facing the camera${isChild ? ', palms together in the same gentle Namaste' : `, ${pronoun} hands resting exactly as in the first image`}, and gives a soft warm smile, one natural blink and gentle breathing. The camera makes one slow, smooth arc shot of about 15 degrees at eye level, keeping the subject in frame from head to feet.
