@@ -15,7 +15,6 @@ import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
   Check,
   Download,
-  Minus,
   ExternalLink,
   LoaderCircle,
   Monitor,
@@ -187,6 +186,8 @@ export default function MaharajaAdminDashboard({
   const [goLiveCount, setGoLiveCount] = useState<number | null>(null);
   const [cataloguePage, setCataloguePage] = useState(0);
   const [showAddGarment, setShowAddGarment] = useState<boolean>(false);
+  // null until the logo check answers.
+  const [hasLogo, setHasLogo] = useState<boolean | null>(null);
 
 
   const loadWorkspace = useCallback(async () => {
@@ -316,16 +317,16 @@ export default function MaharajaAdminDashboard({
     ctx.strokeRect(32, 32, canvas.width - 64, canvas.height - 64);
 
     ctx.fillStyle = '#7A1428';
-    ctx.font = '700 22px monospace';
+    ctx.font = '700 26px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('TRYFOCUS × THE MAJESTIC MAHARAJA', canvas.width / 2, 108);
+    ctx.fillText(workspace?.clientName || 'Your store', canvas.width / 2, 108);
 
     ctx.fillStyle = '#161918';
-    ctx.font = '700 44px Georgia, serif';
+    ctx.font = '700 44px "Plus Jakarta Sans", sans-serif';
     ctx.fillText(title, canvas.width / 2, 174);
 
     ctx.fillStyle = '#535A56';
-    ctx.font = '500 24px sans-serif';
+    ctx.font = '500 24px "Plus Jakarta Sans", sans-serif';
     ctx.fillText(subtitle, canvas.width / 2, 224);
 
     ctx.fillStyle = '#FFFFFF';
@@ -336,8 +337,8 @@ export default function MaharajaAdminDashboard({
     ctx.drawImage(qrCanvas, 170, 296, 560, 560);
 
     ctx.fillStyle = '#161918';
-    ctx.font = '600 24px monospace';
-    ctx.fillText('SCAN WITH MOBILE CAMERA', canvas.width / 2, 950);
+    ctx.font = '600 24px "Plus Jakarta Sans", sans-serif';
+    ctx.fillText('Scan with your phone camera', canvas.width / 2, 950);
 
     const anchor = document.createElement('a');
     anchor.href = canvas.toDataURL('image/png');
@@ -501,6 +502,118 @@ export default function MaharajaAdminDashboard({
     { label: 'Go Live player', on: goLiveOn },
   ];
   const creditAlerts = credits.filter((item) => item.level !== 'ok' && item.level !== 'none');
+  const notInPlan = [...planPlatforms, ...planModules].filter((item) => !item.on).map((item) => item.label);
+
+  // Working now: one row per thing customers use, with where it runs and whether it works right now.
+  const levelOf = (label: string) => credits.find((item) => item.label === label)?.level ?? 'none';
+  const showing = catalogue.filter((item) => item.active);
+  const videoPieces = showing.filter((item) => item.eligibleForVideo).length;
+  const livePieces = showing.filter((item) => isLiveMirrorReady(item)).length;
+  type Tone = 'success' | 'warn' | 'danger' | 'neutral';
+  const rowStatus = (label: string, pieces: number | null, noPieces: string): { status: string; tone: Tone } => {
+    if (!workspace.campaignEnabled) return { status: 'Paused', tone: 'neutral' };
+    const level = levelOf(label);
+    if (level === 'exhausted') return { status: 'Credits finished', tone: 'danger' };
+    if (pieces === 0 && !catalogueLoading) return { status: noPieces, tone: 'warn' };
+    if (level === 'critical' || level === 'low') return { status: 'Working · credits low', tone: 'warn' };
+    return { status: 'Working', tone: 'success' };
+  };
+  const working: Array<{ title: string; where: string; note?: string; status: string; tone: Tone }> = [
+    limits.image > 0 && {
+      title: 'Try-On',
+      where: [devices.tv && 'TV', devices.tablet && 'Tablet', 'Customer’s phone (Wall QR)'].filter(Boolean).join(' · '),
+      note: catalogueLoading ? undefined : `${showing.length.toLocaleString('en-IN')} garments showing`,
+      ...rowStatus('Try-On', showing.length, 'Own outfit only, add garments'),
+    },
+    limits.video > 0 && {
+      title: 'AI Video',
+      where: [devices.tv && 'TV', devices.tablet && 'Tablet QR', 'Gift QR'].filter(Boolean).join(' · '),
+      note: catalogueLoading ? undefined : `${videoPieces.toLocaleString('en-IN')} garments on AI Video`,
+      ...rowStatus('AI Video', videoPieces, 'Switch on garments'),
+    },
+    limits.live > 0 && {
+      title: 'Live Mirror',
+      where: 'TV',
+      note: catalogueLoading ? undefined : `${livePieces.toLocaleString('en-IN')} garments on Live Mirror`,
+      ...rowStatus('Live Mirror', livePieces, 'Switch on garments'),
+    },
+    limits.video > 0 && {
+      title: 'Go Live player',
+      where: 'Your LED or wall screen',
+      ...(goLiveOn
+        ? (workspace.campaignEnabled ? { status: 'Working', tone: 'success' as Tone } : { status: 'Paused', tone: 'neutral' as Tone })
+        : { status: 'Off', tone: 'neutral' as Tone, note: 'AI Videos are download only' }),
+    },
+    {
+      title: 'Customers get their looks by',
+      where: workspace.whatsappConnected ? 'QR and WhatsApp link' : 'QR (WhatsApp link not set up)',
+      status: workspace.whatsappConnected ? 'QR + WhatsApp' : 'QR',
+      tone: 'neutral' as Tone,
+    },
+  ].filter((row) => row !== false);
+
+  // Set up: what the store does itself. done: true = done, false = still to do, null = optional.
+  const openCatalogue = (experience: CatalogueExperience) => { setCatExperience(experience); setSection('catalogue'); window.scrollTo({ top: 0 }); };
+  const openSettings = () => document.getElementById('store-settings')?.scrollIntoView({ behavior: 'smooth' });
+  const setup: Array<{ title: string; text: string; done: boolean | null; button: string; action: () => void }> = [
+    {
+      title: 'Add your garments',
+      text: catalogueLoading ? 'Checking your catalogue…' : showing.length ? `${showing.length.toLocaleString('en-IN')} of ${catalogue.length.toLocaleString('en-IN')} garments showing to customers.` : 'No garments showing yet. Upload photos of your collection.',
+      done: catalogueLoading ? null : showing.length > 0,
+      button: 'Catalogue',
+      action: () => openCatalogue('tryon'),
+    },
+    {
+      title: 'Choose the categories customers see',
+      text: workspace.categoryLists && Object.keys(workspace.categoryLists).length ? 'Your own list is set for Women, Men, Boys and Girls.' : 'Showing the standard list. Pick only what you sell.',
+      done: Boolean(workspace.categoryLists && Object.keys(workspace.categoryLists).length),
+      button: 'Categories',
+      action: () => openCatalogue('tryon'),
+    },
+    ...(limits.video > 0 ? [{
+      title: 'Pick garments for AI Video',
+      text: catalogueLoading ? 'Checking…' : videoPieces ? `${videoPieces.toLocaleString('en-IN')} garments switched on for AI Video.` : 'None switched on yet. Choose your best pieces.',
+      done: catalogueLoading ? null : videoPieces > 0,
+      button: 'AI Video garments',
+      action: () => openCatalogue('video'),
+    }] : []),
+    ...(limits.live > 0 ? [{
+      title: 'Pick garments for Live Mirror',
+      text: catalogueLoading ? 'Checking…' : livePieces ? `${livePieces.toLocaleString('en-IN')} garments switched on for Live Mirror.` : 'None switched on yet.',
+      done: catalogueLoading ? null : livePieces > 0,
+      button: 'Live Mirror garments',
+      action: () => openCatalogue('live'),
+    }] : []),
+    ...(limits.image > 0 ? [{
+      title: 'Print the Wall QR',
+      text: 'Paste it near the trial room or mirror. It never changes.',
+      done: null,
+      button: 'Wall QR',
+      action: () => setSection('qr'),
+    }] : []),
+    {
+      title: 'Upload your logo',
+      text: hasLogo === null ? 'Checking…' : hasLogo ? 'Your logo is on every downloaded look.' : 'Put your logo on every look customers download.',
+      done: hasLogo,
+      button: 'Logo',
+      action: openSettings,
+    },
+    {
+      title: 'Add your Instagram',
+      text: workspace.instagramUrl ? `Customers see Follow us on Instagram (${workspace.instagramUrl}).` : 'Customers are asked to follow you after they download.',
+      done: Boolean(workspace.instagramUrl),
+      button: 'Instagram',
+      action: openSettings,
+    },
+    ...(goLiveOn ? [{
+      title: 'Add promo videos to Go Live',
+      text: 'Optional. They play on your screen between customer videos.',
+      done: null,
+      button: 'Go Live',
+      action: () => setSection('golive'),
+    }] : []),
+  ];
+  const setupLeft = setup.filter((row) => row.done === false).length;
 
   return (
     <main className="min-h-screen bg-canvas text-ink">
@@ -556,38 +669,26 @@ export default function MaharajaAdminDashboard({
         )}
 
         {section === 'overview' && <>
-        {/* Your plan: what TryFocus set up for the store and how much is left. Read only; TryFocus changes it. */}
+        {/* 1. Your plan: what TryFocus allotted to this store. Read only; TryFocus changes it. */}
         <section className="tf-card p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold">Your plan</h2>
-              <p className="mt-1 text-sm text-muted">Set up by TryFocus. To add credits or a platform, call <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">9994837342</a>.</p>
-            </div>
-            <StatusPill tone={workspace.campaignEnabled ? 'success' : 'neutral'}>{workspace.campaignEnabled ? 'Live for customers' : 'Paused'}</StatusPill>
-          </div>
+          <h2 className="text-xl font-bold">Your plan</h2>
+          <p className="mt-1 text-sm text-muted">Set up for {workspace.clientName} by TryFocus. To add credits or a platform, call <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">9994837342</a>.</p>
 
           <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl bg-canvas p-4">
-              <dt className="text-sm font-semibold text-muted">Platforms</dt>
-              <dd className="mt-2 flex flex-wrap gap-2">
-                {planPlatforms.map(({ label, on }) => (
-                  <span key={label} className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold ${on ? 'bg-ink text-white' : 'border border-dashed border-line-strong text-subtle'}`}>
-                    {on ? <Check className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}{label}
-                  </span>
-                ))}
-              </dd>
-            </div>
-            <div className="rounded-2xl bg-canvas p-4">
-              <dt className="text-sm font-semibold text-muted">Included</dt>
-              <dd className="mt-2 flex flex-wrap gap-2">
-                {planModules.map(({ label, on }) => (
-                  <span key={label} className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold ${on ? 'bg-ink text-white' : 'border border-dashed border-line-strong text-subtle'}`}>
-                    {on ? <Check className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}{label}
-                  </span>
-                ))}
-              </dd>
-            </div>
+            {([['Platforms', planPlatforms], ['Included', planModules]] as const).map(([title, items]) => (
+              <div key={title} className="rounded-2xl bg-canvas p-4">
+                <dt className="text-sm font-semibold text-muted">{title}</dt>
+                <dd className="mt-2 flex flex-wrap gap-2">
+                  {items.filter((item) => item.on).map(({ label }) => (
+                    <span key={label} className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-ink px-3 text-sm font-semibold text-white">
+                      <Check className="h-3.5 w-3.5" />{label}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            ))}
           </dl>
+          {notInPlan.length > 0 && <p className="mt-3 text-sm text-muted">Not in your plan: {notInPlan.join(' · ')}.</p>}
 
           <table className="mt-5 w-full text-left text-sm">
             <thead>
@@ -611,13 +712,53 @@ export default function MaharajaAdminDashboard({
           </table>
         </section>
 
+        {/* 2. Working now: each thing customers use, where it runs and whether it works right now. */}
+        <section className="tf-card p-6">
+          <h2 className="text-xl font-bold">Working now</h2>
+          <p className="mt-1 text-sm text-muted">{workspace.campaignEnabled ? 'What your customers can use right now.' : 'Your store is paused, so customers see a closed message. Tap Paused at the top to turn it back on.'}</p>
+          <ul className="mt-4 divide-y divide-line">
+            {working.map((row) => (
+              <li key={row.title} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
+                <span className="min-w-0">
+                  <span className="block font-semibold text-ink">{row.title}</span>
+                  <span className="block text-sm text-muted">{row.where}{row.note ? ` · ${row.note}` : ''}</span>
+                </span>
+                <StatusPill tone={row.tone}>{row.status}</StatusPill>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* 3. Set up: what the store can do itself, with the button that does it. */}
+        <section className="tf-card p-6">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h2 className="text-xl font-bold">Set up</h2>
+            <p className="text-sm text-muted">{setupLeft ? `${setupLeft} to do` : 'All done'}</p>
+          </div>
+          <ul className="mt-4 divide-y divide-line">
+            {setup.map((row) => (
+              <li key={row.title} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 font-semibold text-ink">
+                    {row.done === true ? <Check className="h-4 w-4 shrink-0 text-success" /> : row.done === false ? <span className="h-2 w-2 shrink-0 rounded-full bg-warn" /> : <span className="h-2 w-2 shrink-0 rounded-full bg-line-strong" />}
+                    {row.title}
+                  </span>
+                  <span className="block pl-6 text-sm text-muted">{row.text}</span>
+                </span>
+                <button type="button" onClick={row.action} className="tf-btn tf-btn-secondary !min-h-10 shrink-0 px-4 text-sm">{row.button}</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {screens.length > 0 && (
           <section className="tf-card p-6">
-            <h2 className="text-lg font-bold">Your screens</h2>
-            <p className="mt-1 text-sm text-muted">Open each screen once on the device it runs on. It stays signed in.</p>
+            <h2 className="text-xl font-bold">Your screens</h2>
+            <p className="mt-1 text-sm text-muted">Open each one once on the device it runs on. It stays signed in.</p>
             <ul className="mt-4 divide-y divide-line">
               {screens.map(({ key, title, href, desc, Icon }) => (
                 <li key={key} className="flex items-center gap-3 py-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand"><Icon className="h-5 w-5" /></span>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-canvas text-ink"><Icon className="h-5 w-5" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold">{title}</span>
                     <span className="block text-sm text-muted">{desc}</span>
@@ -628,14 +769,11 @@ export default function MaharajaAdminDashboard({
                 </li>
               ))}
             </ul>
-            <p className="mt-3 border-t border-line pt-3 text-sm text-muted">
-              {limits.image > 0 && 'Customers try outfits on their own phones through the Wall QR. '}
-              {limits.video > 0 && 'Give the AI Video gift QR after a purchase from the AI Video gift tab.'}
-            </p>
           </section>
+        )}
 
         <section>
-          <h2 className="text-lg font-bold">{monthName} so far</h2>
+          <h2 className="text-xl font-bold">{monthName} so far</h2>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {monthTiles.map(([label, key]) => {
               const value = Number(monthCounts[key] || 0);
@@ -651,25 +789,25 @@ export default function MaharajaAdminDashboard({
           </div>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="text-lg font-bold">Store settings</h2>
+        <section id="store-settings" className="scroll-mt-32 space-y-4">
+          <h2 className="text-xl font-bold">Store settings</h2>
         {limits.video > 0 && (
         <section className="tf-card p-6">
             <h3 className="text-lg font-bold">Festival theme</h3>
-            <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b></p>
+            <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b>. More festivals are added through the year.</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {EVENT_OPTIONS.map((ev) => {
+              {EVENT_OPTIONS.filter((ev) => ev.id === 'diwali').map((ev) => {
                 const selected = workspace.defaultEvent === ev.id;
-                const isDiwali = ev.id === 'diwali';
                 return (
                   <button
                     key={ev.id}
                     type="button"
-                    disabled={saving || !isDiwali}
+                    aria-pressed={selected}
+                    disabled={saving}
                     onClick={() => selectDefaultEvent(ev.id)}
-                    className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : isDiwali ? 'border border-line bg-white hover:border-ink' : 'border border-dashed border-line text-subtle'}`}
+                    className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : 'border border-line bg-white hover:border-ink'}`}
                   >
-                    {ev.label}{!isDiwali && <span className="ml-1.5 text-xs font-medium">Soon</span>}
+                    {ev.label}
                   </button>
                 );
               })}
@@ -677,7 +815,7 @@ export default function MaharajaAdminDashboard({
           </section>
         )}
 
-        <StoreLogoCard />
+        <StoreLogoCard onStatus={setHasLogo} />
 
         <form
           className="tf-card p-6"

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Upload } from 'lucide-react';
 
 /** The store logo printed on every look customers download (Try-On on the TV, tablet and phone). */
-export default function StoreLogoCard() {
+export default function StoreLogoCard({ onStatus }: { onStatus?: (hasLogo: boolean) => void } = {}) {
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -13,9 +13,10 @@ export default function StoreLogoCard() {
   function load() {
     fetch(`/api/maharaja/logo?t=${Date.now()}`, { cache: 'no-store' })
       .then(async (response) => (response.ok ? URL.createObjectURL(await response.blob()) : ''))
-      .then((url) => setPreview((old) => { if (old) URL.revokeObjectURL(old); return url; }))
+      .then((url) => { onStatus?.(Boolean(url)); setPreview((old) => { if (old) URL.revokeObjectURL(old); return url; }); })
       .catch(() => undefined);
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loads once; onStatus only reports the result
   useEffect(load, []);
 
   async function upload(file?: File) {

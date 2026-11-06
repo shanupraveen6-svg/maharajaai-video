@@ -77,12 +77,19 @@ TryFocus admin, one client, in setup order (numbered headings, one section each)
 The store's Live for customers / Paused switch sits under its name. Without a client picked, admin shows
 every client's usage.
 
-Store workspace, Overview in this order:
-1. Your plan (read only): Platforms and Included as ticked chips, credits as a table (left, used, status),
-   and the TryFocus number to add credits or a platform.
-2. Your screens: the links to open once on each device (TV, tablet, Go Live player).
-3. This month: what customers did, against last month.
-4. Store settings: festival theme, logo, Instagram.
+Store workspace, Overview in this order, showing only this store's own things:
+1. Your plan (read only): what TryFocus allotted. Booked platforms and included features as ticked chips
+   (one line lists what is not in the plan), credits as a table (left, used, status), and the TryFocus
+   number to add credits or a platform.
+2. Working now: one row per thing customers use (Try-On, AI Video, Live Mirror, Go Live player, how
+   customers get their looks), where it runs and a status word: Working · Working, credits low · Credits
+   finished · Switch on garments · Paused · Off.
+3. Set up: what the store does itself, each with a done / to do mark and the button that opens it
+   (garments, categories, AI Video and Live Mirror garments, Wall QR, logo, Instagram, Go Live promos).
+4. Your screens: the links to open once on each device (TV, tablet, Go Live player).
+5. This month: what customers did, against last month.
+6. Store settings: festival theme (only the ones available), logo, Instagram.
+The Wall QR poster carries the store's own name.
 
 Status is words, never a bar: Good · Running low · Almost finished · Finished (credits), Live for
 customers · Paused (store). No sliders, carousels or rows that scroll sideways on admin or workspace
