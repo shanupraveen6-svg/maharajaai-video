@@ -143,6 +143,8 @@ console.log('✓ Video prompts: H3 Max, PixVerse C1, Vidu Q4 and Gemini Omni, no
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tryfocus-prompts-'));
 const committed = execFileSync('git', ['show', 'HEAD:src/lib/maharaja/video-concepts.ts'], { encoding: 'utf8' });
 fs.writeFileSync(path.join(tmp, 'video-concepts.ts'), committed);
+// The committed file imports the garment rules from config.ts, so the committed config sits beside it.
+fs.writeFileSync(path.join(tmp, 'config.ts'), execFileSync('git', ['show', 'HEAD:src/lib/maharaja/config.ts'], { encoding: 'utf8' }));
 const original = await import(path.join(tmp, 'video-concepts.ts'));
 for (const conceptId of ['men-heritage-passage', 'women-golden-courtyard']) {
   const concept = concepts.getVideoConcept(conceptId);

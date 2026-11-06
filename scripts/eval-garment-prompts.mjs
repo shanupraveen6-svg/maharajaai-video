@@ -140,6 +140,22 @@ for (const concept of concepts.VIDEO_CONCEPTS) {
     }
   }
 }
+// The customer's chosen look: its location carries into every event, and the video moves a little.
+const locationBad = [], movementBad = [], wowBad = [];
+for (const concept of concepts.VIDEO_CONCEPTS) {
+  for (const eventId of config.EVENT_IDS) {
+    const type = config.compatibleGarmentType(concept.category, 'generic');
+    const master = concepts.buildVideoMasterPrompt(concept, type, eventId);
+    const h3 = buildVideoTestInput('h3-max', MASTER, OUTFITS.slice(0, 1), concept.id, ['top'], eventId, type, false).prompt;
+    const place = concept.masterScene.match(/garden|balcony|hall|veranda|corridor|gateway|pathway|arch|courtyard|colonnade/i)?.[0].toLowerCase();
+    if (place && !master.toLowerCase().includes(place)) locationBad.push(`${concept.id}/${eventId}: no ${place}`);
+    if (!/Around 2-3s|weight shift|weight settle|nod/.test(h3) || !/smile/.test(h3) || !/blink/.test(h3)) movementBad.push(`${concept.id}/${eventId}`);
+    if (!/CAMERA:[^\n]*0-1s[^\n]*parallax/.test(h3) || !/BACKGROUND/.test(h3) || !/4\.5-6s/.test(h3.match(/BACKGROUND[\s\S]*/)?.[0] || '')) wowBad.push(`${concept.id}/${eventId}`);
+  }
+}
+check('chosen look', "portrait keeps the look's own location in every event", locationBad.length === 0, locationBad.slice(0, 4).join('; '));
+check('chosen look', 'video: one small movement, smile and blink', movementBad.length === 0, movementBad.slice(0, 4).join('; '));
+check('chosen look', 'video wow: camera move, animated background, finale', wowBad.length === 0, wowBad.slice(0, 4).join('; '));
 check('h3 max', 'one clean timeline, event props only, finale, ≤7000 chars, image refs exist', h3Bad.length === 0, h3Bad.slice(0, 4).join('; '));
 check('h3 max', 'gesture never invents a dupatta', gestureBad.length === 0, gestureBad.slice(0, 3).join('; '));
 check('backup video', 'still, smile, 15° arc, glowing background only', backupBad.length === 0, backupBad.slice(0, 4).join('; '));

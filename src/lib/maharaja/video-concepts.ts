@@ -115,6 +115,40 @@ const foregroundDetails: Record<VideoConceptId, string> = {
   'boy-lighted-corridor': 'the first corridor arch entering from the left frame edge',
 };
 
+/**
+ * Each look's own location without Diwali decoration, so every event keeps the place the customer chose
+ * (a garden stays a garden at Christmas). Each names the support its hand pose rests on.
+ */
+const conceptLocations: Record<VideoConceptId, string> = {
+  'men-heritage-passage': 'An expansive Thanjavur-inspired South Indian palace exterior: a carved granite colonnade, a strong near-frame stone pillar, polished stone floor and open sky above.',
+  'men-grand-arrival': 'A South Indian palace courtyard inspired by Thanjavur stonework, with a broad Athangudi-tile approach and a low stone parapet.',
+  'men-royal-lounge': 'A Chettinad-inspired open-pillared veranda with a carved teak chair, a patterned Athangudi floor and a deep garden beyond; the customer stands beside the chair.',
+  'women-golden-courtyard': 'An expansive Chettinad-inspired South Indian palace exterior with a carved granite courtyard, a carved stone ledge and tall arches.',
+  'women-heritage-balcony': 'A South Indian heritage balcony with a carved stone balustrade and a sturdy parapet, overlooking a temple-tank garden.',
+  'women-grand-hall': 'A South Indian Chettinad celebration hall with polished Athangudi tiles and carved teak pillars.',
+  'girl-garden-lights': 'A safe South Indian heritage garden with a low garden wall, a stone path, jasmine and banana leaves.',
+  'girl-festive-arch': 'A South Indian carved granite entrance arch with solid jambs, opening onto a courtyard.',
+  'girl-rangoli-evening': 'A South Indian courtyard with a low parapet, an open stone floor and a carved-pillared veranda.',
+  'boy-heritage-entrance': 'A South Indian temple-town heritage gateway with solid carved granite pillars.',
+  'boy-lantern-pathway': 'A South Indian garden pathway beside a low stone garden wall, with jasmine vines and a veranda at the far end.',
+  'boy-lighted-corridor': 'A South Indian pillared corridor with carved granite columns and Athangudi floor borders.',
+};
+
+/** How each event dresses a location (Diwali keeps each look's own tested Diwali scene). */
+const eventDressing: Partial<Record<EventId, string>> = {
+  pongal: 'Pongal morning in warm sunlight, with an existing kolam at the floor edge, sugarcane leaves at the outer frame edge and fresh flowers. No cooking vessel or object in the customer\'s hands.',
+  'new-year': 'New Year evening, with existing warm decorative lights along the outer frame edge and an elegant celebratory glow on the architecture. No confetti on the customer or object in their hands.',
+  christmas: 'Christmas, with an existing decorated Christmas tree at the outer frame edge, warm lamp light and tasteful seasonal decor. No gift or ornament in the customer\'s hands.',
+  ramadan: 'Ramadan evening, with existing hanging lanterns at the outer frame edge, warm patterned light and a crescent moon wherever the sky shows. No lantern or object in the customer\'s hands.',
+  birthday: 'A birthday celebration, with existing decorative lights and distant balloons along the outer frame edge and a clear floor. No cake or gift in the customer\'s hands.',
+};
+
+/** The portrait's scene: the look's tested Diwali scene, or its own location dressed for the event. */
+function eventScene(concept: VideoConcept, eventId: EventId) {
+  if (eventId === 'diwali') return concept.masterScene;
+  return `${conceptLocations[concept.id]} Dressed for ${eventDressing[eventId] || eventFilmSettings[eventId].set}`;
+}
+
 const eventForegroundDetails: Partial<Record<EventId, string>> = {
   pongal: 'sugarcane leaves near the outer frame edge',
   'new-year': 'a strand of decorative lights near the outer frame edge',
@@ -271,7 +305,7 @@ export function buildVideoMasterPrompt(concept: VideoConcept, garmentType: Garme
   const childPose = 'Stand naturally with both feet visible and place the palms gently together in a simple Namaste at mid-chest, fingers pointing upward, elbows relaxed and hands clear of the face. Keep the pose still and age-appropriate; no other gesture or held object.';
   const posePrompt = isChild ? childPose : sampleMasterPose || (samplePose?.master ?? `Stand naturally beside ${anchor.prop}, which must be solid, clearly visible and physically reachable, with both feet planted. ${anchor.pose} Keep the supported hand anatomically correct and visibly touching that support. The other arm hangs naturally beside the outer thigh. Both hands stay below the waist and outside the chest and garment. No held object, clasp, Namaste, hand-to-chest, step or crossed arms.`);
   const supportScene = isChild ? 'Do not add a support object or place anything in the child\'s hands.' : samplePose ? (isDhoti && concept.id === 'men-heritage-passage' ? 'Include a broad, visible stone pillar exactly beside the supported hand.' : 'Do not add a support object for the pose.') : `Include ${anchor.prop} beside the supported hand.`;
-  return `Create a photorealistic vertical 9:16 full-body ${event.label} fashion-film opening frame, composed to animate naturally for six seconds. Frame the customer from head to footwear with both hands and both feet completely visible; use a natural full-length portrait perspective, not a tight crop.\n\nREFERENCE ROLES: Image 1 is the real customer and the sole authority for face, hair, age, skin tone, body proportions and identity. Images 2 onward show only the exact ${garmentNouns[garmentType]} and its labelled details. Never borrow a face, body, pose or background from a garment reference.\n\nIDENTITY AND WARDROBE LOCK: Preserve the customer's recognizable facial geometry, natural asymmetry, age, body shape, hairline, skin tone and real skin texture. Keep the expression natural. No makeup, beauty filter, face reshaping, skin smoothing, waxy/plastic/doll finish or glamour retouch. Reproduce the exact garment pieces, silhouette, colour, print, weave, embroidery, borders, neckline and drape from the garment references. Do not redesign, recolour, simplify or replace any part of it.\n\nFILMABLE POSE: ${posePrompt} Keep the face toward camera with a composed, natural expression and a slight warm smile. Leave clear space around the silhouette, head and footwear.\n\nLAYERED ${event.label.toUpperCase()} SET: ${eventId === 'diwali' ? concept.masterScene : event.set} Place ${foreground} as a real near-plane element, the unobstructed customer in the middle plane, and detailed luxury architecture in the far plane. Keep face, full garment and both hands readable. ${supportScene} Use practical lights, reflective surfaces and event details visible in the frame; no text, graphic overlay, motion trail or invented object.\n\nLIGHT AND CAMERA: Natural portrait-lens perspective and realistic full-body proportions. Soft frontal key light reveals the real eyes and skin texture; neutral fill preserves skin tone and exact garment colour; a restrained warm rim separates fabric from the set. Keep textile weave and embroidery crisp. Let the architecture carry the festive glow, not a beauty filter on the customer. Photographic realism, grounded anatomy, believable hands, natural fabric weight. No logo or watermark. ${childSafety}`;
+  return `Create a photorealistic vertical 9:16 full-body ${event.label} fashion-film opening frame, composed to animate naturally for six seconds. Frame the customer from head to footwear with both hands and both feet completely visible; use a natural full-length portrait perspective, not a tight crop.\n\nREFERENCE ROLES: Image 1 is the real customer and the sole authority for face, hair, age, skin tone, body proportions and identity. Images 2 onward show only the exact ${garmentNouns[garmentType]} and its labelled details. Never borrow a face, body, pose or background from a garment reference.\n\nIDENTITY AND WARDROBE LOCK: Preserve the customer's recognizable facial geometry, natural asymmetry, age, body shape, hairline, skin tone and real skin texture. Keep the expression natural. No makeup, beauty filter, face reshaping, skin smoothing, waxy/plastic/doll finish or glamour retouch. Reproduce the exact garment pieces, silhouette, colour, print, weave, embroidery, borders, neckline and drape from the garment references. Do not redesign, recolour, simplify or replace any part of it.\n\nFILMABLE POSE: ${posePrompt} Keep the face toward camera with a composed, natural expression and a slight warm smile. Leave clear space around the silhouette, head and footwear.\n\nLAYERED ${event.label.toUpperCase()} SET: ${eventScene(concept, eventId)} Place ${foreground} as a real near-plane element, the unobstructed customer in the middle plane, and detailed luxury architecture in the far plane. Keep face, full garment and both hands readable. ${supportScene} Use practical lights, reflective surfaces and event details visible in the frame; no text, graphic overlay, motion trail or invented object.\n\nLIGHT AND CAMERA: Natural portrait-lens perspective and realistic full-body proportions. Soft frontal key light reveals the real eyes and skin texture; neutral fill preserves skin tone and exact garment colour; a restrained warm rim separates fabric from the set. Keep textile weave and embroidery crisp. Let the architecture carry the festive glow, not a beauty filter on the customer. Photographic realism, grounded anatomy, believable hands, natural fabric weight. No logo or watermark. ${childSafety}`;
 }
 
 /**
@@ -375,7 +409,7 @@ export function buildPixVerseMotionPrompt(
   const outfit = outfitRefs.length
     ? `the exact ${garmentNouns[garmentType]} from ${outfitRefs.join(' and ')}`
     : `the exact ${garmentNouns[garmentType]} @customer is wearing`;
-  const rawScene = eventId === 'diwali' ? concept.masterScene : event.set;
+  const rawScene = eventScene(concept, eventId);
   const scene = rawScene.charAt(0).toLowerCase() + rawScene.slice(1);
   const anchor = handAnchors[concept.id];
   const pose = isChild
