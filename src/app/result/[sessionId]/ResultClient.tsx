@@ -18,6 +18,7 @@ export default function ResultClient({
   allowGoLive: initialAllowGoLive = true,
   catalogueProduct: initialCatalogueProduct = null,
   embedded = false,
+  storeName: storeNameProp = '',
 }: {
   sessionId: string;
   accessCode?: string;
@@ -29,6 +30,8 @@ export default function ResultClient({
   allowGoLive?: boolean;
   catalogueProduct?: { sku: string; title?: string; price?: number } | null;
   embedded?: boolean;
+  /** The store's own name, shown instead of the Maharaja branding for every other store. */
+  storeName?: string;
 }) {
   const router = useRouter();
   const [showThankYou, setShowThankYou] = useState(false);
@@ -68,6 +71,8 @@ export default function ResultClient({
   // The store's own Instagram (set in its AI Video section); hidden when the store has none.
   const [instagramUrl, setInstagramUrl] = useState('');
   const [storeName, setStoreName] = useState('');
+  const shownName = storeName || storeNameProp;
+  const store = shownName.replace(/^The\s+/i, '') || 'Maharaja';
   // Nothing downloads or shares on its own: the customer gives a WhatsApp number first.
   const leadGate = useLeadGate({ kind: 'pass', ref: accessCode, source: 'ai-video' });
   const eventLabel = getEventOption(eventId).label;
@@ -201,10 +206,10 @@ export default function ResultClient({
   };
 
   const downloadFileName = (kind: 'image' | 'video' | 'bundle') => (kind === 'bundle'
-    ? `Maharaja-${eventLabel}-${sessionId}.zip`
+    ? `${store.replace(/[^a-z0-9]+/gi, '-')}-${eventLabel}-${sessionId}.zip`
     : kind === 'image'
-    ? `Maharaja-${eventLabel}-Master-${sessionId}.jpg`
-    : `Maharaja-${eventLabel}-Video-${sessionId}.mp4`);
+    ? `${store.replace(/[^a-z0-9]+/gi, '-')}-${eventLabel}-Master-${sessionId}.jpg`
+    : `${store.replace(/[^a-z0-9]+/gi, '-')}-${eventLabel}-Video-${sessionId}.mp4`);
 
   const triggerFileDownload = (blob: Blob, filename: string) => {
     const objectUrl = URL.createObjectURL(blob);
@@ -248,7 +253,7 @@ export default function ResultClient({
     ];
     if (typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files })) {
       try {
-        await navigator.share({ files, title: `Maharaja ${eventLabel} AI film` });
+        await navigator.share({ files, title: `${store} ${eventLabel} AI film` });
         return 'shared';
       } catch (shareError: any) {
         if (shareError?.name === 'AbortError') return 'cancelled';
@@ -306,7 +311,7 @@ export default function ResultClient({
   };
 
   const handleVideoRetry = async () => {
-    if (retrySubmitting || !accessCode || !videoUrl || !window.confirm('Use your included video retry? Your current film remains available to Maharaja.')) return;
+    if (retrySubmitting || !accessCode || !videoUrl || !window.confirm('Use your included video retry? Your current film stays available.')) return;
     setRetrySubmitting(true);
     setLiveError(null);
     try {
@@ -372,15 +377,15 @@ export default function ResultClient({
         {!embedded && <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]"><div className="mx-auto max-w-5xl"><p className="text-xs font-bold text-[#D4AF37]">Majestic Maharaja · powered by TryFocus</p><h1 className="mt-1 tracking-tight text-2xl font-bold">Maharaja AI Experience</h1></div></header>}
         <div className="flex justify-center px-5 py-10 text-center">
         <section className="w-full max-w-lg">
-          <img src="/maharaja-logo.png" alt="Majestic Maharaja" className="mx-auto h-24 w-24 border border-[#D4AF37]/45 object-cover shadow-xl" />
+          {!shownName && <img src="/maharaja-logo.png" alt="Majestic Maharaja" className="mx-auto h-24 w-24 border border-[#D4AF37]/45 object-cover shadow-xl" />}
           <Sparkles className="mx-auto mt-7 h-9 w-9 text-[#D4AF37]" />
           <h1 className="mt-4 tracking-tight text-3xl font-bold text-[#F3E5AB]">Thank you for your purchase</h1>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#F3E5AB]/80">
-            Your {eventLabel} AI film has been sent to the Maharaja showroom screen.
+            Your {eventLabel} AI film has been sent to the {store} showroom screen.
           </p>
 
           <div className="mt-7 border-y border-[#D4AF37]/30 py-5">
-            <p className="text-xs font-bold text-[#D4AF37]">Maharaja TV Status</p>
+            <p className="text-xs font-bold text-[#D4AF37]">{store} TV status</p>
             <p className="mt-2 text-base font-bold text-[#F3E5AB]">
               {liveQueueStatus === 'playing'
                 ? liveTimesPlayed >= 1 ? 'Second playback on showroom TV' : 'Playing on showroom TV'
@@ -389,7 +394,7 @@ export default function ResultClient({
                 : liveQueueStatus === 'completed'
                 ? 'Completed and added to the TV loop'
                 : liveQueueStatus === 'playback_failed'
-                ? 'Maharaja staff are checking TV playback'
+                ? `${store} staff are checking TV playback`
                 : typeof peopleAhead === 'number' && peopleAhead > 0
                 ? `Queue #${queueNumber || '--'} - ${peopleAhead} people ahead`
                 : `Added to the showroom queue${queueNumber ? ` - #${queueNumber}` : ''}`}
@@ -413,7 +418,7 @@ export default function ResultClient({
             </a>}
           </div>
 
-          <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thank you for experiencing the Maharaja AI visual celebration.</p>
+          <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thank you for visiting {store}.</p>
         </section>
         </div>
       </main>
@@ -450,9 +455,9 @@ export default function ResultClient({
       )}
       <header className="relative flex justify-between items-center border-b border-[#D4AF37]/20 pb-4 mb-6">
         <div className="flex items-center gap-2">
-          <img src="/maharaja-logo.png" alt="" className="h-7 w-7 object-cover" />
+          {!shownName && <img src="/maharaja-logo.png" alt="" className="h-7 w-7 object-cover" />}
           <h1 className="text-base tracking-tight font-bold text-[#F3E5AB]">
-            MAHARAJA {eventLabel.toUpperCase()} FILM
+            {store} {eventLabel} film
           </h1>
         </div>
         {videoStatus === 'ready' && videoUrl && !liveSuccess && <div className="relative shrink-0">
@@ -493,7 +498,7 @@ export default function ResultClient({
             RENDERING 6-SECOND {eventLabel.toUpperCase()} FILM...
           </h2>
           <p className="text-xs text-gray-300 max-w-xs mx-auto animate-pulse">
-            Your Maharaja film is being prepared. Keep this page open.
+            Your {store} film is being prepared. Keep this page open.
           </p>
         </div>
       ) : (
@@ -514,8 +519,8 @@ export default function ResultClient({
         <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
           {/* Top-Right Client Logo */}
           <div className="pointer-events-none absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-[#D4AF37]/50 bg-black/60 px-2 py-1 backdrop-blur-sm shadow-md">
-            <img src="/maharaja-logo.png" alt="Maharaja Silks" className="h-4 w-4 rounded-full object-contain" />
-            <span className="text-xs font-bold text-[#F3E5AB]">Maharaja</span>
+            {!shownName && <img src="/maharaja-logo.png" alt="" className="h-4 w-4 rounded-full object-contain" />}
+            <span className="text-xs font-bold text-[#F3E5AB]">{store}</span>
           </div>
 
           <video
@@ -546,7 +551,7 @@ export default function ResultClient({
               onChange={(event) => setLiveConsent(event.target.checked)}
               className="mt-0.5 h-5 w-5 shrink-0 accent-[#D4AF37]"
             />
-            <span>I agree that this video may play on the Maharaja showroom TV and remain in its approved loop for up to one day.</span>
+            <span>I agree that this video may play on the {store} showroom TV and remain in its approved loop for up to one day.</span>
           </label>
 
           <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-xs leading-5 text-[#F3E5AB]/80">

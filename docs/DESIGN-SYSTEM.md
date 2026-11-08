@@ -23,8 +23,8 @@ TV, three tabs:
   The picks can come from any category of the chosen Who (a shirt, a veshti and a kurta…); each is one garment
   and its own look, all made at the same time. Your looks shows one look full size at a time: swipe, Previous /
   Next or tap a small look to move between them (a single look keeps the before/after slider).
-- AI Video (store collection only): (the last 4 digits of the bill, when the store set a minimum bill; 0 = a
-  free gift) → Who → Your photo → Pick a piece (with its price) → Your portrait, with the QR that makes the
+- AI Video (store collection only): (the last 4 digits of the bill on a large on-screen number pad, when the store
+  set a minimum bill; 0 = a free gift) → Who → Your photo → Pick a piece (with its price) → Your portrait, with the QR that makes the
   video on the phone, where the customer can also Go Live.
 - Live Mirror: pick a catalogue piece switched on for Live Mirror → Start live → 5-second countdown → 30 seconds live.
 
@@ -32,8 +32,10 @@ Tablet, three tabs, with New customer in the header:
 - Store collection and My own outfit: the TV's Try-On, with the source already chosen by the tab.
 - AI Video: (the last 4 digits of the bill when a minimum is set) → the customer's QR, with New customer
   under it (which asks the next customer for their digits again). The customer picks the piece and makes the
-  video on their phone: Who (nothing selected) → What would you like to wear (the store's categories that
-  have AI Video garments) → pick one piece → Continue → photo, portrait and video.
+  video on their phone: Who (nothing selected) → Your photo → What would you like to wear (the store's
+  categories that have AI Video garments) → pick one piece (with its price) → Pick a look (the three looks
+  for that audience) → Make my portrait → Your portrait (⋯ Retry) → Make my video → the video (Download,
+  Go Live). A pass that already has a piece, a portrait or a video in progress opens at that step.
 
 Phone: Try-On only, opened from the store's permanent Wall QR (downloaded from the workspace and pasted in
 the store). (A photo of the bill, Camera or Upload, read on the server, when the store set a Try-On minimum)

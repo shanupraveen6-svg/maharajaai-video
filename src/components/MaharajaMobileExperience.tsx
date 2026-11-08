@@ -557,7 +557,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   );
 }
 
-function PhotoBox({ image, aspect, placeholder, contain = false }: { image: string; aspect: string; placeholder: ReactNode; contain?: boolean }) {
+export function PhotoBox({ image, aspect, placeholder, contain = false }: { image: string; aspect: string; placeholder: ReactNode; contain?: boolean }) {
   return (
     <div className="flex justify-center rounded-2xl border border-line bg-white p-4">
       {image
@@ -568,7 +568,7 @@ function PhotoBox({ image, aspect, placeholder, contain = false }: { image: stri
 }
 
 /** Two clear choices: the camera opens straight away, or a photo comes from the gallery. */
-function CameraOrUpload({ cameraLabel, uploadLabel, onFile }: { cameraLabel: string; uploadLabel: string; onFile: (file?: File | null) => void }) {
+export function CameraOrUpload({ cameraLabel, uploadLabel, onFile }: { cameraLabel: string; uploadLabel: string; onFile: (file?: File | null) => void }) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   return (

@@ -1759,13 +1759,30 @@ function BackButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/** AI Video gift above a minimum bill: the last four digits of the customer's bill (TV and tablet). */
+/**
+ * AI Video gift above a minimum bill: the last four digits of the customer's bill (TV and tablet), typed on
+ * a large on-screen number pad (showroom screens often have no keyboard).
+ */
 function BillDigitsGate({ value, onChange, onContinue, action }: { value: string; onChange: (value: string) => void; onContinue: () => void; action: string }) {
+  const press = (key: string) => onChange(key === 'back' ? value.slice(0, -1) : (value + key).slice(0, 4));
   return (
     <section className="tf-card mx-auto max-w-2xl space-y-6 p-8 text-center">
       <h2 className="text-4xl font-bold">Enter the last four digits of your bill</h2>
       <p className="text-lg text-muted">Our staff will tell you which four digits to enter.</p>
-      <input value={value} onChange={(event) => onChange(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="off" maxLength={4} aria-label="Last four digits of bill number" className="mx-auto block min-h-20 w-full max-w-sm rounded-2xl border border-ink bg-canvas text-center tabular-nums text-4xl" />
+      <div aria-label="Last four digits of bill number" aria-live="polite" className="mx-auto flex w-full max-w-sm justify-center gap-3">
+        {Array.from({ length: 4 }, (_, index) => (
+          <span key={index} className={`flex h-20 w-16 items-center justify-center rounded-2xl border text-4xl font-bold tabular-nums ${value[index] ? 'border-ink bg-white' : 'border-line-strong bg-canvas text-subtle'}`}>{value[index] || ''}</span>
+        ))}
+      </div>
+      <div className="mx-auto grid w-full max-w-sm grid-cols-3 gap-3">
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'].map((key) => key === ''
+          ? <span key="blank" />
+          : (
+            <button key={key} type="button" onClick={() => press(key)} disabled={key !== 'back' && value.length >= 4} className="flex min-h-16 items-center justify-center rounded-2xl border border-line bg-white text-3xl font-semibold tabular-nums active:bg-line disabled:opacity-40">
+              {key === 'back' ? '⌫' : key}
+            </button>
+          ))}
+      </div>
       <button type="button" disabled={value.length !== 4} onClick={onContinue} className="tf-btn tf-btn-primary !min-h-16 w-full max-w-sm text-lg">{action}</button>
     </section>
   );
