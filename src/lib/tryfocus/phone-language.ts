@@ -86,6 +86,7 @@ const STRINGS = {
   doneTitle: { en: 'You’ve used your free look on this phone', ta: 'இந்த போனில் உங்கள் இலவச தோற்றத்தைப் பயன்படுத்திவிட்டீர்கள்' },
   doneText: { en: 'Follow us for new arrivals, or invite a friend to try theirs.', ta: 'புதிய வரவுகளுக்கு எங்களைப் பின்தொடருங்கள், அல்லது நண்பரையும் முயற்சிக்க அழையுங்கள்.' },
   // Store collection outfit picker (after "new collection" on the gift QR, or from the TV)
+  videoWhatType: { en: 'What would you like to wear?', ta: 'எந்த வகை உடை அணிய விரும்புகிறீர்கள்?' },
   chooseOutfit: { en: 'Choose your outfit', ta: 'உங்கள் உடையைத் தேர்ந்தெடுங்கள்' },
   chooseOutfitText: { en: 'Pick an outfit, then add your photo. Your festive video is made in this outfit.', ta: 'ஒரு உடையைத் தேர்ந்தெடுத்து, உங்கள் புகைப்படத்தைச் சேருங்கள். இந்த உடையில் உங்கள் பண்டிகை வீடியோ உருவாகும்.' },
   moreOutfits: { en: 'More outfits', ta: 'மேலும் உடைகள்' },

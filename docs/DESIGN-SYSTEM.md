@@ -30,7 +30,8 @@ TV, three tabs:
 Tablet, three tabs, with New customer in the header:
 - Store collection and My own outfit: the TV's Try-On, with the source already chosen by the tab.
 - AI Video: the customer's QR only, with New customer under it. The customer picks the piece and makes the
-  video on their phone.
+  video on their phone: Who (nothing selected) → What would you like to wear (the store's categories that
+  have AI Video garments) → pick one piece → Continue → photo, portrait and video.
 
 Phone: Try-On only, opened from the store's permanent Wall QR (downloaded from the workspace and pasted in
 the store). Store collection or My own outfit → Who → What type (the store's categories; own outfit adds
