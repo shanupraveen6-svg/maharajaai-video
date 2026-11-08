@@ -1,20 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { LIVE_CATEGORIES } from '@/lib/tryfocus/live-categories';
 import {
   catalogueCategories,
   type CatalogueAudience,
   type CatalogueCategoryId,
 } from '@/lib/tryfocus/sample-data';
 import {
-  Camera,
   CheckCircle2,
   Eye,
   Grid3X3,
   List,
   LoaderCircle,
   Upload,
-  Video,
   X,
   AlertCircle,
 } from 'lucide-react';
@@ -44,12 +43,13 @@ const AUDIENCES: { id: CatalogueAudience; label: string }[] = [
 export default function CatalogueBulkImport({
   onPublished,
   initialMode,
+  experiences = { video: true, live: true },
 }: {
   onPublished?: () => Promise<void>;
   initialMode?: UploadMode;
+  /** The priced experiences this store has; only these can be chosen under "Use for". */
+  experiences?: { video: boolean; live: boolean };
 } = {}) {
-  // Two Main Upload Buttons: 'image-tryon' vs 'ai-video'
-  const [uploadMode, setUploadMode] = useState<UploadMode>(initialMode || 'image-tryon');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   // Audience & Category
@@ -63,46 +63,28 @@ export default function CatalogueBulkImport({
   const [publishing, setPublishing] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Checkmark on top: "Use for AI Video"
-  // If in 'ai-video' mode, videoEnabled is permanently true and pricing is mandatory
-  const [videoEnabled, setVideoEnabled] = useState(initialMode === 'ai-video');
-  const [liveEnabled, setLiveEnabled] = useState(false);
+  // Three upload tabs: Image Try-On (price optional, never shown), AI Video and Live Mirror (the price is shown
+  // to customers, so it is asked for). "Use for all" also puts the pieces on every experience the store has.
+  const [segment, setSegment] = useState<'tryon' | 'video' | 'live'>(initialMode === 'ai-video' && experiences.video ? 'video' : 'tryon');
+  const [useForAll, setUseForAll] = useState(false);
+  const videoEnabled = experiences.video && (segment === 'video' || useForAll);
+  const liveEnabled = experiences.live && (segment === 'live' || useForAll);
   const [newArrival, setNewArrival] = useState(false);
 
   // Lightbox modal for thumbnail full-view
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
-  const availableCategories = catalogueCategories.filter((item) => item.gender === audience);
+  const availableCategories: Array<{ id: CatalogueCategoryId; label: string }> = segment === 'live'
+    ? LIVE_CATEGORIES[audience]
+    : catalogueCategories.filter((item) => item.gender === audience).map((item) => ({ id: item.id as CatalogueCategoryId, label: item.label }));
   const unresolved = rows.filter((row) => row.status !== 'ready').length;
 
-  // Pricing is mandatory if uploadMode === 'ai-video' OR videoEnabled is ticked
-  const isPricingMandatory = uploadMode === 'ai-video' || videoEnabled;
+  // Price is asked for AI Video only (customers see it there); Try-On and Live Mirror tables have no price.
+  const isPricingMandatory = videoEnabled;
   const missingPricesCount = rows.filter(
     (row) => !row.price || Number(row.price) <= 0 || Number.isNaN(Number(row.price))
   ).length;
 
-  useEffect(() => {
-    if (uploadMode === 'ai-video') {
-      setVideoEnabled(true);
-    }
-  }, [uploadMode]);
-
-  function switchUploadMode(mode: UploadMode) {
-    if (mode === uploadMode) return;
-    if (busy || publishing) return;
-    if (rows.length > 0 && !confirm('Switching upload mode will clear current unsubmitted files. Proceed?')) {
-      return;
-    }
-    setUploadMode(mode);
-    setRows([]);
-    setBatchId('');
-    setMessage('');
-    if (mode === 'ai-video') {
-      setVideoEnabled(true);
-    } else {
-      setVideoEnabled(false);
-    }
-  }
 
   function update(id: string, patch: Partial<CatalogueImportRow>) {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -187,8 +169,8 @@ export default function CatalogueBulkImport({
     setBusy(false);
     setMessage(
       isPricingMandatory
-        ? 'Upload complete. Pricing is mandatory for AI Video. Fill prices and submit.'
-        : 'Upload complete. Review garment titles and pricing, then submit.'
+        ? 'Upload complete. Enter a price for each AI Video garment, then submit.'
+        : 'Upload complete. Check the names and categories, then submit.'
     );
   }
 
@@ -200,7 +182,7 @@ export default function CatalogueBulkImport({
 
     if (isPricingMandatory && missingPricesCount > 0) {
       setMessage(
-        `Pricing is mandatory for AI Video. Please enter prices for all ${missingPricesCount} garment(s).`
+        `AI Video shows the price to customers. Enter a price for all ${missingPricesCount} garment(s).`
       );
       return;
     }
@@ -223,7 +205,7 @@ export default function CatalogueBulkImport({
               category: row.category,
               storagePath: row.storagePath,
               price: Number(row.price) || 0,
-              eligibleForVideo: isPricingMandatory ? true : videoEnabled,
+              eligibleForVideo: videoEnabled,
               eligibleForLive: liveEnabled,
               newArrival,
             })),
@@ -259,114 +241,54 @@ export default function CatalogueBulkImport({
 
   return (
     <div className="space-y-6">
-      {/* =========================================================
-          THE TWO MAIN ACTION BUTTONS:
-          1. Upload Catalogue for Image Try-On
-          2. Upload Catalogue for AI Video
-         ========================================================= */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <button
-          type="button"
-          disabled={busy || publishing}
-          onClick={() => switchUploadMode('image-tryon')}
-          className={`flex min-h-[96px] items-center gap-4 border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
- uploadMode === 'image-tryon'
- ? 'border-brand bg-[#FAF6EE] shadow-md ring-2 ring-brand/20'
- : 'border-line bg-white hover:border-ink'
- }`}
-        >
-          <span
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
- uploadMode === 'image-tryon'? 'bg-brand text-white' : 'bg-canvas text-ink'
- }`}
+      {/* Three upload tabs, one per experience the store has. */}
+      <div className="flex flex-wrap gap-1 border-b border-line" role="tablist" aria-label="Upload for">
+        {([['tryon', 'Image Try-On', true], ['video', 'AI Video', experiences.video], ['live', 'Live Mirror', experiences.live]] as const).filter(([, , on]) => on).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={segment === value}
+            disabled={busy || publishing}
+            onClick={() => {
+              if (value === segment) return;
+              if (rows.length > 0 && !confirm('Switching will clear the garments not yet submitted. Continue?')) return;
+              setSegment(value); setRows([]); setBatchId(''); setMessage(''); setCategory('');
+            }}
+            className={`-mb-px min-h-12 border-b-[3px] px-4 text-[15px] font-semibold ${segment === value ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'}`}
           >
-            <Camera className="h-6 w-6" />
-          </span>
-          <div>
-            <span className="block tracking-tight text-lg font-bold text-ink">
-              1. Upload Catalogue for Image Try-On
-            </span>
-            <span className="mt-0.5 block text-xs text-muted">
-              Add dresses & sarees for virtual fitting · Optional pricing
-            </span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          disabled={busy || publishing}
-          onClick={() => switchUploadMode('ai-video')}
-          className={`flex min-h-[96px] items-center gap-4 border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
- uploadMode === 'ai-video'
- ? 'border-brand bg-[#FAF6EE] shadow-md ring-2 ring-brand/20'
- : 'border-line bg-white hover:border-ink'
- }`}
-        >
-          <span
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
- uploadMode === 'ai-video'? 'bg-brand text-white' : 'bg-canvas text-ink'
- }`}
-          >
-            <Video className="h-6 w-6" />
-          </span>
-          <div>
-            <span className="block tracking-tight text-lg font-bold text-ink">
-              2. Upload Catalogue for AI Video
-            </span>
-            <span className="mt-0.5 block text-xs text-muted">
-              Garments for cinematic AI video · Pricing strictly compulsory
-            </span>
-          </div>
-        </button>
+            {label}
+          </button>
+        ))}
       </div>
+
+      {segment === 'video' && (
+        <div className="rounded-2xl bg-brand-soft p-4 text-sm text-ink">
+          <p className="font-semibold">Add your high-value garments here: they lift sales.</p>
+          <p className="mt-1 text-muted">Customers see the price on AI Video, so enter it for every piece in the table after uploading.</p>
+        </div>
+      )}
 
       {/* Main Upload Box */}
       <div className="rounded-2xl border border-line bg-canvas p-6 text-ink">
-        {/* Top Control Bar with AI Video Checkmark */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
-          <div>
-            <span className="text-xs font-bold text-brand">
-              {uploadMode === 'ai-video'
-                ? 'AI Video Mode (Pricing Mandatory)'
-                : 'Image Try-On Mode'}
-            </span>
-            <h3 className="mt-1 text-2xl font-bold">
-              {uploadMode === 'ai-video'
-                ? 'Upload AI Video Garments'
-                : 'Upload Image Try-On Garments'}
-            </h3>
-          </div>
-
-          {/* Checkmark: Use for AI Video */}
-          <div className="flex items-center gap-3">
-            <label
-              className={`rounded-2xl flex items-center gap-2 border px-3.5 py-2 text-xs font-bold transition ${
- isPricingMandatory
- ? 'border-brand bg-brand text-white'
- : 'border-line bg-white text-ink'
- }`}
-            >
-              <input
-                type="checkbox"
-                disabled={uploadMode === 'ai-video' || publishing}
-                checked={isPricingMandatory}
-                onChange={(e) => setVideoEnabled(e.target.checked)}
-                className="h-4 w-4 accent-ink"
-              />
-              <span>Use for AI Video {isPricingMandatory ? '(Pricing Mandatory)' : ''}</span>
+          <h3 className="text-xl font-bold">{segment === 'tryon' ? 'Upload Try-On garments' : segment === 'video' ? 'Upload AI Video garments' : 'Upload Live Mirror garments'}</h3>
+          <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-line bg-white px-3 text-sm font-semibold">
+            <input
+              type="checkbox"
+              disabled={publishing}
+              checked={newArrival}
+              onChange={(e) => setNewArrival(e.target.checked)}
+              className="h-4 w-4 accent-ink"
+            />
+            <span>Mark as new arrival</span>
+          </label>
+          {segment !== 'tryon' && experiences.video && experiences.live && (
+            <label className="flex min-h-11 items-center gap-2 rounded-2xl border border-line bg-white px-3 text-sm font-semibold">
+              <input type="checkbox" disabled={publishing} checked={useForAll} onChange={(e) => setUseForAll(e.target.checked)} className="h-4 w-4 accent-ink" />
+              <span>Use for all (Try-On, AI Video and Live Mirror)</span>
             </label>
-
-            <label className="rounded-2xl flex items-center gap-2 border border-line bg-white px-3 py-2 text-xs font-semibold">
-              <input
-                type="checkbox"
-                disabled={publishing}
-                checked={newArrival}
-                onChange={(e) => setNewArrival(e.target.checked)}
-                className="h-4 w-4 accent-brand"
-              />
-              <span>Mark New Arrival</span>
-            </label>
-          </div>
+          )}
         </div>
 
         {/* Step 1 & 2: Audience and Category Selection */}
@@ -497,7 +419,7 @@ export default function CatalogueBulkImport({
                 <p className="text-xs text-muted">
                   {isPricingMandatory
                     ? `Pricing is mandatory. ${missingPricesCount === 0 ? '✓ All prices set' : `${missingPricesCount} price(s) missing`}`
-                    : 'Optional pricing · Ready for submission'}
+                    : 'Ready to submit'}
                 </p>
               </div>
 
@@ -540,9 +462,9 @@ export default function CatalogueBulkImport({
                       <th className="p-3 w-16">Thumbnail</th>
                       <th className="p-3">Name of Garment</th>
                       <th className="p-3">Category</th>
-                      <th className="p-3 w-40">
-                        Pricing (₹) {isPricingMandatory && <span className="text-[#B42318]">*</span>}
-                      </th>
+                      {isPricingMandatory && <th className="p-3 w-40">
+                        Pricing (₹) <span className="text-[#B42318]">*</span>
+                      </th>}
                       <th className="p-3 w-28">Status</th>
                       <th className="p-3 w-20">Action</th>
                     </tr>
@@ -594,8 +516,8 @@ export default function CatalogueBulkImport({
                             </span>
                           </td>
 
-                          {/* 4. Pricing (Mandatory if AI Video is ticked) */}
-                          <td className="p-3">
+                          {/* 4. Pricing (AI Video only) */}
+                          {isPricingMandatory && <td className="p-3">
                             <div className="relative">
                               <span className="absolute left-2.5 top-2 text-xs font-bold text-subtle">
                                 ₹
@@ -606,7 +528,7 @@ export default function CatalogueBulkImport({
                                 min="0"
                                 value={row.price}
                                 onChange={(e) => update(row.id, { price: e.target.value })}
-                                placeholder={isPricingMandatory ? 'Mandatory' : 'Optional'}
+                                placeholder="Mandatory"
                                 className={`w-full border p-2 pl-6 text-xs font-bold ${
  isPriceMissing
  ? 'border-danger bg-[#FDF2F2] text-danger'
@@ -619,7 +541,7 @@ export default function CatalogueBulkImport({
                                 Price required for video
                               </span>
                             )}
-                          </td>
+                          </td>}
 
                           {/* 5. Status */}
                           <td className="p-3">
@@ -707,7 +629,7 @@ export default function CatalogueBulkImport({
                             </span>
                           </div>
 
-                          <div className="relative">
+                          {isPricingMandatory && <div className="relative">
                             <span className="absolute left-2.5 top-1.5 text-xs font-bold text-subtle">
                               ₹
                             </span>
@@ -717,14 +639,14 @@ export default function CatalogueBulkImport({
                               min="0"
                               value={row.price}
                               onChange={(e) => update(row.id, { price: e.target.value })}
-                              placeholder={isPricingMandatory ? 'Price required' : 'Price (optional)'}
+                              placeholder="Price required"
                               className={`w-full border p-1.5 pl-6 text-xs font-bold ${
  isPriceMissing
  ? 'border-danger bg-[#FDF2F2] text-danger'
  : 'border-line bg-white text-ink'
  }`}
                             />
-                          </div>
+                          </div>}
 
                           <div className="flex items-center justify-between pt-1">
                             <span className="text-xs font-semibold text-success">

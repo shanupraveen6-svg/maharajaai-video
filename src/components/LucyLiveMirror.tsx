@@ -17,7 +17,6 @@ import {
   X,
 } from 'lucide-react';
 import {
-  formatINR,
   sampleCatalogue,
   type CatalogueCategoryId,
   type TryFocusProduct,
@@ -643,7 +642,6 @@ export default function LucyLiveMirror({
                   {active && <span className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-ink text-white"><Check className="h-5 w-5" /></span>}
                   <div className="p-2.5">
                     <p className="line-clamp-1 text-base font-semibold text-ink">{item.title}</p>
-                    <p className="tabular-nums text-base font-bold text-ink">{formatINR(item.price)}</p>
                   </div>
                 </button>
               );
@@ -700,7 +698,6 @@ export default function LucyLiveMirror({
             <img src={selectedGarment.thumbnailUrl || selectedGarment.imageUrl} alt="" className="h-20 w-16 shrink-0 rounded-lg bg-canvas object-contain object-top" />
             <div className="min-w-0">
               <p className="line-clamp-2 text-base font-semibold leading-snug text-ink">{selectedGarment.title}</p>
-              <p className="tabular-nums text-base font-bold text-ink">{formatINR(selectedGarment.price)}</p>
             </div>
           </div>
 
@@ -781,7 +778,7 @@ export default function LucyLiveMirror({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-3xl font-bold text-ink">How did it look?</h3>
-                <p className="mt-1 text-lg text-muted">{selectedGarment.title} · {formatINR(selectedGarment.price)}</p>
+                <p className="mt-1 text-lg text-muted">{selectedGarment.title}</p>
               </div>
               <button
                 type="button"

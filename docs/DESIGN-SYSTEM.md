@@ -19,29 +19,38 @@ reused for another level, so a shopper can always tell which choice matters more
 There is no step progress bar on any surface. Each screen has one title, one next action and a small Back to the step before it. Categories and outfit types are listed in the order South Indian shoppers wear them most (men and boys start with shirt and pant).
 
 TV, three tabs:
-- Try-On: Who → Store collection or My own outfit → Your photo → Pick outfits (up to 3) or Your outfit → Your looks.
+- Try-On: Who → Your photo → Store collection or My own outfit → Pick outfits (up to 3) or Your outfit → Your looks.
   The picks can come from any category of the chosen Who (a shirt, a veshti and a kurta…); each is one garment
   and its own look, all made at the same time. Your looks shows one look full size at a time: swipe, Previous /
   Next or tap a small look to move between them (a single look keeps the before/after slider).
-- AI Video (store collection only): Who → Your photo → Pick a piece → Your portrait, with the QR that makes
-  the video on the phone, where the customer can also Go Live.
+- AI Video (store collection only): (the last 4 digits of the bill, when the store set a minimum bill; 0 = a
+  free gift) → Who → Your photo → Pick a piece (with its price) → Your portrait, with the QR that makes the
+  video on the phone, where the customer can also Go Live.
 - Live Mirror: pick a catalogue piece switched on for Live Mirror → Start live → 5-second countdown → 30 seconds live.
 
 Tablet, three tabs, with New customer in the header:
 - Store collection and My own outfit: the TV's Try-On, with the source already chosen by the tab.
-- AI Video: the customer's QR only, with New customer under it. The customer picks the piece and makes the
+- AI Video: (the last 4 digits of the bill when a minimum is set) → the customer's QR, with New customer
+  under it (which asks the next customer for their digits again). The customer picks the piece and makes the
   video on their phone: Who (nothing selected) → What would you like to wear (the store's categories that
   have AI Video garments) → pick one piece → Continue → photo, portrait and video.
 
 Phone: Try-On only, opened from the store's permanent Wall QR (downloaded from the workspace and pasted in
-the store). Store collection or My own outfit → Who → What type (the store's categories; own outfit adds
-Other) → pick a piece (store collection) → Your photo (Camera or Upload) → Your outfit (own outfit, Camera
-or Upload) → Your look. One free look per phone, counted from the phone's first scan, plus one retry kept in
+the store). (A photo of the bill, Camera or Upload, read on the server, when the store set a Try-On minimum)
+→ Who → Your photo (Camera or Upload) → Store collection or My own outfit → What type (the store's
+categories; own outfit adds Other) → pick a piece, or Your outfit (Camera or Upload) → Your look. TV and
+tablet never ask for a bill on Try-On. One free look per phone, counted from the phone's first scan, plus one retry kept in
 the ⋯ menu. Nothing is stored; Download asks for WhatsApp, then offers Follow us on Instagram and Share on
 WhatsApp (the same after downloading from the TV/tablet look QR).
 
 Each workspace chooses the categories customers see, per audience (Catalogue → Categories customers see);
 TV, tablet and phone all follow that list.
+
+Prices: only AI Video shows a piece's price (to move the customer to buy it). Try-On and Live Mirror never
+show prices. The workspace uploads garments in three tabs, Image Try-On (by category), AI Video (a note at
+the top: high-value garments lift sales; the table after upload asks for each price) and Live Mirror (its
+own categories); AI Video and Live Mirror offer Use for all. The table shows image, name and category, with
+a price column on AI Video only.
 
 **One garment per Try-On (TryFocus rule).** Every Try-On dresses the customer in exactly one garment, sent to
 the engine as one piece: a shirt, a veshti, a saree, a kurti… never a shirt-and-veshti set in one photo. The

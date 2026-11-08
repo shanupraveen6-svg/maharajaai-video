@@ -819,7 +819,7 @@ export default function MaharajaAdminDashboard({
 
             {showAddGarment && (
               <div className="mt-5 border-t border-line pt-5">
-                <CatalogueBulkImport onPublished={loadCatalogue} />
+                <CatalogueBulkImport onPublished={loadCatalogue} experiences={{ video: limits.video > 0, live: limits.live > 0 }} />
               </div>
             )}
 

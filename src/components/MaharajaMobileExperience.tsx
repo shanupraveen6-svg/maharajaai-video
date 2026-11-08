@@ -32,7 +32,7 @@ import { useExitGuard } from '@/components/ExitGuard';
 import { categoriesFor, type StoreCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 
 type Source = 'catalogue' | 'own-garment';
-type Stage = 'source' | 'who' | 'type' | 'pick' | 'photo' | 'outfit' | 'result' | 'done';
+type Stage = 'bill' | 'who' | 'photo' | 'source' | 'type' | 'pick' | 'outfit' | 'result' | 'done';
 
 const DEVICE_KEY = 'tryfocus:maharaja:device-id';
 /** The "Other" choice for a customer's own outfit: the model copies the photo as it is. */
@@ -40,8 +40,9 @@ const OTHER_TYPE = 'other';
 
 /**
  * What the store's Wall QR opens: Try-On on the customer's phone. Each phone gets one free look (and one
- * retry, kept in the ⋯ menu). Steps: Store collection or My own outfit → Who → What type → (pick a piece)
- * → your photo (camera or upload) → (your outfit, camera or upload) → your look. Nothing is stored: the
+ * retry, kept in the ⋯ menu). Steps: (a photo of the bill, when the store set a Try-On minimum) → Who → your
+ * photo (camera or upload) → Store collection or My own outfit → What type → pick a piece, or photograph
+ * your outfit → your look. Nothing is stored: the
  * look comes back to the phone only. Download asks for WhatsApp, then offers Instagram and sharing.
  */
 export default function MaharajaMobileExperience({ accessCode, clientName = 'The Majestic Maharaja' }: { accessCode: string; clientName?: string }) {
@@ -49,7 +50,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   const leadGate = useLeadGate({ kind: 'pass', ref: accessCode, source: 'try-on' });
   const catalogueItems = useStoreCatalogue(accessCode);
 
-  const [stage, setStage] = useState<Stage>('source');
+  const [stage, setStage] = useState<Stage>('who');
   const [source, setSource] = useState<Source>('catalogue');
   const [audience, setAudience] = useState<CatalogueAudience>('women');
   // Nothing is pre-selected: Who stays empty until the customer taps one.
@@ -73,6 +74,11 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   // The retry was granted but not finished: ⋯ Try once more simply starts it again.
   const [retryPending, setRetryPending] = useState(false);
   const [categoryLists, setCategoryLists] = useState<StoreCategoryLists>({});
+  // The store's Try-On minimum: above 0, the phone asks for a photo of the bill first, then gets a grant.
+  const [tryOnMinimum, setTryOnMinimum] = useState(0);
+  const [tryOnGrant, setTryOnGrant] = useState('');
+  const [billPhoto, setBillPhoto] = useState('');
+  const [checkingBill, setCheckingBill] = useState(false);
   const [instagramUrl, setInstagramUrl] = useState('');
 
   // This phone's id, then the first-scan record and whether it already made its look.
@@ -90,6 +96,9 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
       .then((data) => {
         if (!data?.success) return;
         setRetryUsed(Boolean(data.access?.retryUsed));
+        const minimum = Number(data.workspace?.tryOnMinimum || 0);
+        setTryOnMinimum(minimum);
+        if (minimum > 0) setStage((current) => (current === 'who' ? 'bill' : current));
         // Made a look within the last hour: that look is the only screen.
         setRetryPending(Boolean(data.access?.retryPending));
         // A phone that already made a look never starts over from a re-scan.
@@ -122,14 +131,39 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
     setSource(next);
     setCategory(null);
     setProduct(null);
-    setStage('who');
+    setStage('type');
   }
 
   function chooseType(next: StoreCategory | null) {
     setCategory(next);
     setOwnType(next ? next.id : OTHER_TYPE);
     setProduct(null);
-    setStage(source === 'catalogue' ? 'pick' : 'photo');
+    setStage(source === 'catalogue' ? 'pick' : 'outfit');
+  }
+
+  /** The bill photo is read on the server: a total at or above the store's minimum unlocks Try-On. */
+  async function checkBill(file?: File | null) {
+    if (!file) return;
+    setNote('');
+    setCheckingBill(true);
+    try {
+      const { dataUrl } = await compressImage(file, 1600, 0.85);
+      setBillPhoto(dataUrl);
+      const response = await fetch('/api/ai/analyze-price-tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessCode, deviceId, image: dataUrl, kind: 'bill', confirmed: true }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.success) throw new Error(data?.error || t('billUnreadable'));
+      if (!data.grant?.token) throw new Error(data.analysis?.message || t('billUnreadable'));
+      setTryOnGrant(data.grant.token);
+      setStage('who');
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : t('billUnreadable'));
+    } finally {
+      setCheckingBill(false);
+    }
   }
 
   // Phone photos are often 4-8 MB; resizing keeps requests under the 4.5 MB serverless body limit.
@@ -155,6 +189,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
           sessionId: `mobile_image-tryon_${Date.now()}`,
           accessCode,
           deviceId,
+          tryOnGrant: tryOnGrant || undefined,
           service: 'try-on',
           templateId: audience === 'boys' ? 'boy' : audience === 'girls' ? 'girl' : audience,
           guardianProcessingConsent: guardianConsent,
@@ -198,7 +233,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
     setResultUrl('');
     setDownloaded(false);
     setNote('');
-    setStage('source');
+    setStage(tryOnMinimum > 0 && !tryOnGrant ? 'bill' : 'who');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -273,17 +308,16 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   }
 
   const back: Partial<Record<Stage, Stage>> = {
-    who: 'source',
-    type: 'who',
+    photo: 'who',
+    source: 'photo',
+    type: 'source',
     pick: 'type',
-    photo: source === 'catalogue' ? 'pick' : 'type',
-    outfit: 'photo',
+    outfit: 'type',
   };
   const backTo = back[stage];
   // The phone's back button always asks "Are you sure you want to exit?" (Continue keeps this step);
   // the on-screen Back link is how a customer steps back.
   const exitGuard = useExitGuard({ protect: Boolean(personPhoto || resultUrl) && stage !== 'done' });
-  const needsOutfitStep = source === 'own-garment';
   const photoReady = Boolean(personPhoto) && !(isChild && !guardianConsent);
 
   return (
@@ -330,6 +364,49 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
           </button>
         )}
 
+        {stage === 'bill' && (
+          <div className="space-y-4">
+            <PageTitle title={t('billTitle')} subtitle={`${t('billSubtitle')} ₹${tryOnMinimum.toLocaleString('en-IN')}.`} />
+            <PhotoBox image={billPhoto} aspect="aspect-[3/4]" placeholder={<Camera className="h-9 w-9" />} contain />
+            <CameraOrUpload cameraLabel={t('camera')} uploadLabel={t('upload')} onFile={(file) => void checkBill(file)} />
+            {(note || checkingBill) && <p role="alert" className={`rounded-2xl p-3 text-sm font-semibold ${checkingBill ? 'bg-white text-muted' : 'bg-danger-soft text-danger'}`}>{checkingBill ? t('billChecking') : note}</p>}
+          </div>
+        )}
+
+        {stage === 'who' && (
+          <div className="space-y-4">
+            <PageTitle title={t('whoFor')} />
+            <AudienceCards
+              value={audienceChosen ? audience : null}
+              onChange={(next) => { setAudience(next); setAudienceChosen(true); setGuardianConsent(false); setStage('photo'); }}
+              labels={{ women: t('women'), men: t('men'), boys: t('boys'), girls: t('girls') }}
+            />
+            <PhotoGuide lines={[t('guideLine1'), t('guideLine2')]} />
+          </div>
+        )}
+
+        {stage === 'photo' && (
+          <div className="space-y-4">
+            <PageTitle title={t('photoTitle')} subtitle={t('photoSubtitle')} />
+            <PhotoBox image={personPhoto} aspect="aspect-[9/16]" placeholder={<Camera className="h-9 w-9" />} />
+            <CameraOrUpload cameraLabel={t('camera')} uploadLabel={t('upload')} onFile={(file) => readPhoto(setPersonPhoto, file)} />
+            {isChild && (
+              <label className="flex items-start gap-3 rounded-2xl bg-warn-soft p-3 text-[13px] text-ink">
+                <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
+                {t('guardianAgree')}
+              </label>
+            )}
+            {language === 'ta'
+              ? <p className="text-[13px] leading-relaxed text-muted">{t('consentTryOn')} <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">{t('privacy')}</a></p>
+              : <PhotoConsentNotice kind="try-on" />}
+            <ActionBar note={note || (!personPhoto ? t('needPhoto') : isChild && !guardianConsent ? t('needGuardian') : undefined)}>
+              <button type="button" disabled={!photoReady} onClick={() => setStage('source')} className="tf-btn tf-btn-primary !min-h-14 text-base">
+                {t('continueBtn')} <ArrowRight className="h-5 w-5" />
+              </button>
+            </ActionBar>
+          </div>
+        )}
+
         {stage === 'source' && (
           <div className="space-y-4">
             <PageTitle title={t('whatToTry')} />
@@ -348,18 +425,6 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
                 <ArrowRight className="mr-4 h-5 w-5 shrink-0 transition group-hover:translate-x-1" />
               </button>
             ))}
-          </div>
-        )}
-
-        {stage === 'who' && (
-          <div className="space-y-4">
-            <PageTitle title={t('whoFor')} />
-            <AudienceCards
-              value={audienceChosen ? audience : null}
-              onChange={(next) => { setAudience(next); setAudienceChosen(true); setGuardianConsent(false); setStage('type'); }}
-              labels={{ women: t('women'), men: t('men'), boys: t('boys'), girls: t('girls') }}
-            />
-            <PhotoGuide lines={[t('guideLine1'), t('guideLine2')]} />
           </div>
         )}
 
@@ -402,38 +467,10 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
               })}
             </div>
             {categoryProducts.length === 0 && <p className="rounded-2xl bg-white p-6 text-center text-sm text-muted">{t('noStyles')}</p>}
-            <ActionBar>
-              <button type="button" disabled={!product} onClick={() => setStage('photo')} className="tf-btn tf-btn-primary !min-h-14 text-base">
-                {t('continueBtn')} <ArrowRight className="h-5 w-5" />
+            <ActionBar note={note || (generating ? t('creatingNote') : undefined)}>
+              <button type="button" disabled={!product || !photoReady || generating} onClick={() => void createLook()} className="tf-btn tf-btn-primary !min-h-14 text-base">
+                {generating ? <><LoaderCircle className="h-5 w-5 animate-spin" /> {t('creating')}</> : <><Sparkles className="h-5 w-5" /> {t('createMyLook')}</>}
               </button>
-            </ActionBar>
-          </div>
-        )}
-
-        {stage === 'photo' && (
-          <div className="space-y-4">
-            <PageTitle title={t('photoTitle')} subtitle={t('photoSubtitle')} />
-            <PhotoBox image={personPhoto} aspect="aspect-[9/16]" placeholder={<Camera className="h-9 w-9" />} />
-            <CameraOrUpload cameraLabel={t('camera')} uploadLabel={t('upload')} onFile={(file) => readPhoto(setPersonPhoto, file)} />
-            {isChild && (
-              <label className="flex items-start gap-3 rounded-2xl bg-warn-soft p-3 text-[13px] text-ink">
-                <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
-                {t('guardianAgree')}
-              </label>
-            )}
-            {language === 'ta'
-              ? <p className="text-[13px] leading-relaxed text-muted">{t('consentTryOn')} <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">{t('privacy')}</a></p>
-              : <PhotoConsentNotice kind="try-on" />}
-            <ActionBar note={note || (generating ? t('creatingNote') : !personPhoto ? t('needPhoto') : isChild && !guardianConsent ? t('needGuardian') : undefined)}>
-              {needsOutfitStep ? (
-                <button type="button" disabled={!photoReady} onClick={() => setStage('outfit')} className="tf-btn tf-btn-primary !min-h-14 text-base">
-                  {t('continueBtn')} <ArrowRight className="h-5 w-5" />
-                </button>
-              ) : (
-                <button type="button" disabled={!photoReady || generating} onClick={() => void createLook()} className="tf-btn tf-btn-primary !min-h-14 text-base">
-                  {generating ? <><LoaderCircle className="h-5 w-5 animate-spin" /> {t('creating')}</> : <><Sparkles className="h-5 w-5" /> {t('createMyLook')}</>}
-                </button>
-              )}
             </ActionBar>
           </div>
         )}

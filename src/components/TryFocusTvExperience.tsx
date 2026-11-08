@@ -519,8 +519,12 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     }
   }
 
-  /** After the photo: the store collection opens, or the camera opens again for the customer's own outfit. */
+  /**
+   * After the photo. TV: Store collection or My own outfit comes next (Who → photo → source → outfits).
+   * Tablet (the tab chose the source): the store collection opens, or the camera for the own outfit.
+   */
   function continueFromPhoto() {
+    if (!isTablet) { setTryOnStage('source'); return; }
     setTryOnStage('browse');
     if (imageSource === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
   }
@@ -952,9 +956,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   // One step back, in place of a progress bar. The tablet's tab already chose the source, so its photo
   // step goes back to Who.
-  const tryOnBack = tryOnStage === 'source' ? () => setTryOnStage('who')
-    : tryOnStage === 'photo' ? () => setTryOnStage(isTablet ? 'who' : 'source')
-    : tryOnStage === 'browse' ? () => setTryOnStage('photo')
+  const tryOnBack = tryOnStage === 'source' ? () => setTryOnStage('photo')
+    : tryOnStage === 'photo' ? () => setTryOnStage('who')
+    : tryOnStage === 'browse' ? () => setTryOnStage(isTablet ? 'photo' : 'source')
     : null;
   const videoBack = videoStage === 'photo' ? () => setVideoStage('who')
     : videoStage === 'pick' ? () => setVideoStage('photo')
@@ -1019,7 +1023,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 <AudienceCards
                   size="lg"
                   value={whoChosen ? genderFilter : null}
-                  onChange={(audience) => { setWhoChosen(true); selectGender(audience); if (isTablet) chooseTryOnSource(imageSource); else setTryOnStage('source'); }}
+                  onChange={(audience) => { setWhoChosen(true); selectGender(audience); if (isTablet) chooseTryOnSource(imageSource); else if (customerPhoto) setTryOnStage('source'); else { setTryOnStage('photo'); void openCameraFor('catalogue-person'); } }}
                   labels={AUDIENCE_LABELS}
                 />
                 <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
@@ -1029,7 +1033,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
             {tryOnStage === 'source' && (
               <div className="flex flex-col gap-6">
-                <PageTitle size="lg" title="What would you like to try?" subtitle="The camera opens next. You can switch later." />
+                <PageTitle size="lg" title="What would you like to try?" subtitle="A piece from our collection, or a garment you brought." />
                 <div className="tv-source-cards grid gap-5 md:grid-cols-2">
                   <button
                     type="button"
@@ -1142,7 +1146,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                         onClick={continueFromPhoto}
                         className="tf-btn tf-btn-primary !min-h-16 text-lg"
                       >
-                        {imageSource === 'own-garment' ? 'Photograph my outfit' : 'Pick outfits'} <ArrowRight className="h-5 w-5" />
+                        {!isTablet ? 'Continue' : imageSource === 'own-garment' ? 'Photograph my outfit' : 'Pick outfits'} <ArrowRight className="h-5 w-5" />
                       </button>
                     </div>
                   </div>
@@ -1443,13 +1447,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         {/* =========================================================
             MODE 3: AI VIDEO (store collection only): Who -> camera -> one piece -> portrait -> QR to the phone
            ========================================================= */}
+        {/* A minimum bill is set: the customer enters the last 4 digits of their bill first (0 = a free gift). */}
         {mode === 'catalogue-video' && !isTablet && tvBillSuffixRequired && !tvBillEntered && (
-          <section className="tf-card mx-auto max-w-2xl space-y-6 p-8 text-center">
-            <h2 className="text-4xl font-bold">Enter the last four digits of your bill</h2>
-            <p className="text-lg text-muted">Our staff will tell you which four digits to enter.</p>
-            <input value={tvBillLast4} onChange={(event) => setTvBillLast4(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="off" maxLength={4} aria-label="Last four digits of bill number" className="mx-auto block min-h-20 w-full max-w-sm rounded-2xl border border-ink bg-canvas text-center tabular-nums text-4xl" />
-            <button type="button" disabled={tvBillLast4.length !== 4} onClick={() => setTvBillEntered(true)} className="tf-btn tf-btn-primary !min-h-16 w-full max-w-sm text-lg">Continue to AI Video</button>
-          </section>
+          <BillDigitsGate value={tvBillLast4} onChange={setTvBillLast4} onContinue={() => setTvBillEntered(true)} action="Continue to AI Video" />
         )}
         {mode === 'catalogue-video' && !isTablet && (!tvBillSuffixRequired || tvBillEntered) && (
           <div className="space-y-6">
@@ -1540,7 +1540,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                               <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain" />
                               {picked && <span className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-6 w-6" /></span>}
                             </span>
-                            <span className="block p-3"><span className="line-clamp-2 block text-base font-semibold leading-snug text-ink">{item.title}</span></span>
+                            <span className="block p-3"><span className="line-clamp-2 block text-base font-semibold leading-snug text-ink">{item.title}</span>{item.price > 0 && <span className="mt-1 block text-lg font-bold tabular-nums text-ink">₹{item.price.toLocaleString('en-IN')}</span>}</span>
                           </button>
                         );
                       })}
@@ -1557,7 +1557,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
                     <div className="flex min-w-0 items-center gap-3">
                       <img src={selectedProduct.thumbnailUrl || selectedProduct.imageUrl} alt="" className="h-14 w-11 rounded-lg border-2 border-white bg-canvas object-cover" />
-                      <p className="truncate text-lg font-semibold">{selectedProduct.title}</p>
+                      <p className="truncate text-lg font-semibold">{selectedProduct.title}{selectedProduct.price > 0 && <span className="ml-2 tabular-nums">· ₹{selectedProduct.price.toLocaleString('en-IN')}</span>}</p>
                     </div>
                     <button
                       type="button"
@@ -1630,7 +1630,17 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           </div>
         )}
 
-        {mode === 'gift' && isTablet && <TabletVideoHandoff qrOnly autoShow />}
+        {mode === 'gift' && isTablet && tvBillSuffixRequired && !tvBillEntered && (
+          <BillDigitsGate value={tvBillLast4} onChange={setTvBillLast4} onContinue={() => setTvBillEntered(true)} action="Show my QR" />
+        )}
+        {mode === 'gift' && isTablet && (!tvBillSuffixRequired || tvBillEntered) && (
+          <TabletVideoHandoff
+            qrOnly
+            autoShow
+            billLast4={tvBillSuffixRequired ? tvBillLast4 : undefined}
+            onNewCustomer={tvBillSuffixRequired ? () => { setTvBillLast4(''); setTvBillEntered(false); } : undefined}
+          />
+        )}
       </div>
 
       {/* =========================================================
@@ -1746,6 +1756,18 @@ function BackButton({ onClick }: { onClick: () => void }) {
     <button type="button" onClick={onClick} className="-ml-2 inline-flex min-h-14 items-center gap-2 rounded-xl px-2 text-lg font-semibold text-muted hover:text-ink">
       <ArrowLeft className="h-6 w-6" /> Back
     </button>
+  );
+}
+
+/** AI Video gift above a minimum bill: the last four digits of the customer's bill (TV and tablet). */
+function BillDigitsGate({ value, onChange, onContinue, action }: { value: string; onChange: (value: string) => void; onContinue: () => void; action: string }) {
+  return (
+    <section className="tf-card mx-auto max-w-2xl space-y-6 p-8 text-center">
+      <h2 className="text-4xl font-bold">Enter the last four digits of your bill</h2>
+      <p className="text-lg text-muted">Our staff will tell you which four digits to enter.</p>
+      <input value={value} onChange={(event) => onChange(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="off" maxLength={4} aria-label="Last four digits of bill number" className="mx-auto block min-h-20 w-full max-w-sm rounded-2xl border border-ink bg-canvas text-center tabular-nums text-4xl" />
+      <button type="button" disabled={value.length !== 4} onClick={onContinue} className="tf-btn tf-btn-primary !min-h-16 w-full max-w-sm text-lg">{action}</button>
+    </section>
   );
 }
 

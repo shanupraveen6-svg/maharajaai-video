@@ -55,11 +55,13 @@ export async function POST(req: NextRequest) {
       if (existing?.status === 'processing') return NextResponse.json({ success: false, error: 'A Try-On is already being generated on this device.' }, { status: 409 });
     }
 
-    // The price is always read server-side from the scanned tag; a client-sent amount is never trusted.
+    // The phone's Wall QR sends a photo of the customer's bill (kind 'bill'); older pages send a price tag.
+    // The amount is always read server-side; a client-sent amount is never trusted.
+    const isBill = body.kind === 'bill';
     let barcode = typeof body.barcode === 'string' ? body.barcode.trim().slice(0, 512) : '';
     const printedText = typeof body.printedText === 'string' ? body.printedText.trim().slice(0, 4_000) : '';
-    const fromText = parseBarcodePrice(printedText);
-    const parsed = fromText.amount !== null ? fromText : parseBarcodePrice(barcode);
+    const fromText = isBill ? { amount: null as number | null, source: 'none' } : parseBarcodePrice(printedText);
+    const parsed = fromText.amount !== null || isBill ? fromText : parseBarcodePrice(barcode);
 
     // Fast Gemini Vision analysis when a photo/frame is supplied
     if (parsed.amount === null && typeof body.image === 'string' && body.image.length > 50) {
@@ -75,7 +77,15 @@ export async function POST(req: NextRequest) {
               model,
               contents: [
                 { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-                `Read this captured garment retail price-tag photo.
+                isBill
+                  ? `This is a photo of a shop bill or invoice from a clothing store.
+Find the final amount the customer paid: the line called "Grand Total", "Net Amount", "Total", "Amount Paid" or "Bill Amount" (after discounts and tax).
+Do not use item prices, quantities, GST numbers, phone numbers, dates or the bill number as the amount.
+The amount may include commas or decimals, for example "Rs. 12,499.00" means 12499.
+Also return the bill or invoice number and date exactly as printed, joined with a space, as "billId".
+If this is not a bill, return null for both.
+Return JSON only: {"amount": number | null, "billId": string | null}`
+                  : `Read this captured garment retail price-tag photo.
 Find the amount explicitly connected to "Maximum Retail Price", "MRP", "M.R.P.", "Rs.", "INR", or the ₹ symbol.
 Do not use barcode digits, article codes, dates, sizes, quantities, phone numbers, or addresses as the price.
 The amount may include commas or decimals, for example "Rs. 599.00" means 599.
@@ -91,8 +101,10 @@ Return JSON only: {"amount": number | null, "barcode": string | null}`
                 parsed.amount = Math.round(data.amount);
                 parsed.source = 'gemini-vision';
               }
-              if (typeof data.barcode === 'string' && data.barcode.trim() && !barcode) {
-                barcode = data.barcode.trim();
+              // A bill is identified by its number and date, so one bill unlocks one phone.
+              const reference = isBill ? data.billId : data.barcode;
+              if (typeof reference === 'string' && reference.trim() && !barcode) {
+                barcode = `${isBill ? 'bill:' : ''}${reference.trim()}`;
               }
             }
             if (parsed.amount !== null) {
@@ -106,13 +118,17 @@ Return JSON only: {"amount": number | null, "barcode": string | null}`
     }
 
     if (parsed.amount === null) {
-      return reject('Price not read. Hold the full printed MRP steady in good light and capture it again.');
+      return reject(isBill
+        ? 'The bill total could not be read. Take the photo again with the whole bill flat and in good light.'
+        : 'Price not read. Hold the full printed MRP steady in good light and capture it again.');
     }
     const amount = parsed.amount;
 
     const minimum = tryOnMinimumFor(access.workspace);
     if (amount < minimum) {
-      return reject(`₹${amount} — AI Try-On is for garments ₹${minimum} and above.`, amount);
+      return reject(isBill
+        ? `Bill of ₹${amount}: Try-On is for purchases of ₹${minimum} and above.`
+        : `₹${amount} — AI Try-On is for garments ₹${minimum} and above.`, amount);
     }
 
     if (body.confirmed !== true) {
@@ -131,7 +147,7 @@ Return JSON only: {"amount": number | null, "barcode": string | null}`
           amount,
           barcodeHash: crypto.createHash('sha256').update(barcode).digest('hex').slice(0, 16),
         });
-        return reject('This tag was already used for a Try-On on another phone. Please scan a different garment.', amount);
+        return reject(isBill ? 'This bill was already used for a Try-On on another phone.' : 'This tag was already used for a Try-On on another phone. Please scan a different garment.', amount);
       }
     }
 
@@ -139,7 +155,7 @@ Return JSON only: {"amount": number | null, "barcode": string | null}`
     if (!grant.allowed) return NextResponse.json({ success: false, error: grant.error }, { status: 409 });
     if (barcode) await markTagUsedForTryOn(barcode);
 
-    await logMaharajaActivity('price-scan', `Eligible garment tag scanned at Rs ${amount}`, {
+    await logMaharajaActivity('price-scan', isBill ? `Bill of ₹${amount} verified for Try-On` : `Eligible garment tag scanned at Rs ${amount}`, {
       amount,
       barcodeHash: crypto.createHash('sha256').update(barcode || printedText).digest('hex').slice(0, 16),
       priceSource: parsed.source,

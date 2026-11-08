@@ -23,8 +23,12 @@ const PAGE_SIZE = 100;
  * it. AI Video uses the store collection: the biller may tap the piece the customer bought, so the
  * customer's phone opens with it chosen; otherwise the customer picks from the collection.
  */
-export default function TabletVideoHandoff({ billingCode, qrOnly = false, autoShow = false }: {
+export default function TabletVideoHandoff({ billingCode, qrOnly = false, autoShow = false, billLast4, onNewCustomer }: {
   billingCode?: string;
+  /** The last four digits of the customer's bill, when the store gives the gift above a minimum bill. */
+  billLast4?: string;
+  /** The tablet asks the next customer for their bill digits again, instead of issuing a QR at once. */
+  onNewCustomer?: () => void;
   /** Shows the first QR without a tap (the tablet). Each QR counts as one given, so the workspace waits for a tap. */
   autoShow?: boolean;
   /** Only the QR and New customer: the customer picks the piece on their phone. */
@@ -118,6 +122,7 @@ export default function TabletVideoHandoff({ billingCode, qrOnly = false, autoSh
           phone: whatsappPhone,
           experienceType: 'catalogue-gift',
           ...(purchased ? { catalogueSku: purchased.sku } : {}),
+          ...(billLast4 ? { billLast4 } : {}),
           whatsappOptIn: Boolean(whatsappPhone),
         }),
       });
@@ -221,7 +226,7 @@ export default function TabletVideoHandoff({ billingCode, qrOnly = false, autoSh
         <button
           type="button"
           disabled={busy || !config}
-          onClick={() => void issuePass()}
+          onClick={() => (passQr && onNewCustomer ? onNewCustomer() : void issuePass())}
           className="tf-btn tf-btn-primary mt-5 !min-h-14 w-full max-w-sm text-base"
         >
           {busy ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
