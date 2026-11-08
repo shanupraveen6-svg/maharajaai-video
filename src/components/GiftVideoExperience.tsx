@@ -324,6 +324,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
         allowGoLive={allowGoLive}
         catalogueProduct={piece}
         storeName={clientName}
+        onBack={() => { setVideoUrl(''); setVideoJobId(''); setStage('portrait'); }}
       />
     );
   }

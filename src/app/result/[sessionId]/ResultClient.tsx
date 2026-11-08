@@ -17,7 +17,6 @@ export default function ResultClient({
   initialEventId = 'diwali',
   allowGoLive: initialAllowGoLive = true,
   catalogueProduct: initialCatalogueProduct = null,
-  embedded = false,
   storeName: storeNameProp = '',
 }: {
   sessionId: string;
@@ -29,6 +28,7 @@ export default function ResultClient({
   initialEventId?: EventId;
   allowGoLive?: boolean;
   catalogueProduct?: { sku: string; title?: string; price?: number } | null;
+  /** Kept for older callers; the screen always carries the store's own header now. */
   embedded?: boolean;
   /** The store's own name, shown instead of the Maharaja branding for every other store. */
   storeName?: string;
@@ -371,294 +371,176 @@ export default function ResultClient({
 
   // Nothing saves on its own: the customer taps Download (after giving a WhatsApp number).
 
+  const storeInitial = store.charAt(0) || 'S';
+  const isChild = category === 'girl' || category === 'boy';
+  const rupees = (value: number) => `₹${new Intl.NumberFormat('en-IN').format(value)}`;
+  // The store's header: initial and name, with the video retry in ⋯ once the video is ready.
+  const header = (
+    <header className="sticky top-0 z-20 border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur-md">
+      <div className="mx-auto flex max-w-xl items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-base font-bold text-white">{storeInitial}</span>
+        <p className="min-w-0 flex-1 truncate font-bold">{shownName || 'AI Video'}</p>
+        {videoStatus === 'ready' && videoUrl && !liveSuccess && (
+          <div className="relative shrink-0">
+            <button type="button" aria-label="More options" aria-expanded={showRetryMenu} onClick={() => setShowRetryMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-line/60"><MoreVertical className="h-5 w-5" /></button>
+            {showRetryMenu && (
+              <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
+                <button type="button" disabled={retrySubmitting} onClick={() => { setShowRetryMenu(false); void handleVideoRetry(); }} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold disabled:opacity-50"><RotateCcw className="h-4 w-4" /> Retry video</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </header>
+  );
+
+  // After Go Live: where the video is in the store's queue, with Download and Share.
   if (liveFarewell) {
     return (
-      <main className="min-h-screen bg-[#070609] text-[#F8F5EE]">
-        {!embedded && <header className="border-b border-[#D4AF37]/30 bg-[#21090E] px-5 py-5 text-[#F3E5AB]"><div className="mx-auto max-w-5xl"><p className="text-xs font-bold text-[#D4AF37]">Majestic Maharaja · powered by TryFocus</p><h1 className="mt-1 tracking-tight text-2xl font-bold">Maharaja AI Experience</h1></div></header>}
-        <div className="flex justify-center px-5 py-10 text-center">
-        <section className="w-full max-w-lg">
-          {!shownName && <img src="/maharaja-logo.png" alt="Majestic Maharaja" className="mx-auto h-24 w-24 border border-[#D4AF37]/45 object-cover shadow-xl" />}
-          <Sparkles className="mx-auto mt-7 h-9 w-9 text-[#D4AF37]" />
-          <h1 className="mt-4 tracking-tight text-3xl font-bold text-[#F3E5AB]">Thank you for your purchase</h1>
-          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#F3E5AB]/80">
-            Your {eventLabel} AI film has been sent to the {store} showroom screen.
-          </p>
-
-          <div className="mt-7 border-y border-[#D4AF37]/30 py-5">
-            <p className="text-xs font-bold text-[#D4AF37]">{store} TV status</p>
-            <p className="mt-2 text-base font-bold text-[#F3E5AB]">
+      <main className="min-h-screen bg-canvas pb-10 text-ink">
+        {header}
+        <div className="mx-auto max-w-xl space-y-4 px-4 py-6 text-center">
+          <Sparkles className="mx-auto h-9 w-9 text-brand" />
+          <h1 className="text-2xl font-bold">Thank you for your purchase</h1>
+          <p className="mx-auto max-w-sm text-[15px] text-muted">Your {eventLabel} video is on its way to the {store} showroom screen.</p>
+          <div className="rounded-2xl border border-line bg-white p-4">
+            <p className="text-sm font-semibold text-muted">On the showroom screen</p>
+            <p className="mt-1 text-lg font-bold">
               {liveQueueStatus === 'playing'
-                ? liveTimesPlayed >= 1 ? 'Second playback on showroom TV' : 'Playing on showroom TV'
+                ? liveTimesPlayed >= 1 ? 'Playing again now' : 'Playing now'
                 : liveQueueStatus === 'reserved'
-                ? 'Preparing on showroom TV'
+                ? 'Getting ready to play'
                 : liveQueueStatus === 'completed'
-                ? 'Completed and added to the TV loop'
+                ? 'Played, and in the screen’s loop for today'
                 : liveQueueStatus === 'playback_failed'
-                ? `${store} staff are checking TV playback`
+                ? 'Our staff are checking the screen'
                 : typeof peopleAhead === 'number' && peopleAhead > 0
-                ? `Queue #${queueNumber || '--'} - ${peopleAhead} people ahead`
-                : `Added to the showroom queue${queueNumber ? ` - #${queueNumber}` : ''}`}
+                ? `Number ${queueNumber || '--'} · ${peopleAhead} ahead of you`
+                : `In the queue${queueNumber ? ` · number ${queueNumber}` : ''}`}
             </p>
           </div>
-
-          <div className="mt-7 space-y-3">
-            <button
-              type="button"
-              onClick={() => void handleDownloadBundle(false)}
-              disabled={Boolean(downloading) || !masterImageUrl || !videoUrl}
-              className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#D4AF37] px-3 text-xs font-bold text-black disabled:opacity-45"
-            >
-              <Download className="h-4 w-4" /> {downloading ? 'Preparing downloads' : 'Download image & video'}
+          <div className="space-y-3 pt-2">
+            <button type="button" onClick={() => void handleDownloadBundle(false)} disabled={Boolean(downloading) || !masterImageUrl || !videoUrl} className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
+              <Download className="h-5 w-5" /> {downloading ? 'Preparing…' : 'Download image and video'}
             </button>
-            <button type="button" onClick={() => void handleWhatsAppShare()} className="flex w-full items-center justify-center gap-2 border border-[#25D366] bg-transparent px-5 py-3 text-sm font-bold text-[#7BE495]">
+            <button type="button" onClick={() => void handleWhatsAppShare()} className="tf-btn tf-btn-secondary !min-h-14 w-full text-base">
               <MessageCircle className="h-5 w-5" /> Share on WhatsApp
             </button>
-            {instagramUrl && <a href={instagramUrl} target="_blank" rel="noreferrer" className="rounded-xl flex w-full items-center justify-center gap-2 bg-[#D4AF37] px-5 py-3 text-sm font-bold text-black">
-              <ExternalLink className="h-5 w-5" /> Follow {storeName || 'us'} on Instagram
-            </a>}
+            {instagramUrl && <a href={instagramUrl} target="_blank" rel="noreferrer" className="tf-btn tf-btn-secondary !min-h-14 w-full text-base"><ExternalLink className="h-5 w-5" /> Follow {store} on Instagram</a>}
           </div>
-
-          <p className="mt-7 text-xs font-semibold text-[#F3E5AB]/55">Thank you for visiting {store}.</p>
-        </section>
         </div>
+        {leadGate.dialog}
       </main>
     );
   }
 
-
   if (!sessionId) {
     return (
-      <main className="min-h-screen bg-[#070609] text-[#F8F5EE] p-6 flex flex-col items-center justify-center text-center font-sans max-w-lg mx-auto">
-        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-        <h1 className="text-xl tracking-tight font-bold text-[#F3E5AB] mb-2">Invalid Session</h1>
-        <p className="text-sm text-gray-400 mb-6">No valid session ID was provided in the URL.</p>
-        <Link href={accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace'} className="px-6 py-3 bg-brand border border-[#D4AF37] text-[#F3E5AB] rounded-lg text-sm font-semibold">
-          Create New Video
-        </Link>
+      <main className="flex min-h-screen flex-col items-center justify-center bg-canvas p-6 text-center text-ink">
+        <AlertCircle className="mb-4 h-10 w-10 text-danger" />
+        <p className="text-lg font-bold">This video link is not valid.</p>
+        <p className="mt-2 text-sm text-muted">Please ask the store for a new QR.</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#070609] text-[#F8F5EE] p-4 md:p-8 font-sans max-w-lg mx-auto relative">
-      {!embedded && <div className="mb-5 border-b border-[#D4AF37]/30 pb-4"><p className="text-xs font-bold text-[#D4AF37]">Majestic Maharaja · powered by TryFocus</p><p className="mt-1 tracking-tight text-2xl font-bold text-[#F3E5AB]">Maharaja AI Experience</p></div>}
-      
-      {/* Header */}
-      {onBack && (
-        <button
-          type="button"
-          onClick={onBack}
-          className="mb-3 inline-flex items-center gap-1.5 text-xs font-bold text-[#D4AF37] hover:underline"
-        >
-          ← Back to Outfits & Try-On
-        </button>
-      )}
-      <header className="relative flex justify-between items-center border-b border-[#D4AF37]/20 pb-4 mb-6">
-        <div className="flex items-center gap-2">
-          {!shownName && <img src="/maharaja-logo.png" alt="" className="h-7 w-7 object-cover" />}
-          <h1 className="text-base tracking-tight font-bold text-[#F3E5AB]">
-            {store} {eventLabel} film
-          </h1>
-        </div>
-        {videoStatus === 'ready' && videoUrl && !liveSuccess && <div className="relative shrink-0">
-          <button type="button" aria-label="Video options" title="Video options" onClick={() => setShowRetryMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center border border-[#D4AF37]/45 text-[#D4AF37]"><MoreVertical className="h-5 w-5" /></button>
-          {showRetryMenu && <div className="absolute right-0 top-11 z-40 w-40 border border-[#D4AF37]/50 bg-[#21090E] p-1 shadow-xl"><button type="button" disabled={retrySubmitting} onClick={() => { setShowRetryMenu(false); void handleVideoRetry(); }} className="flex min-h-10 w-full items-center gap-2 px-2 text-left text-xs font-bold disabled:opacity-50"><RotateCcw className="h-4 w-4" /> Retry video</button></div>}
-        </div>}
-      </header>
-
-      {/* Rendering / Loading State */}
-      {videoStatus === 'failed' ? (
-        <div className="py-20 text-center space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-lg bg-red-950/60 border border-red-500 flex items-center justify-center text-red-300">
-            <AlertCircle className="w-10 h-10" />
-          </div>
-          <h2 className="text-xl tracking-tight font-bold text-red-200">
-            VIDEO GENERATION FAILED
-          </h2>
-          <p className="text-xs text-gray-300 max-w-xs mx-auto">
-            {videoError || 'The AI video could not be completed. Your video slot has been automatically restored.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              if (onBack) onBack();
-              else router.push(accessCode ? `/maharaja/video/${encodeURIComponent(accessCode)}` : '/maharaja/workspace');
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-6 py-3 text-xs font-bold text-black shadow-lg hover:brightness-105"
-          >
-            <RotateCcw className="w-4 h-4" /> Generate Video Again
-          </button>
-        </div>
-      ) : isLoadingVideo || videoStatus === 'processing' || !videoUrl ? (
-        <div className="py-20 text-center space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-lg bg-brand/40 border border-[#D4AF37] flex items-center justify-center text-[#D4AF37] animate-pulse">
-            <Sparkles className="w-10 h-10 animate-spin" />
-          </div>
-          <h2 className="text-xl tracking-tight font-bold text-[#F3E5AB]">
-            RENDERING 6-SECOND {eventLabel.toUpperCase()} FILM...
-          </h2>
-          <p className="text-xs text-gray-300 max-w-xs mx-auto animate-pulse">
-            Your {store} film is being prepared. Keep this page open.
-          </p>
-        </div>
-      ) : (
-        /* Main Result Card when Ready */
-        <div className="space-y-6 text-center">
-          {catalogueProduct && (
-            <div className="border border-[#D4AF37]/35 bg-[#21090E] p-4">
-              <p className="text-xs font-bold text-[#D4AF37]">AI Video Gift Link</p>
-              <p className="mt-1 tracking-tight text-lg font-bold text-[#F3E5AB]">{catalogueProduct.title}</p>
-              <p className="mt-1 font-bold text-[#D4AF37]">Rs {new Intl.NumberFormat('en-IN').format(catalogueProduct.price || 0)}</p>
-            </div>
-          )}
-          <div className="inline-flex items-center gap-2 border-l-2 border-[#D4AF37] bg-brand/40 px-4 py-1.5 text-xs font-semibold text-[#F3E5AB]">
-            <Sparkles className="w-4 h-4 text-[#D4AF37]" /> YOUR {eventLabel.toUpperCase()} FILM IS READY
-          </div>
-
-        {/* 9:16 Video Preview Frame */}
-        <div className="relative aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.25)] bg-black">
-          {/* Top-Right Client Logo */}
-          <div className="pointer-events-none absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-[#D4AF37]/50 bg-black/60 px-2 py-1 backdrop-blur-sm shadow-md">
-            {!shownName && <img src="/maharaja-logo.png" alt="" className="h-4 w-4 rounded-full object-contain" />}
-            <span className="text-xs font-bold text-[#F3E5AB]">{store}</span>
-          </div>
-
-          <video
-            src={videoUrl}
-            controls
-            playsInline
-            preload="auto"
-            className="w-full h-full object-cover"
-          />
-        </div>
-
-        {/* Primary Action Buttons */}
-        <div className="space-y-3 pt-2">
-          <button
-            type="button"
-            onClick={() => void handleDownloadBundle()}
-            disabled={Boolean(downloading) || !masterImageUrl || !videoUrl}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-3 text-xs font-bold text-black disabled:opacity-45"
-          >
-            <Download className="h-4 w-4" /> {downloading ? 'Preparing downloads' : 'Download image & video'}
-          </button>
-
-          {allowGoLive && <>
-          <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-xs leading-5 text-[#F3E5AB]/80">
-            <input
-              type="checkbox"
-              checked={liveConsent}
-              onChange={(event) => setLiveConsent(event.target.checked)}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-[#D4AF37]"
-            />
-            <span>I agree that this video may play on the {store} showroom TV and remain in its approved loop for up to one day.</span>
-          </label>
-
-          <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-xs leading-5 text-[#F3E5AB]/80">
-            <input type="checkbox" checked={promotionConsent} onChange={(event) => setPromotionConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#D4AF37]" />
-            <span>Optional: I permit Maharaja to select and share this finished video on its official social media pages. Leaving this unchecked allows showroom TV playback only.</span>
-          </label>
-
-          <div className="space-y-3 rounded-lg border border-[#D4AF37]/25 bg-black/35 p-4 text-left text-xs leading-5 text-[#F3E5AB]/80">
-            <p className="font-semibold text-[#D4AF37]">Showroom display details</p>
-            <label className="block space-y-1">
-              <span>Name</span>
-              <input
-                value={customerName}
-                onChange={(event) => setCustomerName(event.target.value.slice(0, 48))}
-                placeholder="Your name"
-                autoComplete="name"
-                className="min-h-11 w-full rounded-md border border-[#D4AF37]/35 bg-black/40 px-3 text-sm text-white outline-none placeholder:text-[#F3E5AB]/45 focus:border-[#D4AF37]"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span>City</span>
-              <input
-                value={customerLocality}
-                onChange={(event) => setCustomerLocality(event.target.value.slice(0, 48))}
-                placeholder="Thanjavur"
-                autoComplete="address-level2"
-                className="min-h-11 w-full rounded-md border border-[#D4AF37]/35 bg-black/40 px-3 text-sm text-white outline-none placeholder:text-[#F3E5AB]/45 focus:border-[#D4AF37]"
-              />
-            </label>
-          </div>
-
-          {(category === 'girl' || category === 'boy') && (
-            <label className="flex items-start gap-3 rounded-lg border border-[#D4AF37]/30 bg-black/45 p-3 text-left text-xs leading-5 text-[#F3E5AB]/80">
-              <input
-                type="checkbox"
-                checked={guardianLiveConsent}
-                onChange={(event) => setGuardianLiveConsent(event.target.checked)}
-                className="mt-0.5 h-5 w-5 shrink-0 accent-[#D4AF37]"
-              />
-              <span>I confirm that I am the parent or legal guardian and permit this child&apos;s video to appear on the showroom TV and approved loop.</span>
-            </label>
-          )}
-
-          <button
-            type="button"
-            onClick={() => void handleGoLive()}
-            disabled={!liveConsent || ((category === 'girl' || category === 'boy') && !guardianLiveConsent) || goLiveSubmitting || liveSuccess}
-            className="flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-brand px-6 text-sm font-bold text-[#F3E5AB] disabled:opacity-45"
-          >
-            <Tv className="h-5 w-5" /> {goLiveSubmitting ? 'Adding to TV queue' : liveSuccess ? 'Added to TV queue' : 'Go Live on Maharaja TV'}
-          </button>
-          </>}
-
-          <p className="px-2 text-xs leading-5 text-[#F3E5AB]/65">
-            AI Video media is retained temporarily for delivery, expires after one day, and is cleared by scheduled cleanup unless an adult separately permits promotional use. Anonymous usage totals may be retained.{' '}
-            <Link href="/privacy" className="rounded-xl font-semibold text-[#D4AF37] underline underline-offset-2">Privacy &amp; Data Use</Link>
-          </p>
-
-        </div>
-
-        {liveError && (
-          <div className="flex items-start gap-3 rounded-lg border border-red-500/50 bg-red-950/60 p-4 text-left text-xs text-red-300">
-            <AlertCircle className="w-5 h-5 shrink-0 text-red-400 mt-0.5" />
-            <div>{liveError}</div>
-          </div>
-        )}
-      </div>
-      )}
-
-      {showThankYou && thankYouMode !== 'live' && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full rounded-lg border border-[#D4AF37]/55 bg-[#120203] p-6 text-center shadow-2xl space-y-5">
-            <p className="text-xs font-bold text-[#D4AF37]">Majestic Maharaja · powered by TryFocus</p>
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg border border-[#D4AF37]/60 bg-brand/80 text-[#F3E5AB]">
-              <Sparkles className="h-7 w-7 text-[#D4AF37]" />
-            </div>
-            <div>
-              <h2 className="tracking-tight text-2xl font-bold text-[#F3E5AB]">
-                Thank you for your purchase
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-[#F3E5AB]/80">
-                Your image and video downloads have started. Thank you for experiencing the {storeName || 'store'} AI fashion film.
-              </p>
-            </div>
-
+    <main className="min-h-screen bg-canvas pb-10 text-ink">
+      {header}
+      <div className="mx-auto max-w-xl space-y-4 px-4 py-5">
+        {videoStatus === 'failed' ? (
+          <div className="space-y-4 rounded-2xl bg-white p-8 text-center">
+            <AlertCircle className="mx-auto h-10 w-10 text-danger" />
+            <h2 className="text-xl font-bold">The video could not be made</h2>
+            <p className="text-sm text-muted">{videoError || 'Nothing was used. Please make it again.'}</p>
             <button
               type="button"
-              onClick={() => void handleWhatsAppShare()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-5 py-3 text-sm font-bold text-black"
+              onClick={() => { if (onBack) onBack(); else router.push(accessCode ? `/maharaja/catalogue/${encodeURIComponent(accessCode)}` : '/'); }}
+              className="tf-btn tf-btn-primary !min-h-14 w-full text-base"
             >
-              <MessageCircle className="h-5 w-5" /> Share on WhatsApp
+              <RotateCcw className="h-5 w-5" /> Make my video again
             </button>
-            {instagramUrl && <a
-              href={instagramUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-5 py-3 text-sm font-bold text-black"
-            >
-              <ExternalLink className="h-5 w-5" /> Follow {storeName || 'us'} on Instagram
-            </a>}
+          </div>
+        ) : isLoadingVideo || videoStatus === 'processing' || !videoUrl ? (
+          <div className="flex flex-col items-center gap-4 rounded-2xl bg-white p-10 text-center">
+            <Sparkles className="h-10 w-10 animate-pulse text-brand" />
+            <p className="text-base font-semibold">Getting your {eventLabel} video ready… keep this page open.</p>
+          </div>
+        ) : (
+          <>
+            <div>
+              <h1 className="text-2xl font-bold">Your video</h1>
+              <p className="mt-1 text-[15px] text-muted">Your {eventLabel} film from {store}.</p>
+            </div>
+            {catalogueProduct && (
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-white p-3 text-sm">
+                <span className="min-w-0 truncate font-semibold">{catalogueProduct.title}</span>
+                {Number(catalogueProduct.price || 0) > 0 && <span className="shrink-0 font-bold tabular-nums">{rupees(Number(catalogueProduct.price))}</span>}
+              </div>
+            )}
+            <div className="mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl bg-black">
+              <video src={videoUrl} controls playsInline preload="auto" className="h-full w-full object-cover" />
+            </div>
 
-            <button
-              onClick={() => setShowThankYou(false)}
-              className="w-full rounded-lg border border-[#D4AF37]/35 bg-black/50 px-5 py-3 text-xs font-bold text-[#F3E5AB]"
-            >
-              Close and stay on preview
+            <button type="button" onClick={() => void handleDownloadBundle()} disabled={Boolean(downloading) || !masterImageUrl || !videoUrl} className={`tf-btn ${allowGoLive ? 'tf-btn-secondary' : 'tf-btn-primary'} !min-h-14 w-full text-base`}>
+              <Download className="h-5 w-5" /> {downloading ? 'Preparing…' : 'Download image and video'}
             </button>
+
+            {allowGoLive && (
+              <section className="space-y-3 rounded-2xl border border-line bg-white p-4">
+                <div>
+                  <h2 className="text-lg font-bold">Go Live on the store’s screen</h2>
+                  <p className="mt-0.5 text-sm text-muted">Your video plays on the {store} showroom screen.</p>
+                </div>
+                <label className="block text-sm">
+                  <span className="font-semibold">Name</span>
+                  <input value={customerName} onChange={(event) => setCustomerName(event.target.value.slice(0, 48))} placeholder="Your name" autoComplete="name" className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-white px-3 text-base outline-none focus:border-ink" />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-semibold">City</span>
+                  <input value={customerLocality} onChange={(event) => setCustomerLocality(event.target.value.slice(0, 48))} placeholder="Your city" autoComplete="address-level2" className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-white px-3 text-base outline-none focus:border-ink" />
+                </label>
+                <label className="flex items-start gap-3 text-[13px] text-ink">
+                  <input type="checkbox" checked={liveConsent} onChange={(event) => setLiveConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
+                  <span>I agree that this video may play on the {store} showroom screen and stay in its loop for up to one day.</span>
+                </label>
+                <label className="flex items-start gap-3 text-[13px] text-ink">
+                  <input type="checkbox" checked={promotionConsent} onChange={(event) => setPromotionConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
+                  <span>Optional: {store} may share this video on its official social media pages. Unticked, it plays on the showroom screen only.</span>
+                </label>
+                {isChild && (
+                  <label className="flex items-start gap-3 rounded-xl bg-warn-soft p-3 text-[13px] text-ink">
+                    <input type="checkbox" checked={guardianLiveConsent} onChange={(event) => setGuardianLiveConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
+                    <span>I am the parent or guardian and allow this child&apos;s video on the showroom screen.</span>
+                  </label>
+                )}
+                <button type="button" onClick={() => void handleGoLive()} disabled={!liveConsent || (isChild && !guardianLiveConsent) || goLiveSubmitting || liveSuccess} className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
+                  <Tv className="h-5 w-5" /> {goLiveSubmitting ? 'Sending…' : liveSuccess ? 'Sent to the screen' : 'Go Live'}
+                </button>
+              </section>
+            )}
+
+            {liveError && (
+              <p role="alert" className="flex items-start gap-2 rounded-2xl bg-danger-soft p-3 text-sm font-semibold text-danger"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {liveError}</p>
+            )}
+
+            <p className="text-center text-xs leading-5 text-muted">
+              Your video is kept for 1 hour, or 1 day if it goes live, then deleted.{' '}
+              <Link href="/privacy" className="font-semibold text-ink underline underline-offset-2">Privacy</Link>
+            </p>
+          </>
+        )}
+      </div>
+
+      {showThankYou && thankYouMode !== 'live' && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
+          <div className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 text-center shadow-2xl">
+            <Sparkles className="mx-auto h-8 w-8 text-brand" />
+            <h2 className="text-xl font-bold">Saved to your phone</h2>
+            <p className="text-sm text-muted">Thank you for visiting {store}.</p>
+            <button type="button" onClick={() => void handleWhatsAppShare()} className="tf-btn tf-btn-primary !min-h-14 w-full text-base"><MessageCircle className="h-5 w-5" /> Share on WhatsApp</button>
+            {instagramUrl && <a href={instagramUrl} target="_blank" rel="noreferrer" className="tf-btn tf-btn-secondary !min-h-14 w-full text-base"><ExternalLink className="h-5 w-5" /> Follow {store} on Instagram</a>}
+            <button type="button" onClick={() => setShowThankYou(false)} className="min-h-11 w-full text-sm font-semibold text-muted">Close</button>
           </div>
         </div>
       )}
