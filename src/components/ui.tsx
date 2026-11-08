@@ -8,16 +8,18 @@ import type { ReactNode } from 'react';
  * a phone or the admin.
  */
 
-export function NavTabs<T extends string>({ options, value, onChange, label, size = 'md' }: {
+export function NavTabs<T extends string>({ options, value, onChange, label, size = 'md', wrap = false }: {
   options: Array<{ value: T; label: ReactNode }>;
   /** null until the person picks one: nothing is pre-selected for them. */
   value: T | null;
   onChange: (value: T) => void;
   label: string;
   size?: 'md' | 'lg';
+  /** Admin and workspace screens wrap the tabs onto a second line instead of scrolling sideways. */
+  wrap?: boolean;
 }) {
   return (
-    <nav aria-label={label} className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+    <nav aria-label={label} className={`flex gap-1 ${wrap ? 'flex-wrap' : 'overflow-x-auto [scrollbar-width:none]'}`}>
       {options.map((option) => (
         <button
           key={option.value}

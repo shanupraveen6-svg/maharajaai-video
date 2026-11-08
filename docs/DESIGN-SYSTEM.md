@@ -81,18 +81,16 @@ with done / to do, the month's counts against last month, latest activity) and "
 workspace sits last. Without a client picked, admin is a status board: four totals, Needs action, and
 one card per client.
 
-Store workspace, Overview in this order, showing only this store's own things:
-1. Your plan (read only): what TryFocus allotted. Booked platforms and included features as ticked chips
-   (one line lists what is not in the plan), credits as a table (left, used, status), and the TryFocus
-   number to add credits or a platform.
-2. Working now: one row per thing customers use (Try-On, AI Video, Live Mirror, Go Live player, how
-   customers get their looks), where it runs and a status word: Working · Working, credits low · Credits
-   finished · Switch on garments · Paused · Off.
-3. Set up: what the store does itself, each with a done / to do mark and the button that opens it
-   (garments, categories, AI Video and Live Mirror garments, Wall QR, logo, Instagram, Go Live promos).
-4. Your screens: the links to open once on each device (TV, tablet, Go Live player).
-5. This month: what customers did, against last month.
-6. Store settings: festival theme (only the ones available), logo, Instagram.
+Store workspace, Overview in this order, compact, showing only this store's own things:
+0. A warning strip only when credits are low or finished, or the store is paused.
+1. Your plan (read only): one row per feature the store has (Try-On, AI Video, Live Mirror, Go Live player)
+   with its status word (Working · Working, credits low · Credits finished · Switch on garments · Paused ·
+   Off), credits left and the credit status; the booked platforms beside the heading; how customers get
+   their looks and the TryFocus number in one line.
+2. Open your screens: one row of buttons (TV, tablet, Go Live player) and the Wall QR download.
+3. To do: only the unfinished set-up items, each with the button that opens it; hidden when all done.
+4. This month: one line of counts with last month in brackets.
+Festival theme, logo and Instagram are on the Settings tab. Workspace tabs wrap on a phone.
 The Wall QR poster carries the store's own name.
 
 Status is words, never a bar: Good · Running low · Almost finished · Finished (credits), Live for

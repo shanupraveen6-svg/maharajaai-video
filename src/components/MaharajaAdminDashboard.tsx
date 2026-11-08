@@ -13,7 +13,6 @@ import type { CustomerCategory } from '@/lib/maharaja/config';
 import { LIVE_CATEGORIES, isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
-  Check,
   Download,
   ExternalLink,
   LoaderCircle,
@@ -165,7 +164,7 @@ export default function MaharajaAdminDashboard({
   const activeWorkspaceCode = workspaceCode || expectedWorkspaceCode || 'workspace';
   const router = useRouter();
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
-  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'gift' | 'golive'>('overview');
+  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'gift' | 'golive' | 'settings'>('overview');
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -222,6 +221,13 @@ export default function MaharajaAdminDashboard({
     } finally {
       setCatalogueLoading(false);
     }
+  }, []);
+
+  // Whether the store has a logo, for the Overview's To do (the logo card itself is on the Settings tab).
+  useEffect(() => {
+    fetch('/api/maharaja/logo', { cache: 'no-store' })
+      .then((response) => setHasLogo(response.ok))
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -495,14 +501,7 @@ export default function MaharajaAdminDashboard({
     { label: 'Tablet', on: Boolean(devices.tablet) },
     { label: 'Phone', on: true },
   ];
-  const planModules = [
-    { label: 'Try-On', on: limits.image > 0 },
-    { label: 'AI Video', on: limits.video > 0 },
-    { label: 'Live Mirror', on: limits.live > 0 },
-    { label: 'Go Live player', on: goLiveOn },
-  ];
   const creditAlerts = credits.filter((item) => item.level !== 'ok' && item.level !== 'none');
-  const notInPlan = [...planPlatforms, ...planModules].filter((item) => !item.on).map((item) => item.label);
 
   // Working now: one row per thing customers use, with where it runs and whether it works right now.
   const levelOf = (label: string) => credits.find((item) => item.label === label)?.level ?? 'none';
@@ -554,7 +553,7 @@ export default function MaharajaAdminDashboard({
 
   // Set up: what the store does itself. done: true = done, false = still to do, null = optional.
   const openCatalogue = (experience: CatalogueExperience) => { setCatExperience(experience); setSection('catalogue'); window.scrollTo({ top: 0 }); };
-  const openSettings = () => document.getElementById('store-settings')?.scrollIntoView({ behavior: 'smooth' });
+  const openSettings = () => { setSection('settings'); window.scrollTo({ top: 0 }); };
   const setup: Array<{ title: string; text: string; done: boolean | null; button: string; action: () => void }> = [
     {
       title: 'Add your garments',
@@ -613,14 +612,22 @@ export default function MaharajaAdminDashboard({
       action: () => setSection('golive'),
     }] : []),
   ];
-  const setupLeft = setup.filter((row) => row.done === false).length;
+  const toDo = setup.filter((row) => row.done === false);
+  // Your plan: one row per feature, with its status and the credits left (Go Live has no credits).
+  const planRows = working
+    .filter((row) => row.title !== 'Customers get their looks by')
+    .map((row) => ({ ...row, credit: credits.find((item) => item.label === row.title && item.level !== 'none') }));
+  const toneText: Record<Tone, string> = { success: 'text-success', warn: 'text-warn', danger: 'text-danger', neutral: 'text-muted' };
 
   return (
     <main className="min-h-screen bg-canvas text-ink">
-      {creditAlerts.length > 0 && (
+      {(creditAlerts.length > 0 || !workspace.campaignEnabled) && (
         <div role="alert" className="border-b border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger sm:px-8">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
-            <div>{creditAlerts.map((item) => <p key={item.label} className="font-semibold">{creditWarningText(item)}</p>)}</div>
+            <div>
+              {!workspace.campaignEnabled && <p className="font-semibold">Your store is paused: customers see a closed message. Tap Paused to turn it back on.</p>}
+              {creditAlerts.map((item) => <p key={item.label} className="font-semibold">{creditWarningText(item)}</p>)}
+            </div>
             <a href="tel:9994837342" className="inline-flex items-center gap-1.5 font-semibold underline underline-offset-4"><Phone className="h-4 w-4" /> Add credits: 9994837342</a>
           </div>
         </div>
@@ -647,6 +654,7 @@ export default function MaharajaAdminDashboard({
         </div>
         <div className="mx-auto mt-2 max-w-6xl px-5 sm:px-8">
           <NavTabs
+            wrap
             label="Workspace sections"
             value={section}
             onChange={setSection}
@@ -656,6 +664,7 @@ export default function MaharajaAdminDashboard({
               ...(limits.video > 0 ? [{ value: 'gift' as const, label: 'AI Video gift' }] : []),
               ...(limits.image > 0 ? [{ value: 'qr' as const, label: 'Wall QR' }] : []),
               ...(goLiveOn ? [{ value: 'golive' as const, label: 'Go Live & videos' }] : []),
+              { value: 'settings', label: 'Settings' },
             ]}
           />
         </div>
@@ -669,128 +678,79 @@ export default function MaharajaAdminDashboard({
         )}
 
         {section === 'overview' && <>
-        {/* 1. Your plan: what TryFocus allotted to this store. Read only; TryFocus changes it. */}
-        <section className="tf-card p-6">
-          <h2 className="text-xl font-bold">Your plan</h2>
-          <p className="mt-1 text-sm text-muted">Set up for {workspace.clientName} by TryFocus. To add credits or a platform, call <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">9994837342</a>.</p>
-
-          <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-            {([['Platforms', planPlatforms], ['Included', planModules]] as const).map(([title, items]) => (
-              <div key={title} className="rounded-2xl bg-canvas p-4">
-                <dt className="text-sm font-semibold text-muted">{title}</dt>
-                <dd className="mt-2 flex flex-wrap gap-2">
-                  {items.filter((item) => item.on).map(({ label }) => (
-                    <span key={label} className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-ink px-3 text-sm font-semibold text-white">
-                      <Check className="h-3.5 w-3.5" />{label}
-                    </span>
-                  ))}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          {notInPlan.length > 0 && <p className="mt-3 text-sm text-muted">Not in your plan: {notInPlan.join(' · ')}.</p>}
-
-          <table className="mt-5 w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-line text-muted">
-                <th scope="col" className="py-2 font-semibold">Credits</th>
-                <th scope="col" className="py-2 text-right font-semibold">Left</th>
-                <th scope="col" className="hidden py-2 text-right font-semibold sm:table-cell">Used</th>
-                <th scope="col" className="py-2 text-right font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {credits.filter((item) => item.level !== 'none').map(({ label, used, limit, level }) => (
-                <tr key={label}>
-                  <th scope="row" className="py-3 font-semibold text-ink">{label}</th>
-                  <td className="py-3 text-right tabular-nums"><b className="text-ink">{Math.max(0, limit - used).toLocaleString('en-IN')}</b><span className="text-muted"> of {limit.toLocaleString('en-IN')}</span></td>
-                  <td className="hidden py-3 text-right tabular-nums text-muted sm:table-cell">{used.toLocaleString('en-IN')}</td>
-                  <td className="py-3 text-right"><StatusPill tone={CREDIT_LEVEL_STATUS[level].tone}>{CREDIT_LEVEL_STATUS[level].text}</StatusPill></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
-        {/* 2. Working now: each thing customers use, where it runs and whether it works right now. */}
-        <section className="tf-card p-6">
-          <h2 className="text-xl font-bold">Working now</h2>
-          <p className="mt-1 text-sm text-muted">{workspace.campaignEnabled ? 'What your customers can use right now.' : 'Your store is paused, so customers see a closed message. Tap Paused at the top to turn it back on.'}</p>
-          <ul className="mt-4 divide-y divide-line">
-            {working.map((row) => (
-              <li key={row.title} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
-                <span className="min-w-0">
-                  <span className="block font-semibold text-ink">{row.title}</span>
-                  <span className="block text-sm text-muted">{row.where}{row.note ? ` · ${row.note}` : ''}</span>
-                </span>
-                <StatusPill tone={row.tone}>{row.status}</StatusPill>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* 3. Set up: what the store can do itself, with the button that does it. */}
-        <section className="tf-card p-6">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <h2 className="text-xl font-bold">Set up</h2>
-            <p className="text-sm text-muted">{setupLeft ? `${setupLeft} to do` : 'All done'}</p>
+        {/* 1. Your plan: what TryFocus gave the store, one row per feature with its status and credits left. */}
+        <section className="tf-card p-5 sm:p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-bold">Your plan</h2>
+            <p className="text-sm font-semibold text-muted">{planPlatforms.filter((item) => item.on).map((item) => item.label).join(' · ')}</p>
           </div>
-          <ul className="mt-4 divide-y divide-line">
-            {setup.map((row) => (
-              <li key={row.title} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 font-semibold text-ink">
-                    {row.done === true ? <Check className="h-4 w-4 shrink-0 text-success" /> : row.done === false ? <span className="h-2 w-2 shrink-0 rounded-full bg-warn" /> : <span className="h-2 w-2 shrink-0 rounded-full bg-line-strong" />}
-                    {row.title}
-                  </span>
-                  <span className="block pl-6 text-sm text-muted">{row.text}</span>
-                </span>
-                <button type="button" onClick={row.action} className="tf-btn tf-btn-secondary !min-h-10 shrink-0 px-4 text-sm">{row.button}</button>
+          <ul className="mt-3 divide-y divide-line">
+            {planRows.map((row) => (
+              <li key={row.title} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 py-2.5 text-sm sm:grid-cols-[9rem_1fr_auto_auto]">
+                <span className="font-semibold text-ink">{row.title}</span>
+                <span className={`order-3 col-span-2 sm:order-none sm:col-span-1 ${toneText[row.tone]}`}>{row.status}</span>
+                <span className="hidden tabular-nums text-muted sm:block">{row.credit ? <><b className="text-ink">{Math.max(0, row.credit.limit - row.credit.used).toLocaleString('en-IN')}</b> of {row.credit.limit.toLocaleString('en-IN')} left</> : ''}</span>
+                <span className="justify-self-end">{row.credit && <StatusPill tone={CREDIT_LEVEL_STATUS[row.credit.level].tone}>{row.credit.limit - row.credit.used > 0 && <span className="sm:hidden">{Math.max(0, row.credit.limit - row.credit.used).toLocaleString('en-IN')} left · </span>}{CREDIT_LEVEL_STATUS[row.credit.level].text}</StatusPill>}</span>
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-sm text-muted">Customers get their looks by {workspace.whatsappConnected ? 'QR and WhatsApp' : 'QR'}. To add credits or a platform: <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">9994837342</a></p>
         </section>
 
-        {screens.length > 0 && (
-          <section className="tf-card p-6">
-            <h2 className="text-xl font-bold">Your screens</h2>
-            <p className="mt-1 text-sm text-muted">Open each one once on the device it runs on. It stays signed in.</p>
-            <ul className="mt-4 divide-y divide-line">
-              {screens.map(({ key, title, href, desc, Icon }) => (
-                <li key={key} className="flex items-center gap-3 py-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-canvas text-ink"><Icon className="h-5 w-5" /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-semibold">{title}</span>
-                    <span className="block text-sm text-muted">{desc}</span>
-                  </span>
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-secondary !min-h-10 shrink-0 px-3 text-sm">
-                    Open <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
+        {/* 2. Open your screens: one row of buttons. */}
+        {(screens.length > 0 || limits.image > 0) && (
+          <section className="tf-card p-5 sm:p-6">
+            <h2 className="text-lg font-bold">Open your screens</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {screens.map(({ key, title, href, Icon }) => (
+                <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">
+                  <Icon className="h-4 w-4" /> {title} <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              ))}
+              {limits.image > 0 && (
+                <button type="button" onClick={() => downloadBrandedQr(`${workspace.clientName.replace(/[^a-z0-9]+/gi, '-')}-Try-On-wall-QR.png`, 'Try-On', 'Scan to try our outfits on your phone', workspace.links.tryOn)} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">
+                  <Download className="h-4 w-4" /> Wall QR
+                </button>
+              )}
+            </div>
+            {screens.length > 0 && <p className="mt-2 text-sm text-muted">Open each once on its device; it stays signed in.</p>}
+          </section>
+        )}
+
+        {/* 3. To do: only what is still unfinished; hidden when everything is done. */}
+        {toDo.length > 0 && (
+          <section className="tf-card p-5 sm:p-6">
+            <h2 className="text-lg font-bold">To do ({toDo.length})</h2>
+            <ul className="mt-2 divide-y divide-line">
+              {toDo.map((row) => (
+                <li key={row.title} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <span className="flex min-w-0 items-center gap-2 font-semibold text-ink"><span className="h-2 w-2 shrink-0 rounded-full bg-warn" />{row.title}</span>
+                  <button type="button" onClick={row.action} className="tf-btn tf-btn-secondary !min-h-10 shrink-0 px-4 text-sm">{row.button}</button>
                 </li>
               ))}
             </ul>
           </section>
         )}
 
-        <section>
-          <h2 className="text-xl font-bold">{monthName} so far</h2>
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {monthTiles.map(([label, key]) => {
-              const value = Number(monthCounts[key] || 0);
-              const last = Number(lastMonthCounts[key] || 0);
-              return (
-                <div key={key} className="tf-card p-4">
-                  <p className="text-[13px] font-medium text-muted">{label}</p>
-                  <p className="mt-1 text-3xl font-bold tabular-nums">{value.toLocaleString('en-IN')}</p>
-                  <p className="mt-0.5 text-xs text-subtle tabular-nums">Last month {last.toLocaleString('en-IN')} · All time {Number(workspace.usage[key] || 0).toLocaleString('en-IN')}</p>
-                </div>
-              );
-            })}
+        {/* 4. This month: one line of numbers against last month. */}
+        <section className="tf-card p-5 sm:p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-bold">{monthName} so far</h2>
+            <p className="text-sm text-muted">Last month in brackets</p>
           </div>
+          <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            {monthTiles.map(([label, key]) => (
+              <div key={key} className="flex items-baseline gap-1.5">
+                <dt className="text-muted">{label}</dt>
+                <dd className="tabular-nums"><b className="text-base text-ink">{Number(monthCounts[key] || 0).toLocaleString('en-IN')}</b> <span className="text-subtle">({Number(lastMonthCounts[key] || 0).toLocaleString('en-IN')})</span></dd>
+              </div>
+            ))}
+          </dl>
         </section>
+        </>}
 
-        <section id="store-settings" className="scroll-mt-32 space-y-4">
-          <h2 className="text-xl font-bold">Store settings</h2>
+        {section === 'settings' && (
+          <div className="max-w-3xl space-y-4">
         {limits.video > 0 && (
         <section className="tf-card p-6">
             <h3 className="text-lg font-bold">Festival theme</h3>
@@ -840,8 +800,8 @@ export default function MaharajaAdminDashboard({
           </div>
         </form>
 
-        </section>
-        </>}
+          </div>
+        )}
 
         {section === 'catalogue' && (
           <div className="space-y-6">
