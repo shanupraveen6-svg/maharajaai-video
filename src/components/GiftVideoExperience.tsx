@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Camera, Check, LoaderCircle, MoreVertical, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Check, LoaderCircle, Sparkles } from 'lucide-react';
+import HelpRetry from '@/components/HelpRetry';
 import AudienceCards, { PhotoGuide } from '@/components/AudienceCards';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import ResultClient from '@/app/result/[sessionId]/ResultClient';
@@ -45,7 +46,7 @@ async function loadVideoGarments(code: string) {
 /**
  * The AI Video gift on the customer's phone (from the tablet QR or a TV portrait QR):
  * Who → Your photo → What would you like to wear → pick a piece (with its price) → Pick a look →
- * Make my portrait → Your portrait (⋯ Retry) → Make my video → the video (download, Go Live).
+ * Make my portrait → Your portrait (Help → retry) → Make my video → the video (download, Go Live).
  * A pass that already has a piece, a portrait or a video in progress opens at that step. From the TV the
  * portrait is already made there, so the phone opens on Your portrait → Make my video (no portrait retry).
  */
@@ -71,7 +72,8 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
   const [masterApproved, setMasterApproved] = useState(false);
   const [videoJobId, setVideoJobId] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
+  // The one portrait retry: true once used (the server checks it too).
+  const [portraitRetryUsed, setPortraitRetryUsed] = useState(false);
   // A TV portrait: the TV owns the portrait (and its retry); the phone makes the video only.
   const [portraitFromTv, setPortraitFromTv] = useState(false);
   const [note, setNote] = useState('');
@@ -131,6 +133,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
         if (pass.eventId) setEventId(pass.eventId);
         setAllowGoLive(pass.allowGoLive === true);
         setPortraitFromTv(pass.portraitMadeOnTv === true);
+        setPortraitRetryUsed(pass.retryUsed === true);
         if (pass.videoMasterCategory) setAudience(AUDIENCE_OF[pass.videoMasterCategory as CustomerCategory] || null);
         if (pass.catalogueProduct?.sku) { setPiece(pass.catalogueProduct); setSelectedSku(pass.catalogueProduct.sku); }
         if (pass.videoMasterConceptId) setConceptId(pass.videoMasterConceptId);
@@ -251,10 +254,9 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
     }
   }
 
-  /** The one portrait retry, from the ⋯ menu: the same piece and look, a new photo. */
+  /** The one portrait retry, from Help: the same piece and look, a new photo. */
   async function retryPortrait() {
-    setMenuOpen(false);
-    if (!window.confirm(t('retryPortrait') + '?')) return;
+    // Help already asked "Do you need to retry this portrait?", so there is no second question.
     setNote('');
     try {
       await readJson(await fetch('/api/maharaja/activity', {
@@ -267,6 +269,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accessCode, sessionId, service: 'ai-video', reason: 'customer_retry_requested' }),
       }));
+      setPortraitRetryUsed(true);
       setMasterUrl('');
       setMasterApproved(false);
       setPersonPhoto('');
@@ -343,14 +346,15 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
             ))}
           </div>
           {stage === 'portrait' && !portraitFromTv && (
-            <div className="relative">
-              <button type="button" aria-label={t('moreOptions')} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-line/60"><MoreVertical className="h-5 w-5" /></button>
-              {menuOpen && (
-                <div className="absolute right-0 top-12 z-30 w-52 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
-                  <button type="button" onClick={() => void retryPortrait()} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold"><RotateCcw className="h-4 w-4" /> {t('retryPortrait')}</button>
-                </div>
-              )}
-            </div>
+            <HelpRetry
+              canRetry={!portraitRetryUsed}
+              onRetry={() => void retryPortrait()}
+              text={{
+                help: t('help'), question: t('helpQuestionPortrait'), retryText: t('helpRetryPortraitText'),
+                noRetryTitle: t('helpNoRetryTitle'), noRetryText: t('helpNoRetryPortrait'), tipsTitle: t('helpTipsTitle'),
+                tips: [t('tipFullLength'), t('tipLight'), t('tipFace')], yes: t('yesRetry'), cancel: t('cancel'), close: t('close'),
+              }}
+            />
           )}
         </div>
       </header>

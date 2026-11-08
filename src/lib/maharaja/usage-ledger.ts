@@ -5,7 +5,7 @@ import { activeClientId } from './client-context';
 /**
  * Two running totals kept beside each workspace's lifetime counters:
  *  - per month, the same usage counters (scans, looks, videos, Go Live…) for the store's monthly report;
- *  - per day, the estimated AI cost of every provider call, for margins and the daily spending caps.
+ *  - per day, the estimated AI cost of every provider call, for margins and the platform's daily safety cap.
  * Costs are estimates in US dollars (providers bill in dollars). Set the AI_COST_* environment variables
  * from your provider invoices; the defaults below are only a starting point.
  */
@@ -41,12 +41,13 @@ export function usdToInr(usd: number) {
   return usd * (envNumber('USD_TO_INR') ?? 98);
 }
 
-/** Daily caps in US dollars; unset or 0 means no cap. */
+/**
+ * A daily safety cap for the whole platform in US dollars (AI_DAILY_CAP_PLATFORM_USD; unset or 0 means
+ * none). Stores have no daily cap: they bought a package, and they are told at 50/70/90/95% and when it
+ * is finished (see credits.ts).
+ */
 export function spendCaps() {
-  return {
-    client: envNumber('AI_DAILY_CAP_CLIENT_USD') || null,
-    platform: envNumber('AI_DAILY_CAP_PLATFORM_USD') || null,
-  };
+  return { platform: envNumber('AI_DAILY_CAP_PLATFORM_USD') || null };
 }
 
 /** Store days and months follow India time, so a day's spend resets at midnight IST. */
@@ -149,11 +150,10 @@ export async function spendToday(clientId = activeClientId()) {
  */
 export async function spendAllowed(clientId = activeClientId()) {
   const caps = spendCaps();
-  if (!caps.client && !caps.platform) return true;
+  if (!caps.platform) return true;
   try {
     const today = await spendToday(clientId);
-    if (caps.client && today.clientUsd >= caps.client) return false;
-    if (caps.platform && today.platformUsd >= caps.platform) return false;
+    if (today.platformUsd >= caps.platform) return false;
     return true;
   } catch (error) {
     console.error('Spend cap check failed:', error);

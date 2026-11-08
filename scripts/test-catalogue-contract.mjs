@@ -39,8 +39,10 @@ assert.match(resultSource, /allowGoLive/);
 const passSource = fs.readFileSync(new URL('../src/app/api/maharaja/video-pass/route.ts', import.meta.url), 'utf8');
 assert.doesNotMatch(passSource, /\[5000, 7000, 10000\]/);
 // Catalogue gifts cover every audience (women, men, girl, boy) and may Go Live with consent.
-const experienceSource = fs.readFileSync(new URL('../src/components/MaharajaExperience.tsx', import.meta.url), 'utf8');
-assert.match(experienceSource, /selectableCategories: CustomerCategory\[\] = \['women', 'men', 'girl', 'boy'\]/);
-assert.match(experienceSource, /Choose your Diwali visual set/);
+const experienceSource = fs.readFileSync(new URL('../src/components/GiftVideoExperience.tsx', import.meta.url), 'utf8');
+const audienceSource = fs.readFileSync(new URL('../src/components/AudienceCards.tsx', import.meta.url), 'utf8');
+assert.match(experienceSource, /<AudienceCards/);
+assert.match(audienceSource, /\['women', 'men', 'boys', 'girls'\]/);
+assert.match(experienceSource, /pickLook/, 'The customer picks one of the three looks for the audience.');
 
 console.log('Catalogue contract passed: isolated quota, one retry, all four audiences, and phone-only issue.');

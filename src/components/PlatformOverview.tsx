@@ -24,7 +24,7 @@ export type OverviewClient = {
 };
 
 /** Today's estimated AI spend across every client, with the daily caps. */
-export type PlatformSpend = { todayInr: number; clientCapInr: number | null; platformCapInr: number | null };
+export type PlatformSpend = { todayInr: number; platformCapInr: number | null };
 
 const RETRY_ALLOWANCE = 0.15;
 
@@ -36,16 +36,14 @@ function planLimit(client: OverviewClient, key: ModuleKey) {
 }
 
 /** What needs doing for one client, most urgent first, each with the action to take. */
-function clientAlerts(item: OverviewClient, platform?: PlatformSpend | null) {
+function clientAlerts(item: OverviewClient) {
   const alerts: Array<{ text: string; tone: 'danger' | 'warn' }> = [];
   for (const status of creditStatusesOf(item)) {
+    // Told at 50%, 70%, 90%, 95% and finished.
     if (status.level === 'exhausted') alerts.push({ text: `${status.label} credits finished: top up`, tone: 'danger' });
-    else if (status.level === 'critical' || status.level === 'low') alerts.push({ text: `${status.label}: ${(status.limit - status.used).toLocaleString('en-IN')} credits left`, tone: 'warn' });
+    else if (status.level !== 'ok' && status.level !== 'none') alerts.push({ text: `${status.label}: ${status.pct}% used, ${(status.limit - status.used).toLocaleString('en-IN')} credits left`, tone: status.level === 'critical' || status.level === 'final' ? 'danger' : 'warn' });
   }
   if (!item.logins?.length) alerts.push({ text: 'No store login yet: create one', tone: 'warn' });
-  const clientCap = platform?.clientCapInr;
-  if (clientCap && item.spend && item.spend.todayInr >= clientCap) alerts.push({ text: 'Daily AI cap reached, AI paused till midnight', tone: 'danger' });
-  else if (clientCap && item.spend && item.spend.todayInr >= clientCap * 0.8) alerts.push({ text: `${inr(item.spend.todayInr)} of the ${inr(clientCap)} daily AI cap used`, tone: 'warn' });
   // Prices allow for about 15% retries; above that the store's credits cost us more than planned.
   const results = item.usage.image + item.usage.video;
   const retryRate = results >= 20 ? Number(item.usage.retries || 0) / results : 0;
@@ -67,7 +65,7 @@ function creditStatusesOf(item: OverviewClient) {
 export default function PlatformOverview({ clients, platform, onSelect }: { clients: OverviewClient[]; platform?: PlatformSpend | null; onSelect: (clientId: string) => void }) {
   const live = clients.filter((item) => item.status === 'Active').length;
   const sum = (pick: (item: OverviewClient) => number) => clients.reduce((total, item) => total + pick(item), 0);
-  const alertsById = new Map(clients.map((item) => [item.id, clientAlerts(item, platform)]));
+  const alertsById = new Map(clients.map((item) => [item.id, clientAlerts(item)]));
   const attention = clients.flatMap((item) => (alertsById.get(item.id) || []).map((alert) => ({ client: item, ...alert })));
   if (clients[0] && platform?.platformCapInr && platform.todayInr >= platform.platformCapInr) {
     attention.unshift({ client: clients[0], text: 'Platform daily AI cap reached: every store is paused till midnight', tone: 'danger' });
@@ -187,7 +185,7 @@ function GenlookCredits() {
       <dl className="mt-3 grid grid-cols-3 gap-3">
         <div><dt className="text-[13px] text-muted">GenLook balance</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.balance)}</dd></div>
         <div><dt className="text-[13px] text-muted">Locked for stores</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.locked)}</dd></div>
-        <div><dt className="text-[13px] text-muted">Free (the demo uses this)</dt><dd className={`mt-1 text-3xl font-bold tabular-nums ${(state?.free ?? 0) < 0 ? 'text-danger' : ''}`}>{state === null ? '…' : number(state.free)}</dd></div>
+        <div><dt className="text-[13px] text-muted">Free (Maharaja uses this)</dt><dd className={`mt-1 text-3xl font-bold tabular-nums ${(state?.free ?? 0) < 0 ? 'text-danger' : ''}`}>{state === null ? '…' : number(state.free)}</dd></div>
       </dl>
       {state?.error && <p className="mt-3 text-sm font-semibold text-danger">{state.error}</p>}
       {(state?.free ?? 0) < 0 && <p className="mt-3 text-sm font-semibold text-danger">GenLook has fewer credits than stores are promised. Top up GenLook.</p>}

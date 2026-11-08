@@ -5,6 +5,7 @@ import { FREE_TRIAL_IMAGE_CREDITS } from '@/lib/maharaja/pricing';
 import { getGenlookCredits } from '@/lib/maharaja/genlook-provider';
 import { afterDownloadExpiresAtMs, resultExpiresAtIso, resultExpiresAtMs } from '@/lib/maharaja/retention';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { crossedCreditStep } from './credits';
 import type { NextRequest } from 'next/server';
 import { getOperatorSession, markClientSession, verifyOperatorRequest } from '@/lib/auth/operator';
 import { deleteClientAccounts, isClientSessionCurrent } from '@/lib/auth/client-accounts';
@@ -112,7 +113,8 @@ export type MaharajaActivity = {
     | 'share'
     | 'qr-download'
     | 'image-approved'
-    | 'image-rejected';
+    | 'image-rejected'
+    | 'credits';
   label: string;
   createdAt: string;
   metadata?: Record<string, string | number | boolean | null | undefined>;
@@ -862,13 +864,13 @@ export async function updateMaharajaSettings(
       | 'defaultEvent'
       | 'openVideoCode'
     >
-  > & { regenerateOpenVideoCode?: boolean },
+  > & { regenerateOpenVideoCode?: boolean; useSharedGenlook?: boolean },
   clientId = activeClientId()
 ) {
   const workspace = clientId === activeClientId()
     ? await getMaharajaWorkspace()
     : await getClientWorkspaceById(clientId);
-  const { regenerateOpenVideoCode, ...rest } = settings;
+  const { regenerateOpenVideoCode, useSharedGenlook, ...rest } = settings;
   if (regenerateOpenVideoCode) invalidateWorkspaceCodeIndex();
   const nextOpenVideoCode = regenerateOpenVideoCode
     ? crypto.randomBytes(15).toString('base64url')
@@ -883,14 +885,15 @@ export async function updateMaharajaSettings(
     ...(rest.limits ? { limits: { ...(workspace.limits || { image: 4000, live: 500, video: 500 }), ...rest.limits } } : {}),
     ...(rest.modules ? { modules: { ...(workspace.modules || { image: true, live: true, video: true }), ...rest.modules } } : {}),
   };
-  const updated = normalizeWorkspace(
-    { ...workspace, ...productionSettings, updatedAt: new Date().toISOString() },
-    defaultWorkspace(clientId)
-  );
+  const merged: Partial<MaharajaWorkspace> = { ...workspace, ...productionSettings, updatedAt: new Date().toISOString() };
+  // Back on the shared GenLook balance: the store's locked number is removed.
+  if (useSharedGenlook) delete merged.genlookCredits;
+  const updated = normalizeWorkspace(merged, defaultWorkspace(clientId));
   const db = getDb();
   if (db) {
     await db.collection('clientWorkspaces').doc(clientId).set({
       ...productionSettings,
+      ...(useSharedGenlook ? { genlookCredits: FieldValue.delete() } : {}),
       updatedAt: updated.updatedAt,
       updatedAtTimestamp: Timestamp.now(),
     }, { merge: true });
@@ -1004,7 +1007,8 @@ export async function upsertClientWorkspace(input: {
   devices?: Partial<{ tv: boolean; tablet: boolean; mobile: boolean; led: boolean }>;
   limits?: Partial<{ image: number; live: number; video: number }>;
   modules?: Partial<{ image: boolean; live: boolean; video: boolean }>;
-  genlookCredits?: number;
+  /** A number locks that many GenLook credits to the store; null puts the store back on the shared balance. */
+  genlookCredits?: number | null;
 }): Promise<MaharajaWorkspace> {
   const rawId = input.id || input.clientId || input.name || input.clientName || '';
   const cleanId = String(rawId)
@@ -1066,6 +1070,7 @@ export async function upsertClientWorkspace(input: {
       ...(typeof input.genlookCredits === 'number' && Number.isFinite(input.genlookCredits)
         ? { genlookCredits: Math.max(0, Math.floor(input.genlookCredits)) }
         : {}),
+      ...(input.genlookCredits === null ? { useSharedGenlook: true } : {}),
     },
     cleanId
   );
@@ -1741,6 +1746,28 @@ export async function listRecentVideoPasses(limit = 8): Promise<MaharajaVideoPas
     .slice(0, limit);
 }
 
+const CREDIT_FIELDS = {
+  tryOnGenerated: { module: 'image', label: 'Try-On' },
+  videosGenerated: { module: 'video', label: 'AI Video' },
+  liveSessions: { module: 'live', label: 'Live Mirror' },
+} as const;
+
+/**
+ * Tells the store and TryFocus admin when a credit crosses 50%, 70%, 90% or 95% of the package, or
+ * finishes it: one line in the store's activity, which the workspace strip and admin's Needs action read.
+ * Never throws: a notice must not stop a customer.
+ */
+async function noteCreditStep(field: keyof typeof CREDIT_FIELDS, usedAfter: number, limit: number) {
+  const step = crossedCreditStep(usedAfter - 1, usedAfter, limit);
+  if (step === null) return;
+  const { label } = CREDIT_FIELDS[field];
+  const left = Math.max(0, limit - usedAfter);
+  await logMaharajaActivity('credits', step >= 100
+    ? `${label} credits finished (${limit.toLocaleString('en-IN')} used). Add credits to keep it running.`
+    : `${label} credits ${step}% used: ${left.toLocaleString('en-IN')} of ${limit.toLocaleString('en-IN')} left.`,
+  { service: label, step, used: usedAfter, limit }).catch((error) => console.error('Credit notice failed:', error));
+}
+
 export async function incrementMaharajaUsage(field: keyof MaharajaWorkspace['usage']) {
   await recordUsage(field);
   const db = getDb();
@@ -1751,13 +1778,18 @@ export async function incrementMaharajaUsage(field: keyof MaharajaWorkspace['usa
       updatedAt: new Date().toISOString(),
       updatedAtTimestamp: Timestamp.now(),
     }, { merge: true });
-    return;
+  } else {
+    const workspace = await getMaharajaWorkspace();
+    getMockStore().clientWorkspaces.set(activeClientId(), {
+      ...workspace,
+      usage: { ...workspace.usage, [field]: Number(workspace.usage[field] || 0) + 1 },
+    });
   }
-  const workspace = await getMaharajaWorkspace();
-  getMockStore().clientWorkspaces.set(activeClientId(), {
-    ...workspace,
-    usage: { ...workspace.usage, [field]: Number(workspace.usage[field] || 0) + 1 },
-  });
+  if (field in CREDIT_FIELDS) {
+    const credit = field as keyof typeof CREDIT_FIELDS;
+    const workspace = await getMaharajaWorkspace().catch(() => null);
+    if (workspace) await noteCreditStep(credit, Number(workspace.usage[credit] || 0), moduleLimit(workspace, CREDIT_FIELDS[credit].module));
+  }
 }
 
 /**
@@ -1771,12 +1803,13 @@ export async function reserveMaharajaUsage(field: 'tryOnGenerated' | 'videosGene
     const ref = db.collection('clientWorkspaces').doc(activeClientId());
     return db.runTransaction(async (transaction) => {
       const used = Number((await transaction.get(ref)).data()?.usage?.[field] || 0);
-      if (used >= limit) return false;
+      if (used >= limit) return false as const;
       transaction.set(ref, { usage: { [field]: used + 1 }, updatedAt: new Date().toISOString() }, { merge: true });
+      return used + 1;
+    }).then(async (result) => {
+      if (result === false) return false;
+      await Promise.all([recordUsage(field), noteCreditStep(field, result, limit)]);
       return true;
-    }).then(async (reserved) => {
-      if (reserved) await recordUsage(field);
-      return reserved;
     });
   }
   // The mock store is read and written without an await in between, so it is atomic as well.
@@ -1786,7 +1819,7 @@ export async function reserveMaharajaUsage(field: 'tryOnGenerated' | 'videosGene
   const used = Number(workspace.usage[field] || 0);
   if (used >= limit) return false;
   getMockStore().clientWorkspaces.set(activeClientId(), { ...workspace, usage: { ...workspace.usage, [field]: used + 1 } });
-  await recordUsage(field);
+  await Promise.all([recordUsage(field), noteCreditStep(field, used + 1, limit)]);
   return true;
 }
 

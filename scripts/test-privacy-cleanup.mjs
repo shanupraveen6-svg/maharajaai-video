@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./ts-alias-loader.mjs', import.meta.url);
+for (const key of ['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY']) delete process.env[key];
+process.env.ALLOW_MOCK_BACKEND = 'true';
 const { cleanupExpiredSessions } = await import('../src/lib/maharaja/privacy-cleanup.ts');
 const sessions = new Map();
 const rateLimits = new Map(Array.from({ length: 250 }, (_, i) => [`rate-${i}`, {}]));

@@ -43,7 +43,7 @@ Tablet, three tabs, with New customer in the header:
   under it (which asks the next customer for their digits again). The customer picks the piece and makes the
   video on their phone: Who (nothing selected) → Your photo → What would you like to wear (the store's
   categories that have AI Video garments) → pick one piece (with its price) → Pick a look (the three looks
-  for that audience) → Make my portrait → Your portrait (⋯ Retry) → Make my video → the video (Download,
+  for that audience) → Make my portrait → Your portrait (Help → retry) → Make my video → the video (Download,
   Go Live). A pass that already has a piece, a portrait or a video in progress opens at that step.
 - Why the video is always made on the phone: if a video comes out wrong, the customer retries it privately on
   their own phone, where no one else sees it. The TV makes only the portrait; its QR opens the phone on
@@ -54,8 +54,8 @@ Phone: Try-On only, opened from the store's permanent Wall QR (downloaded from t
 the store). (A photo of the bill, Camera or Upload, read on the server, when the store set a Try-On minimum)
 → Who → Your photo (Camera or Upload) → Store collection or My own outfit → What type (the store's
 categories; own outfit adds Other) → pick a piece, or Your outfit (Camera or Upload) → Your look. TV and
-tablet never ask for a bill on Try-On. One free look per phone, counted from the phone's first scan, plus one retry kept in
-the ⋯ menu. Nothing is stored; Download asks for WhatsApp, then offers Follow us on Instagram and Share on
+tablet never ask for a bill on Try-On. One free look per phone, counted from the phone's first scan, plus one retry asked
+from Help. Nothing is stored; Download asks for WhatsApp, then offers Follow us on Instagram and Share on
 WhatsApp (the same after downloading from the TV/tablet look QR).
 
 Each workspace chooses the categories customers see, per audience (Catalogue → Categories customers see);
@@ -78,8 +78,11 @@ follow what is actually in the photo, not only the category tapped.
 The camera opens full screen as soon as the source is known. The customer's photo has an upload QR
 beside the camera (send a photo from the phone); the outfit photo is taken with the camera only, no QR.
 
-Retry is never a button on the page: it lives in the ⋯ menu in the header of the result (Try-On looks,
-AI Video portrait and video).
+Retry is never a button on the page. The result's header has a Help button (`HelpRetry`, Try-On looks,
+AI Video portrait and video). It asks "Do you need to retry this image?" (or portrait, looks, video) with
+Cancel and Yes, retry, one line on what the retry does, and three tips for a better photo (full-length, not a
+selfie; good light, facing the camera; one garment at a time). With no retry left, or none on that screen
+(the TV looks link on the phone), it shows the tips and who can help. There is no ⋯ menu anywhere.
 
 Retention: everything generated (Try-On looks, AI Video portraits and videos, Live Mirror videos) is kept for
 1 hour, and scanning the same QR again within that hour shows it (a phone's Wall QR look opens straight on the
@@ -116,11 +119,14 @@ Store workspace, Overview in this order, compact, showing only this store's own 
 2. Open your screens: one row of buttons (TV, tablet, Go Live player) and the Wall QR download.
 3. To do: only the unfinished set-up items, each with the button that opens it; hidden when all done.
 4. This month: one line of counts with last month in brackets.
-Festival theme, logo and Instagram are on the Settings tab. Workspace tabs wrap on a phone.
+Festival theme, logo and Instagram are on the Settings tab. Customers (everyone who gave a WhatsApp
+number to download, with Offers yes / no and a CSV download) is its own tab. Workspace tabs wrap on a phone.
 The Wall QR poster carries the store's own name.
 
-Status is words, never a bar: Good · Running low · Almost finished · Finished (credits), Live for
-customers · Paused (store). No sliders, carousels or rows that scroll sideways on admin or workspace
+Status is words, never a bar: Good · Half used (50%) · Running low (70%) · Almost finished (90%) ·
+Last 5% left (95%) · Finished (credits), Live for customers · Paused (store). Stores have no daily cap
+(they bought a package); at each of those steps a line goes to the store's activity, the workspace strip
+and admin's Needs action. No sliders, carousels or rows that scroll sideways on admin or workspace
 screens; lists wrap.
 
 The Go Live player asks for the store login once, then keeps the screen signed in. It is laid out for

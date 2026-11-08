@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
 
     const selectedSku = experienceType === 'catalogue-gift' && typeof body.catalogueSku === 'string' ? body.catalogueSku.trim() : '';
     const preselectedProduct = selectedSku ? await getCatalogueProduct(selectedSku) : null;
-    const videoReady = (product: typeof preselectedProduct) => Boolean(product && (product.eligibleForVideo || product.sku.startsWith('TF-')));
+    const videoReady = (product: typeof preselectedProduct) => Boolean(product && product.eligibleForVideo);
     if (body.source === 'tv-kiosk' && !videoReady(preselectedProduct)) {
       return NextResponse.json({ success: false, error: 'Select an AI Video garment from the TV catalogue.' }, { status: 400 });
     }

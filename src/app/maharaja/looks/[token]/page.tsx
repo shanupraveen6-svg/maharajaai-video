@@ -12,14 +12,11 @@ import {
   MessageCircle,
   Film,
   LoaderCircle,
-  MoreVertical,
-  RefreshCw,
-  RotateCcw,
-  X,
 } from 'lucide-react';
 import { LOOK_PREFILL_KEY, type LookPrefill } from '@/lib/maharaja/look-prefill';
 import { useLeadGate } from '@/components/LeadGate';
 import { useExitGuard } from '@/components/ExitGuard';
+import HelpRetry, { HELP_TEXT } from '@/components/HelpRetry';
 
 type Look = {
   sku: string;
@@ -59,9 +56,6 @@ export default function PrivateLooksPage() {
   // Back or close asks first: this private link is the only copy of the customer's looks.
   const exitGuard = useExitGuard({});
 
-  // Retry lives in the header ⋯ menu.
-  const [showMenu, setShowMenu] = useState(false);
-  const [showRetryImageModal, setShowRetryImageModal] = useState(false);
 
   const fetchLooks = useCallback(async () => {
     if (!token) return;
@@ -173,27 +167,16 @@ export default function PrivateLooksPage() {
             </div>
           </div>
 
-          <div className="relative">
-            <button
-              type="button"
-              aria-label="Look options"
-              aria-expanded={showMenu}
-              onClick={() => setShowMenu((open) => !open)}
-              className="flex h-11 w-11 items-center justify-center rounded-xl border border-line-strong bg-white"
-            >
-              <MoreVertical className="h-5 w-5" />
-            </button>
-            {showMenu && (
-              <div className="absolute right-0 top-12 z-40 w-64 overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
-                <button type="button" onClick={() => { setShowMenu(false); setShowRetryImageModal(true); }} className="flex min-h-12 w-full items-center gap-3 px-4 text-left text-[15px] font-semibold">
-                  <RotateCcw className="h-4 w-4" /> Retry with another outfit
-                </button>
-                <button type="button" onClick={() => { setShowMenu(false); void fetchLooks(); }} className="flex min-h-12 w-full items-center gap-3 border-t border-line px-4 text-left text-[15px] font-semibold">
-                  <RefreshCw className="h-4 w-4" /> Refresh my looks
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Help: these looks were made on the store's TV, so a new try is made there. */}
+          <HelpRetry
+            canRetry={false}
+            onRetry={() => undefined}
+            text={{
+              ...HELP_TEXT.looks,
+              noRetryText: 'To take a new photo or try other outfits, go back to the store TV or ask our staff at the counter.',
+            }}
+            extra={{ label: 'Refresh my looks', onClick: () => void fetchLooks() }}
+          />
         </div>
       </header>
 
@@ -365,49 +348,6 @@ export default function PrivateLooksPage() {
       {leadGate.dialog}
       {exitGuard.dialog}
 
-      {/* Retry, from the header ⋯ menu */}
-      {showRetryImageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="rounded-2xl w-full max-w-sm border border-ink bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2 text-brand">
-                <RotateCcw className="h-5 w-5" />
-                <h3 className="tracking-tight text-lg font-bold text-ink">Retake or Change Garment</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowRetryImageModal(false)}
-                className="p-1 text-muted hover:text-ink"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="mt-3 text-sm text-muted">
-              To take a new photo or pick other outfits from the store collection, go back to the
-              store TV or ask our staff at the counter.
-            </p>
-            <div className="mt-5 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowRetryImageModal(false);
-                  fetchLooks();
-                }}
-                className="min-h-11 border border-ink bg-ink px-4 text-xs font-bold text-white hover:bg-[#2A2E2C]"
-              >
-                Refresh Current Looks
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowRetryImageModal(false)}
-                className="min-h-11 border border-line bg-white px-4 text-xs font-bold text-muted hover:bg-[#F4F5F2]"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

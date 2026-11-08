@@ -447,127 +447,7 @@ const rawSampleCatalogue: Array<Omit<TryFocusProduct, 'gender'>> = [
     garmentType: 'saree',
   },
 
-  // WOMEN — SALWAR
-  {
-    id: 'salwar-1',
-    sku: 'TF-SAL-001',
-    title: 'Emerald Silk Zari Embroidered Salwar Set',
-    category: 'salwar',
-    audience: 'Women',
-    price: 6490,
-    imageUrl: '/images/catalogue-demo/emerald-salwar-model.png',
-    fabricNote: 'Chanderi Silk Kameez · Woven Banarasi Zari Dupatta',
-    badge: 'BEST SELLER',
-    accent: 'from-[#FAF6F0] to-[#EFE8DC]',
-    eligibleForVideo: true,
-    garmentType: 'salwar',
-  },
-
-  // WOMEN — LEHENGA
-  {
-    id: 'lehenga-1',
-    sku: 'TF-LEH-001',
-    title: 'Maroon Bridal Zardozi Heritage Lehenga',
-    category: 'lehenga',
-    audience: 'Women',
-    price: 28900,
-    imageUrl: '/images/catalogue-demo/maroon-bridal-lehenga-model.png',
-    fabricNote: 'Raw Silk Flared Skirt · Zardozi & Floral Gold Work',
-    badge: 'ROYAL SILK',
-    accent: 'from-[#FAF6F0] to-[#EFE8DC]',
-    eligibleForVideo: true,
-    garmentType: 'lehenga',
-  },
-
-  // MEN — KURTA
-  {
-    id: 'kurta-1',
-    sku: 'TF-KUR-001',
-    title: 'Royal Navy Silk Brocade Kurta & Angavastram',
-    category: 'kurta',
-    audience: 'Men',
-    price: 6890,
-    imageUrl: '/images/catalogue-demo/navy-kurta-model.png',
-    fabricNote: 'Jacquard Silk Kurta · Ivory Churidar & Gold Stole',
-    badge: 'BEST SELLER',
-    accent: 'from-[#FAF6F0] to-[#EFE8DC]',
-    eligibleForVideo: true,
-    garmentType: 'kurta_dhoti',
-  },
-
-  // MEN — VESHTI
-  {
-    id: 'veshti-1',
-    sku: 'TF-VES-001',
-    title: 'Traditional Cream & Pure Gold Kasavu Veshti Set',
-    category: 'veshti',
-    audience: 'Men',
-    price: 5490,
-    imageUrl: '/images/catalogue-demo/cream-gold-veshti-model.png',
-    fabricNote: 'Crisp Silk Shirt · Mayilkannu Gold Zari Veshti & Angavastram',
-    badge: 'BEST SELLER',
-    accent: 'from-[#FAF6F0] to-[#EFE8DC]',
-    eligibleForVideo: true,
-    garmentType: 'dhoti_veshti',
-  },
-
-  // MEN — SHIRTS
-  {
-    id: 'shirts-1',
-    sku: 'TF-SHI-001',
-    title: 'Teal Pure Linen Festive Shirt & Cream Trousers',
-    category: 'shirts',
-    audience: 'Men',
-    price: 5190,
-    imageUrl: '/images/catalogue-demo/teal-linen-shirt-model.png',
-    fabricNote: '100% European Flax Linen · Tailored Chino Trousers',
-    badge: 'BEST SELLER',
-    accent: 'from-[#FAF6F0] to-[#EFE8DC]',
-    eligibleForVideo: true,
-    garmentType: 'shirt_pant',
-  },
 ];
-
-const newCatalogueGroups: Array<{
-  category: CatalogueCategoryId;
-  audience: TryFocusProduct['audience'];
-  gender: CatalogueAudience;
-  garmentType: TryFocusProduct['garmentType'];
-  titles: string[];
-  premium?: boolean;
-  arrivalOnly?: boolean;
-}> = [
-  { category: 'half-sarees', audience: 'Women', gender: 'women', garmentType: 'half_saree', titles: ['Ruby Silk Langa Voni', 'Peacock Blue Half Saree', 'Emerald Silk Half Saree', 'Antique Gold Langa Voni', 'Violet Zari Half Saree'] },
-  { category: 'kurtis', audience: 'Women', gender: 'women', garmentType: 'salwar', titles: ['Maroon Silk Kurti', 'Teal Festive Kurti', 'Mustard Cotton Silk Kurti', 'Peacock Blue Embroidered Kurti', 'Ivory Temple Border Kurti'] },
-  { category: 'angavastram', audience: 'Men', gender: 'men', garmentType: 'dhoti_veshti', premium: true, titles: ['Ivory Gold Wedding Angavastram Set', 'Maroon Silk Angavastram Set', 'Royal Blue Heritage Angavastram Set', 'Emerald Zari Angavastram Set', 'Sandal Gold Wedding Angavastram Set'] },
-  { category: 'boys-veshti', audience: 'Boys', gender: 'boys', garmentType: 'dhoti_veshti', titles: ['Emerald Shirt Pattu Veshti', 'Maroon Border Pattu Veshti', 'Green Zari Pattu Veshti', 'Royal Blue Shirt Pattu Veshti', 'Copper Border Pattu Veshti'] },
-  { category: 'boys-kurta', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti', titles: ['Saffron Silk Kurta Set', 'Royal Blue Brocade Kurta Set', 'Forest Green Silk Kurta Set', 'Maroon Jacquard Kurta Set', 'Mustard Wedding Kurta Set'] },
-  { category: 'boys-silk-shirt', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant', titles: ['Cream Silk Shirt Set', 'Peacock Blue Silk Shirt Set', 'Burgundy Silk Shirt Set', 'Pale Gold Silk Shirt Set', 'Emerald Silk Shirt Set'] },
-  { category: 'girls-pavadai', audience: 'Girls', gender: 'girls', garmentType: 'lehenga', titles: ['Ruby Pattu Pavadai', 'Emerald Temple Pattu Pavadai', 'Royal Blue Pattu Pavadai', 'Purple Gold Pattu Pavadai', 'Mustard Maroon Pattu Pavadai'] },
-  { category: 'girls-lehenga', audience: 'Girls', gender: 'girls', garmentType: 'lehenga', titles: ['Rose Pink Silk Lehenga', 'Peacock Blue Silk Lehenga', 'Maroon Wedding Lehenga', 'Emerald Festive Lehenga', 'Saffron Gold Lehenga'] },
-  { category: 'girls-frock', audience: 'Girls', gender: 'girls', garmentType: 'salwar', titles: ['Royal Blue Silk Frock', 'Ruby Temple Border Frock', 'Emerald Embroidered Frock', 'Violet Brocade Frock', 'Golden Maroon Silk Frock'] },
-  { category: 'angavastram', audience: 'Men', gender: 'men', garmentType: 'dhoti_veshti', arrivalOnly: true, titles: ['New Wedding Silk Set', 'New Royal Maroon Ensemble', 'New Peacock Blue Ceremony Set', 'New Emerald Silk Wedding Set', 'New Gold Zari Festive Set'] },
-];
-
-const generatedCatalogue: TryFocusProduct[] = newCatalogueGroups.flatMap((group) =>
-  group.titles.map((title, index) => ({
-    id: `${group.category}-${group.arrivalOnly ? 'arrival-' : ''}${index + 1}`,
-    sku: `TF-${group.category.toUpperCase()}-${group.arrivalOnly ? 'NEW-' : ''}${String(index + 1).padStart(3, '0')}`,
-    title,
-    category: group.category,
-    audience: group.audience,
-    gender: group.gender,
-    price: group.premium || group.arrivalOnly || group.gender === 'boys' || group.gender === 'girls' ? 12900 + index * 1500 : 0,
-    imageUrl: `/images/catalogue-demo/south-indian/${group.arrivalOnly ? 'arrival-men' : group.category}-${index + 1}.png`,
-    fabricNote: 'South Indian festive collection · Demo garment',
-    badge: group.arrivalOnly ? 'NEW ARRIVAL' : 'FESTIVE PICK',
-    accent: 'from-[#FAF6F0] to-[#EFE8DC]',
-    eligibleForVideo: true,
-    eligibleForLive: group.premium === true || group.arrivalOnly === true || group.gender === 'boys' || group.gender === 'girls',
-    newArrivalOnly: group.arrivalOnly === true,
-    garmentType: group.garmentType,
-  }))
-);
 
 export const sampleCatalogue: TryFocusProduct[] = [
   ...maharajaClientSamples,
@@ -584,7 +464,6 @@ export const sampleCatalogue: TryFocusProduct[] = [
       eligibleForLive: item.category === 'sarees' || (item.audience === 'Men' && item.price >= 10000),
     };
   }),
-  ...generatedCatalogue,
 ];
 
 export const events = [

@@ -1,14 +1,9 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import MaharajaExperience from '@/components/MaharajaExperience';
+export const dynamic = 'force-dynamic';
 
-function TryOnExperience() {
-  const searchParams = useSearchParams();
-  return <MaharajaExperience service="try-on" accessCode={searchParams.get('access') || ''} />;
-}
-
-export default function MaharajaTryOnPage() {
-  return <Suspense fallback={<main className="min-h-screen bg-[#F5F2EA]" />}><TryOnExperience /></Suspense>;
+// The old Try-On page. Printed links still land here: they open the phone Try-On of the same store.
+export default async function MaharajaTryOnPage({ searchParams }: { searchParams: Promise<{ access?: string }> }) {
+  const { access } = await searchParams;
+  redirect(access ? `/maharaja/mobile/experience?access=${encodeURIComponent(access)}` : '/maharaja/mobile/experience');
 }

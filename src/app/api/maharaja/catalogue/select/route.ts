@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const product = await getCatalogueProduct(sku);
     if (!product) return NextResponse.json({ success: false, error: 'That catalogue product is unavailable.' }, { status: 404 });
     // AI Video uses only the pieces the store switched on for it (its higher-value collection).
-    if (!product.eligibleForVideo && !product.sku.startsWith('TF-')) {
+    if (!product.eligibleForVideo) {
       return NextResponse.json({ success: false, error: 'This outfit is not available for AI Video. Choose another.' }, { status: 400 });
     }
     // Who the video is for and what the garment is come from the piece chosen, so the portrait uses that

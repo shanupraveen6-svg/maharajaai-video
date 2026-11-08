@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStoreCatalogue } from '@/lib/maharaja/use-store-catalogue';
 import { fetchCatalogueSettings } from '@/lib/maharaja/catalogue-client';
@@ -13,8 +12,6 @@ import {
   AtSign,
   LoaderCircle,
   MessageCircle,
-  MoreVertical,
-  RotateCcw,
   Shirt,
   Sparkles,
   Upload,
@@ -28,6 +25,7 @@ import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { ActionBar, PageTitle } from '@/components/ui';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { useLeadGate } from '@/components/LeadGate';
+import HelpRetry from '@/components/HelpRetry';
 import { useExitGuard } from '@/components/ExitGuard';
 import { categoriesFor, type StoreCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 
@@ -40,7 +38,7 @@ const OTHER_TYPE = 'other';
 
 /**
  * What the store's Wall QR opens: Try-On on the customer's phone. Each phone gets one free look (and one
- * retry, kept in the ⋯ menu). Steps: (a photo of the bill, when the store set a Try-On minimum) → Who → your
+ * retry, asked from Help on the look). Steps: (a photo of the bill, when the store set a Try-On minimum) → Who → your
  * photo (camera or upload) → Store collection or My own outfit → What type → pick a piece, or photograph
  * your outfit → your look. Nothing is stored: the
  * look comes back to the phone only. Download asks for WhatsApp, then offers Instagram and sharing.
@@ -66,12 +64,11 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   const [resultUrl, setResultUrl] = useState('');
   const [note, setNote] = useState('');
   const [downloaded, setDownloaded] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const [deviceId, setDeviceId] = useState('');
   // The phone's one hidden retry: false until used (the server checks it too).
   const [retryUsed, setRetryUsed] = useState(false);
-  // The retry was granted but not finished: ⋯ Try once more simply starts it again.
+  // The retry was granted but not finished: Help → Yes, retry simply starts it again.
   const [retryPending, setRetryPending] = useState(false);
   const [categoryLists, setCategoryLists] = useState<StoreCategoryLists>({});
   // The store's Try-On minimum: above 0, the phone asks for a photo of the bill first, then gets a grant.
@@ -239,7 +236,6 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
 
   /** The hidden second try: the server allows it once per phone, then the same choices run again. */
   async function tryOnceMore() {
-    setMenuOpen(false);
     setNote('');
     // The retry was already granted on an earlier visit: start it again without asking the server.
     if (retryPending) {
@@ -337,21 +333,18 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
                 <button key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)} className={`min-h-10 rounded-[10px] px-2.5 ${language === value ? 'bg-white text-ink shadow-sm' : 'text-muted'}`}>{label}</button>
               ))}
             </div>
-            <Link href="/maharaja/try-on" className="flex min-h-10 items-center rounded-xl px-2 text-sm font-semibold text-muted hover:text-ink">{t('help')}</Link>
-            {/* The one retry lives here, top right, never as a button on the page. */}
-            {(stage === 'result' || stage === 'done') && (!retryUsed || retryPending) && (
-              <div className="relative">
-                <button type="button" aria-label={t('moreOptions')} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="flex h-10 w-10 items-center justify-center rounded-xl text-ink hover:bg-line/60">
-                  <MoreVertical className="h-5 w-5" />
-                </button>
-                {menuOpen && (
-                  <div className="absolute right-0 top-12 z-40 w-56 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
-                    <button type="button" disabled={generating} onClick={() => void tryOnceMore()} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold disabled:opacity-50">
-                      <RotateCcw className="h-4 w-4" /> {t('tryOnceMore')}
-                    </button>
-                  </div>
-                )}
-              </div>
+            {/* Help sits top right on the look: the one retry is asked there, never a button on the page. */}
+            {(stage === 'result' || stage === 'done') && (
+              <HelpRetry
+                canRetry={!retryUsed || retryPending}
+                busy={generating}
+                onRetry={() => void tryOnceMore()}
+                text={{
+                  help: t('help'), question: t('helpQuestionImage'), retryText: t('helpRetryImageText'),
+                  noRetryTitle: t('helpNoRetryTitle'), noRetryText: t('helpNoRetryImage'), tipsTitle: t('helpTipsTitle'),
+                  tips: [t('tipFullLength'), t('tipLight'), t('tipOneGarment')], yes: t('yesRetry'), cancel: t('cancel'), close: t('close'),
+                }}
+              />
             )}
           </div>
         </div>

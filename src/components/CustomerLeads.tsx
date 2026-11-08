@@ -10,6 +10,7 @@ type Lead = {
   marketingConsent: boolean;
   sources: string[];
   downloads: number;
+  firstSeenAt?: string;
   lastSeenAt: string;
 };
 
@@ -19,6 +20,8 @@ const SOURCE_NAMES: Record<string, string> = {
   'ai-video': 'AI Video',
   'live-mirror': 'Live Mirror',
 };
+
+const shortDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
 /**
  * The store's customers: everyone who gave a WhatsApp number to download a look or a video. Only those who
@@ -74,9 +77,9 @@ export default function CustomerLeads() {
             </div>
           ) : (
             <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left text-sm">
+              <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="border-b border-line text-xs font-semibold text-muted">
-                  <tr><th className="py-2 pr-3">WhatsApp</th><th className="py-2 pr-3">Offers</th><th className="py-2 pr-3">Used</th><th className="py-2 pr-3 text-right">Downloads</th><th className="py-2 text-right">Last seen</th></tr>
+                  <tr><th className="py-2 pr-3">WhatsApp</th><th className="py-2 pr-3">Offers</th><th className="py-2 pr-3">Used</th><th className="py-2 pr-3 text-right">Downloads</th><th className="py-2 pr-3 text-right">First seen</th><th className="py-2 text-right">Last seen</th></tr>
                 </thead>
                 <tbody>
                   {leads.slice(0, 200).map((lead) => (
@@ -85,7 +88,8 @@ export default function CustomerLeads() {
                       <td className="py-2.5 pr-3">{lead.marketingConsent ? <StatusPill tone="success">Yes</StatusPill> : <StatusPill>No</StatusPill>}</td>
                       <td className="py-2.5 pr-3 text-muted">{Array.from(new Set((lead.sources || []).map((source) => SOURCE_NAMES[source] || source))).join(', ')}</td>
                       <td className="py-2.5 pr-3 text-right tabular-nums">{Number(lead.downloads || 0).toLocaleString('en-IN')}</td>
-                      <td className="py-2.5 text-right tabular-nums text-muted">{lead.lastSeenAt ? new Date(lead.lastSeenAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums text-muted">{shortDate(lead.firstSeenAt)}</td>
+                      <td className="py-2.5 text-right tabular-nums text-muted">{shortDate(lead.lastSeenAt)}</td>
                     </tr>
                   ))}
                 </tbody>

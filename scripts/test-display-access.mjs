@@ -17,7 +17,10 @@ assert.equal(await verifyDisplayRequest(request(`${token}x`)), false);
 const expiredPayload = token.split('.').slice(0, 2).join('.') + '.1';
 const expired = `${expiredPayload}.${crypto.createHmac('sha256', process.env.OPERATOR_AUTH_SECRET).update(expiredPayload).digest('hex')}`;
 assert.equal(await verifyDisplayRequest(request(expired)), false);
-assert.equal((await POST(request(token))).status, 401, 'Display cannot renew itself.');
+// A paired screen renews its own pairing (the Go Live player signs in once); a forged or expired one cannot.
+assert.equal((await POST(request(token))).status, 200, 'A paired display renews itself.');
+assert.equal((await POST(request(`${token}x`))).status, 401, 'A forged display cookie cannot pair.');
+assert.equal((await POST(request(expired))).status, 401, 'An expired display cannot renew.');
 assert.equal((await DELETE(request(token))).status, 401, 'Display cannot revoke staff pairing settings.');
 await revokeDisplayTokens();
 assert.equal(await verifyDisplayRequest(request(token)), false, 'Revocation takes effect immediately.');

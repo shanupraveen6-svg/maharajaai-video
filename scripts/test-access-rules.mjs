@@ -58,8 +58,8 @@ assert.equal(access.modules.image, true);
 assert.equal(resolveAccess(PACKAGES.tv.devices, allModules).counterTryOn, false);
 assert.equal(resolveAccess(allDevices, allModules).counterTryOn, true);
 
-// Platforms offered: TV, tablet or phone; "TV and tablet" stays readable for older stores.
-assert.deepEqual(OFFERED_PACKAGES, ['tv', 'tablet', 'phone']);
+// Packages sold: TV and Tablet (each with the customer's phone). The phone-only package stays readable for older stores.
+assert.deepEqual(OFFERED_PACKAGES, ['tv', 'tablet']);
 assert.equal(packageOf(PACKAGES.tablet.devices), 'tablet');
 assert.equal(packageOf(PACKAGES.tv.devices), 'tv');
 assert.equal(packageOf(PACKAGES.phone.devices), 'phone');

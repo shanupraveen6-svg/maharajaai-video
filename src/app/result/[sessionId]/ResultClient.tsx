@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, Tv, Sparkles, RotateCcw, AlertCircle, ExternalLink, MessageCircle, MoreVertical } from 'lucide-react';
+import { Download, Tv, Sparkles, RotateCcw, AlertCircle, ExternalLink, MessageCircle } from 'lucide-react';
+import HelpRetry, { HELP_TEXT } from '@/components/HelpRetry';
 import { getEventOption, type EventId } from '@/lib/maharaja/config';
 import { useLeadGate } from '@/components/LeadGate';
 
@@ -65,7 +66,7 @@ export default function ResultClient({
   const [liveConsent, setLiveConsent] = useState(false);
   const [guardianLiveConsent, setGuardianLiveConsent] = useState(false);
   const [promotionConsent, setPromotionConsent] = useState(false);
-  const [showRetryMenu, setShowRetryMenu] = useState(false);
+  const [videoRetryClosed, setVideoRetryClosed] = useState(false);
   const [retrySubmitting, setRetrySubmitting] = useState(false);
 
   // The store's own Instagram (set in its AI Video section); hidden when the store has none.
@@ -311,7 +312,8 @@ export default function ResultClient({
   };
 
   const handleVideoRetry = async () => {
-    if (retrySubmitting || !accessCode || !videoUrl || !window.confirm('Use your included video retry? Your current film stays available.')) return;
+    // Help has already asked "Do you need to retry this video?"; there is no second question.
+    if (retrySubmitting || !accessCode || !videoUrl) return;
     setRetrySubmitting(true);
     setLiveError(null);
     try {
@@ -321,9 +323,13 @@ export default function ResultClient({
         body: JSON.stringify({ type: 'retry', target: 'video', service: 'ai-video', label: 'Customer video retry', accessCode, sessionId }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.success) throw new Error(data.error || 'Video retry is unavailable.');
+      if (!response.ok || !data.success) {
+        // The one retry is used up (or not allowed here): Help now shows the tips and who can help.
+        setVideoRetryClosed(true);
+        throw new Error(data.error || 'Video retry is unavailable.');
+      }
       if (onBack) onBack();
-      else router.push(`/maharaja/video/${encodeURIComponent(accessCode)}?retry=${encodeURIComponent(sessionId)}`);
+      else router.push(`/maharaja/catalogue/${encodeURIComponent(accessCode)}`);
     } catch (error) {
       setLiveError(error instanceof Error ? error.message : 'Video retry is unavailable.');
     } finally {
@@ -374,21 +380,14 @@ export default function ResultClient({
   const storeInitial = store.charAt(0) || 'S';
   const isChild = category === 'girl' || category === 'boy';
   const rupees = (value: number) => `₹${new Intl.NumberFormat('en-IN').format(value)}`;
-  // The store's header: initial and name, with the video retry in ⋯ once the video is ready.
+  // The store's header: initial and name, with Help (the video retry) once the video is ready.
   const header = (
     <header className="sticky top-0 z-20 border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur-md">
       <div className="mx-auto flex max-w-xl items-center gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-base font-bold text-white">{storeInitial}</span>
         <p className="min-w-0 flex-1 truncate font-bold">{shownName || 'AI Video'}</p>
         {videoStatus === 'ready' && videoUrl && !liveSuccess && (
-          <div className="relative shrink-0">
-            <button type="button" aria-label="More options" aria-expanded={showRetryMenu} onClick={() => setShowRetryMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-line/60"><MoreVertical className="h-5 w-5" /></button>
-            {showRetryMenu && (
-              <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
-                <button type="button" disabled={retrySubmitting} onClick={() => { setShowRetryMenu(false); void handleVideoRetry(); }} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-sm font-semibold disabled:opacity-50"><RotateCcw className="h-4 w-4" /> Retry video</button>
-              </div>
-            )}
-          </div>
+          <HelpRetry text={HELP_TEXT.video} canRetry={Boolean(accessCode) && !videoRetryClosed} busy={retrySubmitting} onRetry={() => void handleVideoRetry()} />
         )}
       </div>
     </header>

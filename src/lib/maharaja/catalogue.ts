@@ -10,7 +10,7 @@ import { MAHARAJA_CLIENT_ID } from './config';
 // Evaluated per call: each request reads the catalogue of the client it is bound to.
 const collectionPath = () => `clientWorkspaces/${activeClientId()}/catalogueProducts`;
 
-const LOCAL_DEMO_CATALOGUE: MaharajaCatalogueProduct[] = sampleCatalogue.map((item, index) => ({
+const BUILT_IN_CATALOGUE: MaharajaCatalogueProduct[] = sampleCatalogue.map((item, index) => ({
   id: item.id,
   sku: item.sku,
   title: item.title,
@@ -82,7 +82,7 @@ const ROOT_SILK_CATALOGUE = ([
 }));
 
 const COMBINED_FALLBACK_CATALOGUE: MaharajaCatalogueProduct[] = [
-  ...LOCAL_DEMO_CATALOGUE,
+  ...BUILT_IN_CATALOGUE,
   ...ROOT_SILK_CATALOGUE,
 ];
 
@@ -95,24 +95,20 @@ function getMockCatalogueMap(): Map<string, MaharajaCatalogueProduct> {
   if (!store.catalogueProductsByClient.has(clientId)) store.catalogueProductsByClient.set(clientId, new Map());
   const catalogue = store.catalogueProductsByClient.get(clientId) as Map<string, MaharajaCatalogueProduct>;
   // Only Maharaja starts with its silk saree collection; other clients begin with an empty catalogue.
-  for (const item of clientId === MAHARAJA_CLIENT_ID ? LOCAL_DEMO_CATALOGUE : []) {
+  for (const item of clientId === MAHARAJA_CLIENT_ID ? BUILT_IN_CATALOGUE : []) {
     if (!catalogue.has(item.sku)) catalogue.set(item.sku, { ...item });
   }
   return catalogue;
 }
 
-const DEPRECATED_HUE_SHIFTED_SKUS = new Set([
-  'TF-SAR-001', 'TF-SAR-002', 'TF-SAR-003', 'TF-SAR-004', 'TF-SAR-005',
-  'TF-SAL-002', 'TF-SAL-003', 'TF-SAL-004', 'TF-SAL-005',
-  'TF-LEH-002', 'TF-LEH-003', 'TF-LEH-004', 'TF-LEH-005',
-  'TF-KUR-002', 'TF-KUR-003', 'TF-KUR-004', 'TF-KUR-005',
-  'TF-VES-002', 'TF-VES-003', 'TF-VES-004', 'TF-VES-005',
-  'TF-SHI-002', 'TF-SHI-003', 'TF-SHI-004', 'TF-SHI-005',
-]);
-
+/**
+ * Sample garments from the early demo (TF- SKUs and the bundled /images/catalogue-demo pictures) are never
+ * shown: what customers see is only the store's real collection. Saved copies of them are hidden too.
+ */
 function isDeprecatedDemoProduct(sku?: string, storagePath?: string): boolean {
   const cleanSku = String(sku || '').trim().toUpperCase();
-  if (DEPRECATED_HUE_SHIFTED_SKUS.has(cleanSku)) return true;
+  if (cleanSku.startsWith('TF-')) return true;
+  if (String(storagePath || '').trim().startsWith('/images/catalogue-demo/')) return true;
   const cleanPath = String(storagePath || '').trim();
   if (/-model-[2345]\b/i.test(cleanPath) || /saree-model-[2345]/i.test(cleanPath)) return true;
   return false;
@@ -268,7 +264,7 @@ export async function listCatalogueProducts(
   if (db) {
     const snapshot = await db.collection(collectionPath()).get();
     // Maharaja's built-in silk saree collection never appears in another client's catalogue.
-    const builtIn = activeClientId() === MAHARAJA_CLIENT_ID ? LOCAL_DEMO_CATALOGUE : [];
+    const builtIn = activeClientId() === MAHARAJA_CLIENT_ID ? BUILT_IN_CATALOGUE : [];
     if (!snapshot.empty) {
       const bySku = new Map<string, MaharajaCatalogueProduct>();
       for (const item of builtIn) {

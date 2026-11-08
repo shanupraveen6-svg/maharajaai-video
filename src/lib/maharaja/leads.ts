@@ -28,6 +28,14 @@ export type CustomerLead = {
 };
 
 export const LEAD_SOURCES: LeadSource[] = ['try-on', 'ai-video', 'live-mirror', 'tv-looks'];
+
+/** What the customer used, in the product's own words (TV looks are Try-On). */
+export const LEAD_SOURCE_NAMES: Record<LeadSource, string> = {
+  'try-on': 'Try-On',
+  'tv-looks': 'Try-On',
+  'ai-video': 'AI Video',
+  'live-mirror': 'Live Mirror',
+};
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** A 10-digit Indian mobile number (starts with 6–9), from "+91 98765 43210", "098765 43210" and the like. */
@@ -154,7 +162,7 @@ export function leadsCsv(leads: CustomerLead[]) {
       `91${lead.phone}`,
       lead.marketingConsent ? 'Yes' : 'No',
       lead.marketingConsentAt || '',
-      (lead.sources || []).join(' / '),
+      Array.from(new Set((lead.sources || []).map((source) => LEAD_SOURCE_NAMES[source] || source))).join(' / '),
       String(lead.downloads || 0),
       lead.firstSeenAt || '',
       lead.lastSeenAt || '',

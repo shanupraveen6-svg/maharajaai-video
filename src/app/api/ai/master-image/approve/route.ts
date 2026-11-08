@@ -24,7 +24,9 @@ export async function POST(req: NextRequest) {
     const existingSession = db
       ? (await db.collection('sessions').doc(sessionId).get()).data()
       : getMockStore().sessions.get(sessionId);
-    if (!existingSession || (access.pass && existingSession.accessCode !== accessCode)) {
+    // The session must be this store's, and this pass's when there is one.
+    const otherStore = existingSession?.clientId && existingSession.clientId !== access.clientId;
+    if (!existingSession || otherStore || (access.pass && existingSession.accessCode !== accessCode)) {
       return NextResponse.json({ success: false, error: 'This image session does not belong to this customer pass.' }, { status: 403 });
     }
 

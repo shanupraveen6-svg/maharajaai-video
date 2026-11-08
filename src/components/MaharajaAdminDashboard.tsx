@@ -29,6 +29,7 @@ import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
 import StoreLogoCard from '@/components/StoreLogoCard';
 import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import { NavTabs, Segmented, StatusPill } from '@/components/ui';
+import CustomerLeads from '@/components/CustomerLeads';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
 import {
   catalogueCategories,
@@ -164,7 +165,7 @@ export default function MaharajaAdminDashboard({
   const activeWorkspaceCode = workspaceCode || expectedWorkspaceCode || 'workspace';
   const router = useRouter();
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
-  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'gift' | 'golive' | 'settings'>('overview');
+  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'gift' | 'golive' | 'customers' | 'settings'>('overview');
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -514,7 +515,8 @@ export default function MaharajaAdminDashboard({
     const level = levelOf(label);
     if (level === 'exhausted') return { status: 'Credits finished', tone: 'danger' };
     if (pieces === 0 && !catalogueLoading) return { status: noPieces, tone: 'warn' };
-    if (level === 'critical' || level === 'low') return { status: 'Working · credits low', tone: 'warn' };
+    if (level === 'critical' || level === 'final') return { status: 'Working · credits almost finished', tone: 'danger' };
+    if (level === 'low' || level === 'half') return { status: level === 'low' ? 'Working · credits low' : 'Working · half the credits used', tone: 'warn' };
     return { status: 'Working', tone: 'success' };
   };
   const working: Array<{ title: string; where: string; note?: string; status: string; tone: Tone }> = [
@@ -664,6 +666,7 @@ export default function MaharajaAdminDashboard({
               ...(limits.video > 0 ? [{ value: 'gift' as const, label: 'AI Video gift' }] : []),
               ...(limits.image > 0 ? [{ value: 'qr' as const, label: 'Wall QR' }] : []),
               ...(goLiveOn ? [{ value: 'golive' as const, label: 'Go Live & videos' }] : []),
+              { value: 'customers', label: 'Customers' },
               { value: 'settings', label: 'Settings' },
             ]}
           />
@@ -748,6 +751,8 @@ export default function MaharajaAdminDashboard({
           </dl>
         </section>
         </>}
+
+        {section === 'customers' && <CustomerLeads />}
 
         {section === 'settings' && (
           <div className="max-w-3xl space-y-4">

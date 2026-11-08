@@ -39,15 +39,31 @@ assert.equal((await ledger.monthlyReport('ledger-b')).costUsdByKind['live-sessio
 // No caps set: everything runs.
 assert.equal(await ledger.spendAllowed('ledger-a'), true);
 
-// A client cap stops only that client; the platform cap stops everyone.
+// Stores have no daily cap (they bought a package): an old client cap setting is ignored.
 process.env.AI_DAILY_CAP_CLIENT_USD = '0.5';
-assert.equal(await ledger.spendAllowed('ledger-a'), false, 'Client A is over its cap');
-assert.equal(await ledger.spendAllowed('ledger-b'), false, 'Client B (1.00) is also over the 0.50 cap');
-process.env.AI_DAILY_CAP_CLIENT_USD = '5';
+assert.equal(await ledger.spendAllowed('ledger-a'), true, 'No daily cap per store');
+delete process.env.AI_DAILY_CAP_CLIENT_USD;
+// The platform's safety cap stops everyone.
 process.env.AI_DAILY_CAP_PLATFORM_USD = '1';
 assert.equal(await ledger.spendAllowed('ledger-a'), false, 'The platform cap stops every client');
 process.env.AI_DAILY_CAP_PLATFORM_USD = '100';
 assert.equal(await ledger.spendAllowed('ledger-a'), true);
+
+// Credit notices: 50%, 70%, 90%, 95% and finished, each once.
+const credits = await import('../src/lib/maharaja/credits.ts');
+assert.equal(credits.crossedCreditStep(49, 50, 100), 50);
+assert.equal(credits.crossedCreditStep(50, 51, 100), null);
+assert.equal(credits.crossedCreditStep(69, 70, 100), 70);
+assert.equal(credits.crossedCreditStep(89, 90, 100), 90);
+assert.equal(credits.crossedCreditStep(94, 95, 100), 95);
+assert.equal(credits.crossedCreditStep(99, 100, 100), 100);
+assert.equal(credits.crossedCreditStep(0, 1, 1), 100, 'A one-credit package jumps straight to finished');
+assert.equal(credits.creditLevel(1000, 2000), 'half');
+assert.equal(credits.creditLevel(1400, 2000), 'low');
+assert.equal(credits.creditLevel(1800, 2000), 'critical');
+assert.equal(credits.creditLevel(1900, 2000), 'final');
+assert.equal(credits.creditLevel(2000, 2000), 'exhausted');
+assert.equal(credits.creditLevel(999, 2000), 'ok');
 
 // Cost estimates follow the environment.
 process.env.AI_COST_TRY_ON_USD = '0.07';

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyOperatorRequest } from '@/lib/auth/operator';
+import { getOperatorSession } from '@/lib/auth/operator';
 import { bindClient } from '@/lib/maharaja/client-context';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { LEAD_SOURCES, type LeadSource, leadsCsv, listLeads, maskMobile, normalizeIndianMobile, recordLead } from '@/lib/maharaja/leads';
 import { readMirrorRecording } from '@/lib/maharaja/mirror-recordings';
-import { resolveRequestClientId, verifyMaharajaAccess } from '@/lib/maharaja/server';
+import { resolveRequestClientId, verifyClientSessionCurrent, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 
@@ -55,10 +55,19 @@ export async function POST(req: NextRequest) {
 
 /** The store's customer list for its staff: JSON, or a CSV file with `?format=csv`. */
 export async function GET(req: NextRequest) {
-  bindClient(await resolveRequestClientId(req));
-  if (!verifyOperatorRequest(req)) {
+  // Only from the signed-in session: a store sees its own customers, TryFocus admin names the store.
+  // A Go Live or TV pairing on the same browser never decides whose list this is.
+  await verifyClientSessionCurrent(req);
+  const session = getOperatorSession(req);
+  const clientId = session?.role === 'client'
+    ? session.clientId
+    : session?.role === 'admin'
+      ? (req.nextUrl.searchParams.get('clientId') || '').trim() || MAHARAJA_CLIENT_ID
+      : null;
+  if (!clientId) {
     return NextResponse.json({ success: false, error: 'Sign in to see your customers.' }, { status: 401 });
   }
+  bindClient(clientId);
   const leads = await listLeads();
   if (req.nextUrl.searchParams.get('format') === 'csv') {
     return new NextResponse(`﻿${leadsCsv(leads)}`, {

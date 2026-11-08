@@ -4,6 +4,7 @@ import { disableClientAccount, listClientLoginUsernames, setClientAccount } from
 import {
   deleteClientWorkspace,
   genlookAllowance,
+  usesFreeGenlookPool,
   getClientWorkspaceById,
   getWorkspaceLinks,
   instagramUrlFor,
@@ -60,6 +61,8 @@ function formatClientRecord(ws: MaharajaWorkspace, logins: string[] = [], spend:
     },
     // GenLook credits locked to this store, and how many it has used.
     genlookCredits: genlookAllowance(ws),
+    // Maharaja (the first store) can draw on GenLook's shared balance instead of a locked number.
+    genlookShared: usesFreeGenlookPool(ws),
     genlookUsed: Number(ws.usage?.genlookUsed || 0),
     limits: {
       image: Number(ws.limits?.image ?? 4000),
@@ -93,7 +96,6 @@ async function platformSpend() {
   const today = await spendToday().catch(() => null);
   return {
     todayInr: Math.round(usdToInr(today?.platformUsd || 0)),
-    clientCapInr: today?.caps.client ? Math.round(usdToInr(today.caps.client)) : null,
     platformCapInr: today?.caps.platform ? Math.round(usdToInr(today.caps.platform)) : null,
   };
 }

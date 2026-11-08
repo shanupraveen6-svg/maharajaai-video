@@ -126,6 +126,20 @@ const STRINGS = {
   leadInvalid: { en: 'Enter a 10-digit WhatsApp number.', ta: '10 இலக்க வாட்ஸ்அப் எண்ணை உள்ளிடுங்கள்.' },
   leadPrivacy: { en: 'We use your number only as you choose here.', ta: 'நீங்கள் இங்கே தேர்வு செய்தபடி மட்டுமே கடை உங்கள் எண்ணைப் பயன்படுத்தும்.' },
   cancel: { en: 'Cancel', ta: 'ரத்து' },
+  close: { en: 'Close', ta: 'மூடு' },
+  yesRetry: { en: 'Yes, retry', ta: 'ஆம், மீண்டும் முயற்சி' },
+  helpNoRetryTitle: { en: 'Need help?', ta: 'உதவி வேண்டுமா?' },
+  helpTipsTitle: { en: 'For the best result', ta: 'சிறந்த முடிவுக்கு' },
+  helpQuestionImage: { en: 'Do you need to retry this image?', ta: 'இந்த படத்தை மீண்டும் உருவாக்க வேண்டுமா?' },
+  helpRetryImageText: { en: 'You have one more try, free. We start again from your photo.', ta: 'இன்னொரு முறை இலவசமாக முயற்சிக்கலாம். உங்கள் புகைப்படத்திலிருந்து மீண்டும் தொடங்குவோம்.' },
+  helpNoRetryImage: { en: 'Your free retry has been used. Our staff can help you at the counter.', ta: 'உங்கள் இலவச மறுமுயற்சி பயன்படுத்தப்பட்டது. கவுண்டரில் எங்கள் ஊழியர்கள் உதவுவார்கள்.' },
+  helpQuestionPortrait: { en: 'Do you need to retry this portrait?', ta: 'இந்த போர்ட்ரெய்ட்டை மீண்டும் உருவாக்க வேண்டுமா?' },
+  helpRetryPortraitText: { en: 'We make it once more with the same piece, from a new photo.', ta: 'அதே உடையுடன், புதிய புகைப்படத்திலிருந்து மீண்டும் ஒரு முறை உருவாக்குவோம்.' },
+  helpNoRetryPortrait: { en: 'Your portrait retry has been used. Our staff can help you at the counter.', ta: 'உங்கள் போர்ட்ரெய்ட் மறுமுயற்சி பயன்படுத்தப்பட்டது. கவுண்டரில் எங்கள் ஊழியர்கள் உதவுவார்கள்.' },
+  tipFullLength: { en: 'A full-length photo, not a selfie.', ta: 'முழு உடல் புகைப்படம், செல்ஃபி அல்ல.' },
+  tipLight: { en: 'Good light, facing the camera.', ta: 'நல்ல வெளிச்சம், கேமராவை நோக்கி.' },
+  tipOneGarment: { en: 'One garment at a time, the whole piece in the frame.', ta: 'ஒரு நேரத்தில் ஒரு உடை, முழு உடையும் படத்தில்.' },
+  tipFace: { en: 'Nothing covering the face.', ta: 'முகத்தை எதுவும் மறைக்கக்கூடாது.' },
 } as const;
 
 export type PhoneStringKey = keyof typeof STRINGS;

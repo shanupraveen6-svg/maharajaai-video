@@ -16,9 +16,8 @@ import {
   Upload,
   Video,
   X,
-  MoreVertical,
-  RotateCcw,
 } from 'lucide-react';
+import HelpRetry, { HELP_TEXT } from '@/components/HelpRetry';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import DressLoader from '@/components/DressLoader';
 import AudienceCards, { PhotoGuide } from '@/components/AudienceCards';
@@ -67,7 +66,6 @@ const OUTFIT_GUIDE: [string, string] = ['One garment at a time, not a full set.'
 export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' | 'tablet' }) {
   const isTablet = device === 'tablet';
   const [mode, setMode] = useState<TvMode>('image-tryon');
-  const [showLookMenu, setShowLookMenu] = useState(false);
   const [clientName, setClientName] = useState('');
   // Live Mirror and AI Video show only while the store has them (module on and the devices they need on).
   const [liveOn, setLiveOn] = useState(!isTablet);
@@ -196,7 +194,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [videoPersonPhoto, setVideoPersonPhoto] = useState<string>('');
   const [videoMasterUrl, setVideoMasterUrl] = useState<string>('');
   const [videoMasterSessionId, setVideoMasterSessionId] = useState('');
-  const [showPortraitMenu, setShowPortraitMenu] = useState(false);
   const [videoGeneratingMaster, setVideoGeneratingMaster] = useState<boolean>(false);
   const [videoPassCreating, setVideoPassCreating] = useState<boolean>(false);
   const generationBusyRef = useRef(false);
@@ -227,7 +224,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / TV_PAGE_SIZE));
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * TV_PAGE_SIZE, (cataloguePage + 1) * TV_PAGE_SIZE);
   // AI Video uses only the pieces the store switched on for it.
-  const videoAudienceProducts = catalogueItems.filter((item) => item.price > 0 && (item.eligibleForVideo === true || item.sku.startsWith('TF-') || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === videoAudience);
+  const videoAudienceProducts = catalogueItems.filter((item) => item.price > 0 && (item.eligibleForVideo === true || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === videoAudience);
   const videoCategories = categoriesFor(categoryLists, videoAudience).filter((cat) => videoAudienceProducts.some((item) => item.category === cat.id));
   const activeVideoCategory = videoCategories.some((cat) => cat.id === videoCategory) ? videoCategory : videoCategories[0]?.id || '';
   const videoBrowseProducts = videoAudienceProducts.filter((item) => !activeVideoCategory || item.category === activeVideoCategory);
@@ -543,7 +540,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoPassQr('');
     setVideoStatusNote('');
     setPortraitRetryUsed(false);
-    const first = catalogueItems.find((item) => item.price > 0 && (item.eligibleForVideo || item.sku.startsWith('TF-') || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === audience);
+    const first = catalogueItems.find((item) => item.price > 0 && (item.eligibleForVideo || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === audience);
     if (first) setSelectedProduct(first);
     setVideoStage('photo');
     if (!videoPersonPhoto) void openCameraFor('video-person');
@@ -881,7 +878,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     }
   }
 
-  /** The portrait's ⋯ menu: one more try with the same piece. */
+  /** Help on the portrait: one more try with the same photo and piece. */
   function retryPortrait() {
     if (portraitRetryUsed) return;
     setPortraitRetryUsed(true);
@@ -1326,20 +1323,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   </div>
                   <div className="flex items-center gap-3">
                     {imageSource === 'catalogue' && generatedLooks.length > 1 && <span className="text-lg font-semibold">Look {activeLookIndex + 1} of {selectedLooks.length}</span>}
-                    {/* Retry lives in the header ⋯ menu of the screen where the looks were made. */}
-                    <div className="relative">
-                      <button type="button" aria-label="Look options" aria-expanded={showLookMenu} onClick={() => setShowLookMenu((open) => !open)} className="flex min-h-16 min-w-16 items-center justify-center rounded-xl border border-line-strong bg-white">
-                        <MoreVertical className="h-7 w-7" />
-                      </button>
-                      {showLookMenu && (
-                        <div className="absolute right-0 top-[4.5rem] z-40 w-80 overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
-                          {/* A retry always starts fresh: new Who, outfit and photos, nothing kept from this try. */}
-                          <button type="button" onClick={() => { setShowLookMenu(false); restartTryOn(); }} className="flex min-h-16 w-full items-center gap-3 px-5 text-left text-lg font-semibold">
-                            <RotateCcw className="h-5 w-5" /> Start again
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    {/* Help on the screen where the looks were made: a retry starts fresh (new Who, photo, outfits). */}
+                    <HelpRetry size="tv" text={HELP_TEXT.looks} canRetry onRetry={restartTryOn} />
                   </div>
                 </div>
                 <div className="rounded-2xl overflow-hidden border border-line bg-white" onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
@@ -1577,23 +1562,13 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 <div className="flex items-center justify-between gap-4">
                   <PageTitle size="lg" title={videoGeneratingMaster ? 'Creating your portrait' : videoMasterUrl ? 'Your portrait' : 'Your portrait'} subtitle={videoGeneratingMaster ? 'About 20 seconds.' : videoStatusNote} />
                   {videoMasterUrl && !videoGeneratingMaster && (
-                    <div className="relative">
-                      <button type="button" aria-label="Portrait options" aria-expanded={showPortraitMenu} onClick={() => setShowPortraitMenu((open) => !open)} className="flex min-h-16 min-w-16 items-center justify-center rounded-xl border border-line-strong bg-white">
-                        <MoreVertical className="h-7 w-7" />
-                      </button>
-                      {showPortraitMenu && (
-                        <div className="absolute right-0 top-[4.5rem] z-40 w-80 overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
-                          {!portraitRetryUsed && (
-                            <button type="button" onClick={() => { setShowPortraitMenu(false); retryPortrait(); }} className="flex min-h-16 w-full items-center gap-3 px-5 text-left text-lg font-semibold">
-                              <RefreshCw className="h-5 w-5" /> Create it again
-                            </button>
-                          )}
-                          <button type="button" onClick={() => { setShowPortraitMenu(false); chooseVideoPiece(selectedProduct); setVideoStage('pick'); }} className="flex min-h-16 w-full items-center gap-3 border-t border-line px-5 text-left text-lg font-semibold">
-                            <RotateCcw className="h-5 w-5" /> Choose another piece
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    <HelpRetry
+                      size="tv"
+                      text={{ ...HELP_TEXT.portrait, retryText: 'We make it once more with the same photo and piece.' }}
+                      canRetry={!portraitRetryUsed}
+                      onRetry={retryPortrait}
+                      extra={{ label: 'Choose another piece', onClick: () => { chooseVideoPiece(selectedProduct); setVideoStage('pick'); } }}
+                    />
                   )}
                 </div>
                 {videoGeneratingMaster ? (

@@ -315,6 +315,8 @@ type Client = {
   limits: { image: number; live: number; video: number };
   /** GenLook Try-On credits locked to this store out of TryFocus's GenLook balance, and how many it used. */
   genlookCredits?: number;
+  /** Draws on GenLook's shared balance (no locked number). */
+  genlookShared?: boolean;
   genlookUsed?: number;
   spend?: { todayInr: number; monthInr: number };
   /** Modules this client bought; a module that is off is blocked even with credits left. */
@@ -526,7 +528,8 @@ export default function TryFocusAdmin() {
           devices: mergedClient.devices,
           limits: mergedClient.limits,
           modules: mergedClient.modules,
-          ...(typeof mergedClient.genlookCredits === 'number' ? { genlookCredits: mergedClient.genlookCredits } : {}),
+          // GenLook credits are sent only when they are changed, never with every save.
+          ...('genlookCredits' in nextPatch ? { genlookCredits: nextPatch.genlookCredits ?? null } : {}),
         }),
       });
       if (res.status === 401) {
@@ -1006,17 +1009,29 @@ export default function TryFocusAdmin() {
             })}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-canvas p-4">
-            <label htmlFor="genlook-credits" className="text-sm font-semibold text-ink">GenLook credits locked to this store</label>
-            <input
-              id="genlook-credits"
-              type="number"
-              min={0}
-              value={client.genlookCredits ?? 0}
-              onChange={(e) => { const value = Math.max(0, Number(e.target.value) || 0); setClients((items) => items.map((item) => (item.id === client.id ? { ...item, genlookCredits: value } : item))); }}
-              onBlur={() => void saveCurrentConfiguration()}
-              className="h-10 w-28 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
-            />
-            <span className="text-sm text-muted">{(client.genlookUsed ?? 0).toLocaleString('en-IN')} used. No other store can use these. With none left, Try-On uses the backup engine.</span>
+            {client.genlookShared ? (
+              <>
+                <p className="text-sm font-semibold text-ink">GenLook: uses the shared balance</p>
+                <span className="text-sm text-muted">{(client.genlookUsed ?? 0).toLocaleString('en-IN')} used. Try-On uses GenLook while the account has free credits.</span>
+              </>
+            ) : (
+              <>
+                <label htmlFor="genlook-credits" className="text-sm font-semibold text-ink">GenLook credits locked to this store</label>
+                <input
+                  id="genlook-credits"
+                  type="number"
+                  min={0}
+                  value={client.genlookCredits ?? 0}
+                  onChange={(e) => { const value = Math.max(0, Number(e.target.value) || 0); setClients((items) => items.map((item) => (item.id === client.id ? { ...item, genlookCredits: value } : item))); }}
+                  onBlur={(e) => void persistClientPatch({ genlookCredits: Math.max(0, Number(e.target.value) || 0) })}
+                  className="h-10 w-28 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
+                />
+                <span className="text-sm text-muted">{(client.genlookUsed ?? 0).toLocaleString('en-IN')} used. No other store can use these. With none left, Try-On uses the backup engine.</span>
+                {client.id === 'maharaja' && (
+                  <button type="button" disabled={saving} onClick={() => void persistClientPatch({ genlookCredits: undefined, genlookShared: true })} className="min-h-10 rounded-xl border border-line-strong bg-white px-3 text-sm font-semibold">Use the shared balance</button>
+                )}
+              </>
+            )}
           </div>
         </section>
 

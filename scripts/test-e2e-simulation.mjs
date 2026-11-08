@@ -12,7 +12,7 @@ const [start, status, webhook, finalize, cleanup, next, playing, proxy, master, 
   read('src/app/api/tv/playing/route.ts'),
   read('src/proxy.ts'),
   read('src/app/api/ai/master-image/route.ts'),
-  read('src/components/MaharajaExperience.tsx'),
+  read('src/components/GiftVideoExperience.tsx'),
   read('src/lib/maharaja/video-test.ts'),
   read('src/app/api/download/asset/route.ts'),
 ]);
@@ -45,7 +45,8 @@ assert.doesNotMatch(master, /await fetch\(trimmed\)/);
 assert.doesNotMatch(master, /FalTryOnRejected/);
 assert.doesNotMatch(experience, /automatically failing over/i);
 assert.doesNotMatch(experience, /startVideoTest\('pixverse-c1'\)/);
-assert.match(experience, /videoModel: currentModel/);
+// The phone makes the AI Video with H3 Max (the server falls back to Gemini Omni Flash).
+assert.match(experience, /videoModel: 'h3-max'/);
 assert.match(videoModels, /h3-max/);
 assert.match(videoModels, /pixverse-c1/);
 assert.doesNotMatch(videoModels, /isVideoModelTestingEnabled/);
