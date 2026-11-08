@@ -16,6 +16,9 @@ export type CreditModule = 'image' | 'video' | 'live';
 export type Credits = Record<CreditModule, number>;
 
 export const PLATFORMS: Platform[] = ['tv', 'tablet', 'phone'];
+/** What TryFocus sells: TV or Tablet. Both include the customer's phone (Wall QR Try-On and AI Video made on
+ * the phone). Phone on its own is no longer sold; 'phone' stays only so older records still read correctly. */
+export const OFFERED_PLATFORMS: Platform[] = ['tv', 'tablet'];
 
 export const PLATFORM_LABELS: Record<Platform, string> = { tv: 'TV', tablet: 'Tablet', phone: 'Phone' };
 

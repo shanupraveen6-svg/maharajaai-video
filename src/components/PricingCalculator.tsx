@@ -21,13 +21,11 @@ export type PricingCalculatorConfig = {
   validityMonths: number;
   /** Phone is one package: the fee includes these credits; extra credits are added from `extraTotals`. */
   phonePackage: { fee: number; credits: number; retryPercent: number; totalCredits: number; extraRange: { min: number; max: number; step: number }; extraTotals: Record<number, number> };
-  /** November offer: no software charge and 60 free Try-On credits on Phone. */
-  novemberOffer: boolean;
 };
 
 const PLATFORM_TEXT: Record<Platform, { Icon: typeof Tv; text: string }> = {
-  tv: { Icon: Tv, text: 'A portrait TV in your showroom. Phone Try-On included.' },
-  tablet: { Icon: Tablet, text: 'A tablet at your counter. Phone Try-On included.' },
+  tv: { Icon: Tv, text: 'A portrait TV in your showroom: Try-On, AI Video and Live Mirror. The Wall QR phone Try-On and AI Video on the shopper’s phone are included.' },
+  tablet: { Icon: Tablet, text: 'A tablet at your counter, run by your team: Try-On and the AI Video gift QR. The Wall QR phone Try-On and AI Video on the shopper’s phone are included.' },
   phone: { Icon: Smartphone, text: 'Shoppers use their own phones through your Wall QR.' },
 };
 
@@ -42,8 +40,7 @@ const GST_INCLUDED = 1.18;
 const withGst = (value: number) => Math.round(value * GST_INCLUDED);
 
 export default function PricingCalculator({ config }: { config: PricingCalculatorConfig }) {
-  // Phone Try-On is what we promote first.
-  const [platform, setPlatform] = useState<Platform>('phone');
+  const [platform, setPlatform] = useState<Platform>(config.platforms[0] || 'tv');
   const [phoneExtra, setPhoneExtra] = useState(0);
   const [credits, setCredits] = useState<Credits>({
     image: config.presets.standard.image,
@@ -108,7 +105,6 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
               {id === 'phone' ? (
                 <span className="mt-4 text-sm text-muted">
                   Package: <b className="text-ink">{rupees(withGst(config.phonePackage.fee))}</b> including GST, with {config.phonePackage.credits.toLocaleString('en-IN')} Try-On + {config.phonePackage.retryPercent}% retries
-                  {config.novemberOffer && <span className="mt-2 block w-fit rounded-full bg-[#D4AF37] px-3 py-1 text-xs font-bold text-[#2A060C]">Free in November · 60 Try-Ons</span>}
                 </span>
               ) : (
                 <span className="mt-4 text-sm text-muted">Software, one time: <b className="text-ink">{rupees(withGst(config.softwareFee[id]))}</b> including GST</span>
@@ -224,9 +220,6 @@ export default function PricingCalculator({ config }: { config: PricingCalculato
             <dd className="tabular-nums text-3xl font-bold text-ink">{rupees(summary.total)}</dd>
           </div>
         </dl>
-        {isPhone && config.novemberOffer && (
-          <p className="mt-3 rounded-2xl bg-[#2A060C] p-3 text-sm font-semibold text-[#F3E5AB]">November offer: no software fee this month and 60 Try-Ons included. Top up anytime, pay as you go. Valid until 30 November.</p>
-        )}
         <p className="mt-3 text-sm text-muted">{isPhone ? 'Paid upfront. Top up anytime; you pay only for what you use.' : 'Paid upfront. When your credits run low, top up with a new package. Your TV or tablet is your own; ask us if you need one.'}</p>
         <a href="tel:9994837342" className="tf-btn tf-btn-primary mt-5 !min-h-12 w-full"><Phone className="h-4 w-4" /> Talk to sales: 9994837342</a>
       </div>

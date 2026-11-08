@@ -3,6 +3,15 @@
 Every surface (TryFocus admin, client workspace, Go Live player, TV, tablet, phone) follows these rules.
 Shared components live in `src/components/ui.tsx`; colour and type tokens live in `src/app/globals.css`.
 
+## Packages
+
+TryFocus sells two packages, TV and Tablet (or both). Each includes the customer's phone:
+- TV: Try-On, AI Video (the portrait on the TV, the video made on the customer's phone) and Live Mirror on the
+  showroom TV, plus the Wall QR phone Try-On.
+- Tablet (run by the store's team): Try-On and the AI Video gift QR; the customer makes the whole AI Video on
+  their own phone. Plus the Wall QR phone Try-On.
+There is no Phone-only package and no November offer.
+
 ## Choice hierarchy (customer surfaces)
 
 Choices are always asked in this order, and each level has its own control. A control type is never
@@ -85,8 +94,9 @@ Downloads never start on their own. Every Download asks once for the customer's 
 TryFocus admin sets up a store's plan; the store's workspace only shows it. A store never edits its plan.
 
 TryFocus admin, one client, in setup order (numbered headings, one section each):
-1. Platform: tick boxes TV · Tablet · Phone. Tick TV, Tablet or both and Phone is ticked and locked with
-   them; untick both and it is Phone on its own. The modules switch with the platforms.
+1. Platform: tick boxes TV · Tablet · Phone. TV, Tablet or both; at least one stays ticked. Phone is always
+   ticked and locked: the customer's phone (Wall QR Try-On and AI Video made on the phone) comes with both.
+   Phone on its own is no longer sold. The modules switch with the platforms.
 2. Credits: set a package, top up, or type a limit. Each card shows what is left and a status word.
 3. Store login: one username and password for the TV, tablet, Go Live player and workspace.
 4. Delivery: WhatsApp link and the Go Live player, each an On / Off switch.

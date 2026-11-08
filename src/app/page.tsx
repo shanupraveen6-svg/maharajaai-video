@@ -5,10 +5,8 @@ import {
 } from 'lucide-react';
 import PricingCalculator, { type PricingCalculatorConfig } from '@/components/PricingCalculator';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
-import NovemberOffer from '@/components/NovemberOffer';
-import { novemberOfferActive } from '@/lib/tryfocus/november-offer';
 import {
-  CREDIT_LABELS, CREDIT_RANGE, CREDIT_VALIDITY_MONTHS, GST_RATE, PLATFORMS, PLATFORM_LABELS, PLATFORM_MODULES,
+  CREDIT_LABELS, CREDIT_RANGE, CREDIT_VALIDITY_MONTHS, GST_RATE, OFFERED_PLATFORMS, PLATFORM_LABELS, PLATFORM_MODULES,
   PRESETS, SOFTWARE_FEE, moduleTotalsTable, PHONE_PACKAGE, PHONE_PACKAGE_CREDITS, PHONE_EXTRA_RANGE, phoneExtraTotalsTable,
 } from '@/lib/maharaja/pricing';
 import { listClientWorkspaces } from '@/lib/maharaja/server';
@@ -36,7 +34,7 @@ const capabilities = [
 
 /** The calculator gets only package totals per credit count (rules in pricing.ts), never per-credit prices. */
 const pricingConfig: PricingCalculatorConfig = {
-  platforms: PLATFORMS,
+  platforms: OFFERED_PLATFORMS,
   platformLabels: PLATFORM_LABELS,
   platformModules: PLATFORM_MODULES,
   softwareFee: SOFTWARE_FEE,
@@ -47,7 +45,6 @@ const pricingConfig: PricingCalculatorConfig = {
   gstRate: GST_RATE,
   validityMonths: CREDIT_VALIDITY_MONTHS,
   phonePackage: { ...PHONE_PACKAGE, totalCredits: PHONE_PACKAGE_CREDITS, extraRange: PHONE_EXTRA_RANGE, extraTotals: phoneExtraTotalsTable() },
-  novemberOffer: false,
 };
 
 const principles = [
@@ -59,11 +56,8 @@ const principles = [
 
 export default async function LandingPage() {
   const stores = await storeList();
-  // The November Phone offer shows until 30 November 2026 (India time).
-  const offerOn = novemberOfferActive();
   return (
     <main className="min-h-screen bg-[#F4F5F2] text-ink">
-      {offerOn && <NovemberOffer variant="strip" />}
       <header className="border-b border-line bg-[#F4F5F2]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-between px-5 md:px-8">
           <Link href="/" className="rounded-xl flex items-center gap-3" aria-label="TryFocus home">
@@ -207,9 +201,8 @@ export default async function LandingPage() {
             <p className="mt-4 text-sm leading-7 text-muted sm:text-base">Pick a platform and credits to see your total. Software is a one-time payment; credits are pay as you go.</p>
           </div>
 
-          {offerOn && <NovemberOffer variant="card" />}
 
-          <PricingCalculator config={{ ...pricingConfig, novemberOffer: offerOn }} />
+          <PricingCalculator config={pricingConfig} />
         </div>
       </section>
 

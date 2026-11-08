@@ -76,7 +76,7 @@ export const PACKAGES: Record<PackageId, { label: string; devices: AccessDevices
 };
 
 /** The platforms offered to new stores. */
-export const OFFERED_PACKAGES: PackageId[] = ['tv', 'tablet', 'phone'];
+export const OFFERED_PACKAGES: PackageId[] = ['tv', 'tablet'];
 
 export function packageOf(devices?: Partial<AccessDevices> | null): PackageId {
   const d = { ...ALL_ON_DEVICES, ...(devices || {}) };

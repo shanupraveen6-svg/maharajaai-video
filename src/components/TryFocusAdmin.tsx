@@ -22,25 +22,26 @@ import { PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, ty
 import { FREE_TRIAL_IMAGE_CREDITS, PHONE_PACKAGE, PHONE_PACKAGE_CREDITS, PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage, presetFor, type Credits, type Platform, type PresetId } from '@/lib/maharaja/pricing';
 
 /**
- * The platforms a store can book, ticked in any mix: TV, Tablet, both, or Phone on its own. The phone
- * always comes with the TV and the tablet, so it is ticked and locked whenever either is ticked.
+ * The platforms a store can book: TV, Tablet or both. The customer's phone (Wall QR Try-On and AI Video made
+ * on the phone) comes with either, so it is always ticked and locked. Phone on its own is no longer sold.
  * Device and module rules for each mix live in access.ts.
  */
 const PLATFORM_PICKS = [
   { key: 'tv', Icon: Tv, title: 'TV', text: 'Try-On, AI Video and Live Mirror on the showroom TV, with the Go Live player.' },
   { key: 'tablet', Icon: Tablet, title: 'Tablet', text: 'Try-On and the AI Video QR at the counter, with the Go Live player.' },
-  { key: 'phone', Icon: Smartphone, title: 'Phone', text: 'Try-On on the customer’s phone from the Wall QR. No AI Video.' },
+  { key: 'phone', Icon: Smartphone, title: 'Phone', text: 'Included: Wall QR Try-On and AI Video made on the customer’s phone.' },
 ] as const;
 
 type PlatformPick = (typeof PLATFORM_PICKS)[number]['key'];
 
-/** The package a tick-box change leads to. Unticking everything leaves Phone, which can be booked alone. */
+/** The package a tick-box change leads to. TV or Tablet must stay ticked: unticking the last one does nothing. */
 function togglePlatform(current: PackageId, pick: PlatformPick): PackageId {
   const d = PACKAGES[current].devices;
   if (pick === 'phone') return current;
   const tv = pick === 'tv' ? !d.tv : d.tv;
   const tablet = pick === 'tablet' ? !d.tablet : d.tablet;
-  return tv ? (tablet ? 'tv-tablet' : 'tv') : tablet ? 'tablet' : 'phone';
+  if (!tv && !tablet) return current;
+  return tv ? (tablet ? 'tv-tablet' : 'tv') : 'tablet';
 }
 
 function PlatformPicker({ value, onChange, compact = false }: { value: PackageId; onChange: (next: PackageId) => void; compact?: boolean }) {
@@ -50,7 +51,7 @@ function PlatformPicker({ value, onChange, compact = false }: { value: PackageId
       {PLATFORM_PICKS.map(({ key, Icon, title, text }) => {
         const ticked = key === 'phone' ? true : d[key];
         const locked = key === 'phone';
-        const note = key === 'phone' ? (d.tv || d.tablet ? 'Included with TV and Tablet' : 'Booked on its own') : null;
+        const note = key === 'phone' ? 'Included with TV and Tablet' : null;
         return (
           <button
             key={key}
@@ -367,10 +368,10 @@ export default function TryFocusAdmin() {
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
   const [newStoreName, setNewStoreName] = useState<string>('');
   const [newStoreBranch, setNewStoreBranch] = useState<string>('');
-  // Phone Try-On is what we sell first: the form opens on Phone with the November offer.
-  const [newPackage, setNewPackage] = useState<PackageId>('phone');
+  // A new client books TV or Tablet (both include the customer's phone).
+  const [newPackage, setNewPackage] = useState<PackageId>('tv');
   // 'trial' = the free start for a new client: 60 Try-On credits, no AI Video or Live Mirror.
-  const [newPreset, setNewPreset] = useState<PresetId | 'trial' | 'phone-package'>('trial');
+  const [newPreset, setNewPreset] = useState<PresetId | 'trial' | 'phone-package'>('standard');
   const [creatingClient, setCreatingClient] = useState<boolean>(false);
 
   const loadClients = useCallback(async () => {
@@ -798,25 +799,16 @@ export default function TryFocusAdmin() {
                 />
               </label>
               <div className="block text-xs font-bold text-muted sm:col-span-2">
-                <p>Platform · tick TV, Tablet or both (Phone comes with them), or Phone alone</p>
-                <div className="mt-1.5 font-normal"><PlatformPicker compact value={newPackage} onChange={(next) => { setNewPackage(next); setNewPreset(next === 'phone' ? 'trial' : 'standard'); }} /></div>
+                <p>Platform · tick TV, Tablet or both (the customer’s phone comes with them)</p>
+                <div className="mt-1.5 font-normal"><PlatformPicker compact value={newPackage} onChange={(next) => setNewPackage(next)} /></div>
                 <select
                   aria-label="Credit package"
                   value={newPreset}
                   onChange={(e) => setNewPreset(e.target.value as PresetId | 'trial' | 'phone-package')}
                   className="mt-2 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
                 >
-                  {newPackage === 'phone' ? (
-                    <>
-                      <option value="trial">November offer · {FREE_TRIAL_IMAGE_CREDITS} free Try-On, no service charge</option>
-                      <option value="phone-package">Phone package · {PHONE_PACKAGE_CREDITS.toLocaleString('en-IN')} Try-On (₹{PHONE_PACKAGE.fee.toLocaleString('en-IN')})</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="trial">Free trial · {FREE_TRIAL_IMAGE_CREDITS} Try-On</option>
-                      {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
-                    </>
-                  )}
+                  <option value="trial">Free trial · {FREE_TRIAL_IMAGE_CREDITS} Try-On</option>
+                  {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
                 </select>
                 <span className="mt-2 block font-normal tabular-nums">
                   {newCredits.image.toLocaleString('en-IN')} images{newCredits.video ? ` · ${newCredits.video.toLocaleString('en-IN')} AI Videos` : ''}{newCredits.live ? ` · ${newCredits.live.toLocaleString('en-IN')} Live Mirror` : ''}
@@ -824,7 +816,7 @@ export default function TryFocusAdmin() {
               </div>
               <div className="sm:col-span-2 lg:col-span-3 rounded-2xl bg-canvas p-4">
                 {newPreset === 'trial'
-                  ? <p className="text-sm text-muted">{newPackage === 'phone' ? 'November offer (till 30 November): ' : 'Free trial: '}{FREE_TRIAL_IMAGE_CREDITS} Try-On credits and {FREE_TRIAL_IMAGE_CREDITS} GenLook credits locked to the store, no charge. Top up from the client&apos;s card when they buy.</p>
+                  ? <p className="text-sm text-muted">Free trial: {FREE_TRIAL_IMAGE_CREDITS} Try-On credits and {FREE_TRIAL_IMAGE_CREDITS} GenLook credits locked to the store, no charge. Top up from the client&apos;s card when they buy.</p>
                   : <>
                     <p className="mb-2 text-xs font-bold text-muted">{newPreset === 'phone-package' ? `Phone package: ₹${PHONE_PACKAGE.fee.toLocaleString('en-IN')} with ${PHONE_PACKAGE.credits.toLocaleString('en-IN')} Try-On + ${PHONE_PACKAGE.retryPercent}% retries` : `${PLATFORM_LABELS[newPlatform]} · ${PRESETS[newPreset].label}, with software`}</p>
                     <PackageQuote platform={newPlatform} credits={newCredits} software />
