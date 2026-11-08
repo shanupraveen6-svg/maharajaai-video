@@ -46,7 +46,8 @@ async function loadVideoGarments(code: string) {
  * The AI Video gift on the customer's phone (from the tablet QR or a TV portrait QR):
  * Who → Your photo → What would you like to wear → pick a piece (with its price) → Pick a look →
  * Make my portrait → Your portrait (⋯ Retry) → Make my video → the video (download, Go Live).
- * A pass that already has a piece, a portrait or a video in progress opens at that step.
+ * A pass that already has a piece, a portrait or a video in progress opens at that step. From the TV the
+ * portrait is already made there, so the phone opens on Your portrait → Make my video (no portrait retry).
  */
 export default function GiftVideoExperience({ accessCode }: { accessCode: string }) {
   const { language, setLanguage, t } = usePhoneLanguage();
@@ -71,6 +72,8 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
   const [videoJobId, setVideoJobId] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  // A TV portrait: the TV owns the portrait (and its retry); the phone makes the video only.
+  const [portraitFromTv, setPortraitFromTv] = useState(false);
   const [note, setNote] = useState('');
 
   const category: CustomerCategory | null = audience ? CATEGORY_OF[audience] : null;
@@ -127,6 +130,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
         setCategoryLists(catalogue.categoryLists);
         if (pass.eventId) setEventId(pass.eventId);
         setAllowGoLive(pass.allowGoLive === true);
+        setPortraitFromTv(pass.portraitMadeOnTv === true);
         if (pass.videoMasterCategory) setAudience(AUDIENCE_OF[pass.videoMasterCategory as CustomerCategory] || null);
         if (pass.catalogueProduct?.sku) { setPiece(pass.catalogueProduct); setSelectedSku(pass.catalogueProduct.sku); }
         if (pass.videoMasterConceptId) setConceptId(pass.videoMasterConceptId);
@@ -337,7 +341,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
               <button key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)} className={`min-h-10 rounded-[10px] px-2.5 ${language === value ? 'bg-white text-ink shadow-sm' : 'text-muted'}`}>{label}</button>
             ))}
           </div>
-          {stage === 'portrait' && (
+          {stage === 'portrait' && !portraitFromTv && (
             <div className="relative">
               <button type="button" aria-label={t('moreOptions')} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-line/60"><MoreVertical className="h-5 w-5" /></button>
               {menuOpen && (

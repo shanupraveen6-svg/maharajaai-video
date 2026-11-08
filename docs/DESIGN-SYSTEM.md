@@ -36,6 +36,10 @@ Tablet, three tabs, with New customer in the header:
   categories that have AI Video garments) → pick one piece (with its price) → Pick a look (the three looks
   for that audience) → Make my portrait → Your portrait (⋯ Retry) → Make my video → the video (Download,
   Go Live). A pass that already has a piece, a portrait or a video in progress opens at that step.
+- Why the video is always made on the phone: if a video comes out wrong, the customer retries it privately on
+  their own phone, where no one else sees it. The TV makes only the portrait; its QR opens the phone on
+  Your portrait → Make my video (the portrait retry stays on the TV), then Download or Go Live, which plays
+  it on the store's Go Live player.
 
 Phone: Try-On only, opened from the store's permanent Wall QR (downloaded from the workspace and pasted in
 the store). (A photo of the bill, Camera or Upload, read on the server, when the store set a Try-On minimum)

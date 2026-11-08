@@ -103,6 +103,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         videoMasterDone: access.pass?.videoMasterDone || false,
         videoMasterUrl: access.pass?.videoMasterUrl || null,
         videoMasterApproved: access.pass?.videoMasterApproved || false,
+        portraitMadeOnTv: (access.pass as { portraitMadeOn?: string } | null)?.portraitMadeOn === 'tv',
         videoMasterPromptSet: access.pass?.videoMasterPromptSet || null,
         videoMasterPoseId: access.pass?.videoMasterPoseId || null,
         videoMasterCategory: access.pass?.videoMasterCategory || null,

@@ -163,6 +163,8 @@ export async function POST(req: NextRequest) {
       tryOnImageUrl: '',
       videoMasterDone: Boolean(pregeneratedMasterUrl),
       videoMasterUrl: pregeneratedMasterUrl,
+      // The portrait was made on the TV: the phone only makes (and privately retries) the video.
+      ...(pregeneratedMasterUrl ? { portraitMadeOn: 'tv' } : {}),
       videoMasterApproved: false,
       videoMasterApprovedUrl: '',
       ...(sourceSession ? {
