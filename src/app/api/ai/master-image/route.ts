@@ -287,7 +287,9 @@ export async function POST(req: NextRequest) {
     if (body.garmentTypeConfirmed !== true) {
       return NextResponse.json({ success: false, error: 'Choose and confirm the garment type before generating. This keeps every garment structure and reference role explicit.' }, { status: 400 });
     }
-    const garmentType = garmentTypeFor({ audience: customerCategory, categoryId: body.catalogueProductCategory, storedType: body.garmentType, title: body.catalogueProductTitle, analysis: garmentAnalysis, roles: garmentRoles });
+    // A gift pass carries the type saved from the piece the customer chose; it wins over what the page sends.
+    const giftType = access.pass?.experienceType === 'catalogue-gift' ? access.pass.videoMasterGarmentType : undefined;
+    const garmentType = garmentTypeFor({ audience: customerCategory, categoryId: body.catalogueProductCategory, storedType: giftType || body.garmentType, title: body.catalogueProductTitle, analysis: garmentAnalysis, roles: garmentRoles });
     const concept = service === 'ai-video' ? getVideoConcept(body.conceptId) : null;
     if (service === 'ai-video' && (!concept || concept.category !== customerCategory)) {
       return NextResponse.json({ success: false, error: 'Select one film concept for the chosen customer category before generating.' }, { status: 400 });

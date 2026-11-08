@@ -291,7 +291,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
       setPersonPhoto(null);
       setPersonAnalysis(null);
       setGarmentPhotos([]);
-      setGarmentAnalysis(isCatalogueGift ? { valid: true, additionalPhotoRequired: false, garmentType: 'saree', primaryColor: 'Original color' } : null);
+      setGarmentAnalysis(isCatalogueGift ? { valid: true, additionalPhotoRequired: false, garmentType, primaryColor: 'Original color' } : null);
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem('tryfocus:maharaja:try-on-completed');
       }
@@ -358,10 +358,12 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
           const giftCategory = (data.access.videoMasterCategory as CustomerCategory) || 'women';
           setCategory(giftCategory);
           setConceptId(conceptsForCategory(giftCategory)[0].id);
-          setGarmentType(data.access.videoMasterGarmentType || (giftCategory === 'men' ? 'kurta_dhoti' : giftCategory === 'boy' ? 'boy_ethnic' : giftCategory === 'girl' ? 'girl_ethnic' : 'saree'));
+          // The audience and garment type were saved from the piece the customer chose; generic copies it as shown.
+          const giftType = (data.access.videoMasterGarmentType || 'generic') as GarmentType;
+          setGarmentType(giftType);
           setGarmentTypeConfirmed(true);
           setGarmentRoles(['Catalogue Garment Reference']);
-          setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: giftCategory === 'men' ? 'kurta_dhoti' : 'saree', primaryColor: 'Original color' });
+          setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: giftType, primaryColor: 'Original color' });
         }
         const used = data.access.service === 'try-on' && data.access.tryOnUsed === true;
         setTryOnUsed(used);
@@ -986,9 +988,9 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
 
         {isCatalogueGift && access?.access.catalogueProduct && (
           <div className="rounded-2xl mb-5 border border-[#D8C49B] bg-white p-4 text-center">
-            <p className="text-xs font-bold text-[#8A6A20]">Your selected Maharaja saree</p>
+            <p className="text-xs font-bold text-[#8A6A20]">Your chosen piece</p>
             <p className="mt-1 tracking-tight text-xl font-bold text-[#2A060C]">{access.access.catalogueProduct.title}</p>
-            <p className="mt-1 text-lg font-bold text-brand">Rs {new Intl.NumberFormat('en-IN').format(access.access.catalogueProduct.price || 0)}</p>
+            {Number(access.access.catalogueProduct.price || 0) > 0 && <p className="mt-1 text-lg font-bold text-brand">₹{new Intl.NumberFormat('en-IN').format(access.access.catalogueProduct.price || 0)}</p>}
           </div>
         )}
 
@@ -1034,7 +1036,7 @@ export default function MaharajaExperience({ service, accessCode, retrySessionId
             <section className={retrySessionId ? 'mx-auto max-w-sm' : 'grid gap-5 lg:grid-cols-[1fr_360px]'}>
               {!retrySessionId && <div className="rounded-2xl border border-[#D8C49B] bg-white p-5 md:p-6">
                 <div className={`${isCatalogueGift ? 'sm:grid-cols-1': 'sm:grid-cols-2'} grid gap-4`}>
-                  <fieldset className="sm:col-span-2"><legend className="text-xs font-bold text-muted">Customer category</legend><div className={`mt-2 grid grid-cols-2 gap-2 ${isCatalogueGift ? 'max-w-md': 'sm:grid-cols-4'}`}>{selectableCategories.map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setConceptId(conceptsForCategory(option)[0].id); if (isCatalogueGift) { setGarmentType('saree'); setGarmentTypeConfirmed(true); setGarmentRoles(['Saree body, pallu, border and blouse reference']); setGarmentAnalysis({ valid: true, additionalPhotoRequired: false, garmentType: 'saree', primaryColor: 'Original color' }); } else { setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); } setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold transition ${category === option ? 'border-brand bg-brand text-[#F3E5AB] shadow-sm': 'border-[#D8C49B] bg-[#FFFDF8] text-muted hover:border-brand'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div>{isCatalogueGift && <p className="mt-2 text-xs leading-5 text-muted">Choose Women or Girl, then select one of three festive visual sets below. Your selected Maharaja saree stays unchanged.</p>}</fieldset>
+                  <fieldset className={`sm:col-span-2 ${isCatalogueGift && access?.access.videoMasterCategory ? 'hidden' : ''}`}><legend className="text-xs font-bold text-muted">Customer category</legend><div className={`mt-2 grid grid-cols-2 gap-2 ${isCatalogueGift ? 'max-w-md': 'sm:grid-cols-4'}`}>{selectableCategories.map((option) => <button key={option} type="button" aria-pressed={category === option} disabled={busy || imagesLocked} onClick={() => { setCategory(option); setConceptId(conceptsForCategory(option)[0].id); if (isCatalogueGift) { setGarmentTypeConfirmed(true); } else { setGarmentType('unset'); setGarmentTypeConfirmed(false); setGarmentRoles(rolesForGarment('unset')); } setProcessingConsent(false); clearActiveImage(); }} className={`flex min-h-12 items-center justify-center gap-1.5 border px-2 text-xs font-bold transition ${category === option ? 'border-brand bg-brand text-[#F3E5AB] shadow-sm': 'border-[#D8C49B] bg-[#FFFDF8] text-muted hover:border-brand'}`}>{category === option && <CheckCircle2 className="h-4 w-4" />}{option}</button>)}</div>{isCatalogueGift && <p className="mt-2 text-xs leading-5 text-muted">Choose who the video is for, then one of the three looks below. Your chosen piece stays exactly as it is.</p>}</fieldset>
 
                   <label className="text-xs font-bold text-muted sm:col-span-2">Event
                     <select

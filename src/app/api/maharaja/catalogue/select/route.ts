@@ -3,6 +3,10 @@ import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import { verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
+import { garmentTypeFor } from '@/lib/maharaja/garment-type';
+import type { CustomerCategory } from '@/lib/maharaja/config';
+
+const AUDIENCE_CATEGORY: Record<string, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +23,10 @@ export async function POST(req: NextRequest) {
     if (!product.eligibleForVideo && !product.sku.startsWith('TF-')) {
       return NextResponse.json({ success: false, error: 'This outfit is not available for AI Video. Choose another.' }, { status: 400 });
     }
+    // Who the video is for and what the garment is come from the piece chosen, so the portrait uses that
+    // audience's looks and the right garment rule (a man's veshti is never drawn as a saree).
+    const videoMasterCategory = AUDIENCE_CATEGORY[product.gender] || 'women';
+    const videoMasterGarmentType = garmentTypeFor({ audience: videoMasterCategory, categoryId: product.category, storedType: product.garmentType, title: product.title });
     const db = getDb();
     if (!db) {
       const store = getMockStore();
@@ -34,6 +42,8 @@ export async function POST(req: NextRequest) {
           catalogueTitle: product.title,
           cataloguePrice: product.price,
           catalogueStoragePath: product.storagePath,
+          videoMasterCategory,
+          videoMasterGarmentType,
           updatedAt: new Date().toISOString(),
         });
       }
@@ -44,7 +54,7 @@ export async function POST(req: NextRequest) {
       const snapshot = await transaction.get(ref);
       const pass = snapshot.data();
       if (!pass || pass.experienceType !== 'catalogue-gift') throw new Error('Gift link is invalid.');
-      if (pass.catalogueSku && pass.catalogueSku !== product.sku) throw new Error('This gift link is already locked to its selected saree.');
+      if (pass.catalogueSku && pass.catalogueSku !== product.sku) throw new Error('This gift link is already locked to its chosen piece.');
       if (pass.videoMasterDone || pass.videoGenerating || pass.videoDone) {
         return;
       }
@@ -53,11 +63,13 @@ export async function POST(req: NextRequest) {
         catalogueTitle: product.title,
         cataloguePrice: product.price,
         catalogueStoragePath: product.storagePath,
+        videoMasterCategory,
+        videoMasterGarmentType,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
     });
     return NextResponse.json({ success: true, product: { sku: product.sku, title: product.title, price: product.price } });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Unable to select this saree.' }, { status: 409 });
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Unable to select this piece.' }, { status: 409 });
   }
 }

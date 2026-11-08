@@ -1638,7 +1638,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           the outfit photo is taken with the camera only (no QR).
          ========================================================= */}
       {cameraOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/95 p-4 text-white sm:p-6" role="dialog" aria-modal="true" aria-label={cameraTarget === 'own-garment' ? 'Photograph your outfit' : 'Take your photo'}>
+        <div className="fixed inset-0 z-50 flex flex-col bg-black p-4 text-white sm:p-6" role="dialog" aria-modal="true" aria-label={cameraTarget === 'own-garment' ? 'Photograph your outfit' : 'Take your photo'}>
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
@@ -1762,7 +1762,7 @@ function StoreLogoBand({ clientName }: { clientName: string }) {
   return (
     <div className="mt-auto flex min-h-[180px] items-center justify-center rounded-3xl border border-line bg-white p-8">
       {logo
-        ? <img src={logo} alt={clientName} className="max-h-[160px] max-w-[70%] object-contain" />
+        ? <img src={logo} alt={clientName} onError={() => setLogo('')} className="max-h-[160px] max-w-[70%] object-contain" />
         : <p className="text-4xl font-bold text-ink">{clientName}</p>}
     </div>
   );
