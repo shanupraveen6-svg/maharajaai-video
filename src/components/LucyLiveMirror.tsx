@@ -1,6 +1,5 @@
 'use client';
 
-import SessionTimer from '@/components/SessionTimer';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fal } from '@fal-ai/client';
 import QRCode from 'qrcode';
@@ -59,7 +58,7 @@ export default function LucyLiveMirror({
   onSelectProduct?: (product: TryFocusProduct) => void;
   /** Offered when Live Mirror cannot run, so the customer can still see the outfit on a photo. */
   onUsePhotoTryOn?: (product: TryFocusProduct) => void;
-  /** End session under the QR (and when its clock runs out): the kiosk clears this customer. */
+  /** End session under the QR: the kiosk clears this customer. */
   onEndSession?: () => void;
 } = {}) {
   const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
@@ -779,8 +778,7 @@ export default function LucyLiveMirror({
         </div>
       </div>
 
-      {/* After a session: the QR in its permanent spot at the bottom, then 2 minutes to scan (the last
-          minute in red) and a full-width End session, as on Try-On. */}
+      {/* After a session: the QR in its permanent spot at the bottom, with a red full-width End session under it, as on Try-On. */}
       {state === 'complete' && (
         <div className="sticky bottom-4 z-20 space-y-3">
           <section className="tf-card flex flex-wrap items-center gap-5 p-5 shadow-xl" aria-label="Take your Live Mirror video home">
@@ -793,8 +791,7 @@ export default function LucyLiveMirror({
             </div>
             <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-6 text-lg"><RefreshCw className="h-5 w-5" /> Another 30 seconds</button>
           </section>
-          <SessionTimer onExpire={endSession} />
-          <button type="button" onClick={endSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">End session</button>
+          <button type="button" onClick={endSession} className="tf-btn !min-h-20 w-full bg-danger text-xl font-bold text-white hover:bg-danger/90">End session</button>
         </div>
       )}
 

@@ -1456,14 +1456,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       : <LoaderCircle className="h-9 w-9 animate-spin text-muted" />}
                   </div>
                 </div>
-                {/* TV: 2 minutes to scan and download, the last minute in red, then the session ends on its own.
-                    The tablet's team ends it from the header. */}
-                {!isTablet && tryOnMobileQr && (
-                  <>
-                    <SessionTimer onExpire={endSession} />
-                    <button type="button" onClick={endSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">End session</button>
-                  </>
-                )}
+                {/* TV: a red, full-width End session under the download QR. The tablet's team ends it from the header. */}
+                {!isTablet && <button type="button" onClick={endSession} className="tf-btn !min-h-20 w-full bg-danger text-xl font-bold text-white hover:bg-danger/90">End session</button>}
               </section>
             )}
           </div>
@@ -1674,8 +1668,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   <>
                     <SessionTimer key={videoPassQr} label="Download or Go Live within" onExpire={endSession} />
                     <div className={`grid gap-3 ${portraitRetryUsed ? '' : 'grid-cols-2'}`}>
-                      {!portraitRetryUsed && <button type="button" onClick={retryPortrait} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg"><RefreshCw className="h-5 w-5" /> Retry</button>}
-                      <button type="button" onClick={endSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">End session</button>
+                      {!portraitRetryUsed && <button type="button" onClick={retryPortrait} className="tf-btn tf-btn-secondary !min-h-20 w-full text-xl"><RefreshCw className="h-5 w-5" /> Retry</button>}
+                      <button type="button" onClick={endSession} className="tf-btn !min-h-20 w-full bg-danger text-xl font-bold text-white hover:bg-danger/90">End session</button>
                     </div>
                   </>
                 )}

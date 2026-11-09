@@ -38,9 +38,10 @@ TV, three tabs:
 - Live Mirror: the camera is on as soon as the tab opens, with the outfits in one card under it. Who → pick a
   piece switched on for Live Mirror (none is picked for the customer) → Start live, which appears on the camera
   only once a piece is picked → 5-second countdown → 30 seconds live → the replay with a Play button and the QR.
-- End session (TV): every result QR (Try-On looks, AI Video portrait, Live Mirror video) has a clock under it:
-  2 minutes to scan and download or Go Live, the last minute in red, then the session ends on its own and the
-  same tab starts again. Under the clock, a full-width End session (on the AI Video portrait, Retry beside it).
+- End session (TV): a large red, full-width End session under every result QR (Try-On looks, AI Video portrait,
+  Live Mirror video); the same tab starts again. Only the AI Video portrait has a clock above it: 2 minutes to
+  download or Go Live on the phone, the last minute in red, then the session ends on its own; Retry sits
+  beside its End session.
 
 Tablet, run by the store's team, three tabs. End session sits in the header on Try-On only (no clock on the
 tablet); AI Video gift has New customer under its QR and the day's count; Wall QR has neither:
