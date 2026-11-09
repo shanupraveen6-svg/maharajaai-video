@@ -162,33 +162,122 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
   );
 }
 
-/** GenLook (the Try-On engine): its balance, the credits locked to stores, and what is left to give out. */
+type GenlookTopUp = { id: string; credits: number; paidUsd?: number; note?: string; at: string };
+type GenlookStore = { clientId: string; name: string; allowance: number; used: number; left: number };
+type GenlookState = {
+  purchased?: number; usedEverywhere?: number; locked?: number; free?: number; liveApiBalance?: number;
+  stores?: GenlookStore[]; topUps?: GenlookTopUp[]; error?: string;
+};
+
+/**
+ * GenLook (the Try-On engine). The headline numbers come from TryFocus's own top-up log — what was
+ * actually paid for, minus what every store has used — not from GenLook's balance API; that API's
+ * figure is still shown underneath, only so a mismatch is easy to spot.
+ */
 function GenlookCredits() {
-  type Store = { clientId: string; name: string; allowance: number; used: number; left: number };
-  const [state, setState] = useState<{ balance?: number; locked?: number; free?: number; stores?: Store[]; error?: string } | null>(null);
-  useEffect(() => {
-    fetch('/api/admin/genlook', { cache: 'no-store' })
-      .then((response) => response.json())
-      .then((data) => setState({
-        balance: typeof data?.creditBalance === 'number' ? data.creditBalance : undefined,
-        locked: typeof data?.locked === 'number' ? data.locked : undefined,
-        free: typeof data?.free === 'number' ? data.free : undefined,
-        stores: Array.isArray(data?.stores) ? data.stores : [],
-        error: data?.error,
-      }))
-      .catch(() => setState({ error: 'GenLook could not be checked.' }));
-  }, []);
+  const [state, setState] = useState<GenlookState | null>(null);
+  const [addingCredits, setAddingCredits] = useState('');
+  const [addingUsd, setAddingUsd] = useState('');
+  const [addingNote, setAddingNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  const load = () => fetch('/api/admin/genlook', { cache: 'no-store' })
+    .then((response) => response.json())
+    .then((data) => setState({
+      purchased: typeof data?.purchased === 'number' ? data.purchased : undefined,
+      usedEverywhere: typeof data?.usedEverywhere === 'number' ? data.usedEverywhere : undefined,
+      locked: typeof data?.locked === 'number' ? data.locked : undefined,
+      free: typeof data?.free === 'number' ? data.free : undefined,
+      liveApiBalance: typeof data?.liveApiBalance === 'number' ? data.liveApiBalance : undefined,
+      stores: Array.isArray(data?.stores) ? data.stores : [],
+      topUps: Array.isArray(data?.topUps) ? data.topUps : [],
+      error: data?.error,
+    }))
+    .catch(() => setState({ error: 'GenLook could not be checked.' }));
+
+  useEffect(() => { load(); }, []);
+
+  async function addTopUp() {
+    const credits = Number(addingCredits);
+    if (!Number.isFinite(credits) || credits === 0) {
+      setSaveError('Enter how many credits this top-up added.');
+      return;
+    }
+    setSaving(true);
+    setSaveError('');
+    try {
+      const res = await fetch('/api/admin/genlook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          credits,
+          ...(addingUsd.trim() ? { paidUsd: Number(addingUsd) } : {}),
+          ...(addingNote.trim() ? { note: addingNote.trim() } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not log the top-up.');
+      setAddingCredits(''); setAddingUsd(''); setAddingNote('');
+      await load();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not log the top-up.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const number = (value?: number) => (value === undefined ? '—' : value.toLocaleString('en-IN'));
   return (
     <section className="tf-card p-5">
       <h2 className="text-lg font-bold">Try-On engine credits (GenLook)</h2>
-      <dl className="mt-3 grid grid-cols-3 gap-3">
-        <div><dt className="text-[13px] text-muted">GenLook balance</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.balance)}</dd></div>
+      <p className="mt-1 text-[13px] text-muted">What TryFocus has logged paying GenLook for, not GenLook&apos;s own balance figure.</p>
+      <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div><dt className="text-[13px] text-muted">Purchased</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.purchased)}</dd></div>
+        <div><dt className="text-[13px] text-muted">Used (every store)</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.usedEverywhere)}</dd></div>
         <div><dt className="text-[13px] text-muted">Locked for stores</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.locked)}</dd></div>
         <div><dt className="text-[13px] text-muted">Free (Maharaja uses this)</dt><dd className={`mt-1 text-3xl font-bold tabular-nums ${(state?.free ?? 0) < 0 ? 'text-danger' : ''}`}>{state === null ? '…' : number(state.free)}</dd></div>
       </dl>
+      {typeof state?.purchased === 'number' && typeof state?.usedEverywhere === 'number' && (
+        <p className="mt-2 text-sm font-semibold text-muted tabular-nums">{number((state.purchased) - (state.usedEverywhere))} / {number(state.purchased)} left overall</p>
+      )}
+      {typeof state?.liveApiBalance === 'number' && (
+        <p className="mt-1 text-[13px] text-muted">GenLook&apos;s own account says {number(state.liveApiBalance)} left{Math.abs(state.liveApiBalance - ((state.purchased ?? 0) - (state.usedEverywhere ?? 0))) > 0 ? ' — doesn’t match the log above; check for a missed top-up or a use outside this project.' : '.'}</p>
+      )}
       {state?.error && <p className="mt-3 text-sm font-semibold text-danger">{state.error}</p>}
       {(state?.free ?? 0) < 0 && <p className="mt-3 text-sm font-semibold text-danger">GenLook has fewer credits than stores are promised. Top up GenLook.</p>}
+
+      <div className="mt-4 flex flex-wrap items-end gap-2 rounded-2xl bg-canvas p-3">
+        <div>
+          <label htmlFor="genlook-topup-credits" className="block text-[12px] font-semibold text-muted">Credits added</label>
+          <input id="genlook-topup-credits" type="number" value={addingCredits} onChange={(e) => setAddingCredits(e.target.value)} placeholder="500" className="h-10 w-28 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand" />
+        </div>
+        <div>
+          <label htmlFor="genlook-topup-usd" className="block text-[12px] font-semibold text-muted">$ paid (optional)</label>
+          <input id="genlook-topup-usd" type="number" value={addingUsd} onChange={(e) => setAddingUsd(e.target.value)} placeholder="50" className="h-10 w-24 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand" />
+        </div>
+        <div className="min-w-[160px] flex-1">
+          <label htmlFor="genlook-topup-note" className="block text-[12px] font-semibold text-muted">Note (optional)</label>
+          <input id="genlook-topup-note" type="text" value={addingNote} onChange={(e) => setAddingNote(e.target.value)} placeholder="Nov top-up" className="h-10 w-full border border-line bg-white px-3 text-sm text-ink outline-none focus:border-brand" />
+        </div>
+        <button type="button" disabled={saving} onClick={() => void addTopUp()} className="h-10 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Adding…' : 'Add top-up'}</button>
+      </div>
+      {saveError && <p className="mt-2 text-sm font-semibold text-danger">{saveError}</p>}
+
+      {state?.topUps && state.topUps.length > 0 && (
+        <details className="mt-4 text-sm">
+          <summary className="cursor-pointer font-semibold text-muted">Top-up history ({state.topUps.length})</summary>
+          <ul className="mt-2 divide-y divide-line">
+            {state.topUps.map((item) => (
+              <li key={item.id} className="flex flex-wrap justify-between gap-2 py-2">
+                <span>{new Date(item.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}{item.note ? ` · ${item.note}` : ''}</span>
+                <span className="tabular-nums text-muted">{item.credits > 0 ? '+' : ''}{item.credits.toLocaleString('en-IN')} credits{typeof item.paidUsd === 'number' ? ` · $${item.paidUsd.toLocaleString('en-US')}` : ''}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {state?.stores && state.stores.length > 0 && (
         <ul className="mt-4 divide-y divide-line text-sm">
           {state.stores.map((store) => (

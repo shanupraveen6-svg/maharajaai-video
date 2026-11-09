@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { FREE_TRIAL_IMAGE_CREDITS } from '@/lib/maharaja/pricing';
 import { getGenlookCredits } from '@/lib/maharaja/genlook-provider';
+import { cachedTotalPurchased } from '@/lib/maharaja/genlook-ledger';
 import { afterDownloadExpiresAtMs, resultExpiresAtIso, resultExpiresAtMs } from '@/lib/maharaja/retention';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { crossedCreditStep } from './credits';
@@ -1854,23 +1855,31 @@ export function usesFreeGenlookPool(workspace: Pick<MaharajaWorkspace, 'clientId
   return workspace.clientId === MAHARAJA_CLIENT_ID;
 }
 
-let genlookBalanceCache: { value: number; at: number } | null = null;
-
 /**
- * GenLook's free credits: its live balance minus what every store still has locked. A balance read is
- * cached for 30 seconds so a busy demo does not call GenLook before every look.
+ * GenLook's free credits: what TryFocus admin has actually logged paying for (src/lib/maharaja/
+ * genlook-ledger.ts), minus everything every store has used, minus what every store still has locked.
+ * The admin-entered total — not GenLook's own balance API — decides this, so it always matches what was
+ * really paid for; GenLook's reported balance is still read (`liveApiBalance`) purely so admin can spot a
+ * mismatch. The purchased total is cached for 30 seconds there (a fresh top-up clears that cache itself);
+ * usage is always read fresh here, since it changes with every customer's Try-On.
  */
-export async function freeGenlookCredits(): Promise<{ balance: number; locked: number; free: number } | null> {
+export async function freeGenlookCredits(): Promise<{ balance: number; purchased: number; usedEverywhere: number; locked: number; free: number; liveApiBalance?: number } | null> {
   const key = process.env.GENLOOK_API_KEY?.trim();
   if (!key) return null;
-  if (!genlookBalanceCache || Date.now() - genlookBalanceCache.at > 30_000) {
-    const result = await getGenlookCredits(key);
-    if (!result.ok) return null;
-    genlookBalanceCache = { value: result.creditBalance, at: Date.now() };
-  }
+  const purchased = await cachedTotalPurchased();
   const workspaces = await listClientWorkspaces();
+  const usedEverywhere = workspaces.reduce((sum, workspace) => sum + Number(workspace.usage?.genlookUsed || 0), 0);
   const locked = workspaces.reduce((sum, workspace) => sum + Math.max(0, genlookAllowance(workspace) - Number(workspace.usage?.genlookUsed || 0)), 0);
-  return { balance: genlookBalanceCache.value, locked, free: genlookBalanceCache.value - locked };
+  const balance = purchased - usedEverywhere;
+  const liveResult = await getGenlookCredits(key).catch(() => null);
+  return {
+    balance,
+    purchased,
+    usedEverywhere,
+    locked,
+    free: balance - locked,
+    ...(liveResult?.ok ? { liveApiBalance: liveResult.creditBalance } : {}),
+  };
 }
 
 /** GenLook credits locked to a store (see `genlookCredits`); 0 for the demo, which uses the free pool. */
@@ -1890,7 +1899,6 @@ export async function reserveGenlookCredit() {
     // The demo takes only what no client has locked.
     const pool = await freeGenlookCredits();
     if (!pool || pool.free <= 0) return false;
-    genlookBalanceCache = genlookBalanceCache && { ...genlookBalanceCache, value: genlookBalanceCache.value - 1 };
     await incrementMaharajaUsage('genlookUsed');
     return true;
   }
@@ -1918,7 +1926,6 @@ export async function reserveGenlookCredit() {
 /** Gives a GenLook credit back when GenLook clearly did not make (or charge for) the image. */
 export async function releaseGenlookCredit() {
   const clientId = activeClientId();
-  if (genlookBalanceCache && clientId === MAHARAJA_CLIENT_ID) genlookBalanceCache = { ...genlookBalanceCache, value: genlookBalanceCache.value + 1 };
   const db = getDb();
   if (db) {
     await db.collection('clientWorkspaces').doc(clientId).set({ usage: { genlookUsed: FieldValue.increment(-1) } }, { merge: true });
