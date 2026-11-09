@@ -997,7 +997,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       <header className="tv-main-header sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md">
         <div className="tv-main-brand mx-auto flex max-w-[1080px] items-center justify-between gap-4 px-8 pb-4 pt-5">
           <div className="flex min-w-0 items-center gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-2xl font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
+            {storeLogo
+              ? <img src={storeLogo} alt="" className="h-14 max-w-[160px] shrink-0 rounded-2xl border border-line bg-white object-contain p-1.5" />
+              : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-2xl font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>}
             <div className="min-w-0">
               <h1 className="truncate text-[28px] font-bold text-ink">{clientName}</h1>
               <p className="text-base text-muted">See any outfit on you in seconds</p>
