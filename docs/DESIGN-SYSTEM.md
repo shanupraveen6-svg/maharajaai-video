@@ -19,9 +19,9 @@ reused for another level, so a shopper can always tell which choice matters more
 
 | Level | Question | Options | Control |
 |---|---|---|---|
-| 0 | Which experience? | TV: Try-On · AI Video · Live Mirror. Tablet: Store collection · My own outfit · AI Video | `NavTabs` (underlined tabs in the header) |
+| 0 | Which experience? | TV: Try-On · AI Video · Live Mirror. Tablet: Try-On · AI Video gift · Wall QR | `NavTabs` (underlined tabs in the header) |
 | 1 | Who is it for? | Women · Men · Boys · Girls | `AudienceCards`: four illustrated cards, 2 × 2, nothing pre-selected, with the two-line `PhotoGuide` box under them (full-length, not a selfie; good light, face the camera). On the portrait TV the store's logo fills the bottom of this screen |
-| 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV and phone; on the tablet it is the level 0 tab |
+| 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV, the tablet and the phone |
 | 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Plain text list (sidebar on TV and tablet, underlined text row on phone) |
 | 4 | Which piece? | Product cards | Image cards with a 1–3 badge, the only image tiles |
 
@@ -37,14 +37,17 @@ TV, three tabs:
   video on the phone, where the customer can also Go Live.
 - Live Mirror: pick a catalogue piece switched on for Live Mirror → Start live → 5-second countdown → 30 seconds live.
 
-Tablet, three tabs, with New customer in the header:
-- Store collection and My own outfit: the TV's Try-On, with the source already chosen by the tab.
-- AI Video: (the last 4 digits of the bill when a minimum is set) → the customer's QR, with New customer
-  under it (which asks the next customer for their digits again). The customer picks the piece and makes the
+Tablet, run by the store's team, three tabs, with New customer in the header:
+- Try-On: the TV's Try-On (Who → Your photo → Store collection or My own outfit → outfits → looks). The
+  team takes the customer's photo and shows them the collection.
+- AI Video gift: the customer's QR straight away, with New customer under it for the next customer's QR.
+  No bill digits: the team chooses whom to give the gift. The customer picks the piece and makes the
   video on their phone: Who (nothing selected) → Your photo → What would you like to wear (the store's
   categories that have AI Video garments) → pick one piece (with its price) → Pick a look (the three looks
   for that audience) → Make my portrait → Your portrait (Help → retry) → Make my video → the video (Download,
   Go Live). A pass that already has a piece, a portrait or a video in progress opens at that step.
+- Wall QR: the store's permanent Try-On QR, shown large to scan at the counter, and a poster with the
+  store's name to download, print and paste anywhere in the store.
 - Why the video is always made on the phone: if a video comes out wrong, the customer retries it privately on
   their own phone, where no one else sees it. The TV makes only the portrait; its QR opens the phone on
   Your portrait → Make my video (the portrait retry stays on the TV), then Download or Go Live, which plays

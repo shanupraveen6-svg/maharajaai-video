@@ -14,6 +14,7 @@ import {
   Shirt,
   Sparkles,
   Upload,
+  Printer,
   Video,
   X,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ import LucyLiveMirror from '@/components/LucyLiveMirror';
 import TvIdleLoop from '@/components/TvIdleLoop';
 import TvOfflineNotice from '@/components/TvOfflineNotice';
 import TabletVideoHandoff from '@/components/TabletVideoHandoff';
+import { downloadBrandedQr } from '@/lib/maharaja/branded-qr';
 import Link from 'next/link';
 import { isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import PhonePhotoTransfer from '@/components/PhonePhotoTransfer';
@@ -41,7 +43,7 @@ import { PageTitle } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 import { categoriesFor, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 
-type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video' | 'gift';
+type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video' | 'gift' | 'wall-qr';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
 type CatalogueTryOnStage = 'who' | 'source' | 'photo' | 'browse' | 'generating' | 'result';
 type VideoStage = 'who' | 'photo' | 'pick' | 'portrait';
@@ -61,7 +63,7 @@ function useStoreLogo() {
   const [logo, setLogo] = useState('');
   useEffect(() => {
     let url = '';
-    fetch('/api/maharaja/logo', { cache: 'no-store' })
+    fetch('/api/maharaja/logo?fallback=1', { cache: 'no-store' })
       .then(async (response) => { if (response.ok) { url = URL.createObjectURL(await response.blob()); setLogo(url); } })
       .catch(() => undefined);
     return () => { if (url) URL.revokeObjectURL(url); };
@@ -519,27 +521,12 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     void openCameraFor(source === 'own-garment' ? 'own-person' : 'catalogue-person');
   }
 
-  /** Tablet: the Store collection and My own outfit tabs are both Try-On, with the source already chosen. */
-  function openTabletTryOn(source: ImageTryOnSource) {
-    navigateTo('image-tryon');
-    setImageSource(source);
-    setTryOnError('');
-    if (customerPhoto) {
-      setTryOnStage('browse');
-      if (source === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
-    } else {
-      setTryOnStage('who');
-    }
-  }
-
   /**
-   * After the photo. TV: Store collection or My own outfit comes next (Who → photo → source → outfits).
-   * Tablet (the tab chose the source): the store collection opens, or the camera for the own outfit.
+   * After the photo, on the TV and the tablet alike: Store collection or My own outfit comes next
+   * (Who → photo → source → outfits).
    */
   function continueFromPhoto() {
-    if (!isTablet) { setTryOnStage('source'); return; }
-    setTryOnStage('browse');
-    if (imageSource === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
+    setTryOnStage('source');
   }
 
   /** AI Video: who it is for, then the camera (a photo already taken here is reused). */
@@ -993,11 +980,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // One step back, in place of a progress bar. The tablet's tab already chose the source, so its photo
-  // step goes back to Who.
+  // One step back, in place of a progress bar. TV and tablet share one Try-On flow:
+  // Who → photo → Store collection or My own outfit → outfits.
   const tryOnBack = tryOnStage === 'source' ? () => setTryOnStage('photo')
     : tryOnStage === 'photo' ? () => setTryOnStage('who')
-    : tryOnStage === 'browse' ? () => setTryOnStage(isTablet ? 'photo' : 'source')
+    : tryOnStage === 'browse' ? () => setTryOnStage('source')
     : null;
   const videoBack = videoStage === 'photo' ? () => setVideoStage('who')
     : videoStage === 'pick' ? () => setVideoStage('photo')
@@ -1023,16 +1010,18 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           </div>
         </div>
         {isTablet ? (
+          // Tablet, three tabs, run by the store's team: Try-On (store collection or the customer's own
+          // outfit, chosen after the photo, as on the TV), the AI Video gift QR, and the Wall QR to print.
           <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-2 px-8 ${videoOn ? 'grid-cols-3' : 'grid-cols-2'}`} aria-label="Choose an experience">
-            <button type="button" aria-current={mode === 'image-tryon' && imageSource === 'catalogue' ? 'page' : undefined} onClick={() => openTabletTryOn('catalogue')} className={`tv-mode-button ${mode === 'image-tryon' && imageSource === 'catalogue' ? 'is-active' : ''}`}>
-              <Sparkles className="h-6 w-6" /><span>Store collection</span>
-            </button>
-            <button type="button" aria-current={mode === 'image-tryon' && imageSource === 'own-garment' ? 'page' : undefined} onClick={() => openTabletTryOn('own-garment')} className={`tv-mode-button ${mode === 'image-tryon' && imageSource === 'own-garment' ? 'is-active' : ''}`}>
-              <Shirt className="h-6 w-6" /><span>My own outfit</span>
+            <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => navigateTo('image-tryon')} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
+              <Sparkles className="h-6 w-6" /><span>Try-On</span>
             </button>
             {videoOn && <button type="button" aria-current={mode === 'gift' ? 'page' : undefined} onClick={() => navigateTo('gift')} className={`tv-mode-button ${mode === 'gift' ? 'is-active' : ''}`}>
-              <QrCode className="h-6 w-6" /><span>AI Video</span>
+              <QrCode className="h-6 w-6" /><span>AI Video gift</span>
             </button>}
+            <button type="button" aria-current={mode === 'wall-qr' ? 'page' : undefined} onClick={() => navigateTo('wall-qr')} className={`tv-mode-button ${mode === 'wall-qr' ? 'is-active' : ''}`}>
+              <Printer className="h-6 w-6" /><span>Wall QR</span>
+            </button>
           </nav>
         ) : (
           <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-2 px-8 ${['grid-cols-1', 'grid-cols-2', 'grid-cols-3'][[true, videoOn, liveOn].filter(Boolean).length - 1]}`} aria-label="Choose an experience">
@@ -1185,7 +1174,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                         onClick={continueFromPhoto}
                         className="tf-btn tf-btn-primary !min-h-16 text-lg"
                       >
-                        {!isTablet ? 'Continue' : imageSource === 'own-garment' ? 'Photograph my outfit' : 'Pick outfits'} <ArrowRight className="h-5 w-5" />
+                        Continue <ArrowRight className="h-5 w-5" />
                       </button>
                     </div>
                   </div>
@@ -1435,8 +1424,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     })}
                   </div>
                 )}
-                {/* The QR's permanent spot: it appears here the moment the look(s) are ready, nothing to tap first. */}
-                <div className="tf-card flex flex-wrap items-center justify-between gap-5 p-6">
+                {/* The QR's permanent spot, pinned to the bottom of the screen however large the look is: it
+                    appears the moment the look(s) are ready, nothing to tap first. */}
+                <div className="tf-card sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-5 p-6 shadow-xl">
                   <div className="flex-1">
                     <h3 className="text-2xl font-bold">Take your {imageSource === 'own-garment' ? 'look' : 'looks'} home</h3>
                     <p className="mt-1 text-base text-muted">Scan this private QR. It works for 1 hour.</p>
@@ -1606,9 +1596,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             )}
 
             {videoStage === 'portrait' && (
-              <section className="mx-auto max-w-[900px] space-y-4" aria-live="polite">
+              <section className="mx-auto max-w-[1180px] space-y-4" aria-live="polite">
                 <div className="flex items-center justify-between gap-4">
-                  <PageTitle size="lg" title={videoGeneratingMaster ? 'Creating your portrait' : videoMasterUrl ? 'Your portrait' : 'Your portrait'} subtitle={videoGeneratingMaster ? 'About 20 seconds.' : videoStatusNote} />
+                  <PageTitle size="lg" title={videoGeneratingMaster ? 'Creating your portrait' : 'Your portrait'} subtitle={videoGeneratingMaster ? 'About 20 seconds.' : videoStatusNote} />
                   {videoMasterUrl && !videoGeneratingMaster && (
                     <HelpRetry
                       size="tv"
@@ -1624,23 +1614,26 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <DressLoader size="lg" title={`Dressing you in ${selectedProduct.title}`} />
                   </div>
                 ) : videoMasterUrl ? (
-                  <div className="grid items-center gap-5 sm:grid-cols-[1fr_auto]">
+                  <>
                     <div className="overflow-hidden rounded-2xl border border-line bg-ink">
-                      <img src={videoMasterUrl} alt="Your portrait" className="mx-auto aspect-[9/16] max-h-[60vh] w-full object-contain" />
+                      <img src={videoMasterUrl} alt="Your portrait" className="mx-auto aspect-[9/16] max-h-[78vh] w-full object-contain" />
                     </div>
-                    <div className="tf-card flex flex-col items-center gap-3 p-5 text-center">
-                      <div className="flex h-60 w-60 items-center justify-center rounded-xl border border-line bg-white p-2">
-                        {videoPassQr ? <img src={videoPassQr} alt="Scan to make your AI Video on your phone" className="h-full w-full object-contain" /> : <LoaderCircle className="h-10 w-10 animate-spin text-muted" />}
+                    {/* The same pinned QR card as Try-On: made on its own, no button to tap first. */}
+                    <div className="tf-card sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-5 p-6 shadow-xl">
+                      <div className="flex-1">
+                        <h3 className="text-2xl font-bold">Make your AI Video on your phone</h3>
+                        <p className="mt-1 text-base text-muted">Scan this private QR. Then download it, send it on WhatsApp or show it on our Go Live screen. It works for 1 day.</p>
+                        {!videoPassQr && !videoPassCreating && (
+                          <button type="button" onClick={() => void createCatalogueVideoPass(selectedProduct, selectedEventId, videoMasterUrl, videoMasterSessionId)} className="tf-btn tf-btn-secondary mt-3 !min-h-14 px-6 text-base">
+                            <QrCode className="h-5 w-5" /> Show the QR again
+                          </button>
+                        )}
                       </div>
-                      <p className="max-w-[16rem] text-lg font-bold">Scan to make your video on your phone</p>
-                      <p className="max-w-[16rem] text-sm text-muted">Then download it, send it on WhatsApp or show it on our Go Live screen. The QR works for 1 day.</p>
-                      {!videoPassQr && !videoPassCreating && (
-                        <button type="button" onClick={() => void createCatalogueVideoPass(selectedProduct, selectedEventId, videoMasterUrl, videoMasterSessionId)} className="tf-btn tf-btn-secondary !min-h-14 w-full text-base">
-                          <QrCode className="h-5 w-5" /> Show the QR again
-                        </button>
-                      )}
+                      <div className="flex h-44 w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white">
+                        {videoPassQr ? <img src={videoPassQr} alt="Scan to make your AI Video on your phone" className="h-full w-full object-contain" /> : <LoaderCircle className="h-9 w-9 animate-spin text-muted" />}
+                      </div>
                     </div>
-                  </div>
+                  </>
                 ) : (
                   <div className="tf-card space-y-4 p-8 text-center">
                     <p className="text-xl">{videoStatusNote || 'Your portrait could not be created.'}</p>
@@ -1653,17 +1646,10 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           </div>
         )}
 
-        {mode === 'gift' && isTablet && tvBillSuffixRequired && !tvBillEntered && (
-          <BillDigitsGate value={tvBillLast4} onChange={setTvBillLast4} onContinue={() => setTvBillEntered(true)} action="Show my QR" />
-        )}
-        {mode === 'gift' && isTablet && (!tvBillSuffixRequired || tvBillEntered) && (
-          <TabletVideoHandoff
-            qrOnly
-            autoShow
-            billLast4={tvBillSuffixRequired ? tvBillLast4 : undefined}
-            onNewCustomer={tvBillSuffixRequired ? () => { setTvBillLast4(''); setTvBillEntered(false); } : undefined}
-          />
-        )}
+        {/* The tablet is run by the store's team, who choose whom to give the gift: no bill digits here (the
+            TV, used by customers on their own, still asks for them). New customer makes the next QR. */}
+        {mode === 'gift' && isTablet && <TabletVideoHandoff qrOnly autoShow />}
+        {mode === 'wall-qr' && isTablet && <TabletWallQr clientName={clientName} />}
       </div>
 
       {/* =========================================================
@@ -1817,7 +1803,7 @@ function StoreLogoBand({ clientName }: { clientName: string }) {
   const [logo, setLogo] = useState('');
   useEffect(() => {
     let url = '';
-    fetch('/api/maharaja/logo', { cache: 'no-store' })
+    fetch('/api/maharaja/logo?fallback=1', { cache: 'no-store' })
       .then(async (response) => { if (response.ok) { url = URL.createObjectURL(await response.blob()); setLogo(url); } })
       .catch(() => undefined);
     return () => { if (url) URL.revokeObjectURL(url); };
@@ -1828,5 +1814,49 @@ function StoreLogoBand({ clientName }: { clientName: string }) {
         ? <img src={logo} alt={clientName} onError={() => setLogo('')} className="max-h-[160px] max-w-[70%] object-contain" />
         : <p className="text-4xl font-bold text-ink">{clientName}</p>}
     </div>
+  );
+}
+
+/**
+ * The tablet's Wall QR tab: the store's one permanent Try-On QR, shown large so a customer can scan it
+ * from the counter, and as a printable poster to paste anywhere in the store. It opens Try-On on the
+ * customer's own phone and never changes.
+ */
+function TabletWallQr({ clientName }: { clientName: string }) {
+  const [link, setLink] = useState('');
+  const [qr, setQr] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    fetch('/api/maharaja/workspace', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then(async (data) => {
+        const url = data?.workspace?.links?.tryOn;
+        if (!active) return;
+        if (typeof url !== 'string' || !url) { setError('The Wall QR could not be loaded. Sign in again from the workspace.'); return; }
+        setLink(url);
+        setQr(await QRCode.toDataURL(url, { width: 520, margin: 1, color: { dark: '#161918', light: '#FFFFFF' } }));
+      })
+      .catch(() => { if (active) setError('The Wall QR could not be loaded. Check the connection.'); });
+    return () => { active = false; };
+  }, []);
+  return (
+    <section className="mx-auto max-w-[900px] space-y-5" aria-label="Wall QR">
+      <PageTitle size="lg" title="Wall QR" subtitle="Customers scan it to try outfits on their own phone. It never changes." />
+      <div className="tf-card flex flex-col items-center gap-6 p-8 text-center">
+        <div className="flex aspect-square w-full max-w-[420px] items-center justify-center rounded-2xl border border-line bg-white p-4">
+          {qr ? <img src={qr} alt={`${clientName} Try-On QR`} className="h-full w-full object-contain" /> : error ? <p className="text-lg text-danger">{error}</p> : <LoaderCircle className="h-10 w-10 animate-spin text-muted" />}
+        </div>
+        <p className="max-w-xl text-lg text-muted">Print it and paste it near the trial rooms, the mirrors or the billing counter. Each phone gets one free look.</p>
+        <button
+          type="button"
+          disabled={!link}
+          onClick={() => void downloadBrandedQr({ storeName: clientName, filename: `${clientName.replace(/[^a-z0-9]+/gi, '-') || 'Store'}-Try-On-wall-QR.png`, title: 'Try-On', subtitle: 'Scan to try our outfits on your phone', targetUrl: link })}
+          className="tf-btn tf-btn-primary !min-h-16 px-10 text-lg"
+        >
+          <Printer className="h-5 w-5" /> Download the poster to print
+        </button>
+      </div>
+    </section>
   );
 }

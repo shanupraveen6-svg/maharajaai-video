@@ -3,7 +3,7 @@ import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { bindClient, activeClientId } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId } from '@/lib/maharaja/server';
-import { deleteStoreLogo, readStoreLogo, saveStoreLogo } from '@/lib/maharaja/store-logo';
+import { deleteStoreLogo, maharajaDefaultLogo, readStoreLogo, saveStoreLogo } from '@/lib/maharaja/store-logo';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
   const allowed = verifyOperatorRequest(req) || await verifyTvRequest(req);
   if (!allowed) return NextResponse.json({ error: 'Sign in to the workspace.' }, { status: 401 });
   bindClient(await resolveRequestClientId(req));
-  const logo = await readStoreLogo(activeClientId());
+  // `?fallback=1` (the TV and tablet): with no uploaded logo, the store's default badge, the same one its
+  // downloaded looks carry. The workspace's own logo card asks without it, so it still shows "No logo yet".
+  const logo = await readStoreLogo(activeClientId())
+    ?? (req.nextUrl.searchParams.get('fallback') === '1' ? maharajaDefaultLogo(activeClientId()) : null);
   if (!logo) return NextResponse.json({ error: 'No logo yet.' }, { status: 404 });
   return new NextResponse(new Uint8Array(logo), { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store' } });
 }
