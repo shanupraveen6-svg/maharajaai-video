@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, Store } from 'lucide-react';
 import { CREDIT_LEVEL_STATUS, creditStatuses } from '@/lib/maharaja/credits';
 import { StatusPill } from '@/components/ui';
@@ -84,37 +84,27 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
   ];
 
   return (
-    <div className="space-y-6">
-      {/* The fuel for the whole business: every AI vendor's credits, first and most prominent. */}
-      <section>
-        <h2 className="text-xl font-bold">Engine credits</h2>
-        <p className="mt-1 text-[13px] text-muted">What has actually been paid to each AI vendor, and what every store&apos;s use of it has cost.</p>
-        <div className="mt-3 grid gap-4 md:grid-cols-2">
-          <GenlookCredits />
-          <ApiVendorCredits provider="fal" />
-          <ApiVendorCredits provider="gemini" />
-          <ApiVendorCredits provider="fashn" />
-        </div>
-      </section>
+    <div className="space-y-4">
+      {/* The fuel for the whole business: every AI vendor's credits, first. */}
+      <EngineCredits />
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* The platform at a glance: four numbers in one strip. */}
+      <section className="tf-card grid grid-cols-2 divide-line p-0 lg:grid-cols-4 lg:divide-x">
         {totals.map(([label, value, note]) => (
-          <article key={label} className="tf-card p-5">
+          <article key={label} className="px-5 py-4">
             <p className="text-[13px] font-medium text-muted">{label}</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums">{value}</p>
-            <p className="mt-1 text-[13px] text-subtle">{note}</p>
+            <p className="mt-0.5 text-2xl font-bold tabular-nums">{value}</p>
+            <p className="text-[12px] text-subtle">{note}</p>
           </article>
         ))}
       </section>
 
-      <section className="tf-card p-5">
-        <h2 className="flex items-center gap-2 text-xl font-bold">
+      <section className="tf-card px-5 py-4">
+        <h2 className="flex items-center gap-2 text-base font-bold">
           {attention.length ? <AlertTriangle className="h-5 w-5 text-warn" /> : <CheckCircle2 className="h-5 w-5 text-success" />}
-          {attention.length ? `Needs action (${attention.length})` : 'All clients are fine'}
+          {attention.length ? `Needs action (${attention.length})` : 'All clients are fine: credits, logins and AI spend are in order'}
         </h2>
-        {attention.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Credits, logins and AI spend are in order for every client.</p>
-        ) : (
+        {attention.length === 0 ? null : (
           <ul className="mt-3 divide-y divide-line">
             {attention.map((item, index) => (
               <li key={`${item.client.id}-${index}`} className="flex items-center justify-between gap-3 py-2 text-sm">
@@ -133,7 +123,7 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
 
       <section>
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="text-xl font-bold">Clients</h2>
+          <h2 className="text-lg font-bold">Clients</h2>
           {packages.length > 0 && <p className="text-sm text-muted">{packages.map(([label, count]) => `${count} ${label}`).join(' · ')}</p>}
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -173,246 +163,176 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
   );
 }
 
-type GenlookTopUp = { id: string; credits: number; paidUsd?: number; note?: string; at: string };
-type GenlookStore = { clientId: string; name: string; allowance: number; used: number; left: number };
-type GenlookState = {
-  purchased?: number; usedEverywhere?: number; locked?: number; free?: number; liveApiBalance?: number;
-  stores?: GenlookStore[]; topUps?: GenlookTopUp[]; error?: string;
-};
+type Engine = 'genlook' | 'fal' | 'gemini' | 'fashn';
+type TopUp = { id: string; at: string; note?: string; credits?: number; paidUsd?: number; usd?: number; enteredAmount?: number; enteredCurrency?: 'usd' | 'inr' };
+type EngineRow = { purchased?: number; used?: number; free?: number; configured: boolean; topUps: TopUp[]; liveApiBalance?: number; locked?: number };
+
+const ENGINES: Array<{ id: Engine; name: string; usedFor: string; unit: 'credits' | 'usd' }> = [
+  { id: 'genlook', name: 'GenLook', usedFor: 'Try-On', unit: 'credits' },
+  { id: 'fal', name: 'fal.ai', usedFor: 'AI Video, Live Mirror, Try-On backup', unit: 'usd' },
+  { id: 'gemini', name: 'Google Gemini', usedFor: 'AI Video portrait, Try-On backup', unit: 'usd' },
+  { id: 'fashn', name: 'FASHN', usedFor: 'Try-On backup', unit: 'usd' },
+];
 
 /**
- * GenLook (the Try-On engine). The headline numbers come from TryFocus's own top-up log — what was
- * actually paid for, minus what every store has used — not from GenLook's balance API; that API's
- * figure is still shown underneath, only so a mismatch is easy to spot.
+ * Every AI vendor in one table: what TryFocus has logged paying it, what the stores used, what is free.
+ * GenLook counts credits; fal, Gemini and FASHN count dollars (a top-up can be entered in rupees). The
+ * top-up form opens only for the row whose button is tapped, so the table stays compact.
  */
-function GenlookCredits() {
-  const [state, setState] = useState<GenlookState | null>(null);
-  const [addingCredits, setAddingCredits] = useState('');
-  const [addingUsd, setAddingUsd] = useState('');
-  const [addingNote, setAddingNote] = useState('');
+function EngineCredits() {
+  const [rows, setRows] = useState<Partial<Record<Engine, EngineRow>>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [open, setOpen] = useState<Engine | null>(null);
+  const [history, setHistory] = useState<Engine | null>(null);
+  const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState<'usd' | 'inr'>('usd');
+  const [paidUsd, setPaidUsd] = useState('');
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
+  const [error, setError] = useState('');
 
-  const load = () => fetch('/api/admin/genlook', { cache: 'no-store' })
-    .then((response) => response.json())
-    .then((data) => setState({
-      purchased: typeof data?.purchased === 'number' ? data.purchased : undefined,
-      usedEverywhere: typeof data?.usedEverywhere === 'number' ? data.usedEverywhere : undefined,
-      locked: typeof data?.locked === 'number' ? data.locked : undefined,
-      free: typeof data?.free === 'number' ? data.free : undefined,
-      liveApiBalance: typeof data?.liveApiBalance === 'number' ? data.liveApiBalance : undefined,
-      stores: Array.isArray(data?.stores) ? data.stores : [],
-      topUps: Array.isArray(data?.topUps) ? data.topUps : [],
-      error: data?.error,
-    }))
-    .catch(() => setState({ error: 'GenLook could not be checked.' }));
-
-  useEffect(() => { load(); }, []);
-
-  async function addTopUp() {
-    const credits = Number(addingCredits);
-    if (!Number.isFinite(credits) || credits === 0) {
-      setSaveError('Enter how many credits this top-up added.');
-      return;
+  const load = useCallback(async () => {
+    const [genlook, vendors] = await Promise.all([
+      fetch('/api/admin/genlook', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+      fetch('/api/admin/api-ledger', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+    ]);
+    const next: Partial<Record<Engine, EngineRow>> = {};
+    if (genlook) next.genlook = {
+      purchased: genlook.purchased, used: genlook.usedEverywhere, free: genlook.free, locked: genlook.locked,
+      liveApiBalance: genlook.liveApiBalance, configured: genlook.configured !== false, topUps: genlook.topUps || [],
+    };
+    for (const id of ['fal', 'gemini', 'fashn'] as const) {
+      const v = vendors?.providers?.[id];
+      if (v) next[id] = { purchased: v.purchasedUsd, used: v.usedUsd, free: v.freeUsd, configured: v.configured !== false, topUps: v.topUps || [] };
     }
-    setSaving(true);
-    setSaveError('');
+    setRows(next);
+    setLoaded(true);
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  function openTopUp(id: Engine) {
+    setOpen(open === id ? null : id);
+    setAmount(''); setPaidUsd(''); setNote(''); setCurrency('usd'); setError('');
+  }
+
+  async function save(engine: (typeof ENGINES)[number]) {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value === 0) { setError(engine.unit === 'credits' ? 'Enter how many credits were added.' : 'Enter how much was paid.'); return; }
+    setSaving(true); setError('');
     try {
-      const res = await fetch('/api/admin/genlook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          credits,
-          ...(addingUsd.trim() ? { paidUsd: Number(addingUsd) } : {}),
-          ...(addingNote.trim() ? { note: addingNote.trim() } : {}),
-        }),
-      });
+      const res = engine.id === 'genlook'
+        ? await fetch('/api/admin/genlook', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credits: value, ...(paidUsd.trim() ? { paidUsd: Number(paidUsd) } : {}), ...(note.trim() ? { note: note.trim() } : {}) }) })
+        : await fetch('/api/admin/api-ledger', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: engine.id, amount: value, currency, ...(note.trim() ? { note: note.trim() } : {}) }) });
       const data = await res.json();
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not log the top-up.');
-      setAddingCredits(''); setAddingUsd(''); setAddingNote('');
+      setOpen(null);
       await load();
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Could not log the top-up.');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not log the top-up.');
     } finally {
       setSaving(false);
     }
   }
 
-  const number = (value?: number) => (value === undefined ? '—' : value.toLocaleString('en-IN'));
+  const fmt = (unit: 'credits' | 'usd', value?: number) => value === undefined ? '—'
+    : unit === 'credits' ? value.toLocaleString('en-IN') : `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+  const state = (row?: EngineRow): [string, 'success' | 'warn' | 'danger' | 'neutral'] => {
+    if (!row) return ['…', 'neutral'];
+    if (!row.configured) return ['No key', 'neutral'];
+    if (!row.purchased) return ['Log a top-up', 'warn'];
+    if ((row.free ?? 0) <= 0) return ['Top up now', 'danger'];
+    if ((row.free ?? 0) < row.purchased * 0.2) return ['Running low', 'warn'];
+    return ['Good', 'success'];
+  };
+
   return (
     <section className="tf-card p-5">
-      <h2 className="text-lg font-bold">Try-On engine credits (GenLook)</h2>
-      <p className="mt-1 text-[13px] text-muted">What TryFocus has logged paying GenLook for, not GenLook&apos;s own balance figure.</p>
-      <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div><dt className="text-[13px] text-muted">Purchased</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.purchased)}</dd></div>
-        <div><dt className="text-[13px] text-muted">Used (every store)</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.usedEverywhere)}</dd></div>
-        <div><dt className="text-[13px] text-muted">Locked for stores</dt><dd className="mt-1 text-3xl font-bold tabular-nums">{state === null ? '…' : number(state.locked)}</dd></div>
-        <div><dt className="text-[13px] text-muted">Free (Maharaja uses this)</dt><dd className={`mt-1 text-3xl font-bold tabular-nums ${(state?.free ?? 0) < 0 ? 'text-danger' : ''}`}>{state === null ? '…' : number(state.free)}</dd></div>
-      </dl>
-      {typeof state?.purchased === 'number' && typeof state?.usedEverywhere === 'number' && (
-        <p className="mt-2 text-sm font-semibold text-muted tabular-nums">{number((state.purchased) - (state.usedEverywhere))} / {number(state.purchased)} left overall</p>
-      )}
-      {typeof state?.liveApiBalance === 'number' && (
-        <p className="mt-1 text-[13px] text-muted">GenLook&apos;s own account says {number(state.liveApiBalance)} left{Math.abs(state.liveApiBalance - ((state.purchased ?? 0) - (state.usedEverywhere ?? 0))) > 0 ? ' — doesn’t match the log above; check for a missed top-up or a use outside this project.' : '.'}</p>
-      )}
-      {state?.error && <p className="mt-3 text-sm font-semibold text-danger">{state.error}</p>}
-      {(state?.free ?? 0) < 0 && <p className="mt-3 text-sm font-semibold text-danger">GenLook has fewer credits than stores are promised. Top up GenLook.</p>}
-
-      <div className="mt-4 flex flex-wrap items-end gap-2 rounded-2xl bg-canvas p-3">
-        <div>
-          <label htmlFor="genlook-topup-credits" className="block text-[12px] font-semibold text-muted">Credits added</label>
-          <input id="genlook-topup-credits" type="number" value={addingCredits} onChange={(e) => setAddingCredits(e.target.value)} placeholder="500" className="h-10 w-28 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand" />
-        </div>
-        <div>
-          <label htmlFor="genlook-topup-usd" className="block text-[12px] font-semibold text-muted">$ paid (optional)</label>
-          <input id="genlook-topup-usd" type="number" value={addingUsd} onChange={(e) => setAddingUsd(e.target.value)} placeholder="50" className="h-10 w-24 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand" />
-        </div>
-        <div className="min-w-[160px] flex-1">
-          <label htmlFor="genlook-topup-note" className="block text-[12px] font-semibold text-muted">Note (optional)</label>
-          <input id="genlook-topup-note" type="text" value={addingNote} onChange={(e) => setAddingNote(e.target.value)} placeholder="Nov top-up" className="h-10 w-full border border-line bg-white px-3 text-sm text-ink outline-none focus:border-brand" />
-        </div>
-        <button type="button" disabled={saving} onClick={() => void addTopUp()} className="h-10 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Adding…' : 'Add top-up'}</button>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-bold">Engine credits</h2>
+        <p className="text-[13px] text-muted">What TryFocus paid each AI vendor, and what the stores used</p>
       </div>
-      {saveError && <p className="mt-2 text-sm font-semibold text-danger">{saveError}</p>}
-
-      {state?.topUps && state.topUps.length > 0 && (
-        <details className="mt-4 text-sm">
-          <summary className="cursor-pointer font-semibold text-muted">Top-up history ({state.topUps.length})</summary>
-          <ul className="mt-2 divide-y divide-line">
-            {state.topUps.map((item) => (
-              <li key={item.id} className="flex flex-wrap justify-between gap-2 py-2">
-                <span>{new Date(item.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}{item.note ? ` · ${item.note}` : ''}</span>
-                <span className="tabular-nums text-muted">{item.credits > 0 ? '+' : ''}{item.credits.toLocaleString('en-IN')} credits{typeof item.paidUsd === 'number' ? ` · $${item.paidUsd.toLocaleString('en-US')}` : ''}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      {state?.stores && state.stores.length > 0 && (
-        <ul className="mt-4 divide-y divide-line text-sm">
-          {state.stores.map((store) => (
-            <li key={store.clientId} className="flex justify-between gap-3 py-2">
-              <span className="font-semibold">{store.name}</span>
-              <span className="tabular-nums text-muted">{store.used} of {store.allowance} used · {store.left} left</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-const API_PROVIDER_TITLES: Record<'fal' | 'gemini' | 'fashn', string> = {
-  fal: 'fal.ai (video, Live Mirror, Try-On backup)',
-  gemini: 'Google Gemini (AI Video portrait, Try-On backup)',
-  fashn: 'FASHN (Try-On backup)',
-};
-
-type ApiTopUp = { id: string; usd: number; enteredAmount: number; enteredCurrency: 'usd' | 'inr'; note?: string; at: string };
-type ApiVendorState = { purchasedUsd?: number; usedUsd?: number; freeUsd?: number; configured?: boolean; topUps?: ApiTopUp[]; error?: string };
-
-/**
- * One dollar-billed vendor (fal, Gemini or FASHN): what TryFocus has logged paying it, what every
- * store's use of it has actually cost (attributed from the real event that used it, not a guess), and a
- * form to log a new top-up. The payment can be entered in dollars or rupees — Gemini and FASHN are often
- * billed in rupees on an India account — a dropdown picks which, and everything is still compared in
- * dollars (Purchased/Used/Free), converted at the ₹98/$1 rate. The same idea as GenlookCredits above,
- * just in money instead of credits.
- */
-function ApiVendorCredits({ provider }: { provider: 'fal' | 'gemini' | 'fashn' }) {
-  const [state, setState] = useState<ApiVendorState | null>(null);
-  const [addingAmount, setAddingAmount] = useState('');
-  const [addingCurrency, setAddingCurrency] = useState<'usd' | 'inr'>('usd');
-  const [addingNote, setAddingNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
-
-  const load = useCallback(() => fetch('/api/admin/api-ledger', { cache: 'no-store' })
-    .then((response) => response.json())
-    .then((data) => setState(data?.providers?.[provider] || { error: 'Not found.' }))
-    .catch(() => setState({ error: `${provider} could not be checked.` })), [provider]);
-
-  useEffect(() => { load(); }, [load]);
-
-  async function addTopUp() {
-    const amount = Number(addingAmount);
-    if (!Number.isFinite(amount) || amount === 0) {
-      setSaveError('Enter how much this top-up added.');
-      return;
-    }
-    setSaving(true);
-    setSaveError('');
-    try {
-      const res = await fetch('/api/admin/api-ledger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, amount, currency: addingCurrency, ...(addingNote.trim() ? { note: addingNote.trim() } : {}) }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not log the top-up.');
-      setAddingAmount(''); setAddingNote('');
-      setState(data.providers?.[provider] || state);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Could not log the top-up.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const usd = (value?: number) => (value === undefined ? '—' : `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`);
-  const entered = (item: ApiTopUp) => item.enteredCurrency === 'inr'
-    ? `₹${Math.abs(item.enteredAmount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-    : `$${Math.abs(item.enteredAmount).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-  return (
-    <section className="tf-card p-5">
-      <h3 className="text-lg font-bold">{API_PROVIDER_TITLES[provider]}</h3>
-      {state?.configured === false && <p className="mt-1 text-[13px] font-semibold text-warn">No API key set for this vendor yet.</p>}
-      <dl className="mt-3 grid grid-cols-3 gap-3">
-        <div><dt className="text-[13px] text-muted">Purchased</dt><dd className="mt-1 text-2xl font-bold tabular-nums">{state === null ? '…' : usd(state.purchasedUsd)}</dd></div>
-        <div><dt className="text-[13px] text-muted">Used</dt><dd className="mt-1 text-2xl font-bold tabular-nums">{state === null ? '…' : usd(state.usedUsd)}</dd></div>
-        <div><dt className="text-[13px] text-muted">Free</dt><dd className={`mt-1 text-2xl font-bold tabular-nums ${(state?.freeUsd ?? 0) < 0 ? 'text-danger' : ''}`}>{state === null ? '…' : usd(state.freeUsd)}</dd></div>
-      </dl>
-      {state?.error && <p className="mt-3 text-sm font-semibold text-danger">{state.error}</p>}
-      {(state?.freeUsd ?? 0) < 0 && <p className="mt-3 text-sm font-semibold text-danger">Spend has gone past what was topped up. Add funds.</p>}
-
-      <div className="mt-4 flex flex-wrap items-end gap-2 rounded-2xl bg-canvas p-3">
-        <div>
-          <label htmlFor={`${provider}-topup-amount`} className="block text-[12px] font-semibold text-muted">Amount paid</label>
-          <div className="flex">
-            <select
-              aria-label="Currency"
-              value={addingCurrency}
-              onChange={(e) => setAddingCurrency(e.target.value === 'inr' ? 'inr' : 'usd')}
-              className="h-10 rounded-l-xl border border-r-0 border-line bg-white px-2 text-sm font-bold text-ink outline-none focus:border-brand"
-            >
-              <option value="usd">$</option>
-              <option value="inr">₹</option>
-            </select>
-            <input id={`${provider}-topup-amount`} type="number" value={addingAmount} onChange={(e) => setAddingAmount(e.target.value)} placeholder={addingCurrency === 'inr' ? '4900' : '50'} className="h-10 w-28 rounded-r-xl border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand" />
-          </div>
-        </div>
-        <div className="min-w-[140px] flex-1">
-          <label htmlFor={`${provider}-topup-note`} className="block text-[12px] font-semibold text-muted">Note (optional)</label>
-          <input id={`${provider}-topup-note`} type="text" value={addingNote} onChange={(e) => setAddingNote(e.target.value)} placeholder="Nov top-up" className="h-10 w-full border border-line bg-white px-3 text-sm text-ink outline-none focus:border-brand" />
-        </div>
-        <button type="button" disabled={saving} onClick={() => void addTopUp()} className="h-10 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Adding…' : 'Add top-up'}</button>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead className="text-left text-[12px] font-semibold text-muted">
+            <tr><th className="py-1.5 pr-3">Engine</th><th className="py-1.5 pr-3 text-right">Purchased</th><th className="py-1.5 pr-3 text-right">Used</th><th className="py-1.5 pr-3 text-right">Free</th><th className="py-1.5 pr-3" /><th className="py-1.5" /></tr>
+          </thead>
+          <tbody className="border-t border-line">
+            {ENGINES.map((engine) => {
+              const row = rows[engine.id];
+              const [word, tone] = state(row);
+              const matches = engine.id === 'genlook' && typeof row?.liveApiBalance === 'number' && row.liveApiBalance === row.free;
+              return (
+                <Fragment key={engine.id}>
+                  <tr className="border-b border-line align-middle">
+                    <td className="py-2.5 pr-3">
+                      <span className="font-semibold text-ink">{engine.name}</span> <span className="text-muted">· {engine.usedFor}</span>
+                      {engine.id === 'genlook' && typeof row?.liveApiBalance === 'number' && (
+                        <span className={`block text-[12px] ${matches ? 'text-success' : 'text-warn'}`}>GenLook&apos;s own account: {row.liveApiBalance.toLocaleString('en-IN')}{matches ? ' · matches' : ' · does not match, check for a missed top-up'}</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums">{loaded ? fmt(engine.unit, row?.purchased) : '…'}</td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums">{loaded ? fmt(engine.unit, row?.used) : '…'}</td>
+                    <td className={`py-2.5 pr-3 text-right font-bold tabular-nums ${(row?.free ?? 0) < 0 ? 'text-danger' : 'text-ink'}`}>{loaded ? fmt(engine.unit, row?.free) : '…'}</td>
+                    <td className="py-2.5 pr-3"><StatusPill tone={tone}>{word}</StatusPill></td>
+                    <td className="py-2.5 text-right">
+                      <span className="inline-flex gap-1.5">
+                        {Boolean(row?.topUps.length) && <button type="button" onClick={() => setHistory(history === engine.id ? null : engine.id)} className="min-h-9 rounded-lg px-2.5 text-[13px] font-semibold text-muted hover:text-ink">History</button>}
+                        <button type="button" onClick={() => openTopUp(engine.id)} aria-expanded={open === engine.id} className="min-h-9 rounded-lg border border-line-strong px-3 text-[13px] font-semibold text-ink hover:border-ink">{open === engine.id ? 'Cancel' : 'Add top-up'}</button>
+                      </span>
+                    </td>
+                  </tr>
+                  {open === engine.id && (
+                    <tr className="border-b border-line bg-canvas">
+                      <td colSpan={6} className="px-3 py-3">
+                        <div className="flex flex-wrap items-end gap-2">
+                          <label className="text-[12px] font-semibold text-muted">{engine.unit === 'credits' ? 'Credits added' : 'Amount paid'}
+                            <span className="mt-1 flex">
+                              {engine.unit === 'usd' && (
+                                <select aria-label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value === 'inr' ? 'inr' : 'usd')} className="h-10 rounded-l-xl border border-r-0 border-line bg-white px-2 text-sm font-bold text-ink">
+                                  <option value="usd">$</option><option value="inr">₹</option>
+                                </select>
+                              )}
+                              <input type="number" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={engine.unit === 'credits' ? '500' : currency === 'inr' ? '4900' : '50'} className={`h-10 w-28 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand ${engine.unit === 'usd' ? 'rounded-r-xl' : 'rounded-xl'}`} />
+                            </span>
+                          </label>
+                          {engine.unit === 'credits' && (
+                            <label className="text-[12px] font-semibold text-muted">$ paid (optional)
+                              <input type="number" value={paidUsd} onChange={(e) => setPaidUsd(e.target.value)} placeholder="20" className="mt-1 block h-10 w-24 rounded-xl border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand" />
+                            </label>
+                          )}
+                          <label className="min-w-[160px] flex-1 text-[12px] font-semibold text-muted">Note (optional)
+                            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Nov top-up" className="mt-1 block h-10 w-full rounded-xl border border-line bg-white px-3 text-sm text-ink outline-none focus:border-brand" />
+                          </label>
+                          <button type="button" disabled={saving} onClick={() => void save(engine)} className="h-10 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Saving…' : 'Save top-up'}</button>
+                        </div>
+                        {error && <p className="mt-2 text-sm font-semibold text-danger">{error}</p>}
+                      </td>
+                    </tr>
+                  )}
+                  {history === engine.id && row && (
+                    <tr className="border-b border-line">
+                      <td colSpan={6} className="px-3 py-2">
+                        <ul className="divide-y divide-line text-[13px]">
+                          {row.topUps.map((item) => (
+                            <li key={item.id} className="flex flex-wrap justify-between gap-2 py-1.5">
+                              <span>{new Date(item.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}{item.note ? ` · ${item.note}` : ''}</span>
+                              <span className="tabular-nums text-muted">{engine.unit === 'credits'
+                                ? `+${(item.credits ?? 0).toLocaleString('en-IN')} credits${typeof item.paidUsd === 'number' ? ` · $${item.paidUsd}` : ''}`
+                                : item.enteredCurrency === 'inr'
+                                  ? `₹${(item.enteredAmount ?? 0).toLocaleString('en-IN')} ($${(item.usd ?? 0).toFixed(2)})`
+                                  : `$${(item.usd ?? 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-      {saveError && <p className="mt-2 text-sm font-semibold text-danger">{saveError}</p>}
-
-      {state?.topUps && state.topUps.length > 0 && (
-        <details className="mt-4 text-sm">
-          <summary className="cursor-pointer font-semibold text-muted">Top-up history ({state.topUps.length})</summary>
-          <ul className="mt-2 divide-y divide-line">
-            {state.topUps.map((item) => (
-              <li key={item.id} className="flex flex-wrap justify-between gap-2 py-2">
-                <span>{new Date(item.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}{item.note ? ` · ${item.note}` : ''}</span>
-                <span className="tabular-nums text-muted">{item.usd < 0 ? '-' : '+'}{entered(item)}{item.enteredCurrency === 'inr' ? ` (${usd(Math.abs(item.usd))})` : ''}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
     </section>
   );
 }

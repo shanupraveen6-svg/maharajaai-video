@@ -46,6 +46,32 @@ function togglePlatform(current: PackageId, pick: PlatformPick): PackageId {
 
 function PlatformPicker({ value, onChange, compact = false }: { value: PackageId; onChange: (next: PackageId) => void; compact?: boolean }) {
   const d = PACKAGES[value].devices;
+  // Compact: a row of small toggles (the client view and the new-client form).
+  if (compact) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {PLATFORM_PICKS.map(({ key, Icon, title }) => {
+          const ticked = key === 'phone' ? true : d[key];
+          const locked = key === 'phone';
+          return (
+            <button
+              key={key}
+              type="button"
+              role="checkbox"
+              aria-checked={ticked}
+              aria-disabled={locked}
+              title={locked ? 'Included with TV and Tablet' : undefined}
+              onClick={() => { if (!locked) onChange(togglePlatform(value, key)); }}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3.5 text-sm font-semibold transition ${ticked ? 'border-ink bg-white text-ink ring-1 ring-ink' : 'border-line-strong bg-white text-muted hover:border-ink'} ${locked ? 'cursor-default opacity-80' : ''}`}
+            >
+              <span className={`flex h-4 w-4 items-center justify-center rounded border ${ticked ? 'border-ink bg-ink text-white' : 'border-line-strong'}`}>{ticked && <Check className="h-3 w-3" />}</span>
+              <Icon className="h-4 w-4" />{title}{locked && <span className="text-xs font-normal text-muted">included</span>}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       {PLATFORM_PICKS.map(({ key, Icon, title, text }) => {
@@ -127,174 +153,113 @@ type StoreDetail = {
   activity: Array<{ id: string; label: string; createdAt: string }>;
 };
 
-const MONTH_COUNTS = [
-  ['Wall QR scans', 'tryOnScans', 'image'],
-  ['Try-On looks', 'tryOnGenerated', 'image'],
-  ['AI Video QRs given', 'videoPasses', 'video'],
-  ['AI Videos made', 'videosGenerated', 'video'],
-  ['Go Live plays', 'goLive', 'video'],
-  ['Live Mirror sessions', 'liveSessions', 'live'],
-  ['Downloads', 'downloads', null],
-  ['Retries', 'retries', null],
-] as const;
 
 /**
  * What is happening in the store's own workspace: what is working for customers, what the store has set up
  * and switched on, this month against last month, and the latest activity. Read only for TryFocus.
  */
-function StoreActivity({ client, detail }: { client: Client; detail: StoreDetail | null | 'error' }) {
+function ClientOverview({ client, detail }: { client: Client; detail: StoreDetail | null | 'error' }) {
   const access = resolveAccess(client.devices, client.modules);
-  if (detail === 'error') return <section className="tf-card p-6"><h2 className="text-2xl font-bold">In the store&apos;s workspace</h2><p className="mt-2 text-sm text-danger">Could not load the store&apos;s workspace. Refresh to try again.</p></section>;
-  if (!detail) return <section className="tf-card p-6"><h2 className="text-2xl font-bold">In the store&apos;s workspace</h2><p className="mt-2 flex items-center gap-2 text-sm text-muted"><LoaderCircle className="h-4 w-4 animate-spin" /> Loading what the store has set up…</p></section>;
+  const aiCost = client.spend ? `AI cost (TryFocus only): today ${formatRupees(client.spend.todayInr)} · this month ${formatRupees(client.spend.monthInr)}` : '';
+  const shell = (body: React.ReactNode) => (
+    <section className="tf-card p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-bold">Overview</h2>
+        {aiCost && <p className="text-sm tabular-nums text-muted">{aiCost}</p>}
+      </div>
+      {body}
+    </section>
+  );
+  if (detail === 'error') return shell(<p className="mt-2 text-sm text-danger">Could not load the store&apos;s workspace. Refresh to try again.</p>);
+  if (!detail) return shell(<p className="mt-2 flex items-center gap-2 text-sm text-muted"><LoaderCircle className="h-4 w-4 animate-spin" /> Loading…</p>);
   const live = client.status === 'Active';
-  const levelOf = (label: string) => creditStatuses({ tryOnGenerated: client.usage.image, liveSessions: client.usage.live, videosGenerated: client.usage.video }, client.limits).find((item) => item.label === label)?.level;
+  const credits = creditStatuses({ tryOnGenerated: client.usage.image, liveSessions: client.usage.live, videosGenerated: client.usage.video }, {
+    image: access.modules.image ? client.limits.image : 0,
+    live: access.modules.live ? client.limits.live : 0,
+    video: access.modules.video ? client.limits.video : 0,
+  });
   type Tone = 'success' | 'warn' | 'danger' | 'neutral';
   const status = (label: string, pieces: number, empty: string): [string, Tone] => {
+    const level = credits.find((item) => item.label === label)?.level;
     if (!live) return ['Paused', 'neutral'];
-    if (levelOf(label) === 'exhausted') return ['Credits finished', 'danger'];
+    if (level === 'exhausted') return ['Credits finished', 'danger'];
     if (pieces === 0) return [empty, 'warn'];
     return ['Working', 'success'];
   };
-  const working: Array<[string, string, [string, Tone]]> = [
-    ['Try-On', `${[client.devices.tv && 'TV', client.devices.tablet && 'Tablet', 'Phone (Wall QR)'].filter(Boolean).join(' · ')} · ${detail.catalogue.showing} garments showing`, status('Try-On', detail.catalogue.showing, 'Own outfit only')],
-    ...(access.modules.video ? [['AI Video', `${detail.catalogue.video} garments on AI Video`, status('AI Video', detail.catalogue.video, 'No garments on')] as [string, string, [string, Tone]]] : []),
-    ...(access.modules.live ? [['Live Mirror', `TV · ${detail.catalogue.live} garments on Live Mirror`, status('Live Mirror', detail.catalogue.live, 'No garments on')] as [string, string, [string, Tone]]] : []),
-    ...(access.modules.video ? [['Go Live player', 'LED or wall screen', (client.devices.led ? (live ? ['Working', 'success'] : ['Paused', 'neutral']) : ['Off', 'neutral']) as [string, Tone]] as [string, string, [string, Tone]]] : []),
+  // One row per service: whether it works, its garments, and the credits left.
+  const services: Array<{ title: string; note: string; state: [string, Tone]; credit?: (typeof credits)[number] }> = [
+    { title: 'Try-On', note: `${detail.catalogue.showing} garments`, state: status('Try-On', detail.catalogue.showing, 'Own outfit only'), credit: credits.find((c) => c.label === 'Try-On') },
+    ...(access.modules.video ? [{ title: 'AI Video', note: `${detail.catalogue.video} garments`, state: status('AI Video', detail.catalogue.video, 'No garments on'), credit: credits.find((c) => c.label === 'AI Video') }] : []),
+    ...(access.modules.live ? [{ title: 'Live Mirror', note: `${detail.catalogue.live} garments`, state: status('Live Mirror', detail.catalogue.live, 'No garments on'), credit: credits.find((c) => c.label === 'Live Mirror') }] : []),
+    ...(access.modules.video ? [{ title: 'Go Live player', note: 'LED or wall screen', state: (client.devices.led ? (live ? ['Working', 'success'] : ['Paused', 'neutral']) : ['Off', 'neutral']) as [string, Tone] }] : []),
   ];
-  const setup: Array<[string, string, boolean | null]> = [
-    ['Garments', `${detail.catalogue.showing} of ${detail.catalogue.total} showing to customers`, detail.catalogue.showing > 0],
-    ['Categories customers see', detail.customCategories ? 'The store chose its own list' : 'Standard list (not chosen yet)', detail.customCategories],
-    ...(access.modules.video ? [['AI Video garments', `${detail.catalogue.video} switched on`, detail.catalogue.video > 0] as [string, string, boolean]] : []),
-    ...(access.modules.live ? [['Live Mirror garments', `${detail.catalogue.live} switched on`, detail.catalogue.live > 0] as [string, string, boolean]] : []),
-    ['Logo', detail.hasLogo ? 'Uploaded, on every downloaded look' : 'Not uploaded', detail.hasLogo],
-    ['Instagram', detail.instagramUrl || 'Not added', Boolean(detail.instagramUrl)],
-    ['Wall QR price tag', detail.tryOnMinimum ? `Scan a tag of ₹${detail.tryOnMinimum.toLocaleString('en-IN')} or more first` : 'Off: anyone who scans can try', null],
-    ...(access.modules.video ? [
-      ['AI Video gift', detail.videoMinimum ? `For bills from ₹${detail.videoMinimum.toLocaleString('en-IN')}` : 'For every bill', null] as [string, string, null],
-      ['Festival theme', detail.festival, null] as [string, string, null],
-    ] : []),
-  ];
-  const toDo = setup.filter(([, , done]) => done === false).length;
+  // Only what the store has not done yet.
+  const toDo = [
+    detail.catalogue.showing === 0 && 'No garments showing',
+    !detail.customCategories && 'Categories: standard list',
+    access.modules.video && detail.catalogue.video === 0 && 'No AI Video garments',
+    access.modules.live && detail.catalogue.live === 0 && 'No Live Mirror garments',
+    !detail.hasLogo && 'Logo not uploaded',
+    !detail.instagramUrl && 'Instagram not added',
+  ].filter(Boolean) as string[];
   const counts = detail.report?.counts || {};
   const last = detail.report?.lastCounts || {};
   const monthName = detail.report?.month ? new Date(`${detail.report.month}-15T00:00:00Z`).toLocaleString('en-IN', { month: 'long' }) : 'This month';
-  const tiles = MONTH_COUNTS.filter(([, , module]) => module === null || access.modules[module]);
-  return (
-    <section className="tf-card p-6">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 className="text-2xl font-bold">In the store&apos;s workspace</h2>
-        <p className="text-sm text-muted">What {client.name} sees and has done. Read only.</p>
-      </div>
-
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <div>
-          <h3 className="font-bold text-ink">Working now</h3>
-          <ul className="mt-2 divide-y divide-line">
-            {working.map(([title, where, [text, tone]]) => (
-              <li key={title} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                <span className="min-w-0"><span className="block font-semibold text-ink">{title}</span><span className="block text-muted">{where}</span></span>
-                <StatusPill tone={tone}>{text}</StatusPill>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <h3 className="font-bold text-ink">Set up by the store <span className="font-normal text-muted">· {toDo ? `${toDo} to do` : 'all done'}</span></h3>
-          <ul className="mt-2 divide-y divide-line">
-            {setup.map(([title, text, done]) => (
-              <li key={title} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                <span className="flex min-w-0 items-center gap-2">
-                  {done === true ? <Check className="h-4 w-4 shrink-0 text-success" /> : done === false ? <span className="ml-1 h-2 w-2 shrink-0 rounded-full bg-warn" /> : <span className="ml-1 h-2 w-2 shrink-0 rounded-full bg-line-strong" />}
-                  <span className="font-semibold text-ink">{title}</span>
-                </span>
-                <span className="min-w-0 text-right text-muted">{text}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <h3 className="mt-6 font-bold text-ink">{monthName} so far</h3>
-      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {tiles.map(([label, key]) => (
-          <div key={key} className="rounded-2xl bg-canvas p-4">
-            <p className="text-[13px] font-medium text-muted">{label}</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums">{Number(counts[key] || 0).toLocaleString('en-IN')}</p>
-            <p className="mt-0.5 text-xs tabular-nums text-subtle">Last month {Number(last[key] || 0).toLocaleString('en-IN')}</p>
-          </div>
+  // The same five counts the store sees on its own Overview.
+  const month = ([
+    ['Image Try-On', 'tryOnGenerated', access.modules.image],
+    ['AI Video', 'videosGenerated', access.modules.video],
+    ['Go Live', 'goLive', access.modules.video && client.devices.tv],
+    ['Real Try-On', 'liveSessions', access.modules.live],
+    ['Wall QR scans', 'tryOnScans', access.modules.image],
+  ] as const).filter(([, , on]) => on);
+  return shell(<>
+    <div className="mt-3 grid gap-6 lg:grid-cols-[3fr_2fr]">
+      <ul className="divide-y divide-line">
+        {services.map(({ title, note, state: [text, tone], credit }) => (
+          <li key={title} className="flex items-center justify-between gap-3 py-2 text-sm">
+            <span className="min-w-0"><span className="font-semibold text-ink">{title}</span> <span className="text-muted">· {note}</span></span>
+            <span className="flex shrink-0 items-center gap-2">
+              {credit && credit.level !== 'none' && <span className="tabular-nums text-muted">{Math.max(0, credit.limit - credit.used).toLocaleString('en-IN')} left</span>}
+              <StatusPill tone={credit && credit.level !== 'none' && credit.level !== 'ok' && text === 'Working' ? CREDIT_LEVEL_STATUS[credit.level].tone : tone}>{credit && credit.level !== 'none' && credit.level !== 'ok' && text === 'Working' ? CREDIT_LEVEL_STATUS[credit.level].text : text}</StatusPill>
+            </span>
+          </li>
         ))}
+      </ul>
+      <div className="space-y-4">
+        <div>
+          <p className="text-[13px] font-semibold text-muted">{monthName} so far <span className="font-normal">· last month in brackets</span></p>
+          <dl className="mt-1.5 grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+            {month.map(([label, key]) => (
+              <div key={key}>
+                <dt className="text-[12px] text-muted">{label}</dt>
+                <dd className="tabular-nums"><b className="text-lg text-ink">{Number(counts[key] || 0).toLocaleString('en-IN')}</b> <span className="text-subtle">({Number(last[key] || 0).toLocaleString('en-IN')})</span></dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        <div>
+          <p className="text-[13px] font-semibold text-muted">Store setup</p>
+          {toDo.length
+            ? <div className="mt-1.5 flex flex-wrap gap-1.5">{toDo.map((item) => <span key={item} className="rounded-full bg-warn-soft px-2.5 py-1 text-xs font-semibold text-warn">{item}</span>)}</div>
+            : <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-success"><Check className="h-4 w-4" /> All set up</p>}
+        </div>
       </div>
-
-      <h3 className="mt-6 font-bold text-ink">Latest activity</h3>
+    </div>
+    <details className="mt-4 border-t border-line pt-3 text-sm">
+      <summary className="cursor-pointer font-semibold text-muted">Latest activity ({detail.activity.length})</summary>
       {detail.activity.length === 0
-        ? <p className="mt-2 text-sm text-muted">Nothing yet.</p>
-        : <ul className="mt-2 divide-y divide-line text-sm">
+        ? <p className="mt-2 text-muted">Nothing yet.</p>
+        : <ul className="mt-2 divide-y divide-line">
             {detail.activity.map((item) => (
-              <li key={item.id} className="flex justify-between gap-3 py-2">
+              <li key={item.id} className="flex justify-between gap-3 py-1.5">
                 <span className="min-w-0 text-ink">{item.label}</span>
                 <span className="shrink-0 tabular-nums text-muted">{new Date(item.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
               </li>
             ))}
           </ul>}
-    </section>
-  );
-}
-
-function ClientStatus({ client }: { client: Client }) {
-  const access = resolveAccess(client.devices, client.modules);
-  const credits = creditStatuses({ tryOnGenerated: client.usage.image, liveSessions: client.usage.live, videosGenerated: client.usage.video }, {
-    image: access.modules.image ? client.limits.image : 0,
-    live: access.modules.live ? client.limits.live : 0,
-    video: access.modules.video ? client.limits.video : 0,
-  }).filter((status) => status.level !== 'none');
-  const tile = (id: string, title: string, body: React.ReactNode, warn = false) => (
-    <article className={`flex flex-col rounded-2xl border p-4 ${warn ? 'border-warn/50 bg-warn-soft/40' : 'border-line bg-white'}`}>
-      <p className="text-[13px] font-semibold text-muted">{title}</p>
-      <div className="mt-2 flex-1 text-sm text-ink">{body}</div>
-      {id && <a href={`#${id}`} className="mt-3 text-sm font-semibold text-ink underline">Change</a>}
-    </article>
-  );
-  const creditsWarn = credits.some((status) => status.level !== 'ok');
-  return (
-    <section className="tf-card p-6">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 className="text-2xl font-bold">Set up by TryFocus</h2>
-        <p className="text-sm text-muted">What this store is given. Change it in the steps below.</p>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {tile('setup-platform', 'Platform', <>
-          <p className="font-bold">{packageLabel(client.devices)}</p>
-          <p className="mt-1 text-muted">{['Try-On', access.modules.video && 'AI Video', access.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}</p>
-        </>)}
-        {tile('setup-credits', 'Credits', credits.length ? (
-          <ul className="space-y-1.5">
-            {credits.map((status) => (
-              <li key={status.label} className="flex items-center justify-between gap-2">
-                <span>{status.label} <span className="tabular-nums text-muted">· {Math.max(0, status.limit - status.used).toLocaleString('en-IN')} left</span></span>
-                <StatusPill tone={CREDIT_LEVEL_STATUS[status.level].tone}>{CREDIT_LEVEL_STATUS[status.level].text}</StatusPill>
-              </li>
-            ))}
-          </ul>
-        ) : <p className="text-warn">No credits set</p>, creditsWarn || !credits.length)}
-        {tile('setup-login', 'Store login', client.logins?.length
-          ? <><p className="font-bold">{client.logins.join(', ')}</p><p className="mt-1 text-muted">Opens TV, tablet, Go Live player and workspace</p></>
-          : <p className="text-warn">Not created yet. The store cannot sign in.</p>, !client.logins?.length)}
-        {tile('setup-delivery', 'Delivery', <ul className="space-y-1">
-          <li className="flex justify-between gap-2"><span>QR</span><span className="font-semibold">Always on</span></li>
-          <li className="flex justify-between gap-2"><span>WhatsApp link</span><span className="font-semibold">{client.whatsappConnected ? 'On' : 'Off'}</span></li>
-          {access.modules.video && <li className="flex justify-between gap-2"><span>Go Live player</span><span className="font-semibold">{client.devices.led ? 'On' : 'Off'}</span></li>}
-        </ul>)}
-        {tile('', 'AI cost (TryFocus only)', <ul className="space-y-1">
-          <li className="flex justify-between gap-2"><span>Today</span><span className="tabular-nums font-semibold">{client.spend ? formatRupees(client.spend.todayInr) : '—'}</span></li>
-          <li className="flex justify-between gap-2"><span>This month</span><span className="tabular-nums font-semibold">{client.spend ? formatRupees(client.spend.monthInr) : '—'}</span></li>
-          <li className="flex justify-between gap-2"><span>All time looks · videos</span><span className="tabular-nums font-semibold">{client.usage.image.toLocaleString('en-IN')} · {client.usage.video.toLocaleString('en-IN')}</span></li>
-        </ul>)}
-        {tile('', 'Store screens', client.links?.workspace
-          ? <><a href={client.links.workspace} target="_blank" rel="noreferrer" className="font-semibold underline">Open workspace</a><p className="mt-1 text-muted">The TV, tablet and Go Live player links are in the workspace.</p></>
-          : <p className="text-muted">Links appear after the first save.</p>)}
-      </div>
-    </section>
-  );
+    </details>
+  </>);
 }
 
 type Client = {
@@ -747,7 +712,7 @@ export default function TryFocusAdmin() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 sm:px-8">
+      <div className="mx-auto max-w-6xl space-y-4 px-5 py-5 sm:px-8">
         {(savedNotice || errorNotice) && (
           <div
             className={`rounded-2xl border p-4 text-sm font-semibold ${
@@ -840,19 +805,19 @@ export default function TryFocusAdmin() {
 
         {/* Client Selector & Status */}
         <section>
-          <div className="tf-card p-6">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-ink">
+          <div className="tf-card px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-ink">
                   {clientId ? client.name : 'All clients'}
                 </h2>
-                <p className="mt-2 max-w-xl text-sm text-muted">
+                <p className="mt-0.5 text-sm text-muted">
                   {clientId
                     ? `${client.branch} · ${packageLabel(client.devices)}`
-                    : 'Status of every client. Pick one to see and change its settings.'}
+                    : 'Pick a client to see and change its settings.'}
                 </p>
                 {clientId && (
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     aria-pressed={client.status === 'Active'}
@@ -868,10 +833,8 @@ export default function TryFocusAdmin() {
                 )}
               </div>
               <div className="relative min-w-64">
-                <label className="mb-1.5 block text-xs font-bold text-muted">
-                  Client
-                </label>
                 <select
+                  aria-label="Client"
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                   className="h-11 w-full appearance-none rounded-xl border border-line-strong bg-white px-3.5 text-sm font-semibold text-ink outline-none focus:border-brand"
@@ -887,7 +850,7 @@ export default function TryFocusAdmin() {
                     );
                   })}
                 </select>
-                <ChevronDown className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-muted" />
+                <ChevronDown className="pointer-events-none absolute right-3.5 top-3.5 h-4 w-4 text-muted" />
               </div>
             </div>
           </div>
@@ -898,32 +861,25 @@ export default function TryFocusAdmin() {
 
         {clientId && (<>
 
-        <StoreActivity client={client} detail={storeDetail?.id === clientId ? storeDetail.detail : null} />
-
-        <ClientStatus client={client} />
+        <ClientOverview client={client} detail={storeDetail?.id === clientId ? storeDetail.detail : null} />
 
         {/* What this client booked: a platform decides its modules (the phone comes with the TV and the tablet). */}
-        <section id="setup-platform" className="tf-card scroll-mt-24 p-6">
-          <h2 className="text-2xl font-bold">1. Platform</h2>
-          <p className="mt-1 text-sm text-muted">Now: <b className="text-ink">{packageLabel(client.devices)}</b> · {['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}. Tick TV, Tablet or both; Phone comes with them, or book Phone alone. Modules switch with the platforms.</p>
-
-          <div className="mt-5"><PlatformPicker value={currentPackage} onChange={choosePackage} /></div>
-
-          <div className="mt-4 flex items-start gap-3.5 rounded-2xl bg-canvas p-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-ink"><Smartphone className="h-5 w-5" /></span>
-            <p className="text-sm text-muted">
-              <b className="text-ink">Included:</b> the workspace and, with the TV or the tablet, the customer’s phone (Wall QR Try-On, the photo upload QR and the AI Video on the phone) and Go Live on the store’s own LED or wall screen.
-            </p>
+        <section id="setup-platform" className="tf-card scroll-mt-24 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold">1. Platform</h2>
+              <p className="mt-0.5 text-sm text-muted">{['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}. The customer&apos;s phone comes with either.</p>
+            </div>
+            <PlatformPicker compact value={currentPackage} onChange={choosePackage} />
           </div>
-
         </section>
 
         {/* Credits: limits are running totals; a top-up adds a package to them. */}
-        <section id="setup-credits" className="tf-card scroll-mt-24 p-6">
+        <section id="setup-credits" className="tf-card scroll-mt-24 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-bold">2. Credits</h2>
-              <p className="mt-1 text-sm text-muted">{currentPreset ? `Set to ${PRESETS[currentPreset].label}.` : 'Custom limits.'} Limits are running totals; a top-up adds a package to them.</p>
+              <h2 className="text-lg font-bold">2. Credits</h2>
+              <p className="mt-0.5 text-sm text-muted">{currentPreset ? `Set to ${PRESETS[currentPreset].label}.` : 'Custom limits.'} A top-up adds a package to the limits.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(PRESETS) as PresetId[]).map((id) => {
@@ -935,17 +891,17 @@ export default function TryFocusAdmin() {
                     type="button"
                     aria-pressed={selected}
                     onClick={() => void persistClientPatch({ limits: plan })}
-                    className={`min-h-11 rounded-xl border px-4 text-left text-sm ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white hover:border-ink'}`}
+                    title={`${plan.image.toLocaleString('en-IN')} images${plan.video ? ` · ${plan.video.toLocaleString('en-IN')} videos` : ''}${plan.live ? ` · ${plan.live.toLocaleString('en-IN')} live` : ''}`}
+                    className={`min-h-10 rounded-xl border px-3.5 text-sm font-semibold ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white hover:border-ink'}`}
                   >
-                    <span className="block font-bold">Set to {PRESETS[id].label}</span>
-                    <span className={`block text-xs tabular-nums ${selected ? 'text-white/80' : 'text-muted'}`}>{plan.image.toLocaleString('en-IN')} images{plan.video ? ` · ${plan.video.toLocaleString('en-IN')} videos` : ''}{plan.live ? ` · ${plan.live.toLocaleString('en-IN')} live` : ''}</span>
+                    {PRESETS[id].label}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl bg-canvas p-4">
+          <div className="mt-4 rounded-2xl bg-canvas p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="font-bold text-ink">Top up</p>
               <div className="flex flex-wrap items-center gap-2">
@@ -965,49 +921,43 @@ export default function TryFocusAdmin() {
             <div className="mt-3"><PackageQuote platform={currentPlatform} credits={topUpCredits} software={false} /></div>
           </div>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
-            {plans.map((plan) => {
-              const key = plan.key;
-              const used = client.usage[key];
-              const limit = client.limits[key];
-              const level = creditLevel(used, limit);
-              const Icon = plan.icon;
-              const running = clientAccess.modules[key];
-              return (
-                <article key={key} className={`rounded-2xl border p-5 ${running ? 'border-line bg-canvas' : 'border-dashed border-line-strong bg-white'}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-white">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="tabular-nums text-xs font-semibold text-muted">
-                      {used.toLocaleString('en-IN')} used
-                    </span>
-                  </div>
-                  <h3 className="mt-3 text-xl font-bold text-ink">{plan.label}</h3>
-                  {!running && <p className="mt-1 text-xs text-muted">Not on the {PLATFORM_LABELS[currentPlatform]} platform.</p>}
-                  <div className="mt-3 flex items-center gap-3">
-                    <input
-                      aria-label={`${plan.label} limit`}
-                      type="number"
-                      value={limit}
-                      onChange={(e) => setLimit(key, Number(e.target.value))}
-                      onBlur={() => void saveCurrentConfiguration()}
-                      className="h-10 w-32 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand"
-                    />
-                    <span className="text-xs text-muted">limit</span>
-                  </div>
-                  {resolveAccess(client.devices, client.modules).blockedBy[key] && (
-                    <p className="mt-2 text-xs font-semibold text-danger">{resolveAccess(client.devices, client.modules).blockedBy[key]}</p>
-                  )}
-                  <div className="mt-4 flex items-center justify-between gap-2">
-                    <p className="tabular-nums text-sm text-muted"><b className="text-ink">{Math.max(0, limit - used).toLocaleString('en-IN')}</b> left</p>
-                    {running && limit > 0 && <StatusPill tone={CREDIT_LEVEL_STATUS[level].tone}>{CREDIT_LEVEL_STATUS[level].text}</StatusPill>}
-                  </div>
-                </article>
-              );
-            })}
+          {/* Limits: one row per service, the limit editable in place. */}
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-[12px] font-semibold text-muted">
+                <tr><th className="py-1.5 pr-3">Service</th><th className="py-1.5 pr-3 text-right">Used</th><th className="py-1.5 pr-3">Limit</th><th className="py-1.5 pr-3 text-right">Left</th><th className="py-1.5" /></tr>
+              </thead>
+              <tbody className="divide-y divide-line border-t border-line">
+                {plans.map((plan) => {
+                  const key = plan.key;
+                  const used = client.usage[key];
+                  const limit = client.limits[key];
+                  const level = creditLevel(used, limit);
+                  const running = clientAccess.modules[key];
+                  const blocked = clientAccess.blockedBy[key];
+                  return (
+                    <tr key={key} className={running ? '' : 'text-muted'}>
+                      <td className="py-2 pr-3 font-semibold">{plan.label}{!running && <span className="block text-xs font-normal">{blocked || `Not on the ${PLATFORM_LABELS[currentPlatform]} platform`}</span>}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{used.toLocaleString('en-IN')}</td>
+                      <td className="py-2 pr-3">
+                        <input
+                          aria-label={`${plan.label} limit`}
+                          type="number"
+                          value={limit}
+                          onChange={(e) => setLimit(key, Number(e.target.value))}
+                          onBlur={() => void saveCurrentConfiguration()}
+                          className="h-9 w-28 rounded-lg border border-line bg-white px-2.5 tabular-nums font-bold text-ink outline-none focus:border-brand"
+                        />
+                      </td>
+                      <td className="py-2 pr-3 text-right tabular-nums font-semibold">{Math.max(0, limit - used).toLocaleString('en-IN')}</td>
+                      <td className="py-2 text-right">{running && limit > 0 && <StatusPill tone={CREDIT_LEVEL_STATUS[level].tone}>{CREDIT_LEVEL_STATUS[level].text}</StatusPill>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-canvas p-4">
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-canvas px-4 py-3">
             {client.genlookShared ? (
               <>
                 <p className="text-sm font-semibold text-ink">GenLook: uses the shared balance</p>
@@ -1036,9 +986,9 @@ export default function TryFocusAdmin() {
 
 
         {/* Client staff login */}
-        <section id="setup-login" className="tf-card scroll-mt-24 p-6">
-          <h2 className="text-2xl font-bold text-ink">3. Store login</h2>
-          <p className="mt-1 text-sm text-muted">
+        <section id="setup-login" className="tf-card scroll-mt-24 p-5">
+          <h2 className="text-lg font-bold text-ink">3. Store login</h2>
+          <p className="mt-0.5 text-sm text-muted">
             This login opens only {client.name}&apos;s workspace, counter and devices. It cannot open TryFocus admin or another client.
           </p>
           <p className="mt-3 text-sm">
@@ -1092,10 +1042,10 @@ export default function TryFocusAdmin() {
         </section>
 
         {/* How customers get what they made: QR always, WhatsApp link when connected, Go Live on the store screen. */}
-        <section id="setup-delivery" className="tf-card scroll-mt-24 p-6">
-          <h2 className="text-2xl font-bold">4. Delivery</h2>
-          <p className="mt-1 text-sm text-muted">Customers always get a QR. These add to it.</p>
-          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+        <section id="setup-delivery" className="tf-card scroll-mt-24 p-5">
+          <h2 className="text-lg font-bold">4. Delivery</h2>
+          <p className="mt-0.5 text-sm text-muted">Customers always get a QR. These add to it.</p>
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
             <div className="flex items-start justify-between gap-4 rounded-2xl border border-line p-4">
               <div>
                 <p className="font-bold text-ink">WhatsApp link</p>
@@ -1136,8 +1086,8 @@ export default function TryFocusAdmin() {
         </section>
 
         {client.id !== 'maharaja' && (
-          <section className="tf-card border-danger/40 p-6">
-            <h2 className="text-2xl font-bold">Delete workspace</h2>
+          <section className="tf-card border-danger/40 p-5">
+            <h2 className="text-lg font-bold">Delete workspace</h2>
             <p className="mt-1 text-sm text-muted">Removes {client.name} for good: its settings, catalogue, looks, videos, leads, files and store logins. Its TV, tablet, Go Live player and Wall QR stop working. This cannot be undone.</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <input
