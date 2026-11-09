@@ -516,7 +516,7 @@ export default function ResultClient({
                   </label>
                 )}
                 <button type="button" onClick={() => void handleGoLive()} disabled={!liveConsent || (isChild && !guardianLiveConsent) || goLiveSubmitting || liveSuccess} className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
-                  <Tv className="h-5 w-5" /> {goLiveSubmitting ? 'Sending…' : liveSuccess ? 'Sent to the screen' : 'Go Live'}
+                  <Tv className="h-5 w-5" /> {goLiveSubmitting ? 'Sending…' : liveSuccess ? 'Sent to the screen' : 'Play now'}
                 </button>
               </section>
             )}

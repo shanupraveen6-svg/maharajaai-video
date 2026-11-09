@@ -127,6 +127,7 @@ const STRINGS = {
   leadPrivacy: { en: 'We use your number only as you choose here.', ta: 'நீங்கள் இங்கே தேர்வு செய்தபடி மட்டுமே கடை உங்கள் எண்ணைப் பயன்படுத்தும்.' },
   cancel: { en: 'Cancel', ta: 'ரத்து' },
   close: { en: 'Close', ta: 'மூடு' },
+  comingSoon: { en: 'Coming soon', ta: 'விரைவில்' },
   yesRetry: { en: 'Yes, retry', ta: 'ஆம், மீண்டும் முயற்சி' },
   helpNoRetryTitle: { en: 'Need help?', ta: 'உதவி வேண்டுமா?' },
   helpTipsTitle: { en: 'For the best result', ta: 'சிறந்த முடிவுக்கு' },

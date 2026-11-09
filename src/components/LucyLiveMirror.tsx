@@ -7,14 +7,12 @@ import { createImageHandoff } from '@/lib/maharaja/image-handoff-client';
 import {
   Camera,
   Check,
-  ChevronLeft,
-  ChevronRight,
   LoaderCircle,
+  Play,
   RefreshCw,
   ShieldAlert,
   Sparkles,
   Square,
-  X,
 } from 'lucide-react';
 import {
   sampleCatalogue,
@@ -30,7 +28,6 @@ const SESSION_SECONDS = 30;
 const READY_COUNTDOWN_SECONDS = 5;
 // MP4 first: phones play it everywhere; Chrome on older TVs falls back to WebM.
 const RECORDING_TYPES = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-const CARDS_PER_PAGE = 6;
 const AUDIENCES = [
   { value: 'women', label: 'Women' },
   { value: 'men', label: 'Men' },
@@ -67,7 +64,6 @@ export default function LucyLiveMirror({
   // Who starts empty until the customer taps one (unless a piece was already chosen for them).
   const [genderChosen, setGenderChosen] = useState(Boolean(externalProduct));
   const [category, setCategory] = useState<CatalogueCategoryId>(externalProduct?.category || LIVE_CATEGORIES.women[0].id);
-  const [pageIndex, setPageIndex] = useState(0);
   const [selectedGarment, setSelectedGarment] = useState<TryFocusProduct>(
     externalProduct || activeCatalogue[0]
   );
@@ -79,7 +75,10 @@ export default function LucyLiveMirror({
   const [statusMessage, setStatusMessage] = useState(
     'Open the camera, pick an outfit, then tap Start.'
   );
-  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+  // The finished session: its recording plays back in the mirror, with the QR pinned under it.
+  const [recordingUrl, setRecordingUrl] = useState('');
+  const [replaying, setReplaying] = useState(false);
+  const replayRef = useRef<HTMLVideoElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [handoffMessage, setHandoffMessage] = useState('');
 
@@ -111,16 +110,6 @@ export default function LucyLiveMirror({
     [activeCatalogue, gender, activeCategory]
   );
 
-  const totalPages = Math.max(1, Math.ceil(categoryProducts.length / CARDS_PER_PAGE));
-  const safePageIndex = Math.min(pageIndex, totalPages - 1);
-  const pagedProducts = useMemo(
-    () =>
-      categoryProducts.slice(
-        safePageIndex * CARDS_PER_PAGE,
-        (safePageIndex + 1) * CARDS_PER_PAGE
-      ),
-    [categoryProducts, safePageIndex]
-  );
 
   useEffect(() => {
     selectedGarmentRef.current = selectedGarment;
@@ -341,7 +330,7 @@ export default function LucyLiveMirror({
       return;
     }
     setError('');
-    setCompletionModalOpen(false);
+    clearRecording();
 
     // Ensure camera preview is running first
     if (!streamRef.current) {
@@ -392,7 +381,7 @@ export default function LucyLiveMirror({
 
   async function startLucyLiveSession() {
     setError('');
-    setCompletionModalOpen(false);
+    clearRecording();
     closeRealtimeConnections();
     setState('connecting');
     setSecondsLeft(SESSION_SECONDS);
@@ -511,6 +500,7 @@ export default function LucyLiveMirror({
       void finishRecording()
         .then(async (blob) => {
           if (!blob) throw new Error('no recording');
+          setRecordingUrl(URL.createObjectURL(blob));
           const link = await saveRecording(blob);
           setQrDataUrl(await QRCode.toDataURL(link, { width: 360, margin: 2 }));
           setHandoffMessage('Scan to download your whole Live Mirror video. The link works for 1 hour.');
@@ -528,11 +518,24 @@ export default function LucyLiveMirror({
     closeRealtimeConnections();
     setState(nextState);
     if (nextState === 'complete') {
-      setCompletionModalOpen(true);
       setStatusMessage('Your session is over.');
     } else {
       setStatusMessage('Stopped. Tap Start when you are ready.');
     }
+  }
+
+  /** Drops the last session's playback (a new session, or back to the mirror). */
+  function clearRecording() {
+    setRecordingUrl((old) => { if (old) URL.revokeObjectURL(old); return ''; });
+    setReplaying(false);
+  }
+
+  /** After a session: back to the live camera preview, ready for another. */
+  function backToMirror() {
+    clearRecording();
+    setQrDataUrl('');
+    setState('camera_ready');
+    setStatusMessage('Pick an outfit, then tap Start live.');
   }
 
   /** Keeps a still of the outfit on screen now; one per outfit, the latest frame wins. */
@@ -584,7 +587,6 @@ export default function LucyLiveMirror({
         onChange={(g) => {
           setGenderChosen(true);
           setGender(g);
-          setPageIndex(0);
           const first = LIVE_CATEGORIES[g]
             .map((cat) => activeCatalogue.find((item) => item.gender === g && item.category === cat.id))
             .find(Boolean);
@@ -611,8 +613,7 @@ export default function LucyLiveMirror({
                 aria-pressed={activeCategory === cat.id}
                 onClick={() => {
                   setCategory(cat.id);
-                  setPageIndex(0);
-                  const first = activeCatalogue.find((item) => item.gender === gender && item.category === cat.id);
+                          const first = activeCatalogue.find((item) => item.gender === gender && item.category === cat.id);
                   if (first) void selectGarment(first);
                 }}
                 className={`-mb-px min-h-16 border-b-[3px] px-1 text-lg font-semibold leading-tight ${
@@ -625,8 +626,8 @@ export default function LucyLiveMirror({
           </div>
 
           <div className="tv-live-garments mt-4">
-            {pagedProducts.length === 0 && <p className="col-span-2 p-3 text-lg text-muted">No outfits here yet. Ask the store to add some.</p>}
-            {pagedProducts.map((item) => {
+            {categoryProducts.length === 0 && <p className="p-3 text-lg text-muted">No outfits here yet. Ask the store to add some.</p>}
+            {categoryProducts.map((item) => {
               const active = selectedGarment.sku === item.sku;
               return (
                 <button
@@ -648,27 +649,6 @@ export default function LucyLiveMirror({
             })}
           </div>
 
-          {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-              <button
-                type="button"
-                disabled={safePageIndex <= 0}
-                onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-                className="tf-btn tf-btn-secondary !min-h-16 px-5 text-lg disabled:opacity-40"
-              >
-                <ChevronLeft className="h-5 w-5" /> Back
-              </button>
-              <span className="tabular-nums text-lg font-semibold text-muted">{safePageIndex + 1} of {totalPages}</span>
-              <button
-                type="button"
-                disabled={safePageIndex >= totalPages - 1}
-                onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
-                className="tf-btn tf-btn-secondary !min-h-16 px-5 text-lg disabled:opacity-40"
-              >
-                More <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
-          )}
         </aside>
 
         <div className="tv-live-camera relative aspect-[9/16] w-full min-w-0 overflow-hidden rounded-2xl bg-ink">
@@ -731,6 +711,26 @@ export default function LucyLiveMirror({
             </div>
           )}
 
+          {state === 'complete' && recordingUrl && (
+            <>
+              <video
+                ref={replayRef}
+                src={recordingUrl}
+                playsInline
+                controls={replaying}
+                onPlay={() => setReplaying(true)}
+                onEnded={() => setReplaying(false)}
+                className="absolute inset-0 z-20 h-full w-full bg-ink object-cover"
+              />
+              {!replaying && (
+                <button type="button" onClick={() => void replayRef.current?.play()} className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ink/45 text-white" aria-label="Play your Live Mirror video">
+                  <span className="flex h-28 w-28 items-center justify-center rounded-full bg-white/95 text-ink shadow-2xl"><Play className="ml-1.5 h-12 w-12 fill-current" /></span>
+                  <span className="text-2xl font-bold drop-shadow">Play your Live Mirror</span>
+                </button>
+              )}
+            </>
+          )}
+
           {state === 'error' && error && (
             <div className="absolute inset-x-4 bottom-6 rounded-2xl bg-white p-5 shadow-xl">
               <div className="flex items-start gap-3">
@@ -750,8 +750,25 @@ export default function LucyLiveMirror({
         </div>
       </div>
 
+      {/* After a session: the QR in its permanent spot at the bottom, with the next step beside it. */}
+      {state === 'complete' && (
+        <section className="tf-card sticky bottom-4 z-20 flex flex-wrap items-center gap-5 p-5 shadow-xl" aria-label="Take your Live Mirror video home">
+          <div className="flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white">
+            {qrDataUrl ? <img src={qrDataUrl} alt="Scan to save your Live Mirror video" className="h-full w-full object-contain" /> : <LoaderCircle className="h-10 w-10 animate-spin text-muted" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-2xl font-bold text-ink">Take your Live Mirror video home</p>
+            <p className="mt-1 text-base text-muted">{handoffMessage || 'Scan with your phone camera.'}</p>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2">
+            <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary !min-h-16 px-6 text-lg"><RefreshCw className="h-5 w-5" /> Another 30 seconds</button>
+            <button type="button" onClick={backToMirror} className="tf-btn tf-btn-secondary !min-h-14 px-6 text-base">Back to mirror</button>
+          </div>
+        </section>
+      )}
+
       {/* One primary action, in a floating bar on the TV. */}
-      <section className="tv-live-controls tv-selection-bar sticky z-20 mx-auto flex items-center justify-between gap-5" aria-label="Live Mirror controls">
+      {state !== 'complete' && <section className="tv-live-controls tv-selection-bar sticky z-20 mx-auto flex items-center justify-between gap-5" aria-label="Live Mirror controls">
         <div className="min-w-0">
           <p className="truncate text-xl font-bold text-ink">{selectedGarment.title}</p>
           <p className="text-base text-muted">{statusMessage}</p>
@@ -770,49 +787,8 @@ export default function LucyLiveMirror({
             {state === 'error' ? 'Try again' : 'Start live'}
           </button>
         )}
-      </section>
+      </section>}
 
-      {completionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-6">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-3xl font-bold text-ink">How did it look?</h3>
-                <p className="mt-1 text-lg text-muted">{selectedGarment.title}</p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setCompletionModalOpen(false)}
-                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl text-ink hover:bg-canvas"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-6 sm:grid-cols-[200px_1fr] sm:items-center">
-              <div className="flex flex-col items-center rounded-2xl border border-line bg-canvas p-3">
-                {qrDataUrl
-                  ? <img src={qrDataUrl} alt="Scan to save your look" className="h-44 w-44 object-contain" />
-                  : <span className="flex h-44 w-44 items-center justify-center"><LoaderCircle className="h-12 w-12 animate-spin text-muted" /></span>}
-              </div>
-              <div className="space-y-4">
-                <p className="text-lg text-ink">Scan with your phone camera to take your Live Mirror video home.</p>
-                {handoffMessage && <p role="status" className="text-base text-muted">{handoffMessage}</p>}
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-3 [&>*]:flex-1">
-              <button type="button" onClick={() => setCompletionModalOpen(false)} className="tf-btn tf-btn-secondary !min-h-16 text-lg">
-                Back to mirror
-              </button>
-              <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary !min-h-16 text-lg">
-                <RefreshCw className="h-5 w-5" /> Another 30 seconds
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

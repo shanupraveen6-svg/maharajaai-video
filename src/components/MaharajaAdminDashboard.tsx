@@ -451,6 +451,10 @@ export default function MaharajaAdminDashboard({
   const levelOf = (label: string) => credits.find((item) => item.label === label)?.level ?? 'none';
   const showing = catalogue.filter((item) => item.active);
   const videoPieces = showing.filter((item) => item.eligibleForVideo).length;
+  // Audiences customers cannot pick on AI Video yet (no piece switched on with a price): they see "Coming soon".
+  const videoMissing = (['women', 'men', 'boys', 'girls'] as const)
+    .filter((who) => !showing.some((item) => item.eligibleForVideo && item.gender === who && Number(item.price || 0) > 0))
+    .map((who) => ({ women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' })[who]);
   const livePieces = showing.filter((item) => isLiveMirrorReady(item)).length;
   type Tone = 'success' | 'warn' | 'danger' | 'neutral';
   const rowStatus = (label: string, pieces: number | null, noPieces: string): { status: string; tone: Tone } => {
@@ -579,6 +583,12 @@ export default function MaharajaAdminDashboard({
               </li>
             ))}
           </ul>
+          {limits.video > 0 && !catalogueLoading && videoMissing.length > 0 && videoMissing.length < 4 && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-warn-soft px-3 py-2 text-sm">
+              <span className="text-ink">AI Video shows &quot;Coming soon&quot; for <b>{videoMissing.join(', ')}</b>: switch on pieces with a price for them.</span>
+              <button type="button" onClick={() => { setCatExperience('video'); setSection('catalogue'); window.scrollTo({ top: 0 }); }} className="min-h-9 rounded-lg border border-line-strong bg-white px-3 text-[13px] font-semibold">Catalogue · AI Video</button>
+            </div>
+          )}
           <p className="mt-3 text-sm text-muted">Customers get their looks by {workspace.whatsappConnected ? 'QR and WhatsApp' : 'QR'}. To add credits or a platform: <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">9994837342</a></p>
         </section>
 

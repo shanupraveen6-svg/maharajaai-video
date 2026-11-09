@@ -1485,7 +1485,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {videoStage === 'who' && (
               <div className="tv-who-screen flex min-h-[calc(100dvh-240px)] flex-col gap-6">
                 <PageTitle size="lg" title="Who is the video for?" subtitle="A short AI Video of you in a piece from our collection." />
-                <AudienceCards size="lg" value={videoWhoChosen ? videoAudience : null} onChange={(audience) => { setVideoWhoChosen(true); chooseVideoAudience(audience); }} labels={AUDIENCE_LABELS} />
+                {/* An audience with no AI Video piece yet shows "Coming soon", so no one reaches an empty list. */}
+                <AudienceCards size="lg" value={videoWhoChosen ? videoAudience : null} onChange={(audience) => { setVideoWhoChosen(true); chooseVideoAudience(audience); }} labels={AUDIENCE_LABELS} unavailable={catalogueItems.length ? (['women', 'men', 'boys', 'girls'] as const).filter((audience) => !catalogueItems.some((item) => item.gender === audience && item.price > 0 && (item.eligibleForVideo === true || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')))) : []} />
                 <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
                 <StoreLogoBand clientName={clientName} />
               </div>

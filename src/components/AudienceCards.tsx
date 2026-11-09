@@ -8,25 +8,31 @@ type Size = 'md' | 'lg';
  * Who is it for: four illustrated cards in a 2 x 2 grid (phone, tablet and TV). Nothing is selected until
  * the customer taps one. The illustrations are simple figures in the brand colours, drawn on 120 x 140.
  */
-export default function AudienceCards({ value, onChange, labels, size = 'md' }: {
+export default function AudienceCards({ value, onChange, labels, size = 'md', unavailable = [], unavailableLabel = 'Coming soon' }: {
   value: CatalogueAudience | null;
   onChange: (audience: CatalogueAudience) => void;
   labels: Record<CatalogueAudience, string>;
   size?: Size;
+  /** Audiences with nothing to offer here yet (no AI Video pieces, say): shown, dimmed, and not tappable. */
+  unavailable?: CatalogueAudience[];
+  unavailableLabel?: string;
 }) {
   const order: CatalogueAudience[] = ['women', 'men', 'boys', 'girls'];
   return (
     <div role="group" aria-label="Who is it for" className={`grid grid-cols-2 ${size === 'lg' ? 'gap-5' : 'gap-3'}`}>
       {order.map((audience) => {
         const selected = value === audience;
+        const off = unavailable.includes(audience);
         return (
           <button
             key={audience}
             type="button"
             aria-pressed={selected}
+            disabled={off}
             onClick={() => onChange(audience)}
-            className={`group flex flex-col items-center overflow-hidden rounded-3xl border bg-white text-center transition hover:border-ink ${selected ? 'border-ink ring-2 ring-ink' : 'border-line'} ${size === 'lg' ? 'p-6' : 'p-4'}`}
+            className={`group relative flex flex-col items-center overflow-hidden rounded-3xl border bg-white text-center transition ${off ? 'cursor-not-allowed opacity-50' : 'hover:border-ink'} ${selected ? 'border-ink ring-2 ring-ink' : 'border-line'} ${size === 'lg' ? 'p-6' : 'p-4'}`}
           >
+            {off && <span className={`absolute right-3 top-3 z-10 rounded-full bg-ink px-3 py-1 font-semibold text-white ${size === 'lg' ? 'text-base' : 'text-xs'}`}>{unavailableLabel}</span>}
             <span className={`flex w-full items-center justify-center rounded-2xl bg-brand-soft ${size === 'lg' ? 'h-56' : 'h-28'}`}>
               <Figure audience={audience} className={`${size === 'lg' ? 'h-48' : 'h-24'} transition group-hover:-translate-y-0.5`} />
             </span>

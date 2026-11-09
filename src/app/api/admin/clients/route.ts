@@ -119,6 +119,8 @@ async function storeDetail(ws: MaharajaWorkspace) {
         showing: showing.length,
         video: showing.filter((item) => item.eligibleForVideo).length,
         live: showing.filter((item) => item.eligibleForLive === true).length,
+        // Audiences a customer can pick on AI Video (a piece switched on, with a price); the others show "Coming soon".
+        videoAudiences: (['women', 'men', 'boys', 'girls'] as const).filter((who) => showing.some((item) => item.eligibleForVideo && item.gender === who && Number(item.price || 0) > 0)),
       },
       hasLogo: Boolean(logo),
       instagramUrl: instagramUrlFor(ws),

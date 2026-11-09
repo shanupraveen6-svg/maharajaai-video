@@ -383,6 +383,9 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
               value={audience}
               labels={{ women: t('women'), men: t('men'), boys: t('boys'), girls: t('girls') }}
               onChange={(next) => { setAudience(next); setCategoryId(''); setSelectedSku(''); setConceptId(''); setGuardianConsent(false); setStage('photo'); }}
+              // An audience with no AI Video piece yet shows "Coming soon", so no one reaches an empty list.
+              unavailable={products.length ? (['women', 'men', 'boys', 'girls'] as const).filter((who) => !products.some((item) => item.gender === who)) : []}
+              unavailableLabel={t('comingSoon')}
             />
             <PhotoGuide lines={[t('guideLine1'), t('guideLine2')]} />
           </>

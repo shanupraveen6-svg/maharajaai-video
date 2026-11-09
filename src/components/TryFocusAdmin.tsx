@@ -142,7 +142,7 @@ function PackageQuote({ platform, credits, software }: { platform: Platform; cre
  */
 /** What the store did in its own workspace (from /api/admin/clients?clientId=). */
 type StoreDetail = {
-  catalogue: { total: number; showing: number; video: number; live: number };
+  catalogue: { total: number; showing: number; video: number; live: number; videoAudiences?: string[] };
   hasLogo: boolean;
   instagramUrl: string;
   customCategories: boolean;
@@ -198,6 +198,8 @@ function ClientOverview({ client, detail }: { client: Client; detail: StoreDetai
     detail.catalogue.showing === 0 && 'No garments showing',
     !detail.customCategories && 'Categories: standard list',
     access.modules.video && detail.catalogue.video === 0 && 'No AI Video garments',
+    access.modules.video && detail.catalogue.video > 0 && detail.catalogue.videoAudiences && detail.catalogue.videoAudiences.length < 4
+      && `AI Video: none for ${(['women', 'men', 'boys', 'girls'] as const).filter((who) => !detail.catalogue.videoAudiences!.includes(who)).map((who) => ({ women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' })[who]).join(', ')}`,
     access.modules.live && detail.catalogue.live === 0 && 'No Live Mirror garments',
     !detail.hasLogo && 'Logo not uploaded',
     !detail.instagramUrl && 'Instagram not added',
