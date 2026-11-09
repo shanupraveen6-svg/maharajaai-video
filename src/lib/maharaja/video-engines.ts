@@ -159,7 +159,8 @@ export async function submitRender({ chain, startIndex = 0, request, webhookUrl,
       const statusUrl = provider.status_url || provider.statusUrl;
       const responseUrl = provider.response_url || provider.responseUrl;
       if (!requestId || !statusUrl || !responseUrl) throw new Error('Fal accepted the request but returned incomplete queue tracking data.');
-      await recordAiCost('video-render', engine.estimatedUsd);
+      // H3 Max and Gemini Omni Flash both run through fal's queue, so every video render bills fal.
+      await recordAiCost('video-render', engine.estimatedUsd, 'fal');
       tried.push({ engine: engine.id, at: new Date().toISOString(), requestId });
       return {
         engine,

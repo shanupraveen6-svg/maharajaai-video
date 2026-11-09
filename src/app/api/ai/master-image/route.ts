@@ -505,7 +505,13 @@ export async function POST(req: NextRequest) {
         // The AI Video references must be saved before the portrait is handed on to the video step.
         if (referenceSaving) await referenceSaving;
         if (rawBuffer) {
-          await recordAiCost(service === 'try-on' ? 'try-on' : 'video-portrait');
+          // imageProvider names exactly which vendor just succeeded, so the dollar spend goes to the
+          // right one (GenLook tracks its own usage in credits, not dollars, so it is skipped here).
+          const costProvider = imageProvider.startsWith('genlook') ? 'genlook'
+            : imageProvider.startsWith('fal') ? 'fal'
+            : imageProvider.startsWith('fashn') ? 'fashn'
+            : 'gemini';
+          await recordAiCost(service === 'try-on' ? 'try-on' : 'video-portrait', undefined, costProvider);
           const finalBuffer = service === 'try-on'
             ? await applyMaharajaWatermark(rawBuffer)
             : await sharp(rawBuffer).rotate().jpeg({ quality: 95, chromaSubsampling: '4:4:4' }).toBuffer();

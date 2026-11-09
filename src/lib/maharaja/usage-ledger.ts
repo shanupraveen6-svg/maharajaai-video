@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { activeClientId } from './client-context';
+import { recordApiUsageUsd, type ApiProvider } from './api-ledger';
 
 /**
  * Two running totals kept beside each workspace's lifetime counters:
@@ -89,9 +90,16 @@ export async function recordUsage(field: string, delta = 1) {
   }
 }
 
-/** Records the estimated cost of one AI provider call for this client and for the whole platform. */
-export async function recordAiCost(kind: AiCostKind, usd = aiCostUsd(kind)) {
+/**
+ * Records the estimated cost of one AI provider call for this client and for the whole platform.
+ * `provider` is the vendor that actually served this call (known at the call site, never guessed — see
+ * each caller), so a dollar-billed vendor's lifetime spend (api-ledger.ts) stays attributed correctly;
+ * `genlook` is passed for completeness but recorded nowhere here, since GenLook already tracks its own
+ * usage in credits (genlook-ledger.ts), not dollars.
+ */
+export async function recordAiCost(kind: AiCostKind, usd = aiCostUsd(kind), provider?: ApiProvider | 'genlook') {
   if (!(usd > 0)) return;
+  const providerWrite = provider && provider !== 'genlook' ? recordApiUsageUsd(provider, usd) : Promise.resolve();
   try {
     const clientId = activeClientId();
     const day = istDay();
@@ -104,9 +112,11 @@ export async function recordAiCost(kind: AiCostKind, usd = aiCostUsd(kind)) {
           costUsdByKind: { [kind]: FieldValue.increment(usd) },
         }, { merge: true }),
         platformDoc(day).set({ costUsd: FieldValue.increment(usd), byClient: { [clientId]: FieldValue.increment(usd) } }, { merge: true }),
+        providerWrite,
       ]);
       return;
     }
+    await providerWrite;
     const store = getMockStore().sessions;
     const current = (store.get(mockMonthKey(clientId, month)) || {}) as MonthLedger;
     store.set(mockMonthKey(clientId, month), {

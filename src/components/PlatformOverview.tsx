@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, Store } from 'lucide-react';
 import { CREDIT_LEVEL_STATUS, creditStatuses } from '@/lib/maharaja/credits';
 import { StatusPill } from '@/components/ui';
@@ -85,6 +85,18 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
 
   return (
     <div className="space-y-6">
+      {/* The fuel for the whole business: every AI vendor's credits, first and most prominent. */}
+      <section>
+        <h2 className="text-xl font-bold">Engine credits</h2>
+        <p className="mt-1 text-[13px] text-muted">What has actually been paid to each AI vendor, and what every store&apos;s use of it has cost.</p>
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
+          <GenlookCredits />
+          <ApiVendorCredits provider="fal" />
+          <ApiVendorCredits provider="gemini" />
+          <ApiVendorCredits provider="fashn" />
+        </div>
+      </section>
+
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {totals.map(([label, value, note]) => (
           <article key={label} className="tf-card p-5">
@@ -157,7 +169,6 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
         </div>
       </section>
 
-      <GenlookCredits />
     </div>
   );
 }
@@ -287,6 +298,102 @@ function GenlookCredits() {
             </li>
           ))}
         </ul>
+      )}
+    </section>
+  );
+}
+
+const API_PROVIDER_TITLES: Record<'fal' | 'gemini' | 'fashn', string> = {
+  fal: 'fal.ai (video, Live Mirror, Try-On backup)',
+  gemini: 'Google Gemini (AI Video portrait, Try-On backup)',
+  fashn: 'FASHN (Try-On backup)',
+};
+
+type ApiTopUp = { id: string; usd: number; note?: string; at: string };
+type ApiVendorState = { purchasedUsd?: number; usedUsd?: number; freeUsd?: number; configured?: boolean; topUps?: ApiTopUp[]; error?: string };
+
+/**
+ * One dollar-billed vendor (fal, Gemini or FASHN): what TryFocus has logged paying it, what every
+ * store's use of it has actually cost (attributed from the real event that used it, not a guess), and a
+ * form to log a new top-up. The same idea as GenlookCredits above, just in dollars instead of credits.
+ */
+function ApiVendorCredits({ provider }: { provider: 'fal' | 'gemini' | 'fashn' }) {
+  const [state, setState] = useState<ApiVendorState | null>(null);
+  const [addingUsd, setAddingUsd] = useState('');
+  const [addingNote, setAddingNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  const load = useCallback(() => fetch('/api/admin/api-ledger', { cache: 'no-store' })
+    .then((response) => response.json())
+    .then((data) => setState(data?.providers?.[provider] || { error: 'Not found.' }))
+    .catch(() => setState({ error: `${provider} could not be checked.` })), [provider]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function addTopUp() {
+    const usd = Number(addingUsd);
+    if (!Number.isFinite(usd) || usd === 0) {
+      setSaveError('Enter how many dollars this top-up added.');
+      return;
+    }
+    setSaving(true);
+    setSaveError('');
+    try {
+      const res = await fetch('/api/admin/api-ledger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, usd, ...(addingNote.trim() ? { note: addingNote.trim() } : {}) }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not log the top-up.');
+      setAddingUsd(''); setAddingNote('');
+      setState(data.providers?.[provider] || state);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not log the top-up.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const usd = (value?: number) => (value === undefined ? '—' : `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`);
+  return (
+    <section className="tf-card p-5">
+      <h3 className="text-lg font-bold">{API_PROVIDER_TITLES[provider]}</h3>
+      {state?.configured === false && <p className="mt-1 text-[13px] font-semibold text-warn">No API key set for this vendor yet.</p>}
+      <dl className="mt-3 grid grid-cols-3 gap-3">
+        <div><dt className="text-[13px] text-muted">Purchased</dt><dd className="mt-1 text-2xl font-bold tabular-nums">{state === null ? '…' : usd(state.purchasedUsd)}</dd></div>
+        <div><dt className="text-[13px] text-muted">Used</dt><dd className="mt-1 text-2xl font-bold tabular-nums">{state === null ? '…' : usd(state.usedUsd)}</dd></div>
+        <div><dt className="text-[13px] text-muted">Free</dt><dd className={`mt-1 text-2xl font-bold tabular-nums ${(state?.freeUsd ?? 0) < 0 ? 'text-danger' : ''}`}>{state === null ? '…' : usd(state.freeUsd)}</dd></div>
+      </dl>
+      {state?.error && <p className="mt-3 text-sm font-semibold text-danger">{state.error}</p>}
+      {(state?.freeUsd ?? 0) < 0 && <p className="mt-3 text-sm font-semibold text-danger">Spend has gone past what was topped up. Add funds.</p>}
+
+      <div className="mt-4 flex flex-wrap items-end gap-2 rounded-2xl bg-canvas p-3">
+        <div>
+          <label htmlFor={`${provider}-topup-usd`} className="block text-[12px] font-semibold text-muted">$ paid</label>
+          <input id={`${provider}-topup-usd`} type="number" value={addingUsd} onChange={(e) => setAddingUsd(e.target.value)} placeholder="50" className="h-10 w-24 border border-line bg-white px-3 tabular-nums text-sm font-bold text-ink outline-none focus:border-brand" />
+        </div>
+        <div className="min-w-[140px] flex-1">
+          <label htmlFor={`${provider}-topup-note`} className="block text-[12px] font-semibold text-muted">Note (optional)</label>
+          <input id={`${provider}-topup-note`} type="text" value={addingNote} onChange={(e) => setAddingNote(e.target.value)} placeholder="Nov top-up" className="h-10 w-full border border-line bg-white px-3 text-sm text-ink outline-none focus:border-brand" />
+        </div>
+        <button type="button" disabled={saving} onClick={() => void addTopUp()} className="h-10 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Adding…' : 'Add top-up'}</button>
+      </div>
+      {saveError && <p className="mt-2 text-sm font-semibold text-danger">{saveError}</p>}
+
+      {state?.topUps && state.topUps.length > 0 && (
+        <details className="mt-4 text-sm">
+          <summary className="cursor-pointer font-semibold text-muted">Top-up history ({state.topUps.length})</summary>
+          <ul className="mt-2 divide-y divide-line">
+            {state.topUps.map((item) => (
+              <li key={item.id} className="flex flex-wrap justify-between gap-2 py-2">
+                <span>{new Date(item.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}{item.note ? ` · ${item.note}` : ''}</span>
+                <span className="tabular-nums text-muted">{item.usd > 0 ? '+' : ''}${item.usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </section>
   );
