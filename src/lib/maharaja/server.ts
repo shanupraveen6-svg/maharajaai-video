@@ -50,6 +50,11 @@ export type MaharajaWorkspace = {
    * workspace can use them. Unset: a client gets the free trial (60), the Maharaja demo gets none.
    */
   genlookCredits?: number;
+  /**
+   * Explicitly put on the shared GenLook pool (TryFocus admin's "Use the shared balance"), rather than
+   * locked credits of its own. A locked `genlookCredits` number always wins over this flag.
+   */
+  genlookShared?: boolean;
   /** Categories this store shows customers, per audience and in its order (TV, tablet and phone). */
   categoryLists?: StoreCategoryLists;
   deliveryMode?: 'whatsapp' | 'qr';
@@ -886,14 +891,18 @@ export async function updateMaharajaSettings(
     ...(rest.modules ? { modules: { ...(workspace.modules || { image: true, live: true, video: true }), ...rest.modules } } : {}),
   };
   const merged: Partial<MaharajaWorkspace> = { ...workspace, ...productionSettings, updatedAt: new Date().toISOString() };
-  // Back on the shared GenLook balance: the store's locked number is removed.
-  if (useSharedGenlook) delete merged.genlookCredits;
+  // Back on the shared GenLook balance: the store's locked number is removed and the flag is persisted,
+  // so usesFreeGenlookPool reads it directly instead of guessing from the client id. A locked number
+  // (set elsewhere in `rest`) always clears the flag the other way.
+  if (useSharedGenlook) { delete merged.genlookCredits; merged.genlookShared = true; }
+  else if (typeof rest.genlookCredits === 'number') merged.genlookShared = false;
   const updated = normalizeWorkspace(merged, defaultWorkspace(clientId));
   const db = getDb();
   if (db) {
     await db.collection('clientWorkspaces').doc(clientId).set({
       ...productionSettings,
-      ...(useSharedGenlook ? { genlookCredits: FieldValue.delete() } : {}),
+      ...(useSharedGenlook ? { genlookCredits: FieldValue.delete(), genlookShared: true } : {}),
+      ...(typeof rest.genlookCredits === 'number' ? { genlookShared: false } : {}),
       updatedAt: updated.updatedAt,
       updatedAtTimestamp: Timestamp.now(),
     }, { merge: true });
@@ -1770,25 +1779,34 @@ async function noteCreditStep(field: keyof typeof CREDIT_FIELDS, usedAfter: numb
 
 export async function incrementMaharajaUsage(field: keyof MaharajaWorkspace['usage']) {
   await recordUsage(field);
+  const clientId = activeClientId();
   const db = getDb();
+  // The new total is read in the same transaction as the write (like reserveMaharajaUsage), so two
+  // calls landing at once each see their own correct "after" value and no 50/70/90/95% step is
+  // skipped or double-counted.
+  let usedAfter: number;
   if (db) {
-    // set() treats dotted keys as literal field names, so the counter is written as a nested map.
-    await db.collection('clientWorkspaces').doc(activeClientId()).set({
-      usage: { [field]: FieldValue.increment(1) },
-      updatedAt: new Date().toISOString(),
-      updatedAtTimestamp: Timestamp.now(),
-    }, { merge: true });
-  } else {
-    const workspace = await getMaharajaWorkspace();
-    getMockStore().clientWorkspaces.set(activeClientId(), {
-      ...workspace,
-      usage: { ...workspace.usage, [field]: Number(workspace.usage[field] || 0) + 1 },
+    const ref = db.collection('clientWorkspaces').doc(clientId);
+    usedAfter = await db.runTransaction(async (transaction) => {
+      const used = Number((await transaction.get(ref)).data()?.usage?.[field] || 0) + 1;
+      // set() treats dotted keys as literal field names, so the counter is written as a nested map.
+      transaction.set(ref, {
+        usage: { [field]: used },
+        updatedAt: new Date().toISOString(),
+        updatedAtTimestamp: Timestamp.now(),
+      }, { merge: true });
+      return used;
     });
+  } else {
+    // The mock store is read and written without an await in between, so it is atomic as well.
+    const workspace = await getMaharajaWorkspace();
+    usedAfter = Number(workspace.usage[field] || 0) + 1;
+    getMockStore().clientWorkspaces.set(clientId, { ...workspace, usage: { ...workspace.usage, [field]: usedAfter } });
   }
   if (field in CREDIT_FIELDS) {
     const credit = field as keyof typeof CREDIT_FIELDS;
     const workspace = await getMaharajaWorkspace().catch(() => null);
-    if (workspace) await noteCreditStep(credit, Number(workspace.usage[credit] || 0), moduleLimit(workspace, CREDIT_FIELDS[credit].module));
+    if (workspace) await noteCreditStep(credit, usedAfter, moduleLimit(workspace, CREDIT_FIELDS[credit].module));
   }
 }
 
@@ -1824,11 +1842,16 @@ export async function reserveMaharajaUsage(field: 'tryOnGenerated' | 'videosGene
 }
 
 /**
- * The Maharaja demo has no credits of its own: it uses the free part of the GenLook balance, what is
- * left after every client's locked credits. Setting `genlookCredits` on it gives it a fixed number instead.
+ * The Maharaja demo has no credits of its own by default: it uses the free part of the GenLook balance,
+ * what is left after every client's locked credits. Setting `genlookCredits` on any store gives it a
+ * fixed number instead, which always wins. `genlookShared` is the persisted source of truth once it has
+ * been set (by TryFocus admin's "Use the shared balance", or by locking a number); a store that predates
+ * the flag and has never had either falls back to the old default, which was Maharaja only.
  */
-export function usesFreeGenlookPool(workspace: Pick<MaharajaWorkspace, 'clientId' | 'genlookCredits'>) {
-  return workspace.clientId === MAHARAJA_CLIENT_ID && typeof workspace.genlookCredits !== 'number';
+export function usesFreeGenlookPool(workspace: Pick<MaharajaWorkspace, 'clientId' | 'genlookCredits' | 'genlookShared'>) {
+  if (typeof workspace.genlookCredits === 'number') return false;
+  if (typeof workspace.genlookShared === 'boolean') return workspace.genlookShared;
+  return workspace.clientId === MAHARAJA_CLIENT_ID;
 }
 
 let genlookBalanceCache: { value: number; at: number } | null = null;

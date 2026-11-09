@@ -15,7 +15,7 @@ import {
   Tv,
   Video,
 } from 'lucide-react';
-import { CREDIT_LEVEL_STATUS, creditStatuses } from '@/lib/maharaja/credits';
+import { CREDIT_LEVEL_STATUS, creditLevel, creditStatuses } from '@/lib/maharaja/credits';
 import { StatusPill } from '@/components/ui';
 import PlatformOverview, { type PlatformSpend } from '@/components/PlatformOverview';
 import { PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, type PackageId } from '@/lib/maharaja/access';
@@ -970,8 +970,7 @@ export default function TryFocusAdmin() {
               const key = plan.key;
               const used = client.usage[key];
               const limit = client.limits[key];
-              const percent = limit ? Math.min(100, Math.round((used / limit) * 100)) : 100;
-              const level = percent >= 100 ? 'exhausted' as const : percent >= 95 ? 'critical' as const : percent >= 80 ? 'low' as const : 'ok' as const;
+              const level = creditLevel(used, limit);
               const Icon = plan.icon;
               const running = clientAccess.modules[key];
               return (

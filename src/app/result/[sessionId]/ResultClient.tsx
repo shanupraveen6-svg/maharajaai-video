@@ -324,8 +324,10 @@ export default function ResultClient({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) {
-        // The one retry is used up (or not allowed here): Help now shows the tips and who can help.
-        setVideoRetryClosed(true);
+        // 403 means the rule actually refuses a retry (used up, or not available yet): Help now shows
+        // the tips and who can help. Anything else (409 busy, a network hiccup, a 5xx) is transient —
+        // the retry was never used, so Help keeps offering it.
+        if (response.status === 403) setVideoRetryClosed(true);
         throw new Error(data.error || 'Video retry is unavailable.');
       }
       if (onBack) onBack();

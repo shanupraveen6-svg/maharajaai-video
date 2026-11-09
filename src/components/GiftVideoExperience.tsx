@@ -74,6 +74,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
   const [videoUrl, setVideoUrl] = useState('');
   // The one portrait retry: true once used (the server checks it too).
   const [portraitRetryUsed, setPortraitRetryUsed] = useState(false);
+  const [portraitRetryBusy, setPortraitRetryBusy] = useState(false);
   // A TV portrait: the TV owns the portrait (and its retry); the phone makes the video only.
   const [portraitFromTv, setPortraitFromTv] = useState(false);
   const [note, setNote] = useState('');
@@ -257,6 +258,8 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
   /** The one portrait retry, from Help: the same piece and look, a new photo. */
   async function retryPortrait() {
     // Help already asked "Do you need to retry this portrait?", so there is no second question.
+    if (portraitRetryBusy || portraitRetryUsed) return;
+    setPortraitRetryBusy(true);
     setNote('');
     try {
       await readJson(await fetch('/api/maharaja/activity', {
@@ -276,6 +279,8 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
       setStage('photo');
     } catch (caught) {
       setNote(caught instanceof Error ? caught.message : 'The retry could not start.');
+    } finally {
+      setPortraitRetryBusy(false);
     }
   }
 
@@ -348,6 +353,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
           {stage === 'portrait' && !portraitFromTv && (
             <HelpRetry
               canRetry={!portraitRetryUsed}
+              busy={portraitRetryBusy}
               onRetry={() => void retryPortrait()}
               text={{
                 help: t('help'), question: t('helpQuestionPortrait'), retryText: t('helpRetryPortraitText'),

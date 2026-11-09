@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Download, LoaderCircle, Users } from 'lucide-react';
 import { StatusPill } from '@/components/ui';
+import { LEAD_SOURCE_NAMES } from '@/lib/tryfocus/lead-sources';
 
 type Lead = {
   id: string;
@@ -12,13 +13,6 @@ type Lead = {
   downloads: number;
   firstSeenAt?: string;
   lastSeenAt: string;
-};
-
-const SOURCE_NAMES: Record<string, string> = {
-  'try-on': 'Try-On',
-  'tv-looks': 'Try-On',
-  'ai-video': 'AI Video',
-  'live-mirror': 'Live Mirror',
 };
 
 const shortDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
@@ -86,7 +80,7 @@ export default function CustomerLeads() {
                     <tr key={lead.id} className="border-b border-line last:border-0">
                       <td className="py-2.5 pr-3 tabular-nums"><a href={`https://wa.me/91${lead.phone}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink underline underline-offset-4">+91 {lead.phone}</a></td>
                       <td className="py-2.5 pr-3">{lead.marketingConsent ? <StatusPill tone="success">Yes</StatusPill> : <StatusPill>No</StatusPill>}</td>
-                      <td className="py-2.5 pr-3 text-muted">{Array.from(new Set((lead.sources || []).map((source) => SOURCE_NAMES[source] || source))).join(', ')}</td>
+                      <td className="py-2.5 pr-3 text-muted">{Array.from(new Set((lead.sources || []).map((source) => LEAD_SOURCE_NAMES[source as keyof typeof LEAD_SOURCE_NAMES] || source))).join(', ')}</td>
                       <td className="py-2.5 pr-3 text-right tabular-nums">{Number(lead.downloads || 0).toLocaleString('en-IN')}</td>
                       <td className="py-2.5 pr-3 text-right tabular-nums text-muted">{shortDate(lead.firstSeenAt)}</td>
                       <td className="py-2.5 text-right tabular-nums text-muted">{shortDate(lead.lastSeenAt)}</td>

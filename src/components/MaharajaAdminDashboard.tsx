@@ -515,8 +515,9 @@ export default function MaharajaAdminDashboard({
     const level = levelOf(label);
     if (level === 'exhausted') return { status: 'Credits finished', tone: 'danger' };
     if (pieces === 0 && !catalogueLoading) return { status: noPieces, tone: 'warn' };
-    if (level === 'critical' || level === 'final') return { status: 'Working · credits almost finished', tone: 'danger' };
-    if (level === 'low' || level === 'half') return { status: level === 'low' ? 'Working · credits low' : 'Working · half the credits used', tone: 'warn' };
+    // The design system's one status word for this row; the StatusPill beside it carries the finer
+    // 50/70/90/95% wording, so the two don't disagree on how close the credits are.
+    if (level !== 'ok') return { status: 'Working, credits low', tone: level === 'critical' || level === 'final' ? 'danger' : 'warn' };
     return { status: 'Working', tone: 'success' };
   };
   const working: Array<{ title: string; where: string; note?: string; status: string; tone: Tone }> = [

@@ -14,7 +14,10 @@ import { activeClientId } from './client-context';
  * The number then unlocks downloads for that customer through a signed lead token, which the download
  * route checks, so a download cannot skip the form.
  */
-export type LeadSource = 'try-on' | 'ai-video' | 'live-mirror' | 'tv-looks';
+import { LEAD_SOURCES, LEAD_SOURCE_NAMES, type LeadSource } from '@/lib/tryfocus/lead-sources';
+
+export type { LeadSource };
+export { LEAD_SOURCES, LEAD_SOURCE_NAMES };
 
 export type CustomerLead = {
   id: string;
@@ -27,15 +30,6 @@ export type CustomerLead = {
   lastSeenAt: string;
 };
 
-export const LEAD_SOURCES: LeadSource[] = ['try-on', 'ai-video', 'live-mirror', 'tv-looks'];
-
-/** What the customer used, in the product's own words (TV looks are Try-On). */
-export const LEAD_SOURCE_NAMES: Record<LeadSource, string> = {
-  'try-on': 'Try-On',
-  'tv-looks': 'Try-On',
-  'ai-video': 'AI Video',
-  'live-mirror': 'Live Mirror',
-};
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** A 10-digit Indian mobile number (starts with 6–9), from "+91 98765 43210", "098765 43210" and the like. */
