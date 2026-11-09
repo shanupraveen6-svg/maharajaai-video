@@ -1,5 +1,6 @@
 'use client';
 
+import SessionTimer from '@/components/SessionTimer';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fal } from '@fal-ai/client';
 import QRCode from 'qrcode';
@@ -49,6 +50,7 @@ export default function LucyLiveMirror({
   selectedProduct: externalProduct,
   onSelectProduct,
   onUsePhotoTryOn,
+  onEndSession,
 }: {
   catalogue?: TryFocusProduct[];
   garmentPrompt?: string;
@@ -57,12 +59,16 @@ export default function LucyLiveMirror({
   onSelectProduct?: (product: TryFocusProduct) => void;
   /** Offered when Live Mirror cannot run, so the customer can still see the outfit on a photo. */
   onUsePhotoTryOn?: (product: TryFocusProduct) => void;
+  /** End session under the QR (and when its clock runs out): the kiosk clears this customer. */
+  onEndSession?: () => void;
 } = {}) {
   const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
 
   const [gender, setGender] = useState<TryFocusProduct['gender']>(externalProduct?.gender || 'women');
-  // Who starts empty until the customer taps one (unless a piece was already chosen for them).
-  const [genderChosen, setGenderChosen] = useState(Boolean(externalProduct));
+  // Who starts empty until the customer taps one, and no outfit is picked for them: Start live appears
+  // on the camera only once they pick one.
+  const [genderChosen, setGenderChosen] = useState(false);
+  const [garmentPicked, setGarmentPicked] = useState(false);
   const [category, setCategory] = useState<CatalogueCategoryId>(externalProduct?.category || LIVE_CATEGORIES.women[0].id);
   const [selectedGarment, setSelectedGarment] = useState<TryFocusProduct>(
     externalProduct || activeCatalogue[0]
@@ -72,7 +78,7 @@ export default function LucyLiveMirror({
   const [secondsLeft, setSecondsLeft] = useState(SESSION_SECONDS);
   const [error, setError] = useState('');
   const [guardianConsent, setGuardianConsent] = useState(false);
-  const [statusMessage, setStatusMessage] = useState(
+  const [, setStatusMessage] = useState(
     'Open the camera, pick an outfit, then tap Start.'
   );
   // The finished session: its recording plays back in the mirror, with the QR pinned under it.
@@ -531,6 +537,12 @@ export default function LucyLiveMirror({
   }
 
   /** After a session: back to the live camera preview, ready for another. */
+  function endSession() {
+    if (onEndSession) { stopEverything(); onEndSession(); return; }
+    backToMirror();
+    setGarmentPicked(false);
+  }
+
   function backToMirror() {
     clearRecording();
     setQrDataUrl('');
@@ -549,6 +561,7 @@ export default function LucyLiveMirror({
     // Before switching, keep a picture of the outfit the customer is wearing now.
     if (recorderRef.current && selectedGarmentRef.current.title !== item.title) keepLookShot(selectedGarmentRef.current.title);
     setSelectedGarment(item);
+    setGarmentPicked(true);
     selectedGarmentRef.current = item;
     if (recorderRef.current && !wornTitlesRef.current.includes(item.title)) wornTitlesRef.current.push(item.title);
     onSelectProduct?.(item);
@@ -587,14 +600,11 @@ export default function LucyLiveMirror({
         onChange={(g) => {
           setGenderChosen(true);
           setGender(g);
-          const first = LIVE_CATEGORIES[g]
-            .map((cat) => activeCatalogue.find((item) => item.gender === g && item.category === cat.id))
-            .find(Boolean);
-          if (first) { setCategory(first.category); void selectGarment(first); }
+          if (g !== gender && !running) setGarmentPicked(false);
+          const first = LIVE_CATEGORIES[g].find((cat) => activeCatalogue.some((item) => item.gender === g && item.category === cat.id));
+          if (first) setCategory(first.id);
         }}
       />
-
-      {!genderChosen && <p className="rounded-2xl bg-white p-6 text-center text-xl text-muted">Tap Women, Men, Boys or Girls to see the outfits.</p>}
 
       {genderChosen && (gender === 'boys' || gender === 'girls') && (
         <label className="flex min-h-16 items-center gap-3 rounded-2xl bg-warn-soft p-4 text-lg text-ink">
@@ -603,19 +613,17 @@ export default function LucyLiveMirror({
         </label>
       )}
 
-      <div className={`tv-live-row grid min-w-0 gap-5 lg:grid-cols-[minmax(380px,460px)_1fr] ${genderChosen ? '' : 'hidden'}`}>
+      {/* The camera is on from the moment the tab opens; the outfits sit in one card under it. */}
+      <div className="tv-live-row grid min-w-0 gap-5">
         <aside className="tv-live-menu flex min-w-0 flex-col rounded-2xl border border-line bg-white p-4">
+          {!genderChosen ? <p className="p-4 text-center text-xl text-muted">Tap Women, Men, Boys or Girls to see the outfits.</p> : <>
           <div role="group" aria-label="Category" className="tv-live-category-list border-b border-line">
             {visibleCategories.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
                 aria-pressed={activeCategory === cat.id}
-                onClick={() => {
-                  setCategory(cat.id);
-                          const first = activeCatalogue.find((item) => item.gender === gender && item.category === cat.id);
-                  if (first) void selectGarment(first);
-                }}
+                onClick={() => setCategory(cat.id)}
                 className={`-mb-px min-h-16 border-b-[3px] px-1 text-lg font-semibold leading-tight ${
                   activeCategory === cat.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'
                 }`}
@@ -648,7 +656,7 @@ export default function LucyLiveMirror({
               );
             })}
           </div>
-
+          </>}
         </aside>
 
         <div className="tv-live-camera relative aspect-[9/16] w-full min-w-0 overflow-hidden rounded-2xl bg-ink">
@@ -674,12 +682,27 @@ export default function LucyLiveMirror({
           </span>
 
           {/* The outfit being worn, as in the reference mirror: a small card in the top-right corner. */}
-          <div className="absolute right-4 top-4 z-10 flex max-w-[55%] items-center gap-3 rounded-2xl bg-white/95 p-2 pr-4 shadow-lg">
+          {garmentPicked && <div className="absolute right-4 top-4 z-10 flex max-w-[55%] items-center gap-3 rounded-2xl bg-white/95 p-2 pr-4 shadow-lg">
             <img src={selectedGarment.thumbnailUrl || selectedGarment.imageUrl} alt="" className="h-20 w-16 shrink-0 rounded-lg bg-canvas object-contain object-top" />
             <div className="min-w-0">
               <p className="line-clamp-2 text-base font-semibold leading-snug text-ink">{selectedGarment.title}</p>
             </div>
-          </div>
+          </div>}
+
+          {/* The one action sits on the camera: Start live once an outfit is picked, Stop while live. */}
+          {state === 'camera_ready' && !garmentPicked && (
+            <p className="absolute inset-x-0 bottom-8 z-10 mx-auto w-fit rounded-full bg-ink/80 px-6 py-3 text-xl font-semibold text-white backdrop-blur">Pick an outfit below to start</p>
+          )}
+          {state === 'camera_ready' && garmentPicked && (
+            <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary tv-live-action absolute inset-x-8 bottom-8 z-10 !w-auto shadow-2xl">
+              <Sparkles className="h-7 w-7" /> Start live
+            </button>
+          )}
+          {running && (
+            <button type="button" onClick={() => stopSession(state === 'live' ? 'complete' : 'camera_ready')} className="tf-btn tf-btn-secondary tv-live-action absolute inset-x-8 bottom-8 z-40 !w-auto shadow-2xl">
+              <Square className="h-6 w-6 fill-current" /> Stop
+            </button>
+          )}
 
           {state === 'live' && (
             <div className="absolute inset-x-0 bottom-0 h-2 bg-white/20">
@@ -700,6 +723,7 @@ export default function LucyLiveMirror({
               <Camera className="h-14 w-14" />
               <p className="mt-4 text-3xl font-bold">Stand in front of the screen</p>
               <p className="mt-2 max-w-sm text-lg text-white/80">Open the camera to see yourself first. Nothing is live until you tap Start.</p>
+              <button type="button" onClick={enableCameraPreview} className="tf-btn tf-btn-primary tv-live-action mt-6 !w-auto"><Camera className="h-6 w-6" /> Open camera</button>
             </div>
           )}
 
@@ -738,6 +762,11 @@ export default function LucyLiveMirror({
                 <div>
                   <p className="text-lg font-bold text-ink">Live Mirror is not running. This is the plain camera.</p>
                   <p className="mt-1 text-base text-muted">{error}</p>
+                  {garmentPicked && (
+                    <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary mt-3 !min-h-16 text-lg">
+                      <RefreshCw className="h-5 w-5" /> Try again
+                    </button>
+                  )}
                   {onUsePhotoTryOn && (
                     <button type="button" onClick={() => { stopEverything(); onUsePhotoTryOn(selectedGarment); }} className="tf-btn tf-btn-secondary mt-3 !min-h-16 text-lg">
                       Try this outfit on a photo instead
@@ -750,44 +779,24 @@ export default function LucyLiveMirror({
         </div>
       </div>
 
-      {/* After a session: the QR in its permanent spot at the bottom, with the next step beside it. */}
+      {/* After a session: the QR in its permanent spot at the bottom, then 2 minutes to scan (the last
+          minute in red) and a full-width End session, as on Try-On. */}
       {state === 'complete' && (
-        <section className="tf-card sticky bottom-4 z-20 flex flex-wrap items-center gap-5 p-5 shadow-xl" aria-label="Take your Live Mirror video home">
-          <div className="flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white">
-            {qrDataUrl ? <img src={qrDataUrl} alt="Scan to save your Live Mirror video" className="h-full w-full object-contain" /> : <LoaderCircle className="h-10 w-10 animate-spin text-muted" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-2xl font-bold text-ink">Take your Live Mirror video home</p>
-            <p className="mt-1 text-base text-muted">{handoffMessage || 'Scan with your phone camera.'}</p>
-          </div>
-          <div className="flex shrink-0 flex-col gap-2">
-            <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary !min-h-16 px-6 text-lg"><RefreshCw className="h-5 w-5" /> Another 30 seconds</button>
-            <button type="button" onClick={backToMirror} className="tf-btn tf-btn-secondary !min-h-14 px-6 text-base">Back to mirror</button>
-          </div>
-        </section>
-      )}
-
-      {/* One primary action, in a floating bar on the TV. */}
-      {state !== 'complete' && genderChosen && <section className="tv-live-controls tv-selection-bar sticky z-20 mx-auto flex items-center justify-between gap-5" aria-label="Live Mirror controls">
-        <div className="min-w-0">
-          <p className="truncate text-xl font-bold text-ink">{selectedGarment.title}</p>
-          <p className="text-base text-muted">{statusMessage}</p>
+        <div className="sticky bottom-4 z-20 space-y-3">
+          <section className="tf-card flex flex-wrap items-center gap-5 p-5 shadow-xl" aria-label="Take your Live Mirror video home">
+            <div className="flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white">
+              {qrDataUrl ? <img src={qrDataUrl} alt="Scan to save your Live Mirror video" className="h-full w-full object-contain" /> : <LoaderCircle className="h-10 w-10 animate-spin text-muted" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-2xl font-bold text-ink">Take your Live Mirror video home</p>
+              <p className="mt-1 text-base text-muted">{handoffMessage || 'Scan with your phone camera.'}</p>
+            </div>
+            <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-6 text-lg"><RefreshCw className="h-5 w-5" /> Another 30 seconds</button>
+          </section>
+          <SessionTimer onExpire={endSession} />
+          <button type="button" onClick={endSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">End session</button>
         </div>
-        {state === 'idle' ? (
-          <button type="button" onClick={enableCameraPreview} className="tf-btn tf-btn-primary tv-live-action !w-auto shrink-0">
-            <Camera className="h-6 w-6" /> Open camera
-          </button>
-        ) : running ? (
-          <button type="button" onClick={() => stopSession(state === 'live' ? 'complete' : 'camera_ready')} className="tf-btn tf-btn-secondary tv-live-action !w-auto shrink-0">
-            <Square className="h-6 w-6 fill-current" /> Stop
-          </button>
-        ) : (
-          <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary tv-live-action !w-auto shrink-0">
-            {state === 'error' ? <RefreshCw className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
-            {state === 'error' ? 'Try again' : 'Start live'}
-          </button>
-        )}
-      </section>}
+      )}
 
     </div>
   );

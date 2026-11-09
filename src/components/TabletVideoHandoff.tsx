@@ -129,7 +129,14 @@ export default function TabletVideoHandoff({ billingCode, qrOnly = false, autoSh
       const data = await response.json();
       if (!response.ok || !data.success || !data.pass?.link) throw new Error(data.error || 'Unable to create the customer QR.');
       setPassQr(await QRCode.toDataURL(data.pass.link, { width: 560, margin: 2, color: QR_COLORS }));
-      setCustomerCount((count) => count + 1);
+      // The tablet counts the day's gift QRs on this device (no End session on this tab, just the count).
+      setCustomerCount((count) => {
+        if (!qrOnly) return count + 1;
+        const key = `tf-gift-count-${new Date().toISOString().slice(0, 10)}`;
+        let next = count + 1;
+        try { next = Number(window.localStorage.getItem(key) || 0) + 1; window.localStorage.setItem(key, String(next)); } catch { /* storage off: count this visit only */ }
+        return next;
+      });
       // The next customer starts with no piece chosen.
       setPurchased(null);
       setQuery('');
@@ -214,6 +221,7 @@ export default function TabletVideoHandoff({ billingCode, qrOnly = false, autoSh
           <Smartphone className="h-4 w-4" />
           {passQr ? (qrOnly ? 'Scan with your phone camera' : `Customer ${customerCount} · scan with your phone camera`) : 'Ready for the next customer'}
         </p>
+        {qrOnly && customerCount > 0 && <p className="mt-1 text-2xl font-bold tabular-nums text-ink">Customer {customerCount} today</p>}
         <div className="mt-4 rounded-2xl border border-line bg-white p-3">
           {passQr ? (
             <img src={passQr} alt="AI Video gift QR for this customer" className="aspect-square w-[min(300px,70vw)] object-contain" />

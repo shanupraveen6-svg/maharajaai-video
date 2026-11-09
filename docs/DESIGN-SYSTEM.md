@@ -35,12 +35,19 @@ TV, three tabs:
 - AI Video (store collection only): (the last 4 digits of the bill on a large on-screen number pad, when the store
   set a minimum bill; 0 = a free gift) → Who → Your photo → Pick a piece (with its price) → Your portrait, with the QR that makes the
   video on the phone, where the customer can also Go Live.
-- Live Mirror: pick a catalogue piece switched on for Live Mirror → Start live → 5-second countdown → 30 seconds live.
+- Live Mirror: the camera is on as soon as the tab opens, with the outfits in one card under it. Who → pick a
+  piece switched on for Live Mirror (none is picked for the customer) → Start live, which appears on the camera
+  only once a piece is picked → 5-second countdown → 30 seconds live → the replay with a Play button and the QR.
+- End session (TV): every result QR (Try-On looks, AI Video portrait, Live Mirror video) has a clock under it:
+  2 minutes to scan and download or Go Live, the last minute in red, then the session ends on its own and the
+  same tab starts again. Under the clock, a full-width End session (on the AI Video portrait, Retry beside it).
 
-Tablet, run by the store's team, three tabs, with New customer in the header:
+Tablet, run by the store's team, three tabs. End session sits in the header on Try-On only (no clock on the
+tablet); AI Video gift has New customer under its QR and the day's count; Wall QR has neither:
 - Try-On: the TV's Try-On (Who → Your photo → Store collection or My own outfit → outfits → looks). The
   team takes the customer's photo and shows them the collection.
-- AI Video gift: the customer's QR straight away, with New customer under it for the next customer's QR.
+- AI Video gift: the customer's QR straight away, with New customer under it for the next customer's QR and
+  the count of customers given a QR today.
   No bill digits: the team chooses whom to give the gift. The customer picks the piece and makes the
   video on their phone: Who (nothing selected) → Your photo → What would you like to wear (the store's
   categories that have AI Video garments) → pick one piece (with its price) → Pick a look (the three looks
@@ -81,7 +88,7 @@ follow what is actually in the photo, not only the category tapped.
 The camera opens full screen as soon as the source is known. The customer's photo has an upload QR
 beside the camera (send a photo from the phone); the outfit photo is taken with the camera only, no QR.
 
-Retry is never a button on the page. The result's header has a Help button (`HelpRetry`, Try-On looks,
+Retry is never a button on the page, except Retry beside End session on the TV's AI Video portrait. The result's header has a Help button (`HelpRetry`, Try-On looks,
 AI Video portrait and video). It asks "Do you need to retry this image?" (or portrait, looks, video) with
 Cancel and Yes, retry, one line on what the retry does, and three tips for a better photo (full-length, not a
 selfie; good light, facing the camera; one garment at a time). With no retry left, or none on that screen
@@ -138,7 +145,7 @@ landscape LED walls and wall-mount TVs (store name, the portrait video in the mi
 
 ## Screen skeleton
 
-1. Header: store name (initial mark) + one global action (Start over / New customer).
+1. Header: store name (logo or initial mark) + one global action (TV: Start over; tablet Try-On: End session).
 2. Navigation: level 0 `NavTabs` on customer screens, section `NavTabs` on admin screens.
 3. One title (`PageTitle`) with one short subtitle. No small label above a heading.
 4. Content, using the level controls above in order.

@@ -23,6 +23,7 @@ import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import DressLoader from '@/components/DressLoader';
 import AudienceCards, { PhotoGuide } from '@/components/AudienceCards';
 import { compressImage } from '@/lib/utils/image';
+import SessionTimer, { sessionTimerShowing } from '@/components/SessionTimer';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
 import TvIdleLoop from '@/components/TvIdleLoop';
 import TvOfflineNotice from '@/components/TvOfflineNotice';
@@ -195,6 +196,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // The QR is made the moment the look(s) finish, with no button to tap first.
   const handoffTriggeredRef = useRef(false);
   const idleResetRef = useRef<number | null>(null);
+  // Remounts Live Mirror on End session, so its camera and picks start fresh.
+  const [liveMirrorKey, setLiveMirrorKey] = useState(0);
   const [tryOnGuardianConsent, setTryOnGuardianConsent] = useState(false);
 
   // Camera capture modal / full-screen stage
@@ -920,6 +923,14 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setImageSource(source);
   }
 
+  /** End session: clears this customer and stays on the same tab, ready for the next one. */
+  function endSession() {
+    const tab = mode;
+    resetAllSession();
+    setMode(tab);
+    setLiveMirrorKey((key) => key + 1);
+  }
+
   function resetAllSession() {
     batchRunRef.current += 1;
     firstReadyRunRef.current = 0;
@@ -966,7 +977,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     const restart = () => {
       if (idleResetRef.current !== null) window.clearTimeout(idleResetRef.current);
       idleResetRef.current = window.setTimeout(() => {
-        if (generationBusyRef.current) restart();
+        if (generationBusyRef.current || sessionTimerShowing()) restart();
         else { resetAllSession(); setIdleLoop(true); }
       }, 3 * 60 * 1000);
     };
@@ -1007,8 +1018,10 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {isTablet && <Link href="/maharaja/workspace" className="flex min-h-12 items-center rounded-xl px-3 text-base font-semibold text-muted hover:text-ink">Workspace</Link>}
-            {/* On the tablet's AI Video tab, New customer sits under the QR and makes the next customer's QR. */}
-            {!(isTablet && mode === 'gift') && <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-14 px-6 text-base">{isTablet ? 'New customer' : 'Start over'}</button>}
+            {/* Tablet: End session on Try-On only (AI Video gift has New customer under its QR; Wall QR has none). */}
+            {isTablet
+              ? mode === 'image-tryon' && <button type="button" onClick={endSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-14 px-6 text-base">End session</button>
+              : <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-14 px-6 text-base">Start over</button>}
           </div>
         </div>
         {isTablet ? (
@@ -1443,7 +1456,14 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       : <LoaderCircle className="h-9 w-9 animate-spin text-muted" />}
                   </div>
                 </div>
-                <button type="button" onClick={resetAllSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">Done · New customer</button>
+                {/* TV: 2 minutes to scan and download, the last minute in red, then the session ends on its own.
+                    The tablet's team ends it from the header. */}
+                {!isTablet && tryOnMobileQr && (
+                  <>
+                    <SessionTimer onExpire={endSession} />
+                    <button type="button" onClick={endSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">End session</button>
+                  </>
+                )}
               </section>
             )}
           </div>
@@ -1454,6 +1474,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
            ========================================================= */}
         {mode === 'live-tryon' && (
           <LucyLiveMirror
+            key={liveMirrorKey}
+            onEndSession={endSession}
             catalogue={catalogueItems.filter(isLiveMirrorReady)}
             garmentPrompt={`Person wearing ${selectedProduct.title}, ${selectedProduct.fabricNote}`}
             garmentTitle={selectedProduct.title}
@@ -1646,7 +1668,17 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <button type="button" onClick={() => void generateCatalogueVideoMasterOnTv()} className="tf-btn tf-btn-primary !min-h-16 px-8 text-lg"><RefreshCw className="h-5 w-5" /> Try again</button>
                   </div>
                 )}
-                {videoMasterUrl && <button type="button" onClick={resetAllSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">Done · New customer</button>}
+                {/* 2 minutes to scan, make the video and download or Go Live on the phone, the last minute in red,
+                    then the session ends on its own. Retry makes the portrait once more. */}
+                {videoMasterUrl && videoPassQr && !videoGeneratingMaster && (
+                  <>
+                    <SessionTimer key={videoPassQr} label="Download or Go Live within" onExpire={endSession} />
+                    <div className={`grid gap-3 ${portraitRetryUsed ? '' : 'grid-cols-2'}`}>
+                      {!portraitRetryUsed && <button type="button" onClick={retryPortrait} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg"><RefreshCw className="h-5 w-5" /> Retry</button>}
+                      <button type="button" onClick={endSession} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">End session</button>
+                    </div>
+                  </>
+                )}
               </section>
             )}
           </div>
