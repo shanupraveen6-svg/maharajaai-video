@@ -603,7 +603,7 @@ export default function LucyLiveMirror({
         </label>
       )}
 
-      <div className={`tv-live-row grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(380px,460px)_1fr] ${genderChosen ? '' : 'hidden'}`}>
+      <div className={`tv-live-row grid min-w-0 gap-5 lg:grid-cols-[minmax(380px,460px)_1fr] ${genderChosen ? '' : 'hidden'}`}>
         <aside className="tv-live-menu flex min-w-0 flex-col rounded-2xl border border-line bg-white p-4">
           <div role="group" aria-label="Category" className="tv-live-category-list border-b border-line">
             {visibleCategories.map((cat) => (

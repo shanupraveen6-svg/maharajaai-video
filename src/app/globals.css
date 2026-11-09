@@ -409,8 +409,9 @@
 }
 
 /* Live mirror: the camera large and centred, then one row of outfit cards under it, then the controls */
-.tv-kiosk .tv-live-row { display: flex; flex-direction: column; gap: 16px; }
-.tv-live-menu { min-width: 0; order: 2; }
+.tv-kiosk .tv-live-row { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
+.tv-kiosk .tv-live-row.hidden { display: none; }
+.tv-live-menu { min-width: 0; max-width: 100%; order: 2; }
 .tv-live-camera { min-width: 0; order: 1; aspect-ratio: 9/16; height: 60vh; width: auto; max-width: 100%; margin: 0 auto; }
 .tv-live-controls { width: 100%; }
 .tv-live-category-list { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 4px; }
