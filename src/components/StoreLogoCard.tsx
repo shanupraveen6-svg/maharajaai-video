@@ -42,7 +42,7 @@ export default function StoreLogoCard({ onStatus }: { onStatus?: (hasLogo: boole
   return (
     <section className="tf-card p-6">
       <h2 className="text-lg font-bold">Store logo</h2>
-      <p className="mt-1 text-sm text-muted">Printed on every look customers download. PNG with a clear background works best.</p>
+      <p className="mt-1 text-sm text-muted">Printed on every look customers download. PNG, JPG or WebP, under 3 MB. A wide logo (roughly 3:1, transparent background) fits best.</p>
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <div className="flex h-20 w-40 items-center justify-center rounded-xl border border-line bg-white p-2">
           {preview ? <img src={preview} alt="Your store logo" className="max-h-full max-w-full object-contain" /> : <span className="text-sm text-subtle">No logo yet</span>}

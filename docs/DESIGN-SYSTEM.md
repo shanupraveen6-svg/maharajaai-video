@@ -117,8 +117,9 @@ Store workspace, Overview in this order, compact, showing only this store's own 
    Off), credits left and the credit status; the booked platforms beside the heading; how customers get
    their looks and the TryFocus number in one line.
 2. Open your screens: one row of buttons (TV, tablet, Go Live player) and the Wall QR download.
-3. To do: only the unfinished set-up items, each with the button that opens it; hidden when all done.
-4. This month: one line of counts with last month in brackets.
+3. This month: counts only, no money figures — Image Try-On, AI Video, Wall QR scans (every store); Go
+   Live and Real Try-On (Live Mirror) only for a store with the TV, so a Tablet-only store sees just
+   Image Try-On, AI Video and Wall QR scans — with last month in brackets. There is no To do list.
 Festival theme, logo and Instagram are on the Settings tab. Customers (everyone who gave a WhatsApp
 number to download, with Offers yes / no and a CSV download) is its own tab. Workspace tabs wrap on a phone.
 The Wall QR poster carries the store's own name.

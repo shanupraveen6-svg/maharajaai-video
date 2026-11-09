@@ -187,7 +187,6 @@ export default function MaharajaAdminDashboard({
   const [cataloguePage, setCataloguePage] = useState(0);
   const [showAddGarment, setShowAddGarment] = useState<boolean>(false);
   // null until the logo check answers.
-  const [hasLogo, setHasLogo] = useState<boolean | null>(null);
 
 
   const loadWorkspace = useCallback(async () => {
@@ -222,13 +221,6 @@ export default function MaharajaAdminDashboard({
     } finally {
       setCatalogueLoading(false);
     }
-  }, []);
-
-  // Whether the store has a logo, for the Overview's To do (the logo card itself is on the Settings tab).
-  useEffect(() => {
-    fetch('/api/maharaja/logo', { cache: 'no-store' })
-      .then((response) => setHasLogo(response.ok))
-      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -480,14 +472,14 @@ export default function MaharajaAdminDashboard({
     ? new Date(`${workspace.report.month}-15T00:00:00Z`).toLocaleString('en-IN', { month: 'long' })
     : 'This month';
   // The store's monthly report: what customers did, against last month.
+  // Counts only, nothing else: Image Try-On and Wall QR scans apply to both packages; Go Live and Real
+  // Try-On (Live Mirror) only to a store with the TV (Tablet-only stores never see those two).
   const monthTiles = ([
+    ['Image Try-On', 'tryOnGenerated', limits.image > 0],
+    ['AI Video', 'videosGenerated', limits.video > 0],
+    ['Go Live', 'goLive', Boolean(devices.tv) && goLiveOn],
+    ['Real Try-On (Live Mirror)', 'liveSessions', Boolean(devices.tv) && limits.live > 0],
     ['Wall QR scans', 'tryOnScans', limits.image > 0],
-    ['Try-On looks', 'tryOnGenerated', limits.image > 0],
-    ['Live Mirror sessions', 'liveSessions', limits.live > 0],
-    ['AI Video QRs given', 'videoPasses', limits.video > 0],
-    ['AI Videos made', 'videosGenerated', limits.video > 0],
-    ['Go Live plays', 'goLive', goLiveOn],
-    ['Downloads', 'downloads', true],
   ] as const).filter(([, , on]) => on);
   const catalogueExperiences = allowedExperiences.map((value) => ({ value, label: value === 'tryon' ? 'Try-On' : value === 'live' ? 'Live Mirror' : 'AI Video' }));
   // Customers' own phones are reached through the wall QR, so they are not a screen to open here.
@@ -554,68 +546,6 @@ export default function MaharajaAdminDashboard({
     },
   ].filter((row) => row !== false);
 
-  // Set up: what the store does itself. done: true = done, false = still to do, null = optional.
-  const openCatalogue = (experience: CatalogueExperience) => { setCatExperience(experience); setSection('catalogue'); window.scrollTo({ top: 0 }); };
-  const openSettings = () => { setSection('settings'); window.scrollTo({ top: 0 }); };
-  const setup: Array<{ title: string; text: string; done: boolean | null; button: string; action: () => void }> = [
-    {
-      title: 'Add your garments',
-      text: catalogueLoading ? 'Checking your catalogue…' : showing.length ? `${showing.length.toLocaleString('en-IN')} of ${catalogue.length.toLocaleString('en-IN')} garments showing to customers.` : 'No garments showing yet. Upload photos of your collection.',
-      done: catalogueLoading ? null : showing.length > 0,
-      button: 'Catalogue',
-      action: () => openCatalogue('tryon'),
-    },
-    {
-      title: 'Choose the categories customers see',
-      text: workspace.categoryLists && Object.keys(workspace.categoryLists).length ? 'Your own list is set for Women, Men, Boys and Girls.' : 'Showing the standard list. Pick only what you sell.',
-      done: Boolean(workspace.categoryLists && Object.keys(workspace.categoryLists).length),
-      button: 'Categories',
-      action: () => openCatalogue('tryon'),
-    },
-    ...(limits.video > 0 ? [{
-      title: 'Pick garments for AI Video',
-      text: catalogueLoading ? 'Checking…' : videoPieces ? `${videoPieces.toLocaleString('en-IN')} garments switched on for AI Video.` : 'None switched on yet. Choose your best pieces.',
-      done: catalogueLoading ? null : videoPieces > 0,
-      button: 'AI Video garments',
-      action: () => openCatalogue('video'),
-    }] : []),
-    ...(limits.live > 0 ? [{
-      title: 'Pick garments for Live Mirror',
-      text: catalogueLoading ? 'Checking…' : livePieces ? `${livePieces.toLocaleString('en-IN')} garments switched on for Live Mirror.` : 'None switched on yet.',
-      done: catalogueLoading ? null : livePieces > 0,
-      button: 'Live Mirror garments',
-      action: () => openCatalogue('live'),
-    }] : []),
-    ...(limits.image > 0 ? [{
-      title: 'Print the Wall QR',
-      text: 'Paste it near the trial room or mirror. It never changes.',
-      done: null,
-      button: 'Wall QR',
-      action: () => setSection('qr'),
-    }] : []),
-    {
-      title: 'Upload your logo',
-      text: hasLogo === null ? 'Checking…' : hasLogo ? 'Your logo is on every downloaded look.' : 'Put your logo on every look customers download.',
-      done: hasLogo,
-      button: 'Logo',
-      action: openSettings,
-    },
-    {
-      title: 'Add your Instagram',
-      text: workspace.instagramUrl ? `Customers see Follow us on Instagram (${workspace.instagramUrl}).` : 'Customers are asked to follow you after they download.',
-      done: Boolean(workspace.instagramUrl),
-      button: 'Instagram',
-      action: openSettings,
-    },
-    ...(goLiveOn ? [{
-      title: 'Add promo videos to Go Live',
-      text: 'Optional. They play on your screen between customer videos.',
-      done: null,
-      button: 'Go Live',
-      action: () => setSection('golive'),
-    }] : []),
-  ];
-  const toDo = setup.filter((row) => row.done === false);
   // Your plan: one row per feature, with its status and the credits left (Go Live has no credits).
   const planRows = working
     .filter((row) => row.title !== 'Customers get their looks by')
@@ -721,32 +651,17 @@ export default function MaharajaAdminDashboard({
           </section>
         )}
 
-        {/* 3. To do: only what is still unfinished; hidden when everything is done. */}
-        {toDo.length > 0 && (
-          <section className="tf-card p-5 sm:p-6">
-            <h2 className="text-lg font-bold">To do ({toDo.length})</h2>
-            <ul className="mt-2 divide-y divide-line">
-              {toDo.map((row) => (
-                <li key={row.title} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <span className="flex min-w-0 items-center gap-2 font-semibold text-ink"><span className="h-2 w-2 shrink-0 rounded-full bg-warn" />{row.title}</span>
-                  <button type="button" onClick={row.action} className="tf-btn tf-btn-secondary !min-h-10 shrink-0 px-4 text-sm">{row.button}</button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* 4. This month: one line of numbers against last month. */}
+        {/* 3. This month: counts only, nothing else. */}
         <section className="tf-card p-5 sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-bold">{monthName} so far</h2>
             <p className="text-sm text-muted">Last month in brackets</p>
           </div>
-          <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {monthTiles.map(([label, key]) => (
-              <div key={key} className="flex items-baseline gap-1.5">
-                <dt className="text-muted">{label}</dt>
-                <dd className="tabular-nums"><b className="text-base text-ink">{Number(monthCounts[key] || 0).toLocaleString('en-IN')}</b> <span className="text-subtle">({Number(lastMonthCounts[key] || 0).toLocaleString('en-IN')})</span></dd>
+              <div key={key} className="rounded-2xl bg-canvas p-4">
+                <dt className="text-[13px] text-muted">{label}</dt>
+                <dd className="mt-1 tabular-nums"><b className="text-2xl text-ink">{Number(monthCounts[key] || 0).toLocaleString('en-IN')}</b> <span className="text-subtle">({Number(lastMonthCounts[key] || 0).toLocaleString('en-IN')})</span></dd>
               </div>
             ))}
           </dl>
@@ -781,7 +696,7 @@ export default function MaharajaAdminDashboard({
           </section>
         )}
 
-        <StoreLogoCard onStatus={setHasLogo} />
+        <StoreLogoCard />
 
         <form
           className="tf-card p-6"
