@@ -768,7 +768,7 @@ export default function LucyLiveMirror({
       )}
 
       {/* One primary action, in a floating bar on the TV. */}
-      {state !== 'complete' && <section className="tv-live-controls tv-selection-bar sticky z-20 mx-auto flex items-center justify-between gap-5" aria-label="Live Mirror controls">
+      {state !== 'complete' && genderChosen && <section className="tv-live-controls tv-selection-bar sticky z-20 mx-auto flex items-center justify-between gap-5" aria-label="Live Mirror controls">
         <div className="min-w-0">
           <p className="truncate text-xl font-bold text-ink">{selectedGarment.title}</p>
           <p className="text-base text-muted">{statusMessage}</p>
