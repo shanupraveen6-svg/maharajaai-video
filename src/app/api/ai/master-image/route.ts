@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GoogleGenAI } from '@google/genai';
-import { type CustomerCategory, type GarmentType, GENLOOK_GARMENT_DESCRIPTIONS, isEventId, buildTryOnPrompt, customerRateLimit } from '@/lib/maharaja/config';
+import { type CustomerCategory, type GarmentType, GENLOOK_GARMENT_DESCRIPTIONS, isEventId, buildTryOnPrompt, customerRateLimit, TRY_ON_REGION } from '@/lib/maharaja/config';
 import { buildPortraitGarmentBlock, buildVideoMasterPrompt, getVideoConcept, VIDEO_PROMPT_ARCHITECTURE_VERSION } from '@/lib/maharaja/video-concepts';
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
@@ -411,8 +411,9 @@ export async function POST(req: NextRequest) {
             }, { status: 422 });
           }
           detectedSingle = found.length === 1 ? found[0] : null;
-          // fal, FASHN and Gemini get the same cut-out own garment GenLook gets.
-          if (ownOutfit && detectedSingle && detectedSingle.image !== genlookGarment) {
+          // fal, FASHN and Gemini get the same cut-out GenLook gets: the customer's own garment out of
+          // their hands, or the one store garment out of a whole-outfit photo.
+          if (detectedSingle && detectedSingle.image !== genlookGarment) {
             garmentBase64s[0] = detectedSingle.image;
             const garmentPart = contents[1];
             if (garmentPart?.inlineData) garmentPart.inlineData.data = detectedSingle.image;
@@ -773,9 +774,53 @@ async function cropToPiece(garmentBase64: string, box: number[]): Promise<string
  * Gemini, each piece cut out with its own exact description; one garment (or an on-model photo) stays one
  * product. Anything unexpected falls back to one product with one description. Saved per photo.
  */
+/**
+ * A store photo often shows a whole outfit (a model in a green shirt and a veshti) while the piece sold
+ * replaces only a top or only a bottom. Finds just that one garment, even when worn with others, so no
+ * engine copies the rest of the outfit onto the customer. Null when it is not clearly visible.
+ */
+async function findTargetGarment(ai: NonNullable<ReturnType<typeof getGenAIClient>>, garmentBase64: string, garmentType: GarmentType, region: 'upper' | 'lower'): Promise<{ box: number[]; description: string } | null> {
+  const hash = `${activeClientId()}-target-v1-${garmentType}-${createHash('sha256').update(garmentBase64).digest('hex').slice(0, 40)}`;
+  const db = getDb();
+  const cacheRef = db ? db.collection('genlookGarmentPieces').doc(hash) : null;
+  const saved = cacheRef ? (await cacheRef.get()).data() : undefined;
+  if (saved && 'target' in saved) return (saved.target as { box: number[]; description: string } | null) ?? null;
+  const noun = GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title.toLowerCase();
+  const where = region === 'upper' ? 'the upper-body garment, from the shoulders to its own hem' : 'the lower-body garment, from the waist to its own hem';
+  const response = await ai.models.generateContent({
+    model: AI_CONFIG.GEMINI_ANALYSIS_MODEL,
+    contents: [
+      { inlineData: { mimeType: 'image/jpeg', data: garmentBase64 } },
+      `This is a store's product photo for a virtual try-on of one garment: a ${noun}. It may show only that garment, or a model wearing it together with other clothes. Find only the ${noun}: ${where}. Never include any other garment worn with it, the model's skin beyond what the garment covers, or the background. Return JSON {"found":true,"box":[ymin,xmin,ymax,xmax],"description":"..."} with the box on a 0-1000 scale tightly around that one garment, or {"found":false} if it is not clearly visible. The description is one plain sentence of at most 40 words: main body colour first, where any print, border or pattern sits, and for a top its sleeves, collar, pockets and closure.`,
+    ],
+    config: { responseMimeType: 'application/json', abortSignal: AbortSignal.timeout(12_000) },
+  });
+  const parsed = JSON.parse(response.text || '{}');
+  const box = Array.isArray(parsed?.box) ? parsed.box.map(Number) : [];
+  const valid = parsed?.found === true && box.length === 4 && box.every((n: number) => Number.isFinite(n))
+    && box[2] - box[0] > 80 && box[3] - box[1] > 80 && typeof parsed.description === 'string';
+  const target = valid ? { box, description: String(parsed.description) } : null;
+  if (cacheRef) await cacheRef.set({ target, garmentType, createdAt: new Date().toISOString() }).catch(() => undefined);
+  return target;
+}
+
 async function prepareGenlookPieces(ai: ReturnType<typeof getGenAIClient>, garmentBase64: string, garmentType: GarmentType, base: { externalId: string; title: string }, ownOutfit = false): Promise<GenlookPiece[]> {
   const single = async () => [{ image: garmentBase64, product: { ...base, description: (await describeGarmentForGenlook(ai, garmentBase64, garmentType)).slice(0, 500) } }];
   if (!ai) return single();
+  // A store piece that replaces only a top or only a bottom: cut that one garment out of its photo, and
+  // name it by what it is, so a set's title ("Green Shirt and Veshti") never makes GenLook dress both.
+  const region = TRY_ON_REGION[garmentType];
+  if (!ownOutfit && region !== 'full') {
+    try {
+      const target = await findTargetGarment(ai, garmentBase64, garmentType, region);
+      if (target) {
+        const image = await cropToPiece(garmentBase64, target.box);
+        return [{ image, product: { externalId: base.externalId, title: GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title, description: target.description.slice(0, 500) } }];
+      }
+    } catch {
+      // Fall through to the whole photo; the prompt's scope still keeps the customer's other clothes.
+    }
+  }
   const hash = `${activeClientId()}-${createHash('sha256').update(garmentBase64).digest('hex').slice(0, 40)}`;
   const db = getDb();
   const cacheRef = db ? db.collection('genlookGarmentPieces').doc(hash) : null;

@@ -42,9 +42,9 @@ export function buildFashnInput(personBase64: string, garmentBase64: string, gar
       model_image: `data:image/jpeg;base64,${personBase64}`,
       garment_image: `data:image/jpeg;base64,${garmentBase64}`,
       category: fashnCategory(garmentType),
-      // Every garment we photograph is held up, laid flat or hung (never worn by a model), per our own
-      // photo guide — so this is the accurate default, not a guess.
-      garment_photo_type: 'flat-lay',
+      // Store photos are often worn by a model, a customer's own garment is held up or laid flat: FASHN
+      // detects which on its own.
+      garment_photo_type: 'auto',
       mode: 'balanced',
       moderation_level: 'permissive',
       num_samples: 1,

@@ -145,6 +145,26 @@ export function garmentTypeFromText(text: string): GarmentType {
  * type arrives already resolved by garmentTypeFor; the category and title only pick the style details.
  * Sections: what to do, the garment, the customer, the photo. One garment per Try-On.
  */
+/**
+ * What part of the customer one Try-On replaces. TryFocus rule: one garment per Try-On, everything else
+ * from the customer's own photo. A top (shirt, T-shirt, kurta…) keeps the customer's own bottom; a bottom
+ * (trousers, veshti) keeps their own top; a full outfit (saree, lehenga, dress…) replaces both.
+ */
+export type TryOnRegion = 'upper' | 'lower' | 'full';
+export const TRY_ON_REGION: Record<GarmentType, TryOnRegion> = {
+  shirt_pant: 'upper', tshirt_bottom: 'upper', top: 'upper', jacket: 'upper', kurta_dhoti: 'upper', boy_ethnic: 'upper',
+  trousers: 'lower', dhoti_veshti: 'lower',
+  saree: 'full', half_saree: 'full', lehenga: 'full', salwar: 'full', one_piece: 'full', two_piece: 'full',
+  three_piece: 'full', pattu_pavadai: 'full', generic: 'full', unset: 'full',
+};
+
+/** Try-On only: the customer's own clothes are the reference; only the chosen garment changes. */
+const TRY_ON_SCOPE: Record<TryOnRegion, string> = {
+  upper: 'SCOPE: replace only the customer\'s top. If the reference also shows trousers, a veshti or a whole outfit on a model, copy only this top. The customer keeps their own trousers or veshti, belt and footwear exactly as in Image 1; if their own top is tucked in, tuck this one in the same way.',
+  lower: 'SCOPE: replace only the customer\'s bottom, from the waist down. If the reference also shows a shirt or a whole outfit on a model, copy only this bottom. The customer keeps their own shirt or top exactly as in Image 1, worn the same way, tucked or untucked.',
+  full: '',
+};
+
 export function buildTryOnPrompt(
   category: CustomerCategory,
   details?: {
@@ -169,14 +189,16 @@ export function buildTryOnPrompt(
     .filter((item) => item.types.includes(garmentType) && item.match.test(text))
     .map((item) => item.detail)
     .join(' ');
+  const scope = TRY_ON_SCOPE[TRY_ON_REGION[garmentType]];
 
   return `<task>
-Edit Image 1, a real photo of a ${subject}, into a photorealistic virtual try-on: dress them in the one garment shown in Images 2 onward and change nothing else in the photo.
+Edit Image 1, a real photo of ${/^[aeiou]/.test(subject) ? 'an' : 'a'} ${subject}, into a photorealistic virtual try-on: dress them in the one garment shown in Images 2 onward and change nothing else in the photo.
 </task>
 
 <garment>
 ${GARMENT_TYPE_RULES[garmentType]}${styleDetails ? `
-${styleDetails}` : ''}
+${styleDetails}` : ''}${scope ? `
+${scope} Where this scope and the rule above differ, follow this scope.` : ''}
 Images 2 onward are views of this same one garment. Copy its exact colours, fabric, weave, print, embroidery, borders, neckline, sleeves and drape; take only the garment, not the hanger, mannequin, model, hands holding it or background.
 Keep the garment's own true length exactly as photographed — if its hem falls at the hip, mid-thigh, knee or ankle in the reference, it must fall at that same point on this customer. Never shorten, lengthen or redraw it to a generic or "standard" length.
 Scale the garment only to this ${subject}'s real build (shoulder width, chest, waist and height), with natural ease, realistic cloth weight, folds and contact shadows, while preserving its own cut and proportions exactly${isChild ? '; keep it in comfortable child proportions' : ''}.

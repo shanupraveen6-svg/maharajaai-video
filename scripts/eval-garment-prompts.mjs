@@ -89,6 +89,16 @@ check('try-on prompt', 'no "professional lighting must enhance" appended to Try-
 const banLines = tryOn.split('\n').filter((line) => /^- (Do not|No|Never)\b/.test(line) && line.split(',').length > 8);
 check('try-on prompt', 'no long ban list (more than 8 items)', banLines.length === 0, banLines.map((line) => `${line.split(',').length} items`).join('; '));
 check('try-on prompt', 'under 3,500 characters', tryOn.length < 3500, `${tryOn.length}`);
+// One garment per Try-On: a top keeps the customer's own bottom, a bottom keeps their own top, even when
+// the store's photo shows a whole outfit (a model in a shirt and a veshti).
+const { TRY_ON_REGION } = config;
+check('one garment', 'shirt replaces only the top', TRY_ON_REGION.shirt_pant === 'upper' && /keeps their own trousers or veshti, belt and footwear/.test(tryOn));
+const veshtiTryOn = buildTryOnPrompt('men', { garmentType: 'dhoti_veshti' });
+check('one garment', 'veshti replaces only the bottom', TRY_ON_REGION.dhoti_veshti === 'lower' && /keeps their own shirt or top exactly as in Image 1/.test(veshtiTryOn));
+check('one garment', 'scope overrides "unless a shirt is part of the garment"', /follow this scope/.test(veshtiTryOn));
+check('one garment', 'a saree replaces the whole outfit', TRY_ON_REGION.saree === 'full' && !/SCOPE:/.test(buildTryOnPrompt('women', { garmentType: 'saree' })));
+check('one garment', 'store photos of a top or bottom are cut to that garment', /findTargetGarment\(ai, garmentBase64, garmentType, region\)/.test(routeSource) && /if \(detectedSingle && detectedSingle\.image !== genlookGarment\)/.test(routeSource));
+check('try-on prompt', 'reads "an adult man", not "a adult man"', /a real photo of an adult man/.test(tryOn));
 
 // 6. GenLook listing and video noun name the garment actually sent.
 for (const type of config.GARMENT_TYPE_VALUES) {
