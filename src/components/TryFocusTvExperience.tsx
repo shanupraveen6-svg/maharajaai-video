@@ -236,7 +236,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   }, [filteredCategories, activeCategory, catalogueItems]);
   const browseProducts = catalogueItems.filter((item) => item.gender === genderFilter &&
     (showClientCollection ? item.sku.startsWith('MAH-')
-      : showNewArrivals ? (genderFilter === 'women' || genderFilter === 'men') && item.badge === 'NEW ARRIVAL'
+      : showNewArrivals ? item.badge === 'NEW ARRIVAL'
         : item.category === activeCategory));
   const TV_PAGE_SIZE = 24;
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / TV_PAGE_SIZE));
@@ -1200,7 +1200,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   <aside className="tv-category-sidebar tf-card p-3" aria-label="Garment categories">
                     <div className="tv-kiosk-filters flex flex-col gap-1">
                       {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showClientCollection} onClick={() => { setShowClientCollection(true); setShowNewArrivals(false); setCataloguePage(0); }} className="rounded-xl border px-4 text-left font-semibold">{clientName.replace(/^The\s+/i, '').split(' ').slice(-1)[0]} picks</button>}
-                      {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowClientCollection(false); setShowNewArrivals(true); setCataloguePage(0); }} className="rounded-xl border px-4 text-left font-semibold">New arrivals</button>}
+                      {/* New arrivals, for every audience: empty until the store marks pieces as new. */}
+                      <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowClientCollection(false); setShowNewArrivals(true); setCataloguePage(0); }} className="rounded-xl border px-4 text-left font-semibold">New arrivals</button>
                       {filteredCategories.map((cat) => (
                         <button
                           key={cat.id}
@@ -1248,7 +1249,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                         );
                       })}
                     </div>
-                    {browseProducts.length === 0 && <div className="tf-card p-10 text-center"><p className="text-2xl font-bold">No pieces here yet</p><p className="mt-2 text-muted">Choose another category or ask our staff.</p></div>}
+                    {browseProducts.length === 0 && (showNewArrivals
+                      ? <div className="tf-card p-10 text-center"><p className="text-2xl font-bold">New arrivals are on their way</p><p className="mt-2 text-muted">Our newest pieces will appear here. Choose another category for now.</p></div>
+                      : <div className="tf-card p-10 text-center"><p className="text-2xl font-bold">No pieces here yet</p><p className="mt-2 text-muted">Choose another category or ask our staff.</p></div>)}
                     {cataloguePageCount > 1 && (
                       <div className="tv-catalogue-pagination flex items-center justify-between gap-4">
                         <button type="button" disabled={cataloguePage === 0} onClick={() => turnCataloguePage(cataloguePage - 1)} className="tf-btn tf-btn-secondary !min-h-14 px-6 text-lg">← Previous</button>
