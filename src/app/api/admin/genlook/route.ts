@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminRequest } from '@/lib/auth/operator';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { addGenlookTopUp, getGenlookLedger } from '@/lib/maharaja/genlook-ledger';
-import { freeGenlookCredits, genlookAllowance, listClientWorkspaces } from '@/lib/maharaja/server';
+import { correctGenlookUsed, freeGenlookCredits, genlookAllowance, listClientWorkspaces } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +56,36 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Could not log the top-up.' }, { status: 400 });
   }
+  const [stores, ledger] = await Promise.all([storesSnapshot(), getGenlookLedger()]);
+  const pool = await freeGenlookCredits();
+  return NextResponse.json({
+    success: true,
+    configured: true,
+    purchased: pool?.purchased ?? ledger.totalPurchased,
+    usedEverywhere: pool?.usedEverywhere,
+    locked: pool?.locked,
+    free: pool?.free,
+    liveApiBalance: pool?.liveApiBalance,
+    topUps: ledger.topUps,
+    stores,
+  });
+}
+
+/**
+ * TryFocus admin only: a one-off correction to a store's GenLook usage counter, for a count that is
+ * wrong rather than real (usage recorded before the shared-pool ledger existed, for example). Body:
+ * `{ clientId, genlookUsedCorrection }`. Everyday usage never goes through this; it is set exactly, not
+ * added to.
+ */
+export async function PATCH(req: NextRequest) {
+  if (!verifyAdminRequest(req)) {
+    return NextResponse.json({ success: false, error: 'Please sign in to TryFocus admin.' }, { status: 401 });
+  }
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body.clientId !== 'string' || !body.clientId.trim() || typeof body.genlookUsedCorrection !== 'number') {
+    return NextResponse.json({ success: false, error: 'Choose a store and the corrected usage count.' }, { status: 400 });
+  }
+  await correctGenlookUsed(body.clientId.trim(), body.genlookUsedCorrection);
   const [stores, ledger] = await Promise.all([storesSnapshot(), getGenlookLedger()]);
   const pool = await freeGenlookCredits();
   return NextResponse.json({

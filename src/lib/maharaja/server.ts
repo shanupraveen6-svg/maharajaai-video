@@ -1923,6 +1923,25 @@ export async function reserveGenlookCredit() {
   return true;
 }
 
+/**
+ * TryFocus admin only: sets a store's GenLook usage counter to an exact number, for a one-off correction
+ * (never for day-to-day use, which always goes through reserve/releaseGenlookCredit). For example, usage
+ * recorded before the GenLook admin-save bug was fixed, or before the shared-pool ledger existed, so it
+ * does not count against a pool that was not really in effect yet.
+ */
+export async function correctGenlookUsed(clientId: string, value: number) {
+  const corrected = Math.max(0, Math.floor(value));
+  const db = getDb();
+  if (db) {
+    await db.collection('clientWorkspaces').doc(clientId).set({ usage: { genlookUsed: corrected } }, { merge: true });
+    return;
+  }
+  const fallback = defaultWorkspace(clientId);
+  const stored = getMockStore().clientWorkspaces.get(clientId) as MaharajaWorkspace | undefined;
+  const workspace = stored ? normalizeWorkspace(stored, fallback) : fallback;
+  getMockStore().clientWorkspaces.set(clientId, { ...workspace, usage: { ...workspace.usage, genlookUsed: corrected } });
+}
+
 /** Gives a GenLook credit back when GenLook clearly did not make (or charge for) the image. */
 export async function releaseGenlookCredit() {
   const clientId = activeClientId();
