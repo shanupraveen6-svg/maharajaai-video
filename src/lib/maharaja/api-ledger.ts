@@ -3,6 +3,7 @@ import 'server-only';
 import crypto from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getDb, getMockStore } from '@/lib/firebase/admin';
+import { inrToUsd } from './currency';
 
 /**
  * TryFocus's own record of what it has actually paid each dollar-billed AI vendor for — fal.ai (Try-On
@@ -22,7 +23,13 @@ export const API_PROVIDER_LABELS: Record<ApiProvider, string> = {
   fashn: 'FASHN (Try-On backup)',
 };
 
-export type ApiTopUp = { id: string; usd: number; note?: string; at: string };
+/**
+ * `usd` is the canonical amount every other calculation uses (purchased, used, free are all compared in
+ * dollars). `enteredAmount`/`enteredCurrency` record what was actually typed in — fal is usually paid in
+ * dollars, but Gemini (a Google Cloud India billing account) or FASHN may be paid in rupees — purely so
+ * the top-up history reads back the way it was entered, at the ₹98/$1 rate in effect that day.
+ */
+export type ApiTopUp = { id: string; usd: number; enteredAmount: number; enteredCurrency: 'usd' | 'inr'; note?: string; at: string };
 type ProviderDoc = { topUps?: ApiTopUp[]; usedUsd?: number };
 
 const docRef = (provider: ApiProvider) => getDb()!.collection('appControl').doc(`apiLedger_${provider}`);
@@ -42,13 +49,21 @@ export async function getApiLedger(provider: ApiProvider): Promise<{ topUps: Api
   return { topUps: [...topUps].sort((a, b) => b.at.localeCompare(a.at)), totalPurchasedUsd, usedUsd: Number(data.usedUsd || 0) };
 }
 
-/** Logs one top-up TryFocus actually paid this vendor. `usd` can be negative only to record a correction. */
-export async function addApiTopUp(provider: ApiProvider, input: { usd: number; note?: string }): Promise<ApiTopUp> {
-  const usd = Number(input.usd);
-  if (!Number.isFinite(usd) || usd === 0) throw new Error('Enter how many dollars this top-up added.');
+/**
+ * Logs one top-up TryFocus actually paid this vendor, in whichever currency it was paid in — rupees are
+ * converted to the canonical dollar figure at today's rate. `amount` can be negative only to record a
+ * correction (e.g. a refund), in the same currency it was originally paid in.
+ */
+export async function addApiTopUp(provider: ApiProvider, input: { amount: number; currency: 'usd' | 'inr'; note?: string }): Promise<ApiTopUp> {
+  const amount = Number(input.amount);
+  if (!Number.isFinite(amount) || amount === 0) throw new Error('Enter how much this top-up added.');
+  const currency = input.currency === 'inr' ? 'inr' : 'usd';
+  const usd = currency === 'inr' ? inrToUsd(amount) : amount;
   const entry: ApiTopUp = {
     id: crypto.randomBytes(8).toString('base64url'),
     usd,
+    enteredAmount: amount,
+    enteredCurrency: currency,
     ...(input.note?.trim() ? { note: input.note.trim().slice(0, 200) } : {}),
     at: new Date().toISOString(),
   };

@@ -37,17 +37,17 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ success: true, providers: await snapshot() });
 }
 
-/** Logs a top-up actually paid to one vendor: `{ provider: 'fal' | 'gemini' | 'fashn', usd, note? }`. */
+/** Logs a top-up actually paid to one vendor: `{ provider: 'fal'|'gemini'|'fashn', amount, currency: 'usd'|'inr', note? }`. */
 export async function POST(req: NextRequest) {
   if (!verifyAdminRequest(req)) {
     return NextResponse.json({ success: false, error: 'Please sign in to TryFocus admin.' }, { status: 401 });
   }
   const body = await req.json().catch(() => null);
-  if (!body || !API_PROVIDERS.includes(body.provider) || typeof body.usd !== 'number') {
-    return NextResponse.json({ success: false, error: 'Choose a vendor and how many dollars this top-up added.' }, { status: 400 });
+  if (!body || !API_PROVIDERS.includes(body.provider) || typeof body.amount !== 'number') {
+    return NextResponse.json({ success: false, error: 'Choose a vendor and how much this top-up added.' }, { status: 400 });
   }
   try {
-    await addApiTopUp(body.provider, { usd: body.usd, note: body.note });
+    await addApiTopUp(body.provider, { amount: body.amount, currency: body.currency === 'inr' ? 'inr' : 'usd', note: body.note });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Could not log the top-up.' }, { status: 400 });
   }

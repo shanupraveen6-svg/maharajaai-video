@@ -37,10 +37,7 @@ export function aiCostUsd(kind: AiCostKind) {
   return envNumber(COST_ENV[kind]) ?? DEFAULT_COST_USD[kind];
 }
 
-/** Rupees per dollar for showing spend in ₹ (USD_TO_INR, default 98: about ₹94 plus a ₹4 buffer). */
-export function usdToInr(usd: number) {
-  return usd * (envNumber('USD_TO_INR') ?? 98);
-}
+export { usdToInr } from './currency';
 
 /**
  * A daily safety cap for the whole platform in US dollars (AI_DAILY_CAP_PLATFORM_USD; unset or 0 means
