@@ -177,8 +177,9 @@ Edit Image 1, a real photo of a ${subject}, into a photorealistic virtual try-on
 <garment>
 ${GARMENT_TYPE_RULES[garmentType]}${styleDetails ? `
 ${styleDetails}` : ''}
-Images 2 onward are views of this same one garment. Copy its exact colours, fabric, weave, print, embroidery, borders, neckline, sleeves, length and drape; take only the garment, not the hanger, mannequin, model, hands holding it or background.
-Fit it to this ${subject}'s real body with natural ease, realistic cloth weight, folds and contact shadows${isChild ? ', in comfortable child proportions' : ''}.
+Images 2 onward are views of this same one garment. Copy its exact colours, fabric, weave, print, embroidery, borders, neckline, sleeves and drape; take only the garment, not the hanger, mannequin, model, hands holding it or background.
+Keep the garment's own true length exactly as photographed — if its hem falls at the hip, mid-thigh, knee or ankle in the reference, it must fall at that same point on this customer. Never shorten, lengthen or redraw it to a generic or "standard" length.
+Scale the garment only to this ${subject}'s real build (shoulder width, chest, waist and height), with natural ease, realistic cloth weight, folds and contact shadows, while preserving its own cut and proportions exactly${isChild ? '; keep it in comfortable child proportions' : ''}.
 </garment>
 
 <customer>

@@ -7,14 +7,44 @@ const FASHN_API = 'https://api.fashn.ai/v1';
 const POLL_INTERVAL_MS = 1500;
 const MAX_RESULT_BYTES = 16 * 1024 * 1024;
 
-export function buildFashnInput(personBase64: string, garmentBase64: string) {
+/**
+ * FASHN's own category hint: giving it the garment type we already know (instead of always 'auto') lets
+ * it segment and scale the garment correctly, rather than guess from the photo alone. Left as 'auto' only
+ * for composite or ambiguous types, where a wrong guess would be worse than FASHN's own detection.
+ */
+function fashnCategory(garmentType?: string): 'auto' | 'tops' | 'bottoms' | 'one-pieces' {
+  switch (garmentType) {
+    case 'shirt_pant':
+    case 'tshirt_bottom':
+    case 'top':
+    case 'jacket':
+    case 'kurta_dhoti':
+    case 'boy_ethnic':
+      return 'tops';
+    case 'trousers':
+    case 'dhoti_veshti':
+      return 'bottoms';
+    case 'saree':
+    case 'half_saree':
+    case 'lehenga':
+    case 'one_piece':
+    case 'pattu_pavadai':
+      return 'one-pieces';
+    default:
+      return 'auto';
+  }
+}
+
+export function buildFashnInput(personBase64: string, garmentBase64: string, garmentType?: string) {
   return {
     model_name: 'tryon-v1.6',
     inputs: {
       model_image: `data:image/jpeg;base64,${personBase64}`,
       garment_image: `data:image/jpeg;base64,${garmentBase64}`,
-      category: 'auto',
-      garment_photo_type: 'auto',
+      category: fashnCategory(garmentType),
+      // Every garment we photograph is held up, laid flat or hung (never worn by a model), per our own
+      // photo guide — so this is the accurate default, not a guess.
+      garment_photo_type: 'flat-lay',
       mode: 'balanced',
       moderation_level: 'permissive',
       num_samples: 1,
@@ -33,12 +63,12 @@ function decodeOutput(output: unknown) {
   return buffer;
 }
 
-export async function generateFashnTryOn(personBase64: string, garmentBase64: string, key: string, { timeoutMs = 60_000 } = {}): Promise<Buffer> {
+export async function generateFashnTryOn(personBase64: string, garmentBase64: string, key: string, { timeoutMs = 60_000, garmentType }: { timeoutMs?: number; garmentType?: string } = {}): Promise<Buffer> {
   const headers = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Accept: 'application/json' };
   const submit = await fetch(`${FASHN_API}/run`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(buildFashnInput(personBase64, garmentBase64)),
+    body: JSON.stringify(buildFashnInput(personBase64, garmentBase64, garmentType)),
     signal: AbortSignal.timeout(20_000),
     cache: 'no-store',
   });

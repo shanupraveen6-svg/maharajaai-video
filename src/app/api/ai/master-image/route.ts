@@ -456,7 +456,7 @@ export async function POST(req: NextRequest) {
             const key = process.env.FASHN_API_KEY?.trim();
             if (!key) continue;
             try {
-              rawBuffer = await generateFashnTryOn(personBase64, garmentBase64s[0], key, { timeoutMs: Math.max(20_000, Math.min(60_000, startedAt + 200_000 - Date.now())) });
+              rawBuffer = await generateFashnTryOn(personBase64, garmentBase64s[0], key, { timeoutMs: Math.max(20_000, Math.min(60_000, startedAt + 200_000 - Date.now())), garmentType });
               imageProvider = 'fashn-tryon-v1.6';
             } catch (fashnError) {
               lastEngineError = fashnError;
