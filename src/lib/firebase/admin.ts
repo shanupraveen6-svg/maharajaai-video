@@ -53,6 +53,18 @@ function initFirebaseAdmin() {
 
 const firebaseApp = initFirebaseAdmin();
 
+// An optional field left out of a document (a look with no catalogue garmentReferenceUrl, for example)
+// arrives here as `undefined`, which Firestore's SDK refuses to write by default. Hot-reload in dev can
+// re-run this module against an app whose Firestore instance already has settings applied, which throws
+// "Firestore has already been initialized" — recoverable, so it is swallowed rather than crashing.
+if (firebaseApp) {
+  try {
+    getFirestore(firebaseApp).settings({ ignoreUndefinedProperties: true });
+  } catch {
+    // Already configured (same app, an earlier module load) — nothing to do.
+  }
+}
+
 export type MockQueueItem = {
   id: string;
   screenId: string;
