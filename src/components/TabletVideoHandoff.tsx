@@ -146,12 +146,13 @@ export default function TabletVideoHandoff({ billingCode, qrOnly = false, autoSh
     }
   }
 
-  // The tablet shows the first customer's QR as soon as the store settings load.
+  // The tablet shows the first customer's QR at once. The QR-only view (the tablet's AI Video gift tab)
+  // needs none of the store settings, so it does not wait for them; the full counter view does.
   useEffect(() => {
-    if (autoShow && config && !passQr) void issuePass();
-  // Runs once, when the settings arrive.
+    if (autoShow && (config || qrOnly) && !passQr) void issuePass();
+  // Runs once on open (QR only), or when the settings arrive.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoShow, config]);
+  }, [autoShow, qrOnly ? null : config]);
 
   const minimum = config?.videoMinPurchase ?? 5000;
   const storeName = config?.clientName || 'the store';
@@ -225,7 +226,7 @@ export default function TabletVideoHandoff({ billingCode, qrOnly = false, autoSh
         {passQr && !qrOnly && <p className="mt-3 max-w-sm text-sm text-ink">A gift from {storeName}: a short AI Video of you in a piece from our collection.</p>}
         <button
           type="button"
-          disabled={busy || !config}
+          disabled={busy || (!config && !qrOnly)}
           onClick={() => (passQr && onNewCustomer ? onNewCustomer() : void issuePass())}
           className="tf-btn tf-btn-primary mt-5 !min-h-14 w-full max-w-sm text-base"
         >
