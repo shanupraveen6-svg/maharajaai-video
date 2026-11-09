@@ -91,25 +91,34 @@ export default function PrivateLooksPage() {
 
   const current = looks[active];
 
-  // Saves the look once the customer has given a WhatsApp number (the server checks the lead token).
-  const saveLook = (look: Look) => leadGate.withLead(async (leadToken) => {
+  function downloadLookFile(look: Look, blob: Blob) {
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `tryfocus-${(look.sku || 'look').toLowerCase().replace(/[^a-z0-9_-]/g, '')}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+  }
+
+  // One tap saves every look (up to 3), not just the one on screen, once the customer has given a
+  // WhatsApp number (the server checks the lead token). Each file downloads a beat apart so the phone's
+  // browser treats them as separate, deliberate downloads rather than one blocked burst.
+  const saveAllLooks = () => leadGate.withLead(async (leadToken) => {
     setDownloadingManual(true);
     setDownloadError('');
     try {
-      const res = await fetch(`${look.downloadUrl}&lead=${encodeURIComponent(leadToken)}`, { cache: 'no-store' });
-      if (res.status === 428) {
-        leadGate.forgetLead();
-        throw new Error('Please enter your WhatsApp number again.');
+      for (const [index, look] of looks.entries()) {
+        const res = await fetch(`${look.downloadUrl}&lead=${encodeURIComponent(leadToken)}`, { cache: 'no-store' });
+        if (res.status === 428) {
+          leadGate.forgetLead();
+          throw new Error('Please enter your WhatsApp number again.');
+        }
+        if (!res.ok) throw new Error(looks.length > 1 ? 'A look could not be saved. Please try again.' : 'This look could not be saved. Please try again.');
+        downloadLookFile(look, await res.blob());
+        if (index < looks.length - 1) await new Promise((resolve) => setTimeout(resolve, 400));
       }
-      if (!res.ok) throw new Error('This look could not be saved. Please try again.');
-      const blobUrl = URL.createObjectURL(await res.blob());
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `tryfocus-${(look.sku || 'look').toLowerCase().replace(/[^a-z0-9_-]/g, '')}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
       setDownloaded(true);
       try { window.localStorage.setItem(savedKey, JSON.stringify(store)); } catch { /* private mode */ }
     } catch (caught) {
@@ -307,11 +316,11 @@ export default function PrivateLooksPage() {
                     <button
                       type="button"
                       disabled={downloadingManual}
-                      onClick={() => void saveLook(current)}
+                      onClick={() => void saveAllLooks()}
                       className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-ink bg-white px-5 text-sm font-semibold text-ink transition hover:bg-[#F4F5F2]"
                     >
                       {downloadingManual ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                      {downloadingManual ? 'Saving…' : 'Download this look'}
+                      {downloadingManual ? 'Saving…' : looks.length > 1 ? `Download all ${looks.length} looks` : 'Download this look'}
                     </button>
                     {downloadError && <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm font-semibold text-danger">{downloadError}</p>}
                     {downloaded && (
