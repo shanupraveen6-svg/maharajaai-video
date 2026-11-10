@@ -314,7 +314,7 @@
 /* Portrait standee: the catalogue is the landing experience. */
 .tv-kiosk { overflow-x: hidden; background: var(--color-canvas); }
 .tv-kiosk ol button, .tv-kiosk p button { min-height: 0 !important; }
-.tv-kiosk .tv-category-sidebar .tv-kiosk-filters button { font-size: 18px !important; min-height: 56px !important; }
+.tv-kiosk .tv-category-sidebar .tv-kiosk-filters button { font-size: 18px !important; min-height: 64px !important; }
 .tv-kiosk ol button:disabled { opacity: 1; cursor: default; }
 .tv-kiosk .tv-audience-options { display: block; }
 .tv-kiosk .tv-mode-nav .tv-mode-button { font-size: 21px; min-height: 68px; }
@@ -329,16 +329,16 @@
 .tv-discovery-intro { padding: 2px 2px 0; }
 .tv-discovery-intro h2 { font-size: clamp(30px, 4vw, 48px); line-height: 1.08; }
 .tv-source-bar { display: grid; grid-template-columns: 1fr; gap: 10px; }
-.tv-source-bar button { min-height: 60px; font-size: 18px; }
+.tv-source-bar button { min-height: 64px; font-size: 18px; }
 .tv-source-bar p { font-size: 15px; }
 .tv-audience-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .tv-audience-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
 .tv-audience-options > span { display: none; }
 .tv-audience-options button { min-width: 0; }
 .tv-kiosk .tv-kiosk-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
-.tv-kiosk-filters button { min-width: 0; min-height: 56px; border-radius: 12px; padding: 8px; font-size: clamp(15px, 1.5vw, 18px); line-height: 1.2; }
+.tv-kiosk-filters button { min-width: 0; min-height: 64px; border-radius: 12px; padding: 8px; font-size: clamp(15px, 1.5vw, 18px); line-height: 1.2; }
 .tv-kiosk .tv-category-sidebar .tv-kiosk-filters { display: flex; flex-direction: column; gap: 8px; }
-.tv-kiosk .tv-category-sidebar .tv-kiosk-filters button { width: 100%; min-height: 54px; padding: 10px 14px; text-align: left; font-size: clamp(14px, 1.35vw, 18px); }
+.tv-kiosk .tv-category-sidebar .tv-kiosk-filters button { width: 100%; min-height: 64px; padding: 10px 14px; text-align: left; font-size: clamp(14px, 1.35vw, 18px); }
 .tv-kiosk .tv-product-grid,
 .tv-kiosk .tv-video-garments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .tv-product-card { min-width: 0; }

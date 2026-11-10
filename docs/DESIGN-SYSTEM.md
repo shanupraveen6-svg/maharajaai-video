@@ -86,8 +86,11 @@ so no engine sees the person holding it), own-outfit types are single garments, 
 shows more than one garment is refused before anything is made (no credit used). The outfit's type and title
 follow what is actually in the photo, not only the category tapped.
 
-The camera opens full screen as soon as the source is known. The customer's photo has an upload QR
-beside the camera (send a photo from the phone); the outfit photo is taken with the camera only, no QR.
+The camera opens full screen as soon as the source is known, with a 112 px shutter. The captured (or
+phone-sent) photo is confirmed in that same full-screen view — Retry or Use this photo — never on a second
+preview page; an adult goes straight on, a child's photo still waits on the guardian-consent tick. The
+customer's photo has an upload QR beside the camera (send a photo from the phone), confirmed the same way;
+the outfit photo is taken with the camera only, no QR and no file upload, since it is a store garment in hand.
 
 Retry is never a button on the page, except Retry beside End session on the TV's AI Video portrait. The result's header has a Help button (`HelpRetry`, Try-On looks,
 AI Video portrait and video). It asks "Do you need to retry this image?" (or portrait, looks, video) with
