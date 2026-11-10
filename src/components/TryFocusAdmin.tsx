@@ -19,7 +19,7 @@ import { CREDIT_LEVEL_STATUS, creditLevel, creditStatuses } from '@/lib/maharaja
 import { StatusPill } from '@/components/ui';
 import PlatformOverview, { type PlatformSpend } from '@/components/PlatformOverview';
 import { PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, type PackageId } from '@/lib/maharaja/access';
-import { FREE_TRIAL_IMAGE_CREDITS, PHONE_PACKAGE, PHONE_PACKAGE_CREDITS, PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage, presetFor, type Credits, type Platform, type PresetId } from '@/lib/maharaja/pricing';
+import { PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage, presetFor, type Credits, type Platform, type PresetId } from '@/lib/maharaja/pricing';
 
 /**
  * The platforms a store can book: TV, Tablet or both. The customer's phone (Wall QR Try-On and AI Video made
@@ -44,7 +44,7 @@ function togglePlatform(current: PackageId, pick: PlatformPick): PackageId {
   return tv ? (tablet ? 'tv-tablet' : 'tv') : 'tablet';
 }
 
-function PlatformPicker({ value, onChange, compact = false }: { value: PackageId; onChange: (next: PackageId) => void; compact?: boolean }) {
+export function PlatformPicker({ value, onChange, compact = false }: { value: PackageId; onChange: (next: PackageId) => void; compact?: boolean }) {
   const d = PACKAGES[value].devices;
   // Compact: a row of small toggles (the client view and the new-client form).
   if (compact) {
@@ -109,7 +109,7 @@ type PricingAnswer = {
 };
 
 /** Price, AI cost and profit of a package (from the server, which alone knows our costs). */
-function PackageQuote({ platform, credits, software }: { platform: Platform; credits: Credits; software: boolean }) {
+export function PackageQuote({ platform, credits, software }: { platform: Platform; credits: Credits; software: boolean }) {
   const [answer, setAnswer] = useState<PricingAnswer | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -333,16 +333,6 @@ export default function TryFocusAdmin() {
   const [savedNotice, setSavedNotice] = useState<string>('');
   const [errorNotice, setErrorNotice] = useState<string>('');
 
-  // New retailer creation form
-  const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
-  const [newStoreName, setNewStoreName] = useState<string>('');
-  const [newStoreBranch, setNewStoreBranch] = useState<string>('');
-  // A new client books TV or Tablet (both include the customer's phone).
-  const [newPackage, setNewPackage] = useState<PackageId>('tv');
-  // 'trial' = the free start for a new client: 60 Try-On credits, no AI Video or Live Mirror.
-  const [newPreset, setNewPreset] = useState<PresetId | 'trial' | 'phone-package'>('standard');
-  const [creatingClient, setCreatingClient] = useState<boolean>(false);
-
   const loadClients = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/clients', { cache: 'no-store' });
@@ -377,6 +367,16 @@ export default function TryFocusAdmin() {
       }
     } catch { /* private mode or an old copy */ }
     void loadClients();
+    // Back from New client workspace (its own page): that store is already saved, so pick it straight away.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const created = params.get('client');
+      if (created) {
+        setClientId(created);
+        if (params.get('created')) setSavedNotice('Created the new client workspace. It is live in the store dropdown.');
+        window.history.replaceState(null, '', '/admin');
+      }
+    } catch { /* no URL params to read */ }
   }, [loadClients]);
 
   const client = useMemo(
@@ -529,12 +529,6 @@ export default function TryFocusAdmin() {
   const currentPlatform = platformOfPackage(currentPackage);
   const clientAccess = resolveAccess(client.devices, client.modules);
   const currentPreset = presetFor(currentPlatform, client.limits);
-  const newPlatform = platformOfPackage(newPackage);
-  const newCredits = newPreset === 'trial'
-    ? { image: FREE_TRIAL_IMAGE_CREDITS, video: 0, live: 0 }
-    : newPreset === 'phone-package'
-      ? { image: PHONE_PACKAGE_CREDITS, video: 0, live: 0 }
-      : clampCredits(newPlatform, PRESETS[newPreset]);
   const [topUpPreset, setTopUpPreset] = useState<PresetId>('standard');
   const topUpCredits = clampCredits(currentPlatform, PRESETS[topUpPreset]);
 
@@ -597,64 +591,6 @@ export default function TryFocusAdmin() {
     await persistClientPatch({});
   }
 
-  async function createNewRetailer(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newStoreName.trim()) {
-      setErrorNotice('Enter a retailer store name.');
-      return;
-    }
-    setCreatingClient(true);
-    setErrorNotice('');
-    try {
-      const slug = newStoreName
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
-      const res = await fetch('/api/admin/clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: slug,
-          name: newStoreName.trim(),
-          branch: newStoreBranch.trim() || 'Main Showroom',
-          status: 'Active',
-          minPurchaseTryOnDisabled: true,
-          deliveryMode: 'qr',
-          devices: PACKAGES[newPackage].devices,
-          modules: modulesForPackage(newPackage),
-          limits: newCredits,
-          // The store's GenLook credits match its Try-On credits for the trial and the Phone package.
-          genlookCredits: newPreset === 'trial' ? FREE_TRIAL_IMAGE_CREDITS : newPreset === 'phone-package' ? PHONE_PACKAGE_CREDITS : undefined,
-        }),
-      });
-      if (res.status === 401) {
-        setAuthRequired(true);
-        return;
-      }
-      const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || 'Could not create retailer workspace.');
-      }
-      if (Array.isArray(data.clients)) {
-        setClients(data.clients);
-      }
-      if (data.client?.id) {
-        setClientId(data.client.id);
-      }
-      setNewStoreName('');
-      setNewStoreBranch('');
-      setShowCreateForm(false);
-      setSavedNotice(`Created isolated workspace for ${data.client?.name || newStoreName}.`);
-    } catch (err) {
-      setErrorNotice(
-        err instanceof Error ? err.message : 'Unable to create retailer workspace.'
-      );
-    } finally {
-      setCreatingClient(false);
-    }
-  }
-
   if (authRequired) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F4F5F2] px-6 text-ink">
@@ -689,14 +625,13 @@ export default function TryFocusAdmin() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setShowCreateForm((v) => !v)}
+            <Link
+              href="/maharaja/admin/new"
               className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm"
             >
               <Plus className="h-4 w-4" />
               New client
-            </button>
+            </Link>
             {clientId && <button
               type="button"
               disabled={saving}
@@ -725,84 +660,6 @@ export default function TryFocusAdmin() {
           >
             {errorNotice || savedNotice}
           </div>
-        )}
-
-        {/* Create New Retailer Workspace Drawer */}
-        {showCreateForm && (
-          <form
-            onSubmit={createNewRetailer}
-            className="tf-card p-6"
-          >
-            <div className="flex items-center justify-between border-b border-line pb-4">
-              <div>
-                <h2 className="mt-1 text-2xl font-bold text-ink">
-                  New client workspace
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateForm(false)}
-                className="text-xs font-semibold text-muted underline"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-4">
-              <label className="block text-xs font-bold text-muted">
-                Store name
-                <input
-                  value={newStoreName}
-                  onChange={(e) => setNewStoreName(e.target.value)}
-                  placeholder="e.g. Pothys Silk Palace"
-                  className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
-                  required
-                />
-              </label>
-              <label className="block text-xs font-bold text-muted">
-                Branch / City
-                <input
-                  value={newStoreBranch}
-                  onChange={(e) => setNewStoreBranch(e.target.value)}
-                  placeholder="e.g. Chennai · T. Nagar"
-                  className="mt-1.5 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
-                />
-              </label>
-              <div className="block text-xs font-bold text-muted sm:col-span-2">
-                <p>Platform · tick TV, Tablet or both (the customer’s phone comes with them)</p>
-                <div className="mt-1.5 font-normal"><PlatformPicker compact value={newPackage} onChange={(next) => setNewPackage(next)} /></div>
-                <select
-                  aria-label="Credit package"
-                  value={newPreset}
-                  onChange={(e) => setNewPreset(e.target.value as PresetId | 'trial' | 'phone-package')}
-                  className="mt-2 h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-sm text-ink outline-none focus:border-brand"
-                >
-                  <option value="trial">Free trial · {FREE_TRIAL_IMAGE_CREDITS} Try-On</option>
-                  {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
-                </select>
-                <span className="mt-2 block font-normal tabular-nums">
-                  {newCredits.image.toLocaleString('en-IN')} images{newCredits.video ? ` · ${newCredits.video.toLocaleString('en-IN')} AI Videos` : ''}{newCredits.live ? ` · ${newCredits.live.toLocaleString('en-IN')} Live Mirror` : ''}
-                </span>
-              </div>
-              <div className="sm:col-span-2 lg:col-span-3 rounded-2xl bg-canvas p-4">
-                {newPreset === 'trial'
-                  ? <p className="text-sm text-muted">Free trial: {FREE_TRIAL_IMAGE_CREDITS} Try-On credits and {FREE_TRIAL_IMAGE_CREDITS} GenLook credits locked to the store, no charge. Top up from the client&apos;s card when they buy.</p>
-                  : <>
-                    <p className="mb-2 text-xs font-bold text-muted">{newPreset === 'phone-package' ? `Phone package: ₹${PHONE_PACKAGE.fee.toLocaleString('en-IN')} with ${PHONE_PACKAGE.credits.toLocaleString('en-IN')} Try-On + ${PHONE_PACKAGE.retryPercent}% retries` : `${PLATFORM_LABELS[newPlatform]} · ${PRESETS[newPreset].label}, with software`}</p>
-                    <PackageQuote platform={newPlatform} credits={newCredits} software />
-                  </>}
-              </div>
-              <div className="flex items-end">
-                <button
-                  type="submit"
-                  disabled={creatingClient}
-                  className="rounded-xl h-11 w-full bg-brand px-5 text-xs font-bold text-[#FAF6EE] disabled:opacity-50"
-                >
-                  {creatingClient ? 'Creating…' : 'Create workspace'}
-                </button>
-              </div>
-            </div>
-          </form>
         )}
 
         {/* Client Selector & Status */}

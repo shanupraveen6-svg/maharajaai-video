@@ -111,6 +111,10 @@ Downloads never start on their own. Every Download asks once for the customer's 
 
 TryFocus admin sets up a store's plan; the store's workspace only shows it. A store never edits its plan.
 
+A new client is set up on its own page (New client, from the admin header): store name, branch, platform
+and a starting credit package, in that order. Create workspace saves it and returns to admin with that
+store already picked, so it is live in the store dropdown at once.
+
 TryFocus admin, one client, in setup order (numbered headings, one section each):
 1. Platform: tick boxes TV · Tablet · Phone. TV, Tablet or both; at least one stays ticked. Phone is always
    ticked and locked: the customer's phone (Wall QR Try-On and AI Video made on the phone) comes with both.
