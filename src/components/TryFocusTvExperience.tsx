@@ -10,6 +10,7 @@ import {
   Check,
   CheckCircle2,
   LoaderCircle,
+  MapPin,
   QrCode,
   RefreshCw,
   Shirt,
@@ -1367,7 +1368,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             )}
 
             {tryOnStage === 'browse' && imageSource === 'own-garment' && (
-              <div className="space-y-5">
+              <div className={`flex flex-col gap-5 ${isTablet ? '' : 'min-h-[calc(100dvh-280px)]'}`}>
                 <div className="flex items-center justify-between gap-4">
                   <PageTitle size="lg" title="Your outfit" subtitle="Photograph one garment with the camera, then tell us what it is." />
                   {customerPhoto && (
@@ -1410,6 +1411,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     </button>
                   </div>
                 </div>
+                {!isTablet && <StoreLogoBand clientName={clientName} />}
               </div>
             )}
 
@@ -1693,7 +1695,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             )}
 
             {videoStage === 'look' && (
-              <section className="mx-auto max-w-[760px] space-y-5">
+              <section className="mx-auto flex min-h-[calc(100dvh-280px)] max-w-[760px] flex-col gap-6">
                 <div className="flex items-center justify-between gap-4">
                   <PageTitle size="lg" title="Pick a location for your video" subtitle="Your portrait is made in this scene, then the video brings it to life." />
                   <button type="button" onClick={() => setVideoStage('pick')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
@@ -1701,7 +1703,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />piece</span>
                   </button>
                 </div>
-                <div className="space-y-4">
+                {/* Centred rather than stacked at the top, so the 3 locations fill the screen instead of
+                    leaving it half empty above the floating action bar. */}
+                <div className="flex flex-1 flex-col justify-center gap-5">
                   {videoLooks.map((look) => {
                     const picked = videoConceptId === look.id;
                     return (
@@ -1710,13 +1714,16 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                         type="button"
                         aria-pressed={picked}
                         onClick={() => setVideoConceptId(look.id)}
-                        className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white p-6 text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
+                        className={`flex w-full items-center gap-5 rounded-3xl border bg-white p-7 text-left shadow-sm transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
                       >
-                        <span className="min-w-0">
-                          <span className="block text-2xl font-bold text-ink">{look.title}</span>
-                          <span className="mt-1 block text-lg text-muted">{look.mood}</span>
+                        <span className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl ${picked ? 'bg-ink text-white' : 'bg-brand-soft text-brand'}`}>
+                          <MapPin className="h-10 w-10" strokeWidth={1.5} />
                         </span>
-                        {picked && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-6 w-6" /></span>}
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-3xl font-bold text-ink">{look.title}</span>
+                          <span className="mt-1.5 block text-xl text-muted">{look.mood}</span>
+                        </span>
+                        {picked && <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-7 w-7" /></span>}
                       </button>
                     );
                   })}
