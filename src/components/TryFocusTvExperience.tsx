@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { fetchCatalogueSettings, fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
@@ -44,11 +44,15 @@ import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { PageTitle } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 import { categoriesFor, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
+import { conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
+import type { CustomerCategory } from '@/lib/maharaja/config';
+
+const VIDEO_CATEGORY_OF: Record<CatalogueAudience, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
 
 type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video' | 'gift' | 'wall-qr';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
 type CatalogueTryOnStage = 'who' | 'source' | 'photo' | 'browse' | 'generating' | 'result';
-type VideoStage = 'who' | 'photo' | 'pick' | 'portrait';
+type VideoStage = 'who' | 'photo' | 'pick' | 'look' | 'portrait';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
 type VideoAudience = CatalogueAudience;
 
@@ -105,6 +109,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [showClientCollection, setShowClientCollection] = useState(true);
   const [cataloguePage, setCataloguePage] = useState(0);
   const [videoAudience, setVideoAudience] = useState<VideoAudience>('women');
+  // The location/scene for the AI Video: one of the 3 for the chosen audience, picked before the portrait
+  // is made (the phone's AI Video gift already asks this; the TV was skipping straight to a fixed one).
+  const [videoConceptId, setVideoConceptId] = useState<VideoConceptId | ''>('');
   const [videoGuardianConsent, setVideoGuardianConsent] = useState(false);
   const catalogueTopRef = useRef<HTMLDivElement | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
@@ -251,6 +258,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // AI Video uses only the pieces the store switched on for it.
   const videoAudienceProducts = catalogueItems.filter((item) => item.price > 0 && (item.eligibleForVideo === true || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === videoAudience);
   const videoCategories = categoriesFor(categoryLists, videoAudience).filter((cat) => videoAudienceProducts.some((item) => item.category === cat.id));
+  // The 3 locations for this audience, so the customer picks one before the portrait is made.
+  const videoLooks = useMemo(() => conceptsForCategory(VIDEO_CATEGORY_OF[videoAudience]), [videoAudience]);
   const activeVideoCategory = videoCategories.some((cat) => cat.id === videoCategory) ? videoCategory : videoCategories[0]?.id || '';
   const videoBrowseProducts = videoAudienceProducts.filter((item) => !activeVideoCategory || item.category === activeVideoCategory);
   const videoPageCount = Math.max(1, Math.ceil(videoBrowseProducts.length / TV_PAGE_SIZE));
@@ -593,6 +602,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoPassQr('');
     setVideoStatusNote('');
     setPortraitRetryUsed(false);
+    setVideoConceptId('');
     const first = catalogueItems.find((item) => item.price > 0 && (item.eligibleForVideo || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === audience);
     if (first) setSelectedProduct(first);
     setVideoStage('photo');
@@ -605,6 +615,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoMasterSessionId('');
     setVideoPassQr('');
     setPortraitRetryUsed(false);
+    setVideoConceptId('');
   }
 
   async function runCatalogueBatch(personImg: string) {
@@ -908,6 +919,14 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       setVideoStatusNote('Parent or legal guardian consent is required for a child photo.');
       return;
     }
+    // The customer picked one of the 3 locations on the previous screen; fall back to the first only if
+    // this portrait is somehow requested without that (a retry reuses the same one already set).
+    const conceptId = videoConceptId || videoLooks[0]?.id;
+    if (!conceptId) {
+      setVideoStatusNote('Pick a location first.');
+      setVideoStage('look');
+      return;
+    }
     setVideoGeneratingMaster(true);
     setVideoStage('portrait');
     setVideoMasterUrl('');
@@ -915,7 +934,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     const runId = ++batchRunRef.current;
     setVideoStatusNote('Creating your portrait…');
     const sessionId = `tv_vidmaster_${Date.now()}`;
-    const conceptId = selectedProduct.gender === 'men' ? 'men-heritage-passage' : selectedProduct.gender === 'boys' ? 'boy-heritage-entrance' : selectedProduct.gender === 'girls' ? 'girl-garden-lights' : 'women-golden-courtyard';
 
     try {
       const res = await fetch('/api/ai/master-image', {
@@ -1007,6 +1025,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoStage('who');
     setVideoCategory('');
     setPortraitRetryUsed(false);
+    setVideoConceptId('');
     setVideoPersonPhoto('');
     setVideoMasterUrl('');
     setVideoPassQr('');
@@ -1046,6 +1065,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     : null;
   const videoBack = videoStage === 'photo' ? () => setVideoStage('who')
     : videoStage === 'pick' ? () => setVideoStage('photo')
+    : videoStage === 'look' ? () => setVideoStage('pick')
     : null;
 
   return (
@@ -1661,15 +1681,59 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     </div>
                     <button
                       type="button"
-                      disabled={!videoPersonPhoto || videoGeneratingMaster || !videoBrowseProducts.some((item) => item.sku === selectedProduct.sku) || ((videoAudience === 'boys' || videoAudience === 'girls') && !videoGuardianConsent)}
-                      onClick={() => { setPortraitRetryUsed(false); void generateCatalogueVideoMasterOnTv(); }}
+                      disabled={!videoPersonPhoto || !videoBrowseProducts.some((item) => item.sku === selectedProduct.sku) || ((videoAudience === 'boys' || videoAudience === 'girls') && !videoGuardianConsent)}
+                      onClick={() => setVideoStage('look')}
                       className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-8 text-lg"
                     >
-                      <Sparkles className="h-5 w-5" /> Create my portrait
+                      Pick a location <ArrowRight className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
               </div>
+            )}
+
+            {videoStage === 'look' && (
+              <section className="mx-auto max-w-[760px] space-y-5">
+                <div className="flex items-center justify-between gap-4">
+                  <PageTitle size="lg" title="Pick a location for your video" subtitle="Your portrait is made in this scene, then the video brings it to life." />
+                  <button type="button" onClick={() => setVideoStage('pick')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
+                    <img src={selectedProduct.thumbnailUrl || selectedProduct.imageUrl} alt="" className="h-16 w-13 rounded-lg object-cover" />
+                    <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />piece</span>
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {videoLooks.map((look) => {
+                    const picked = videoConceptId === look.id;
+                    return (
+                      <button
+                        key={look.id}
+                        type="button"
+                        aria-pressed={picked}
+                        onClick={() => setVideoConceptId(look.id)}
+                        className={`flex w-full items-center justify-between gap-4 rounded-2xl border bg-white p-6 text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-2xl font-bold text-ink">{look.title}</span>
+                          <span className="mt-1 block text-lg text-muted">{look.mood}</span>
+                        </span>
+                        {picked && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-6 w-6" /></span>}
+                      </button>
+                    );
+                  })}
+                  {videoLooks.length === 0 && <div className="tf-card p-10 text-center"><p className="text-xl font-bold">No locations set up yet</p><p className="mt-2 text-muted">Ask our staff to switch on AI Video locations.</p></div>}
+                </div>
+                <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
+                  <p className="truncate text-lg font-semibold">{selectedProduct.title}</p>
+                  <button
+                    type="button"
+                    disabled={!videoConceptId || videoGeneratingMaster}
+                    onClick={() => { setPortraitRetryUsed(false); void generateCatalogueVideoMasterOnTv(); }}
+                    className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-8 text-lg"
+                  >
+                    <Sparkles className="h-5 w-5" /> Create my portrait
+                  </button>
+                </div>
+              </section>
             )}
 
             {videoStage === 'portrait' && (

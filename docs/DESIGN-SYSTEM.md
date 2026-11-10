@@ -33,8 +33,9 @@ TV, three tabs:
   and its own look, all made at the same time. Your looks shows one look full size at a time: swipe, Previous /
   Next or tap a small look to move between them (a single look keeps the before/after slider).
 - AI Video (store collection only): (the last 4 digits of the bill on a large on-screen number pad, when the store
-  set a minimum bill; 0 = a free gift) → Who → Your photo → Pick a piece (with its price) → Your portrait, with the QR that makes the
-  video on the phone, where the customer can also Go Live.
+  set a minimum bill; 0 = a free gift) → Who → Your photo → Pick a piece (with its price) → Pick a location (one
+  of 3 for that audience) → Your portrait, with the QR that makes the video on the phone, where the customer can
+  also Go Live.
 - Live Mirror: the camera is on as soon as the tab opens, with the outfits in one card under it. Who → pick a
   piece switched on for Live Mirror (none is picked for the customer) → Start live, which appears on the camera
   only once a piece is picked → 5-second countdown → 30 seconds live → the replay with a Play button and the QR.
