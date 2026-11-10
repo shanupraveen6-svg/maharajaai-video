@@ -1703,9 +1703,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />piece</span>
                   </button>
                 </div>
-                {/* Centred rather than stacked at the top, so the 3 locations fill the screen instead of
-                    leaving it half empty above the floating action bar. */}
-                <div className="flex flex-1 flex-col justify-center gap-5">
+                <div className="space-y-5">
                   {videoLooks.map((look) => {
                     const picked = videoConceptId === look.id;
                     return (
@@ -1729,6 +1727,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   })}
                   {videoLooks.length === 0 && <div className="tf-card p-10 text-center"><p className="text-xl font-bold">No locations set up yet</p><p className="mt-2 text-muted">Ask our staff to switch on AI Video locations.</p></div>}
                 </div>
+                <StoreLogoBand clientName={clientName} />
                 <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
                   <p className="truncate text-lg font-semibold">{selectedProduct.title}</p>
                   <button
