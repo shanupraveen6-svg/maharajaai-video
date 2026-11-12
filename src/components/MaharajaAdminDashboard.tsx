@@ -699,7 +699,7 @@ export default function MaharajaAdminDashboard({
 
             {showAddGarment && (
               <div className="mt-5 border-t border-line pt-5">
-                <CatalogueBulkImport onPublished={loadCatalogue} experiences={{ video: limits.video > 0, live: limits.live > 0 }} />
+                <CatalogueBulkImport onPublished={loadCatalogue} workspaceCode={activeWorkspaceCode} experiences={{ video: limits.video > 0, live: limits.live > 0 }} />
               </div>
             )}
 
@@ -857,7 +857,7 @@ export default function MaharajaAdminDashboard({
             {limits.video > 0 && (
               <div className="tf-card mt-4 p-5">
                 <h2 className="text-lg font-bold">AI Video on the TV</h2>
-                <p className="mt-1 text-sm text-muted">The bill a customer needs before the TV's AI Video starts.</p>
+                <p className="mt-1 text-sm text-muted">The bill a customer needs before the TV&apos;s AI Video starts.</p>
                 <div className="mt-4">
                   <LockedAmountField
                     key={`video-${videoMinimum}`}

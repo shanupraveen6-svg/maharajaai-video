@@ -82,10 +82,19 @@ Each workspace chooses the categories customers see, per audience (Catalogue →
 TV, tablet and phone all follow that list.
 
 Prices: only AI Video shows a piece's price (to move the customer to buy it). Try-On and Western Try-On never
-show prices. The workspace uploads garments in three tabs, Image Try-On (by category), AI Video (a note at
-the top: high-value garments lift sales; the table after upload asks for each price) and Western Try-On (its
-own categories); AI Video and Western Try-On offer Use for all. The table shows image, name and category, with
-a price column on AI Video only.
+show prices.
+
+The workspace uploads garments in one flow, not three: pick who it's for, pick a category (added, edited or
+removed in Categories customers see), drop in a batch of photos — any mix, no pre-sorting. Every garment
+lands in one table and is on Try-On automatically, no switch needed. Two switches decide the rest:
+- AI Video, off by default — the store opts in its premium pieces. Switching it on for a garment marks that
+  row with a red "Add price" badge until a price is entered; the price itself is set in the garment's full
+  detail view (opened from its thumbnail), alongside its sizes.
+- Western Try-On, on automatically wherever the garment's category is western-cut (a property of the
+  category itself, not a per-store setting), off wherever it is not; the store can still switch an
+  individual garment either way.
+Upload publishes the reviewed batch; Redo clears it to start again. Publishing is blocked, with a clear
+count, until every AI Video garment has its price.
 
 **One garment per Try-On (TryFocus rule).** Every Try-On dresses the customer in exactly one garment, sent to
 the engine as one piece: a shirt, a veshti, a saree, a kurti… never a shirt-and-veshti set in one photo. The

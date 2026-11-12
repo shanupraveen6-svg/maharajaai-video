@@ -21,6 +21,9 @@ export type MaharajaCatalogueProduct = {
   eligibleForVideo: boolean;
   eligibleForLive?: boolean;
   newArrivalOnly?: boolean;
+  /** What the store stocks, for their own record — S/M/L/XL. A catalogue note only; Try-On and AI Video
+      make the garment exactly as photographed, regardless of this list. */
+  sizes?: string[];
   productUrl: string;
   active: boolean;
   sortOrder: number;

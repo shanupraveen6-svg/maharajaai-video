@@ -160,6 +160,7 @@ function normalizeCatalogueProduct(raw: Partial<MaharajaCatalogueProduct>, index
     eligibleForVideo: raw.eligibleForVideo !== false,
     eligibleForLive: raw.eligibleForLive === true,
     newArrivalOnly: raw.newArrivalOnly === true,
+    ...(Array.isArray(raw.sizes) && raw.sizes.length ? { sizes: raw.sizes.filter((s): s is string => typeof s === 'string').slice(0, 10) } : {}),
     productUrl: String(raw.productUrl || ''),
     active: raw.active !== false,
     sortOrder: Number.isFinite(Number(raw.sortOrder)) ? Number(raw.sortOrder) : index,
