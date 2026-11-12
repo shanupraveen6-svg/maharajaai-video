@@ -29,8 +29,14 @@ export type CustomCategory = {
   westernTryOnEligible: boolean;
 };
 
+/** A store's own Western wear (WW) setting per category id, over the category's default. */
+export type WesternOverrides = Record<string, boolean>;
+
 const MAX_PER_AUDIENCE = 20;
 const MAX_CUSTOM_CATEGORIES = 30;
+
+/** Garment types the real-time engine handles well: a new category of one of these starts as Western wear. */
+export const WESTERN_GARMENT_TYPES: ReadonlySet<GarmentType> = new Set<GarmentType>(['shirt_pant', 'top', 'trousers', 'tshirt_bottom', 'jacket', 'one_piece']);
 
 const AUDIENCE_LABELS: Record<CatalogueAudience, StoreCategory['audience']> = {
   women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls',
@@ -102,6 +108,26 @@ export function sanitizeCategoryLists(value: unknown, customCategories: CustomCa
       .slice(0, MAX_PER_AUDIENCE) as CatalogueCategoryId[];
     if (!ids.length) return null;
     result[audience] = ids;
+  }
+  return result;
+}
+
+/**
+ * Whether a category is Western wear for this store: its WW switch if the store set one, otherwise the
+ * category's own default. Garments uploaded into a Western wear category start on Western Try-On.
+ */
+export function isWesternCategory(id: string, customCategories: CustomCategory[] = [], overrides: WesternOverrides = {}): boolean {
+  if (typeof overrides[id] === 'boolean') return overrides[id];
+  return findCategory(id, customCategories)?.westernTryOnEligible === true;
+}
+
+/** Keeps only WW switches for categories that exist (shared or the store's own). */
+export function sanitizeWesternOverrides(value: unknown, customCategories: CustomCategory[] = []): WesternOverrides | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const result: WesternOverrides = {};
+  for (const [id, on] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof on !== 'boolean' || !findCategory(id, customCategories)) continue;
+    result[id] = on;
   }
   return result;
 }

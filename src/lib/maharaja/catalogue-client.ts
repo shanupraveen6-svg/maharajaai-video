@@ -1,6 +1,17 @@
-import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
+import type { CustomCategory, StoreCategoryLists, WesternOverrides } from '@/lib/tryfocus/store-categories';
 import type { WorkspaceAccess } from '@/lib/maharaja/access';
 import type { PublicCatalogueProduct } from './catalogue-types';
+
+export type CatalogueSettings = {
+  tvBillSuffixRequired: boolean;
+  clientName: string;
+  access: WorkspaceAccess | null;
+  categoryLists: StoreCategoryLists;
+  /** The store's own categories and Western wear switches: every screen needs them to list categories right. */
+  customCategories: CustomCategory[];
+  westernOverrides: WesternOverrides;
+  instagramUrl: string;
+};
 
 /** `accessCode` (a customer QR or pass code) selects the client's catalogue on pages without a staff login. */
 export async function fetchCompleteCatalogue(includeInactive = false, accessCode = '', workspaceCode = ''): Promise<PublicCatalogueProduct[]> {
@@ -21,7 +32,7 @@ export async function fetchCompleteCatalogue(includeInactive = false, accessCode
   return [...initial.products, ...pages.flat()];
 }
 
-export async function fetchCatalogueSettings(accessCode = ''): Promise<{ tvBillSuffixRequired: boolean; clientName: string; access: WorkspaceAccess | null; categoryLists: StoreCategoryLists; instagramUrl: string }> {
+export async function fetchCatalogueSettings(accessCode = ''): Promise<CatalogueSettings> {
   try {
     const access = accessCode ? `&access=${encodeURIComponent(accessCode)}` : '';
     const res = await fetch(`/api/maharaja/catalogue?offset=0&limit=1${access}`, { cache: 'no-store' });
@@ -31,9 +42,11 @@ export async function fetchCatalogueSettings(accessCode = ''): Promise<{ tvBillS
       clientName: typeof data?.clientName === 'string' ? data.clientName : '',
       access: data?.access && typeof data.access === 'object' ? data.access as WorkspaceAccess : null,
       categoryLists: data?.categoryLists && typeof data.categoryLists === 'object' ? data.categoryLists as StoreCategoryLists : {},
+      customCategories: Array.isArray(data?.customCategories) ? data.customCategories as CustomCategory[] : [],
+      westernOverrides: data?.westernOverrides && typeof data.westernOverrides === 'object' ? data.westernOverrides as WesternOverrides : {},
       instagramUrl: typeof data?.instagramUrl === 'string' ? data.instagramUrl : '',
     };
   } catch {
-    return { tvBillSuffixRequired: true, clientName: '', access: null, categoryLists: {}, instagramUrl: '' };
+    return { tvBillSuffixRequired: true, clientName: '', access: null, categoryLists: {}, customCategories: [], westernOverrides: {}, instagramUrl: '' };
   }
 }

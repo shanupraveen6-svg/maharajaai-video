@@ -1,4 +1,4 @@
-import type { CustomCategory, StoreCategoryLists } from '@/lib/tryfocus/store-categories';
+import type { CustomCategory, StoreCategoryLists, WesternOverrides } from '@/lib/tryfocus/store-categories';
 import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { FREE_TRIAL_IMAGE_CREDITS } from '@/lib/maharaja/pricing';
@@ -60,6 +60,10 @@ export type MaharajaWorkspace = {
   categoryLists?: StoreCategoryLists;
   /** Categories this store added itself, beyond the shared master list. */
   customCategories?: CustomCategory[];
+  /** The store's Western wear (WW) switch per category, over the category's default. */
+  westernOverrides?: WesternOverrides;
+  /** When existing garments were last brought in line with their category's Western wear setting. */
+  westernRuleAppliedAt?: string;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   devices?: {
@@ -863,6 +867,8 @@ export async function updateMaharajaSettings(
       | 'instagramUrl'
       | 'categoryLists'
       | 'customCategories'
+      | 'westernOverrides'
+      | 'westernRuleAppliedAt'
       | 'genlookCredits'
       | 'deliveryMode'
       | 'whatsappConnected'

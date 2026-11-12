@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { sanitizeCategoryLists, sanitizeCustomCategories } from '@/lib/tryfocus/store-categories';
+import { sanitizeCategoryLists, sanitizeCustomCategories, sanitizeWesternOverrides } from '@/lib/tryfocus/store-categories';
 import { NextRequest, NextResponse } from 'next/server';
 import { monthlyReport } from '@/lib/maharaja/usage-ledger';
 import { getOperatorSession, verifyAdminRequest, verifyOperatorRequest } from '@/lib/auth/operator';
@@ -503,6 +503,11 @@ export async function PATCH(req: NextRequest) {
       if (!sanitized) return NextResponse.json({ success: false, error: 'Give the category a name, a gender and what it looks like.' }, { status: 400 });
       customCategories = sanitized;
       settings.customCategories = customCategories;
+    }
+    if (body.westernOverrides !== undefined) {
+      const overrides = sanitizeWesternOverrides(body.westernOverrides, customCategories);
+      if (!overrides) return NextResponse.json({ success: false, error: 'Western wear settings were not understood.' }, { status: 400 });
+      settings.westernOverrides = overrides;
     }
     if (body.categoryLists !== undefined) {
       const lists = sanitizeCategoryLists(body.categoryLists, customCategories);

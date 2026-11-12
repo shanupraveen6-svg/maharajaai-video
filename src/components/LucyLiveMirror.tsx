@@ -41,12 +41,15 @@ type Phase = 'pick' | 'camera';
 
 export default function LucyLiveMirror({
   catalogue: propCatalogue,
+  westernCategories,
   selectedProduct: externalProduct,
   onSelectProduct,
   onUsePhotoTryOn,
   onEndSession,
 }: {
   catalogue?: TryFocusProduct[];
+  /** The store's Western wear categories per audience (its WW switches); the shared default list without one. */
+  westernCategories?: Record<TryFocusProduct['gender'], Array<{ id: CatalogueCategoryId; label: string }>>;
   garmentPrompt?: string;
   garmentTitle?: string;
   selectedProduct?: TryFocusProduct;
@@ -57,10 +60,11 @@ export default function LucyLiveMirror({
   onEndSession?: () => void;
 } = {}) {
   const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
+  const westernLists = westernCategories || LIVE_CATEGORIES;
 
   const [gender, setGender] = useState<TryFocusProduct['gender']>(externalProduct?.gender || 'women');
   const [genderChosen, setGenderChosen] = useState(false);
-  const [category, setCategory] = useState<CatalogueCategoryId>(externalProduct?.category || LIVE_CATEGORIES.women[0].id);
+  const [category, setCategory] = useState<CatalogueCategoryId>(externalProduct?.category || (westernLists.women[0]?.id ?? 'western-tops'));
   const [guardianConsent, setGuardianConsent] = useState(false);
 
   // Step 1: pick exactly two outfits from the grid, picture cards only, numbered as they're tapped.
@@ -96,8 +100,8 @@ export default function LucyLiveMirror({
   const recordedChunksRef = useRef<Blob[]>([]);
 
   const visibleCategories = useMemo(
-    () => LIVE_CATEGORIES[gender].filter((cat) => activeCatalogue.some((item) => item.gender === gender && item.category === cat.id)),
-    [activeCatalogue, gender]
+    () => westernLists[gender].filter((cat) => activeCatalogue.some((item) => item.gender === gender && item.category === cat.id)),
+    [activeCatalogue, gender, westernLists]
   );
   const activeCategory = visibleCategories.some((cat) => cat.id === category) ? category : visibleCategories[0]?.id;
 
@@ -452,7 +456,7 @@ export default function LucyLiveMirror({
             setGenderChosen(true);
             setGender(g);
             setPair([]);
-            const first = LIVE_CATEGORIES[g].find((cat) => activeCatalogue.some((item) => item.gender === g && item.category === cat.id));
+            const first = westernLists[g].find((cat) => activeCatalogue.some((item) => item.gender === g && item.category === cat.id));
             if (first) setCategory(first.id);
           }} />
 

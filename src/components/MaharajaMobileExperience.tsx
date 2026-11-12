@@ -27,7 +27,7 @@ import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { useLeadGate } from '@/components/LeadGate';
 import HelpRetry from '@/components/HelpRetry';
 import { useExitGuard } from '@/components/ExitGuard';
-import { categoriesFor, type StoreCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
+import { categoriesFor, type CustomCategory, type StoreCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 
 type Source = 'catalogue' | 'own-garment';
 type Stage = 'bill' | 'who' | 'photo' | 'source' | 'type' | 'pick' | 'outfit' | 'result' | 'done';
@@ -71,6 +71,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   // The retry was granted but not finished: Help → Yes, retry simply starts it again.
   const [retryPending, setRetryPending] = useState(false);
   const [categoryLists, setCategoryLists] = useState<StoreCategoryLists>({});
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   // The store's Try-On minimum: above 0, the phone asks for a photo of the bill first, then gets a grant.
   const [tryOnMinimum, setTryOnMinimum] = useState(0);
   const [tryOnGrant, setTryOnGrant] = useState('');
@@ -110,12 +111,13 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
       .catch(() => undefined);
     fetchCatalogueSettings(accessCode).then((settings) => {
       setCategoryLists(settings.categoryLists);
+      setCustomCategories(settings.customCategories);
       setInstagramUrl(settings.instagramUrl);
     });
   }, [accessCode]);
 
   const isChild = audience === 'boys' || audience === 'girls';
-  const storeCategories = categoriesFor(categoryLists, audience);
+  const storeCategories = categoriesFor(categoryLists, audience, customCategories);
   // Store collection: only categories with pieces. My own outfit: every store category, plus Other.
   const typeChoices = source === 'catalogue'
     ? storeCategories.filter((cat) => catalogueItems.some((item) => item.category === cat.id && item.gender === audience))

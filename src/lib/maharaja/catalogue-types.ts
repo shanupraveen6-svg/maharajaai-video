@@ -18,6 +18,8 @@ export type MaharajaCatalogueProduct = {
   fabricNote?: string;
   badge?: TryFocusProduct['badge'];
   newArrival: boolean;
+  /** Tagged by the store as trending; the TV lists these under Trending. */
+  trending?: boolean;
   eligibleForVideo: boolean;
   eligibleForLive?: boolean;
   newArrivalOnly?: boolean;
@@ -29,6 +31,8 @@ export type MaharajaCatalogueProduct = {
   sortOrder: number;
   createdAt?: string;
   updatedAt?: string;
+  /** Set when the store deleted a built-in garment, which would otherwise come back from the code. */
+  deletedAt?: string;
 };
 
 export type PublicCatalogueProduct = Omit<MaharajaCatalogueProduct, 'storagePath' | 'garmentReferencePath' | 'thumbnailPath' | 'thumbnailSource'> & {

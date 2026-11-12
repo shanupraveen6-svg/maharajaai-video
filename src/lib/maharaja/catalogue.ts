@@ -1,6 +1,7 @@
 import 'server-only';
 
 import sharp from 'sharp';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
 import { catalogueCategories, sampleCatalogue, type CatalogueCategoryId } from '@/lib/tryfocus/sample-data';
 import type { MaharajaCatalogueProduct, PublicCatalogueProduct } from './catalogue-types';
@@ -130,9 +131,16 @@ function cleanUploadedGarmentTitle(rawTitle: string, sku: string, categoryLabel:
 function normalizeCatalogueProduct(raw: Partial<MaharajaCatalogueProduct>, index = 1): MaharajaCatalogueProduct {
   const legacyCategories: Record<string, CatalogueCategoryId> = { shirts: 'casual-shirts', salwar: 'salwar-suits', lehenga: 'lehengas' };
   const requestedCategory = legacyCategories[String(raw.category)] || raw.category;
-  const category = (catalogueCategories.some((c) => c.id === requestedCategory) ? requestedCategory : 'sarees') as CatalogueCategoryId;
-  const catMeta = catalogueCategories.find((c) => c.id === category) || catalogueCategories[0];
-  const gender = raw.gender === 'men' || raw.gender === 'boys' || raw.gender === 'girls' ? raw.gender : catMeta.gender;
+  // A store's own category (custom-…) is kept as is; its garment type and label come with the garment.
+  const isCustom = typeof requestedCategory === 'string' && /^custom-[a-z0-9-]{3,60}$/.test(requestedCategory);
+  const category = (isCustom || catalogueCategories.some((c) => c.id === requestedCategory) ? requestedCategory : 'sarees') as CatalogueCategoryId;
+  const shared = catalogueCategories.find((c) => c.id === category);
+  const catMeta = {
+    gender: shared?.gender ?? 'women',
+    garmentType: shared?.garmentType ?? 'top',
+    label: shared?.label ?? (String(raw.fabricNote || '').split(' · ')[0].trim() || 'Garment'),
+  };
+  const gender = raw.gender === 'men' || raw.gender === 'boys' || raw.gender === 'girls' || raw.gender === 'women' ? raw.gender : catMeta.gender;
   const audience = gender === 'men' ? 'Men' : gender === 'boys' ? 'Boys' : gender === 'girls' ? 'Girls' : 'Women';
   const garmentType = raw.garmentType || catMeta.garmentType;
   const sku = String(raw.sku || `TF-${category.toUpperCase().slice(0, 3)}-${index}`).trim();
@@ -157,6 +165,7 @@ function normalizeCatalogueProduct(raw: Partial<MaharajaCatalogueProduct>, index
     fabricNote: raw.fabricNote || `${catMeta.label} · Maharaja Collection`,
     badge,
     newArrival,
+    trending: raw.trending === true,
     eligibleForVideo: raw.eligibleForVideo !== false,
     eligibleForLive: raw.eligibleForLive === true,
     newArrivalOnly: raw.newArrivalOnly === true,
@@ -253,12 +262,8 @@ async function ensureThumbnail(record: MaharajaCatalogueProduct): Promise<Pick<M
   }
 }
 
-export async function listCatalogueProducts(
-  offset = 0,
-  limit = 50,
-  options?: { includeInactive?: boolean; videoOnly?: boolean }
-): Promise<{ products: PublicCatalogueProduct[]; total: number }> {
-  const includeInactive = options?.includeInactive === true;
+/** Every garment record for the bound client (shared built-ins merged with saved ones), without photo links. */
+export async function loadAllCatalogueRecords(includeInactive = true): Promise<MaharajaCatalogueProduct[]> {
   const db = getDb();
   let allProducts: MaharajaCatalogueProduct[] = [];
 
@@ -273,6 +278,7 @@ export async function listCatalogueProducts(
       }
       snapshot.docs.forEach((doc, idx) => {
         const rawData = doc.data() as Partial<MaharajaCatalogueProduct>;
+        if (rawData.deletedAt) { bySku.delete(doc.id); return; }
         if (isDeprecatedDemoProduct(doc.id, rawData.storagePath)) return;
         const normalized = normalizeCatalogueProduct({ ...(bySku.get(doc.id) || {}), ...rawData, sku: doc.id }, idx + 1);
         bySku.set(normalized.sku, normalized);
@@ -286,10 +292,22 @@ export async function listCatalogueProducts(
     allProducts = Array.from(map.values()).map((item, idx) => normalizeCatalogueProduct(item, idx + 1));
   }
 
+  return includeInactive ? allProducts : allProducts.filter((item) => item.active !== false);
+}
+
+export async function listCatalogueProducts(
+  offset = 0,
+  limit = 50,
+  options?: { includeInactive?: boolean; videoOnly?: boolean }
+): Promise<{ products: PublicCatalogueProduct[]; total: number }> {
+  const includeInactive = options?.includeInactive === true;
+  const allProducts = await loadAllCatalogueRecords(true);
+
   // videoOnly: the pieces the store switched on for AI Video, filtered before paging so every page is full.
   const filtered = (includeInactive ? allProducts : allProducts.filter((item) => item.active !== false))
     .filter((item) => !options?.videoOnly || item.eligibleForVideo !== false)
-    .sort((left, right) => left.sortOrder - right.sortOrder);
+    // Newest upload day first, so a fresh batch leads each category on the TV; the store's order within a day.
+    .sort((left, right) => (right.createdAt || '').slice(0, 10).localeCompare((left.createdAt || '').slice(0, 10)) || left.sortOrder - right.sortOrder);
 
   const safeLimit = Math.min(Math.max(1, limit), 100);
   const sliced = filtered.slice(Math.max(0, offset), Math.max(0, offset) + safeLimit);
@@ -325,7 +343,9 @@ export async function getCatalogueProduct(sku: string): Promise<MaharajaCatalogu
   if (db) {
     const snapshot = await db.collection(collectionPath()).doc(cleanSku).get();
     if (snapshot.exists) {
-      const product = normalizeCatalogueProduct(snapshot.data() as Partial<MaharajaCatalogueProduct>);
+      const data = snapshot.data() as Partial<MaharajaCatalogueProduct>;
+      if (data.deletedAt) return null;
+      const product = normalizeCatalogueProduct(data);
       return product.active ? product : null;
     }
   } else {
@@ -370,7 +390,8 @@ export async function upsertCatalogueProduct(input: Partial<MaharajaCataloguePro
 
   const db = getDb();
   if (db) {
-    await db.collection(collectionPath()).doc(sku).set(record, { merge: true });
+    // A re-upload under a SKU the store once deleted brings it back.
+    await db.collection(collectionPath()).doc(sku).set({ ...record, deletedAt: FieldValue.delete() }, { merge: true });
   } else {
     const map = getMockCatalogueMap();
     map.set(sku, record);
@@ -428,12 +449,81 @@ export async function updateCatalogueProduct(
 }
 
 export async function deleteCatalogueProduct(sku: string): Promise<void> {
-  const cleanSku = String(sku || '').trim();
-  if (!cleanSku) throw new Error('SKU is required.');
+  await deleteCatalogueProducts([sku]);
+}
+
+function cleanSkus(skus: string[]): string[] {
+  return Array.from(new Set(skus.map((sku) => String(sku || '').trim()).filter(Boolean))).slice(0, 500);
+}
+
+function isBuiltInSku(sku: string): boolean {
+  return activeClientId() === MAHARAJA_CLIENT_ID && COMBINED_FALLBACK_CATALOGUE.some((item) => item.sku === sku);
+}
+
+/**
+ * Deletes garments for good: the record, and the store's own photo and preview files. A built-in garment
+ * (part of the code) gets a deleted marker instead, or it would come back on the next load.
+ */
+export async function deleteCatalogueProducts(skus: string[]): Promise<number> {
+  const clean = cleanSkus(skus);
+  if (!clean.length) throw new Error('SKU is required.');
   const db = getDb();
-  if (db) {
-    await db.collection(collectionPath()).doc(cleanSku).delete();
-  } else {
-    getMockCatalogueMap().delete(cleanSku);
+  const bucket = getStorageBucket();
+  const ownPrefix = `clients/${activeClientId()}/`;
+  let deleted = 0;
+  for (const sku of clean) {
+    let files: string[] = [];
+    if (db) {
+      const ref = db.collection(collectionPath()).doc(sku);
+      const snapshot = await ref.get();
+      const data = (snapshot.exists ? snapshot.data() : {}) as Partial<MaharajaCatalogueProduct>;
+      files = [data.storagePath, data.garmentReferencePath, data.thumbnailPath].filter((path): path is string => typeof path === 'string');
+      if (isBuiltInSku(sku)) await ref.set({ deletedAt: new Date().toISOString() }, { merge: true });
+      else if (snapshot.exists) await ref.delete();
+      else continue;
+    } else {
+      const map = getMockCatalogueMap();
+      if (!map.has(sku)) continue;
+      map.delete(sku);
+    }
+    deleted += 1;
+    if (bucket) {
+      const owned = Array.from(new Set(files.filter((path) => path.startsWith(ownPrefix))));
+      await Promise.all(owned.map((path) => bucket.file(path).delete({ ignoreNotFound: true }).catch(() => undefined)));
+    }
   }
+  return deleted;
+}
+
+export type CatalogueFlags = Partial<Pick<MaharajaCatalogueProduct, 'active' | 'newArrival' | 'trending' | 'eligibleForLive' | 'eligibleForVideo'>>;
+
+/**
+ * The same switches on many garments in one batched write, keeping the New arrival badge in step. Only
+ * garments that exist are touched, so a stale SKU never leaves a half-empty record behind.
+ */
+export async function bulkUpdateCatalogueFlags(skus: string[], flags: CatalogueFlags): Promise<number> {
+  const clean = cleanSkus(skus);
+  const patch: Record<string, unknown> = { ...flags, updatedAt: new Date().toISOString() };
+  if (typeof flags.newArrival === 'boolean') patch.badge = flags.newArrival ? 'NEW ARRIVAL' : 'ROYAL SILK';
+  const db = getDb();
+  if (!db) {
+    const map = getMockCatalogueMap();
+    let count = 0;
+    for (const sku of clean) {
+      const item = map.get(sku);
+      if (item) { map.set(sku, { ...item, ...patch } as MaharajaCatalogueProduct); count += 1; }
+    }
+    return count;
+  }
+  const collection = db.collection(collectionPath());
+  const snapshots = clean.length ? await db.getAll(...clean.map((sku) => collection.doc(sku))) : [];
+  const targets = snapshots
+    .filter((snap) => (snap.exists && !(snap.data() as Partial<MaharajaCatalogueProduct>).deletedAt) || isBuiltInSku(snap.id))
+    .map((snap) => snap.ref);
+  for (let start = 0; start < targets.length; start += 400) {
+    const batch = db.batch();
+    for (const ref of targets.slice(start, start + 400)) batch.set(ref, patch, { merge: true });
+    await batch.commit();
+  }
+  return targets.length;
 }

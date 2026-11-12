@@ -23,6 +23,7 @@ export type TryFocusProduct = {
   eligibleForVideo: boolean;
   eligibleForLive?: boolean;
   newArrivalOnly?: boolean;
+  trending?: boolean;
   garmentType: 'saree' | 'half_saree' | 'salwar' | 'lehenga' | 'kurta_dhoti' | 'dhoti_veshti' | 'shirt_pant' | 'tshirt_bottom' | 'top' | 'trousers' | 'jacket' | 'one_piece' | 'pattu_pavadai';
 };
 

@@ -42,8 +42,9 @@ TV, three tabs:
   also Go Live.
 - Western Try-On: shirts, dresses and other western-cut garments only — the real-time engine (Decart Lucy) does
   not handle draped or ethnic wear (a saree, lehenga, veshti, kurta set…) well, so the name says what it is
-  before the customer ever taps it. Eligibility is a property of the category itself, not a per-store choice:
-  a western category is eligible everywhere it is used, an ethnic one never is. Who → pick exactly two pieces
+  before the customer ever taps it. Eligibility follows the category: each category is Western wear (WW) or
+  not — shirts, tops, gowns and jumpsuits start WW, sarees and kurtas never do — and the store can flip a
+  category's WW switch in Categories customers see. Who → pick exactly two pieces
   from a picture-card grid (the same image-card design as Try-On's own picker, numbered 1 and 2 as they're
   tapped, never a checkmark) → Start opens a dedicated full-screen camera, no side panel competing for space.
   The first outfit is already active; one large center button, Start live Try-On, begins it with no countdown
@@ -88,17 +89,31 @@ TV, tablet and phone all follow that list.
 Prices: only AI Video shows a piece's price (to move the customer to buy it). Try-On and Western Try-On never
 show prices.
 
-The workspace uploads garments in one flow, not three: pick who it's for, pick a category (added, edited or
-removed in Categories customers see), drop in a batch of photos — any mix, no pre-sorting. Every garment
-lands in one table and is on Try-On automatically, no switch needed. Two switches decide the rest:
-- AI Video, off by default — the store opts in its premium pieces. Switching it on for a garment marks that
-  row with a red "Add price" badge until a price is entered; the price itself is set in the garment's full
-  detail view (opened from its thumbnail), alongside its sizes.
-- Western Try-On, on automatically wherever the garment's category is western-cut (a property of the
-  category itself, not a per-store setting), off wherever it is not; the store can still switch an
-  individual garment either way.
-Upload publishes the reviewed batch; Redo clears it to start again. Publishing is blocked, with a clear
-count, until every AI Video garment has its price.
+The Catalogue tab (TryFocus admin and the store see the same one) is four accordion rows:
+1. Categories customers see — per audience, in two groups: Western wear (WW on: also offered on Western
+   Try-On, and garments uploaded into it start switched on there) and other wear (Try-On only). Tapping WW on
+   a category moves it between the groups and brings the garments already in it along. ✕ hides a standard
+   category; a store's own category (name + what it looks like, which sets its WW) is deleted with ✕ once
+   nothing is left in it.
+2. Upload catalogue — Who (nothing selected) → the category as a row of tabs (WW marked) → photos or a whole
+   folder → the garment table → Upload, or Redo to clear the batch. Upload adds every ready row and is held,
+   with a count, while any garment is on AI Video without a price.
+3. All garments — Who → that audience's categories as tabs (with counts; a hidden category that still holds
+   garments is listed and marked) → the garment table, 25 rows a page. Needs attention gathers garments
+   customers can't see properly: a category from another audience, a hidden category, AI Video without a price.
+4. Upload history — one row per upload day, newest first ("30 Oct 2026 · 164 garments · Men: Veshti 44 · …");
+   opening a day shows its garments in the same table; ticking a day offers Delete for the whole upload.
+
+The garment table is the same in all three places: Photo · Name (edit in place) · Category (change in place;
+a new category re-applies its Western wear) · ₹ Price · AI Video · Western Try-On · delete. AI Video and
+Western Try-On are tap-on / tap-off buttons, never checkboxes. Every garment has its own price; the rule is
+simply: type the price, tap AI Video (the box turns red if AI Video is on without one). Ticking rows brings up
+one action bar: New arrival · Trending · Hide · Show · Delete (a tag already on every ticked garment comes off).
+Edits to saved garments save at once; deleting a garment removes its photo too. The workspace is used on a
+computer or tablet, never a phone, so this table may scroll sideways. Sizes are not recorded.
+
+New arrival and Trending are the store's tags: the TV lists them as New arrivals and Trending in the category
+list (Trending only when the store has tagged something for that audience). Newest uploads come first.
 
 **One garment per Try-On (TryFocus rule).** Every Try-On dresses the customer in exactly one garment, sent to
 the engine as one piece: a shirt, a veshti, a saree, a kurti… never a shirt-and-veshti set in one photo. The
@@ -176,8 +191,8 @@ The Wall QR poster carries the store's own name.
 Status is words, never a bar: Good · Half used (50%) · Running low (70%) · Almost finished (90%) ·
 Last 5% left (95%) · Finished (credits), Live for customers · Paused (store). Stores have no daily cap
 (they bought a package); at each of those steps a line goes to the store's activity, the workspace strip
-and admin's Needs action. No sliders, carousels or rows that scroll sideways on admin or workspace
-screens; lists wrap.
+and admin's Needs action. No sliders or carousels on admin or workspace screens, and lists wrap; the one
+exception is the catalogue's garment table, which may scroll sideways (the workspace is for a computer or tablet).
 
 The Go Live player asks for the store login once, then keeps the screen signed in. It is laid out for
 landscape LED walls and wall-mount TVs (store name, the portrait video in the middle, the greeting).

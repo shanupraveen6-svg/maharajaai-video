@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
           garmentReferencePath: path,
           fabricNote: `${category.label} · Store catalogue`,
           newArrival: raw.newArrival === true,
+          trending: raw.trending === true,
           eligibleForVideo,
           eligibleForLive: raw.eligibleForLive === true,
           active: true,

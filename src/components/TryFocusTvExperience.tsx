@@ -43,7 +43,7 @@ import {
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { PageTitle } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
-import { categoriesFor, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
+import { categoriesFor, isWesternCategory, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
 import { conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import type { CustomerCategory } from '@/lib/maharaja/config';
 
@@ -100,6 +100,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [catalogueItems, setCatalogueItems] = useState<TryFocusProduct[]>([]);
   // The store's own categories per audience, from its workspace.
   const [categoryLists, setCategoryLists] = useState<StoreCategoryLists>({});
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [westernOverrides, setWesternOverrides] = useState<WesternOverrides>({});
 
   // Catalogue filtering
   const [genderFilter, setGenderFilter] = useState<CatalogueAudience>('women');
@@ -108,7 +110,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [videoWhoChosen, setVideoWhoChosen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [showNewArrivals, setShowNewArrivals] = useState(false);
-  const [showClientCollection, setShowClientCollection] = useState(true);
+  const [showTrending, setShowTrending] = useState(false);
   const [cataloguePage, setCataloguePage] = useState(0);
   const [videoAudience, setVideoAudience] = useState<VideoAudience>('women');
   // The location/scene for the AI Video: one of the 3 for the chosen audience, picked before the portrait
@@ -152,6 +154,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           eligibleForVideo: item.eligibleForVideo !== false,
           eligibleForLive: item.eligibleForLive === true,
           newArrivalOnly: item.newArrivalOnly === true,
+          trending: item.trending === true,
           garmentType: item.garmentType || 'saree',
         }));
         setCatalogueItems(mapped);
@@ -164,6 +167,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         setTvBillSuffixRequired(settings.tvBillSuffixRequired);
         if (settings.clientName) setClientName(settings.clientName);
         setCategoryLists(settings.categoryLists);
+        setCustomCategories(settings.customCategories);
+        setWesternOverrides(settings.westernOverrides);
         if (settings.access) {
           // Live Mirror needs the TV's camera stream; the tablet never runs it.
           setLiveOn(!isTablet && settings.access.modules.live);
@@ -248,7 +253,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [tvBillLast4, setTvBillLast4] = useState('');
   const [tvBillEntered, setTvBillEntered] = useState(false);
 
-  const filteredCategories = categoriesFor(categoryLists, genderFilter);
+  const filteredCategories = categoriesFor(categoryLists, genderFilter, customCategories);
   // A category the store removed (or one this audience lacks) moves to the store's first category with pieces.
   useEffect(() => {
     if (filteredCategories.some((cat) => cat.id === activeCategory)) return;
@@ -256,15 +261,15 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     if (next) setActiveCategory(next.id);
   }, [filteredCategories, activeCategory, catalogueItems]);
   const browseProducts = catalogueItems.filter((item) => item.gender === genderFilter &&
-    (showClientCollection ? item.sku.startsWith('MAH-')
+    (showTrending ? item.trending === true
       : showNewArrivals ? item.badge === 'NEW ARRIVAL'
         : item.category === activeCategory));
   const TV_PAGE_SIZE = 24;
   const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / TV_PAGE_SIZE));
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * TV_PAGE_SIZE, (cataloguePage + 1) * TV_PAGE_SIZE);
   // AI Video uses only the pieces the store switched on for it.
-  const videoAudienceProducts = catalogueItems.filter((item) => item.price > 0 && (item.eligibleForVideo === true || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === videoAudience);
-  const videoCategories = categoriesFor(categoryLists, videoAudience).filter((cat) => videoAudienceProducts.some((item) => item.category === cat.id));
+  const videoAudienceProducts = catalogueItems.filter((item) => item.price > 0 && item.eligibleForVideo === true && item.gender === videoAudience);
+  const videoCategories = categoriesFor(categoryLists, videoAudience, customCategories).filter((cat) => videoAudienceProducts.some((item) => item.category === cat.id));
   // The 3 locations for this audience, so the customer picks one before the portrait is made.
   const videoLooks = useMemo(() => conceptsForCategory(VIDEO_CATEGORY_OF[videoAudience]), [videoAudience]);
   const activeVideoCategory = videoCategories.some((cat) => cat.id === videoCategory) ? videoCategory : videoCategories[0]?.id || '';
@@ -273,14 +278,23 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const safeVideoPage = Math.min(cataloguePage, Math.max(0, videoPageCount - 1));
   const visibleVideoProducts = videoBrowseProducts.slice(safeVideoPage * TV_PAGE_SIZE, (safeVideoPage + 1) * TV_PAGE_SIZE);
 
+  // Western Try-On lists the store's Western wear categories (its WW switches, its own categories included).
+  const westernCategories = useMemo(() => Object.fromEntries((['women', 'men', 'boys', 'girls'] as const).map((audience) => [
+    audience,
+    categoriesFor(categoryLists, audience, customCategories)
+      .filter((cat) => isWesternCategory(cat.id, customCategories, westernOverrides))
+      .map((cat) => ({ id: cat.id as CatalogueCategoryId, label: cat.label })),
+  ])) as Record<CatalogueAudience, Array<{ id: CatalogueCategoryId; label: string }>>, [categoryLists, customCategories, westernOverrides]);
+
   function selectGender(gender: CatalogueAudience) {
     if (gender === genderFilter) return;
     setGenderFilter(gender);
     // The first category, in the shared order, that has pieces in this store.
-    const ordered = categoriesFor(categoryLists, gender);
+    const ordered = categoriesFor(categoryLists, gender, customCategories);
     setActiveCategory((ordered.find((cat) => catalogueItems.some((item) => item.category === cat.id)) || ordered[0]).id);
     setShowNewArrivals(false);
-    setShowClientCollection(gender === 'women' || gender === 'men');
+    // Opens on Trending only when the store has tagged pieces for this audience.
+    setShowTrending(catalogueItems.some((item) => item.gender === gender && item.trending === true));
     setCataloguePage(0);
     setSelectedLooks([]);
   }
@@ -288,7 +302,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   function selectCategory(category: CatalogueCategoryId) {
     setActiveCategory(category);
     setShowNewArrivals(false);
-    setShowClientCollection(false);
+    setShowTrending(false);
     setCataloguePage(0);
   }
 
@@ -641,7 +655,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoStatusNote('');
     setPortraitRetryUsed(false);
     setVideoConceptId('');
-    const first = catalogueItems.find((item) => item.price > 0 && (item.eligibleForVideo || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')) && item.gender === audience);
+    const first = catalogueItems.find((item) => item.price > 0 && item.eligibleForVideo === true && item.gender === audience);
     if (first) setSelectedProduct(first);
     setVideoStage('photo');
     if (!videoPersonPhoto) void openCameraFor('video-person');
@@ -1073,7 +1087,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setGenderFilter('women');
     setActiveCategory('sarees');
     setShowNewArrivals(false);
-    setShowClientCollection(true);
+    setShowTrending(false);
     setCataloguePage(0);
     setSelectedProduct(catalogueItems[0] || sampleCatalogue[0]);
     setCustomerPhoto('');
@@ -1351,14 +1365,14 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 <div className="tv-catalogue-shell grid gap-5">
                   <aside className="tv-category-sidebar tf-card p-3" aria-label="Garment categories">
                     <div className="tv-kiosk-filters flex flex-col gap-1">
-                      {(genderFilter === 'women' || genderFilter === 'men') && <button type="button" aria-pressed={showClientCollection} onClick={() => { setShowClientCollection(true); setShowNewArrivals(false); setCataloguePage(0); }} className="rounded-xl border px-4 text-left font-semibold">{clientName.replace(/^The\s+/i, '').split(' ').slice(-1)[0]} picks</button>}
+                      {catalogueItems.some((item) => item.gender === genderFilter && item.trending === true) && <button type="button" aria-pressed={showTrending} onClick={() => { setShowTrending(true); setShowNewArrivals(false); setCataloguePage(0); }} className="rounded-xl border px-4 text-left font-semibold">Trending</button>}
                       {/* New arrivals, for every audience: empty until the store marks pieces as new. */}
-                      <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowClientCollection(false); setShowNewArrivals(true); setCataloguePage(0); }} className="rounded-xl border px-4 text-left font-semibold">New arrivals</button>
+                      <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowTrending(false); setShowNewArrivals(true); setCataloguePage(0); }} className="rounded-xl border px-4 text-left font-semibold">New arrivals</button>
                       {filteredCategories.map((cat) => (
                         <button
                           key={cat.id}
                           type="button"
-                          aria-pressed={!showClientCollection && !showNewArrivals && activeCategory === cat.id}
+                          aria-pressed={!showTrending && !showNewArrivals && activeCategory === cat.id}
                           onClick={() => selectCategory(cat.id)}
                           className="flex items-center justify-between gap-2 rounded-xl border px-4 text-left font-semibold"
                         >
@@ -1371,7 +1385,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
                   <div className="min-w-0 space-y-4">
                     <div ref={catalogueTopRef} className="tv-catalogue-heading flex items-baseline justify-between gap-4">
-                      <p className="text-2xl font-bold">{showClientCollection ? `${clientName.replace(/^The\s+/i, '').split(' ').slice(-1)[0]} picks` : showNewArrivals ? 'New arrivals' : filteredCategories.find((cat) => cat.id === activeCategory)?.label}</p>
+                      <p className="text-2xl font-bold">{showTrending ? 'Trending' : showNewArrivals ? 'New arrivals' : filteredCategories.find((cat) => cat.id === activeCategory)?.label}</p>
                       <p className="text-base text-muted">{browseProducts.length} styles</p>
                     </div>
                     <div className="tv-product-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1607,6 +1621,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           <LucyLiveMirror
             key={liveMirrorKey}
             onEndSession={endSession}
+            westernCategories={westernCategories}
             catalogue={catalogueItems.filter(isLiveMirrorReady)}
             garmentPrompt={`Person wearing ${selectedProduct.title}, ${selectedProduct.fabricNote}`}
             garmentTitle={selectedProduct.title}
@@ -1639,7 +1654,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               <div className="tv-who-screen flex min-h-[calc(100dvh-240px)] flex-col gap-6">
                 <PageTitle size="lg" title="Who is the video for?" subtitle="A short AI Video of you in a piece from our collection." />
                 {/* An audience with no AI Video piece yet shows "Coming soon", so no one reaches an empty list. */}
-                <AudienceCards size="lg" value={videoWhoChosen ? videoAudience : null} onChange={(audience) => { setVideoWhoChosen(true); chooseVideoAudience(audience); }} labels={AUDIENCE_LABELS} unavailable={catalogueItems.length ? (['women', 'men', 'boys', 'girls'] as const).filter((audience) => !catalogueItems.some((item) => item.gender === audience && item.price > 0 && (item.eligibleForVideo === true || item.sku.startsWith('8IC') || item.sku.startsWith('silk-')))) : []} />
+                <AudienceCards size="lg" value={videoWhoChosen ? videoAudience : null} onChange={(audience) => { setVideoWhoChosen(true); chooseVideoAudience(audience); }} labels={AUDIENCE_LABELS} unavailable={catalogueItems.length ? (['women', 'men', 'boys', 'girls'] as const).filter((audience) => !catalogueItems.some((item) => item.gender === audience && item.price > 0 && item.eligibleForVideo === true)) : []} />
                 <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
                 <StoreLogoBand clientName={clientName} />
               </div>

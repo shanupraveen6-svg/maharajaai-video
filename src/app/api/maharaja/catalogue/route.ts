@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     );
     const workspace = await getMaharajaWorkspace();
     return NextResponse.json(
-      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access: resolveAccess(workspace.devices, workspace.modules), categoryLists: workspace.categoryLists || {}, instagramUrl: instagramUrlFor(workspace) },
+      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access: resolveAccess(workspace.devices, workspace.modules), categoryLists: workspace.categoryLists || {}, customCategories: workspace.customCategories || [], westernOverrides: workspace.westernOverrides || {}, instagramUrl: instagramUrlFor(workspace) },
       {
         headers: {
           'Cache-Control': 'no-store',
