@@ -106,10 +106,9 @@ export function PlatformPicker({ value, onChange, compact = false }: { value: Pa
 
 type PricingAnswer = {
   quote: { creditsTotal: number; softwareFee: number; gst: number; total: number; credits: Credits };
-  margin: { aiCost: number; creditProfit: number; creditMargin: number };
 };
 
-/** Price, AI cost and profit of a package (from the server, which alone knows our costs). */
+/** Price of a package, what the store pays (from the server, which alone knows our costs). */
 export function PackageQuote({ platform, credits, software }: { platform: Platform; credits: Credits; software: boolean }) {
   const [answer, setAnswer] = useState<PricingAnswer | null>(null);
   const [failed, setFailed] = useState(false);
@@ -124,15 +123,13 @@ export function PackageQuote({ platform, credits, software }: { platform: Platfo
   }, [platform, credits.image, credits.video, credits.live, software]);
   if (failed) return <p className="text-sm text-danger">Price unavailable. Check the connection and try again.</p>;
   if (!answer) return <p className="text-sm text-muted">Working out the price…</p>;
-  const { quote, margin } = answer;
+  const { quote } = answer;
   return (
     <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
       <div className="flex justify-between gap-3"><dt className="text-muted">Credits</dt><dd className="tabular-nums font-semibold">{formatRupees(quote.creditsTotal)}</dd></div>
       {software && <div className="flex justify-between gap-3"><dt className="text-muted">Software (one time)</dt><dd className="tabular-nums font-semibold">{formatRupees(quote.softwareFee)}</dd></div>}
       <div className="flex justify-between gap-3"><dt className="text-muted">GST (18%)</dt><dd className="tabular-nums">{formatRupees(quote.gst)}</dd></div>
       <div className="flex justify-between gap-3"><dt className="font-bold text-ink">Store pays</dt><dd className="tabular-nums font-bold text-ink">{formatRupees(quote.total)}</dd></div>
-      <div className="flex justify-between gap-3"><dt className="text-muted">Our AI cost (all credits used)</dt><dd className="tabular-nums">{formatRupees(margin.aiCost)}</dd></div>
-      <div className="flex justify-between gap-3"><dt className="text-muted">Credit profit</dt><dd className="tabular-nums font-semibold text-success">{formatRupees(margin.creditProfit)} · {Math.round(margin.creditMargin * 100)}%</dd></div>
     </dl>
   );
 }
