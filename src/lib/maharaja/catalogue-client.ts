@@ -9,6 +9,8 @@ export type CatalogueSettings = {
   categoryLists: StoreCategoryLists;
   /** The store's own categories and Western wear switches: every screen needs them to list categories right. */
   customCategories: CustomCategory[];
+  /** AI Video's own category list, separate from Try-On's. */
+  videoCategoryLists: StoreCategoryLists;
   westernOverrides: WesternOverrides;
   instagramUrl: string;
 };
@@ -43,10 +45,11 @@ export async function fetchCatalogueSettings(accessCode = ''): Promise<Catalogue
       access: data?.access && typeof data.access === 'object' ? data.access as WorkspaceAccess : null,
       categoryLists: data?.categoryLists && typeof data.categoryLists === 'object' ? data.categoryLists as StoreCategoryLists : {},
       customCategories: Array.isArray(data?.customCategories) ? data.customCategories as CustomCategory[] : [],
+      videoCategoryLists: data?.videoCategoryLists && typeof data.videoCategoryLists === 'object' ? data.videoCategoryLists as StoreCategoryLists : {},
       westernOverrides: data?.westernOverrides && typeof data.westernOverrides === 'object' ? data.westernOverrides as WesternOverrides : {},
       instagramUrl: typeof data?.instagramUrl === 'string' ? data.instagramUrl : '',
     };
   } catch {
-    return { tvBillSuffixRequired: true, clientName: '', access: null, categoryLists: {}, customCategories: [], westernOverrides: {}, instagramUrl: '' };
+    return { tvBillSuffixRequired: true, clientName: '', access: null, categoryLists: {}, customCategories: [], videoCategoryLists: {}, westernOverrides: {}, instagramUrl: '' };
   }
 }

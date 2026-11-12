@@ -509,6 +509,11 @@ export async function PATCH(req: NextRequest) {
       if (!overrides) return NextResponse.json({ success: false, error: 'Western wear settings were not understood.' }, { status: 400 });
       settings.westernOverrides = overrides;
     }
+    if (body.videoCategoryLists !== undefined) {
+      const lists = sanitizeCategoryLists(body.videoCategoryLists, customCategories);
+      if (!lists) return NextResponse.json({ success: false, error: 'Keep at least one AI Video category for each audience.' }, { status: 400 });
+      settings.videoCategoryLists = lists;
+    }
     if (body.categoryLists !== undefined) {
       const lists = sanitizeCategoryLists(body.categoryLists, customCategories);
       if (!lists) return NextResponse.json({ success: false, error: 'Keep at least one category for each audience.' }, { status: 400 });

@@ -28,7 +28,6 @@ export type PlatformSpend = { todayInr: number; platformCapInr: number | null };
 
 const RETRY_ALLOWANCE = 0.15;
 
-const inr = (value: number) => `₹${Math.round(value).toLocaleString('en-IN')}`;
 
 /** Effective credits: a module that is off, or whose device is off, counts as not in the plan. */
 function planLimit(client: OverviewClient, key: ModuleKey) {
@@ -79,14 +78,12 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
   const totals: Array<[string, string, string]> = [
     ['Clients', String(clients.length), `${live} live · ${clients.length - live} paused`],
     ['Try-On looks', sum((item) => item.usage.image).toLocaleString('en-IN'), `${sum((item) => item.usage.scans || 0).toLocaleString('en-IN')} QR opens · ${sum((item) => item.usage.downloads || 0).toLocaleString('en-IN')} downloads`],
-    ['AI Videos', sum((item) => item.usage.video).toLocaleString('en-IN'), `${sum((item) => item.usage.goLive || 0).toLocaleString('en-IN')} sent to Go Live · ${sum((item) => item.usage.live).toLocaleString('en-IN')} Live Mirror`],
-    ['AI cost this month', inr(sum((item) => item.spend?.monthInr || 0)), `${inr(platform?.todayInr || 0)} today${platform?.platformCapInr ? ` · cap ${inr(platform.platformCapInr)} a day` : ''}`],
+    ['AI Videos', sum((item) => item.usage.video).toLocaleString('en-IN'), `${sum((item) => item.usage.goLive || 0).toLocaleString('en-IN')} sent to Go Live`],
+    ['Western Try-On', sum((item) => item.usage.live).toLocaleString('en-IN'), 'live sessions'],
   ];
 
   return (
     <div className="space-y-4">
-      {/* The fuel for the whole business: every AI vendor's credits, first. */}
-      <EngineCredits />
 
       {/* The platform at a glance: four numbers in one strip. */}
       <section className="tf-card grid grid-cols-2 divide-line p-0 lg:grid-cols-4 lg:divide-x">
@@ -102,7 +99,7 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
       <section className="tf-card px-5 py-4">
         <h2 className="flex items-center gap-2 text-base font-bold">
           {attention.length ? <AlertTriangle className="h-5 w-5 text-warn" /> : <CheckCircle2 className="h-5 w-5 text-success" />}
-          {attention.length ? `Needs action (${attention.length})` : 'All clients are fine: credits, logins and AI spend are in order'}
+          {attention.length ? `Needs action (${attention.length})` : 'All clients are fine: credits and logins are in order'}
         </h2>
         {attention.length === 0 ? null : (
           <ul className="mt-3 divide-y divide-line">
@@ -147,7 +144,6 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
                     </div>
                   ))}
                   <div className="flex justify-between gap-3"><dt className="text-muted">Store login</dt><dd>{item.logins?.length ? item.logins[0] : <span className="text-warn">Not set</span>}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-muted">AI cost this month</dt><dd className="tabular-nums">{item.spend ? inr(item.spend.monthInr) : '—'}</dd></div>
                 </dl>
                 <div className="mt-auto flex items-center justify-between gap-3 pt-4">
                   <span className={`text-sm ${alerts.length ? 'text-warn' : 'text-success'}`}>{alerts.length ? `${alerts.length} to do` : 'All fine'}</span>
@@ -159,6 +155,11 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
         </div>
       </section>
 
+      {/* TryFocus's own vendor balances (GenLook, fal.ai, Gemini, FASHN): kept out of the way, closed by default. */}
+      <details className="tf-card p-5">
+        <summary className="cursor-pointer text-lg font-bold">Engine balances (TryFocus vendors)</summary>
+        <div className="mt-4"><EngineCredits /></div>
+      </details>
     </div>
   );
 }

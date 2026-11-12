@@ -31,6 +31,8 @@ export type MaharajaCatalogueProduct = {
   sortOrder: number;
   createdAt?: string;
   updatedAt?: string;
+  /** SHA-256 of the uploaded photo, so the same photo is never added twice. */
+  photoHash?: string;
   /** Set when the store deleted a built-in garment, which would otherwise come back from the code. */
   deletedAt?: string;
 };

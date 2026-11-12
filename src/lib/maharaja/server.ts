@@ -60,6 +60,8 @@ export type MaharajaWorkspace = {
   categoryLists?: StoreCategoryLists;
   /** Categories this store added itself, beyond the shared master list. */
   customCategories?: CustomCategory[];
+  /** AI Video's own category list per audience (what the TV's AI Video screen offers); unset = every category. */
+  videoCategoryLists?: StoreCategoryLists;
   /** The store's Western wear (WW) switch per category, over the category's default. */
   westernOverrides?: WesternOverrides;
   /** When existing garments were last brought in line with their category's Western wear setting. */
@@ -869,6 +871,7 @@ export async function updateMaharajaSettings(
       | 'customCategories'
       | 'westernOverrides'
       | 'westernRuleAppliedAt'
+      | 'videoCategoryLists'
       | 'genlookCredits'
       | 'deliveryMode'
       | 'whatsappConnected'

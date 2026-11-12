@@ -101,6 +101,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // The store's own categories per audience, from its workspace.
   const [categoryLists, setCategoryLists] = useState<StoreCategoryLists>({});
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [videoCategoryLists, setVideoCategoryLists] = useState<StoreCategoryLists>({});
   const [westernOverrides, setWesternOverrides] = useState<WesternOverrides>({});
 
   // Catalogue filtering
@@ -168,6 +169,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         if (settings.clientName) setClientName(settings.clientName);
         setCategoryLists(settings.categoryLists);
         setCustomCategories(settings.customCategories);
+        setVideoCategoryLists(settings.videoCategoryLists);
         setWesternOverrides(settings.westernOverrides);
         if (settings.access) {
           // Live Mirror needs the TV's camera stream; the tablet never runs it.
@@ -269,7 +271,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const visibleBrowseProducts = browseProducts.slice(cataloguePage * TV_PAGE_SIZE, (cataloguePage + 1) * TV_PAGE_SIZE);
   // AI Video uses only the pieces the store switched on for it.
   const videoAudienceProducts = catalogueItems.filter((item) => item.price > 0 && item.eligibleForVideo === true && item.gender === videoAudience);
-  const videoCategories = categoriesFor(categoryLists, videoAudience, customCategories).filter((cat) => videoAudienceProducts.some((item) => item.category === cat.id));
+  const videoCategories = categoriesFor(videoCategoryLists, videoAudience, customCategories).filter((cat) => videoAudienceProducts.some((item) => item.category === cat.id));
   // The 3 locations for this audience, so the customer picks one before the portrait is made.
   const videoLooks = useMemo(() => conceptsForCategory(VIDEO_CATEGORY_OF[videoAudience]), [videoAudience]);
   const activeVideoCategory = videoCategories.some((cat) => cat.id === videoCategory) ? videoCategory : videoCategories[0]?.id || '';

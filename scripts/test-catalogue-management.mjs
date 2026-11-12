@@ -22,6 +22,11 @@ assert.equal(categories.isWesternCategory('formal-shirts', [], { 'formal-shirts'
 assert.equal(categories.isWesternCategory('custom-jumpsuits-1a2b3c', custom), true, 'A store category carries its own Western wear');
 assert.equal(categories.isWesternCategory('custom-pattu-set-1a2b3c', custom), false);
 assert.ok(categories.WESTERN_GARMENT_TYPES.has('one_piece') && !categories.WESTERN_GARMENT_TYPES.has('saree'), 'Jumpsuit-type garments start as Western wear, sarees do not');
+// AI Video keeps its own short list, independent of Try-On's.
+const videoLists = categories.sanitizeCategoryLists({ women: ['sarees', 'lehengas'] }, custom);
+assert.deepEqual(videoLists, { women: ['sarees', 'lehengas'] });
+assert.deepEqual(categories.categoriesFor(videoLists, 'women', custom).map((cat) => cat.id), ['sarees', 'lehengas']);
+assert.ok(categories.categoriesFor({}, 'women', custom).length > 2, 'Try-On keeps every category when it has no list');
 assert.deepEqual(categories.sanitizeWesternOverrides({ sarees: true, 'custom-jumpsuits-1a2b3c': false, nonsense: true, kurtis: 'yes' }, custom), { sarees: true, 'custom-jumpsuits-1a2b3c': false }, 'Only real categories and true/false survive');
 
 await runWithClient('catalogue-mgmt-store', async () => {
@@ -51,6 +56,21 @@ await runWithClient('catalogue-mgmt-store', async () => {
   assert.equal(visible.products.some((item) => item.sku === 'MGMT-3'), false, 'Hidden garments leave the customer catalogue');
   const everything = await catalogue.listCatalogueProducts(0, 100, { includeInactive: true });
   assert.equal(everything.products.some((item) => item.sku === 'MGMT-3'), true, 'but stay in the workspace');
+
+  // The same photo is found again by its fingerprint, so it is never saved twice.
+  const hash = 'a'.repeat(64);
+  await catalogue.upsertCatalogueProduct({ sku: 'MGMT-4', title: 'Red Gown', price: 9000, category: 'gowns', gender: 'women', imageUrl: '/images/g.jpg', photoHash: hash, eligibleForVideo: true });
+  const twin = await catalogue.findCatalogueByPhotoHash(hash);
+  assert.equal(twin?.sku, 'MGMT-4', 'An identical photo points at the garment that has it');
+  assert.equal(await catalogue.findCatalogueByPhotoHash('b'.repeat(64)), null);
+
+  // Taking a garment off AI Video keeps it in Try-On.
+  await catalogue.bulkUpdateCatalogueFlags(['MGMT-4'], { eligibleForVideo: false });
+  records = await catalogue.loadAllCatalogueRecords(true);
+  const gown = records.find((item) => item.sku === 'MGMT-4');
+  assert.equal(gown.eligibleForVideo, false);
+  assert.equal(gown.active, true, 'still on Try-On');
+  await catalogue.deleteCatalogueProducts(['MGMT-4']);
 
   // Delete many at once.
   assert.equal(await catalogue.deleteCatalogueProducts(['MGMT-2', 'MGMT-3']), 2);

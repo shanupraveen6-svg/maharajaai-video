@@ -28,6 +28,7 @@ const AUDIENCE_LABELS: Record<CatalogueAudience, string> = { women: 'Women', men
  * standard category, or deletes one the store made — once nothing is left in it.
  */
 export default function StoreCategoriesEditor({
+  variant = 'tryon',
   lists,
   customCategories = [],
   westernOverrides = {},
@@ -38,6 +39,8 @@ export default function StoreCategoriesEditor({
   onDeleteCustom,
   onWestern,
 }: {
+  /** 'video' edits AI Video's own list: one group, no WW, no new categories (made on Try-On). */
+  variant?: 'tryon' | 'video';
   lists: StoreCategoryLists | undefined;
   customCategories?: CustomCategory[];
   westernOverrides?: WesternOverrides;
@@ -45,9 +48,9 @@ export default function StoreCategoriesEditor({
   garmentCounts?: Record<string, number>;
   saving: boolean;
   onSave: (next: StoreCategoryLists) => void;
-  onAddCustom: (input: { label: string; gender: CatalogueAudience; garmentType: GarmentType; westernTryOnEligible: boolean }) => void;
-  onDeleteCustom: (id: string) => void;
-  onWestern: (categoryId: string, western: boolean) => void;
+  onAddCustom?: (input: { label: string; gender: CatalogueAudience; garmentType: GarmentType; westernTryOnEligible: boolean }) => void;
+  onDeleteCustom?: (id: string) => void;
+  onWestern?: (categoryId: string, western: boolean) => void;
 }) {
   const [audience, setAudience] = useState<CatalogueAudience | null>(null);
   const [adding, setAdding] = useState(false);
@@ -74,9 +77,9 @@ export default function StoreCategoriesEditor({
   function remove(cat: StoreCategory) {
     setBlocked('');
     const count = garmentCounts[cat.id] || 0;
-    if (isCustomCategoryId(cat.id as string)) {
+    if (variant === 'tryon' && isCustomCategoryId(cat.id as string)) {
       if (count > 0) { setBlocked(`${cat.label} still has ${count} garment(s). Move them to another category or delete them first.`); return; }
-      onDeleteCustom(cat.id as string);
+      onDeleteCustom?.(cat.id as string);
       return;
     }
     save(shown.filter((item) => item.id !== cat.id).map((item) => item.id as CatalogueCategoryId));
@@ -89,7 +92,7 @@ export default function StoreCategoriesEditor({
 
   function submitCustom() {
     if (!audience || !newLabel.trim()) return;
-    onAddCustom({ label: newLabel.trim(), gender: audience, garmentType: newGarmentType, westernTryOnEligible: newWestern });
+    onAddCustom?.({ label: newLabel.trim(), gender: audience, garmentType: newGarmentType, westernTryOnEligible: newWestern });
     setNewLabel('');
     chooseType('shirt_pant');
     setAdding(false);
@@ -103,22 +106,22 @@ export default function StoreCategoriesEditor({
       <li key={cat.id} className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-line-strong bg-white py-1 pl-4 pr-1 text-sm font-semibold text-ink">
         {cat.label}
         <span className="text-xs font-medium tabular-nums text-subtle">{count}</span>
-        <button
+        {variant === 'tryon' && <button
           type="button"
           disabled={saving}
           aria-pressed={ww}
-          onClick={() => onWestern(cat.id as string, !ww)}
+          onClick={() => onWestern?.(cat.id as string, !ww)}
           title={ww ? 'Western wear: tap to make it Try-On only' : 'Tap to make it Western wear'}
           className={`ml-1 min-h-8 rounded-full px-2.5 text-[11px] font-bold transition ${ww ? 'bg-ink text-white' : 'border border-line-strong text-muted hover:border-ink hover:text-ink'}`}
         >
           WW
-        </button>
+        </button>}
         <button
           type="button"
           disabled={saving || shown.length <= 1}
           onClick={() => remove(cat)}
-          aria-label={custom ? `Delete ${cat.label}` : `Hide ${cat.label}`}
-          title={custom ? 'Delete this category' : 'Hide this category from customers'}
+          aria-label={custom && variant === 'tryon' ? `Delete ${cat.label}` : `Hide ${cat.label}`}
+          title={custom && variant === 'tryon' ? 'Delete this category' : variant === 'video' ? 'Take this category off AI Video' : 'Hide this category from customers'}
           className="flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-danger-soft hover:text-danger disabled:opacity-40"
         >
           <X className="h-4 w-4" />
@@ -136,6 +139,12 @@ export default function StoreCategoriesEditor({
 
       {audience && (
         <>
+          {variant === 'video' ? (
+            <div>
+              <p className="text-sm font-semibold text-ink">AI Video categories <span className="font-normal text-muted">· what the TV&apos;s AI Video screen offers</span></p>
+              <ul className="mt-2 flex flex-wrap gap-2">{shown.map(chip)}</ul>
+            </div>
+          ) : <>
           <div>
             <p className="text-sm font-semibold text-ink">Western wear <span className="font-normal text-muted">· WW on: also offered on Western Try-On, and new uploads start switched on there</span></p>
             <ul className="mt-2 flex flex-wrap gap-2">{westernShown.length ? westernShown.map(chip) : <li className="text-sm text-muted">None yet. Tap WW on a category below to add it here.</li>}</ul>
@@ -144,11 +153,12 @@ export default function StoreCategoriesEditor({
             <p className="text-sm font-semibold text-ink">Other wear <span className="font-normal text-muted">· Try-On only</span></p>
             <ul className="mt-2 flex flex-wrap gap-2">{otherShown.length ? otherShown.map(chip) : <li className="text-sm text-muted">None.</li>}</ul>
           </div>
+          </>}
           {blocked && <p className="rounded-xl bg-warn-soft p-3 text-sm text-ink">{blocked}</p>}
 
           {hidden.length > 0 && (
             <div>
-              <p className="text-sm font-semibold text-muted">Hidden from customers — tap to show again</p>
+              <p className="text-sm font-semibold text-muted">{variant === 'video' ? 'Not on AI Video — tap to add' : 'Hidden from customers — tap to show again'}</p>
               <ul className="mt-2 flex flex-wrap gap-2">
                 {hidden.map((cat) => (
                   <li key={cat.id}>
@@ -161,7 +171,7 @@ export default function StoreCategoriesEditor({
             </div>
           )}
 
-          {!adding ? (
+          {variant === 'video' ? null : !adding ? (
             <button type="button" onClick={() => setAdding(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink bg-white px-5 text-sm font-semibold text-ink hover:bg-canvas">
               <Plus className="h-4 w-4" /> New {AUDIENCE_LABELS[audience]} category
             </button>

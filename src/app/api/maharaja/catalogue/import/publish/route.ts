@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
           fabricNote: `${category.label} · Store catalogue`,
           newArrival: raw.newArrival === true,
           trending: raw.trending === true,
+          ...(typeof raw.photoHash === 'string' ? { photoHash: raw.photoHash } : {}),
           eligibleForVideo,
           eligibleForLive: raw.eligibleForLive === true,
           active: true,

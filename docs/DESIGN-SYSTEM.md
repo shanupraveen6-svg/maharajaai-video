@@ -89,31 +89,21 @@ TV, tablet and phone all follow that list.
 Prices: only AI Video shows a piece's price (to move the customer to buy it). Try-On and Western Try-On never
 show prices.
 
-The Catalogue tab (TryFocus admin and the store see the same one) is four accordion rows:
-1. Categories customers see — per audience, in two groups: Western wear (WW on: also offered on Western
-   Try-On, and garments uploaded into it start switched on there) and other wear (Try-On only). Tapping WW on
-   a category moves it between the groups and brings the garments already in it along. ✕ hides a standard
-   category; a store's own category (name + what it looks like, which sets its WW) is deleted with ✕ once
-   nothing is left in it.
-2. Upload catalogue — Who (nothing selected) → the category as a row of tabs (WW marked) → photos or a whole
-   folder → the garment table → Upload, or Redo to clear the batch. Upload adds every ready row and is held,
-   with a count, while any garment is on AI Video without a price.
-3. All garments — Who → that audience's categories as tabs (with counts; a hidden category that still holds
-   garments is listed and marked) → the garment table, 25 rows a page. Needs attention gathers garments
-   customers can't see properly: a category from another audience, a hidden category, AI Video without a price.
-4. Upload history — one row per upload day, newest first ("30 Oct 2026 · 164 garments · Men: Veshti 44 · …");
-   opening a day shows its garments in the same table; ticking a day offers Delete for the whole upload.
+The Catalogue tab (TryFocus admin and the store see the same one) has two sections, Try-On and AI Video,
+each with the same three things: a Categories button, an Upload garments button, and the garment table.
+- Try-On is the whole collection, with no prices. Its categories carry one WW (Western wear) switch each;
+  a WW category's garments also go on Western Try-On by themselves. Upload: pick who and a category, add
+  photos, switch to another who or category and add more, then Submit once. Table: who → category tabs →
+  photo · name · WW on/off · ✕ (delete).
+- AI Video is the short list of premium pieces, with its own category list and its own upload: pick who and a
+  category, add photos, type a price on every row, Save (blocked until every row has one). Table: who →
+  category tabs → photo · name · price · ✕ (takes the piece off AI Video; it stays in Try-On). AI Video pieces
+  also show in Try-On, never with a price.
+A photo already in the catalogue is skipped on upload and named, so nothing is saved twice. Tick rows to
+remove several at once. The workspace is used on a computer or tablet, so the table may scroll sideways.
 
-The garment table is the same in all three places: Photo · Name (edit in place) · Category (change in place;
-a new category re-applies its Western wear) · ₹ Price · AI Video · Western Try-On · delete. AI Video and
-Western Try-On are tap-on / tap-off buttons, never checkboxes. Every garment has its own price; the rule is
-simply: type the price, tap AI Video (the box turns red if AI Video is on without one). Ticking rows brings up
-one action bar: New arrival · Trending · Hide · Show · Delete (a tag already on every ticked garment comes off).
-Edits to saved garments save at once; deleting a garment removes its photo too. The workspace is used on a
-computer or tablet, never a phone, so this table may scroll sideways. Sizes are not recorded.
-
-New arrival and Trending are the store's tags: the TV lists them as New arrivals and Trending in the category
-list (Trending only when the store has tagged something for that audience). Newest uploads come first.
+The TV lists New arrival and Trending garments under New arrivals and Trending (Trending only when something is
+tagged for that audience). Newest uploads come first.
 
 **One garment per Try-On (TryFocus rule).** Every Try-On dresses the customer in exactly one garment, sent to
 the engine as one piece: a shirt, a veshti, a saree, a kurti… never a shirt-and-veshti set in one photo. The
@@ -159,7 +149,9 @@ A new client is set up on its own page (New client, from the admin header): stor
 and a starting credit package, in that order. Create workspace saves it and returns to admin with that
 store already picked, so it is live in the store dropdown at once.
 
-TryFocus admin, one client, in setup order (numbered headings, one section each):
+TryFocus admin, one client: one header (name, Live / Paused, client picker) and the store's own tab bar plus
+one TryFocus-only tab, Plan, which holds the setup in order (numbered headings, one section each). Admin shows
+credits only — used, limit, left, and top-ups as unit packages — never a rupee price, GST or AI cost:
 1. Platform: tick boxes TV · Tablet · Phone. TV, Tablet or both; at least one stays ticked. Phone is always
    ticked and locked: the customer's phone (Wall QR Try-On, and finishing an AI Video the TV started) comes
    with both. Phone on its own is no longer sold. The modules switch with the platforms: AI Video needs the

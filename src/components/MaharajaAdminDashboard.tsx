@@ -8,12 +8,9 @@ import GoLivePromoManager from '@/components/GoLivePromoManager';
 import ClientVideoLibrary from '@/components/ClientVideoLibrary';
 import LockedAmountField from '@/components/LockedAmountField';
 import { resolveAccess } from '@/lib/maharaja/access';
-import { conceptsForCategory } from '@/lib/maharaja/video-concepts';
-import type { CustomerCategory } from '@/lib/maharaja/config';
 import { isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
-  ChevronDown,
   Download,
   ExternalLink,
   LoaderCircle,
@@ -27,7 +24,7 @@ import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
 import StoreLogoCard from '@/components/StoreLogoCard';
 import { allCategoriesFor, categoriesFor, isWesternCategory, AUDIENCES, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
-import CatalogueTable, { type CatalogueBulkAction, type CatalogueRowPatch, type CatalogueTableRow, type CategoryOption } from '@/components/CatalogueTable';
+import CatalogueTable, { type CatalogueTableRow } from '@/components/CatalogueTable';
 import { NavTabs, Segmented, StatusPill } from '@/components/ui';
 import CustomerLeads from '@/components/CustomerLeads';
 import { downloadBrandedQr as downloadBrandedQrPoster } from '@/lib/maharaja/branded-qr';
@@ -52,6 +49,7 @@ type WorkspaceData = {
   instagramUrl?: string;
   categoryLists?: StoreCategoryLists;
   customCategories?: CustomCategory[];
+  videoCategoryLists?: StoreCategoryLists;
   westernOverrides?: WesternOverrides;
   westernRuleAppliedAt?: string;
   deliveryMode?: 'whatsapp' | 'qr';
@@ -150,47 +148,22 @@ type ManagedCatalogueItem = {
 };
 
 const CATALOGUE_PAGE_SIZE = 25;
-const HISTORY_PAGE_SIZE = 50;
-const CONCEPT_AUDIENCE: Record<CatalogueAudience, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
 const AUDIENCE_NAMES: Record<CatalogueAudience, string> = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' };
-const AUDIENCE_POSSESSIVE: Record<CatalogueAudience, string> = { women: "Women's", men: "Men's", boys: "Boys'", girls: "Girls'" };
-
-/** The upload day of a garment in India, as YYYY-MM-DD (sorts) and as "1 Oct 2026" (reads). */
-function uploadDay(createdAt?: string): { key: string; label: string } {
-  const date = createdAt ? new Date(createdAt) : null;
-  if (!date || Number.isNaN(date.getTime())) return { key: '0000-00-00', label: 'Date not recorded' };
-  return {
-    key: date.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
-    label: date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }),
-  };
-}
-
-function AccordionRow({ open, onToggle, title, summary, children }: { open: boolean; onToggle: () => void; title: string; summary?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className="tf-card overflow-hidden">
-      <button type="button" aria-expanded={open} onClick={onToggle} className="flex min-h-16 w-full items-center justify-between gap-4 px-6 py-3 text-left hover:bg-canvas">
-        <span className="min-w-0">
-          <span className="block text-lg font-bold text-ink">{title}</span>
-          {summary && <span className="mt-0.5 block text-sm text-muted">{summary}</span>}
-        </span>
-        <ChevronDown className={`h-5 w-5 shrink-0 text-muted transition ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && <div className="border-t border-line px-6 py-5">{children}</div>}
-    </section>
-  );
-}
 
 export default function MaharajaAdminDashboard({
   workspaceCode,
   expectedWorkspaceCode,
+  adminTab,
 }: {
   workspaceCode?: string;
   expectedWorkspaceCode?: string;
+  /** TryFocus admin only: its setup (platform, credits, login, delivery) as one more tab, and no second store header. */
+  adminTab?: React.ReactNode;
 }) {
   const activeWorkspaceCode = workspaceCode || expectedWorkspaceCode || 'workspace';
   const router = useRouter();
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
-  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'golive' | 'customers' | 'settings'>('overview');
+  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'golive' | 'customers' | 'settings' | 'plan'>('overview');
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -203,16 +176,12 @@ export default function MaharajaAdminDashboard({
   // Managed Catalogue state (Task 8 & Task 10)
   const [catalogue, setCatalogue] = useState<ManagedCatalogueItem[]>([]);
   const [catalogueLoading, setCatalogueLoading] = useState<boolean>(true);
-  // Catalogue tab: four accordion rows; the garment table filtered by Who → category (or Needs attention).
-  const [catOpen, setCatOpen] = useState({ categories: false, upload: false, garments: true, history: true });
+  // Catalogue tab: Try-On (the whole collection) or AI Video (priced pieces); one panel open at a time.
+  const [catSection, setCatSection] = useState<'tryon' | 'video'>('tryon');
+  const [catPanel, setCatPanel] = useState<'categories' | 'upload' | null>(null);
   const [catGender, setCatGender] = useState<CatalogueAudience | null>(null);
   const [catFilter, setCatFilter] = useState<string>('');
-  const [attentionOnly, setAttentionOnly] = useState(false);
   const [catalogueBusy, setCatalogueBusy] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState<Set<string>>(new Set());
-  const [historyShown, setHistoryShown] = useState<Record<string, number>>({});
-  const [historyTicked, setHistoryTicked] = useState<string | null>(null);
-  const [historyConfirm, setHistoryConfirm] = useState<string | null>(null);
   // Go Live videos still kept (one day), as counted by the Went live list.
   const [goLiveCount, setGoLiveCount] = useState<number | null>(null);
   const [cataloguePage, setCataloguePage] = useState(0);
@@ -287,6 +256,7 @@ export default function MaharajaAdminDashboard({
         | 'tryOnMinPurchase'
         | 'instagramUrl'
         | 'categoryLists'
+        | 'videoCategoryLists'
         | 'customCategories'
       >
     >
@@ -361,129 +331,48 @@ export default function MaharajaAdminDashboard({
   const customCats = useMemo(() => workspace?.customCategories || [], [workspace?.customCategories]);
   const westernSettings = useMemo(() => workspace?.westernOverrides || {}, [workspace?.westernOverrides]);
   const westernOf = useCallback((id: string) => isWesternCategory(id, customCats, westernSettings), [customCats, westernSettings]);
+  const sectionLists = catSection === 'video' ? workspace?.videoCategoryLists : workspace?.categoryLists;
+  // AI Video's table holds only the priced pieces; Try-On's holds everything.
+  const sectionGarments = useMemo(() => (catSection === 'video' ? catalogue.filter((item) => item.eligibleForVideo) : catalogue), [catalogue, catSection]);
 
-  /** Every category an audience can have (hidden ones too, so a garment in one still has a valid choice). */
-  const tableCategoryOptions = useCallback((gender: CatalogueAudience): CategoryOption[] =>
-    allCategoriesFor(gender, customCats).map((cat) => ({ id: cat.id as string, label: cat.label, western: westernOf(cat.id as string) })), [customCats, westernOf]);
-
-  /** What's wrong with a garment, if anything — shown on its row and gathered under Needs attention. */
-  const garmentFlags = useCallback((item: ManagedCatalogueItem): string[] => {
-    const flags: string[] = [];
-    const ownAudience = allCategoriesFor(item.gender, customCats).some((cat) => cat.id === item.category);
-    if (!ownAudience) flags.push(`Not a ${AUDIENCE_POSSESSIVE[item.gender]} category`);
-    else if (!categoriesFor(workspace?.categoryLists, item.gender, customCats).some((cat) => cat.id === item.category)) flags.push('Category hidden');
-    return flags;
-  }, [customCats, workspace?.categoryLists]);
-
-  const needsAttention = useCallback((item: ManagedCatalogueItem) =>
-    garmentFlags(item).length > 0 || (item.eligibleForVideo && !(item.price > 0)), [garmentFlags]);
-
-  const toRow = useCallback((item: ManagedCatalogueItem): CatalogueTableRow => ({
-    key: item.sku,
-    sku: item.sku,
-    image: item.thumbnailUrl || item.imageUrl,
-    title: item.title,
-    category: item.category,
-    gender: item.gender,
-    price: item.price > 0 ? String(item.price) : '',
-    aiVideo: item.eligibleForVideo,
-    western: item.eligibleForLive === true,
-    newArrival: item.newArrival,
-    trending: item.trending === true,
-    active: item.active,
-    flags: garmentFlags(item),
-  }), [garmentFlags]);
-
-  const garmentCounts = useMemo(() => catalogue.reduce<Record<string, number>>((counts, item) => {
+  const garmentCounts = useMemo(() => sectionGarments.reduce<Record<string, number>>((counts, item) => {
     counts[item.category] = (counts[item.category] || 0) + 1;
     return counts;
-  }, {}), [catalogue]);
+  }, {}), [sectionGarments]);
 
-  const attentionList = useMemo(() => catalogue.filter(needsAttention), [catalogue, needsAttention]);
-
-  /** Tabs for the chosen audience: the categories customers see, plus any hidden one that still holds garments. */
+  /** Category tabs: the section's list, plus any category outside it that still holds garments (marked). */
   const catTabs = useMemo(() => {
     if (!catGender) return [];
-    const shown = categoriesFor(workspace?.categoryLists, catGender, customCats);
-    const hiddenWithGarments = allCategoriesFor(catGender, customCats).filter((cat) => !shown.some((item) => item.id === cat.id) && catalogue.some((item) => item.gender === catGender && item.category === cat.id));
-    return [
-      ...shown.map((cat) => ({ id: cat.id as string, label: cat.label, hidden: false })),
-      ...hiddenWithGarments.map((cat) => ({ id: cat.id as string, label: cat.label, hidden: true })),
-    ];
-  }, [catGender, workspace?.categoryLists, customCats, catalogue]);
-  // Opens on the first category that actually has garments, not an empty one.
+    const shown = categoriesFor(sectionLists, catGender, customCats);
+    const extra = allCategoriesFor(catGender, customCats).filter((cat) => !shown.some((item) => item.id === cat.id) && sectionGarments.some((item) => item.gender === catGender && item.category === cat.id));
+    return [...shown.map((cat) => ({ id: cat.id as string, label: cat.label, hidden: false })), ...extra.map((cat) => ({ id: cat.id as string, label: cat.label, hidden: true }))];
+  }, [catGender, sectionLists, customCats, sectionGarments]);
   const activeCatFilter = catTabs.some((cat) => cat.id === catFilter) ? catFilter
-    : (catTabs.find((cat) => catalogue.some((item) => item.gender === catGender && item.category === cat.id)) || catTabs[0])?.id;
+    : (catTabs.find((cat) => sectionGarments.some((item) => item.gender === catGender && item.category === cat.id)) || catTabs[0])?.id;
 
-  const filteredCatalogue = useMemo(() => {
-    if (attentionOnly) return attentionList;
-    if (!catGender) return [];
-    return catalogue.filter((item) => item.gender === catGender && item.category === activeCatFilter);
-  }, [attentionOnly, attentionList, catalogue, catGender, activeCatFilter]);
+  const filteredCatalogue = useMemo(() => (catGender ? sectionGarments.filter((item) => item.gender === catGender && item.category === activeCatFilter) : []), [sectionGarments, catGender, activeCatFilter]);
   const catalogueTotalPages = Math.max(1, Math.ceil(filteredCatalogue.length / CATALOGUE_PAGE_SIZE));
-
-  /** One row per upload day, newest first, with what went in that day. */
-  const uploadHistory = useMemo(() => {
-    const days = new Map<string, { key: string; label: string; items: ManagedCatalogueItem[] }>();
-    for (const item of catalogue) {
-      const day = uploadDay(item.createdAt);
-      if (!days.has(day.key)) days.set(day.key, { ...day, items: [] });
-      days.get(day.key)!.items.push(item);
-    }
-    return Array.from(days.values()).sort((a, b) => b.key.localeCompare(a.key)).map((day) => {
-      const parts = new Map<string, number>();
-      for (const item of day.items) {
-        const label = `${AUDIENCE_NAMES[item.gender]}: ${allCategoriesFor(item.gender, customCats).find((cat) => cat.id === item.category)?.label || 'Other'}`;
-        parts.set(label, (parts.get(label) || 0) + 1);
-      }
-      return { ...day, breakdown: Array.from(parts.entries()).sort((a, b) => b[1] - a[1]).map(([label, count]) => `${label} ${count}`) };
-    });
-  }, [catalogue, customCats]);
 
   /** Garments whose Western Try-On switch disagrees with their category's Western wear setting. */
   const westernMismatches = useMemo(() => catalogue.filter((item) => (item.eligibleForLive === true) !== westernOf(item.category)).length, [catalogue, westernOf]);
 
-  /** An edit in the garment table, saved at once. A new category brings its garment type and Western wear. */
-  function changeSaved(sku: string, patch: CatalogueRowPatch) {
-    const item = catalogue.find((row) => row.sku === sku);
-    if (!item) return;
-    if (patch.title !== undefined) void toggleCatalogueField(item, { title: patch.title });
-    if (patch.price !== undefined) void toggleCatalogueField(item, { price: Math.max(0, Number(patch.price) || 0) });
-    if (patch.aiVideo !== undefined) void toggleCatalogueField(item, { eligibleForVideo: patch.aiVideo });
-    if (patch.western !== undefined) void toggleCatalogueField(item, { eligibleForLive: patch.western });
-    if (patch.category) {
-      const category = allCategoriesFor(item.gender, customCats).find((cat) => cat.id === patch.category);
-      if (category) void toggleCatalogueField(item, { category: category.id, garmentType: category.garmentType, eligibleForLive: westernOf(category.id as string) });
-    }
+  function rowFor(item: ManagedCatalogueItem): CatalogueTableRow {
+    return { key: item.sku, sku: item.sku, image: item.thumbnailUrl || item.imageUrl, title: item.title, price: item.price > 0 ? String(item.price) : '', western: item.eligibleForLive === true };
   }
 
-  async function bulkSaved(action: CatalogueBulkAction, skus: string[], on: boolean) {
-    const apiAction = action === 'new-arrival' ? (on ? 'new-arrival-on' : 'new-arrival-off')
-      : action === 'trending' ? (on ? 'trending-on' : 'trending-off')
-        : action;
+  /** ✕ in Try-On deletes the garment; in AI Video it only takes the garment off AI Video. */
+  async function removeGarments(skus: string[]) {
+    const action = catSection === 'video' ? 'ai-video-off' : 'delete';
     setCatalogueBusy(true);
     setError('');
     setNotice('');
     try {
-      const res = await fetch('/api/maharaja/catalogue/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspaceCode: activeWorkspaceCode, skus, action: apiAction }),
-      });
+      const res = await fetch('/api/maharaja/catalogue/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceCode: activeWorkspaceCode, skus, action }) });
       const data = await res.json();
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not update the garments.');
       const chosen = new Set(skus);
-      if (action === 'delete') {
-        setCatalogue((prev) => prev.filter((item) => !chosen.has(item.sku)));
-      } else {
-        const patch: Partial<ManagedCatalogueItem> = action === 'new-arrival' ? { newArrival: on, badge: on ? 'NEW ARRIVAL' : 'ROYAL SILK' }
-          : action === 'trending' ? { trending: on }
-            : { active: action === 'show' };
-        setCatalogue((prev) => prev.map((item) => (chosen.has(item.sku) ? { ...item, ...patch } : item)));
-      }
-      const word = action === 'delete' ? 'deleted' : action === 'hide' ? 'hidden' : action === 'show' ? 'showing again'
-        : `${on ? 'tagged' : 'untagged'} ${action === 'trending' ? 'Trending' : 'New arrival'}`;
-      setNotice(`${data.count} garment(s) ${word}.`);
+      setCatalogue((prev) => (action === 'delete' ? prev.filter((item) => !chosen.has(item.sku)) : prev.map((item) => (chosen.has(item.sku) ? { ...item, eligibleForVideo: false } : item))));
+      setNotice(action === 'delete' ? `${data.count} garment(s) deleted.` : `${data.count} garment(s) taken off AI Video. They stay in Try-On.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not update the garments.');
     } finally {
@@ -497,18 +386,12 @@ export default function MaharajaAdminDashboard({
     setError('');
     setNotice('');
     try {
-      const res = await fetch('/api/maharaja/catalogue/western', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspaceCode: activeWorkspaceCode, categoryId, western }),
-      });
+      const res = await fetch('/api/maharaja/catalogue/western', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceCode: activeWorkspaceCode, categoryId, western }) });
       const data = await res.json();
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not update Western wear.');
       setWorkspace((prev) => (prev ? { ...prev, westernOverrides: data.westernOverrides } : prev));
       setCatalogue((prev) => prev.map((item) => (item.category === categoryId ? { ...item, eligibleForLive: western } : item)));
-      const label = allCategoriesFor(catGender || 'women', customCats).find((cat) => cat.id === categoryId)?.label
-        || AUDIENCES.flatMap((aud) => allCategoriesFor(aud, customCats)).find((cat) => cat.id === categoryId)?.label || 'This category';
-      setNotice(`${label} is ${western ? 'now Western wear' : 'no longer Western wear'}. ${data.changed} garment(s) switched ${western ? 'on' : 'off'} for Western Try-On.`);
+      setNotice(`${data.changed} garment(s) switched ${western ? 'on' : 'off'} for Western Try-On.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not update Western wear.');
     } finally {
@@ -522,16 +405,12 @@ export default function MaharajaAdminDashboard({
     setError('');
     setNotice('');
     try {
-      const res = await fetch('/api/maharaja/catalogue/western', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspaceCode: activeWorkspaceCode, applyAll: true }),
-      });
+      const res = await fetch('/api/maharaja/catalogue/western', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceCode: activeWorkspaceCode, applyAll: true }) });
       const data = await res.json();
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not apply the Western wear rule.');
       setWorkspace((prev) => (prev ? { ...prev, westernRuleAppliedAt: data.westernRuleAppliedAt } : prev));
       await loadCatalogue();
-      setNotice(`Done: ${data.on} garment(s) switched on and ${data.off} switched off for Western Try-On, to match their category.`);
+      setNotice(`Done: ${data.on} switched on and ${data.off} switched off for Western Try-On, to match their category.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not apply the Western wear rule.');
     } finally {
@@ -539,7 +418,8 @@ export default function MaharajaAdminDashboard({
     }
   }
 
-  useEffect(() => setCataloguePage(0), [catGender, catFilter, attentionOnly]);
+
+  useEffect(() => setCataloguePage(0), [catGender, catFilter, catSection]);
 
   if (loading && !workspace) {
     return (
@@ -701,8 +581,10 @@ export default function MaharajaAdminDashboard({
     .map((row) => ({ ...row, credit: credits.find((item) => item.label === row.title && item.level !== 'none') }));
   const toneText: Record<Tone, string> = { success: 'text-success', warn: 'text-warn', danger: 'text-danger', neutral: 'text-muted' };
 
+  // Inside TryFocus admin the page already has its own <main>.
+  const Shell = adminTab ? 'div' : 'main';
   return (
-    <main className="min-h-screen bg-canvas text-ink">
+    <Shell className="min-h-screen bg-canvas text-ink">
       {(creditAlerts.length > 0 || !workspace.campaignEnabled) && (
         <div role="alert" className="border-b border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger sm:px-8">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
@@ -714,8 +596,8 @@ export default function MaharajaAdminDashboard({
           </div>
         </div>
       )}
-      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 pt-4 sm:px-8">
+      <header className={adminTab ? 'border-b border-line bg-canvas' : 'sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md'}>
+        {!adminTab && <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 pt-4 sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{workspace.clientName.replace(/^The\s+/i, '').charAt(0)}</span>
             <div className="min-w-0">
@@ -733,7 +615,7 @@ export default function MaharajaAdminDashboard({
             <span className={`h-2 w-2 rounded-full ${workspace.campaignEnabled ? 'bg-success' : 'bg-subtle'}`} />
             {workspace.campaignEnabled ? 'Live for customers' : 'Paused'}
           </button>
-        </div>
+        </div>}
         <div className="mx-auto mt-2 max-w-6xl px-5 sm:px-8">
           <NavTabs
             wrap
@@ -747,6 +629,7 @@ export default function MaharajaAdminDashboard({
               ...(goLiveOn ? [{ value: 'golive' as const, label: 'Go Live & videos' }] : []),
               { value: 'customers', label: 'Customers' },
               { value: 'settings', label: 'Settings' },
+              ...(adminTab ? [{ value: 'plan' as const, label: 'Plan · TryFocus only' }] : []),
             ]}
           />
         </div>
@@ -878,249 +761,162 @@ export default function MaharajaAdminDashboard({
           </div>
         )}
 
+        {section === 'plan' && adminTab}
+
         {section === 'catalogue' && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-2xl font-bold">Your catalogue</h2>
-              <p className="text-sm text-muted">
-                {catalogueLoading ? 'Loading…' : `${catalogue.length.toLocaleString('en-IN')} garments · ${catalogue.filter((item) => item.active).length.toLocaleString('en-IN')} showing to customers`}
-                {catalogueBusy && <LoaderCircle className="ml-2 inline h-4 w-4 animate-spin" />}
-              </p>
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold">Your catalogue</h2>
+                <p className="mt-1 text-sm text-muted">
+                  {catalogueLoading ? 'Loading…' : `${catalogue.length.toLocaleString('en-IN')} garments on Try-On · ${catalogue.filter((item) => item.eligibleForVideo).length.toLocaleString('en-IN')} on AI Video`}
+                  {catalogueBusy && <LoaderCircle className="ml-2 inline h-4 w-4 animate-spin" />}
+                </p>
+              </div>
+              <div className="w-full max-w-sm">
+                <Segmented
+                  size="sm"
+                  label="Section"
+                  value={catSection}
+                  onChange={(value) => { setCatSection(value); setCatPanel(null); setCatFilter(''); }}
+                  options={limits.video > 0 ? [{ value: 'tryon', label: 'Try-On' }, { value: 'video', label: 'AI Video' }] : [{ value: 'tryon', label: 'Try-On' }]}
+                />
+              </div>
             </div>
 
-            <AccordionRow
-              open={catOpen.categories}
-              onToggle={() => setCatOpen((open) => ({ ...open, categories: !open.categories }))}
-              title="Categories customers see"
-              summary={`Add, hide or make your own. WW marks Western wear: also on Western Try-On, and new uploads start on there.`}
-            >
-              <StoreCategoriesEditor
-                lists={workspace.categoryLists}
-                customCategories={workspace.customCategories}
-                westernOverrides={workspace.westernOverrides}
-                garmentCounts={garmentCounts}
-                saving={saving || catalogueBusy}
-                onSave={(categoryLists) => void savePatch({ categoryLists })}
-                onWestern={(categoryId, western) => void setWesternWear(categoryId, western)}
-                onAddCustom={(input) => {
-                  const slug = input.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'category';
-                  const id = `custom-${slug}-${Date.now().toString(36)}`;
-                  const nextCustoms = [...(workspace.customCategories || []), { id, ...input }];
-                  const nextLists: StoreCategoryLists = {};
-                  for (const aud of AUDIENCES) {
-                    const shown = categoriesFor(workspace.categoryLists, aud, workspace.customCategories || []).map((cat) => cat.id as CatalogueCategoryId);
-                    nextLists[aud] = aud === input.gender ? [...shown, id] : shown;
-                  }
-                  void savePatch({ customCategories: nextCustoms, categoryLists: nextLists });
-                }}
-                onDeleteCustom={(id) => {
-                  const nextCustoms = (workspace.customCategories || []).filter((cat) => cat.id !== id);
-                  const nextLists: StoreCategoryLists = {};
-                  for (const aud of AUDIENCES) {
-                    nextLists[aud] = categoriesFor(workspace.categoryLists, aud, workspace.customCategories || [])
-                      .map((cat) => cat.id as CatalogueCategoryId)
-                      .filter((catId) => catId !== id);
-                  }
-                  void savePatch({ customCategories: nextCustoms, categoryLists: nextLists });
-                }}
-              />
-            </AccordionRow>
+            <section className="tf-card space-y-5 p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted">
+                  {catSection === 'tryon'
+                    ? 'Every garment, no prices. A WW (Western wear) category also goes on Western Try-On.'
+                    : 'Premium pieces with a price. They show in Try-On too, without the price.'}
+                </p>
+                <div className="flex gap-2">
+                  <button type="button" aria-pressed={catPanel === 'categories'} onClick={() => setCatPanel((open) => (open === 'categories' ? null : 'categories'))} className={`tf-btn !min-h-11 px-5 text-sm ${catPanel === 'categories' ? 'bg-ink text-white' : 'tf-btn-secondary'}`}>Categories</button>
+                  <button type="button" aria-pressed={catPanel === 'upload'} onClick={() => setCatPanel((open) => (open === 'upload' ? null : 'upload'))} className="tf-btn tf-btn-primary !min-h-11 px-5 text-sm">{catPanel === 'upload' ? 'Close upload' : 'Upload garments'}</button>
+                </div>
+              </div>
 
-            <AccordionRow
-              open={catOpen.upload}
-              onToggle={() => setCatOpen((open) => ({ ...open, upload: !open.upload }))}
-              title="Upload catalogue"
-              summary="Who → category → photos or a whole folder. Prices and switches right in the table."
-            >
-              <CatalogueBulkImport
-                workspaceCode={activeWorkspaceCode}
-                experiences={{ video: limits.video > 0, live: limits.live > 0 }}
-                categoryLists={workspace.categoryLists}
-                customCategories={workspace.customCategories}
-                westernOverrides={workspace.westernOverrides}
-                onPublished={async (count) => {
-                  await loadCatalogue();
-                  if (count > 0) {
-                    const today = uploadDay(new Date().toISOString()).key;
-                    setHistoryOpen((open) => new Set(open).add(today));
-                    setCatOpen((open) => ({ ...open, history: true }));
-                  }
-                }}
-              />
-            </AccordionRow>
-
-            <AccordionRow
-              open={catOpen.garments}
-              onToggle={() => setCatOpen((open) => ({ ...open, garments: !open.garments }))}
-              title="All garments"
-              summary="Pick who it's for, then a category. Edit, tag, hide or delete right in the table."
-            >
-              <div className="space-y-4">
-                {!workspace.westernRuleAppliedAt && limits.live > 0 && westernMismatches > 0 && !catalogueLoading && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warn bg-warn-soft p-4">
-                    <p className="text-sm text-ink"><b>{westernMismatches} garment(s)</b> don&apos;t match their category&apos;s Western wear setting, so Western Try-On shows the wrong pieces. Set every garment to match its category once; you can still switch any one back.</p>
-                    <button type="button" disabled={catalogueBusy} onClick={() => void applyWesternRule()} className="tf-btn tf-btn-primary !min-h-11 shrink-0 px-5 text-sm">Match all to their category</button>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="max-w-md flex-1">
-                    <Segmented
-                      size="sm"
-                      label="Who is it for?"
-                      value={attentionOnly ? null : catGender}
-                      onChange={(g) => { setAttentionOnly(false); setCatGender(g); setCatFilter(''); }}
-                      options={AUDIENCES.map((value) => ({ value, label: AUDIENCE_NAMES[value] }))}
+              {catPanel === 'categories' && (
+                <div className="rounded-2xl border border-line bg-canvas p-5">
+                  {catSection === 'tryon' ? (
+                    <StoreCategoriesEditor
+                      lists={workspace.categoryLists}
+                      customCategories={workspace.customCategories}
+                      westernOverrides={workspace.westernOverrides}
+                      garmentCounts={garmentCounts}
+                      saving={saving || catalogueBusy}
+                      onSave={(categoryLists) => void savePatch({ categoryLists })}
+                      onWestern={(categoryId, western) => void setWesternWear(categoryId, western)}
+                      onAddCustom={(input) => {
+                        const slug = input.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'category';
+                        const id = `custom-${slug}-${Date.now().toString(36)}`;
+                        const nextCustoms = [...(workspace.customCategories || []), { id, ...input }];
+                        const nextLists: StoreCategoryLists = {};
+                        for (const aud of AUDIENCES) {
+                          const shown = categoriesFor(workspace.categoryLists, aud, workspace.customCategories || []).map((cat) => cat.id as CatalogueCategoryId);
+                          nextLists[aud] = aud === input.gender ? [...shown, id] : shown;
+                        }
+                        void savePatch({ customCategories: nextCustoms, categoryLists: nextLists });
+                      }}
+                      onDeleteCustom={(id) => {
+                        const nextCustoms = (workspace.customCategories || []).filter((cat) => cat.id !== id);
+                        const nextLists: StoreCategoryLists = {};
+                        for (const aud of AUDIENCES) {
+                          nextLists[aud] = categoriesFor(workspace.categoryLists, aud, workspace.customCategories || []).map((cat) => cat.id as CatalogueCategoryId).filter((catId) => catId !== id);
+                        }
+                        void savePatch({ customCategories: nextCustoms, categoryLists: nextLists });
+                      }}
                     />
-                  </div>
-                  {attentionList.length > 0 && (
-                    <button type="button" aria-pressed={attentionOnly} onClick={() => setAttentionOnly((on) => !on)} className={`min-h-11 rounded-full px-4 text-sm font-semibold ${attentionOnly ? 'bg-ink text-white' : 'border border-warn bg-warn-soft text-ink'}`}>
-                      Needs attention · {attentionList.length}
-                    </button>
+                  ) : (
+                    <StoreCategoriesEditor
+                      variant="video"
+                      lists={workspace.videoCategoryLists}
+                      customCategories={workspace.customCategories}
+                      garmentCounts={garmentCounts}
+                      saving={saving || catalogueBusy}
+                      onSave={(videoCategoryLists) => void savePatch({ videoCategoryLists })}
+                    />
                   )}
                 </div>
+              )}
 
-                {!attentionOnly && catGender && (
-                  <div role="group" aria-label="Category" className="flex flex-wrap gap-x-1 border-b border-line">
-                    {catTabs.map((cat) => {
-                      const count = catalogue.filter((item) => item.gender === catGender && item.category === cat.id).length;
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          aria-pressed={activeCatFilter === cat.id}
-                          onClick={() => setCatFilter(cat.id)}
-                          className={`-mb-px min-h-11 border-b-2 px-2.5 text-sm transition ${activeCatFilter === cat.id ? 'border-ink font-bold text-ink' : 'border-transparent font-medium text-muted hover:text-ink'}`}
-                        >
-                          {cat.label}
-                          {westernOf(cat.id) && <span className="ml-1.5 rounded-full bg-ink px-1.5 py-px text-[10px] font-bold text-white">WW</span>}
-                          <span className="ml-1 text-xs font-medium tabular-nums opacity-60">{count}</span>
-                          {cat.hidden && <span className="ml-1 text-xs font-medium text-muted">(hidden)</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+              {catPanel === 'upload' && (
+                <CatalogueBulkImport
+                  key={catSection}
+                  kind={catSection}
+                  workspaceCode={activeWorkspaceCode}
+                  liveOn={limits.live > 0}
+                  categoryLists={catSection === 'video' ? workspace.videoCategoryLists : workspace.categoryLists}
+                  customCategories={workspace.customCategories}
+                  westernOverrides={workspace.westernOverrides}
+                  onDone={async ({ count, gender, category }) => {
+                    await loadCatalogue();
+                    setCatPanel(null);
+                    setCatGender(gender);
+                    setCatFilter(category);
+                    setNotice(catSection === 'video' ? `${count} garment(s) saved to AI Video.` : `${count} garment(s) added to Try-On.`);
+                  }}
+                />
+              )}
 
-                {attentionOnly && <p className="text-sm text-muted">Garments customers can&apos;t see properly: a category from another audience, a hidden category, or AI Video without a price. Fix them here; each leaves this list once it&apos;s right.</p>}
+              {catSection === 'tryon' && !workspace.westernRuleAppliedAt && limits.live > 0 && westernMismatches > 0 && !catalogueLoading && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warn bg-warn-soft px-4 py-3">
+                  <p className="text-sm text-ink"><b>{westernMismatches} garment(s)</b> don&apos;t match their category&apos;s Western wear setting.</p>
+                  <button type="button" disabled={catalogueBusy} onClick={() => void applyWesternRule()} className="tf-btn tf-btn-primary !min-h-10 px-4 text-sm">Match all to their category</button>
+                </div>
+              )}
 
-                {catalogueLoading ? (
-                  <div className="flex items-center justify-center py-12 text-sm text-muted"><LoaderCircle className="mr-2 h-5 w-5 animate-spin" /> Loading catalogue…</div>
-                ) : !attentionOnly && !catGender ? (
-                  <p className="py-10 text-center text-sm text-muted">Tap Women, Men, Boys or Girls to see your garments.</p>
-                ) : (
-                  <>
-                    <CatalogueTable
-                      rows={filteredCatalogue.slice(cataloguePage * CATALOGUE_PAGE_SIZE, (cataloguePage + 1) * CATALOGUE_PAGE_SIZE).map(toRow)}
-                      mode="saved"
-                      experiences={{ video: limits.video > 0, live: limits.live > 0 }}
-                      categoryOptions={tableCategoryOptions}
-                      onChange={changeSaved}
-                      onBulk={bulkSaved}
-                      busy={catalogueBusy}
-                      emptyText={attentionOnly ? 'Nothing needs attention.' : 'No garments in this category yet. Open Upload catalogue to add some.'}
-                    />
-                    {catalogueTotalPages > 1 && (
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <button type="button" disabled={cataloguePage === 0} onClick={() => setCataloguePage((page) => page - 1)} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">Back</button>
-                        <span className="tabular-nums text-muted">Page {cataloguePage + 1} of {catalogueTotalPages} · {filteredCatalogue.length} garments</span>
-                        <button type="button" disabled={cataloguePage + 1 >= catalogueTotalPages} onClick={() => setCataloguePage((page) => page + 1)} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">More</button>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {limits.video > 0 && catGender && !attentionOnly && (
-                  <details className="rounded-2xl border border-line bg-canvas p-4">
-                    <summary className="cursor-pointer text-sm font-semibold text-ink">AI Video scenes for {AUDIENCE_NAMES[catGender]}</summary>
-                    <p className="mt-2 text-sm text-muted">Every AI Video for {AUDIENCE_NAMES[catGender]} uses one of these scenes. The customer&apos;s outfit stays exactly as it is.</p>
-                    <ul className="mt-3 grid gap-3 sm:grid-cols-3">
-                      {conceptsForCategory(CONCEPT_AUDIENCE[catGender]).map((concept, index) => (
-                        <li key={concept.id} className="rounded-2xl border border-line bg-white p-4">
-                          <p className="text-xs font-semibold text-muted">Shot {index + 1}</p>
-                          <p className="mt-0.5 font-bold text-ink">{concept.title}</p>
-                          <p className="mt-1 text-sm text-muted">{concept.mood}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
+              <div className="max-w-md">
+                <Segmented size="sm" label="Who is it for?" value={catGender} onChange={(g) => { setCatGender(g); setCatFilter(''); }} options={AUDIENCES.map((value) => ({ value, label: AUDIENCE_NAMES[value] }))} />
               </div>
-            </AccordionRow>
 
-            <AccordionRow
-              open={catOpen.history}
-              onToggle={() => setCatOpen((open) => ({ ...open, history: !open.history }))}
-              title="Upload history"
-              summary={uploadHistory.length ? `${uploadHistory.length} upload day(s), newest first. Open a day to edit what went in; tick it to delete the whole day.` : 'Nothing uploaded yet.'}
-            >
-              <ul className="divide-y divide-line rounded-2xl border border-line bg-white">
-                {uploadHistory.map((day) => {
-                  const open = historyOpen.has(day.key);
-                  const ticked = historyTicked === day.key;
-                  const shown = historyShown[day.key] || HISTORY_PAGE_SIZE;
-                  return (
-                    <li key={day.key}>
-                      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={ticked}
-                          onChange={() => { setHistoryConfirm(null); setHistoryTicked(ticked ? null : day.key); }}
-                          aria-label={`Select the upload of ${day.label}`}
-                          className="h-5 w-5 accent-ink"
-                        />
-                        <button
-                          type="button"
-                          aria-expanded={open}
-                          onClick={() => setHistoryOpen((current) => { const next = new Set(current); if (next.has(day.key)) next.delete(day.key); else next.add(day.key); return next; })}
-                          className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left"
-                        >
-                          <ChevronDown className={`h-5 w-5 shrink-0 text-muted transition ${open ? 'rotate-180' : ''}`} />
-                          <span className="w-28 shrink-0 font-bold text-ink">{day.label}</span>
-                          <span className="shrink-0 font-semibold tabular-nums text-ink">{day.items.length} garments</span>
-                          <span className="min-w-0 truncate text-sm text-muted">{day.breakdown.join(' · ')}</span>
-                        </button>
-                        {ticked && historyConfirm !== day.key && (
-                          <button type="button" onClick={() => setHistoryConfirm(day.key)} className="min-h-10 rounded-full border border-danger px-4 text-sm font-semibold text-danger hover:bg-danger-soft">Delete this upload</button>
-                        )}
-                        {ticked && historyConfirm === day.key && (
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-semibold text-danger">Delete all {day.items.length} for good?</span>
-                            <button
-                              type="button"
-                              disabled={catalogueBusy}
-                              onClick={() => { void bulkSaved('delete', day.items.map((item) => item.sku), false).then(() => { setHistoryTicked(null); setHistoryConfirm(null); }); }}
-                              className="min-h-10 rounded-full bg-danger px-4 text-sm font-bold text-white"
-                            >
-                              Yes, delete
-                            </button>
-                            <button type="button" onClick={() => setHistoryConfirm(null)} className="min-h-10 px-2 text-sm font-semibold text-muted">Cancel</button>
-                          </span>
-                        )}
-                      </div>
-                      {open && (
-                        <div className="space-y-3 border-t border-line bg-canvas p-4">
-                          <CatalogueTable
-                            rows={day.items.slice(0, shown).map(toRow)}
-                            mode="saved"
-                            experiences={{ video: limits.video > 0, live: limits.live > 0 }}
-                            categoryOptions={tableCategoryOptions}
-                            onChange={changeSaved}
-                            onBulk={bulkSaved}
-                            busy={catalogueBusy}
-                          />
-                          {day.items.length > shown && (
-                            <button type="button" onClick={() => setHistoryShown((current) => ({ ...current, [day.key]: shown + HISTORY_PAGE_SIZE }))} className="tf-btn tf-btn-secondary !min-h-11 px-5 text-sm">
-                              Show {Math.min(HISTORY_PAGE_SIZE, day.items.length - shown)} more of {day.items.length - shown}
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </AccordionRow>
+              {catGender && (
+                <div role="group" aria-label="Category" className="flex flex-wrap gap-x-1 border-b border-line">
+                  {catTabs.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      aria-pressed={activeCatFilter === cat.id}
+                      onClick={() => setCatFilter(cat.id)}
+                      className={`-mb-px min-h-11 border-b-2 px-3 text-sm transition ${activeCatFilter === cat.id ? 'border-ink font-bold text-ink' : 'border-transparent font-medium text-muted hover:text-ink'}`}
+                    >
+                      {cat.label}
+                      <span className="ml-1 text-xs tabular-nums opacity-60">{sectionGarments.filter((item) => item.gender === catGender && item.category === cat.id).length}</span>
+                      {cat.hidden && <span className="ml-1 text-xs text-muted">(hidden)</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {catalogueLoading ? (
+                <div className="flex items-center justify-center py-12 text-sm text-muted"><LoaderCircle className="mr-2 h-5 w-5 animate-spin" /> Loading catalogue…</div>
+              ) : !catGender ? (
+                <p className="py-10 text-center text-sm text-muted">Tap Women, Men, Boys or Girls to see your garments.</p>
+              ) : (
+                <>
+                  <CatalogueTable
+                    key={`${catSection}-${catGender}-${activeCatFilter}`}
+                    kind={catSection}
+                    rows={filteredCatalogue.slice(cataloguePage * CATALOGUE_PAGE_SIZE, (cataloguePage + 1) * CATALOGUE_PAGE_SIZE).map(rowFor)}
+                    showWestern={limits.live > 0}
+                    removeLabel={catSection === 'video' ? 'Remove from AI Video' : 'Delete'}
+                    onWestern={(sku, on) => { const item = catalogue.find((row) => row.sku === sku); if (item) void toggleCatalogueField(item, { eligibleForLive: on }); }}
+                    onPrice={(sku, price) => { const item = catalogue.find((row) => row.sku === sku); if (item) void toggleCatalogueField(item, { price: Math.max(0, Number(price) || 0) }); }}
+                    onRemove={removeGarments}
+                    busy={catalogueBusy}
+                    emptyText={catSection === 'video' ? 'No AI Video garments here yet. Use Upload garments to add some.' : 'No garments in this category yet. Use Upload garments to add some.'}
+                  />
+                  {catalogueTotalPages > 1 && (
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <button type="button" disabled={cataloguePage === 0} onClick={() => setCataloguePage((page) => page - 1)} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">Back</button>
+                      <span className="tabular-nums text-muted">Page {cataloguePage + 1} of {catalogueTotalPages} · {filteredCatalogue.length} garments</span>
+                      <button type="button" disabled={cataloguePage + 1 >= catalogueTotalPages} onClick={() => setCataloguePage((page) => page + 1)} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">More</button>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
           </div>
         )}
 
@@ -1212,6 +1008,6 @@ export default function MaharajaAdminDashboard({
           </section>
         ))}
       </div>
-    </main>
+    </Shell>
   );
 }

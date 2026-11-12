@@ -5,6 +5,7 @@ import { getStorageBucket } from '@/lib/firebase/admin';
 import { findCategory } from '@/lib/tryfocus/store-categories';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 import { getMaharajaWorkspace, resolveRequestClientId } from '@/lib/maharaja/server';
+import { findCatalogueByPhotoHash } from '@/lib/maharaja/catalogue';
 
 export const maxDuration = 60;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -35,9 +36,15 @@ export async function POST(req: NextRequest) {
     }
     const bytes = Buffer.from(await file.arrayBuffer());
     const mimeType = imageType(bytes, file.type);
+    // The same photo is never added twice: point at the garment that already has it.
+    const photoHash = crypto.createHash('sha256').update(bytes).digest('hex');
+    const existing = await findCatalogueByPhotoHash(photoHash);
+    if (existing) {
+      return NextResponse.json({ success: true, duplicate: { sku: existing.sku, title: existing.title }, photoHash, filename: file.name.slice(0, 160) });
+    }
     const storagePath = `clients/${activeClientId()}/catalogue-imports/${batchId}/${crypto.randomUUID()}`;
     await bucket.file(storagePath).save(bytes, { contentType: mimeType, public: false, metadata: { cacheControl: 'private, no-store' } });
-    return NextResponse.json({ success: true, batchId, storagePath, filename: file.name.slice(0, 160), category: category.id });
+    return NextResponse.json({ success: true, batchId, storagePath, photoHash, filename: file.name.slice(0, 160), category: category.id });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Could not upload garment.' }, { status: 400 });
   }

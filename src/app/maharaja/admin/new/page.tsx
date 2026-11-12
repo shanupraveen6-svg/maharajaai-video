@@ -4,13 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, LoaderCircle } from 'lucide-react';
-import { PlatformPicker, PackageQuote } from '@/components/TryFocusAdmin';
+import { PlatformPicker } from '@/components/TryFocusAdmin';
 import { PACKAGES, modulesForPackage, type PackageId } from '@/lib/maharaja/access';
 import {
   FREE_TRIAL_IMAGE_CREDITS,
-  PHONE_PACKAGE,
   PHONE_PACKAGE_CREDITS,
-  PLATFORM_LABELS,
   PRESETS,
   clampCredits,
   platformOfPackage,
@@ -161,14 +159,9 @@ export default function NewClientWorkspacePage() {
           <p className="text-sm font-semibold tabular-nums text-ink">
             {credits.image.toLocaleString('en-IN')} images{credits.video ? ` · ${credits.video.toLocaleString('en-IN')} AI Videos` : ''}{credits.live ? ` · ${credits.live.toLocaleString('en-IN')} Western Try-On` : ''}
           </p>
-          <div className="rounded-2xl bg-canvas p-4">
-            {preset === 'trial'
-              ? <p className="text-sm text-muted">Free trial: {FREE_TRIAL_IMAGE_CREDITS} Try-On credits and {FREE_TRIAL_IMAGE_CREDITS} GenLook credits locked to the store, no charge. Top up from the client&apos;s card when they buy.</p>
-              : <>
-                <p className="mb-2 text-xs font-bold text-muted">{preset === 'phone-package' ? `Phone package: ₹${PHONE_PACKAGE.fee.toLocaleString('en-IN')} with ${PHONE_PACKAGE.credits.toLocaleString('en-IN')} Try-On + ${PHONE_PACKAGE.retryPercent}% retries` : `${PLATFORM_LABELS[platform]} · ${PRESETS[preset].label}, with software`}</p>
-                <PackageQuote platform={platform} credits={credits} software />
-              </>}
-          </div>
+          {preset === 'trial' && (
+            <p className="rounded-2xl bg-canvas p-4 text-sm text-muted">Free trial: {FREE_TRIAL_IMAGE_CREDITS} Try-On credits and {FREE_TRIAL_IMAGE_CREDITS} GenLook credits locked to the store. Top up from the client&apos;s Plan tab when they buy.</p>
+          )}
         </section>
 
         <button type="submit" disabled={creating} className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
