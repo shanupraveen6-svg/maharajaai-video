@@ -29,7 +29,6 @@ import SessionTimer, { sessionTimerShowing } from '@/components/SessionTimer';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
 import TvIdleLoop from '@/components/TvIdleLoop';
 import TvOfflineNotice from '@/components/TvOfflineNotice';
-import TabletVideoHandoff from '@/components/TabletVideoHandoff';
 import { downloadBrandedQr } from '@/lib/maharaja/branded-qr';
 import Link from 'next/link';
 import { isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
@@ -50,7 +49,7 @@ import type { CustomerCategory } from '@/lib/maharaja/config';
 
 const VIDEO_CATEGORY_OF: Record<CatalogueAudience, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
 
-type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video' | 'gift' | 'wall-qr';
+type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video' | 'wall-qr';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
 type CatalogueTryOnStage = 'who' | 'source' | 'photo' | 'browse' | 'generating' | 'result';
 type VideoStage = 'who' | 'photo' | 'pick' | 'look' | 'portrait';
@@ -81,9 +80,8 @@ function useStoreLogo() {
 /**
  * The store screen: the portrait TV, or the tablet (`device="tablet"`), at a different scale.
  * TV, three tabs: Try-On (Store collection or My own outfit), AI Video (pick a piece, take a photo, then a
- * QR makes the video on the phone) and Live Mirror.
- * Tablet, three tabs: Store collection, My own outfit (both Try-On) and AI Video, which only shows the
- * customer's QR; the customer picks the piece and makes the video on their phone.
+ * QR makes the video on the phone) and Live Mirror. AI Video only starts here, never on the tablet.
+ * Tablet, two tabs: Try-On (Store collection or My own outfit) and the Wall QR to print.
  */
 export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' | 'tablet' }) {
   const isTablet = device === 'tablet';
@@ -111,7 +109,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [cataloguePage, setCataloguePage] = useState(0);
   const [videoAudience, setVideoAudience] = useState<VideoAudience>('women');
   // The location/scene for the AI Video: one of the 3 for the chosen audience, picked before the portrait
-  // is made (the phone's AI Video gift already asks this; the TV was skipping straight to a fixed one).
+  // is made (the phone's own AI Video flow already asks this; the TV was skipping straight to a fixed one).
   const [videoConceptId, setVideoConceptId] = useState<VideoConceptId | ''>('');
   const [videoGuardianConsent, setVideoGuardianConsent] = useState(false);
   const catalogueTopRef = useRef<HTMLDivElement | null>(null);
@@ -119,7 +117,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   // TryFocus switched the open experience off while the TV was running: go back to Image Try-On.
   useEffect(() => {
-    if ((mode === 'live-tryon' && !liveOn) || ((mode === 'catalogue-video' || mode === 'gift') && !videoOn)) setMode('image-tryon');
+    if ((mode === 'live-tryon' && !liveOn) || (mode === 'catalogue-video' && !videoOn)) setMode('image-tryon');
   }, [mode, liveOn, videoOn]);
 
   // Signed-in staff pair this TV to their workspace once; it then runs without a login for 30 days.
@@ -1086,22 +1084,20 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {isTablet && <Link href="/maharaja/workspace" className="flex min-h-12 items-center rounded-xl px-3 text-base font-semibold text-muted hover:text-ink">Workspace</Link>}
-            {/* Tablet: End session on Try-On only (AI Video gift has New customer under its QR; Wall QR has none). */}
+            {/* Tablet: End session on Try-On only (Wall QR has none; there is no AI Video tab here). */}
             {isTablet
               ? mode === 'image-tryon' && <button type="button" onClick={endSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-16 px-6 text-base">End session</button>
               : <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-16 px-6 text-base">Start over</button>}
           </div>
         </div>
         {isTablet ? (
-          // Tablet, three tabs, run by the store's team: Try-On (store collection or the customer's own
-          // outfit, chosen after the photo, as on the TV), the AI Video gift QR, and the Wall QR to print.
-          <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-2 px-8 ${videoOn ? 'grid-cols-3' : 'grid-cols-2'}`} aria-label="Choose an experience">
+          // Tablet, two tabs, run by the store's team: Try-On (store collection or the customer's own
+          // outfit, chosen after the photo, as on the TV), and the Wall QR to print. AI Video only starts
+          // on the TV.
+          <nav className="tv-mode-nav mx-auto grid max-w-[1080px] grid-cols-2 gap-2 px-8" aria-label="Choose an experience">
             <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => navigateTo('image-tryon')} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
               <Sparkles className="h-6 w-6" /><span>Try-On</span>
             </button>
-            {videoOn && <button type="button" aria-current={mode === 'gift' ? 'page' : undefined} onClick={() => navigateTo('gift')} className={`tv-mode-button ${mode === 'gift' ? 'is-active' : ''}`}>
-              <QrCode className="h-6 w-6" /><span>AI Video gift</span>
-            </button>}
             <button type="button" aria-current={mode === 'wall-qr' ? 'page' : undefined} onClick={() => navigateTo('wall-qr')} className={`tv-mode-button ${mode === 'wall-qr' ? 'is-active' : ''}`}>
               <Printer className="h-6 w-6" /><span>Wall QR</span>
             </button>
@@ -1805,7 +1801,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
         {/* The tablet is run by the store's team, who choose whom to give the gift: no bill digits here (the
             TV, used by customers on their own, still asks for them). New customer makes the next QR. */}
-        {mode === 'gift' && isTablet && <TabletVideoHandoff qrOnly autoShow />}
         {mode === 'wall-qr' && isTablet && <TabletWallQr clientName={clientName} />}
       </div>
 
@@ -1954,7 +1949,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 }
 
 /**
- * AI Video gift above a minimum bill: the last four digits of the customer's bill (TV and tablet), typed on
+ * AI Video above a minimum bill, on the TV: the last four digits of the customer's bill, typed on
  * a large on-screen number pad (showroom screens often have no keyboard).
  */
 function BillDigitsGate({ value, onChange, onContinue, action }: { value: string; onChange: (value: string) => void; onContinue: () => void; action: string }) {

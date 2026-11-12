@@ -28,7 +28,7 @@ export const SOFTWARE_FEE: Record<Platform, number> = { tv: 80000, tablet: 50000
 /** Modules each platform includes. Every included module must be bought. */
 export const PLATFORM_MODULES: Record<Platform, Record<CreditModule, boolean>> = {
   tv: { image: true, video: true, live: true },
-  tablet: { image: true, video: true, live: false },
+  tablet: { image: true, video: false, live: false },
   phone: { image: true, video: false, live: false },
 };
 

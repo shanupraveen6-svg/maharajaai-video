@@ -4,13 +4,11 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { fetchCatalogueSettings } from '@/lib/maharaja/catalogue-client';
-import TabletVideoHandoff from '@/components/TabletVideoHandoff';
 import TryFocusTvExperience from '@/components/TryFocusTvExperience';
 
 /**
- * The counter page. A store with the tablet gets the same Try-On and AI Video flow as the TV, at tablet
- * scale, plus the biller's AI Video gift QR. Without the tablet (a TV-only store) this page is the
- * biller's AI Video gift QR only, on a phone or a computer.
+ * The counter page: a store with the tablet gets Try-On at tablet scale, run by the team. AI Video only
+ * starts on the TV, so a store without the tablet (a TV-only store) has no counter screen at all.
  */
 export default function MaharajaTabletExperience() {
   const [counterTryOn, setCounterTryOn] = useState<boolean | null>(null);
@@ -34,22 +32,13 @@ export default function MaharajaTabletExperience() {
   if (counterTryOn) return <TryFocusTvExperience device="tablet" />;
 
   return (
-    <main className="tablet-workspace min-h-screen bg-canvas text-ink">
-      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-6 py-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold">{clientName}</h1>
-              <p className="text-sm text-muted">Billing counter</p>
-            </div>
-          </div>
-          <Link href="/maharaja/workspace" className="flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-muted hover:text-ink">Workspace</Link>
-        </div>
-      </header>
-      <div className="mx-auto max-w-3xl px-6 py-6">
-        <TabletVideoHandoff />
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas px-6 text-center text-ink">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-xl font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
+      <div>
+        <h1 className="text-xl font-bold">No counter screen for this store</h1>
+        <p className="mt-2 max-w-sm text-sm text-muted">This store has no tablet booked. AI Video starts on the showroom TV; Try-On is reached from the Wall QR.</p>
       </div>
+      <Link href="/maharaja/workspace" className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">Open the workspace</Link>
     </main>
   );
 }

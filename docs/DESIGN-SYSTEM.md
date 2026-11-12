@@ -8,8 +8,8 @@ Shared components live in `src/components/ui.tsx`; colour and type tokens live i
 TryFocus sells two packages, TV and Tablet (or both). Each includes the customer's phone:
 - TV: Try-On, AI Video (the portrait on the TV, the video made on the customer's phone) and Live Mirror on the
   showroom TV, plus the Wall QR phone Try-On.
-- Tablet (run by the store's team): Try-On and the AI Video gift QR; the customer makes the whole AI Video on
-  their own phone. Plus the Wall QR phone Try-On.
+- Tablet (run by the store's team): Try-On only, at the counter, plus the Wall QR phone Try-On.
+AI Video only starts on the TV, so a Tablet-only store does not have it; buying the TV is what adds it.
 There is no Phone-only package and no November offer.
 
 ## Choice hierarchy (customer surfaces)
@@ -19,7 +19,7 @@ reused for another level, so a shopper can always tell which choice matters more
 
 | Level | Question | Options | Control |
 |---|---|---|---|
-| 0 | Which experience? | TV: Try-On · AI Video · Live Mirror. Tablet: Try-On · AI Video gift · Wall QR | `NavTabs` (underlined tabs in the header) |
+| 0 | Which experience? | TV: Try-On · AI Video · Live Mirror. Tablet: Try-On · Wall QR | `NavTabs` (underlined tabs in the header) |
 | 1 | Who is it for? | Women · Men · Boys · Girls | `AudienceCards`: four illustrated cards, 2 × 2, nothing pre-selected, with the two-line `PhotoGuide` box under them (full-length, not a selfie; good light, face the camera). On the portrait TV the store's logo fills the bottom of this screen |
 | 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV, the tablet and the phone |
 | 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Plain text list (sidebar on TV and tablet, underlined text row on phone) |
@@ -44,23 +44,17 @@ TV, three tabs:
   download or Go Live on the phone, the last minute in red, then the session ends on its own; Retry sits
   beside its End session.
 
-Tablet, run by the store's team, three tabs. End session sits in the header on Try-On only (no clock on the
-tablet); AI Video gift has New customer under its QR and the day's count; Wall QR has neither:
+Tablet, run by the store's team, two tabs. End session sits in the header on Try-On (Wall QR has none);
+there is no AI Video tab here, and no clock on the tablet:
 - Try-On: the TV's Try-On (Who → Your photo → Store collection or My own outfit → outfits → looks). The
   team takes the customer's photo and shows them the collection.
-- AI Video gift: the customer's QR straight away, with New customer under it for the next customer's QR and
-  the count of customers given a QR today.
-  No bill digits: the team chooses whom to give the gift. The customer picks the piece and makes the
-  video on their phone: Who (nothing selected) → Your photo → What would you like to wear (the store's
-  categories that have AI Video garments) → pick one piece (with its price) → Pick a look (the three looks
-  for that audience) → Make my portrait → Your portrait (Help → retry) → Make my video → the video (Download,
-  Go Live). A pass that already has a piece, a portrait or a video in progress opens at that step.
 - Wall QR: the store's permanent Try-On QR, shown large to scan at the counter, and a poster with the
   store's name to download, print and paste anywhere in the store.
-- Why the video is always made on the phone: if a video comes out wrong, the customer retries it privately on
-  their own phone, where no one else sees it. The TV makes only the portrait; its QR opens the phone on
-  Your portrait → Make my video (the portrait retry stays on the TV), then Download or Go Live, which plays
-  it on the store's Go Live player.
+
+AI Video only starts on the TV, never the tablet: if a video comes out wrong, the customer retries it
+privately on their own phone, where no one else sees it. The TV makes only the portrait; its QR opens the
+phone on Your portrait → Make my video (the portrait retry stays on the TV), then Download or Go Live,
+which plays it on the store's Go Live player.
 
 Phone: Try-On only, opened from the store's permanent Wall QR (downloaded from the workspace and pasted in
 the store). (A photo of the bill, Camera or Upload, read on the server, when the store set a Try-On minimum)
@@ -117,8 +111,9 @@ store already picked, so it is live in the store dropdown at once.
 
 TryFocus admin, one client, in setup order (numbered headings, one section each):
 1. Platform: tick boxes TV · Tablet · Phone. TV, Tablet or both; at least one stays ticked. Phone is always
-   ticked and locked: the customer's phone (Wall QR Try-On and AI Video made on the phone) comes with both.
-   Phone on its own is no longer sold. The modules switch with the platforms.
+   ticked and locked: the customer's phone (Wall QR Try-On, and finishing an AI Video the TV started) comes
+   with both. Phone on its own is no longer sold. The modules switch with the platforms: AI Video needs the
+   TV, so a Tablet-only client has no AI Video credits to set.
 2. Credits: set a package, top up, or type a limit. Each card shows what is left and a status word.
 3. Store login: one username and password for the TV, tablet, Go Live player and workspace.
 4. Delivery: WhatsApp link and the Go Live player, each an On / Off switch.
@@ -136,9 +131,9 @@ Store workspace, Overview in this order, compact, showing only this store's own 
    Off), credits left and the credit status; the booked platforms beside the heading; how customers get
    their looks and the TryFocus number in one line.
 2. Open your screens: one row of buttons (TV, tablet, Go Live player) and the Wall QR download.
-3. This month: counts only, no money figures — Image Try-On, AI Video, Wall QR scans (every store); Go
-   Live and Real Try-On (Live Mirror) only for a store with the TV, so a Tablet-only store sees just
-   Image Try-On, AI Video and Wall QR scans — with last month in brackets. There is no To do list.
+3. This month: counts only, no money figures — Image Try-On and Wall QR scans (every store); AI Video,
+   Go Live and Real Try-On (Live Mirror) only for a store with the TV, so a Tablet-only store sees just
+   Image Try-On and Wall QR scans — with last month in brackets. There is no To do list.
 Festival theme, logo and Instagram are on the Settings tab. Customers (everyone who gave a WhatsApp
 number to download, with Offers yes / no and a CSV download) is its own tab. Workspace tabs wrap on a phone.
 The Wall QR poster carries the store's own name.

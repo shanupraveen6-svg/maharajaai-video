@@ -19,8 +19,9 @@ assert.deepEqual(SOFTWARE_FEE, { tv: 80000, tablet: 50000, phone: 16949 });
 assert.deepEqual(CREDIT_RANGE.image, { min: 2000, max: 6000, step: 500 });
 assert.deepEqual(clampCredits('tv', { image: 100, video: 0, live: 99999 }), { image: 2000, video: 500, live: 6000 });
 assert.deepEqual(clampCredits('tv', { image: 2740, video: 760, live: 1240 }), { image: 2500, video: 1000, live: 1000 }, 'Snaps to steps of 500');
-// Every module a platform includes is required; the others are 0.
-assert.deepEqual(clampCredits('tablet', { image: 3000, video: 0, live: 2000 }), { image: 3000, video: 500, live: 0 });
+// Every module a platform includes is required; the others are 0. AI Video needs the TV, so the tablet
+// on its own has none, same as the phone.
+assert.deepEqual(clampCredits('tablet', { image: 3000, video: 0, live: 2000 }), { image: 3000, video: 0, live: 0 });
 assert.deepEqual(clampCredits('phone', { image: 3150, video: 2000, live: 2000 }), { image: 3150, video: 0, live: 0 }, 'Phone has no AI Video');
 
 // Banded totals: the first 2,000 images at ₹10, the next 2,000 at ₹9.4, the rest at ₹8.9.
@@ -45,13 +46,14 @@ for (const module of ['image', 'video', 'live']) {
 // The starting packages, as the report states them.
 const standardTv = quote('tv', PRESETS.standard, { includeSoftware: false });
 assert.equal(standardTv.creditsTotal, 103000);
-assert.equal(quote('tablet', PRESETS.standard, { includeSoftware: false }).creditsTotal, 65000);
+// A Tablet-only quote is images only now: no AI Video, no Live Mirror.
+assert.equal(quote('tablet', PRESETS.standard, { includeSoftware: false }).creditsTotal, 20000);
 
 assert.equal(quote('tv', PRESETS.pro, { includeSoftware: false }).creditsTotal, 195400);
-assert.equal(quote('tablet', PRESETS.pro, { includeSoftware: false }).creditsTotal, 119400);
+assert.equal(quote('tablet', PRESETS.pro, { includeSoftware: false }).creditsTotal, 29400);
 
 assert.equal(quote('tv', PRESETS.premium, { includeSoftware: false }).creditsTotal, 378600);
-assert.equal(quote('tablet', PRESETS.premium, { includeSoftware: false }).creditsTotal, 230600);
+assert.equal(quote('tablet', PRESETS.premium, { includeSoftware: false }).creditsTotal, 56600);
 
 
 // First payment for a TV store: software + Standard + 18% GST.

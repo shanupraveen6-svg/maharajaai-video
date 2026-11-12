@@ -28,7 +28,7 @@ import { PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage
  */
 const PLATFORM_PICKS = [
   { key: 'tv', Icon: Tv, title: 'TV', text: 'Try-On, AI Video and Live Mirror on the showroom TV, with the Go Live player.' },
-  { key: 'tablet', Icon: Tablet, title: 'Tablet', text: 'Try-On and the AI Video QR at the counter, with the Go Live player.' },
+  { key: 'tablet', Icon: Tablet, title: 'Tablet', text: 'Try-On at the counter, run by your team. AI Video starts only on the TV.' },
   { key: 'phone', Icon: Smartphone, title: 'Phone', text: 'Included: Wall QR Try-On and AI Video made on the customer’s phone.' },
 ] as const;
 

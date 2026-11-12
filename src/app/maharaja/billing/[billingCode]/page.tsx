@@ -1,27 +1,17 @@
-'use client';
-
-import { useParams } from 'next/navigation';
-import TabletVideoHandoff from '@/components/TabletVideoHandoff';
-
+/**
+ * Older billing-counter links land here. AI Video now starts only on the showroom TV, so this page
+ * points whoever opens it there instead of making a gift pass.
+ */
 export default function MaharajaBillingPage() {
-  const params = useParams<{ billingCode: string }>();
-  const billingCode = params?.billingCode || '';
-
   return (
-    <main className="min-h-screen bg-[#F4F5F2] text-ink">
-      <header className="border-b border-line bg-[#F4F5F2]/95">
-        <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4 sm:px-8">
-          <span className="flex h-10 w-10 items-center justify-center border border-ink bg-ink tabular-nums text-xs font-bold text-[#FAF6EE]">
-            TF
-          </span>
-          <div>
-            <h1 className="text-xl font-bold text-ink">AI Video gift</h1>
-          </div>
-        </div>
-      </header>
-      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
-        <TabletVideoHandoff billingCode={billingCode} />
-      </div>
+    <main className="flex min-h-screen items-center justify-center bg-canvas px-5 py-10 text-ink">
+      <section className="w-full max-w-md rounded-2xl border border-line bg-white p-7">
+        <h1 className="text-3xl font-bold">AI Video is on the showroom TV</h1>
+        <p className="mt-3 text-base text-muted">
+          This link is no longer used. Start AI Video from the store&rsquo;s TV; it hands off to the customer&rsquo;s
+          own phone for the video.
+        </p>
+      </section>
     </main>
   );
 }

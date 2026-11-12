@@ -19,16 +19,18 @@ assert.equal(access.goLive, true);
 assert.equal(access.catalogueVideo, true);
 assert.equal(access.ownGarmentVideo, false, 'AI Video is made from the store collection only');
 
-// Tablet store: Try-On and AI Video (store collection on the tablet), no Live Mirror.
+// Tablet-only store: Try-On only. AI Video only starts on the TV, so a Tablet-only store has none.
 access = resolveAccess(PACKAGES.tablet.devices, modulesForPackage('tablet'));
-assert.deepEqual(access.modules, { image: true, video: true, live: false });
-assert.equal(access.catalogueVideo, true, 'The tablet makes AI Video from the store collection');
-assert.equal(access.goLive, true);
+assert.deepEqual(access.modules, { image: true, video: false, live: false });
+assert.equal(access.catalogueVideo, false, 'AI Video needs the TV; the tablet alone does not make it');
+assert.equal(access.goLive, false);
 assert.equal(access.counterTryOn, true);
-// A tablet store that still has Live Mirror switched on is blocked: it needs the TV.
+// A tablet store that still has Live Mirror or AI Video switched on is blocked: both need the TV.
 access = resolveAccess(PACKAGES.tablet.devices, allModules);
 assert.equal(access.modules.live, false);
 assert.match(access.blockedBy.live, /TV/);
+assert.equal(access.modules.video, false);
+assert.match(access.blockedBy.video, /TV/);
 
 // TV store: all three.
 access = resolveAccess(PACKAGES.tv.devices, modulesForPackage('tv'));
@@ -40,7 +42,7 @@ access = resolveAccess(PACKAGES.phone.devices, allModules);
 assert.deepEqual(access.modules, { image: true, video: false, live: false });
 assert.equal(access.goLive, false);
 assert.equal(access.catalogueVideo, false);
-assert.match(access.blockedBy.video, /TV or the tablet/);
+assert.match(access.blockedBy.video, /TV/);
 assert.deepEqual(modulesForPackage('phone'), { image: true, video: false, live: false });
 
 // Go Live player switched off: AI Video still runs, download only.
@@ -54,7 +56,7 @@ access = resolveAccess({ ...allDevices, mobile: false }, allModules);
 assert.equal(access.modules.video, true);
 assert.equal(access.modules.image, true);
 
-// Without the tablet the counter page is the biller's AI Video QR only.
+// Staff Try-On on the counter needs the tablet; a TV-only store has no counter page at all.
 assert.equal(resolveAccess(PACKAGES.tv.devices, allModules).counterTryOn, false);
 assert.equal(resolveAccess(allDevices, allModules).counterTryOn, true);
 
@@ -65,7 +67,7 @@ assert.equal(packageOf(PACKAGES.tv.devices), 'tv');
 assert.equal(packageOf(PACKAGES.phone.devices), 'phone');
 assert.equal(packageOf(PACKAGES['tv-tablet'].devices), 'tv-tablet');
 assert.equal(packageLabel(PACKAGES['tv-tablet'].devices), 'TV and tablet');
-assert.deepEqual(modulesForPackage('tv-tablet'), { image: true, video: true, live: true });
+assert.deepEqual(modulesForPackage('tv-tablet'), { image: true, video: true, live: true }, 'TV in the mix still grants AI Video');
 
 // A module TryFocus paused stays off.
 access = resolveAccess(PACKAGES.tv.devices, { image: true, live: false, video: false });

@@ -44,11 +44,11 @@ async function loadVideoGarments(code: string) {
 }
 
 /**
- * The AI Video gift on the customer's phone (from the tablet QR or a TV portrait QR):
- * Who → Your photo → What would you like to wear → pick a piece (with its price) → Pick a look →
- * Make my portrait → Your portrait (Help → retry) → Make my video → the video (download, Go Live).
- * A pass that already has a piece, a portrait or a video in progress opens at that step. From the TV the
- * portrait is already made there, so the phone opens on Your portrait → Make my video (no portrait retry).
+ * The customer's phone finishes the AI Video a TV portrait QR started. The TV already picked the piece
+ * and made the portrait, so the phone opens straight on Your portrait → Make my video (no portrait retry).
+ * The earlier stages (Who → Your photo → What would you like to wear → pick a piece → Pick a look →
+ * Make my portrait) exist only as a defensive path for a pass opened before it has those; a normal TV
+ * pass never reaches them. A pass with a video already in progress opens at that step.
  */
 export default function GiftVideoExperience({ accessCode }: { accessCode: string }) {
   const { language, setLanguage, t } = usePhoneLanguage();

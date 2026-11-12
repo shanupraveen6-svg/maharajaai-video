@@ -25,7 +25,7 @@ export type PricingCalculatorConfig = {
 
 const PLATFORM_TEXT: Record<Platform, { Icon: typeof Tv; text: string }> = {
   tv: { Icon: Tv, text: 'A portrait TV in your showroom: Try-On, AI Video and Live Mirror. The Wall QR phone Try-On and AI Video on the shopper’s phone are included.' },
-  tablet: { Icon: Tablet, text: 'A tablet at your counter, run by your team: Try-On and the AI Video gift QR. The Wall QR phone Try-On and AI Video on the shopper’s phone are included.' },
+  tablet: { Icon: Tablet, text: 'A tablet at your counter, run by your team: Try-On from the collection or the shopper’s own outfit. The Wall QR phone Try-On is included. AI Video starts only on the TV.' },
   phone: { Icon: Smartphone, text: 'Shoppers use their own phones through your Wall QR.' },
 };
 

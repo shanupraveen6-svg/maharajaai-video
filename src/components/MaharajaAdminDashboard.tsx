@@ -24,7 +24,6 @@ import {
   Phone,
 } from 'lucide-react';
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
-import TabletVideoHandoff from '@/components/TabletVideoHandoff';
 import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
 import StoreLogoCard from '@/components/StoreLogoCard';
 import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
@@ -166,7 +165,7 @@ export default function MaharajaAdminDashboard({
   const activeWorkspaceCode = workspaceCode || expectedWorkspaceCode || 'workspace';
   const router = useRouter();
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
-  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'gift' | 'golive' | 'customers' | 'settings'>('overview');
+  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'golive' | 'customers' | 'settings'>('overview');
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -330,8 +329,7 @@ export default function MaharajaAdminDashboard({
   // The catalogue shows only experiences this store has; a stale choice falls back to the first one.
   const allowedExperiences = useMemo(() => {
     if (!workspace) return ['tryon'] as CatalogueExperience[];
-    // AI Video pieces are offered on the TV and by the gift QR, so every AI Video store picks them; Live
-    // Mirror needs the TV.
+    // AI Video pieces are offered on the TV, so every AI Video store picks them; Live Mirror needs the TV.
     const rules = resolveAccess(workspace.devices, workspace.modules);
     return (['tryon', 'video', 'live'] as const).filter((key) => key === 'tryon' ? rules.modules.image : key === 'live' ? rules.modules.live : rules.modules.video);
   }, [workspace]);
@@ -415,7 +413,7 @@ export default function MaharajaAdminDashboard({
   const goLiveList = Array.isArray(workspace.goLiveAudit) ? workspace.goLiveAudit : [];
   const credits = creditStatuses(workspace.usage, limits);
   const videoMinimum = workspace.videoMinPurchase ?? 5000;
-  // Go Live plays every AI Video (TV and gift QR) on the store's player, which comes with the TV.
+  // Go Live plays every AI Video (made on the TV) on the store's player, which comes with the TV.
   const goLiveOn = access.goLive && limits.video > 0;
   const monthCounts = workspace.report?.counts || {};
   const lastMonthCounts = workspace.report?.lastCounts || {};
@@ -436,7 +434,7 @@ export default function MaharajaAdminDashboard({
   // Customers' own phones are reached through the wall QR, so they are not a screen to open here.
   const screens = [
     devices.tv && { key: 'tv', title: 'Portrait TV', href: '/maharaja/tv/experience', desc: 'Try-On, Live Mirror and AI Video from your collection', Icon: Tv },
-    devices.tablet && { key: 'tablet', title: 'Tablet', href: '/maharaja/tablet/experience', desc: limits.video > 0 ? 'Try-On from the collection or your own outfit, and the AI Video QR' : 'Try-On from the collection or your own outfit', Icon: Tablet },
+    devices.tablet && { key: 'tablet', title: 'Tablet', href: '/maharaja/tablet/experience', desc: 'Try-On from the collection or your own outfit', Icon: Tablet },
     goLiveOn && { key: 'golive', title: 'Go Live player', href: workspace.links.goLive, desc: 'Plays your customers’ AI Videos, and your promos', Icon: Monitor },
   ].filter((screen) => screen !== false);
   // Your plan, in the words of the pricing page. The phone comes with the TV and the tablet.
@@ -549,7 +547,6 @@ export default function MaharajaAdminDashboard({
             options={[
               { value: 'overview', label: 'Overview' },
               { value: 'catalogue', label: 'Catalogue' },
-              ...(limits.video > 0 ? [{ value: 'gift' as const, label: 'AI Video gift' }] : []),
               ...(limits.image > 0 ? [{ value: 'qr' as const, label: 'Wall QR' }] : []),
               ...(goLiveOn ? [{ value: 'golive' as const, label: 'Go Live & videos' }] : []),
               { value: 'customers', label: 'Customers' },
@@ -746,7 +743,7 @@ export default function MaharajaAdminDashboard({
                     </li>
                   ))}
                 </ul>
-                <p className="mt-4 text-sm text-muted">Garments switched on below are offered for AI Video{devices.tv ? ' on the TV and' : ''} in the gift QR’s new collection. Keep your best, higher-value pieces here.</p>
+                <p className="mt-4 text-sm text-muted">Garments switched on below are offered for AI Video on the TV. Keep your best, higher-value pieces here.</p>
               </div>
             )}
 
@@ -856,24 +853,25 @@ export default function MaharajaAdminDashboard({
               </div>
             )}
 
-          </section>
-        )}
+            {limits.video > 0 && (
+              <div className="tf-card mt-4 p-5">
+                <h2 className="text-lg font-bold">AI Video on the TV</h2>
+                <p className="mt-1 text-sm text-muted">The bill a customer needs before the TV's AI Video starts.</p>
+                <div className="mt-4">
+                  <LockedAmountField
+                    key={`video-${videoMinimum}`}
+                    id="video-min-purchase"
+                    label="Minimum bill (₹)"
+                    hint="0 = every bill (a free gift)"
+                    value={videoMinimum}
+                    lockedUntil={workspace.minimumsLockedUntil?.video}
+                    disabled={saving}
+                    onSave={(value) => savePatch({ videoMinPurchase: value })}
+                  />
+                </div>
+              </div>
+            )}
 
-        {section === 'gift' && limits.video > 0 && (
-          <section className="mx-auto max-w-md space-y-4">
-            <TabletVideoHandoff qrOnly />
-            <div className="tf-card p-5">
-              <LockedAmountField
-                key={`video-${videoMinimum}`}
-                id="video-min-purchase"
-                label="Give the gift for bills from (₹)"
-                hint="0 = every bill"
-                value={videoMinimum}
-                lockedUntil={workspace.minimumsLockedUntil?.video}
-                disabled={saving}
-                onSave={(value) => savePatch({ videoMinPurchase: value })}
-              />
-            </div>
           </section>
         )}
 

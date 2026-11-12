@@ -22,7 +22,8 @@ const { POST: createPass } = await import('../src/app/api/maharaja/video-pass/ro
 const SRI = 'srireadymade';
 
 // 1. TryFocus creates a mobile-only client with its own laptop login.
-const sri = await server.upsertClientWorkspace({ clientId: SRI, name: 'Sri Readymade', campaignEnabled: true, devices: { tv: false, tablet: true, mobile: true, led: true }, limits: { image: 100, video: 20, live: 0 } });
+// AI Video only starts on the TV, so this client needs one for the AI Video pass checks below.
+const sri = await server.upsertClientWorkspace({ clientId: SRI, name: 'Sri Readymade', campaignEnabled: true, devices: { tv: true, tablet: true, mobile: true, led: true }, limits: { image: 100, video: 20, live: 0 } });
 assert.equal(sri.clientId, SRI);
 await setClientAccount(SRI, 'srireadymade', 'sri-laptop-2026');
 await assert.rejects(() => setClientAccount('maharaja', 'srireadymade', 'another-pass-1'), /another client/);

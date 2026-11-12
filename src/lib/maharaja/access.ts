@@ -3,17 +3,17 @@
  * TryFocus admin, the client workspace and the TV, so switching one thing off switches off everything
  * that needs it:
  *  - A store books a platform: the TV, the tablet, or the phone on its own. The customer's phone comes
- *    with the TV and the tablet (Wall QR Try-On, the photo upload QR and the AI Video on the phone).
+ *    with the TV and the tablet (Wall QR Try-On and the photo upload QR); AI Video is also finished on
+ *    the phone, but only starts from the TV.
  *  - The platform decides the modules, and every module of a platform comes with it:
  *      TV     = Try-On + AI Video + Live Mirror
- *      Tablet = Try-On + AI Video
+ *      Tablet = Try-On only
  *      Phone  = Try-On only (no AI Video, no Live Mirror)
- *  - AI Video is made from the store collection only (no own-outfit video), on the TV or the tablet;
- *    the biller's gift QR picks the purchased piece from the same collection.
+ *  - AI Video is made from the store collection only (no own-outfit video), and only starts on the TV:
+ *    its portrait is made there, and its QR hands off to the customer's phone for the video itself.
  *  - Go Live plays every AI Video on the store's own LED or wall screen (a browser link), whenever AI
  *    Video runs and TryFocus has not switched the Go Live player off.
- *  - Staff Try-On on the counter runs only with the tablet; without it the counter page is the biller's
- *    AI Video gift QR only.
+ *  - Staff Try-On on the counter runs only with the tablet.
  * A module switched off in `modules` stays off (TryFocus can pause one), but a module is never on where
  * the platform does not include it.
  */
@@ -26,7 +26,7 @@ export type WorkspaceAccess = {
   /** Why a purchased module is not running (only set when it was switched on but a device is missing). */
   blockedBy: Partial<Record<AccessModule, string>>;
   goLive: boolean;
-  /** AI Video from the store collection on the TV or the tablet. */
+  /** AI Video from the store collection, starting on the TV. */
   catalogueVideo: boolean;
   /** AI Video of an outfit photographed by the customer. Not offered: AI Video uses the store collection. */
   ownGarmentVideo: boolean;
@@ -47,8 +47,8 @@ export function resolveAccess(devices?: Partial<AccessDevices> | null, modules?:
   const live = m.live && d.tv;
   if (m.live && !live) blockedBy.live = 'Needs the TV (Live Mirror runs only on the TV)';
 
-  const video = m.video && (d.tv || d.tablet);
-  if (m.video && !video) blockedBy.video = 'Needs the TV or the tablet (the Phone platform has Try-On only)';
+  const video = m.video && d.tv;
+  if (m.video && !video) blockedBy.video = 'Needs the TV (AI Video only starts on the TV)';
   const goLive = video && d.led;
   if (video && !d.led) blockedBy.video = 'Go Live player is off; AI Videos can be downloaded only';
 
@@ -92,5 +92,5 @@ export function packageLabel(devices?: Partial<AccessDevices> | null) {
 /** The modules that come with a package: switching the platform switches these on or off together. */
 export function modulesForPackage(id: PackageId): AccessModules {
   const devices = PACKAGES[id].devices;
-  return { image: true, video: devices.tv || devices.tablet, live: devices.tv };
+  return { image: true, video: devices.tv, live: devices.tv };
 }
