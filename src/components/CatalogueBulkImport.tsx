@@ -63,7 +63,8 @@ export default function CatalogueBulkImport({
   /** Categories this store made itself, beyond the shared master list. */
   customCategories?: CustomCategory[];
 } = {}) {
-  const [audience, setAudience] = useState<CatalogueAudience>('women');
+  // Nothing picked until the store taps one — same rule as every other Who screen.
+  const [audience, setAudience] = useState<CatalogueAudience | null>(null);
   const [category, setCategory] = useState<CatalogueCategoryId | ''>('');
 
   const [batchId, setBatchId] = useState('');
@@ -76,8 +77,9 @@ export default function CatalogueBulkImport({
   // The garment open in the full detail view (name, category, price, sizes, both switches, larger photo).
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const availableCategories = allCategoriesFor(audience, customCategories)
-    .map((item) => ({ id: item.id as CatalogueCategoryId, label: item.label, westernTryOnEligible: item.westernTryOnEligible === true }));
+  const availableCategories = audience
+    ? allCategoriesFor(audience, customCategories).map((item) => ({ id: item.id as CatalogueCategoryId, label: item.label, westernTryOnEligible: item.westernTryOnEligible === true }))
+    : [];
   const unresolved = rows.filter((row) => row.status !== 'ready').length;
   const needsPrice = rows.filter((row) => experiences.video && row.aiVideoOn && !(Number(row.price) > 0));
   const detail = rows.find((row) => row.id === detailId) || null;
@@ -270,12 +272,12 @@ export default function CatalogueBulkImport({
             <label htmlFor="bulk-category" className="mb-2 block text-xs font-bold text-muted">2. Category (add or edit these in Categories customers see)</label>
             <select
               id="bulk-category"
-              disabled={busy}
+              disabled={busy || !audience}
               value={category}
               onChange={(e) => setCategory(e.target.value as CatalogueCategoryId | '')}
               className="min-h-11 w-full border border-line bg-white px-3 text-sm font-semibold text-ink disabled:opacity-50"
             >
-              <option value="">Select a category…</option>
+              <option value="">{audience ? 'Select a category…' : 'Choose Women, Men, Boys or Girls first'}</option>
               {availableCategories.map((item) => (
                 <option key={item.id} value={item.id}>{item.label}</option>
               ))}
