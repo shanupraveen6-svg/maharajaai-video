@@ -26,13 +26,12 @@ import {
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
 import StoreLogoCard from '@/components/StoreLogoCard';
-import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
+import { allCategoriesFor, categoriesFor, AUDIENCES, type CustomCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import { NavTabs, Segmented, StatusPill } from '@/components/ui';
 import CustomerLeads from '@/components/CustomerLeads';
 import { downloadBrandedQr as downloadBrandedQrPoster } from '@/lib/maharaja/branded-qr';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
 import {
-  catalogueCategories,
   formatINR,
   type CatalogueCategoryId,
   type CatalogueAudience,
@@ -51,6 +50,7 @@ type WorkspaceData = {
   minimumsLockedUntil?: { tryOn?: number; video?: number };
   instagramUrl?: string;
   categoryLists?: StoreCategoryLists;
+  customCategories?: CustomCategory[];
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   whatsappEnabled?: boolean;
@@ -147,8 +147,8 @@ type ManagedCatalogueItem = {
 const CATALOGUE_PAGE_SIZE = 16;
 const CONCEPT_AUDIENCE: Record<CatalogueAudience, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
 
-function categoryOptionsFor(gender: CatalogueAudience): Array<{ id: CatalogueCategoryId; label: string }> {
-  return catalogueCategories.filter((cat) => cat.gender === gender).map((cat) => ({ id: cat.id as CatalogueCategoryId, label: cat.label }));
+function categoryOptionsFor(gender: CatalogueAudience, customCategories: CustomCategory[] = []): Array<{ id: CatalogueCategoryId; label: string }> {
+  return allCategoriesFor(gender, customCategories).map((cat) => ({ id: cat.id as CatalogueCategoryId, label: cat.label }));
 }
 
 function catalogueChip(on: boolean): string {
@@ -256,6 +256,7 @@ export default function MaharajaAdminDashboard({
         | 'tryOnMinPurchase'
         | 'instagramUrl'
         | 'categoryLists'
+        | 'customCategories'
       >
     >
   ) {
@@ -326,7 +327,7 @@ export default function MaharajaAdminDashboard({
     }
   }
 
-  const catCategories = useMemo(() => categoryOptionsFor(catGender), [catGender]);
+  const catCategories = useMemo(() => categoryOptionsFor(catGender, workspace?.customCategories), [catGender, workspace?.customCategories]);
   const activeCatFilter = catCategories.some((cat) => cat.id === catFilter) ? catFilter : catCategories[0]?.id;
   const filteredCatalogue = useMemo(
     () => (catGenderChosen ? catalogue.filter((item) => item.gender === catGender && item.category === activeCatFilter) : []),
@@ -675,7 +676,33 @@ export default function MaharajaAdminDashboard({
 
         {section === 'catalogue' && (
           <div className="space-y-6">
-          <StoreCategoriesEditor lists={workspace.categoryLists} saving={saving} onSave={(categoryLists) => void savePatch({ categoryLists })} />
+          <StoreCategoriesEditor
+            lists={workspace.categoryLists}
+            customCategories={workspace.customCategories}
+            saving={saving}
+            onSave={(categoryLists) => void savePatch({ categoryLists })}
+            onAddCustom={(input) => {
+              const slug = input.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'category';
+              const id = `custom-${slug}-${Date.now().toString(36)}`;
+              const nextCustoms = [...(workspace.customCategories || []), { id, ...input }];
+              const nextLists: StoreCategoryLists = {};
+              for (const aud of AUDIENCES) {
+                const shown = categoriesFor(workspace.categoryLists, aud, workspace.customCategories || []).map((cat) => cat.id as CatalogueCategoryId);
+                nextLists[aud] = aud === input.gender ? [...shown, id] : shown;
+              }
+              void savePatch({ customCategories: nextCustoms, categoryLists: nextLists });
+            }}
+            onDeleteCustom={(id) => {
+              const nextCustoms = (workspace.customCategories || []).filter((cat) => cat.id !== id);
+              const nextLists: StoreCategoryLists = {};
+              for (const aud of AUDIENCES) {
+                nextLists[aud] = categoriesFor(workspace.categoryLists, aud, workspace.customCategories || [])
+                  .map((cat) => cat.id as CatalogueCategoryId)
+                  .filter((catId) => catId !== id);
+              }
+              void savePatch({ customCategories: nextCustoms, categoryLists: nextLists });
+            }}
+          />
           <section className="tf-card p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -689,7 +716,7 @@ export default function MaharajaAdminDashboard({
 
             {showAddGarment && (
               <div className="mt-5 border-t border-line pt-5">
-                <CatalogueBulkImport onPublished={loadCatalogue} workspaceCode={activeWorkspaceCode} experiences={{ video: limits.video > 0, live: limits.live > 0 }} />
+                <CatalogueBulkImport onPublished={loadCatalogue} workspaceCode={activeWorkspaceCode} experiences={{ video: limits.video > 0, live: limits.live > 0 }} customCategories={workspace.customCategories} />
               </div>
             )}
 
@@ -698,7 +725,7 @@ export default function MaharajaAdminDashboard({
                 size="sm"
                 label="Who is it for?"
                 value={catGenderChosen ? catGender : null}
-                onChange={(g) => { setCatGenderChosen(true); setCatGender(g); setCatFilter(categoryOptionsFor(g)[0]?.id ?? 'sarees'); }}
+                onChange={(g) => { setCatGenderChosen(true); setCatGender(g); setCatFilter(categoryOptionsFor(g, workspace?.customCategories)[0]?.id ?? 'sarees'); }}
                 options={([['women', 'Women'], ['men', 'Men'], ['boys', 'Boys'], ['girls', 'Girls']] as const).map(([value, label]) => ({ value, label }))}
               />
             </div>

@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { categoryEligibleForWesternTryOn } from '@/lib/tryfocus/live-categories';
+import { allCategoriesFor, type CustomCategory } from '@/lib/tryfocus/store-categories';
 import {
-  catalogueCategories,
   type CatalogueAudience,
   type CatalogueCategoryId,
 } from '@/lib/tryfocus/sample-data';
@@ -54,12 +53,15 @@ export default function CatalogueBulkImport({
   onPublished,
   workspaceCode,
   experiences = { video: true, live: true },
+  customCategories,
 }: {
   onPublished?: () => Promise<void>;
   /** TryFocus admin viewing a client's workspace: which client this upload is for. */
   workspaceCode?: string;
   /** The priced experiences this store has; a store without one never sees its switch. */
   experiences?: { video: boolean; live: boolean };
+  /** Categories this store made itself, beyond the shared master list. */
+  customCategories?: CustomCategory[];
 } = {}) {
   const [audience, setAudience] = useState<CatalogueAudience>('women');
   const [category, setCategory] = useState<CatalogueCategoryId | ''>('');
@@ -74,9 +76,8 @@ export default function CatalogueBulkImport({
   // The garment open in the full detail view (name, category, price, sizes, both switches, larger photo).
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const availableCategories = catalogueCategories
-    .filter((item) => item.gender === audience)
-    .map((item) => ({ id: item.id as CatalogueCategoryId, label: item.label }));
+  const availableCategories = allCategoriesFor(audience, customCategories)
+    .map((item) => ({ id: item.id as CatalogueCategoryId, label: item.label, westernTryOnEligible: item.westernTryOnEligible === true }));
   const unresolved = rows.filter((row) => row.status !== 'ready').length;
   const needsPrice = rows.filter((row) => experiences.video && row.aiVideoOn && !(Number(row.price) > 0));
   const detail = rows.find((row) => row.id === detailId) || null;
@@ -87,7 +88,8 @@ export default function CatalogueBulkImport({
 
   /** Changing a garment's category re-applies the Western Try-On default for the new category. */
   function setRowCategory(id: string, nextCategory: CatalogueCategoryId) {
-    update(id, { category: nextCategory, westernOn: experiences.live && categoryEligibleForWesternTryOn(nextCategory) });
+    const western = experiences.live && availableCategories.find((item) => item.id === nextCategory)?.westernTryOnEligible === true;
+    update(id, { category: nextCategory, westernOn: western });
   }
 
   function toggleSize(id: string, size: SizeOption) {
@@ -124,7 +126,7 @@ export default function CatalogueBulkImport({
     }
 
     const selectedCategory = category;
-    const westernDefault = experiences.live && categoryEligibleForWesternTryOn(selectedCategory);
+    const westernDefault = experiences.live && availableCategories.find((item) => item.id === selectedCategory)?.westernTryOnEligible === true;
     const nextBatch = crypto.randomUUID();
     setBatchId(nextBatch);
     setMessage(`Uploading ${chosen.length} garment(s)…`);

@@ -1,4 +1,5 @@
-import { sanitizeCategoryLists } from '@/lib/tryfocus/store-categories';
+import crypto from 'crypto';
+import { sanitizeCategoryLists, sanitizeCustomCategories } from '@/lib/tryfocus/store-categories';
 import { NextRequest, NextResponse } from 'next/server';
 import { monthlyReport } from '@/lib/maharaja/usage-ledger';
 import { getOperatorSession, verifyAdminRequest, verifyOperatorRequest } from '@/lib/auth/operator';
@@ -485,8 +486,26 @@ export async function PATCH(req: NextRequest) {
     if (body.limits && typeof body.limits === 'object') {
       settings.limits = body.limits;
     }
+    // A store's own categories, saved first so the request below can show or hide them right away.
+    let customCategories = targetWorkspace.customCategories || [];
+    if (body.customCategories !== undefined) {
+      if (!Array.isArray(body.customCategories)) {
+        return NextResponse.json({ success: false, error: 'Custom categories must be a list.' }, { status: 400 });
+      }
+      const withIds = body.customCategories.map((raw: unknown) => {
+        if (!raw || typeof raw !== 'object') return raw;
+        const entry = raw as Record<string, unknown>;
+        if (typeof entry.id === 'string' && entry.id) return entry;
+        const slug = String(entry.label || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'category';
+        return { ...entry, id: `custom-${slug}-${crypto.randomBytes(3).toString('hex')}` };
+      });
+      const sanitized = sanitizeCustomCategories(withIds);
+      if (!sanitized) return NextResponse.json({ success: false, error: 'Give the category a name, a gender and what it looks like.' }, { status: 400 });
+      customCategories = sanitized;
+      settings.customCategories = customCategories;
+    }
     if (body.categoryLists !== undefined) {
-      const lists = sanitizeCategoryLists(body.categoryLists);
+      const lists = sanitizeCategoryLists(body.categoryLists, customCategories);
       if (!lists) return NextResponse.json({ success: false, error: 'Keep at least one category for each audience.' }, { status: 400 });
       settings.categoryLists = lists;
     }

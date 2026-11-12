@@ -1,4 +1,4 @@
-import type { StoreCategoryLists } from '@/lib/tryfocus/store-categories';
+import type { CustomCategory, StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import crypto from 'crypto';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { FREE_TRIAL_IMAGE_CREDITS } from '@/lib/maharaja/pricing';
@@ -58,6 +58,8 @@ export type MaharajaWorkspace = {
   genlookShared?: boolean;
   /** Categories this store shows customers, per audience and in its order (TV, tablet and phone). */
   categoryLists?: StoreCategoryLists;
+  /** Categories this store added itself, beyond the shared master list. */
+  customCategories?: CustomCategory[];
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   devices?: {
@@ -860,6 +862,7 @@ export async function updateMaharajaSettings(
       | 'whatsappRequestedAt'
       | 'instagramUrl'
       | 'categoryLists'
+      | 'customCategories'
       | 'genlookCredits'
       | 'deliveryMode'
       | 'whatsappConnected'

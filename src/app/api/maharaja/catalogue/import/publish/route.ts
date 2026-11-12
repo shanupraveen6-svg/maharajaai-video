@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getStorageBucket } from '@/lib/firebase/admin';
 import { getCatalogueProduct, upsertCatalogueProduct } from '@/lib/maharaja/catalogue';
-import { catalogueCategories } from '@/lib/tryfocus/sample-data';
+import { findCategory } from '@/lib/tryfocus/store-categories';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
-import { resolveRequestClientId } from '@/lib/maharaja/server';
+import { getMaharajaWorkspace, resolveRequestClientId } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
 
@@ -18,11 +18,12 @@ export async function POST(req: NextRequest) {
     if (!/^[a-z0-9-]{12,64}$/i.test(batchId) || !Array.isArray(items) || items.length < 1 || items.length > 20) throw new Error('Publish 1–20 reviewed garments per request.');
     const bucket = getStorageBucket();
     if (!bucket) throw new Error('Catalogue storage is unavailable.');
+    const workspace = await getMaharajaWorkspace();
     const results: Array<{ sku: string; success: boolean; error?: string }> = [];
     for (const raw of items) {
       const sku = String(raw.sku || '').trim().toUpperCase().slice(0, 60);
       const path = String(raw.storagePath || '');
-      const category = catalogueCategories.find((entry) => entry.id === raw.category);
+      const category = findCategory(String(raw.category || ''), workspace.customCategories);
       if (!sku || !category || !path.startsWith(`clients/${activeClientId()}/catalogue-imports/${batchId}/`)) {
         results.push({ sku, success: false, error: 'SKU, category or image path is invalid.' });
         continue;

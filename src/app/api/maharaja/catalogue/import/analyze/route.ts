@@ -2,9 +2,9 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getStorageBucket } from '@/lib/firebase/admin';
-import { catalogueCategories } from '@/lib/tryfocus/sample-data';
+import { findCategory } from '@/lib/tryfocus/store-categories';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
-import { resolveRequestClientId } from '@/lib/maharaja/server';
+import { getMaharajaWorkspace, resolveRequestClientId } from '@/lib/maharaja/server';
 
 export const maxDuration = 60;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     bindClient(await resolveRequestClientId(req, undefined, form.get('workspaceCode') as string | null));
     const batchId = String(form.get('batchId') || '');
-    const category = catalogueCategories.find((item) => item.id === form.get('category'));
+    const workspace = await getMaharajaWorkspace();
+    const category = findCategory(String(form.get('category') || ''), workspace.customCategories);
     const file = form.get('file');
     if (!/^[a-z0-9-]{12,64}$/i.test(batchId) || !category || !(file instanceof File) || file.size < 1 || file.size > MAX_FILE_BYTES) {
       throw new Error('Choose an audience and category, then upload an image under 8 MB.');
