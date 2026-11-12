@@ -43,14 +43,18 @@ TV, three tabs:
 - Western Try-On: shirts, dresses and other western-cut garments only — the real-time engine (Decart Lucy) does
   not handle draped or ethnic wear (a saree, lehenga, veshti, kurta set…) well, so the name says what it is
   before the customer ever taps it. Eligibility is a property of the category itself, not a per-store choice:
-  a western category is eligible everywhere it is used, an ethnic one never is. The camera is on as soon as the
-  tab opens, with the outfits in one card under it. Who → pick a piece switched on for Western Try-On (none is
-  picked for the customer) → Start live, which appears on the camera only once a piece is picked → 5-second
-  countdown → 30 seconds live → the replay with a Play button and the QR.
-- End session (TV): a large red, full-width End session under every result QR (Try-On looks, AI Video portrait,
-  Western Try-On video); the same tab starts again. Only the AI Video portrait has a clock above it: 2 minutes to
-  download or Go Live on the phone, the last minute in red, then the session ends on its own; Retry sits
-  beside its End session.
+  a western category is eligible everywhere it is used, an ethnic one never is. Who → pick exactly two pieces
+  from a picture-card grid (the same image-card design as Try-On's own picker, numbered 1 and 2 as they're
+  tapped, never a checkmark) → Start opens a dedicated full-screen camera, no side panel competing for space.
+  The first outfit is already active; one large center button, Start live Try-On, begins it with no countdown
+  (the customer is already in frame from picking). 30 seconds live, then a prompt to tap the second outfit,
+  shown waiting in the same card stack; tapping it runs a 5-second step-back countdown before its own 30
+  seconds. The result plays the first video, swipe (or the arrows) to the second — no QR here, since this is
+  a live-only experience, not a takeaway: the videos exist only for this viewing, with End session below.
+- End session (TV): a large red, full-width End session under every result (Try-On looks' and AI Video's
+  QR, Western Try-On's two-video result); the same tab starts again. Only the AI Video portrait has a clock
+  above it: 2 minutes to download or Go Live on the phone, the last minute in red, then the session ends on
+  its own; Retry sits beside its End session.
 
 Tablet, run by the store's team, three tabs: Catalogue Try-On, Own-outfit Try-On, Wall QR. Each Try-On tab
 is its own source, decided by the tab, not by an in-flow "What would you like to try?" step — Who still
@@ -116,9 +120,11 @@ Cancel and Yes, retry, one line on what the retry does, and three tips for a bet
 selfie; good light, facing the camera; one garment at a time). With no retry left, or none on that screen
 (the TV looks link on the phone), it shows the tips and who can help. There is no ⋯ menu anywhere.
 
-Retention: everything generated (Try-On looks, AI Video portraits and videos, Western Try-On videos) is kept for
-1 hour, and scanning the same QR again within that hour shows it (a phone's Wall QR look opens straight on the
-look). Only a video sent to Go Live is kept for 1 day, for the Go Live screen. Then everything is deleted.
+Retention: everything generated with a QR (Try-On looks, AI Video portraits and videos) is kept for 1 hour, and
+scanning the same QR again within that hour shows it (a phone's Wall QR look opens straight on the look). Western
+Try-On's two videos are never uploaded or QR'd at all — they exist only in that session's camera view, gone the
+moment End session is tapped. Only a video sent to Go Live is kept for 1 day, for the Go Live screen. Then
+everything else is deleted.
 Who (Women, Men, Boys, Girls) starts with nothing selected on every surface.
 
 Downloads never start on their own. Every Download asks once for the customer's WhatsApp number
