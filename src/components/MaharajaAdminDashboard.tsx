@@ -10,7 +10,7 @@ import LockedAmountField from '@/components/LockedAmountField';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { conceptsForCategory } from '@/lib/maharaja/video-concepts';
 import type { CustomerCategory } from '@/lib/maharaja/config';
-import { LIVE_CATEGORIES, isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
+import { isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import { fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
   Download,
@@ -144,15 +144,15 @@ type ManagedCatalogueItem = {
   sortOrder: number;
 };
 
-type CatalogueExperience = 'tryon' | 'live' | 'video';
-
 const CATALOGUE_PAGE_SIZE = 16;
 const CONCEPT_AUDIENCE: Record<CatalogueAudience, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
 
-/** Western Try-On has its own western-wear categories; Try-On and AI Video use the full list. */
-function categoryOptionsFor(experience: CatalogueExperience, gender: CatalogueAudience): Array<{ id: CatalogueCategoryId; label: string }> {
-  if (experience === 'live') return LIVE_CATEGORIES[gender];
+function categoryOptionsFor(gender: CatalogueAudience): Array<{ id: CatalogueCategoryId; label: string }> {
   return catalogueCategories.filter((cat) => cat.gender === gender).map((cat) => ({ id: cat.id as CatalogueCategoryId, label: cat.label }));
+}
+
+function catalogueChip(on: boolean): string {
+  return `min-h-9 rounded-full px-3 text-xs font-semibold ${on ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`;
 }
 
 export default function MaharajaAdminDashboard({
@@ -180,7 +180,6 @@ export default function MaharajaAdminDashboard({
   const [catalogueLoading, setCatalogueLoading] = useState<boolean>(true);
   const [catGender, setCatGender] = useState<CatalogueAudience>('women');
   const [catGenderChosen, setCatGenderChosen] = useState(false);
-  const [catExperience, setCatExperience] = useState<CatalogueExperience>('tryon');
   const [catFilter, setCatFilter] = useState<CatalogueCategoryId>('sarees');
   // Go Live videos still kept (one day), as counted by the Went live list.
   const [goLiveCount, setGoLiveCount] = useState<number | null>(null);
@@ -297,7 +296,7 @@ export default function MaharajaAdminDashboard({
 
   async function toggleCatalogueField(
     item: ManagedCatalogueItem,
-    patch: Partial<Pick<ManagedCatalogueItem, 'active' | 'newArrival' | 'eligibleForVideo' | 'eligibleForLive'>>
+    patch: Partial<Pick<ManagedCatalogueItem, 'active' | 'newArrival' | 'eligibleForVideo' | 'eligibleForLive' | 'price'>>
   ) {
     setError('');
     setNotice('');
@@ -327,15 +326,7 @@ export default function MaharajaAdminDashboard({
     }
   }
 
-  // The catalogue shows only experiences this store has; a stale choice falls back to the first one.
-  const allowedExperiences = useMemo(() => {
-    if (!workspace) return ['tryon'] as CatalogueExperience[];
-    // AI Video pieces are offered on the TV, so every AI Video store picks them; Western Try-On needs the TV.
-    const rules = resolveAccess(workspace.devices, workspace.modules);
-    return (['tryon', 'video', 'live'] as const).filter((key) => key === 'tryon' ? rules.modules.image : key === 'live' ? rules.modules.live : rules.modules.video);
-  }, [workspace]);
-  const shownExperience: CatalogueExperience = allowedExperiences.includes(catExperience) ? catExperience : allowedExperiences[0] ?? 'tryon';
-  const catCategories = useMemo(() => categoryOptionsFor(shownExperience, catGender), [shownExperience, catGender]);
+  const catCategories = useMemo(() => categoryOptionsFor(catGender), [catGender]);
   const activeCatFilter = catCategories.some((cat) => cat.id === catFilter) ? catFilter : catCategories[0]?.id;
   const filteredCatalogue = useMemo(
     () => (catGenderChosen ? catalogue.filter((item) => item.gender === catGender && item.category === activeCatFilter) : []),
@@ -343,7 +334,7 @@ export default function MaharajaAdminDashboard({
   );
   const catalogueTotalPages = Math.max(1, Math.ceil(filteredCatalogue.length / CATALOGUE_PAGE_SIZE));
 
-  useEffect(() => setCataloguePage(0), [catExperience, catGender, catFilter]);
+  useEffect(() => setCataloguePage(0), [catGender, catFilter]);
 
   if (loading && !workspace) {
     return (
@@ -431,7 +422,6 @@ export default function MaharajaAdminDashboard({
     ['Real Try-On (Western Try-On)', 'liveSessions', Boolean(devices.tv) && limits.live > 0],
     ['Wall QR scans', 'tryOnScans', limits.image > 0],
   ] as const).filter(([, , on]) => on);
-  const catalogueExperiences = allowedExperiences.map((value) => ({ value, label: value === 'tryon' ? 'Try-On' : value === 'live' ? 'Western Try-On' : 'AI Video' }));
   // Customers' own phones are reached through the wall QR, so they are not a screen to open here.
   const screens = [
     devices.tv && { key: 'tv', title: 'Portrait TV', href: '/maharaja/tv/experience', desc: 'Try-On, Western Try-On and AI Video from your collection', Icon: Tv },
@@ -584,7 +574,7 @@ export default function MaharajaAdminDashboard({
           {limits.video > 0 && !catalogueLoading && videoMissing.length > 0 && videoMissing.length < 4 && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-warn-soft px-3 py-2 text-sm">
               <span className="text-ink">AI Video shows &quot;Coming soon&quot; for <b>{videoMissing.join(', ')}</b>: switch on pieces with a price for them.</span>
-              <button type="button" onClick={() => { setCatExperience('video'); setSection('catalogue'); window.scrollTo({ top: 0 }); }} className="min-h-9 rounded-lg border border-line-strong bg-white px-3 text-[13px] font-semibold">Catalogue · AI Video</button>
+              <button type="button" onClick={() => { setSection('catalogue'); window.scrollTo({ top: 0 }); }} className="min-h-9 rounded-lg border border-line-strong bg-white px-3 text-[13px] font-semibold">Catalogue · AI Video</button>
             </div>
           )}
           <p className="mt-3 text-sm text-muted">Customers get their looks by {workspace.whatsappConnected ? 'QR and WhatsApp' : 'QR'}. To add credits or a platform: <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">9994837342</a></p>
@@ -703,16 +693,12 @@ export default function MaharajaAdminDashboard({
               </div>
             )}
 
-            <div className="mt-5 border-b border-line">
-              <NavTabs label="Experience" value={shownExperience} onChange={setCatExperience} options={catalogueExperiences} />
-            </div>
-
-            <div className="mt-4 max-w-md">
+            <div className="mt-5 max-w-md">
               <Segmented
                 size="sm"
                 label="Who is it for?"
                 value={catGenderChosen ? catGender : null}
-                onChange={(g) => { setCatGenderChosen(true); setCatGender(g); setCatFilter(categoryOptionsFor(shownExperience, g)[0]?.id ?? 'sarees'); }}
+                onChange={(g) => { setCatGenderChosen(true); setCatGender(g); setCatFilter(categoryOptionsFor(g)[0]?.id ?? 'sarees'); }}
                 options={([['women', 'Women'], ['men', 'Men'], ['boys', 'Boys'], ['girls', 'Girls']] as const).map(([value, label]) => ({ value, label }))}
               />
             </div>
@@ -731,21 +717,20 @@ export default function MaharajaAdminDashboard({
               ))}
             </div>
 
-            {shownExperience === 'video' && catGenderChosen && (
-              <div className="mt-4">
-                <p className="text-sm font-semibold text-ink">Video shots for {catGender}</p>
-                <p className="mt-0.5 text-sm text-muted">Every AI Video for {catGender} uses one of these scenes. The customer’s outfit stays exactly as it is.</p>
+            {limits.video > 0 && catGenderChosen && (
+              <details className="mt-4 rounded-2xl border border-line bg-canvas p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-ink">AI Video scenes for {catGender}</summary>
+                <p className="mt-2 text-sm text-muted">Every AI Video for {catGender} uses one of these scenes. The customer’s outfit stays exactly as it is.</p>
                 <ul className="mt-3 grid gap-3 sm:grid-cols-3">
                   {conceptsForCategory(CONCEPT_AUDIENCE[catGender]).map((concept, index) => (
-                    <li key={concept.id} className="rounded-2xl border border-line bg-canvas p-4">
+                    <li key={concept.id} className="rounded-2xl border border-line bg-white p-4">
                       <p className="text-xs font-semibold text-muted">Shot {index + 1}</p>
                       <p className="mt-0.5 font-bold text-ink">{concept.title}</p>
                       <p className="mt-1 text-sm text-muted">{concept.mood}</p>
                     </li>
                   ))}
                 </ul>
-                <p className="mt-4 text-sm text-muted">Garments switched on below are offered for AI Video on the TV. Keep your best, higher-value pieces here.</p>
-              </div>
+              </details>
             )}
 
             {catalogueLoading ? (
@@ -758,35 +743,53 @@ export default function MaharajaAdminDashboard({
               <>
                 <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   {filteredCatalogue.slice(cataloguePage * CATALOGUE_PAGE_SIZE, (cataloguePage + 1) * CATALOGUE_PAGE_SIZE).map((item) => {
-                    const on = shownExperience === 'tryon' ? item.active : shownExperience === 'live' ? isLiveMirrorReady(item) : item.eligibleForVideo;
-                    // Western Try-On pieces all look ready; the switch alone says whether the TV shows them.
-                    const faded = shownExperience !== 'live' && !on;
+                    const liveOn = isLiveMirrorReady(item);
+                    const priceMissing = item.eligibleForVideo && !(item.price > 0);
                     return (
-                      <li key={item.sku} className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white ${faded ? 'border-dashed border-line-strong' : 'border-line'}`}>
-                        <div className={`aspect-[3/4] w-full bg-canvas ${faded ? 'opacity-50' : ''}`}>
+                      <li key={item.sku} className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white ${!item.active ? 'border-dashed border-line-strong' : 'border-line'}`}>
+                        <div className={`aspect-[3/4] w-full bg-canvas ${!item.active ? 'opacity-50' : ''}`}>
                           <img src={item.thumbnailUrl || item.imageUrl} alt={item.title} loading="lazy" className="h-full w-full object-contain object-top" />
                         </div>
                         <div className="flex flex-1 flex-col p-3">
                           <p className="line-clamp-1 text-sm font-semibold text-ink">{item.title}</p>
                           <p className="text-sm tabular-nums text-muted">{item.price > 0 ? formatINR(item.price) : 'No price'} · {item.sku}</p>
                           <div className="mt-auto flex flex-wrap gap-2 pt-3">
-                            {shownExperience === 'tryon' && <>
-                              <button type="button" aria-pressed={item.active} onClick={() => void toggleCatalogueField(item, { active: !item.active })} className={`min-h-9 rounded-full px-3 text-xs font-semibold ${item.active ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}>
-                                {item.active ? 'Showing' : 'Hidden'}
+                            <button type="button" aria-pressed={item.active} onClick={() => void toggleCatalogueField(item, { active: !item.active })} className={catalogueChip(item.active)}>
+                              {item.active ? 'Showing' : 'Hidden'}
+                            </button>
+                            <button type="button" aria-pressed={item.newArrival} onClick={() => void toggleCatalogueField(item, { newArrival: !item.newArrival })} className={catalogueChip(item.newArrival)}>
+                              New arrival
+                            </button>
+                            {limits.video > 0 && (
+                              <button type="button" aria-pressed={item.eligibleForVideo} onClick={() => void toggleCatalogueField(item, { eligibleForVideo: !item.eligibleForVideo })} className={priceMissing ? 'min-h-9 rounded-full border border-danger bg-danger-soft px-3 text-xs font-semibold text-danger' : catalogueChip(item.eligibleForVideo)}>
+                                {item.eligibleForVideo ? (priceMissing ? 'AI Video · Add price' : 'AI Video') : 'AI Video off'}
                               </button>
-                              <button type="button" aria-pressed={item.newArrival} onClick={() => void toggleCatalogueField(item, { newArrival: !item.newArrival })} className={`min-h-9 rounded-full px-3 text-xs font-semibold ${item.newArrival ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}>
-                                New arrival
-                              </button>
-                            </>}
-                            {shownExperience === 'live' && (<button type="button" aria-pressed={on} onClick={() => void toggleCatalogueField(item, { eligibleForLive: !item.eligibleForLive })} className={`min-h-9 rounded-full px-3 text-xs font-semibold ${on ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}>
-                                  {on ? 'On Western Try-On' : 'Off'}
-                                </button>)}
-                            {shownExperience === 'video' && (
-                              <button type="button" aria-pressed={on} onClick={() => void toggleCatalogueField(item, { eligibleForVideo: !item.eligibleForVideo })} className={`min-h-9 rounded-full px-3 text-xs font-semibold ${on ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}>
-                                {on ? 'On AI Video' : 'Off'}
+                            )}
+                            {limits.live > 0 && (
+                              <button type="button" aria-pressed={liveOn} onClick={() => void toggleCatalogueField(item, { eligibleForLive: !item.eligibleForLive })} className={catalogueChip(liveOn)}>
+                                {liveOn ? 'Western Try-On' : 'Western Try-On off'}
                               </button>
                             )}
                           </div>
+                          {limits.video > 0 && item.eligibleForVideo && (
+                            <div className="mt-2">
+                              <label className="text-xs font-semibold text-muted" htmlFor={`price-${item.sku}`}>Price shown on AI Video</label>
+                              <input
+                                id={`price-${item.sku}`}
+                                key={item.price}
+                                type="number"
+                                min={1}
+                                inputMode="numeric"
+                                defaultValue={item.price > 0 ? item.price : ''}
+                                onBlur={(e) => {
+                                  const next = Number(e.target.value);
+                                  if (next > 0 && next !== item.price) void toggleCatalogueField(item, { price: next });
+                                }}
+                                placeholder="₹ Add price"
+                                className={`mt-1 w-full rounded-xl border px-3 py-2 text-sm ${priceMissing ? 'border-danger bg-danger-soft text-danger' : 'border-line-strong'}`}
+                              />
+                            </div>
+                          )}
                         </div>
                       </li>
                     );
