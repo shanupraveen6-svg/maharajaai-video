@@ -49,7 +49,7 @@ import type { CustomerCategory } from '@/lib/maharaja/config';
 
 const VIDEO_CATEGORY_OF: Record<CatalogueAudience, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
 
-type TvMode = 'image-tryon' | 'live-tryon' | 'catalogue-video' | 'wall-qr';
+type TvMode = 'image-tryon' | 'catalogue-tryon' | 'own-tryon' | 'live-tryon' | 'catalogue-video' | 'wall-qr';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
 type CatalogueTryOnStage = 'who' | 'source' | 'photo' | 'browse' | 'generating' | 'result';
 type VideoStage = 'who' | 'photo' | 'pick' | 'look' | 'portrait';
@@ -81,12 +81,15 @@ function useStoreLogo() {
  * The store screen: the portrait TV, or the tablet (`device="tablet"`), at a different scale.
  * TV, three tabs: Try-On (Store collection or My own outfit), AI Video (pick a piece, take a photo, then a
  * QR makes the video on the phone) and Live Mirror. AI Video only starts here, never on the tablet.
- * Tablet, two tabs: Try-On (Store collection or My own outfit) and the Wall QR to print.
+ * Tablet, three tabs: Catalogue Try-On, Own-outfit Try-On (each tab is its own source, no in-flow
+ * "What would you like to try?" step) and the Wall QR to print.
  */
 export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' | 'tablet' }) {
   const isTablet = device === 'tablet';
+  // Tablet starts on its catalogue-outfit Try-On tab; the TV keeps its single Try-On tab.
+  const defaultMode: TvMode = isTablet ? 'catalogue-tryon' : 'image-tryon';
   const storeLogo = useStoreLogo();
-  const [mode, setMode] = useState<TvMode>('image-tryon');
+  const [mode, setMode] = useState<TvMode>(defaultMode);
   const [clientName, setClientName] = useState('');
   // Live Mirror and AI Video show only while the store has them (module on and the devices they need on).
   const [liveOn, setLiveOn] = useState(!isTablet);
@@ -117,7 +120,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   // TryFocus switched the open experience off while the TV was running: go back to Image Try-On.
   useEffect(() => {
-    if ((mode === 'live-tryon' && !liveOn) || (mode === 'catalogue-video' && !videoOn)) setMode('image-tryon');
+    if ((mode === 'live-tryon' && !liveOn) || (mode === 'catalogue-video' && !videoOn)) setMode(defaultMode);
   }, [mode, liveOn, videoOn]);
 
   // Signed-in staff pair this TV to their workspace once; it then runs without a login for 30 days.
@@ -232,6 +235,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     generationBusyRef.current = tryOnStage === 'generating' || videoGeneratingMaster || videoPassCreating || Object.values(batchProgress).includes('generating');
   }, [tryOnStage, videoGeneratingMaster, videoPassCreating, batchProgress]);
   const [videoPassQr, setVideoPassQr] = useState<string>('');
+  // The pass is created as soon as the portrait is ready, but its QR stays hidden until the customer taps
+  // Generate video: that tap also approves the portrait, so scanning the QR starts the video right away.
+  const [videoPassCode, setVideoPassCode] = useState<string>('');
+  const [videoPortraitApproved, setVideoPortraitApproved] = useState(false);
+  const [videoApproving, setVideoApproving] = useState(false);
   const [videoStatusNote, setVideoStatusNote] = useState<string>('');
   const [videoStage, setVideoStage] = useState<VideoStage>('who');
   const [videoCategory, setVideoCategory] = useState<CatalogueCategoryId | ''>('');
@@ -304,7 +312,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   useEffect(() => { setOwnGarmentType(OWN_GARMENT_TYPES[genderFilter][0].id); }, [genderFilter]);
 
   useEffect(() => {
-    if (mode === 'image-tryon' && tryOnStage === 'browse' && !customerPhoto) {
+    if ((mode === 'image-tryon' || mode === 'catalogue-tryon' || mode === 'own-tryon') && tryOnStage === 'browse' && !customerPhoto) {
       setTryOnStage('photo');
     }
   }, [mode, tryOnStage, customerPhoto]);
@@ -316,6 +324,20 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setCameraError('');
     if (next === 'image-tryon') {
       setTryOnStage(customerPhoto ? 'browse' : 'who');
+    }
+    if (next === 'catalogue-tryon' || next === 'own-tryon') {
+      // The tablet's two Try-On tabs decide the source by which tab it is; the shared "What would you
+      // like to try?" step (used only on the TV) never shows here.
+      const source: ImageTryOnSource = next === 'own-tryon' ? 'own-garment' : 'catalogue';
+      if (source !== imageSource) {
+        setImageSource(source);
+        setCustomerPhoto('');
+        setOwnGarmentPhoto('');
+        setWhoChosen(false);
+        setTryOnStage('who');
+      } else {
+        setTryOnStage(customerPhoto ? 'browse' : 'who');
+      }
     }
     if (next === 'catalogue-video') {
       const saree = catalogueItems.find((item) => item.category === 'sarees' && item.eligibleForVideo && item.price >= 5000);
@@ -541,7 +563,14 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   function applyCapturedPhoto(target: CameraTarget, dataUrl: string) {
     if (target === 'catalogue-person' || target === 'own-person') {
       setCustomerPhoto(dataUrl);
-      setTryOnStage(genderFilter === 'boys' || genderFilter === 'girls' ? 'photo' : 'source');
+      const isChild = genderFilter === 'boys' || genderFilter === 'girls';
+      if (!isChild && isTablet) {
+        // The tablet's tab already decided catalogue or own-outfit: no "What would you like to try?" step.
+        setTryOnStage('browse');
+        if (imageSource === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
+      } else {
+        setTryOnStage(isChild ? 'photo' : 'source');
+      }
     } else if (target === 'own-garment') {
       setOwnGarmentPhoto(dataUrl);
     } else if (target === 'video-person') {
@@ -549,6 +578,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       setVideoMasterUrl('');
       setVideoMasterSessionId('');
       setVideoPassQr('');
+      setVideoPassCode('');
+      setVideoPortraitApproved(false);
       setVideoStatusNote('');
       setVideoStage(videoAudience === 'boys' || videoAudience === 'girls' ? 'photo' : 'pick');
     }
@@ -584,6 +615,12 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
    * (Who → photo → source → outfits).
    */
   function continueFromPhoto() {
+    // The tablet's tab already decided catalogue or own-outfit: no "What would you like to try?" step.
+    if (isTablet) {
+      setTryOnStage('browse');
+      if (imageSource === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
+      return;
+    }
     setTryOnStage('source');
   }
 
@@ -599,6 +636,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoMasterUrl('');
     setVideoMasterSessionId('');
     setVideoPassQr('');
+    setVideoPassCode('');
+    setVideoPortraitApproved(false);
     setVideoStatusNote('');
     setPortraitRetryUsed(false);
     setVideoConceptId('');
@@ -613,6 +652,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoMasterUrl('');
     setVideoMasterSessionId('');
     setVideoPassQr('');
+    setVideoPassCode('');
+    setVideoPortraitApproved(false);
     setPortraitRetryUsed(false);
     setVideoConceptId('');
   }
@@ -825,7 +866,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           videoMasterUrl: masterUrl || undefined,
           videoReferenceSessionId: referenceSessionId || undefined,
           videoMasterCategory: product.gender === 'boys' ? 'boy' : product.gender === 'girls' ? 'girl' : product.gender,
-          videoMasterConceptId: product.gender === 'boys' ? 'boy-heritage-entrance' : product.gender === 'girls' ? 'girl-garden-lights' : product.gender === 'men' ? 'men-heritage-passage' : 'women-golden-courtyard',
+          // The location the customer actually picked, the same one the portrait was made in (not a
+          // fixed default): the phone's video must animate the same scene the portrait already shows.
+          videoMasterConceptId: videoConceptId || videoLooks[0]?.id,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -839,12 +882,35 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       });
       if (runId !== batchRunRef.current) return;
       setVideoPassQr(qr);
+      setVideoPassCode(data.pass.code || '');
     } catch (error) {
       if (runId !== batchRunRef.current) return;
       setVideoPassQr('');
       setVideoStatusNote(error instanceof Error ? error.message : 'Unable to create mobile video pass.');
     } finally {
       if (runId === batchRunRef.current) setVideoPassCreating(false);
+    }
+  }
+
+  /** "Generate video": approves the portrait and reveals the QR. The phone then starts the video the
+      instant it opens the pass, with no further tap there. */
+  async function approveVideoPortrait() {
+    if (!videoPassCode || !videoMasterSessionId || !videoMasterUrl || videoApproving) return;
+    setVideoApproving(true);
+    setVideoStatusNote('');
+    try {
+      const res = await fetch('/api/ai/master-image/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessCode: videoPassCode, sessionId: videoMasterSessionId, masterImageUrl: videoMasterUrl }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Unable to confirm the portrait.');
+      setVideoPortraitApproved(true);
+    } catch (error) {
+      setVideoStatusNote(error instanceof Error ? error.message : 'Unable to confirm the portrait. Please try again.');
+    } finally {
+      setVideoApproving(false);
     }
   }
 
@@ -930,6 +996,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoStage('portrait');
     setVideoMasterUrl('');
     setVideoPassQr('');
+    setVideoPassCode('');
+    setVideoPortraitApproved(false);
     const runId = ++batchRunRef.current;
     setVideoStatusNote('Creating your portrait…');
     const sessionId = `tv_vidmaster_${Date.now()}`;
@@ -1028,6 +1096,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoPersonPhoto('');
     setVideoMasterUrl('');
     setVideoPassQr('');
+    setVideoPassCode('');
+    setVideoPortraitApproved(false);
     setVideoAudience('women');
     setVideoGuardianConsent(false);
     setTvBillLast4('');
@@ -1035,7 +1105,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setVideoStatusNote('');
     setVideoGeneratingMaster(false);
     setVideoPassCreating(false);
-    setMode('image-tryon');
+    setMode(defaultMode);
   }
 
   useEffect(() => {
@@ -1060,7 +1130,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // Who → photo → Store collection or My own outfit → outfits.
   const tryOnBack = tryOnStage === 'source' ? () => setTryOnStage('photo')
     : tryOnStage === 'photo' ? () => setTryOnStage('who')
-    : tryOnStage === 'browse' ? () => setTryOnStage('source')
+    // The tablet has no "What would you like to try?" step to go back to (the tab already decided).
+    : tryOnStage === 'browse' ? () => setTryOnStage(isTablet ? 'who' : 'source')
     : null;
   const videoBack = videoStage === 'photo' ? () => setVideoStage('who')
     : videoStage === 'pick' ? () => setVideoStage('photo')
@@ -1086,17 +1157,20 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {isTablet && <Link href="/maharaja/workspace" className="flex min-h-12 items-center rounded-xl px-3 text-base font-semibold text-muted hover:text-ink">Workspace</Link>}
             {/* Tablet: End session on Try-On only (Wall QR has none; there is no AI Video tab here). */}
             {isTablet
-              ? mode === 'image-tryon' && <button type="button" onClick={endSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-16 px-6 text-base">End session</button>
+              ? (mode === 'catalogue-tryon' || mode === 'own-tryon') && <button type="button" onClick={endSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-16 px-6 text-base">End session</button>
               : <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn tf-btn-secondary shrink-0 !min-h-16 px-6 text-base">Start over</button>}
           </div>
         </div>
         {isTablet ? (
-          // Tablet, two tabs, run by the store's team: Try-On (store collection or the customer's own
-          // outfit, chosen after the photo, as on the TV), and the Wall QR to print. AI Video only starts
-          // on the TV.
-          <nav className="tv-mode-nav mx-auto grid max-w-[1080px] grid-cols-2 gap-2 px-8" aria-label="Choose an experience">
-            <button type="button" aria-current={mode === 'image-tryon' ? 'page' : undefined} onClick={() => navigateTo('image-tryon')} className={`tv-mode-button ${mode === 'image-tryon' ? 'is-active' : ''}`}>
-              <Sparkles className="h-6 w-6" /><span>Try-On</span>
+          // Tablet, three tabs, run by the store's team: catalogue Try-On, own-outfit Try-On (each tab
+          // decides the source, so there is no separate "What would you like to try?" step here), and the
+          // Wall QR to print. AI Video only starts on the TV.
+          <nav className="tv-mode-nav mx-auto grid max-w-[1080px] grid-cols-3 gap-2 px-8" aria-label="Choose an experience">
+            <button type="button" aria-current={mode === 'catalogue-tryon' ? 'page' : undefined} onClick={() => navigateTo('catalogue-tryon')} className={`tv-mode-button ${mode === 'catalogue-tryon' ? 'is-active' : ''}`}>
+              <Sparkles className="h-6 w-6" /><span>Catalogue Try-On</span>
+            </button>
+            <button type="button" aria-current={mode === 'own-tryon' ? 'page' : undefined} onClick={() => navigateTo('own-tryon')} className={`tv-mode-button ${mode === 'own-tryon' ? 'is-active' : ''}`}>
+              <Shirt className="h-6 w-6" /><span>Own-outfit Try-On</span>
             </button>
             <button type="button" aria-current={mode === 'wall-qr' ? 'page' : undefined} onClick={() => navigateTo('wall-qr')} className={`tv-mode-button ${mode === 'wall-qr' ? 'is-active' : ''}`}>
               <Printer className="h-6 w-6" /><span>Wall QR</span>
@@ -1121,7 +1195,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         {/* =========================================================
             MODE 1: TRY-ON (store collection or own outfit)
            ========================================================= */}
-        {mode === 'image-tryon' && (
+        {(mode === 'image-tryon' || mode === 'catalogue-tryon' || mode === 'own-tryon') && (
           <div className="space-y-6">
             {tryOnBack && <BackButton onClick={tryOnBack} />}
             {tryOnStage === 'who' && (
@@ -1761,21 +1835,39 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <div className="overflow-hidden rounded-2xl border border-line bg-ink">
                       <img src={videoMasterUrl} alt="Your portrait" className="mx-auto aspect-[9/16] max-h-[78vh] w-full object-contain" />
                     </div>
-                    {/* The same pinned QR card as Try-On: made on its own, no button to tap first. */}
-                    <div className="tf-card sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-5 p-6 shadow-xl">
-                      <div className="flex-1">
-                        <h3 className="text-2xl font-bold">Make your AI Video on your phone</h3>
-                        <p className="mt-1 text-base text-muted">Scan this private QR. Then download it, send it on WhatsApp or show it on our Go Live screen. It works for 1 day.</p>
-                        {!videoPassQr && !videoPassCreating && (
-                          <button type="button" onClick={() => void createCatalogueVideoPass(selectedProduct, selectedEventId, videoMasterUrl, videoMasterSessionId)} className="tf-btn tf-btn-secondary mt-3 !min-h-16 px-6 text-base">
-                            <QrCode className="h-5 w-5" /> Show the QR again
+                    {!videoPortraitApproved ? (
+                      // One look at the portrait before the QR appears: Generate video also approves it,
+                      // so the phone can start the video itself the moment the QR is scanned.
+                      !videoPassQr && !videoPassCreating ? (
+                        <div className="tf-card space-y-3 p-6 text-center">
+                          <p className="text-lg text-danger">{videoStatusNote || 'Could not prepare the video pass.'}</p>
+                          <button type="button" onClick={() => void createCatalogueVideoPass(selectedProduct, selectedEventId, videoMasterUrl, videoMasterSessionId)} className="tf-btn tf-btn-primary !min-h-16 w-full text-lg">
+                            <RefreshCw className="h-5 w-5" /> Try again
                           </button>
-                        )}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={videoApproving || !videoPassQr}
+                          onClick={() => void approveVideoPortrait()}
+                          className="tf-btn tf-btn-primary !min-h-20 w-full text-xl"
+                        >
+                          {videoApproving ? <LoaderCircle className="h-6 w-6 animate-spin" /> : <Sparkles className="h-6 w-6" />}
+                          {videoApproving ? 'Confirming…' : !videoPassQr ? 'Preparing…' : 'Generate video'}
+                        </button>
+                      )
+                    ) : (
+                      // The same pinned QR card as Try-On: made on its own, no button to tap first.
+                      <div className="tf-card sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-5 p-6 shadow-xl">
+                        <div className="flex-1">
+                          <h3 className="text-2xl font-bold">Scan to see your AI Video</h3>
+                          <p className="mt-1 text-base text-muted">The video starts the moment you scan. Then download it, send it on WhatsApp or show it on our Go Live screen. It works for 1 day.</p>
+                        </div>
+                        <div className="flex h-44 w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white">
+                          {videoPassQr ? <img src={videoPassQr} alt="Scan to make your AI Video on your phone" className="h-full w-full object-contain" /> : <LoaderCircle className="h-9 w-9 animate-spin text-muted" />}
+                        </div>
                       </div>
-                      <div className="flex h-44 w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white">
-                        {videoPassQr ? <img src={videoPassQr} alt="Scan to make your AI Video on your phone" className="h-full w-full object-contain" /> : <LoaderCircle className="h-9 w-9 animate-spin text-muted" />}
-                      </div>
-                    </div>
+                    )}
                   </>
                 ) : (
                   <div className="tf-card space-y-4 p-8 text-center">
@@ -1784,8 +1876,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   </div>
                 )}
                 {/* 2 minutes to scan, make the video and download or Go Live on the phone, the last minute in red,
-                    then the session ends on its own. Retry makes the portrait once more. */}
-                {videoMasterUrl && videoPassQr && !videoGeneratingMaster && (
+                    then the session ends on its own. Starts once the QR actually shows. Retry makes the
+                    portrait once more. */}
+                {videoMasterUrl && videoPortraitApproved && !videoGeneratingMaster && (
                   <>
                     <SessionTimer key={videoPassQr} label="Download or Go Live within" onExpire={endSession} />
                     <div className={`grid gap-3 ${portraitRetryUsed ? '' : 'grid-cols-2'}`}>

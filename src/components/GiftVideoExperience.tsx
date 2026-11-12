@@ -9,6 +9,7 @@ import ResultClient from '@/app/result/[sessionId]/ResultClient';
 import { CameraOrUpload, PhotoBox } from '@/components/MaharajaMobileExperience';
 import { useExitGuard } from '@/components/ExitGuard';
 import { ActionBar, PageTitle } from '@/components/ui';
+import VideoGeneratingAnimation from '@/components/VideoGeneratingAnimation';
 import { compressImage } from '@/lib/utils/image';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { categoriesFor, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
@@ -150,7 +151,13 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
         if (pass.videoMasterUrl) {
           setMasterUrl(pass.videoMasterUrl);
           setMasterApproved(Boolean(pass.videoMasterApproved));
-          setStage('portrait');
+          // The TV already approved this portrait before showing the QR, so scanning it starts the video
+          // straight away: no "Make my video" tap. (Un-approved only on a defensive, pre-TV-approval pass.)
+          if (pass.videoMasterApproved && pass.videoReferenceSessionId) {
+            void startVideoGeneration(pass.videoReferenceSessionId);
+          } else {
+            setStage('portrait');
+          }
           return;
         }
         setStage(pass.videoMasterCategory && pass.catalogueProduct?.sku ? 'photo' : 'who');
@@ -284,6 +291,25 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
     }
   }
 
+  /** The actual video call, once the portrait is approved. Takes the session id directly (not from state),
+      so it can run the instant a pass loads, before any state from that load has committed. */
+  async function startVideoGeneration(targetSessionId: string) {
+    setStage('creating-video');
+    setNote('');
+    try {
+      const data = await readJson(await fetch('/api/video/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessCode, sessionId: targetSessionId, videoModel: 'h3-max' }),
+      }));
+      setVideoJobId(data.jobId);
+      await pollVideo(data.jobId);
+    } catch (caught) {
+      setNote(caught instanceof Error ? caught.message : 'The video could not be made. Please try again.');
+      setStage('portrait');
+    }
+  }
+
   async function makeVideo() {
     if (!masterUrl || busy) return;
     setStage('creating-video');
@@ -297,13 +323,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
         }));
         setMasterApproved(true);
       }
-      const data = await readJson(await fetch('/api/video/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessCode, sessionId, videoModel: 'h3-max' }),
-      }));
-      setVideoJobId(data.jobId);
-      await pollVideo(data.jobId);
+      await startVideoGeneration(sessionId);
     } catch (caught) {
       setNote(caught instanceof Error ? caught.message : 'The video could not be made. Please try again.');
       setStage('portrait');
@@ -488,11 +508,19 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
           </>
         )}
 
-        {(stage === 'creating-portrait' || stage === 'creating-video') && (
+        {stage === 'creating-portrait' && (
           <div className="flex flex-col items-center gap-4 rounded-2xl bg-white p-10 text-center">
             <LoaderCircle className="h-10 w-10 animate-spin text-brand" />
-            <p className="text-base font-semibold">{stage === 'creating-portrait' ? t('creatingPortrait') : t('creatingVideo')}</p>
+            <p className="text-base font-semibold">{t('creatingPortrait')}</p>
           </div>
+        )}
+
+        {stage === 'creating-video' && (
+          <VideoGeneratingAnimation
+            portraitUrl={masterUrl}
+            announce={t('creatingVideo')}
+            captions={[t('videoStep1'), t('videoStep2'), t('videoStep3'), t('videoStep4')]}
+          />
         )}
 
         {stage === 'portrait' && (

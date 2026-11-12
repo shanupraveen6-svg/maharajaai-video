@@ -19,13 +19,17 @@ reused for another level, so a shopper can always tell which choice matters more
 
 | Level | Question | Options | Control |
 |---|---|---|---|
-| 0 | Which experience? | TV: Try-On · AI Video · Live Mirror. Tablet: Try-On · Wall QR | `NavTabs` (underlined tabs in the header) |
+| 0 | Which experience? | TV: Try-On · AI Video · Live Mirror. Tablet: Catalogue Try-On · Own-outfit Try-On · Wall QR | `NavTabs` (underlined tabs in the header) |
 | 1 | Who is it for? | Women · Men · Boys · Girls | `AudienceCards`: four illustrated cards, 2 × 2, nothing pre-selected, with the two-line `PhotoGuide` box under them (full-length, not a selfie; good light, face the camera). On the portrait TV the store's logo fills the bottom of this screen |
-| 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV, the tablet and the phone |
+| 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV and the phone |
 | 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Plain text list (sidebar on TV and tablet, underlined text row on phone) |
 | 4 | Which piece? | Product cards | Image cards with a 1–3 badge, the only image tiles |
 
 There is no step progress bar on any surface. Each screen has one title, one next action and a small Back to the step before it. Categories and outfit types are listed in the order South Indian shoppers wear them most (men and boys start with shirt and pant).
+
+The tablet's own two Try-On tabs stand in for level 2 there: picking Catalogue Try-On or Own-outfit Try-On
+already answers "what are you trying?", so that step never appears on the tablet; Who (level 1) still comes
+first inside whichever tab is open.
 
 TV, three tabs:
 - Try-On: Who → Your photo → Store collection or My own outfit → Pick outfits (up to 3) or Your outfit → Your looks.
@@ -44,17 +48,23 @@ TV, three tabs:
   download or Go Live on the phone, the last minute in red, then the session ends on its own; Retry sits
   beside its End session.
 
-Tablet, run by the store's team, two tabs. End session sits in the header on Try-On (Wall QR has none);
-there is no AI Video tab here, and no clock on the tablet:
-- Try-On: the TV's Try-On (Who → Your photo → Store collection or My own outfit → outfits → looks). The
-  team takes the customer's photo and shows them the collection.
+Tablet, run by the store's team, three tabs: Catalogue Try-On, Own-outfit Try-On, Wall QR. Each Try-On tab
+is its own source, decided by the tab, not by an in-flow "What would you like to try?" step — Who still
+asks first. End session sits in the header on either Try-On tab (Wall QR has none); there is no AI Video
+tab here, and no clock on the tablet:
+- Catalogue Try-On: Who → Your photo → outfits from the collection → looks.
+- Own-outfit Try-On: Who → Your photo → Your outfit (photographed with the camera) → look. The team takes
+  the customer's photo either way and shows them the result.
 - Wall QR: the store's permanent Try-On QR, shown large to scan at the counter, and a poster with the
   store's name to download, print and paste anywhere in the store.
 
-AI Video only starts on the TV, never the tablet: if a video comes out wrong, the customer retries it
-privately on their own phone, where no one else sees it. The TV makes only the portrait; its QR opens the
-phone on Your portrait → Make my video (the portrait retry stays on the TV), then Download or Go Live,
-which plays it on the store's Go Live player.
+AI Video only starts on the TV, never the tablet. On the TV: Who → Your photo → Pick a piece → Pick a
+location → Your portrait → Generate video (this also approves the portrait) → the QR. Scanning the QR on
+the phone starts the video immediately, with its own animated progress screen — no "Make my video" tap,
+since the TV already approved it. If a video comes out wrong, the customer retries it privately on their
+own phone, where no one else sees it (the portrait retry stays on the TV). Then Download (which saves the
+file on its own right after the WhatsApp number is given) or Go Live, which plays it on the store's Go
+Live player.
 
 Phone: Try-On only, opened from the store's permanent Wall QR (downloaded from the workspace and pasted in
 the store). (A photo of the bill, Camera or Upload, read on the server, when the store set a Try-On minimum)
