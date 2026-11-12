@@ -20,12 +20,12 @@ function imageType(bytes: Buffer, declared: string) {
 }
 
 export async function POST(req: NextRequest) {
-  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) return NextResponse.json({ error: 'Operator sign-in required.' }, { status: 401 });
   try {
     const bucket = getStorageBucket();
     if (!bucket) return NextResponse.json({ error: 'Catalogue storage is unavailable.' }, { status: 503 });
     const form = await req.formData();
+    bindClient(await resolveRequestClientId(req, undefined, form.get('workspaceCode') as string | null));
     const batchId = String(form.get('batchId') || '');
     const category = catalogueCategories.find((item) => item.id === form.get('category'));
     const file = form.get('file');

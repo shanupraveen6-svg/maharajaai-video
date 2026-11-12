@@ -4,20 +4,21 @@ import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Upload } from 'lucide-react';
 
 /** The store logo printed on every look customers download (Try-On on the TV, tablet and phone). */
-export default function StoreLogoCard({ onStatus }: { onStatus?: (hasLogo: boolean) => void } = {}) {
+export default function StoreLogoCard({ onStatus, clientId }: { onStatus?: (hasLogo: boolean) => void; clientId?: string } = {}) {
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const codeQuery = clientId ? `&workspaceCode=${encodeURIComponent(clientId)}` : '';
 
   function load() {
-    fetch(`/api/maharaja/logo?t=${Date.now()}`, { cache: 'no-store' })
+    fetch(`/api/maharaja/logo?t=${Date.now()}${codeQuery}`, { cache: 'no-store' })
       .then(async (response) => (response.ok ? URL.createObjectURL(await response.blob()) : ''))
       .then((url) => { onStatus?.(Boolean(url)); setPreview((old) => { if (old) URL.revokeObjectURL(old); return url; }); })
       .catch(() => undefined);
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loads once; onStatus only reports the result
-  useEffect(load, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- onStatus only reports the result
+  useEffect(load, [clientId]);
 
   async function upload(file?: File) {
     if (!file) return;
@@ -26,6 +27,7 @@ export default function StoreLogoCard({ onStatus }: { onStatus?: (hasLogo: boole
     try {
       const form = new FormData();
       form.set('logo', file);
+      if (clientId) form.set('workspaceCode', clientId);
       const response = await fetch('/api/maharaja/logo', { method: 'POST', body: form });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) throw new Error(data.error || 'The logo could not be saved.');

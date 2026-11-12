@@ -12,20 +12,22 @@ const MAX_BYTES = 50 * 1024 * 1024;
  * Up to three promo videos that play on the workspace's Go Live player after every ten customer videos.
  * Files go straight to storage, then the server checks type, size, length and frame.
  */
-export default function GoLivePromoManager() {
+export default function GoLivePromoManager({ clientId }: { clientId?: string } = {}) {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const codeQuery = clientId ? `?workspaceCode=${encodeURIComponent(clientId)}` : '';
 
   useEffect(() => {
-    fetch('/api/maharaja/promos', { cache: 'no-store' })
+    fetch(`/api/maharaja/promos${codeQuery}`, { cache: 'no-store' })
       .then((response) => response.json())
       .then((data) => { if (data?.success) setPromos(data.promos || []); })
       .catch(() => setError('Promo videos could not be loaded. Reload the page.'));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   async function upload() {
     const file = fileRef.current?.files?.[0];
@@ -39,7 +41,7 @@ export default function GoLivePromoManager() {
       const start = await (await fetch('/api/maharaja/promos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upload-url', contentType: file.type, sizeBytes: file.size }),
+        body: JSON.stringify({ action: 'upload-url', contentType: file.type, sizeBytes: file.size, workspaceCode: clientId }),
       })).json();
       if (!start?.success) throw new Error(start?.error || 'Upload could not start.');
       const put = await fetch(start.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
@@ -48,7 +50,7 @@ export default function GoLivePromoManager() {
       const done = await (await fetch('/api/maharaja/promos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'confirm', id: start.id, title, contentType: file.type }),
+        body: JSON.stringify({ action: 'confirm', id: start.id, title, contentType: file.type, workspaceCode: clientId }),
       })).json();
       if (!done?.success) throw new Error(done?.error || 'The video could not be saved.');
       setPromos(done.promos || []);
@@ -66,7 +68,7 @@ export default function GoLivePromoManager() {
   async function remove(id: string) {
     setError('');
     setMessage('');
-    const data = await (await fetch(`/api/maharaja/promos?id=${encodeURIComponent(id)}`, { method: 'DELETE' })).json().catch(() => null);
+    const data = await (await fetch(`/api/maharaja/promos?id=${encodeURIComponent(id)}${clientId ? `&workspaceCode=${encodeURIComponent(clientId)}` : ''}`, { method: 'DELETE' })).json().catch(() => null);
     if (!data?.success) return setError(data?.error || 'The promo could not be deleted.');
     setPromos(data.promos || []);
   }

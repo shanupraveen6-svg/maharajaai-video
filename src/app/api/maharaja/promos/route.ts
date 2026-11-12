@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   if (!screenClient && !verifyOperatorRequest(req) && !await verifyTvRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized.' }, { status: 401, headers: noStore });
   }
-  bindClient(screenClient || await resolveRequestClientId(req));
+  bindClient(screenClient || await resolveRequestClientId(req, undefined, req.nextUrl.searchParams.get('workspaceCode')));
   try {
     if (req.nextUrl.searchParams.get('playback') === '1') {
       const workspace = await getMaharajaWorkspace();
@@ -53,9 +53,9 @@ export async function POST(req: NextRequest) {
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized.' }, { status: 401, headers: noStore });
   }
-  bindClient(await resolveRequestClientId(req));
   try {
     const body = await req.json().catch(() => ({}));
+    bindClient(await resolveRequestClientId(req, undefined, body.workspaceCode));
     if (body.action === 'upload-url') {
       return NextResponse.json({ success: true, ...await createPromoUpload(body.contentType, body.sizeBytes) }, { headers: noStore });
     }
@@ -73,7 +73,7 @@ export async function DELETE(req: NextRequest) {
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Unauthorized.' }, { status: 401, headers: noStore });
   }
-  bindClient(await resolveRequestClientId(req));
+  bindClient(await resolveRequestClientId(req, undefined, req.nextUrl.searchParams.get('workspaceCode')));
   try {
     await deletePromoVideo(req.nextUrl.searchParams.get('id'));
     return NextResponse.json({ success: true, promos: await listPromoVideos() }, { headers: noStore });

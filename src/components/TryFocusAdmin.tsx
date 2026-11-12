@@ -18,6 +18,7 @@ import {
 import { CREDIT_LEVEL_STATUS, creditLevel, creditStatuses } from '@/lib/maharaja/credits';
 import { StatusPill } from '@/components/ui';
 import PlatformOverview, { type PlatformSpend } from '@/components/PlatformOverview';
+import MaharajaAdminDashboard from '@/components/MaharajaAdminDashboard';
 import { PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, type PackageId } from '@/lib/maharaja/access';
 import { PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage, presetFor, type Credits, type Platform, type PresetId } from '@/lib/maharaja/pricing';
 
@@ -972,6 +973,15 @@ export default function TryFocusAdmin() {
 
         </>)}
       </div>
+
+      {/* Same screen the store logs into: picking a client here opens it directly, so what TryFocus sets
+          up during delivery (catalogue, logo, Instagram, promo videos) is exactly what the store gets. */}
+      {clientId && (
+        <div className="border-t-8 border-ink/10">
+          <p className="mx-auto max-w-6xl px-5 pt-4 text-xs font-bold uppercase tracking-wide text-muted sm:px-8">In {client.name}&apos;s workspace</p>
+          <MaharajaAdminDashboard key={clientId} workspaceCode={clientId} />
+        </div>
+      )}
     </main>
   );
 }

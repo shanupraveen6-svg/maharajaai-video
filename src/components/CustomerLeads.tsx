@@ -21,13 +21,14 @@ const shortDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-
  * The store's customers: everyone who gave a WhatsApp number to download a look or a video. Only those who
  * ticked "send me offers" may get the store's offers; the CSV says which.
  */
-export default function CustomerLeads() {
+export default function CustomerLeads({ clientId }: { clientId?: string } = {}) {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [error, setError] = useState('');
+  const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
 
   useEffect(() => {
     let active = true;
-    fetch('/api/maharaja/leads', { cache: 'no-store' })
+    fetch(`/api/maharaja/leads${query}`, { cache: 'no-store' })
       .then((response) => response.json())
       .then((data) => {
         if (!active) return;
@@ -36,7 +37,8 @@ export default function CustomerLeads() {
       })
       .catch(() => { if (active) setError('Your customers could not be loaded. Check the connection.'); });
     return () => { active = false; };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   const offersAllowed = leads?.filter((lead) => lead.marketingConsent).length || 0;
 
@@ -47,7 +49,7 @@ export default function CustomerLeads() {
           <h2 className="text-2xl font-bold">Customers</h2>
           <p className="mt-1 max-w-xl text-sm text-muted">Everyone who gave a WhatsApp number to download a look or a video. Send offers only to customers marked “Offers: yes”.</p>
         </div>
-        <a href="/api/maharaja/leads?format=csv" className="tf-btn tf-btn-dark !min-h-11 px-4 text-sm"><Download className="h-4 w-4" /> Download CSV</a>
+        <a href={`/api/maharaja/leads?format=csv${clientId ? `&clientId=${encodeURIComponent(clientId)}` : ''}`} className="tf-btn tf-btn-dark !min-h-11 px-4 text-sm"><Download className="h-4 w-4" /> Download CSV</a>
       </div>
 
       {error && <p role="alert" className="mt-4 rounded-2xl bg-danger-soft p-3 text-sm font-semibold text-danger">{error}</p>}

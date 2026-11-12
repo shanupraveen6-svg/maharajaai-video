@@ -9,10 +9,10 @@ import { resolveRequestClientId } from '@/lib/maharaja/server';
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) return NextResponse.json({ error: 'Operator sign-in required.' }, { status: 401 });
   try {
     const body = await req.json();
+    bindClient(await resolveRequestClientId(req, undefined, body.workspaceCode));
     const batchId = String(body.batchId || '');
     const items = body.items;
     if (!/^[a-z0-9-]{12,64}$/i.test(batchId) || !Array.isArray(items) || items.length < 1 || items.length > 20) throw new Error('Publish 1–20 reviewed garments per request.');

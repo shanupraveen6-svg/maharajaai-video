@@ -215,13 +215,13 @@ export default function MaharajaAdminDashboard({
 
   const loadCatalogue = useCallback(async () => {
     try {
-      setCatalogue(await fetchCompleteCatalogue(true));
+      setCatalogue(await fetchCompleteCatalogue(true, '', activeWorkspaceCode));
     } catch {
       // non-blocking
     } finally {
       setCatalogueLoading(false);
     }
-  }, []);
+  }, [activeWorkspaceCode]);
 
   useEffect(() => {
     void loadWorkspace();
@@ -307,6 +307,7 @@ export default function MaharajaAdminDashboard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sku: item.sku,
+          workspaceCode: activeWorkspaceCode,
           ...patch,
           ...(typeof patch.newArrival === 'boolean'
             ? { badge: patch.newArrival ? 'NEW ARRIVAL' : 'ROYAL SILK' }
@@ -626,7 +627,7 @@ export default function MaharajaAdminDashboard({
         </section>
         </>}
 
-        {section === 'customers' && <CustomerLeads />}
+        {section === 'customers' && <CustomerLeads clientId={activeWorkspaceCode} />}
 
         {section === 'settings' && (
           <div className="max-w-3xl space-y-4">
@@ -654,7 +655,7 @@ export default function MaharajaAdminDashboard({
           </section>
         )}
 
-        <StoreLogoCard />
+        <StoreLogoCard clientId={activeWorkspaceCode} />
 
         <form
           className="tf-card p-6"
@@ -885,7 +886,7 @@ export default function MaharajaAdminDashboard({
 
             <section className="tf-card max-w-2xl p-6">
               <h2 className="text-lg font-bold">Promo videos</h2>
-              <div className="mt-4"><GoLivePromoManager /></div>
+              <div className="mt-4"><GoLivePromoManager clientId={activeWorkspaceCode} /></div>
             </section>
           </div>
         ) : (

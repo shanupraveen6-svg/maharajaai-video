@@ -10,9 +10,9 @@ export const dynamic = 'force-dynamic';
 const MAX_BYTES = 3 * 1024 * 1024;
 const TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
-async function signedIn(req: NextRequest) {
+async function signedIn(req: NextRequest, requestedClientId?: string | null) {
   if (!verifyOperatorRequest(req)) return false;
-  bindClient(await resolveRequestClientId(req));
+  bindClient(await resolveRequestClientId(req, undefined, requestedClientId));
   return true;
 }
 
@@ -20,7 +20,8 @@ async function signedIn(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const allowed = verifyOperatorRequest(req) || await verifyTvRequest(req);
   if (!allowed) return NextResponse.json({ error: 'Sign in to the workspace.' }, { status: 401 });
-  bindClient(await resolveRequestClientId(req));
+  // TryFocus admin viewing a client's workspace passes which client this logo is for.
+  bindClient(await resolveRequestClientId(req, undefined, req.nextUrl.searchParams.get('workspaceCode')));
   // `?fallback=1` (the TV and tablet): with no uploaded logo, the store's default badge, the same one its
   // downloaded looks carry. The workspace's own logo card asks without it, so it still shows "No logo yet".
   const logo = await readStoreLogo(activeClientId())
@@ -31,8 +32,8 @@ export async function GET(req: NextRequest) {
 
 /** Uploads the store logo put on every downloaded look. */
 export async function POST(req: NextRequest) {
-  if (!await signedIn(req)) return NextResponse.json({ success: false, error: 'Sign in to the workspace.' }, { status: 401 });
   const form = await req.formData().catch(() => null);
+  if (!await signedIn(req, form?.get('workspaceCode') as string | null)) return NextResponse.json({ success: false, error: 'Sign in to the workspace.' }, { status: 401 });
   const file = form?.get('logo');
   if (!(file instanceof File) || !file.size) return NextResponse.json({ success: false, error: 'Choose your logo file.' }, { status: 400 });
   if (!TYPES.has(file.type)) return NextResponse.json({ success: false, error: 'Use a PNG, JPG or WebP logo.' }, { status: 415 });
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!await signedIn(req)) return NextResponse.json({ success: false, error: 'Sign in to the workspace.' }, { status: 401 });
+  if (!await signedIn(req, req.nextUrl.searchParams.get('workspaceCode'))) return NextResponse.json({ success: false, error: 'Sign in to the workspace.' }, { status: 401 });
   await deleteStoreLogo(activeClientId());
   return NextResponse.json({ success: true });
 }

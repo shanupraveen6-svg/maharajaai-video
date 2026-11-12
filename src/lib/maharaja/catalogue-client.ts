@@ -3,9 +3,10 @@ import type { WorkspaceAccess } from '@/lib/maharaja/access';
 import type { PublicCatalogueProduct } from './catalogue-types';
 
 /** `accessCode` (a customer QR or pass code) selects the client's catalogue on pages without a staff login. */
-export async function fetchCompleteCatalogue(includeInactive = false, accessCode = ''): Promise<PublicCatalogueProduct[]> {
+export async function fetchCompleteCatalogue(includeInactive = false, accessCode = '', workspaceCode = ''): Promise<PublicCatalogueProduct[]> {
   const access = accessCode ? `&access=${encodeURIComponent(accessCode)}` : '';
-  const query = (offset: number) => `/api/maharaja/catalogue?offset=${offset}&limit=100${includeInactive ? '&includeInactive=true' : ''}${access}`;
+  const code = workspaceCode ? `&workspaceCode=${encodeURIComponent(workspaceCode)}` : '';
+  const query = (offset: number) => `/api/maharaja/catalogue?offset=${offset}&limit=100${includeInactive ? '&includeInactive=true' : ''}${access}${code}`;
   const first = await fetch(query(0), { cache: 'no-store' });
   const initial = await first.json();
   if (!first.ok || !initial.success || !Array.isArray(initial.products)) throw new Error(initial.error || 'Could not load catalogue.');

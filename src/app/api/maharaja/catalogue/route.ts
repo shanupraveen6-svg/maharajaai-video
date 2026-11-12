@@ -24,8 +24,9 @@ export async function GET(req: NextRequest) {
     });
   } catch { /* outside a request scope (build) */ }
   try {
-    // Customer pages pass their QR or pass code; staff pages are bound by their login.
-    bindClient(await resolveRequestClientId(req, req.nextUrl.searchParams.get('access')));
+    // Customer pages pass their QR or pass code; staff pages are bound by their login (TryFocus admin
+    // viewing a client's workspace passes which client this catalogue is for).
+    bindClient(await resolveRequestClientId(req, req.nextUrl.searchParams.get('access'), req.nextUrl.searchParams.get('workspaceCode')));
     const offset = Number(req.nextUrl.searchParams.get('offset') || '0');
     const limit = Number(req.nextUrl.searchParams.get('limit') || '60');
     const requestedInactive = req.nextUrl.searchParams.get('includeInactive') === 'true';
@@ -55,12 +56,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
   try {
     const body = await req.json();
+    bindClient(await resolveRequestClientId(req, undefined, body.workspaceCode));
     const product = await upsertCatalogueProduct(body);
     await logMaharajaActivity('campaign', `Catalogue garment saved: ${product.sku}`, {
       sku: product.sku,
@@ -77,12 +78,12 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
   try {
     const body = await req.json();
+    bindClient(await resolveRequestClientId(req, undefined, body.workspaceCode));
     const sku = String(body.sku || '').trim();
     if (!sku) {
       return NextResponse.json({ success: false, error: 'SKU is required to update a catalogue item.' }, { status: 400 });
@@ -104,10 +105,10 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req)) {
     return NextResponse.json({ success: false, error: 'Please sign in again.' }, { status: 401 });
   }
+  bindClient(await resolveRequestClientId(req, undefined, req.nextUrl.searchParams.get('workspaceCode')));
   try {
     const sku = req.nextUrl.searchParams.get('sku') || '';
     if (!sku.trim()) {
