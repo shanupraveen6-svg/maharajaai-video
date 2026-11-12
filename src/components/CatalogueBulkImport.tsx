@@ -45,9 +45,9 @@ const AUDIENCES: { id: CatalogueAudience; label: string }[] = [
  * One upload for every garment: pick the audience and category once, drop in the photos, then review a
  * single table. Try-On is automatic for everything (no switch needed) — only AI Video (off by default,
  * the store opts in the pieces worth showing a price on) and Western Try-On (on by default wherever the
- * category is western-cut, off wherever it is not) need a decision. A garment missing a price it needs
- * shows a red mark instead of a pop-up; the full detail view behind each thumbnail is where sizes and
- * price are actually set.
+ * category is western-cut, off wherever it is not) need a decision. Ticking AI Video opens a price box right
+ * in the row (red until filled); a header tick and "Same price for all" handle a whole batch at once. The
+ * detail view behind each thumbnail is optional — name and sizes only, never needed to publish.
  */
 export default function CatalogueBulkImport({
   onPublished,
@@ -83,6 +83,29 @@ export default function CatalogueBulkImport({
   const unresolved = rows.filter((row) => row.status !== 'ready').length;
   const needsPrice = rows.filter((row) => experiences.video && row.aiVideoOn && !(Number(row.price) > 0));
   const detail = rows.find((row) => row.id === detailId) || null;
+  const [bulkPrice, setBulkPrice] = useState('');
+  const allVideo = rows.length > 0 && rows.every((row) => row.aiVideoOn);
+  const allWestern = rows.length > 0 && rows.every((row) => row.westernOn);
+  const videoRows = rows.filter((row) => row.aiVideoOn);
+
+  function setAll(patch: Partial<CatalogueImportRow>) {
+    setRows((current) => current.map((row) => ({ ...row, ...patch })));
+  }
+
+  /** One price for every AI Video garment that has none yet — a batch is usually one price band. */
+  function applyBulkPrice() {
+    const value = Number(bulkPrice);
+    if (!(value > 0)) return;
+    setRows((current) => current.map((row) => (row.aiVideoOn && !(Number(row.price) > 0) ? { ...row, price: String(value) } : row)));
+    setBulkPrice('');
+  }
+
+  /** Enter in a price box jumps to the next AI Video row's price, so a long batch is typed straight down. */
+  function focusNextPrice(id: string) {
+    const index = videoRows.findIndex((row) => row.id === id);
+    const next = videoRows[index + 1];
+    if (next) document.getElementById(`price-${next.id}`)?.focus();
+  }
 
   function update(id: string, patch: Partial<CatalogueImportRow>) {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -188,8 +211,8 @@ export default function CatalogueBulkImport({
       return;
     }
     if (needsPrice.length > 0) {
-      setMessage(`AI Video needs a price before it shows to customers. ${needsPrice.length} garment(s) still need one — open them from the table.`);
-      setDetailId(needsPrice[0].id);
+      setMessage(`${needsPrice.length} AI Video garment(s) still need a price — type it in the red box on each row, or use "Same price for all" above the table.`);
+      document.getElementById(`price-${needsPrice[0].id}`)?.focus();
       return;
     }
 
@@ -301,15 +324,49 @@ export default function CatalogueBulkImport({
 
         {rows.length > 0 && (
           <div className="mt-8 space-y-4 border-t border-line pt-6">
+            {experiences.video && videoRows.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-white p-4">
+                <span className="text-sm font-semibold text-ink">Same price for all AI Video garments without one</span>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-subtle">₹</span>
+                  <input
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    value={bulkPrice}
+                    onChange={(e) => setBulkPrice(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') applyBulkPrice(); }}
+                    placeholder="e.g. 4999"
+                    className="min-h-11 w-36 border border-line-strong bg-white pl-7 pr-3 text-sm font-bold text-ink"
+                  />
+                </div>
+                <button type="button" onClick={applyBulkPrice} disabled={!(Number(bulkPrice) > 0)} className="min-h-11 bg-ink px-5 text-sm font-bold text-white disabled:opacity-40">Apply</button>
+                <span className="text-xs text-muted">{needsPrice.length ? `${needsPrice.length} still without a price` : 'Every AI Video garment has a price'}</span>
+              </div>
+            )}
             <div className="rounded-2xl overflow-x-auto border border-line bg-white">
-              <table className="w-full min-w-[640px] text-left text-xs">
+              <table className="w-full min-w-[720px] text-left text-xs">
                 <thead className="border-b border-line bg-canvas text-muted">
                   <tr>
                     <th className="p-3 w-16">Photo</th>
                     <th className="p-3">Garment</th>
                     <th className="p-3">Category</th>
-                    {experiences.video && <th className="p-3 w-28 text-center">AI Video</th>}
-                    {experiences.live && <th className="p-3 w-32 text-center">Western Try-On</th>}
+                    {experiences.video && (
+                      <th className="p-3 w-44">
+                        <label className="inline-flex items-center gap-2">
+                          <input type="checkbox" checked={allVideo} onChange={(e) => setAll({ aiVideoOn: e.target.checked })} className="h-5 w-5 accent-ink" aria-label="AI Video for every garment" />
+                          AI Video · price
+                        </label>
+                      </th>
+                    )}
+                    {experiences.live && (
+                      <th className="p-3 w-36">
+                        <label className="inline-flex items-center gap-2">
+                          <input type="checkbox" checked={allWestern} onChange={(e) => setAll({ westernOn: e.target.checked })} className="h-5 w-5 accent-ink" aria-label="Western Try-On for every garment" />
+                          Western Try-On
+                        </label>
+                      </th>
+                    )}
                     <th className="p-3 w-24">Status</th>
                     <th className="p-3 w-16"></th>
                   </tr>
@@ -341,19 +398,31 @@ export default function CatalogueBulkImport({
                           </select>
                         </td>
                         {experiences.video && (
-                          <td className="p-3 text-center">
-                            <label className="inline-flex flex-col items-center gap-1">
-                              <input type="checkbox" checked={row.aiVideoOn} onChange={(e) => update(row.id, { aiVideoOn: e.target.checked })} className="h-5 w-5 accent-ink" aria-label={`AI Video for ${row.filename}`} />
-                              {priceMissing && (
-                                <button type="button" onClick={() => setDetailId(row.id)} className="rounded-full bg-danger px-2 py-0.5 text-[10px] font-bold text-white">
-                                  Add price
-                                </button>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <input type="checkbox" checked={row.aiVideoOn} onChange={(e) => update(row.id, { aiVideoOn: e.target.checked })} className="h-5 w-5 shrink-0 accent-ink" aria-label={`AI Video for ${row.filename}`} />
+                              {row.aiVideoOn && (
+                                <div className="relative">
+                                  <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-xs font-bold ${priceMissing ? 'text-danger' : 'text-subtle'}`}>₹</span>
+                                  <input
+                                    id={`price-${row.id}`}
+                                    type="number"
+                                    min="1"
+                                    inputMode="numeric"
+                                    value={row.price}
+                                    onChange={(e) => update(row.id, { price: e.target.value })}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); focusNextPrice(row.id); } }}
+                                    placeholder="Price"
+                                    aria-label={`AI Video price for ${row.filename}`}
+                                    className={`min-h-9 w-28 border pl-6 pr-2 text-xs font-bold ${priceMissing ? 'border-danger bg-danger-soft text-danger placeholder:text-danger' : 'border-line-strong bg-white text-ink'}`}
+                                  />
+                                </div>
                               )}
-                            </label>
+                            </div>
                           </td>
                         )}
                         {experiences.live && (
-                          <td className="p-3 text-center">
+                          <td className="p-3">
                             <input type="checkbox" checked={row.westernOn} onChange={(e) => update(row.id, { westernOn: e.target.checked })} className="h-5 w-5 accent-ink" aria-label={`Western Try-On for ${row.filename}`} />
                           </td>
                         )}

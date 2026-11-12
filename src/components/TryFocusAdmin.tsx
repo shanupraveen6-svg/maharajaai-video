@@ -975,7 +975,7 @@ export default function TryFocusAdmin() {
           up during delivery (catalogue, logo, Instagram, promo videos) is exactly what the store gets. */}
       {clientId && (
         <div className="border-t-8 border-ink/10">
-          <p className="mx-auto max-w-6xl px-5 pt-4 text-xs font-bold uppercase tracking-wide text-muted sm:px-8">In {client.name}&apos;s workspace</p>
+          <p className="mx-auto max-w-6xl px-5 pt-4 text-sm font-semibold text-muted sm:px-8">{client.name}&apos;s workspace — exactly what the store sees</p>
           <MaharajaAdminDashboard key={clientId} workspaceCode={clientId} />
         </div>
       )}

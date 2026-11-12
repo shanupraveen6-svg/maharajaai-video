@@ -564,17 +564,12 @@ export default function LucyLiveMirror({
                   const isActive = index === activeIndex && running;
                   const isNext = index === 1 && sessionStates[0] === 'done' && state === 'pending';
                   return (
-                    <div key={look.sku} className={`overflow-hidden rounded-2xl border-2 bg-white/95 shadow-lg transition ${isActive ? 'border-success' : isNext ? 'border-brand' : 'border-white/70'}`}>
+                    <div key={look.sku} className={`overflow-hidden rounded-2xl border-[3px] bg-white/95 shadow-lg transition ${isActive ? 'border-success' : isNext ? 'border-brand' : 'border-white/70'}`}>
                       <div className="flex items-center gap-2 p-2">
                         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${state === 'done' ? 'bg-success' : 'bg-ink'}`}>{index + 1}</span>
                         <img src={look.thumbnailUrl || look.imageUrl} alt="" className="h-14 w-11 shrink-0 rounded-lg bg-canvas object-contain" />
-                        <p className="line-clamp-2 text-xs font-semibold leading-snug text-ink">{look.title}</p>
+                        <p className="line-clamp-2 text-xs font-semibold leading-snug text-ink">{state === 'done' ? 'Done' : look.title}</p>
                       </div>
-                      {isNext && (
-                        <button type="button" onClick={() => void beginGarmentSession(1, true)} className="tf-btn tf-btn-primary !min-h-11 w-full !rounded-none text-sm">
-                          Try this next
-                        </button>
-                      )}
                     </div>
                   );
                 })}
@@ -588,10 +583,12 @@ export default function LucyLiveMirror({
               </button>
             )}
 
-            {sessionStates[0] === 'done' && sessionStates[1] === 'pending' && (
-              <div className="absolute inset-x-6 bottom-10 z-10 rounded-2xl bg-ink/80 p-5 text-center text-white backdrop-blur">
-                <p className="text-2xl font-bold">First outfit done!</p>
-                <p className="mt-1 text-lg text-white/85">Tap your second outfit on the right to continue.</p>
+            {sessionStates[0] === 'done' && sessionStates[1] === 'pending' && current !== 'error' && (
+              <div className="absolute inset-x-10 bottom-10 z-10 space-y-3">
+                <p className="mx-auto w-fit rounded-full bg-ink/80 px-5 py-2 text-lg font-semibold text-white backdrop-blur">First outfit done</p>
+                <button type="button" onClick={() => void beginGarmentSession(1, true)} className="tf-btn tf-btn-primary tv-live-action !w-full !min-h-24 text-2xl shadow-2xl">
+                  <Sparkles className="h-8 w-8" /> Start outfit 2
+                </button>
               </div>
             )}
 
@@ -642,6 +639,14 @@ export default function LucyLiveMirror({
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {bothDone && !videoUrls[resultIndex] && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-ink/85 p-8 text-center text-white">
+                <p className="text-3xl font-bold">{pair[resultIndex]?.title}</p>
+                <p className="mt-3 max-w-sm text-lg text-white/80">This TV could not record this outfit&apos;s video.</p>
+                <button type="button" onClick={moveResult} className="tf-btn tf-btn-secondary mt-6 !min-h-16 px-6 text-lg">See the other outfit</button>
               </div>
             )}
 
