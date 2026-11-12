@@ -80,7 +80,7 @@ function useStoreLogo() {
 /**
  * The store screen: the portrait TV, or the tablet (`device="tablet"`), at a different scale.
  * TV, three tabs: Try-On (Store collection or My own outfit), AI Video (pick a piece, take a photo, then a
- * QR makes the video on the phone) and Live Mirror. AI Video only starts here, never on the tablet.
+ * QR makes the video on the phone) and Western Try-On. AI Video only starts here, never on the tablet.
  * Tablet, three tabs: Catalogue Try-On, Own-outfit Try-On (each tab is its own source, no in-flow
  * "What would you like to try?" step) and the Wall QR to print.
  */
@@ -1185,7 +1185,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               <Video className="h-6 w-6" /><span>AI Video</span>
             </button>}
             {liveOn && <button type="button" aria-current={mode === 'live-tryon' ? 'page' : undefined} onClick={() => navigateTo('live-tryon')} className={`tv-mode-button ${mode === 'live-tryon' ? 'is-active' : ''}`}>
-              <Camera className="h-6 w-6" /><span>Live Mirror</span>
+              <Camera className="h-6 w-6" /><span>Western Try-On</span>
             </button>}
           </nav>
         )}

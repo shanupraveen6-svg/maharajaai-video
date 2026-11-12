@@ -159,7 +159,7 @@ export default function NewClientWorkspacePage() {
             {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
           </select>
           <p className="text-sm font-semibold tabular-nums text-ink">
-            {credits.image.toLocaleString('en-IN')} images{credits.video ? ` · ${credits.video.toLocaleString('en-IN')} AI Videos` : ''}{credits.live ? ` · ${credits.live.toLocaleString('en-IN')} Live Mirror` : ''}
+            {credits.image.toLocaleString('en-IN')} images{credits.video ? ` · ${credits.video.toLocaleString('en-IN')} AI Videos` : ''}{credits.live ? ` · ${credits.live.toLocaleString('en-IN')} Western Try-On` : ''}
           </p>
           <div className="rounded-2xl bg-canvas p-4">
             {preset === 'trial'

@@ -56,7 +56,7 @@ export default function LucyLiveMirror({
   garmentTitle?: string;
   selectedProduct?: TryFocusProduct;
   onSelectProduct?: (product: TryFocusProduct) => void;
-  /** Offered when Live Mirror cannot run, so the customer can still see the outfit on a photo. */
+  /** Offered when Western Try-On cannot run, so the customer can still see the outfit on a photo. */
   onUsePhotoTryOn?: (product: TryFocusProduct) => void;
   /** End session under the QR: the kiosk clears this customer. */
   onEndSession?: () => void;
@@ -209,7 +209,7 @@ export default function LucyLiveMirror({
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Camera permission is required for the Live Mirror.'
+          : 'Camera permission is required for Western Try-On.'
       );
       setState('error');
     }
@@ -359,7 +359,7 @@ export default function LucyLiveMirror({
         setError(
           caught instanceof Error
             ? caught.message
-            : 'Camera permission is required for the Live Mirror.'
+            : 'Camera permission is required for Western Try-On.'
         );
         setState('error');
         return;
@@ -370,7 +370,7 @@ export default function LucyLiveMirror({
     clearCountdownTimer();
     setState('ready_countdown');
     setReadyCountdown(READY_COUNTDOWN_SECONDS);
-    setStatusMessage('Step back into full view. Your Live Mirror starts in 5 seconds.');
+    setStatusMessage('Step back into full view. Your Western Try-On starts in 5 seconds.');
 
     let remaining = READY_COUNTDOWN_SECONDS;
     countdownTimerRef.current = window.setInterval(() => {
@@ -466,7 +466,7 @@ export default function LucyLiveMirror({
     } catch (caught) {
       closeRealtimeConnections();
       setError(
-        caught instanceof Error ? caught.message : 'Unable to start Live Mirror.'
+        caught instanceof Error ? caught.message : 'Unable to start Western Try-On.'
       );
       setState('error');
     }
@@ -508,7 +508,7 @@ export default function LucyLiveMirror({
           setRecordingUrl(URL.createObjectURL(blob));
           const link = await saveRecording(blob);
           setQrDataUrl(await QRCode.toDataURL(link, { width: 360, margin: 2 }));
-          setHandoffMessage('Scan to download your whole Live Mirror video. The link works for 1 hour.');
+          setHandoffMessage('Scan to download your whole Western Try-On video. The link works for 1 hour.');
         })
         .catch(async () => {
           if (!snapshot) { setHandoffMessage('Your video could not be saved this time. Ask a store assistant for help.'); return; }
@@ -580,14 +580,14 @@ export default function LucyLiveMirror({
     state === 'live' ? `Live · ${secondsLeft}s left`
       : state === 'ready_countdown' ? `Get ready · ${readyCountdown}s`
         : state === 'connecting' ? 'Connecting…'
-          : state === 'error' ? 'Camera only · Live Mirror unavailable'
+          : state === 'error' ? 'Camera only · Western Try-On unavailable'
             : state === 'camera_ready' ? 'Camera preview · not live yet'
               : 'Camera off';
 
   return (
     <div className="space-y-5">
       <div className="space-y-3">
-        <PageTitle size="lg" title="Live Mirror" subtitle="See the outfit move with you. Pick one, tap Start live and step back. 30 seconds, change outfits any time." />
+        <PageTitle size="lg" title="Western Try-On" subtitle="Shirts, dresses and western wear only — see it move with you. Pick one, tap Start live and step back. 30 seconds, change outfits any time." />
         <PhotoConsentNotice kind="live" large />
       </div>
 
@@ -608,7 +608,7 @@ export default function LucyLiveMirror({
       {genderChosen && (gender === 'boys' || gender === 'girls') && (
         <label className="flex min-h-16 items-center gap-3 rounded-2xl bg-warn-soft p-4 text-lg text-ink">
           <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6 accent-brand" />
-          I am the parent or guardian and approve this child’s Live Mirror session.
+          I am the parent or guardian and approve this child’s Western Try-On session.
         </label>
       )}
 
@@ -746,9 +746,9 @@ export default function LucyLiveMirror({
                 className="absolute inset-0 z-20 h-full w-full bg-ink object-cover"
               />
               {!replaying && (
-                <button type="button" onClick={() => void replayRef.current?.play()} className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ink/45 text-white" aria-label="Play your Live Mirror video">
+                <button type="button" onClick={() => void replayRef.current?.play()} className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ink/45 text-white" aria-label="Play your Western Try-On video">
                   <span className="flex h-28 w-28 items-center justify-center rounded-full bg-white/95 text-ink shadow-2xl"><Play className="ml-1.5 h-12 w-12 fill-current" /></span>
-                  <span className="text-2xl font-bold drop-shadow">Play your Live Mirror</span>
+                  <span className="text-2xl font-bold drop-shadow">Play your Western Try-On</span>
                 </button>
               )}
             </>
@@ -759,7 +759,7 @@ export default function LucyLiveMirror({
               <div className="flex items-start gap-3">
                 <ShieldAlert className="mt-0.5 h-7 w-7 shrink-0 text-danger" />
                 <div>
-                  <p className="text-lg font-bold text-ink">Live Mirror is not running. This is the plain camera.</p>
+                  <p className="text-lg font-bold text-ink">Western Try-On is not running. This is the plain camera.</p>
                   <p className="mt-1 text-base text-muted">{error}</p>
                   {garmentPicked && (
                     <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary mt-3 !min-h-16 text-lg">
@@ -781,12 +781,12 @@ export default function LucyLiveMirror({
       {/* After a session: the QR in its permanent spot at the bottom, with a red full-width End session under it, as on Try-On. */}
       {state === 'complete' && (
         <div className="sticky bottom-4 z-20 space-y-3">
-          <section className="tf-card flex flex-wrap items-center gap-5 p-5 shadow-xl" aria-label="Take your Live Mirror video home">
+          <section className="tf-card flex flex-wrap items-center gap-5 p-5 shadow-xl" aria-label="Take your Western Try-On video home">
             <div className="flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white">
-              {qrDataUrl ? <img src={qrDataUrl} alt="Scan to save your Live Mirror video" className="h-full w-full object-contain" /> : <LoaderCircle className="h-10 w-10 animate-spin text-muted" />}
+              {qrDataUrl ? <img src={qrDataUrl} alt="Scan to save your Western Try-On video" className="h-full w-full object-contain" /> : <LoaderCircle className="h-10 w-10 animate-spin text-muted" />}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-2xl font-bold text-ink">Take your Live Mirror video home</p>
+              <p className="text-2xl font-bold text-ink">Take your Western Try-On video home</p>
               <p className="mt-1 text-base text-muted">{handoffMessage || 'Scan with your phone camera.'}</p>
             </div>
             <button type="button" onClick={beginLiveCountdownAndConnect} className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-6 text-lg"><RefreshCw className="h-5 w-5" /> Another 30 seconds</button>

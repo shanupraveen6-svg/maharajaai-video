@@ -113,7 +113,7 @@ const STRINGS = {
   continueWithOutfit: { en: 'Continue with this outfit', ta: 'இந்த உடையுடன் தொடருங்கள்' },
   saving: { en: 'Saving…', ta: 'சேமிக்கிறது…' },
   // Live Mirror video page
-  mirrorTitle: { en: 'Your Live Mirror video', ta: 'உங்கள் லைவ் மிரர் வீடியோ' },
+  mirrorTitle: { en: 'Your Western Try-On video', ta: 'உங்கள் வெஸ்டர்ன் ட்ரை அவ் வீடியோ' },
   downloadVideo: { en: 'Download video', ta: 'வீடியோவைப் பதிவிறக்கு' },
   compareLooks: { en: 'Compare your looks', ta: 'உங்கள் தோற்றங்களை ஒப்பிடுங்கள்' },
   compareLooksText: { en: 'Every outfit you tried, side by side. Tap one to save it.', ta: 'நீங்கள் அணிந்த எல்லா உடைகளும் அருகருகே. சேமிக்க ஒன்றைத் தொடுங்கள்.' },

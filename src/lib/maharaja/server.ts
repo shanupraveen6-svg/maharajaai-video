@@ -1759,7 +1759,7 @@ export async function listRecentVideoPasses(limit = 8): Promise<MaharajaVideoPas
 const CREDIT_FIELDS = {
   tryOnGenerated: { module: 'image', label: 'Try-On' },
   videosGenerated: { module: 'video', label: 'AI Video' },
-  liveSessions: { module: 'live', label: 'Live Mirror' },
+  liveSessions: { module: 'live', label: 'Western Try-On' },
 } as const;
 
 /**

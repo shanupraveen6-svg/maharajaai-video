@@ -149,7 +149,7 @@ type CatalogueExperience = 'tryon' | 'live' | 'video';
 const CATALOGUE_PAGE_SIZE = 16;
 const CONCEPT_AUDIENCE: Record<CatalogueAudience, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
 
-/** Live Mirror has its own four bridal categories; Try-On and AI Video use the full list. */
+/** Western Try-On has its own western-wear categories; Try-On and AI Video use the full list. */
 function categoryOptionsFor(experience: CatalogueExperience, gender: CatalogueAudience): Array<{ id: CatalogueCategoryId; label: string }> {
   if (experience === 'live') return LIVE_CATEGORIES[gender];
   return catalogueCategories.filter((cat) => cat.gender === gender).map((cat) => ({ id: cat.id as CatalogueCategoryId, label: cat.label }));
@@ -329,7 +329,7 @@ export default function MaharajaAdminDashboard({
   // The catalogue shows only experiences this store has; a stale choice falls back to the first one.
   const allowedExperiences = useMemo(() => {
     if (!workspace) return ['tryon'] as CatalogueExperience[];
-    // AI Video pieces are offered on the TV, so every AI Video store picks them; Live Mirror needs the TV.
+    // AI Video pieces are offered on the TV, so every AI Video store picks them; Western Try-On needs the TV.
     const rules = resolveAccess(workspace.devices, workspace.modules);
     return (['tryon', 'video', 'live'] as const).filter((key) => key === 'tryon' ? rules.modules.image : key === 'live' ? rules.modules.live : rules.modules.video);
   }, [workspace]);
@@ -422,18 +422,18 @@ export default function MaharajaAdminDashboard({
     : 'This month';
   // The store's monthly report: what customers did, against last month.
   // Counts only, nothing else: Image Try-On and Wall QR scans apply to both packages; Go Live and Real
-  // Try-On (Live Mirror) only to a store with the TV (Tablet-only stores never see those two).
+  // Try-On (Western Try-On) only to a store with the TV (Tablet-only stores never see those two).
   const monthTiles = ([
     ['Image Try-On', 'tryOnGenerated', limits.image > 0],
     ['AI Video', 'videosGenerated', limits.video > 0],
     ['Go Live', 'goLive', Boolean(devices.tv) && goLiveOn],
-    ['Real Try-On (Live Mirror)', 'liveSessions', Boolean(devices.tv) && limits.live > 0],
+    ['Real Try-On (Western Try-On)', 'liveSessions', Boolean(devices.tv) && limits.live > 0],
     ['Wall QR scans', 'tryOnScans', limits.image > 0],
   ] as const).filter(([, , on]) => on);
-  const catalogueExperiences = allowedExperiences.map((value) => ({ value, label: value === 'tryon' ? 'Try-On' : value === 'live' ? 'Live Mirror' : 'AI Video' }));
+  const catalogueExperiences = allowedExperiences.map((value) => ({ value, label: value === 'tryon' ? 'Try-On' : value === 'live' ? 'Western Try-On' : 'AI Video' }));
   // Customers' own phones are reached through the wall QR, so they are not a screen to open here.
   const screens = [
-    devices.tv && { key: 'tv', title: 'Portrait TV', href: '/maharaja/tv/experience', desc: 'Try-On, Live Mirror and AI Video from your collection', Icon: Tv },
+    devices.tv && { key: 'tv', title: 'Portrait TV', href: '/maharaja/tv/experience', desc: 'Try-On, Western Try-On and AI Video from your collection', Icon: Tv },
     devices.tablet && { key: 'tablet', title: 'Tablet', href: '/maharaja/tablet/experience', desc: 'Try-On from the collection or your own outfit', Icon: Tablet },
     goLiveOn && { key: 'golive', title: 'Go Live player', href: workspace.links.goLive, desc: 'Plays your customers’ AI Videos, and your promos', Icon: Monitor },
   ].filter((screen) => screen !== false);
@@ -479,10 +479,10 @@ export default function MaharajaAdminDashboard({
       ...rowStatus('AI Video', videoPieces, 'Switch on garments'),
     },
     limits.live > 0 && {
-      title: 'Live Mirror',
+      title: 'Western Try-On',
       where: 'TV',
-      note: catalogueLoading ? undefined : `${livePieces.toLocaleString('en-IN')} garments on Live Mirror`,
-      ...rowStatus('Live Mirror', livePieces, 'Switch on garments'),
+      note: catalogueLoading ? undefined : `${livePieces.toLocaleString('en-IN')} garments on Western Try-On`,
+      ...rowStatus('Western Try-On', livePieces, 'Switch on garments'),
     },
     limits.video > 0 && {
       title: 'Go Live player',
@@ -758,7 +758,7 @@ export default function MaharajaAdminDashboard({
                 <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   {filteredCatalogue.slice(cataloguePage * CATALOGUE_PAGE_SIZE, (cataloguePage + 1) * CATALOGUE_PAGE_SIZE).map((item) => {
                     const on = shownExperience === 'tryon' ? item.active : shownExperience === 'live' ? isLiveMirrorReady(item) : item.eligibleForVideo;
-                    // Live Mirror pieces all look ready; the switch alone says whether the TV shows them.
+                    // Western Try-On pieces all look ready; the switch alone says whether the TV shows them.
                     const faded = shownExperience !== 'live' && !on;
                     return (
                       <li key={item.sku} className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white ${faded ? 'border-dashed border-line-strong' : 'border-line'}`}>
@@ -778,7 +778,7 @@ export default function MaharajaAdminDashboard({
                               </button>
                             </>}
                             {shownExperience === 'live' && (<button type="button" aria-pressed={on} onClick={() => void toggleCatalogueField(item, { eligibleForLive: !item.eligibleForLive })} className={`min-h-9 rounded-full px-3 text-xs font-semibold ${on ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}>
-                                  {on ? 'On Live Mirror' : 'Off'}
+                                  {on ? 'On Western Try-On' : 'Off'}
                                 </button>)}
                             {shownExperience === 'video' && (
                               <button type="button" aria-pressed={on} onClick={() => void toggleCatalogueField(item, { eligibleForVideo: !item.eligibleForVideo })} className={`min-h-9 rounded-full px-3 text-xs font-semibold ${on ? 'bg-ink text-white' : 'border border-line-strong text-muted'}`}>

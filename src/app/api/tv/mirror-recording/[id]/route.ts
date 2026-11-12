@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const record = await readMirrorRecording(id);
-  if (!record) return NextResponse.json({ success: false, error: 'This Live Mirror video has expired.' }, { status: 404, headers: { 'Cache-Control': 'private, no-store' } });
+  if (!record) return NextResponse.json({ success: false, error: 'This Western Try-On video has expired.' }, { status: 404, headers: { 'Cache-Control': 'private, no-store' } });
   const [urls, workspace] = await Promise.all([mirrorRecordingUrls(record), getClientWorkspaceById(record.clientId)]);
   const lead = verifyLeadToken(req.nextUrl.searchParams.get('lead'), record.clientId || MAHARAJA_CLIENT_ID);
   if (lead && req.nextUrl.searchParams.get('download') === '1') {

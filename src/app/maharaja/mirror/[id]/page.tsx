@@ -9,7 +9,7 @@ import { useLeadGate } from '@/components/LeadGate';
 type Recording = { videoUrl: string; downloadUrl: string | null; garmentTitle: string; clientName: string; expiresAt: string; looks?: Array<{ title: string; imageUrl: string }> };
 
 /**
- * Where the Live Mirror QR lands: the customer's whole session, to watch and save. Watching is open;
+ * Where the Western Try-On QR lands: the customer's whole session, to watch and save. Watching is open;
  * saving the video or a still asks for the customer's WhatsApp number first.
  */
 export default function MirrorRecordingPage() {
@@ -61,7 +61,7 @@ export default function MirrorRecordingPage() {
   useEffect(() => {
     fetch(`/api/tv/mirror-recording/${encodeURIComponent(id || '')}`, { cache: 'no-store' })
       .then((response) => response.json())
-      .then((data) => (data?.success ? setRecording(data) : setError(data?.error || 'This Live Mirror video has expired.')))
+      .then((data) => (data?.success ? setRecording(data) : setError(data?.error || 'This Western Try-On video has expired.')))
       .catch(() => setError('The video could not load. Check your connection and try again.'));
   }, [id]);
 
@@ -74,7 +74,7 @@ export default function MirrorRecordingPage() {
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{storeName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>
           <div className="min-w-0">
             <p className="truncate text-base font-bold">{storeName || 'TryFocus'}</p>
-            <p className="text-[13px] text-muted">Live Mirror</p>
+            <p className="text-[13px] text-muted">Western Try-On</p>
           </div>
           <div role="group" aria-label="Language" className="ml-auto flex shrink-0 rounded-xl bg-line/70 p-0.5 text-sm font-semibold">
             {([['en', 'English'], ['ta', 'தமிழ்']] as const).map(([value, label]) => (

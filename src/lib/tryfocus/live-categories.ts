@@ -1,14 +1,26 @@
-import type { CatalogueAudience, CatalogueCategoryId } from './sample-data';
+import { catalogueCategories, type CatalogueAudience, type CatalogueCategoryId } from './sample-data';
 
-/** Live Mirror shows bridal and function wear only, four categories per audience (TV and client admin). */
-export const LIVE_CATEGORIES: Record<CatalogueAudience, Array<{ id: CatalogueCategoryId; label: string }>> = {
-  women: [{ id: 'sarees', label: 'Saree' }, { id: 'lehengas', label: 'Lehenga' }, { id: 'anarkali', label: 'Anarkali' }, { id: 'gowns', label: 'Fusion gown' }],
-  men: [{ id: 'veshti', label: 'Dhoti + shirt' }, { id: 'blazers', label: 'Coat suit' }, { id: 'kurta', label: 'Kurta' }, { id: 'angavastram', label: 'Wedding sets' }],
-  boys: [{ id: 'boys-veshti', label: 'Pattu veshti' }, { id: 'boys-kurta', label: 'Kurta' }, { id: 'boys-sherwani', label: 'Sherwani' }, { id: 'boys-jacket', label: 'Jacket' }],
-  girls: [{ id: 'girls-pavadai', label: 'Pattu pavadai' }, { id: 'girls-lehenga', label: 'Lehenga' }, { id: 'girls-anarkali', label: 'Anarkali' }, { id: 'girls-gown', label: 'Gown' }],
-};
+/**
+ * Western Try-On (Decart Lucy, real time) only works well on fitted, western-cut garments — never a
+ * draped or ethnic piece (a saree, lehenga, veshti, kurta set…). Eligibility is a property of the category
+ * itself (`westernTryOnEligible` on each entry in `catalogueCategories`), not a per-store or per-garment
+ * choice: a shirt is always eligible, a saree never is, so a new upload needs no manual setup to get this
+ * right. A store can still switch an individual garment off despite its category being eligible.
+ */
+export const LIVE_CATEGORIES: Record<CatalogueAudience, Array<{ id: CatalogueCategoryId; label: string }>> =
+  (['women', 'men', 'boys', 'girls'] as const).reduce((acc, audience) => {
+    acc[audience] = catalogueCategories
+      .filter((cat) => cat.gender === audience && cat.westernTryOnEligible)
+      .map((cat) => ({ id: cat.id as CatalogueCategoryId, label: cat.label }));
+    return acc;
+  }, {} as Record<CatalogueAudience, Array<{ id: CatalogueCategoryId; label: string }>>);
 
-/** Same rule the TV uses to pick Live Mirror garments: the pieces the store switched on for Live Mirror. */
+/** Whether a category is eligible for Western Try-On at all (the category-level rule). */
+export function categoryEligibleForWesternTryOn(categoryId: CatalogueCategoryId): boolean {
+  return catalogueCategories.find((cat) => cat.id === categoryId)?.westernTryOnEligible === true;
+}
+
+/** Same rule the TV uses to pick Western Try-On garments: the pieces the store switched on for it. */
 export function isLiveMirrorReady(item: { eligibleForLive?: boolean }) {
   return item.eligibleForLive === true;
 }

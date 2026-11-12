@@ -27,7 +27,7 @@ import { PLATFORM_LABELS, PRESETS, clampCredits, formatRupees, platformOfPackage
  * Device and module rules for each mix live in access.ts.
  */
 const PLATFORM_PICKS = [
-  { key: 'tv', Icon: Tv, title: 'TV', text: 'Try-On, AI Video and Live Mirror on the showroom TV, with the Go Live player.' },
+  { key: 'tv', Icon: Tv, title: 'TV', text: 'Try-On, AI Video and Western Try-On on the showroom TV, with the Go Live player.' },
   { key: 'tablet', Icon: Tablet, title: 'Tablet', text: 'Try-On at the counter, run by your team. AI Video starts only on the TV.' },
   { key: 'phone', Icon: Smartphone, title: 'Phone', text: 'Included: Wall QR Try-On and AI Video made on the customer’s phone.' },
 ] as const;
@@ -190,7 +190,7 @@ function ClientOverview({ client, detail }: { client: Client; detail: StoreDetai
   const services: Array<{ title: string; note: string; state: [string, Tone]; credit?: (typeof credits)[number] }> = [
     { title: 'Try-On', note: `${detail.catalogue.showing} garments`, state: status('Try-On', detail.catalogue.showing, 'Own outfit only'), credit: credits.find((c) => c.label === 'Try-On') },
     ...(access.modules.video ? [{ title: 'AI Video', note: `${detail.catalogue.video} garments`, state: status('AI Video', detail.catalogue.video, 'No garments on'), credit: credits.find((c) => c.label === 'AI Video') }] : []),
-    ...(access.modules.live ? [{ title: 'Live Mirror', note: `${detail.catalogue.live} garments`, state: status('Live Mirror', detail.catalogue.live, 'No garments on'), credit: credits.find((c) => c.label === 'Live Mirror') }] : []),
+    ...(access.modules.live ? [{ title: 'Western Try-On', note: `${detail.catalogue.live} garments`, state: status('Western Try-On', detail.catalogue.live, 'No garments on'), credit: credits.find((c) => c.label === 'Western Try-On') }] : []),
     ...(access.modules.video ? [{ title: 'Go Live player', note: 'LED or wall screen', state: (client.devices.led ? (live ? ['Working', 'success'] : ['Paused', 'neutral']) : ['Off', 'neutral']) as [string, Tone] }] : []),
   ];
   // Only what the store has not done yet.
@@ -200,7 +200,7 @@ function ClientOverview({ client, detail }: { client: Client; detail: StoreDetai
     access.modules.video && detail.catalogue.video === 0 && 'No AI Video garments',
     access.modules.video && detail.catalogue.video > 0 && detail.catalogue.videoAudiences && detail.catalogue.videoAudiences.length < 4
       && `AI Video: none for ${(['women', 'men', 'boys', 'girls'] as const).filter((who) => !detail.catalogue.videoAudiences!.includes(who)).map((who) => ({ women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' })[who]).join(', ')}`,
-    access.modules.live && detail.catalogue.live === 0 && 'No Live Mirror garments',
+    access.modules.live && detail.catalogue.live === 0 && 'No Western Try-On garments',
     !detail.hasLogo && 'Logo not uploaded',
     !detail.instagramUrl && 'Instagram not added',
   ].filter(Boolean) as string[];
@@ -319,7 +319,7 @@ const initialClients: Client[] = [
 const plans = [
   { key: 'image', label: 'Try-On images', icon: Smartphone },
   { key: 'video', label: 'AI Videos', icon: Video },
-  { key: 'live', label: 'Live Mirror sessions', icon: Monitor },
+  { key: 'live', label: 'Western Try-On sessions', icon: Monitor },
 ] as const;
 
 export default function TryFocusAdmin() {
@@ -727,7 +727,7 @@ export default function TryFocusAdmin() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">1. Platform</h2>
-              <p className="mt-0.5 text-sm text-muted">{['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Mirror'].filter(Boolean).join(' · ')}. The customer&apos;s phone comes with either.</p>
+              <p className="mt-0.5 text-sm text-muted">{['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Western Try-On'].filter(Boolean).join(' · ')}. The customer&apos;s phone comes with either.</p>
             </div>
             <PlatformPicker compact value={currentPackage} onChange={choosePackage} />
           </div>

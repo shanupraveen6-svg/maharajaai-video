@@ -6,7 +6,7 @@ Shared components live in `src/components/ui.tsx`; colour and type tokens live i
 ## Packages
 
 TryFocus sells two packages, TV and Tablet (or both). Each includes the customer's phone:
-- TV: Try-On, AI Video (the portrait on the TV, the video made on the customer's phone) and Live Mirror on the
+- TV: Try-On, AI Video (the portrait on the TV, the video made on the customer's phone) and Western Try-On on the
   showroom TV, plus the Wall QR phone Try-On.
 - Tablet (run by the store's team): Try-On only, at the counter, plus the Wall QR phone Try-On.
 AI Video only starts on the TV, so a Tablet-only store does not have it; buying the TV is what adds it.
@@ -19,7 +19,7 @@ reused for another level, so a shopper can always tell which choice matters more
 
 | Level | Question | Options | Control |
 |---|---|---|---|
-| 0 | Which experience? | TV: Try-On · AI Video · Live Mirror. Tablet: Catalogue Try-On · Own-outfit Try-On · Wall QR | `NavTabs` (underlined tabs in the header) |
+| 0 | Which experience? | TV: Try-On · AI Video · Western Try-On. Tablet: Catalogue Try-On · Own-outfit Try-On · Wall QR | `NavTabs` (underlined tabs in the header) |
 | 1 | Who is it for? | Women · Men · Boys · Girls | `AudienceCards`: four illustrated cards, 2 × 2, nothing pre-selected, with the two-line `PhotoGuide` box under them (full-length, not a selfie; good light, face the camera). On the portrait TV the store's logo fills the bottom of this screen |
 | 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV and the phone |
 | 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Plain text list (sidebar on TV and tablet, underlined text row on phone) |
@@ -40,11 +40,15 @@ TV, three tabs:
   set a minimum bill; 0 = a free gift) → Who → Your photo → Pick a piece (with its price) → Pick a location (one
   of 3 for that audience) → Your portrait, with the QR that makes the video on the phone, where the customer can
   also Go Live.
-- Live Mirror: the camera is on as soon as the tab opens, with the outfits in one card under it. Who → pick a
-  piece switched on for Live Mirror (none is picked for the customer) → Start live, which appears on the camera
-  only once a piece is picked → 5-second countdown → 30 seconds live → the replay with a Play button and the QR.
+- Western Try-On: shirts, dresses and other western-cut garments only — the real-time engine (Decart Lucy) does
+  not handle draped or ethnic wear (a saree, lehenga, veshti, kurta set…) well, so the name says what it is
+  before the customer ever taps it. Eligibility is a property of the category itself, not a per-store choice:
+  a western category is eligible everywhere it is used, an ethnic one never is. The camera is on as soon as the
+  tab opens, with the outfits in one card under it. Who → pick a piece switched on for Western Try-On (none is
+  picked for the customer) → Start live, which appears on the camera only once a piece is picked → 5-second
+  countdown → 30 seconds live → the replay with a Play button and the QR.
 - End session (TV): a large red, full-width End session under every result QR (Try-On looks, AI Video portrait,
-  Live Mirror video); the same tab starts again. Only the AI Video portrait has a clock above it: 2 minutes to
+  Western Try-On video); the same tab starts again. Only the AI Video portrait has a clock above it: 2 minutes to
   download or Go Live on the phone, the last minute in red, then the session ends on its own; Retry sits
   beside its End session.
 
@@ -77,10 +81,10 @@ WhatsApp (the same after downloading from the TV/tablet look QR).
 Each workspace chooses the categories customers see, per audience (Catalogue → Categories customers see);
 TV, tablet and phone all follow that list.
 
-Prices: only AI Video shows a piece's price (to move the customer to buy it). Try-On and Live Mirror never
+Prices: only AI Video shows a piece's price (to move the customer to buy it). Try-On and Western Try-On never
 show prices. The workspace uploads garments in three tabs, Image Try-On (by category), AI Video (a note at
-the top: high-value garments lift sales; the table after upload asks for each price) and Live Mirror (its
-own categories); AI Video and Live Mirror offer Use for all. The table shows image, name and category, with
+the top: high-value garments lift sales; the table after upload asks for each price) and Western Try-On (its
+own categories); AI Video and Western Try-On offer Use for all. The table shows image, name and category, with
 a price column on AI Video only.
 
 **One garment per Try-On (TryFocus rule).** Every Try-On dresses the customer in exactly one garment, sent to
@@ -103,7 +107,7 @@ Cancel and Yes, retry, one line on what the retry does, and three tips for a bet
 selfie; good light, facing the camera; one garment at a time). With no retry left, or none on that screen
 (the TV looks link on the phone), it shows the tips and who can help. There is no ⋯ menu anywhere.
 
-Retention: everything generated (Try-On looks, AI Video portraits and videos, Live Mirror videos) is kept for
+Retention: everything generated (Try-On looks, AI Video portraits and videos, Western Try-On videos) is kept for
 1 hour, and scanning the same QR again within that hour shows it (a phone's Wall QR look opens straight on the
 look). Only a video sent to Go Live is kept for 1 day, for the Go Live screen. Then everything is deleted.
 Who (Women, Men, Boys, Girls) starts with nothing selected on every surface.
@@ -136,13 +140,13 @@ one card per client.
 
 Store workspace, Overview in this order, compact, showing only this store's own things:
 0. A warning strip only when credits are low or finished, or the store is paused.
-1. Your plan (read only): one row per feature the store has (Try-On, AI Video, Live Mirror, Go Live player)
+1. Your plan (read only): one row per feature the store has (Try-On, AI Video, Western Try-On, Go Live player)
    with its status word (Working · Working, credits low · Credits finished · Switch on garments · Paused ·
    Off), credits left and the credit status; the booked platforms beside the heading; how customers get
    their looks and the TryFocus number in one line.
 2. Open your screens: one row of buttons (TV, tablet, Go Live player) and the Wall QR download.
 3. This month: counts only, no money figures — Image Try-On and Wall QR scans (every store); AI Video,
-   Go Live and Real Try-On (Live Mirror) only for a store with the TV, so a Tablet-only store sees just
+   Go Live and Real Try-On (Western Try-On) only for a store with the TV, so a Tablet-only store sees just
    Image Try-On and Wall QR scans — with last month in brackets. There is no To do list.
 Festival theme, logo and Instagram are on the Settings tab. Customers (everyone who gave a WhatsApp
 number to download, with Offers yes / no and a CSV download) is its own tab. Workspace tabs wrap on a phone.
@@ -178,5 +182,5 @@ landscape LED walls and wall-mount TVs (store name, the portrait video in the mi
 ## Words
 
 Use these names everywhere, never a variant:
-Try-On · Live Mirror · AI Video · Go Live · Go Live player · Store collection · My own outfit ·
+Try-On · Western Try-On · AI Video · Go Live · Go Live player · Store collection · My own outfit ·
 Start over · New customer · Credits.
