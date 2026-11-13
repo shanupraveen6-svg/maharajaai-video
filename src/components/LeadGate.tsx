@@ -10,7 +10,7 @@ import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
  * rest of the visit. The number becomes a lead in the store's workspace; offers are a separate, optional
  * tick. The server checks the token this returns, so the form cannot be skipped.
  */
-export type LeadKind = 'pass' | 'looks' | 'mirror';
+export type LeadKind = 'pass' | 'looks';
 export type LeadSource = 'try-on' | 'ai-video' | 'live-mirror' | 'tv-looks';
 
 function storageKey(kind: LeadKind, ref: string) {

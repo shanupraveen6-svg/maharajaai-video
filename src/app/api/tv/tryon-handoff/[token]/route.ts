@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runAfter } from '@/lib/maharaja/run-after';
 import { getStorageBucket } from '@/lib/firebase/admin';
 
-import { lookVideoAvailable, markHandoffLookDownloaded, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
-import { getClientWorkspaceById, instagramUrlFor, moduleLimit } from '@/lib/maharaja/server';
-import { resolveAccess } from '@/lib/maharaja/access';
+import { markHandoffLookDownloaded, readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
+import { getClientWorkspaceById, instagramUrlFor } from '@/lib/maharaja/server';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { countLeadDownload, verifyLeadToken } from '@/lib/maharaja/leads';
 
@@ -44,13 +43,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
     } });
   }
 
-  // No AI Video for this store (module or a device it needs is off): the look page shows no video step.
   const workspace = await getClientWorkspaceById(handoff.clientId || '');
-  const videoOff = !workspace.campaignEnabled || moduleLimit(workspace, 'video') <= 0;
-  const catalogueVideo = resolveAccess(workspace.devices, workspace.modules).catalogueVideo;
   return NextResponse.json({
     expiresAt: new Date(handoff.expiresAtMs).toISOString(),
-    videoOff,
     // Shown after a download: Follow us on Instagram and Share on WhatsApp.
     clientName: workspace.clientName,
     instagramUrl: instagramUrlFor(workspace),
@@ -61,7 +56,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
       garmentType: look.garmentType,
       gender: look.gender,
       garmentReferenceUrl: look.garmentReferenceUrl,
-      videoAvailable: lookVideoAvailable(handoff, look) && catalogueVideo,
       imageUrl: `/api/tv/tryon-handoff/${token}?image=${index}`,
       downloadUrl: `/api/tv/tryon-handoff/${token}?image=${index}&download=1`,
     })),

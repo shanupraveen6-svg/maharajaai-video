@@ -7,7 +7,7 @@ import { inrToUsd } from './currency';
 
 /**
  * TryFocus's own record of what it has actually paid each dollar-billed AI vendor for — fal.ai (Try-On
- * backup, H3 Max and Gemini-Omni video, Live Mirror), Google Gemini (Try-On backup, the AI Video
+ * backup, H3 Max and Gemini-Omni video, Live Try-On), Google Gemini (Try-On backup, the AI Video
  * portrait, garment checks, bill reading) and FASHN (a Try-On backup). GenLook is tracked separately
  * (genlook-ledger.ts) because it bills in credits, not dollars, and locks allowances per store.
  *
@@ -18,7 +18,7 @@ import { inrToUsd } from './currency';
 export type ApiProvider = 'fal' | 'gemini' | 'fashn';
 export const API_PROVIDERS: ApiProvider[] = ['fal', 'gemini', 'fashn'];
 export const API_PROVIDER_LABELS: Record<ApiProvider, string> = {
-  fal: 'fal.ai (video, Live Mirror, Try-On backup)',
+  fal: 'fal.ai (video, Live Try-On, Try-On backup)',
   gemini: 'Google Gemini (AI Video portrait, Try-On backup, garment/bill reading)',
   fashn: 'FASHN (Try-On backup)',
 };

@@ -1,5 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import { FieldPath, FieldValue } from 'firebase-admin/firestore';
+import { FieldPath } from 'firebase-admin/firestore';
 import type { Bucket } from '@google-cloud/storage';
 import { MAHARAJA_CLIENT_ID } from './config';
 import { cleanupPhoneLooks } from './phone-looks';
@@ -18,7 +18,7 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket, { bu
     await handoff.ref.delete();
     expiredTvHandoffs += 1;
   }
-  // Live Mirror session videos live for 1 hour.
+  // Live Try-On session videos live for 1 hour.
   const mirrorRecordings = await db.collection('tvMirrorRecordings').where('expiresAtMs', '<=', Date.now()).limit(100).get();
   for (const recording of mirrorRecordings.docs) {
     await bucket.deleteFiles({ prefix: `clients/${recording.data?.()?.clientId || MAHARAJA_CLIENT_ID}/mirror-recordings/${recording.id}/`, force: true });

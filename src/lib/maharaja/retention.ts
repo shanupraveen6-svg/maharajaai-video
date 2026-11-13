@@ -1,6 +1,6 @@
 /**
  * TryFocus keeps what it makes for one hour at most (a grace period to download; once downloaded it is
- * wiped within minutes): Try-On looks, AI Video portraits and videos, and Live Mirror
+ * wiped within minutes): Try-On looks, AI Video portraits and videos, and Live Try-On
  * videos. Scanning the same QR again within that hour shows them. A video sent to Go Live is kept for one
  * day so it can play on the Go Live screen; then it is deleted too.
  */

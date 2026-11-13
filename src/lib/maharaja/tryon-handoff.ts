@@ -30,9 +30,6 @@ export type StoredHandoff = {
  * Whether a look can become an AI Video. AI Video is made from the store collection only, so a catalogue
  * look from the TV or the tablet can, and a look of the customer's own outfit cannot.
  */
-export function lookVideoAvailable(_handoff: StoredHandoff, look: StoredLook) {
-  return !look.sku.startsWith('OWN-');
-}
 
 export function isHandoffToken(token: string) {
   return /^[A-Za-z0-9_-]{32}$/.test(token);

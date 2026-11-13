@@ -1,7 +1,7 @@
 import type { TryFocusProduct } from './sample-data';
 
 // Images supplied for the Maharaja client trial. They are image try-on references,
-// not confirmed inventory, priced products, or AI video/live mirror garments.
+// not confirmed inventory, priced products, or AI video/Live Try-On garments.
 export const maharajaClientSamples: TryFocusProduct[] = [
   { id: 'client-look-01', sku: 'MAH-CLIENT-01', title: 'Blue Green Printed Kurti', category: 'kurtis', audience: 'Women', gender: 'women', price: 0, imageUrl: '/images/maharaja-client/look-01.webp', garmentReferenceUrl: '/images/maharaja-client/look-01.webp', fabricNote: 'Maharaja collection', accent: 'from-[#FAF6F0] to-[#EFE8DC]', eligibleForVideo: false, eligibleForLive: false, garmentType: 'salwar' },
   { id: 'client-look-02', sku: 'MAH-CLIENT-02', title: 'Cream and Coral Festive Lehenga', category: 'lehengas', audience: 'Women', gender: 'women', price: 0, imageUrl: '/images/maharaja-client/look-02.webp', garmentReferenceUrl: '/images/maharaja-client/look-02.webp', fabricNote: 'Maharaja collection', accent: 'from-[#FAF6F0] to-[#EFE8DC]', eligibleForVideo: false, eligibleForLive: false, garmentType: 'lehenga' },

@@ -44,7 +44,6 @@ export default function ResultClient({
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [queueId, setQueueId] = useState<string | null>(null);
   const [queueNumber, setQueueNumber] = useState<number | null>(null);
-  const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [peopleAhead, setPeopleAhead] = useState<number | null>(null);
   const [liveQueueStatus, setLiveQueueStatus] = useState<'queued' | 'reserved' | 'playing' | 'completed' | 'playback_failed'>('queued');
   const [liveTimesPlayed, setLiveTimesPlayed] = useState(0);
@@ -62,7 +61,6 @@ export default function ResultClient({
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(!initialVideoUrl);
   const [downloading, setDownloading] = useState<'bundle' | null>(null);
-  const [lastDownloaded, setLastDownloaded] = useState<'bundle' | null>(null);
   const [goLiveSubmitting, setGoLiveSubmitting] = useState(false);
   const [liveConsent, setLiveConsent] = useState(false);
   const [guardianLiveConsent, setGuardianLiveConsent] = useState(false);
@@ -165,7 +163,6 @@ export default function ResultClient({
         if (data.success && data.status) {
           setLiveQueueStatus(data.status);
           setQueueNumber(typeof data.queueNumber === 'number' ? data.queueNumber : null);
-          setQueuePosition(typeof data.queuePosition === 'number' ? data.queuePosition : null);
           setPeopleAhead(typeof data.peopleAhead === 'number' ? data.peopleAhead : null);
           setLiveTimesPlayed(Number(data.timesPlayed || 0));
           if (data.status === 'completed' || data.status === 'playback_failed') {
@@ -283,7 +280,6 @@ export default function ResultClient({
         body: JSON.stringify({ type: 'download', label: `${eventLabel} image and video downloaded`, sessionId, accessCode }),
       }).catch(() => undefined);
       if (showConfirmation) {
-        setLastDownloaded('bundle');
         setThankYouMode('download');
         setShowThankYou(true);
       }

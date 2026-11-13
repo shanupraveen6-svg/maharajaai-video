@@ -4,7 +4,7 @@ import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { activeClientId } from './client-context';
 
 /**
- * Customers who saved a Try-On look, an AI Video or a Live Mirror video. Before any download the customer
+ * Customers who saved a Try-On look, an AI Video or a Live Try-On video. Before any download the customer
  * gives a WhatsApp number; the store keeps it as a lead in its own workspace at
  * `clientWorkspaces/<clientId>/leads/<phone hash>`, one record per number.
  *

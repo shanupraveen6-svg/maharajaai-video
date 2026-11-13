@@ -7,7 +7,7 @@ export type CatalogueSettings = {
   clientName: string;
   access: WorkspaceAccess | null;
   categoryLists: StoreCategoryLists;
-  /** The store's own categories and Western wear switches: every screen needs them to list categories right. */
+  /** The store's own categories and Live Try-On category switches: every screen needs them to list categories right. */
   customCategories: CustomCategory[];
   /** AI Video's own category list, separate from Try-On's. */
   videoCategoryLists: StoreCategoryLists;

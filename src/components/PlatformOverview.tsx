@@ -170,7 +170,7 @@ type EngineRow = { purchased?: number; used?: number; free?: number; configured:
 
 const ENGINES: Array<{ id: Engine; name: string; usedFor: string; unit: 'credits' | 'usd' }> = [
   { id: 'genlook', name: 'GenLook', usedFor: 'Try-On', unit: 'credits' },
-  { id: 'fal', name: 'fal.ai', usedFor: 'AI Video, Live Mirror, Try-On backup', unit: 'usd' },
+  { id: 'fal', name: 'fal.ai', usedFor: 'AI Video, Live Try-On, Try-On backup', unit: 'usd' },
   { id: 'gemini', name: 'Google Gemini', usedFor: 'AI Video portrait, Try-On backup', unit: 'usd' },
   { id: 'fashn', name: 'FASHN', usedFor: 'Try-On backup', unit: 'usd' },
 ];

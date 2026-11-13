@@ -62,10 +62,8 @@ export type MaharajaWorkspace = {
   customCategories?: CustomCategory[];
   /** AI Video's own category list per audience (what the TV's AI Video screen offers); unset = every category. */
   videoCategoryLists?: StoreCategoryLists;
-  /** The store's Western wear (WW) switch per category, over the category's default. */
+  /** The store's Live Try-On switch per category (the switch above the Image Try-On table). */
   westernOverrides?: WesternOverrides;
-  /** When existing garments were last brought in line with their category's Western wear setting. */
-  westernRuleAppliedAt?: string;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   devices?: {
@@ -870,7 +868,6 @@ export async function updateMaharajaSettings(
       | 'categoryLists'
       | 'customCategories'
       | 'westernOverrides'
-      | 'westernRuleAppliedAt'
       | 'videoCategoryLists'
       | 'genlookCredits'
       | 'deliveryMode'
@@ -1737,7 +1734,6 @@ export async function expireActivePassesForPhone(phone: string, excludeCode?: st
 
   const store = getMockStore();
   let count = 0;
-  const nowIso = new Date().toISOString();
   for (const [key, rawPass] of store.customerPasses.entries()) {
     if (key.startsWith(`${activeClientId()}:`)) {
       const p = rawPass as MaharajaVideoPass;

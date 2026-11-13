@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fal } from '@fal-ai/client';
 import { Camera, ChevronLeft, LoaderCircle, Play, RotateCcw, ShieldAlert, Sparkles, X } from 'lucide-react';
-import { sampleCatalogue, type CatalogueCategoryId, type TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import type { CatalogueCategoryId, TryFocusProduct } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
 import GarmentRail from '@/components/kiosk/GarmentRail';
@@ -44,7 +44,8 @@ export default function LucyLiveMirror({
   /** End session under the result: the kiosk clears this customer. */
   onEndSession?: () => void;
 } = {}) {
-  const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
+  // Only the store's own Live Try-On garments; with none, the screen says so (never demo garments).
+  const activeCatalogue = propCatalogue || [];
 
   const [phase, setPhase] = useState<Phase>('who');
   const [group, setGroup] = useState<WhoGroup | null>(null);

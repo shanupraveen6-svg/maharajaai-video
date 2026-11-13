@@ -61,7 +61,7 @@ export default function NewClientWorkspacePage() {
           devices: PACKAGES[pkg].devices,
           modules: modulesForPackage(pkg),
           limits: credits,
-          // The store's GenLook credits match its Try-On credits for the trial and the Phone package.
+          // The store's GenLook credits match its Try-On credits.
           genlookCredits: preset === 'trial' ? FREE_TRIAL_IMAGE_CREDITS : preset === 'phone-package' ? PHONE_PACKAGE_CREDITS : undefined,
         }),
       });

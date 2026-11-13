@@ -34,7 +34,7 @@ export default function StoreCategoriesEditor({
   onAddCustom,
   onDeleteCustom,
 }: {
-  /** 'video' edits AI Video's own list: one group, no WW, no new categories (made on Try-On). */
+  /** 'video' edits AI Video's own list: one group, no Live Try-On switch, no new categories (made on Try-On). */
   variant?: 'tryon' | 'video';
   /** The Who chosen at the top of the catalogue; the editor has no Who of its own. */
   audience: CatalogueAudience | null;

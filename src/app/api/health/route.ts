@@ -11,7 +11,7 @@ type EngineStatus = 'ok' | 'invalid' | 'missing' | 'unverified';
 
 /**
  * fal's token-mint endpoint, not a generation: this is the same call /api/fal/realtime-token makes
- * before every Live Mirror session, and it is free whether or not the token is ever used. A 401 here
+ * before every Live Try-On session, and it is free whether or not the token is ever used. A 401 here
  * means the key itself is wrong; any other failure (network, fal being down) reads as 'unverified'
  * rather than 'invalid', so a passing outage never looks like a bad key.
  */

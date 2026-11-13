@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   if (!await verifyTvRequest(req)) return NextResponse.json({ success: false, error: 'Sign in or pair this display first.' }, { status: 401 });
-  // Live Mirror (Decart Lucy 2) runs through fal.ai.
+  // Live Try-On (Decart Lucy 2) runs through fal.ai.
   await Promise.all([incrementMaharajaUsage('liveSessions'), recordAiCost('live-session', undefined, 'fal')]);
   return NextResponse.json({ success: true });
 }

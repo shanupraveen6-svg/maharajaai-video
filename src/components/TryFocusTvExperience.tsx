@@ -92,7 +92,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const storeLogo = useStoreLogo();
   const [mode, setMode] = useState<TvMode>(defaultMode);
   const [clientName, setClientName] = useState('');
-  // Live Mirror and AI Video show only while the store has them (module on and the devices they need on).
+  // Live Try-On and AI Video show only while the store has them (module on and the devices they need on).
   const [liveOn, setLiveOn] = useState(!isTablet);
   const [videoOn, setVideoOn] = useState(true);
   // With Go Live, an idle TV plays recent Go Live videos until someone taps it.
@@ -173,7 +173,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         setCustomCategories(settings.customCategories);
         setVideoCategoryLists(settings.videoCategoryLists);
         if (settings.access) {
-          // Live Mirror needs the TV's camera stream; the tablet never runs it.
+          // Live Try-On needs the TV's camera stream; the tablet never runs it.
           setLiveOn(!isTablet && settings.access.modules.live);
           setVideoOn(settings.access.catalogueVideo);
           setGoLiveOn(settings.access.goLive);
@@ -214,7 +214,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // The QR is made the moment the look(s) finish, with no button to tap first.
   const handoffTriggeredRef = useRef(false);
   const idleResetRef = useRef<number | null>(null);
-  // Remounts Live Mirror on End session, so its camera and picks start fresh.
+  // Remounts Live Try-On on End session, so its camera and picks start fresh.
   const [liveMirrorKey, setLiveMirrorKey] = useState(0);
   const [tryOnGuardianConsent, setTryOnGuardianConsent] = useState(false);
 
@@ -1515,7 +1515,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             catalogue={catalogueItems.filter(isLiveMirrorReady)}
             onSelectProduct={setSelectedProduct}
             onUsePhotoTryOn={(product) => {
-              // Live Mirror could not connect: the same outfit continues as a photo Try-On.
+              // Live Try-On could not connect: the same outfit continues as a photo Try-On.
               navigateTo('image-tryon');
               setImageSource('catalogue');
               setGenderFilter(product.gender);

@@ -154,10 +154,10 @@ the phone's share sheet in one go where it can take files, otherwise one downloa
 
 TryFocus admin sets up a store's plan; the store's workspace only shows it. A store never edits its plan.
 
-Picking a client in TryFocus admin opens that client's own workspace underneath the plan panel — the same
+Picking a client in TryFocus admin opens that client's own workspace, with one extra tab, Plan — the same
 screen, same data, as the store sees when it logs in. There is no separate admin-only catalogue or settings
 tool: what TryFocus staff sets up during delivery (catalogue, logo, Instagram, promo videos) is exactly what
-the store opens later. Only the plan panel above it (platform, credits, store login, delivery, delete
+the store opens later. Only the Plan tab (platform, credits, store login, delivery, catalogue setup, delete
 workspace) is admin-only and never shown to the store.
 
 A new client is set up on its own page (New client, from the admin header): store name, branch, platform
@@ -174,11 +174,10 @@ credits only — used, limit, left, and top-ups as unit packages — never a rup
 2. Credits: set a package, top up, or type a limit. Each card shows what is left and a status word.
 3. Store login: one username and password for the TV, tablet, Go Live player and workspace.
 4. Delivery: WhatsApp link and the Go Live player, each an On / Off switch.
-The store's Live for customers / Paused switch sits under its name. Above the four steps, one picked
-client shows "In the store's workspace" (read only: Working now per feature, what the store set up
-with done / to do, the month's counts against last month, latest activity) and "Set up by TryFocus"
-(platform, credits, store login, delivery, AI cost, each with a Change link to its step). Delete
-workspace sits last. Without a client picked, admin is a status board: four totals, Needs action, and
+Save changes sits at the top of the Plan tab. After the four steps: Catalogue setup (Preview, then Apply:
+garments in the right categories, Live Try-On on every non-ethnic category, priced AI Video pieces for all
+four audiences; for Maharaja it also adds the garments its catalogue was missing) and, last, Delete
+workspace. The store's Live for customers / Paused switch sits under its name in the header. Without a client picked, admin is a status board: four totals, Needs action, and
 one card per client.
 
 Store workspace, Overview in this order, compact, showing only this store's own things:

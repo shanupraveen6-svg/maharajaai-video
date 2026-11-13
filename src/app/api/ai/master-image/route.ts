@@ -41,7 +41,7 @@ function getGenAIClient() {
   if (!apiKey || apiKey.trim() === '') return null;
   try {
     return new GoogleGenAI({ apiKey });
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
   let reservedTryOnCredit = false;
   try {
     const body = await req.json();
-    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, garmentRoles, conceptPrompt, templateId, accessCode } = body;
+    const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, garmentRoles, templateId, accessCode } = body;
     const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
     if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{8,120}$/.test(sessionId)) {
       return NextResponse.json({ success: false, error: 'Please reload the page and try again.' }, { status: 400 });

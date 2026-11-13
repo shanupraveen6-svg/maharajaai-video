@@ -51,7 +51,6 @@ type WorkspaceData = {
   customCategories?: CustomCategory[];
   videoCategoryLists?: StoreCategoryLists;
   westernOverrides?: WesternOverrides;
-  westernRuleAppliedAt?: string;
   deliveryMode?: 'whatsapp' | 'qr';
   whatsappConnected?: boolean;
   whatsappEnabled?: boolean;
@@ -533,7 +532,7 @@ export default function MaharajaAdminDashboard({
     },
     limits.video > 0 && {
       title: 'AI Video',
-      where: [devices.tv && 'TV', devices.tablet && 'Tablet QR', 'Gift QR'].filter(Boolean).join(' · '),
+      where: 'TV · the video is made on the customer’s phone',
       note: catalogueLoading ? undefined : `${videoPieces.toLocaleString('en-IN')} garments on AI Video`,
       ...rowStatus('AI Video', videoPieces, 'Switch on garments'),
     },

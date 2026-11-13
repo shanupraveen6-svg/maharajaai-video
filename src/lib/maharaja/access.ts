@@ -6,9 +6,9 @@
  *    with the TV and the tablet (Wall QR Try-On and the photo upload QR); AI Video is also finished on
  *    the phone, but only starts from the TV.
  *  - The platform decides the modules, and every module of a platform comes with it:
- *      TV     = Try-On + AI Video + Live Mirror
+ *      TV     = Try-On + AI Video + Live Try-On
  *      Tablet = Try-On only
- *      Phone  = Try-On only (no AI Video, no Live Mirror)
+ *      Phone  = Try-On only (no AI Video, no Live Try-On)
  *  - AI Video is made from the store collection only (no own-outfit video), and only starts on the TV:
  *    its portrait is made there, and its QR hands off to the customer's phone for the video itself.
  *  - Go Live plays every AI Video on the store's own LED or wall screen (a browser link), whenever AI
@@ -45,7 +45,7 @@ export function resolveAccess(devices?: Partial<AccessDevices> | null, modules?:
   const image = m.image;
 
   const live = m.live && d.tv;
-  if (m.live && !live) blockedBy.live = 'Needs the TV (Live Mirror runs only on the TV)';
+  if (m.live && !live) blockedBy.live = 'Needs the TV (Live Try-On runs only on the TV)';
 
   const video = m.video && d.tv;
   if (m.video && !video) blockedBy.video = 'Needs the TV (AI Video only starts on the TV)';

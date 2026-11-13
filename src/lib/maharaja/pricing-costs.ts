@@ -9,7 +9,7 @@ import { type Credits, type Quote, PHONE_PACKAGE, PHONE_PACKAGE_CREDITS } from '
  *  - Try-On image: GenLook, fal, FASHN and Gemini averaged.
  *  - AI Video: the portrait (Gemini on fal, Gemini direct) plus a 6-second render (H3 Max at $0.48 with
  *    the Gemini Omni Flash backup at $0.60).
- *  - Live Mirror: one 30-second session on Decart Lucy (billed per second; no retry).
+ *  - Live Try-On: one 30-second session on Decart Lucy (billed per second; no retry).
  * Rupees use USD_TO_INR (98: about ₹94 plus a ₹4 buffer), so the profit shown is on the safe side.
  */
 const PLANNING_COST_USD = {

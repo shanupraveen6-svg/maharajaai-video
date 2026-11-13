@@ -506,7 +506,7 @@ export async function PATCH(req: NextRequest) {
     }
     if (body.westernOverrides !== undefined) {
       const overrides = sanitizeWesternOverrides(body.westernOverrides, customCategories);
-      if (!overrides) return NextResponse.json({ success: false, error: 'Western wear settings were not understood.' }, { status: 400 });
+      if (!overrides) return NextResponse.json({ success: false, error: 'Live Try-On category settings were not understood.' }, { status: 400 });
       settings.westernOverrides = overrides;
     }
     if (body.videoCategoryLists !== undefined) {

@@ -29,13 +29,13 @@ export type CustomCategory = {
   westernTryOnEligible: boolean;
 };
 
-/** A store's own Western wear (WW) setting per category id, over the category's default. */
+/** A store's own Live Try-On setting per category id: the switch above the Image Try-On table. */
 export type WesternOverrides = Record<string, boolean>;
 
 const MAX_PER_AUDIENCE = 20;
 const MAX_CUSTOM_CATEGORIES = 30;
 
-/** Garment types the real-time engine handles well: a new category of one of these starts as Western wear. */
+/** Garment types the real-time engine handles well: a new category of one of these starts as Live Try-On. */
 export const WESTERN_GARMENT_TYPES: ReadonlySet<GarmentType> = new Set<GarmentType>(['shirt_pant', 'top', 'trousers', 'tshirt_bottom', 'jacket', 'one_piece']);
 
 const AUDIENCE_LABELS: Record<CatalogueAudience, StoreCategory['audience']> = {
@@ -113,15 +113,15 @@ export function sanitizeCategoryLists(value: unknown, customCategories: CustomCa
 }
 
 /**
- * Whether a category is Western wear for this store: its WW switch if the store set one, otherwise the
- * category's own default. Garments uploaded into a Western wear category start on Live Try-On.
+ * Whether a category is Live Try-On for this store: its Live Try-On switch if the store set one, otherwise the
+ * category's own default. Garments uploaded into a Live Try-On category start on Live Try-On.
  */
 export function isWesternCategory(id: string, customCategories: CustomCategory[] = [], overrides: WesternOverrides = {}): boolean {
   if (typeof overrides[id] === 'boolean') return overrides[id];
   return findCategory(id, customCategories)?.westernTryOnEligible === true;
 }
 
-/** Keeps only WW switches for categories that exist (shared or the store's own). */
+/** Keeps only Live Try-On switches for categories that exist (shared or the store's own). */
 export function sanitizeWesternOverrides(value: unknown, customCategories: CustomCategory[] = []): WesternOverrides | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const result: WesternOverrides = {};

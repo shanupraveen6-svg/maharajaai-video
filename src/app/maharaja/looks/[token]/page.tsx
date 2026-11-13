@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import {
   AlertCircle,
   ArrowLeft,
@@ -10,10 +10,8 @@ import {
   AtSign,
   Download,
   MessageCircle,
-  Film,
   LoaderCircle,
 } from 'lucide-react';
-import { LOOK_PREFILL_KEY, type LookPrefill } from '@/lib/maharaja/look-prefill';
 import { useLeadGate } from '@/components/LeadGate';
 import { useExitGuard } from '@/components/ExitGuard';
 import HelpRetry, { HELP_TEXT } from '@/components/HelpRetry';
@@ -27,8 +25,6 @@ type Look = {
   garmentType?: string;
   gender?: string;
   garmentReferenceUrl?: string;
-  /** False for catalogue looks from the counter tablet: those festival videos are made on the TV. */
-  videoAvailable?: boolean;
 };
 
 export default function PrivateLooksPage() {
@@ -36,13 +32,9 @@ export default function PrivateLooksPage() {
   const [looks, setLooks] = useState<Look[]>([]);
   const [active, setActive] = useState(0);
   const [expiresAt, setExpiresAt] = useState('');
-  const [videoOff, setVideoOff] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const router = useRouter();
-  const [videoStarting, setVideoStarting] = useState(false);
-  const [videoError, setVideoError] = useState('');
 
   const [downloadingManual, setDownloadingManual] = useState(false);
   const [downloadError, setDownloadError] = useState('');
@@ -69,7 +61,6 @@ export default function PrivateLooksPage() {
       if (!response.ok) throw new Error(data.error || 'These looks are unavailable.');
       setLooks(data.looks || []);
       setExpiresAt(data.expiresAt || '');
-      setVideoOff(data.videoOff === true);
       setStore({ name: typeof data.clientName === 'string' ? data.clientName : '', instagramUrl: typeof data.instagramUrl === 'string' ? data.instagramUrl : '' });
     } catch (caught) {
       let saved: { name?: string; instagramUrl?: string } | null = null;
@@ -148,39 +139,6 @@ export default function PrivateLooksPage() {
       setDownloadingManual(false);
     }
   });
-
-  // The festival video is made on the customer's own 24-hour pass: Gemini creates the event
-  // portrait from this look, the customer approves it, then renders and optionally goes live.
-  const startFestivalVideo = async () => {
-    if (!current || videoStarting) return;
-    setVideoStarting(true);
-    setVideoError('');
-    try {
-      const response = await fetch(`/api/tv/tryon-handoff/${encodeURIComponent(token)}/pass`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageIndex: active }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.success || !data.pass?.path) throw new Error(data.error || 'Unable to start your festival video.');
-      const prefill: LookPrefill = {
-        personPhoto: await toDataUrl(current.imageUrl),
-        garmentPhotos: data.pass.experienceType === 'catalogue-gift' || !current.garmentReferenceUrl
-          ? []
-          : [await toDataUrl(current.garmentReferenceUrl)],
-        garmentType: current.garmentType,
-      };
-      try {
-        window.sessionStorage.setItem(LOOK_PREFILL_KEY(data.pass.code), JSON.stringify(prefill));
-      } catch {
-        // Without storage the customer simply adds the photos on the next screen.
-      }
-      router.push(data.pass.path);
-    } catch (caught) {
-      setVideoError(caught instanceof Error ? caught.message : 'Unable to start your festival video.');
-      setVideoStarting(false);
-    }
-  };
 
   return (
     <main className="min-h-screen bg-[#F4F5F2] text-ink">
@@ -310,29 +268,7 @@ export default function PrivateLooksPage() {
                   </div>
                 )}
 
-                {videoError && (
-                  <p role="alert" className="mt-4 border border-danger bg-white p-4 text-sm font-semibold text-danger">{videoError}</p>
-                )}
-
                 <div className="mt-5 space-y-3">
-                    {videoOff ? null : current.videoAvailable === false ? (
-                      <p className="border border-line bg-canvas p-4 text-center text-sm text-muted">
-                        AI Video uses our store collection. Ask our staff to pick a piece for your video.
-                      </p>
-                    ) : (<>
-                    <button
-                      type="button"
-                      disabled={videoStarting}
-                      onClick={() => void startFestivalVideo()}
-                      className="flex min-h-16 w-full items-center justify-center gap-2.5 border border-brand bg-brand px-6 text-center text-lg font-bold text-white shadow-md transition hover:bg-[#600f1f] active:scale-[0.99] disabled:opacity-60"
-                    >
-                      {videoStarting ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Film className="h-5 w-5" />}
-                      {videoStarting ? 'Opening your AI Video…' : 'Create my AI Video'}
-                    </button>
-                    <p className="text-center text-xs text-muted">
-                      Valid for 24 hours on this phone · Showing it on the store TV is optional
-                    </p>
-                    </>)}
 
                     <button
                       type="button"
@@ -382,16 +318,6 @@ export default function PrivateLooksPage() {
   );
 }
 
-async function toDataUrl(url: string): Promise<string> {
-  if (url.startsWith('data:')) return url;
-  const blob = await (await fetch(url, { cache: 'no-store' })).blob();
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => (typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Could not read the look.')));
-    reader.onerror = () => reject(new Error('Could not read the look.'));
-    reader.readAsDataURL(blob);
-  });
-}
 
 /** Shares the look image (WhatsApp is one tap away in the phone's share sheet); falls back to a WhatsApp text. */
 async function shareLook(look: { imageUrl: string } | undefined, storeName: string) {
