@@ -66,7 +66,7 @@ const BRAND = 'var(--color-brand, #7A1428)';
 const SKIN = '#E7B98F';
 const HAIR = '#2B1D17';
 
-function Figure({ audience, className }: { audience: CatalogueAudience; className?: string }) {
+export function Figure({ audience, className }: { audience: CatalogueAudience; className?: string }) {
   const common = { viewBox: '0 0 120 140', className, 'aria-hidden': true as const };
   if (audience === 'women') {
     // Saree with pallu over the shoulder, hair in a bun.

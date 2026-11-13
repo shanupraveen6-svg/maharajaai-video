@@ -27,6 +27,8 @@ import AudienceCards, { PhotoGuide } from '@/components/AudienceCards';
 import { compressImage } from '@/lib/utils/image';
 import SessionTimer, { sessionTimerShowing } from '@/components/SessionTimer';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
+import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
+import GarmentRail from '@/components/kiosk/GarmentRail';
 import TvIdleLoop from '@/components/TvIdleLoop';
 import TvOfflineNotice from '@/components/TvOfflineNotice';
 import { downloadBrandedQr } from '@/lib/maharaja/branded-qr';
@@ -51,7 +53,7 @@ const VIDEO_CATEGORY_OF: Record<CatalogueAudience, CustomerCategory> = { women: 
 
 type TvMode = 'image-tryon' | 'catalogue-tryon' | 'own-tryon' | 'live-tryon' | 'catalogue-video' | 'wall-qr';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
-type CatalogueTryOnStage = 'who' | 'source' | 'photo' | 'browse' | 'generating' | 'result';
+type CatalogueTryOnStage = 'who' | 'studio' | 'generating' | 'result';
 type VideoStage = 'who' | 'photo' | 'pick' | 'look' | 'portrait';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
 type VideoAudience = CatalogueAudience;
@@ -106,7 +108,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // Catalogue filtering
   const [genderFilter, setGenderFilter] = useState<CatalogueAudience>('women');
   // Who starts empty for each customer, on Try-On and AI Video alike, until they tap one.
-  const [whoChosen, setWhoChosen] = useState(false);
+  // Try-On starts with Women · Men · Kids; Kids then picks Boys or Girls under the camera.
+  const [whoGroup, setWhoGroup] = useState<WhoGroup | null>(null);
+  const [kidPick, setKidPick] = useState<'boys' | 'girls' | null>(null);
   const [videoWhoChosen, setVideoWhoChosen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
   const [showNewArrivals, setShowNewArrivals] = useState(false);
@@ -117,7 +121,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // is made (the phone's own AI Video flow already asks this; the TV was skipping straight to a fixed one).
   const [videoConceptId, setVideoConceptId] = useState<VideoConceptId | ''>('');
   const [videoGuardianConsent, setVideoGuardianConsent] = useState(false);
-  const catalogueTopRef = useRef<HTMLDivElement | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
 
   // TryFocus switched the open experience off while the TV was running: go back to Image Try-On.
@@ -266,8 +269,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       : showNewArrivals ? item.badge === 'NEW ARRIVAL'
         : item.category === activeCategory));
   const TV_PAGE_SIZE = 24;
-  const cataloguePageCount = Math.max(1, Math.ceil(browseProducts.length / TV_PAGE_SIZE));
-  const visibleBrowseProducts = browseProducts.slice(cataloguePage * TV_PAGE_SIZE, (cataloguePage + 1) * TV_PAGE_SIZE);
   // AI Video uses only the pieces the store switched on for it.
   const videoAudienceProducts = catalogueItems.filter((item) => item.price > 0 && item.eligibleForVideo === true && item.gender === videoAudience);
   const videoCategories = categoriesFor(videoCategoryLists, videoAudience, customCategories).filter((cat) => videoAudienceProducts.some((item) => item.category === cat.id));
@@ -305,11 +306,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setCataloguePage(0);
   }
 
-  function turnCataloguePage(nextPage: number) {
-    setCataloguePage(Math.min(Math.max(0, nextPage), cataloguePageCount - 1));
-    window.requestAnimationFrame(() => catalogueTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  }
-
   // Stop camera helper
   function stopCamera() {
     if (captureTimerRef.current !== null) window.clearInterval(captureTimerRef.current);
@@ -324,11 +320,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // Each audience has its own outfit types; keep the own-outfit choice valid when the audience changes.
   useEffect(() => { setOwnGarmentType(OWN_GARMENT_TYPES[genderFilter][0].id); }, [genderFilter]);
 
-  useEffect(() => {
-    if ((mode === 'image-tryon' || mode === 'catalogue-tryon' || mode === 'own-tryon') && tryOnStage === 'browse' && !customerPhoto) {
-      setTryOnStage('photo');
-    }
-  }, [mode, tryOnStage, customerPhoto]);
 
   function navigateTo(next: TvMode) {
     batchRunRef.current += 1;
@@ -336,7 +327,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setCameraOpen(false);
     setCameraError('');
     if (next === 'image-tryon') {
-      setTryOnStage(customerPhoto ? 'browse' : 'who');
+      setTryOnStage(customerPhoto ? 'studio' : 'who');
     }
     if (next === 'catalogue-tryon' || next === 'own-tryon') {
       // The tablet's two Try-On tabs decide the source by which tab it is; the shared "What would you
@@ -346,10 +337,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         setImageSource(source);
         setCustomerPhoto('');
         setOwnGarmentPhoto('');
-        setWhoChosen(false);
+        setWhoGroup(null);
+        setKidPick(null);
         setTryOnStage('who');
       } else {
-        setTryOnStage(customerPhoto ? 'browse' : 'who');
+        setTryOnStage(customerPhoto ? 'studio' : 'who');
       }
     }
     if (next === 'catalogue-video') {
@@ -575,15 +567,10 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
    */
   function applyCapturedPhoto(target: CameraTarget, dataUrl: string) {
     if (target === 'catalogue-person' || target === 'own-person') {
+      // Same screen: the photo takes the camera's place, the outfits are picked under it.
       setCustomerPhoto(dataUrl);
-      const isChild = genderFilter === 'boys' || genderFilter === 'girls';
-      if (!isChild && isTablet) {
-        // The tablet's tab already decided catalogue or own-outfit: no "What would you like to try?" step.
-        setTryOnStage('browse');
-        if (imageSource === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
-      } else {
-        setTryOnStage(isChild ? 'photo' : 'source');
-      }
+      setTryOnStage('studio');
+      if (imageSource === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
     } else if (target === 'own-garment') {
       setOwnGarmentPhoto(dataUrl);
     } else if (target === 'video-person') {
@@ -610,31 +597,39 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     });
   }
 
-  /** Store collection or own outfit: the camera opens full screen straight away for the customer's photo. */
+  /**
+   * Try-On on the TV and tablet is one screen: the camera (then the photo) on the top 60%, the choices under it.
+   * The source is the catalogue unless the customer taps My own outfit (TV) or is on the tablet's own-outfit tab.
+   */
   function chooseTryOnSource(source: ImageTryOnSource) {
     setImageSource(source);
     setTryOnError('');
-    if (customerPhoto) {
-      setTryOnStage('browse');
-      if (source === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
-      return;
-    }
-    setTryOnStage('photo');
+    setTryOnStage('studio');
+    if (!customerPhoto) { void openCameraFor(source === 'own-garment' ? 'own-person' : 'catalogue-person'); return; }
+    if (source === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
+  }
+
+  /** Women · Men · Kids. Kids has no Boys or Girls yet: it is picked under the camera, before the photo. */
+  function chooseWhoGroup(group: WhoGroup) {
+    setWhoGroup(group);
+    setKidPick(null);
+    setTryOnGuardianConsent(false);
+    // A new Who is a new person: their own photo, outfit and picks.
+    setCustomerPhoto('');
+    setOwnGarmentPhoto('');
+    setSelectedLooks([]);
+    if (group !== 'kids') selectGender(group);
+    const source: ImageTryOnSource = isTablet ? imageSource : 'catalogue';
+    setImageSource(source);
+    setTryOnError('');
+    setTryOnStage('studio');
     void openCameraFor(source === 'own-garment' ? 'own-person' : 'catalogue-person');
   }
 
-  /**
-   * After the photo, on the TV and the tablet alike: Store collection or My own outfit comes next
-   * (Who → photo → source → outfits).
-   */
-  function continueFromPhoto() {
-    // The tablet's tab already decided catalogue or own-outfit: no "What would you like to try?" step.
-    if (isTablet) {
-      setTryOnStage('browse');
-      if (imageSource === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
-      return;
-    }
-    setTryOnStage('source');
+  function chooseKid(kid: 'boys' | 'girls') {
+    if (kid === kidPick) return;
+    setKidPick(kid);
+    selectGender(kid);
   }
 
   /** AI Video: who it is for, then the camera (a photo already taken here is reused). */
@@ -674,7 +669,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   async function runCatalogueBatch(personImg: string) {
     if (!personImg) {
       setTryOnError('Please add your photo first.');
-      setTryOnStage('photo');
+      setTryOnStage('studio');
       return;
     }
     if ((genderFilter === 'boys' || genderFilter === 'girls') && !tryOnGuardianConsent) {
@@ -685,7 +680,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       .filter((look) => catalogueItems.some((item) => item.sku === look.sku));
     if (!looks.length) {
       setTryOnError('Choose a garment from this store’s catalogue.');
-      setTryOnStage('browse');
+      setTryOnStage('studio');
       return;
     }
     const runId = ++batchRunRef.current;
@@ -756,7 +751,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       setHandoffStatus('Tap Show QR and scan it with your phone camera.');
     } else {
       setTryOnError('No looks could be created. Please try again.');
-      setTryOnStage('browse');
+      setTryOnStage('studio');
     }
   }
 
@@ -987,7 +982,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     } catch (error) {
       if (runId !== batchRunRef.current) return;
       setTryOnError(error instanceof Error ? error.message : 'Try-on generation failed.');
-      setTryOnStage('browse');
+      setTryOnStage('studio');
     }
   }
 
@@ -1099,7 +1094,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setGeneratedLooks([]);
     setTryOnError('');
     setTryOnStage('who');
-    setWhoChosen(false);
+    setWhoGroup(null);
+    setKidPick(null);
     setVideoWhoChosen(false);
     setOwnGarmentType(OWN_GARMENT_TYPES.women[0].id);
     setVideoStage('who');
@@ -1141,11 +1137,19 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   // One step back, in place of a progress bar. TV and tablet share one Try-On flow:
   // Who → photo → Store collection or My own outfit → outfits.
-  const tryOnBack = tryOnStage === 'source' ? () => setTryOnStage('photo')
-    : tryOnStage === 'photo' ? () => setTryOnStage('who')
-    // The tablet has no "What would you like to try?" step to go back to (the tab already decided).
-    : tryOnStage === 'browse' ? () => setTryOnStage(isTablet ? 'who' : 'source')
-    : null;
+  const tryOnBack = tryOnStage === 'studio' ? () => { stopCamera(); setCameraOpen(false); setPendingPhoto(''); setTryOnStage('who'); } : null;
+  // The Try-On screen's camera sits inside its 60% box; AI Video's photo still opens full screen.
+  const imageMode = mode === 'image-tryon' || mode === 'catalogue-tryon' || mode === 'own-tryon';
+  const cameraInline = cameraOpen && imageMode && cameraTarget !== 'video-person';
+  const kidsPending = whoGroup === 'kids' && !kidPick;
+  const shutterLocked = kidsPending && isPersonTarget(cameraTarget);
+  const consentMissing = (genderFilter === 'boys' || genderFilter === 'girls') && !tryOnGuardianConsent;
+  const railTabs = [
+    ...(catalogueItems.some((item) => item.gender === genderFilter && item.trending === true) ? [{ id: 'trending', label: 'Trending' }] : []),
+    ...(catalogueItems.some((item) => item.gender === genderFilter && item.badge === 'NEW ARRIVAL') ? [{ id: 'new', label: 'New arrivals' }] : []),
+    ...filteredCategories.map((cat) => ({ id: cat.id as string, label: cat.label })),
+  ];
+  const railActive = showTrending ? 'trending' : showNewArrivals ? 'new' : (activeCategory as string);
   const videoBack = videoStage === 'photo' ? () => setVideoStage('who')
     : videoStage === 'pick' ? () => setVideoStage('photo')
     : videoStage === 'look' ? () => setVideoStage('pick')
@@ -1214,287 +1218,179 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {tryOnStage === 'who' && (
               <div className={`flex flex-col gap-6 ${isTablet ? '' : 'tv-who-screen min-h-[calc(100dvh-240px)]'}`}>
                 <PageTitle size="lg" title="Who is it for?" subtitle="Tap one to start." />
-                <AudienceCards
-                  size="lg"
-                  value={whoChosen ? genderFilter : null}
-                  onChange={(audience) => { setWhoChosen(true); selectGender(audience); if (isTablet) chooseTryOnSource(imageSource); else if (customerPhoto) setTryOnStage('source'); else { setTryOnStage('photo'); void openCameraFor('catalogue-person'); } }}
-                  labels={AUDIENCE_LABELS}
-                />
+                <WhoCards value={whoGroup} onChange={chooseWhoGroup} />
                 <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
                 {!isTablet && <StoreLogoBand clientName={clientName} />}
               </div>
             )}
 
-            {tryOnStage === 'source' && (
-              <div className="flex flex-col gap-6">
-                <PageTitle size="lg" title="What would you like to try?" subtitle="A piece from our collection, or a garment you brought." />
-                <div className="tv-source-cards grid gap-5 md:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => chooseTryOnSource('catalogue')}
-                    className="tv-source-card group flex flex-col overflow-hidden rounded-3xl border border-line bg-white text-left shadow-sm transition hover:border-ink"
-                  >
-                    <span className="grid min-h-0 flex-1 grid-cols-3 gap-1 overflow-hidden bg-[#F1EEE9] p-1">
-                      {(catalogueItems.length ? catalogueItems : sampleCatalogue).filter((item) => item.gender === genderFilter).slice(0, 3).map((item) => (
-                        <img key={item.sku} src={item.thumbnailUrl || item.imageUrl} alt="" className="h-full w-full rounded-2xl object-cover" />
-                      ))}
-                    </span>
-                    <span className="flex items-center justify-between gap-4 p-7">
-                      <span>
-                        <span className="block text-4xl font-bold text-ink">Store collection</span>
-                        <span className="mt-2 block text-xl text-muted">Try up to {MAX_LOOKS} outfits from this store</span>
-                      </span>
-                      <ArrowRight className="h-9 w-9 shrink-0 text-ink transition group-hover:translate-x-1" />
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => chooseTryOnSource('own-garment')}
-                    className="tv-source-card group flex flex-col overflow-hidden rounded-3xl border border-line bg-white text-left shadow-sm transition hover:border-ink"
-                  >
-                    <span className="flex flex-1 items-center justify-center bg-[#F1EEE9] p-6">
-                      <OwnOutfitIllustration className="h-full max-h-[260px] w-full max-w-[260px]" />
-                    </span>
-                    <span className="flex items-center justify-between gap-4 p-7">
-                      <span>
-                        <span className="block text-4xl font-bold text-ink">My own outfit</span>
-                        <span className="mt-2 block text-xl text-muted">Use a garment you already have</span>
-                      </span>
-                      <ArrowRight className="h-9 w-9 shrink-0 text-ink transition group-hover:translate-x-1" />
-                    </span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {tryOnStage === 'photo' && (
-              <div className="tv-photo-step flex flex-col gap-6">
+            {/* One screen, shared with Live Try-On: the camera (then the photo) on the top 60%, and under it
+                Boys or Girls (Kids only), the category tabs and one row of outfits. One action at a time sits
+                in the centre of the box. */}
+            {tryOnStage === 'studio' && (
+              <div className="flex flex-col gap-5">
                 <PageTitle
                   size="lg"
-                  title={customerPhoto ? 'One more thing' : 'Your photo'}
-                  subtitle={customerPhoto
-                    ? ((genderFilter === 'boys' || genderFilter === 'girls') ? 'A parent or guardian needs to approve before we continue.' : 'Ready to continue.')
-                    : 'Stand in front of the screen, or send a photo from your phone.'}
+                  title={!customerPhoto ? 'Your photo' : imageSource === 'own-garment' ? 'Your outfit' : `Pick up to ${MAX_LOOKS} outfits`}
+                  subtitle={kidsPending ? 'Tap Boys or Girls under the camera first.'
+                    : !customerPhoto ? 'Step back so your whole body is in the frame, or send a photo from your phone.'
+                      : imageSource === 'own-garment' ? 'Photograph one garment, then tell us what it is.'
+                        : 'From any category. We create a look for each one at the same time.'}
                 />
 
-                {!customerPhoto ? (
-                  <>
-                    <div className="tv-photo-actions grid gap-5 md:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => void openCameraFor(imageSource === 'own-garment' ? 'own-person' : 'catalogue-person')}
-                        className="tv-photo-action group flex min-h-[220px] flex-col items-center justify-center gap-6 rounded-3xl bg-ink p-8 text-center text-white shadow-lg transition hover:bg-black"
-                      >
-                        <span className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10 transition group-hover:scale-105">
-                          <Camera className="h-12 w-12" />
-                        </span>
-                        <span>
-                          <span className="block text-4xl font-bold">Open the camera</span>
-                          <span className="mt-2 block text-xl text-white/70">Stand back · 5 second timer</span>
-                        </span>
-                      </button>
-                      <PhonePhotoTransfer
-                        onPhoto={(photo) => receivePhotoForConfirm('catalogue-person', photo)}
-                        renderTrigger={(open, busy) => (
-                          <button
-                            type="button"
-                            onClick={open}
-                            disabled={busy}
-                            className="tv-photo-action group flex h-full min-h-[220px] w-full flex-col items-center justify-center gap-6 rounded-3xl border border-line bg-white p-8 text-center shadow-sm transition hover:border-brand disabled:opacity-50"
-                          >
-                            <span className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-soft text-brand transition group-hover:scale-105">
-                              {busy ? <LoaderCircle className="h-12 w-12 animate-spin" /> : <QrCode className="h-12 w-12" />}
+                <div className="relative w-full overflow-hidden rounded-2xl bg-ink text-white" style={{ height: '60vh' }}>
+                  {cameraInline ? (
+                    <>
+                      {pendingPhoto
+                        ? <img src={pendingPhoto} alt="" className="absolute inset-0 h-full w-full object-contain" />
+                        : <video ref={videoRef} playsInline muted autoPlay className="absolute inset-0 h-full w-full object-cover [transform:scaleX(-1)]" />}
+                      {!pendingPhoto && (
+                        <>
+                          {isPersonTarget(cameraTarget) && (
+                            <div className="absolute right-4 top-4 z-10 w-[180px]">
+                              <PhonePhotoTransfer inline onPhoto={(photo) => receivePhotoForConfirm(cameraTarget, photo)} />
+                            </div>
+                          )}
+                          <p className="pointer-events-none absolute left-4 top-4 z-10 max-w-[55%] rounded-2xl bg-black/70 px-5 py-2 text-lg font-semibold backdrop-blur-md">
+                            {cameraTarget === 'own-garment' ? 'Hold the whole garment in the frame' : 'Step back so your whole body is in the frame'}
+                          </p>
+                          {countdown !== null && (
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                              <span className="tabular-nums text-[200px] font-bold leading-none drop-shadow-lg">{countdown}</span>
+                            </div>
+                          )}
+                          {cameraError && (
+                            <div className="absolute inset-x-6 bottom-44 z-10 mx-auto max-w-xl rounded-xl bg-black/85 p-4 text-center text-base text-amber-200">
+                              <p>{cameraError}</p>
+                              <p className="mt-1 text-white/80">{isPersonTarget(cameraTarget) ? 'Use the QR in the corner to send a photo from your phone.' : 'Tap the shutter to try again.'}</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 bg-gradient-to-t from-black/80 via-black/30 to-transparent pb-6 pt-14">
+                        {pendingPhoto ? (
+                          <div className="grid w-full max-w-xl grid-cols-2 gap-4 px-6">
+                            <button type="button" onClick={retryPendingPhoto} className="tf-btn !min-h-20 w-full border border-white/40 bg-white/10 text-xl font-bold text-white hover:bg-white/20">
+                              <RefreshCw className="h-6 w-6" /> Retry
+                            </button>
+                            <button type="button" onClick={confirmPendingPhoto} className="tf-btn tf-btn-primary !min-h-20 w-full text-xl font-bold">
+                              <Check className="h-6 w-6" /> Use this photo
+                            </button>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={triggerCountdownCapture} disabled={countdown !== null || shutterLocked} className="flex flex-col items-center disabled:opacity-50" aria-label="Take the photo in 5 seconds">
+                            <span className="flex h-[112px] w-[112px] items-center justify-center rounded-full border-4 border-white bg-brand shadow-2xl">
+                              <Camera className="h-12 w-12 text-white" />
                             </span>
-                            <span>
-                              <span className="block text-4xl font-bold text-ink">{busy ? 'Preparing QR…' : 'Use my phone'}</span>
-                              <span className="mt-2 block text-xl text-muted">Scan a QR and send a photo</span>
-                            </span>
+                            <span className="mt-1.5 text-base font-semibold drop-shadow">{shutterLocked ? 'Tap Boys or Girls first' : 'Take photo · 5 s'}</span>
                           </button>
                         )}
-                      />
-                    </div>
-                    <PhotoConsentNotice kind="try-on" large />
-                  </>
-                ) : (
-                  // The photo was already shown and confirmed full screen; only the guardian consent (for a
-                  // child) is left before continuing, with just a small thumbnail as a reminder.
-                  <div className="tf-card mx-auto flex w-full max-w-2xl flex-col gap-5 p-7">
-                    <div className="flex items-center gap-4">
-                      <button type="button" onClick={() => { setCustomerPhoto(''); void openCameraFor(imageSource === 'own-garment' ? 'own-person' : 'catalogue-person'); }} className="shrink-0 overflow-hidden rounded-xl border border-line" aria-label="Retake the photo">
-                        <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-24 object-cover" />
-                      </button>
-                      <p className="text-lg text-muted">Not clear? Tap the photo to retake it.</p>
-                    </div>
-                    {(genderFilter === 'boys' || genderFilter === 'girls') && (
-                      <label className="flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-canvas p-4 text-lg">
-                        <input
-                          type="checkbox"
-                          checked={tryOnGuardianConsent}
-                          onChange={(event) => setTryOnGuardianConsent(event.target.checked)}
-                          className="h-6 w-6"
-                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {imageSource === 'own-garment' && ownGarmentPhoto
+                        ? <img src={ownGarmentPhoto} alt="Your outfit" className="absolute inset-0 h-full w-full bg-canvas object-contain" />
+                        : customerPhoto
+                          ? <img src={customerPhoto} alt="Your photo" className="absolute inset-0 h-full w-full object-contain" />
+                          : null}
+                      {imageSource === 'own-garment' && ownGarmentPhoto && customerPhoto && (
+                        <img src={customerPhoto} alt="" className="absolute bottom-4 left-4 z-10 aspect-[9/16] h-40 rounded-xl border-2 border-white object-cover shadow-lg" />
+                      )}
+                      <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
+                        {customerPhoto && (
+                          <button type="button" onClick={() => void openCameraFor(imageSource === 'own-garment' ? 'own-person' : 'catalogue-person')} className="tf-btn !min-h-14 border border-white/40 bg-black/60 px-5 text-base font-semibold text-white backdrop-blur hover:bg-black/80">
+                            <RefreshCw className="h-5 w-5" /> Retake photo
+                          </button>
+                        )}
+                        {imageSource === 'own-garment' && ownGarmentPhoto && (
+                          <button type="button" onClick={() => void openCameraFor('own-garment')} className="tf-btn !min-h-14 border border-white/40 bg-black/60 px-5 text-base font-semibold text-white backdrop-blur hover:bg-black/80">
+                            <RefreshCw className="h-5 w-5" /> Retake outfit
+                          </button>
+                        )}
+                      </div>
+                      {/* The one action, in the centre of the box. */}
+                      <div className="absolute inset-0 flex items-center justify-center p-8">
+                        {!customerPhoto ? (
+                          <button type="button" disabled={shutterLocked} onClick={() => void openCameraFor(imageSource === 'own-garment' ? 'own-person' : 'catalogue-person')} className="tf-btn tf-btn-primary !min-h-24 !w-auto px-10 text-2xl shadow-2xl disabled:opacity-60">
+                            <Camera className="h-8 w-8" /> Open the camera
+                          </button>
+                        ) : imageSource === 'own-garment' ? (
+                          ownGarmentPhoto ? (
+                            <button type="button" disabled={consentMissing} onClick={() => void runTryOnGeneration(customerPhoto, ownGarmentPhoto)} className="tf-btn tf-btn-primary !min-h-24 !w-auto px-10 text-2xl shadow-2xl disabled:opacity-60">
+                              <Sparkles className="h-8 w-8" /> Create my look
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => void openCameraFor('own-garment')} className="tf-btn tf-btn-primary !min-h-24 !w-auto px-10 text-2xl shadow-2xl">
+                              <Camera className="h-8 w-8" /> Photograph your outfit
+                            </button>
+                          )
+                        ) : selectedLooks.length > 0 ? (
+                          <button type="button" disabled={consentMissing} onClick={() => { setSelectedProduct(selectedLooks[0]); void runCatalogueBatch(customerPhoto); }} className="tf-btn tf-btn-primary !min-h-24 !w-auto px-10 text-2xl shadow-2xl disabled:opacity-60">
+                            <Sparkles className="h-8 w-8" /> Create {selectedLooks.length > 1 ? `${selectedLooks.length} looks` : 'my look'}
+                          </button>
+                        ) : null}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {whoGroup === 'kids' && (
+                  <div className="space-y-3">
+                    <KidsSwitch value={kidPick} onChange={chooseKid} disabled={countdown !== null} />
+                    {kidPick && (
+                      <label className="flex min-h-16 items-center gap-3 rounded-2xl bg-warn-soft p-4 text-lg text-ink">
+                        <input type="checkbox" checked={tryOnGuardianConsent} onChange={(event) => setTryOnGuardianConsent(event.target.checked)} className="h-6 w-6 accent-brand" />
                         I am the parent or guardian and approve using this child’s photo for this experience.
                       </label>
                     )}
-                    <button
-                      type="button"
-                      disabled={(genderFilter === 'boys' || genderFilter === 'girls') && !tryOnGuardianConsent}
-                      onClick={continueFromPhoto}
-                      className="tf-btn tf-btn-primary !min-h-16 w-full text-lg"
-                    >
-                      Continue <ArrowRight className="h-5 w-5" />
-                    </button>
                   </div>
                 )}
-              </div>
-            )}
 
-            {tryOnStage === 'browse' && imageSource === 'catalogue' && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between gap-4">
-                  <PageTitle size="lg" title={`Pick up to ${MAX_LOOKS} outfits`} subtitle="From any category. We create a look for each one at the same time." />
-                  {customerPhoto && (
-                    <button type="button" onClick={() => setTryOnStage('photo')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
-                      <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-16 rounded-lg object-cover" />
-                      <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="tv-catalogue-shell grid gap-5">
-                  <aside className="tv-category-sidebar tf-card p-3" aria-label="Garment categories">
-                    <div className="tv-kiosk-filters flex flex-col gap-1">
-                      {catalogueItems.some((item) => item.gender === genderFilter && item.trending === true) && <button type="button" aria-pressed={showTrending} onClick={() => { setShowTrending(true); setShowNewArrivals(false); setCataloguePage(0); }} className="rounded-xl border px-4 text-left font-semibold">Trending</button>}
-                      {/* New arrivals, for every audience: empty until the store marks pieces as new. */}
-                      <button type="button" aria-pressed={showNewArrivals} onClick={() => { setShowTrending(false); setShowNewArrivals(true); setCataloguePage(0); }} className="rounded-xl border px-4 text-left font-semibold">New arrivals</button>
-                      {filteredCategories.map((cat) => (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          aria-pressed={!showTrending && !showNewArrivals && activeCategory === cat.id}
-                          onClick={() => selectCategory(cat.id)}
-                          className="flex items-center justify-between gap-2 rounded-xl border px-4 text-left font-semibold"
-                        >
-                          <span className="truncate">{cat.label}</span>
-                          <span className="shrink-0 text-sm font-medium opacity-60">{catalogueItems.filter((item) => item.category === cat.id).length}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </aside>
-
-                  <div className="min-w-0 space-y-4">
-                    <div ref={catalogueTopRef} className="tv-catalogue-heading flex items-baseline justify-between gap-4">
-                      <p className="text-2xl font-bold">{showTrending ? 'Trending' : showNewArrivals ? 'New arrivals' : filteredCategories.find((cat) => cat.id === activeCategory)?.label}</p>
-                      <p className="text-base text-muted">{browseProducts.length} styles</p>
-                    </div>
-                    <div className="tv-product-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {visibleBrowseProducts.map((item) => {
-                        const picked = selectedLooks.some((look) => look.sku === item.sku);
-                        const full = selectedLooks.length >= MAX_LOOKS && !picked;
-                        return (
-                          <button
-                            key={item.sku}
-                            type="button"
-                            aria-pressed={picked}
-                            aria-label={`${picked ? 'Remove' : 'Select'} ${item.title}`}
-                            disabled={full}
-                            onClick={() => toggleLook(item)}
-                            className={`tv-product-card group relative flex flex-col overflow-hidden rounded-2xl border bg-white text-left transition disabled:opacity-50 ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
-                          >
-                            <span className="tv-product-image relative block w-full overflow-hidden">
-                              <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain" />
-                              <span className={`absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>
-                                {picked ? selectedLooks.findIndex((look) => look.sku === item.sku) + 1 : '+'}
-                              </span>
-                            </span>
-                            <span className="block p-3">
-                              <span className="line-clamp-2 block text-base font-semibold leading-snug text-ink">{item.title}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {browseProducts.length === 0 && (showNewArrivals
-                      ? <div className="tf-card p-10 text-center"><p className="text-2xl font-bold">New arrivals are on their way</p><p className="mt-2 text-muted">Our newest pieces will appear here. Choose another category for now.</p></div>
-                      : <div className="tf-card p-10 text-center"><p className="text-2xl font-bold">No pieces here yet</p><p className="mt-2 text-muted">Choose another category or ask our staff.</p></div>)}
-                    {cataloguePageCount > 1 && (
-                      <div className="tv-catalogue-pagination flex items-center justify-between gap-4">
-                        <button type="button" disabled={cataloguePage === 0} onClick={() => turnCataloguePage(cataloguePage - 1)} className="tf-btn tf-btn-secondary !min-h-16 px-6 text-lg">← Previous</button>
-                        <span className="text-lg font-semibold text-muted">Page {cataloguePage + 1} of {cataloguePageCount}</span>
-                        <button type="button" disabled={cataloguePage >= cataloguePageCount - 1} onClick={() => turnCataloguePage(cataloguePage + 1)} className="tf-btn tf-btn-secondary !min-h-16 px-6 text-lg">Next →</button>
-                      </div>
-                    )}
-                    {tryOnError && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{tryOnError}</p>}
-                  </div>
-
-                  <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex -space-x-3">
-                        {selectedLooks.map((look) => <img key={look.sku} src={look.thumbnailUrl || look.imageUrl} alt="" className="h-14 w-11 rounded-lg border-2 border-white bg-canvas object-cover" />)}
-                      </div>
-                      <p className="text-lg font-semibold">{selectedLooks.length ? `${selectedLooks.length} of ${MAX_LOOKS} selected` : 'Tap outfits to select'}</p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={selectedLooks.length === 0}
-                      onClick={() => {
-                        setSelectedProduct(selectedLooks[0]);
-                        void runCatalogueBatch(customerPhoto);
-                      }}
-                      className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-8 text-lg"
-                    >
-                      <Sparkles className="h-5 w-5" /> Create {selectedLooks.length > 1 ? `${selectedLooks.length} looks` : 'my look'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {tryOnStage === 'browse' && imageSource === 'own-garment' && (
-              <div className={`flex flex-col gap-5 ${isTablet ? '' : 'min-h-[calc(100dvh-280px)]'}`}>
-                <div className="flex items-center justify-between gap-4">
-                  <PageTitle size="lg" title="Your outfit" subtitle="Photograph one garment with the camera, then tell us what it is." />
-                  {customerPhoto && (
-                    <button type="button" onClick={() => setTryOnStage('photo')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
-                      <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-16 rounded-lg object-cover" />
-                      <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
-                    </button>
-                  )}
-                </div>
-                <PhotoGuide size="lg" lines={OUTFIT_GUIDE} />
-                <div className="tv-catalogue-shell grid gap-5">
-                  <aside className="tv-category-sidebar tf-card p-3" aria-label="What is your outfit">
-                    <p className="px-2 pb-2 text-base font-semibold text-muted">What is it?</p>
-                    <div className="tv-kiosk-filters flex flex-col gap-1">
+                {!customerPhoto ? (
+                  <>
+                    <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
+                    <PhotoConsentNotice kind="try-on" large />
+                  </>
+                ) : kidsPending ? null : imageSource === 'own-garment' ? (
+                  <div className="space-y-4">
+                    <div role="group" aria-label="What is your outfit" className="flex gap-x-2 overflow-x-auto border-b border-line">
                       {OWN_GARMENT_TYPES[genderFilter].map((type) => (
-                        <button key={type.id} type="button" aria-pressed={ownGarmentType === type.id} onClick={() => setOwnGarmentType(type.id)} className="rounded-xl border px-4 text-left font-semibold">
+                        <button key={type.id} type="button" aria-pressed={ownGarmentType === type.id} onClick={() => setOwnGarmentType(type.id)} className={`-mb-px min-h-16 shrink-0 whitespace-nowrap border-b-[3px] px-4 text-xl font-semibold ${ownGarmentType === type.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'}`}>
                           {type.label}
                         </button>
                       ))}
                     </div>
-                  </aside>
-                  <div className="min-w-0 space-y-4">
-                    <div className="tf-card flex flex-col items-center gap-6 p-8 text-center">
-                      {ownGarmentPhoto
-                        ? <img src={ownGarmentPhoto} alt="Your outfit" className="aspect-[3/4] h-[560px] max-w-full rounded-2xl bg-canvas object-contain" />
-                        : (
-                          <span className="flex aspect-[3/4] h-[560px] max-w-full flex-col items-center justify-center gap-6 rounded-2xl border border-dashed border-line-strong bg-[#F1EEE9] p-8 text-muted">
-                            <OwnOutfitIllustration className="h-64 w-64" />
-                            <span className="max-w-xs text-xl">Hold one garment up to the camera, or lay it flat</span>
-                          </span>
-                        )}
-                      <button type="button" onClick={() => void openCameraFor('own-garment')} className="tf-btn tf-btn-dark !min-h-16 w-full max-w-md text-lg"><Camera className="h-5 w-5" /> {ownGarmentPhoto ? 'Retake' : 'Open the camera'}</button>
-                    </div>
-                    {tryOnError && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{tryOnError}</p>}
+                    <PhotoGuide size="lg" lines={OUTFIT_GUIDE} />
+                    {!isTablet && (
+                      <button type="button" onClick={() => { stopCamera(); setCameraOpen(false); setPendingPhoto(''); setImageSource('catalogue'); }} className="tf-btn tf-btn-secondary !min-h-16 px-6 text-lg">
+                        <ArrowLeft className="h-5 w-5" /> Back to the store collection
+                      </button>
+                    )}
                   </div>
-                  <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
-                    <p className="text-lg font-semibold">{ownGarmentPhoto ? OWN_GARMENT_TYPES[genderFilter].find((type) => type.id === ownGarmentType)?.label : 'Photograph your outfit'}</p>
-                    <button type="button" disabled={!customerPhoto || !ownGarmentPhoto} onClick={() => void runTryOnGeneration(customerPhoto, ownGarmentPhoto)} className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-8 text-lg">
-                      <Sparkles className="h-5 w-5" /> Create my look
-                    </button>
-                  </div>
-                </div>
-                {!isTablet && <StoreLogoBand clientName={clientName} />}
+                ) : (
+                  <GarmentRail
+                    tabs={railTabs}
+                    activeTab={railActive}
+                    onTab={(id) => {
+                      if (id === 'trending') { setShowTrending(true); setShowNewArrivals(false); }
+                      else if (id === 'new') { setShowNewArrivals(true); setShowTrending(false); }
+                      else selectCategory(id as CatalogueCategoryId);
+                    }}
+                    items={browseProducts}
+                    selected={selectedLooks.map((look) => look.sku)}
+                    max={MAX_LOOKS}
+                    onToggle={toggleLook}
+                    leading={!isTablet ? (
+                      <button type="button" onClick={() => chooseTryOnSource('own-garment')} className="flex w-48 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-dashed border-line-strong bg-white text-left hover:border-ink">
+                        <span className="flex aspect-[3/4] w-full items-center justify-center bg-[#F1EEE9]"><OwnOutfitIllustration className="h-32 w-32" /></span>
+                        <span className="block p-3 text-base font-bold text-ink">My own outfit</span>
+                      </button>
+                    ) : undefined}
+                  />
+                )}
+                {tryOnError && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{tryOnError}</p>}
+                {!isTablet && !customerPhoto && <StoreLogoBand clientName={clientName} />}
               </div>
             )}
 
@@ -1631,7 +1527,10 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               setActiveCategory(product.category);
               setSelectedProduct(product);
               setSelectedLooks([product]);
-              setTryOnStage(customerPhoto ? 'browse' : 'photo');
+              setWhoGroup(product.gender === 'boys' || product.gender === 'girls' ? 'kids' : product.gender);
+              setKidPick(product.gender === 'boys' || product.gender === 'girls' ? product.gender : null);
+              setTryOnStage('studio');
+              if (!customerPhoto) void openCameraFor('catalogue-person');
             }}
           />
         )}
@@ -1914,7 +1813,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           top-right corner, to send one from the phone instead; the outfit photo is taken with the camera
           only (no QR).
          ========================================================= */}
-      {cameraOpen && (
+      {cameraOpen && !cameraInline && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-black text-white" role="dialog" aria-modal="true" aria-label={cameraTarget === 'own-garment' ? 'Photograph your outfit' : 'Take your photo'}>
           {pendingPhoto ? (
             // The just-taken (or phone-sent) photo, full screen: confirmed right here, no second preview page.

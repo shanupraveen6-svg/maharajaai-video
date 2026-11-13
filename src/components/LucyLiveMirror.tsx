@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fal } from '@fal-ai/client';
-import { Camera, ChevronLeft, LoaderCircle, Play, RotateCcw, ShieldAlert, X } from 'lucide-react';
+import { Camera, ChevronLeft, LoaderCircle, Play, RotateCcw, ShieldAlert, Sparkles, X } from 'lucide-react';
 import { sampleCatalogue, type CatalogueCategoryId, type TryFocusProduct } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
-import AudienceCards from '@/components/AudienceCards';
+import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
+import GarmentRail from '@/components/kiosk/GarmentRail';
 import { PageTitle } from '@/components/ui';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
@@ -20,9 +21,11 @@ type SessionState = 'idle' | 'ready' | 'connecting' | 'live' | 'error';
 type Phase = 'who' | 'camera' | 'result';
 
 /**
- * Live Try-On on the TV: Who → the camera on the top 60% of the screen, the store's Live Try-On garments
- * underneath (category tabs, one row that scrolls sideways) → tap one → 5 seconds to step back → 30 seconds
- * live → the recording plays back with Replay and End session. Nothing is uploaded or downloaded.
+ * Live Try-On on the TV: Women · Men · Kids → the camera on the top 60% of the screen; underneath, Boys or
+ * Girls (Kids only), the category tabs and one row of garments that scrolls sideways → tap a garment to pick
+ * it → Start Live Try-On in the centre of the camera → 5 seconds to step back → 30 seconds live → the
+ * recording plays back with Replay and End session, then the next customer starts from the first screen.
+ * Nothing is uploaded or downloaded. Image Try-On uses the same screen (WhoCards, KidsSwitch, GarmentRail).
  */
 export default function LucyLiveMirror({
   catalogue: propCatalogue,
@@ -44,7 +47,9 @@ export default function LucyLiveMirror({
   const activeCatalogue = propCatalogue && propCatalogue.length > 0 ? propCatalogue : sampleCatalogue;
 
   const [phase, setPhase] = useState<Phase>('who');
-  const [gender, setGender] = useState<TryFocusProduct['gender'] | null>(null);
+  const [group, setGroup] = useState<WhoGroup | null>(null);
+  const [kidGender, setKidGender] = useState<'boys' | 'girls' | null>(null);
+  const gender: TryFocusProduct['gender'] | null = group === 'kids' ? kidGender : group;
   const [guardianConsent, setGuardianConsent] = useState(false);
   const [category, setCategory] = useState<string>('');
   const [garment, setGarment] = useState<TryFocusProduct | null>(null);
@@ -69,7 +74,8 @@ export default function LucyLiveMirror({
   const recordedChunksRef = useRef<Blob[]>([]);
   const videoUrlRef = useRef('');
 
-  const isChild = gender === 'boys' || gender === 'girls';
+  const isChild = group === 'kids';
+  const consentMissing = isChild && !guardianConsent;
 
   /** The categories that hold at least one Live Try-On garment for this audience, in the store's order. */
   const visibleCategories = useMemo(() => {
@@ -210,11 +216,18 @@ export default function LucyLiveMirror({
     if (recorder && recorder.state !== 'inactive') { recorder.onstop = null; recorder.stop(); }
   }
 
-  /** Tap a garment: 5 seconds to step back from the TV, then the live session. */
+  /** Tapping a garment only picks it; Start Live Try-On on the camera begins the session. */
   function pickGarment(piece: TryFocusProduct) {
     if (session === 'ready' || session === 'connecting' || session === 'live') return;
     setGarment(piece);
     onSelectProduct?.(piece);
+    setError('');
+    if (session === 'error') { closeRealtimeConnections(); setSession('idle'); }
+  }
+
+  /** Start Live Try-On: 5 seconds to step back from the TV, then the live session. */
+  function startSession(piece: TryFocusProduct) {
+    if (consentMissing) { setError('A parent or guardian must approve first.'); return; }
     setError('');
     clearCountdownTimer();
     setSession('ready');
@@ -342,18 +355,26 @@ export default function LucyLiveMirror({
     setSession('idle');
   }
 
-  async function openCamera(nextGender: TryFocusProduct['gender']) {
-    setGender(nextGender);
+  async function openCamera() {
     setCategory('');
     setPhase('camera');
     await enableCamera();
   }
 
-  function chooseWho(nextGender: TryFocusProduct['gender']) {
-    setGender(nextGender);
+  function chooseWho(next: WhoGroup) {
+    setGroup(next);
+    setKidGender(null);
+    setGuardianConsent(false);
+    setGarment(null);
     setError('');
-    // Adults go straight to the camera; a child's session waits for the guardian's tick.
-    if (nextGender === 'women' || nextGender === 'men') void openCamera(nextGender);
+    void openCamera();
+  }
+
+  function chooseKid(next: 'boys' | 'girls') {
+    if (next === kidGender) return;
+    setKidGender(next);
+    setCategory('');
+    setGarment(null);
   }
 
   function backToWho() {
@@ -369,7 +390,8 @@ export default function LucyLiveMirror({
     if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
     videoUrlRef.current = '';
     setVideoUrl('');
-    setGender(null);
+    setGroup(null);
+    setKidGender(null);
     setGuardianConsent(false);
     setGarment(null);
     setPhase('who');
@@ -385,18 +407,7 @@ export default function LucyLiveMirror({
           <PageTitle size="lg" title="Live Try-On" subtitle="See an outfit on you, live on camera, for 30 seconds." />
           <PhotoConsentNotice kind="live" large />
         </div>
-        <AudienceCards size="lg" value={gender} labels={AUDIENCE_LABELS} onChange={chooseWho} />
-        {isChild && (
-          <div className="space-y-4">
-            <label className="flex min-h-16 items-center gap-3 rounded-2xl bg-warn-soft p-4 text-lg text-ink">
-              <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6 accent-brand" />
-              I am the parent or guardian and approve this child’s Live Try-On.
-            </label>
-            <button type="button" disabled={!guardianConsent} onClick={() => gender && void openCamera(gender)} className="tf-btn tf-btn-primary !min-h-20 w-full text-xl disabled:opacity-40">
-              Open the camera
-            </button>
-          </div>
-        )}
+        <WhoCards value={group} onChange={chooseWho} />
         {error && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{error}</p>}
       </div>
     );
@@ -474,8 +485,20 @@ export default function LucyLiveMirror({
           </button>
         )}
 
-        {cameraOn && session === 'idle' && (
-          <p className="absolute inset-x-6 bottom-6 z-10 mx-auto w-fit rounded-full bg-ink/75 px-6 py-3 text-xl font-semibold text-white backdrop-blur">Tap an outfit below to start</p>
+        {cameraOn && session === 'idle' && !garment && (
+          <p className="absolute inset-x-6 bottom-6 z-10 mx-auto w-fit rounded-full bg-ink/75 px-6 py-3 text-xl font-semibold text-white backdrop-blur">
+            {isChild && !kidGender ? 'Tap Boys or Girls below' : 'Pick an outfit below'}
+          </p>
+        )}
+
+        {/* The one action on the camera, in its centre, once an outfit is picked. */}
+        {cameraOn && session === 'idle' && garment && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 p-8">
+            <button type="button" disabled={consentMissing} onClick={() => startSession(garment)} className="tf-btn tf-btn-primary !min-h-24 !w-auto px-12 text-3xl shadow-2xl disabled:opacity-60">
+              <Sparkles className="h-9 w-9" /> Start Live Try-On
+            </button>
+            <p className="rounded-full bg-ink/75 px-5 py-2 text-lg font-semibold text-white backdrop-blur">{garment.title}</p>
+          </div>
         )}
 
         {session === 'ready' && readyCountdown !== null && (
@@ -510,7 +533,7 @@ export default function LucyLiveMirror({
                 <p className="text-lg font-bold text-ink">Live Try-On is not running.</p>
                 <p className="mt-1 text-base text-muted">{error}</p>
                 <div className="mt-3 flex flex-wrap gap-3">
-                  {garment && <button type="button" onClick={() => pickGarment(garment)} className="tf-btn tf-btn-primary !min-h-16 px-6 text-lg">Try again</button>}
+                  {garment && <button type="button" onClick={() => startSession(garment)} className="tf-btn tf-btn-primary !min-h-16 px-6 text-lg">Try again</button>}
                   {onUsePhotoTryOn && garment && (
                     <button type="button" onClick={() => { stopEverything(); onUsePhotoTryOn(garment); }} className="tf-btn tf-btn-secondary !min-h-16 px-6 text-lg">Try it on a photo instead</button>
                   )}
@@ -521,47 +544,32 @@ export default function LucyLiveMirror({
         )}
       </div>
 
-      {/* Level 3: categories as an underlined text row. Level 4: the garments, one row that scrolls sideways. */}
-      <div role="group" aria-label="Category" className="flex gap-x-2 overflow-x-auto border-b border-line">
-        {visibleCategories.map((cat) => (
-          <button
-            key={cat.id}
-            type="button"
-            aria-pressed={activeCategory === cat.id}
-            disabled={running}
-            onClick={() => setCategory(cat.id as string)}
-            className={`-mb-px min-h-16 shrink-0 whitespace-nowrap border-b-[3px] px-4 text-xl font-semibold disabled:opacity-50 ${activeCategory === cat.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'}`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      {visibleCategories.length === 0 ? (
-        <p className="p-6 text-center text-xl text-muted">No Live Try-On outfits for {gender ? AUDIENCE_LABELS[gender] : 'this audience'} yet. Ask the store team.</p>
-      ) : (
-        <div className="flex snap-x gap-4 overflow-x-auto pb-3">
-          {categoryProducts.map((item) => {
-            const active = garment?.sku === item.sku && running;
-            return (
-              <button
-                key={item.sku}
-                type="button"
-                aria-pressed={active}
-                aria-label={`Try ${item.title} live`}
-                disabled={running && !active}
-                onClick={() => pickGarment(item)}
-                className={`w-44 shrink-0 snap-start overflow-hidden rounded-2xl border bg-white text-left transition disabled:opacity-40 ${active ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
-              >
-                <span className="block aspect-[3/4] w-full bg-canvas">
-                  <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain" />
-                </span>
-                <span className="line-clamp-2 block p-3 text-base font-semibold leading-snug text-ink">{item.title}</span>
-              </button>
-            );
-          })}
+      {isChild && (
+        <div className="space-y-3">
+          <KidsSwitch value={kidGender} onChange={chooseKid} disabled={running} />
+          {kidGender && (
+            <label className="flex min-h-16 items-center gap-3 rounded-2xl bg-warn-soft p-4 text-lg text-ink">
+              <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6 accent-brand" />
+              I am the parent or guardian and approve this child’s Live Try-On.
+            </label>
+          )}
         </div>
       )}
+
+      {gender && (visibleCategories.length === 0 ? (
+        <p className="p-6 text-center text-xl text-muted">No Live Try-On outfits for {AUDIENCE_LABELS[gender]} yet. Ask the store team.</p>
+      ) : (
+        <GarmentRail
+          tabs={visibleCategories.map((cat) => ({ id: cat.id as string, label: cat.label }))}
+          activeTab={activeCategory}
+          onTab={(id) => setCategory(id)}
+          items={categoryProducts}
+          selected={garment ? [garment.sku] : []}
+          max={1}
+          onToggle={pickGarment}
+          disabled={running}
+        />
+      ))}
     </div>
   );
 }

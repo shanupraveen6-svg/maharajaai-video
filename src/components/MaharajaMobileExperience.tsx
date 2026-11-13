@@ -18,7 +18,8 @@ import {
 } from 'lucide-react';
 import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import DressLoader from '@/components/DressLoader';
-import AudienceCards, { PhotoGuide } from '@/components/AudienceCards';
+import { PhotoGuide } from '@/components/AudienceCards';
+import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
 import { compressImage } from '@/lib/utils/image';
 import type { CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
@@ -52,7 +53,9 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   const [source, setSource] = useState<Source>('catalogue');
   const [audience, setAudience] = useState<CatalogueAudience>('women');
   // Nothing is pre-selected: Who stays empty until the customer taps one.
-  const [audienceChosen, setAudienceChosen] = useState(false);
+  // Women · Men · Kids; Kids picks Boys or Girls under the camera.
+  const [whoGroup, setWhoGroup] = useState<WhoGroup | null>(null);
+  const [kidPicked, setKidPicked] = useState(false);
   const [category, setCategory] = useState<StoreCategory | null>(null);
   const [ownType, setOwnType] = useState<string>('');
   const [product, setProduct] = useState<TryFocusProduct | null>(null);
@@ -222,7 +225,8 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   /** A retry starts from the very beginning: new Who, category, piece and photos; nothing is kept. */
   function startFresh() {
     setSource('catalogue');
-    setAudienceChosen(false);
+    setWhoGroup(null);
+    setKidPicked(false);
     setCategory(null);
     setOwnType('');
     setProduct(null);
@@ -316,7 +320,8 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
   // The phone's back button always asks "Are you sure you want to exit?" (Continue keeps this step);
   // the on-screen Back link is how a customer steps back.
   const exitGuard = useExitGuard({ protect: Boolean(personPhoto || resultUrl) && stage !== 'done' });
-  const photoReady = Boolean(personPhoto) && !(isChild && !guardianConsent);
+  const kidsPending = whoGroup === 'kids' && !kidPicked;
+  const photoReady = Boolean(personPhoto) && !kidsPending && !(isChild && !guardianConsent);
 
   return (
     <main className="mobile-workspace min-h-screen bg-canvas pb-28 text-ink">
@@ -371,10 +376,11 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
         {stage === 'who' && (
           <div className="space-y-4">
             <PageTitle title={t('whoFor')} />
-            <AudienceCards
-              value={audienceChosen ? audience : null}
-              onChange={(next) => { setAudience(next); setAudienceChosen(true); setGuardianConsent(false); setStage('photo'); }}
-              labels={{ women: t('women'), men: t('men'), boys: t('boys'), girls: t('girls') }}
+            <WhoCards
+              size="md"
+              value={whoGroup}
+              onChange={(next) => { setWhoGroup(next); setKidPicked(false); if (next !== 'kids') setAudience(next); setGuardianConsent(false); setStage('photo'); }}
+              labels={{ women: t('women'), men: t('men'), kids: t('kids'), adultAge: t('ageAdult'), kidsAge: t('ageKids') }}
             />
             <PhotoGuide lines={[t('guideLine1'), t('guideLine2')]} />
           </div>
@@ -385,7 +391,10 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
             <PageTitle title={t('photoTitle')} subtitle={t('photoSubtitle')} />
             <PhotoBox image={personPhoto} aspect="aspect-[9/16]" placeholder={<Camera className="h-9 w-9" />} />
             <CameraOrUpload cameraLabel={t('camera')} uploadLabel={t('upload')} onFile={(file) => readPhoto(setPersonPhoto, file)} />
-            {isChild && (
+            {whoGroup === 'kids' && (
+              <KidsSwitch size="md" value={kidPicked && isChild ? (audience as 'boys' | 'girls') : null} onChange={(kid) => { setAudience(kid); setKidPicked(true); }} labels={{ boys: t('boys'), girls: t('girls') }} />
+            )}
+            {isChild && kidPicked && (
               <label className="flex items-start gap-3 rounded-2xl bg-warn-soft p-3 text-[13px] text-ink">
                 <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
                 {t('guardianAgree')}
@@ -394,7 +403,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
             {language === 'ta'
               ? <p className="text-[13px] leading-relaxed text-muted">{t('consentTryOn')} <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">{t('privacy')}</a></p>
               : <PhotoConsentNotice kind="try-on" />}
-            <ActionBar note={note || (!personPhoto ? t('needPhoto') : isChild && !guardianConsent ? t('needGuardian') : undefined)}>
+            <ActionBar note={note || (!personPhoto ? t('needPhoto') : kidsPending ? t('needBoysGirls') : isChild && !guardianConsent ? t('needGuardian') : undefined)}>
               <button type="button" disabled={!photoReady} onClick={() => setStage('source')} className="tf-btn tf-btn-primary !min-h-14 text-base">
                 {t('continueBtn')} <ArrowRight className="h-5 w-5" />
               </button>
