@@ -1,5 +1,6 @@
 'use client';
 
+import TrialCatalogueCard from '@/components/TrialCatalogueCard';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -776,6 +777,8 @@ export default function TryFocusAdmin() {
             </>}
           </div>
         </section>
+
+        <TrialCatalogueCard key={`trial-${client.id}`} clientId={client.id} />
 
         {client.id !== 'maharaja' && (
           <section className="tf-card border-danger/40 p-5">
