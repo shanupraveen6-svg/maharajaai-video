@@ -37,9 +37,10 @@ export default function LockedAmountField({
 
   return (
     <div className="space-y-1">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <label htmlFor={id} className="text-[#535A56]">
-          {label} <span className="text-[#8A918D]">· {hint}</span>
+      <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto]">
+        <label htmlFor={id} className="min-w-0">
+          <span className="block text-sm font-semibold text-ink">{label}</span>
+          <span className="block text-sm text-muted">{hint}</span>
         </label>
         <div className="flex items-center gap-2">
           <input
@@ -51,13 +52,13 @@ export default function LockedAmountField({
             disabled={disabled || locked}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            className="min-h-10 w-28 border border-line bg-white px-2 text-right tabular-nums font-bold text-brand outline-none focus:border-brand disabled:bg-[#F4F5F2]"
+            className="min-h-11 w-32 rounded-xl border border-line-strong bg-white px-3 text-right tabular-nums font-bold text-ink outline-none focus:border-ink disabled:bg-canvas"
           />
           <button
             type="button"
             disabled={disabled || locked || amount === value}
             onClick={() => void save()}
-            className="min-h-10 bg-ink px-3 text-xs font-bold text-white disabled:opacity-40"
+            className="min-h-11 rounded-xl bg-ink px-4 text-sm font-bold text-white disabled:opacity-40"
           >
             Save
           </button>

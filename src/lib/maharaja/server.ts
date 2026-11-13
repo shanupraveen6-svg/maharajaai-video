@@ -17,6 +17,7 @@ import { activeClientId } from './client-context';
 import { recordUsage } from './usage-ledger';
 import { getLiveAudioTrack, getPreviewAudioTrack } from './audio';
 import { generateCustomer6sVideo, generateLive9sVideo, validateBrandedVideo } from './video-processor';
+import { maharajaDefaultLogo, readStoreLogo } from './store-logo';
 import {
   AI_VIDEO_MIN_PURCHASE,
   type EventId,
@@ -2611,8 +2612,11 @@ export async function finalizeCompletedVideo({
   let liveVideo: Buffer | null = null;
   let presentationFallback = false;
   try {
-    customerVideo = await generateCustomer6sVideo(fileBuffer, getPreviewAudioTrack(sessionId, eventId));
-    if (createLiveVersion) liveVideo = await generateLive9sVideo(fileBuffer, getLiveAudioTrack(sessionId, eventId));
+    // The store's own logo on its videos (its upload, or Maharaja's badge for Maharaja); none, no logo.
+    const owner = clientId || MAHARAJA_CLIENT_ID;
+    const logo = (await readStoreLogo(owner).catch(() => null)) ?? maharajaDefaultLogo(owner);
+    customerVideo = await generateCustomer6sVideo(fileBuffer, getPreviewAudioTrack(sessionId, eventId), logo);
+    if (createLiveVersion) liveVideo = await generateLive9sVideo(fileBuffer, getLiveAudioTrack(sessionId, eventId), logo);
     await validateBrandedVideo(customerVideo, 6);
     if (liveVideo) await validateBrandedVideo(liveVideo, 9);
   } catch (error) {

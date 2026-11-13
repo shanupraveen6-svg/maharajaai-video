@@ -1174,7 +1174,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {isTablet && <Link href="/maharaja/workspace" className="flex min-h-12 items-center rounded-xl px-3 text-base font-semibold text-muted hover:text-ink">Workspace</Link>}
+            {isTablet && <Link href="/maharaja/workspace" className="flex min-h-16 items-center rounded-xl border-2 border-line-strong bg-white px-5 text-lg font-semibold text-ink hover:border-ink">Workspace</Link>}
             {/* Tablet: End session on Try-On only (Wall QR has none; there is no AI Video tab here). */}
             {isTablet
               ? (mode === 'catalogue-tryon' || mode === 'own-tryon') && <button type="button" onClick={endSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">End session</button>
@@ -1950,7 +1950,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="-ml-2 inline-flex min-h-16 items-center gap-2.5 rounded-xl px-3 text-lg font-semibold text-muted hover:bg-line/60 hover:text-ink">
+    <button type="button" onClick={onClick} className="inline-flex min-h-16 items-center gap-2.5 rounded-xl border-2 border-ink bg-white px-6 text-lg font-bold text-ink hover:bg-canvas">
       <ArrowLeft className="h-6 w-6" /> Back
     </button>
   );

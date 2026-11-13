@@ -74,18 +74,21 @@ function resolvePublicAsset(relativeOrFullPath: string | undefined, fallback: st
   return fs.existsSync(candidate) ? candidate : '';
 }
 
+/**
+ * The store's own logo on its videos: a PNG the store uploaded (or Maharaja's badge for Maharaja), passed
+ * in by the caller. No logo means no logo overlay — never another store's.
+ */
 async function generateBrandedVideo(
   inputBuffer: Buffer,
   durationSeconds: 6 | 9,
-  audioRelativeOrFullPath: string
+  audioRelativeOrFullPath: string,
+  logo?: Buffer | null
 ): Promise<Buffer> {
   const binary = getFfmpegPath();
-  const logoPath = path.join(process.cwd(), 'public', 'maharaja-logo.png');
   const audioPath = resolvePublicAsset(audioRelativeOrFullPath, audioRelativeOrFullPath);
-  if (!binary || !fs.existsSync(logoPath) || !audioPath || inputBuffer.length === 0) {
+  if (!binary || !audioPath || inputBuffer.length === 0) {
     const missing = [
       !binary && 'FFmpeg binary',
-      !fs.existsSync(logoPath) && 'Maharaja logo',
       !audioPath && 'event audio',
       inputBuffer.length === 0 && 'provider video',
     ].filter(Boolean).join(', ');
@@ -95,18 +98,23 @@ async function generateBrandedVideo(
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const tmpIn = path.join(os.tmpdir(), `mhr_brand_in_${id}.mp4`);
   const tmpOut = path.join(os.tmpdir(), `mhr_brand_${durationSeconds}_${id}.mp4`);
+  const tmpLogo = path.join(os.tmpdir(), `mhr_brand_logo_${id}.png`);
   try {
     await fs.promises.writeFile(tmpIn, inputBuffer);
+    if (logo?.length) await fs.promises.writeFile(tmpLogo, logo);
     const sourceSeconds = await videoDuration(binary, tmpIn);
     const timingFilter = `setpts=${durationSeconds / sourceSeconds}*(PTS-STARTPTS),fps=30`;
     const fadeOutStart = (durationSeconds - 0.25).toFixed(2);
     const audioFilter = `[1:a]apad,aformat=sample_rates=44100:channel_layouts=stereo,afade=t=in:st=0:d=0.05,afade=t=out:st=${fadeOutStart}:d=0.25[a_out]`;
-    const filterComplex = `[0:v]${timingFilter}[timed];[2:v]scale=96:96[logo];[timed][logo]overlay=W-w-24:24[v_out];${audioFilter}`;
+    // The logo sits top right on a small white card, sized for a wide or a round logo alike.
+    const filterComplex = logo?.length
+      ? `[0:v]${timingFilter}[timed];[2:v]scale='min(150,iw)':-1,pad=iw+20:ih+20:10:10:white[logo];[timed][logo]overlay=W-w-24:24[v_out];${audioFilter}`
+      : `[0:v]${timingFilter}[v_out];${audioFilter}`;
     const args = [
       '-y',
       '-i', tmpIn,
       '-i', audioPath,
-      '-i', logoPath,
+      ...(logo?.length ? ['-i', tmpLogo] : []),
       '-filter_complex', filterComplex,
       '-map', '[v_out]',
       '-map', '[a_out]',
@@ -135,14 +143,14 @@ async function generateBrandedVideo(
     if (!output.length) throw new Error('FFmpeg produced an empty branded video.');
     return output;
   } finally {
-    await Promise.allSettled([fs.promises.unlink(tmpIn), fs.promises.unlink(tmpOut)]);
+    await Promise.allSettled([fs.promises.unlink(tmpIn), fs.promises.unlink(tmpOut), fs.promises.unlink(tmpLogo)]);
   }
 }
 
 
-/** Creates the downloadable six-second MP4 with embedded Maharaja logo and preview audio. */
-export function generateCustomer6sVideo(inputBuffer: Buffer, audioRelativeOrFullPath: string) {
-  return generateBrandedVideo(inputBuffer, 6, audioRelativeOrFullPath);
+/** Creates the downloadable six-second MP4 with the store's logo and preview audio. */
+export function generateCustomer6sVideo(inputBuffer: Buffer, audioRelativeOrFullPath: string, logo?: Buffer | null) {
+  return generateBrandedVideo(inputBuffer, 6, audioRelativeOrFullPath, logo);
 }
 
 /**
@@ -213,10 +221,11 @@ export async function applyMaharajaVideoWatermark(inputBuffer: Buffer): Promise<
  */
 export async function generateLive9sVideo(
   input6sBuffer: Buffer,
-  audioRelativeOrFullPath?: string
+  audioRelativeOrFullPath?: string,
+  logo?: Buffer | null
 ): Promise<Buffer> {
   const audio = audioRelativeOrFullPath || '/audio/maharaja/live/diwali-hindu-9s.mp3';
-  return generateBrandedVideo(input6sBuffer, 9, audio);
+  return generateBrandedVideo(input6sBuffer, 9, audio, logo);
 }
 
 /** Duration and frame size of a local file or https URL, read from ffmpeg's stream header. */

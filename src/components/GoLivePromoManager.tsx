@@ -65,7 +65,7 @@ export default function GoLivePromoManager({ clientId }: { clientId?: string } =
       const done = await (await fetch('/api/maharaja/promos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'confirm', id: start.id, title, contentType: file.type, workspaceCode: clientId }),
+        body: JSON.stringify({ action: 'confirm', id: start.id, title: title || file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 60), contentType: file.type, workspaceCode: clientId }),
       })).json();
       if (!done?.success) throw new Error(done?.error || 'The video could not be saved.');
       setPromos(done.promos || []);
@@ -107,23 +107,14 @@ export default function GoLivePromoManager({ clientId }: { clientId?: string } =
               </button>
             </li>
           ))}
-          {!promos.length && <li className="border border-dashed border-line px-3 py-3 text-xs text-muted">No promos yet.</li>}
+          {!promos.length && <li className="rounded-2xl border border-dashed border-line-strong px-3 py-3 text-sm text-muted">No promo videos yet.</li>}
         </ul>
         {!full && (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Promo name (optional)"
-              maxLength={60}
-              className="min-h-11 border border-line bg-white px-3 text-sm outline-none focus:border-brand"
-            />
-            <input ref={fileRef} type="file" accept={ACCEPTED} aria-label="Promo video file" className="rounded-xl min-h-11 w-full min-w-0 border border-line bg-white px-3 py-2 text-xs" />
-            <button type="button" disabled={busy} onClick={() => void upload()} className="flex min-h-11 items-center justify-center gap-1.5 bg-brand px-4 text-xs font-bold text-white disabled:opacity-50 sm:col-span-2">
-              {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Upload
-            </button>
-          </div>
+          <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className="tf-btn tf-btn-secondary mt-3 !min-h-11 px-5 text-sm">
+            {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} {busy ? 'Uploading…' : 'Upload promo video'}
+          </button>
         )}
+        <input ref={fileRef} type="file" accept={ACCEPTED} aria-label="Promo video file" className="hidden" onChange={() => void upload()} />
         {full && <p className="mt-3 text-xs text-muted">You have 3 promos. Delete one to upload another.</p>}
         {message && <p role="status" className="mt-3 text-sm font-semibold text-success">{message}</p>}
         {error && <p role="alert" className="mt-3 text-sm font-semibold text-danger">{error}</p>}

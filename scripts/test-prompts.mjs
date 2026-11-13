@@ -169,7 +169,7 @@ console.log('✓ Tested H3 men and women prompts are byte-for-byte unchanged');
 
 // 5. Go Live plays the 9-second version with 9-second event audio.
 const processor = fs.readFileSync(new URL('../src/lib/maharaja/video-processor.ts', import.meta.url), 'utf8');
-assert.match(processor, /generateBrandedVideo\(input6sBuffer, 9, audio\)/);
+assert.match(processor, /generateBrandedVideo\(input6sBuffer, 9, audio(, logo)?\)/);
 assert.ok(fs.existsSync(new URL('../public/audio/maharaja/live/diwali-hindu-9s.mp3', import.meta.url)));
 console.log('✓ Go Live renders the 9-second TV version with 9-second audio');
 
