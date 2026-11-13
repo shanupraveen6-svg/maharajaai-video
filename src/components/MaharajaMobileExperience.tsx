@@ -23,7 +23,7 @@ import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards
 import { compressImage } from '@/lib/utils/image';
 import type { CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
-import { ActionBar, PageTitle } from '@/components/ui';
+import { ActionBar, PageTitle, AgreeButton } from '@/components/ui';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { useLeadGate } from '@/components/LeadGate';
 import HelpRetry from '@/components/HelpRetry';
@@ -335,9 +335,9 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <div role="group" aria-label="Language" className="flex rounded-xl bg-line/70 p-0.5 text-sm font-semibold">
+            <div role="group" aria-label="Language" className="flex gap-1 rounded-xl border border-line-strong bg-white p-1 text-sm font-semibold">
               {([['en', 'English'], ['ta', 'தமிழ்']] as const).map(([value, label]) => (
-                <button key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)} className={`min-h-10 rounded-[10px] px-2.5 ${language === value ? 'bg-white text-ink shadow-sm' : 'text-muted'}`}>{label}</button>
+                <button key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)} className={`min-h-10 rounded-[10px] px-2.5 ${language === value ? 'bg-ink text-white' : 'bg-canvas text-ink'}`}>{label}</button>
               ))}
             </div>
             {/* Help sits top right on the look: the one retry is asked there, never a button on the page. */}
@@ -395,10 +395,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
               <KidsSwitch size="md" value={kidPicked && isChild ? (audience as 'boys' | 'girls') : null} onChange={(kid) => { setAudience(kid); setKidPicked(true); }} labels={{ boys: t('boys'), girls: t('girls') }} />
             )}
             {isChild && kidPicked && (
-              <label className="flex items-start gap-3 rounded-2xl bg-warn-soft p-3 text-[13px] text-ink">
-                <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
-                {t('guardianAgree')}
-              </label>
+              <AgreeButton size="md" checked={guardianConsent} onChange={setGuardianConsent}>{t('guardianAgree')}</AgreeButton>
             )}
             {language === 'ta'
               ? <p className="text-[13px] leading-relaxed text-muted">{t('consentTryOn')} <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">{t('privacy')}</a></p>

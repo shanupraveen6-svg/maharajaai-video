@@ -35,7 +35,7 @@ export default function GarmentRail({
 }) {
   return (
     <div className="space-y-4">
-      <div role="group" aria-label="Category" className="flex gap-x-2 overflow-x-auto border-b border-line">
+      <div role="group" aria-label="Category" className="flex gap-3 overflow-x-auto pb-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -43,7 +43,7 @@ export default function GarmentRail({
             aria-pressed={activeTab === tab.id}
             disabled={disabled}
             onClick={() => onTab(tab.id)}
-            className={`-mb-px min-h-16 shrink-0 whitespace-nowrap border-b-[3px] px-4 text-xl font-semibold disabled:opacity-50 ${activeTab === tab.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'}`}
+            className={`min-h-[72px] shrink-0 whitespace-nowrap rounded-2xl border-2 px-6 text-xl font-bold shadow-sm transition disabled:opacity-50 ${activeTab === tab.id ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white text-ink hover:border-ink'}`}
           >
             {tab.label}
           </button>

@@ -46,7 +46,7 @@ export default function TrialCatalogueCard({ clientId, onApplied }: { clientId: 
       const data = await (await fetch('/api/admin/trial-catalogue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId }) })).json();
       if (!data?.success) throw new Error(data?.error || 'Could not set up the catalogue.');
       setPlan(null);
-      setMessage(`Done: ${data.added} garments added, ${data.moved} moved, ${data.hidden} hidden · ${data.live} on Live Try-On · ${data.videoAdded} priced on AI Video.`);
+      setMessage(`Done: ${data.added} garments added, ${data.moved} moved, ${data.hidden} hidden · ${data.live} on Live Try-On.`);
       onApplied?.();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not set up the catalogue.');
@@ -58,7 +58,7 @@ export default function TrialCatalogueCard({ clientId, onApplied }: { clientId: 
   return (
     <section className="tf-card p-5">
       <h2 className="text-lg font-bold">Catalogue setup</h2>
-      <p className="mt-1 text-sm text-muted">Gets Image Try-On, Live Try-On and AI Video ready for Women, Men, Boys and Girls: garments in the right categories, Live Try-On on every non-ethnic category, and priced AI Video pieces. Preview first; nothing changes until Apply.</p>
+      <p className="mt-1 text-sm text-muted">Gets Image Try-On and Live Try-On ready for Women, Men, Boys and Girls: garments in the right categories and Live Try-On on every non-ethnic category. AI Video keeps only the pieces uploaded to AI Video; Image Try-On garments are never put on it. Preview first; nothing changes until Apply.</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" disabled={busy !== null} onClick={() => void preview()} className="tf-btn tf-btn-secondary !min-h-11 px-5 text-sm">
           {busy === 'preview' && <LoaderCircle className="h-4 w-4 animate-spin" />} {plan ? 'Preview again' : 'Preview'}
@@ -74,14 +74,14 @@ export default function TrialCatalogueCard({ clientId, onApplied }: { clientId: 
       {plan && (
         <div className="mt-4 space-y-4 text-sm">
           <p className="text-muted">
-            {plan.garments} garments after setup · {plan.add.length} added · {plan.moves.length} moved · {plan.hide.length} hidden · {plan.rename.length} renamed for AI Video · {plan.liveOn.length} switched on and {plan.liveOff.length} off for Live Try-On · {plan.videoOff.length} taken off AI Video
+            {plan.garments} garments after setup · {plan.add.length} added · {plan.moves.length} moved · {plan.hide.length} hidden · {plan.rename.length} renamed · {plan.liveOn.length} switched on and {plan.liveOff.length} off for Live Try-On · {plan.videoOff.length} Image Try-On garments taken off AI Video
           </p>
           {plan.audiences.map((row) => (
             <div key={row.audience} className="space-y-1 rounded-xl border border-line p-3">
               <p className="font-bold">{NAMES[row.audience]}</p>
               <p><span className="font-semibold">Image Try-On:</span> {row.tryOn.map((cat) => `${cat.label} ${cat.count}`).join(' · ') || <span className="text-danger">no garments</span>}</p>
               <p><span className="font-semibold">Live Try-On ({row.live.length}):</span> {byCategory(row.live) || <span className="text-danger">none</span>}</p>
-              <p><span className="font-semibold">AI Video ({row.videoKept.length + row.videoAdded.length}):</span> {byCategory([...row.videoKept, ...row.videoAdded]) || <span className="text-danger">none</span>}</p>
+              <p><span className="font-semibold">AI Video, uploaded pieces ({row.videoKept.length + row.videoAdded.length}):</span> {byCategory([...row.videoKept, ...row.videoAdded]) || <span className="text-danger">none</span>}</p>
             </div>
           ))}
           {plan.add.length > 0 && (

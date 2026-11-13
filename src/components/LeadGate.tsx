@@ -1,5 +1,7 @@
 'use client';
 
+import { AgreeButton } from '@/components/ui';
+
 import { useCallback, useRef, useState } from 'react';
 import { Download, LoaderCircle, X } from 'lucide-react';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
@@ -133,10 +135,7 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
             </label>
           </div>
         )}
-        <label className="mt-4 flex min-h-11 items-start gap-3 text-[15px]">
-          <input type="checkbox" checked={offers} onChange={(event) => setOffers(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
-          <span>{t('leadOffers')}</span>
-        </label>
+        <AgreeButton size="md" checked={offers} onChange={setOffers}>{t('leadOffers')}</AgreeButton>
         {error && <p role="alert" className="mt-3 rounded-xl bg-danger-soft p-3 text-sm font-semibold text-danger">{error}</p>}
         {notice && <p role="status" className="mt-3 rounded-xl bg-warn-soft p-3 text-sm font-semibold text-ink">{notice}</p>}
         <button type="submit" disabled={busy} className="tf-btn tf-btn-primary mt-5 !min-h-12 w-full text-base">

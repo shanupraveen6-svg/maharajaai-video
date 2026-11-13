@@ -54,10 +54,13 @@ export default function WhoCards({ value, onChange, size = 'lg', labels = ENGLIS
   );
 }
 
-/** Kids only: Boys or Girls, under the camera. Nothing is picked until the customer taps one. */
+/**
+ * Kids only: Boys or Girls. A solid white panel with a dark offset edge, so it stands out over the camera or
+ * the page; both choices are solid buttons (white until picked, then filled dark). Nothing is pre-picked.
+ */
 export function KidsSwitch({ value, onChange, disabled, size = 'lg', labels = { boys: 'Boys', girls: 'Girls' } }: { value: 'boys' | 'girls' | null; onChange: (value: 'boys' | 'girls') => void; disabled?: boolean; size?: 'md' | 'lg'; labels?: { boys: string; girls: string } }) {
   return (
-    <div role="group" aria-label="Boys or girls" className="grid grid-cols-2 gap-3 rounded-2xl bg-line/60 p-1.5">
+    <div role="group" aria-label="Boys or girls" className={`grid grid-cols-2 rounded-3xl border-2 border-ink bg-white shadow-[0_6px_0_0_var(--color-ink,#161918)] ${size === 'lg' ? 'gap-3 p-3' : 'gap-2 p-2'}`}>
       {(['boys', 'girls'] as const).map((option) => (
         <button
           key={option}
@@ -65,7 +68,7 @@ export function KidsSwitch({ value, onChange, disabled, size = 'lg', labels = { 
           aria-pressed={value === option}
           disabled={disabled}
           onClick={() => onChange(option)}
-          className={`rounded-xl font-bold transition disabled:opacity-50 ${size === 'lg' ? 'min-h-16 text-2xl' : 'min-h-11 text-base'} ${value === option ? 'bg-white text-ink shadow' : 'text-muted hover:text-ink'}`}
+          className={`rounded-2xl border-2 font-bold transition disabled:opacity-50 ${size === 'lg' ? 'min-h-20 text-3xl' : 'min-h-12 text-lg'} ${value === option ? 'border-ink bg-ink text-white' : 'border-line-strong bg-canvas text-ink hover:border-ink'}`}
         >
           {labels[option]}
         </button>

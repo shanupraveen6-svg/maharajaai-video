@@ -23,6 +23,7 @@ import {
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
 import StoreLogoCard from '@/components/StoreLogoCard';
+import PosterManager from '@/components/PosterManager';
 import { allCategoriesFor, categoriesFor, AUDIENCES, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
 import CatalogueTable, { type CatalogueTableRow } from '@/components/CatalogueTable';
 import { NavTabs, Segmented, StatusPill, Switch } from '@/components/ui';
@@ -679,6 +680,8 @@ export default function MaharajaAdminDashboard({
           <div className="max-w-3xl space-y-4">
         <StoreLogoCard clientId={activeWorkspaceCode} />
 
+        <PosterManager clientId={activeWorkspaceCode} />
+
         <form
           className="tf-card p-6"
           onSubmit={(event) => {
@@ -877,14 +880,14 @@ export default function MaharajaAdminDashboard({
               )}
 
               {catGender && catTabs.length > 0 && (
-                <div role="group" aria-label="Category" className="flex flex-wrap gap-x-1 border-b border-line">
+                <div role="group" aria-label="Category" className="flex flex-wrap gap-2">
                   {catTabs.map((cat) => (
                     <button
                       key={cat.id}
                       type="button"
                       aria-pressed={activeCatFilter === cat.id}
                       onClick={() => setCatFilter(cat.id)}
-                      className={`-mb-px min-h-11 border-b-2 px-3 text-sm transition ${activeCatFilter === cat.id ? 'border-ink font-bold text-ink' : 'border-transparent font-medium text-muted hover:text-ink'}`}
+                      className={`min-h-11 rounded-xl border-2 px-4 text-sm font-semibold transition ${activeCatFilter === cat.id ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white text-ink hover:border-ink'}`}
                     >
                       {cat.label} ({cat.count})
                       {cat.hidden && <span className="ml-1 text-xs text-muted">· hidden</span>}

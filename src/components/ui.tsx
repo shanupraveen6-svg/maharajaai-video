@@ -19,14 +19,14 @@ export function NavTabs<T extends string>({ options, value, onChange, label, siz
   wrap?: boolean;
 }) {
   return (
-    <nav aria-label={label} className={`flex gap-1 ${wrap ? 'flex-wrap' : 'overflow-x-auto [scrollbar-width:none]'}`}>
+    <nav aria-label={label} className={`flex gap-2 ${wrap ? 'flex-wrap' : 'overflow-x-auto [scrollbar-width:none]'}`}>
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
           aria-current={value === option.value ? 'page' : undefined}
           onClick={() => onChange(option.value)}
-          className={`flex shrink-0 items-center gap-2 rounded-none border-b-[3px] font-semibold transition ${size === 'lg' ? 'min-h-16 px-5 text-xl' : 'min-h-12 px-3 text-[15px]'} ${value === option.value ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'}`}
+          className={`flex shrink-0 items-center gap-2 rounded-xl border-2 font-semibold transition ${size === 'lg' ? 'min-h-16 px-5 text-xl' : 'min-h-11 px-4 text-[15px]'} ${value === option.value ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white text-ink hover:border-ink'}`}
         >
           {option.label}
         </button>
@@ -45,14 +45,14 @@ export function Segmented<T extends string>({ options, value, onChange, size = '
 }) {
   const height = size === 'lg' ? 'min-h-16 text-lg' : size === 'sm' ? 'min-h-10 text-sm' : 'min-h-12 text-[15px]';
   return (
-    <div role="group" aria-label={label} className="grid gap-1 rounded-2xl bg-line/70 p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+    <div role="group" aria-label={label} className="grid gap-1.5 rounded-2xl border border-line-strong bg-white p-1.5" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 font-semibold transition ${height} ${value === option.value ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink'}`}
+          className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 font-semibold transition ${height} ${value === option.value ? 'bg-ink text-white shadow-sm' : 'bg-canvas text-ink hover:bg-line'}`}
         >
           {option.label}
         </button>
@@ -65,8 +65,8 @@ export function PageTitle({ title, subtitle, size = 'md', action }: { title: Rea
   return (
     <div className="flex items-end justify-between gap-4">
       <div className="min-w-0">
-        <h2 className={`font-bold text-ink ${size === 'lg' ? 'text-4xl' : 'text-2xl'}`}>{title}</h2>
-        {subtitle && <p className={`mt-1.5 text-muted ${size === 'lg' ? 'text-xl' : 'text-[15px]'}`}>{subtitle}</p>}
+        <h2 className={`font-bold leading-tight text-ink ${size === 'lg' ? 'text-[44px]' : 'text-2xl'}`}>{title}</h2>
+        {subtitle && <p className={`text-ink/75 ${size === 'lg' ? 'mt-2 text-2xl' : 'mt-1.5 text-[15px]'}`}>{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -93,6 +93,28 @@ export function SectionCard({ title, description, action, children, className = 
       )}
       {children}
     </section>
+  );
+}
+
+/**
+ * A yes/agree choice on customer screens, as one large solid button (never a checkbox): white with a dark
+ * outline and an empty circle until tapped, then filled ink with a tick. `size` follows the surface.
+ */
+export function AgreeButton({ checked, onChange, children, size = 'lg', tone = 'ink' }: { checked: boolean; onChange: (next: boolean) => void; children: ReactNode; size?: 'md' | 'lg'; tone?: 'ink' | 'light' }) {
+  const lg = size === 'lg';
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`flex w-full items-center gap-4 rounded-2xl border-2 text-left font-semibold shadow-sm transition ${lg ? 'min-h-20 p-5 text-xl' : 'min-h-14 p-3.5 text-[15px]'} ${checked ? 'border-ink bg-ink text-white' : tone === 'light' ? 'border-white bg-white text-ink' : 'border-ink bg-white text-ink'}`}
+    >
+      <span className={`flex shrink-0 items-center justify-center rounded-full border-2 ${lg ? 'h-10 w-10' : 'h-7 w-7'} ${checked ? 'border-white bg-white text-ink' : 'border-ink bg-white'}`}>
+        {checked && <svg viewBox="0 0 24 24" className={lg ? 'h-6 w-6' : 'h-4 w-4'} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>}
+      </span>
+      <span className="min-w-0">{children}</span>
+    </button>
   );
 }
 

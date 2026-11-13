@@ -1,5 +1,7 @@
 'use client';
 
+import { AgreeButton } from '@/components/ui';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import DressLoader from '@/components/DressLoader';
@@ -501,19 +503,10 @@ export default function ResultClient({
                   <h2 className="text-lg font-bold">Go Live on the store’s screen</h2>
                   <p className="mt-0.5 text-sm text-muted">Your video plays on the {store} showroom screen.</p>
                 </div>
-                <label className="flex items-start gap-3 text-[13px] text-ink">
-                  <input type="checkbox" checked={liveConsent} onChange={(event) => setLiveConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
-                  <span>I agree that this video may play on the {store} showroom screen and stay in its loop for up to one day.</span>
-                </label>
-                <label className="flex items-start gap-3 text-[13px] text-ink">
-                  <input type="checkbox" checked={promotionConsent} onChange={(event) => setPromotionConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
-                  <span>Optional: {store} may share this video on its official social media pages. Unticked, it plays on the showroom screen only.</span>
-                </label>
+                <AgreeButton size="md" checked={liveConsent} onChange={setLiveConsent}>I agree that this video may play on the {store} showroom screen and stay in its loop for up to one day.</AgreeButton>
+                <AgreeButton size="md" checked={promotionConsent} onChange={setPromotionConsent}>Optional: {store} may share this video on its official social media pages. Without it, the video plays on the showroom screen only.</AgreeButton>
                 {isChild && (
-                  <label className="flex items-start gap-3 rounded-xl bg-warn-soft p-3 text-[13px] text-ink">
-                    <input type="checkbox" checked={guardianLiveConsent} onChange={(event) => setGuardianLiveConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
-                    <span>I am the parent or guardian and allow this child&apos;s video on the showroom screen.</span>
-                  </label>
+                  <AgreeButton size="md" checked={guardianLiveConsent} onChange={setGuardianLiveConsent}>I am the parent or guardian and allow this child&apos;s video on the showroom screen.</AgreeButton>
                 )}
                 <button type="button" onClick={() => void handleGoLive()} disabled={!liveConsent || (isChild && !guardianLiveConsent) || goLiveSubmitting || liveSuccess} className="tf-btn tf-btn-primary !min-h-14 w-full text-base">
                   <Tv className="h-5 w-5" /> {goLiveSubmitting ? 'Sending…' : liveSuccess ? 'Sent to the screen' : 'Play now'}

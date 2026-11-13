@@ -10,20 +10,18 @@ import type { CatalogueAudience, CatalogueCategoryId } from '@/lib/tryfocus/samp
  * Gets a store's catalogue ready for a public trial.
  * 1. Live Try-On: every garment in the audience's non-ethnic categories (up to 5, those with the most
  *    garments). Ethnic wear (sarees, kurtas, lehengas, veshti…) comes off.
- * 2. AI Video: 3–5 categories per audience with priced pieces. Pieces already priced (the sarees) stay.
+ * 2. AI Video: only the pieces uploaded to AI Video (priced); Image Try-On garments never go on it.
  * 3. AI Video's category list becomes exactly the categories with pieces; every category with garments is
  *    shown to customers.
  * 4. A garment filed under another audience's category moves to its own audience's category of that kind.
  * For Maharaja, the reviewed preset (maharaja-collection-preset.ts) also adds the missing garments, makes the
- * moves the photo review found, hides the gift-box flat lays and sets the AI Video picks with names and prices.
+ * moves the photo review found, hides the gift-box flat lays and gives some garments better names. AI Video is
+ * its own catalogue: only pieces uploaded to AI Video stay on it, and Image Try-On garments are taken off it.
  * `planTrialCatalogue` only reads; `applyTrialCatalogue` writes the plan. Both run for the bound client.
  */
 
 const AUDIENCES: CatalogueAudience[] = ['women', 'men', 'boys', 'girls'];
 const LIVE_CATEGORIES_MAX = 5;
-const VIDEO_CATEGORIES_MIN = 3;
-const VIDEO_CATEGORIES_MAX = 5;
-const VIDEO_PER_CATEGORY = 5;
 
 /** AI Video categories, in the order they are chosen, per audience; any other category fills up to 3. */
 const VIDEO_CATEGORIES: Record<CatalogueAudience, string[]> = {
@@ -32,18 +30,6 @@ const VIDEO_CATEGORIES: Record<CatalogueAudience, string[]> = {
   boys: ['boys-sherwani', 'boys-festive', 'boys-kurta', 'boys-silk-shirt', 'boys-party', 'boys-jacket', 'boys-shirt-trouser'],
   girls: ['girls-lehenga', 'girls-pavadai', 'girls-gown', 'girls-party', 'girls-frock', 'girls-festive', 'girls-anarkali'],
 };
-const KIDS = new Set<CatalogueAudience>(['boys', 'girls']);
-/** Bridal and occasion wear sits higher. */
-const HIGH_END = new Set(['sarees', 'lehengas', 'women-occasion', 'sherwanis', 'men-occasion', 'boys-sherwani', 'girls-lehenga']);
-
-/** The same SKU always gets the same price, so the preview and the apply agree. */
-export function trialPriceFor(sku: string, categoryId: string, audience: CatalogueAudience = 'women') {
-  let hash = 2166136261;
-  for (const char of sku) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0;
-  const [low, high] = KIDS.has(audience) ? [3000, 8000] : HIGH_END.has(categoryId) ? [8000, 25000] : [3000, 12000];
-  return Math.round((low + (hash % (high - low + 1))) / 100) * 100 - 1;
-}
-
 const newestFirst = (a: MaharajaCatalogueProduct, b: MaharajaCatalogueProduct) =>
   String(b.createdAt || '').localeCompare(String(a.createdAt || '')) || (a.sortOrder || 0) - (b.sortOrder || 0);
 
@@ -109,7 +95,7 @@ export async function planTrialCatalogue(clientId?: string): Promise<TrialPlan> 
     if (target) item.category = target.id as CatalogueCategoryId;
   }
 
-  // AI Video picks from the preset carry a customer-facing name and a price.
+  // Better customer-facing names for some existing Image Try-On garments (they stay Image Try-On only).
   const picks = new Map(preset ? TRIAL_VIDEO_PICKS.map((pick) => [pick.sku, pick]) : []);
   for (const item of records) {
     const pick = picks.get(item.sku);
@@ -132,34 +118,14 @@ export async function planTrialCatalogue(clientId?: string): Promise<TrialPlan> 
     const live = records.filter((item) => item.gender === audience && liveCats.includes(item.category)).sort(newestFirst);
     for (const item of live) liveOn.add(item.sku);
 
-    let kept: MaharajaCatalogueProduct[];
-    let added: Array<MaharajaCatalogueProduct & { trialPrice: number }>;
-    let chosen: string[];
-    if (preset) {
-      // Maharaja: the reviewed picks — pieces already priced in these categories, the preset's picks and its
-      // new priced garments.
-      const order = VIDEO_CATEGORIES[audience];
-      const isPick = (item: MaharajaCatalogueProduct) => picks.has(item.sku) || add.some((garment) => garment.sku === item.sku && garment.price > 0);
-      kept = records.filter((item) => item.gender === audience && item.eligibleForVideo && item.price > 0 && !isPick(item) && order.includes(item.category));
-      added = records.filter((item) => item.gender === audience && isPick(item)).map((item) => ({ ...item, trialPrice: picks.get(item.sku)?.price || add.find((garment) => garment.sku === item.sku)?.price || item.price }));
-      const filled = new Set([...kept, ...added].map((item) => item.category as string));
-      chosen = [...order.filter((id) => filled.has(id)), ...[...filled].filter((id) => !order.includes(id))].slice(0, VIDEO_CATEGORIES_MAX);
-      kept = kept.filter((item) => chosen.includes(item.category));
-      added = added.filter((item) => chosen.includes(item.category));
-    } else {
-      // Other stores: the first 3–5 listed categories with garments; any other category tops it up to 3.
-      const listed = VIDEO_CATEGORIES[audience].filter((id) => count(audience, id) > 0);
-      const others = allCategoriesFor(audience, custom).map((cat) => cat.id as string)
-        .filter((id) => !listed.includes(id) && count(audience, id) > 0)
-        .sort((x, y) => count(audience, y) - count(audience, x));
-      chosen = [...listed.slice(0, VIDEO_CATEGORIES_MAX), ...others].slice(0, Math.max(VIDEO_CATEGORIES_MIN, Math.min(listed.length, VIDEO_CATEGORIES_MAX)));
-      kept = records.filter((item) => item.gender === audience && item.eligibleForVideo && item.price > 0 && chosen.includes(item.category));
-      added = chosen.flatMap((id) => records
-        .filter((item) => item.gender === audience && item.category === id && !kept.includes(item))
-        .sort(newestFirst)
-        .slice(0, Math.max(0, VIDEO_PER_CATEGORY - kept.filter((k) => k.category === id).length)))
-        .map((item) => ({ ...item, trialPrice: item.price >= 3000 ? item.price : trialPriceFor(item.sku, item.category, audience) }));
-    }
+    // AI Video is its own catalogue: only pieces uploaded to AI Video (with a price) are on it. An Image
+    // Try-On garment is never moved onto AI Video, and nothing here adds or prices AI Video pieces.
+    const isImageOnly = (item: MaharajaCatalogueProduct) => picks.has(item.sku) || add.some((garment) => garment.sku === item.sku) || TRIAL_GARMENTS.some((garment) => garment.sku === item.sku);
+    const kept = records.filter((item) => item.gender === audience && item.eligibleForVideo && item.price > 0 && !isImageOnly(item));
+    const added: Array<MaharajaCatalogueProduct & { trialPrice: number }> = [];
+    const order = VIDEO_CATEGORIES[audience];
+    const filled = new Set(kept.map((item) => item.category as string));
+    const chosen = [...order.filter((id) => filled.has(id)), ...[...filled].filter((id) => !order.includes(id))];
     videoChosen.set(audience, chosen);
     const tryOn = categoriesFor(undefined, audience, custom)
       .map((cat) => ({ id: cat.id as string, label: cat.label, count: count(audience, cat.id as string) }))
@@ -181,7 +147,7 @@ export async function planTrialCatalogue(clientId?: string): Promise<TrialPlan> 
     liveOn: records.filter((item) => liveOn.has(item.sku) && item.eligibleForLive !== true && !add.some((garment) => garment.sku === item.sku)).map((item) => item.sku),
     liveOff: records.filter((item) => !liveOn.has(item.sku) && item.eligibleForLive === true).map((item) => item.sku),
     // Anything else on AI Video comes off (customers only see the chosen, priced pieces).
-    videoOff: records.filter((item) => item.eligibleForVideo && !onVideo.has(item.sku) && !add.some((garment) => garment.sku === item.sku)).map((item) => item.sku),
+    videoOff: records.filter((item) => item.eligibleForVideo && !onVideo.has(item.sku)).map((item) => item.sku),
     moves,
     add: add.map((garment) => ({ ...garment, categoryLabel: label(garment.category) })),
     hide,
@@ -208,8 +174,8 @@ export async function applyTrialCatalogue(plan: TrialPlan, clientId: string) {
       fabricNote: `${garment.categoryLabel} · Maharaja collection`,
       imageUrl: garment.image,
       garmentReferenceUrl: garment.image,
-      price: garment.price,
-      eligibleForVideo: garment.price > 0,
+      price: 0,
+      eligibleForVideo: false,
       eligibleForLive: liveSet.has(garment.sku),
       active: true,
     });
@@ -226,13 +192,15 @@ export async function applyTrialCatalogue(plan: TrialPlan, clientId: string) {
   if (plan.hide.length) await bulkUpdateCatalogueFlags(plan.hide.map((item) => item.sku), { active: false, eligibleForLive: false, eligibleForVideo: false });
   if (plan.liveOn.length) await bulkUpdateCatalogueFlags(plan.liveOn, { eligibleForLive: true });
   if (plan.liveOff.length) await bulkUpdateCatalogueFlags(plan.liveOff, { eligibleForLive: false });
-  if (plan.videoOff.length) await bulkUpdateCatalogueFlags(plan.videoOff, { eligibleForVideo: false });
+  // Image Try-On garments taken off AI Video also lose the AI Video price (Image Try-On never shows one).
+  for (const sku of plan.videoOff) await updateCatalogueProduct(sku, { eligibleForVideo: false, price: 0 });
   const newSkus = new Set(plan.add.map((garment) => garment.sku));
   const renamed = new Map(plan.rename.map((item) => [item.sku, item.to]));
   for (const [sku, price] of videoPrice) {
     if (newSkus.has(sku)) continue;
-    await updateCatalogueProduct(sku, { price, eligibleForVideo: true, ...(renamed.has(sku) ? { title: renamed.get(sku) } : {}) });
+    await updateCatalogueProduct(sku, { price, eligibleForVideo: true });
   }
+  for (const [sku, title] of renamed) await updateCatalogueProduct(sku, { title });
 
   // AI Video lists exactly its filled categories; customers see every category that has garments.
   const videoCategoryLists: StoreCategoryLists = {};

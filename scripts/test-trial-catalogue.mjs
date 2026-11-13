@@ -18,16 +18,11 @@ await runWithClient('maharaja', async () => {
     for (const piece of row.live) assert.ok(categories.isWesternCategory(piece.category, TRIAL_CUSTOM_CATEGORIES), `${piece.title} is not ethnic wear`);
     assert.ok(new Set(row.live.map((piece) => piece.category)).size <= 5, `${row.audience}: at most 5 Live Try-On categories`);
     assert.ok(row.videoCategories.length <= 5, `${row.audience}: at most 5 AI Video categories`);
-    for (const piece of row.videoAdded) {
-      assert.ok(piece.price >= 2999 && piece.price % 100 === 99, `${piece.title}: premium price ending in 99 (${piece.price})`);
-    }
-    for (const cat of row.videoCategories) assert.ok(row.videoAdded.filter((p) => p.category === cat.id).length <= 9, 'at most 9 new per category');
+    assert.equal(row.videoAdded.length, 0, `${row.audience}: setup never adds AI Video pieces`);
   }
-  const women = plan.audiences.find((row) => row.audience === 'women');
-  assert.ok(women.videoAdded.some((piece) => piece.category !== 'sarees'), 'Women get more than sarees on AI Video');
-  assert.equal(trial.trialPriceFor('ABC', 'sarees'), trial.trialPriceFor('ABC', 'sarees'), 'Same garment, same price');
-  assert.ok(trial.trialPriceFor('ABC', 'girls-lehenga', 'girls') <= 7999, 'Kids pieces stay under ₹8,000');
-
+  // AI Video is its own catalogue: no Image Try-On garment is on it, and the new garments are Image Try-On only.
+  for (const row of plan.audiences) for (const piece of row.videoKept) assert.ok(!piece.sku.startsWith('MAH-BOYS') && !piece.sku.startsWith('MAH-GIRLS'), 'no added garment on AI Video');
+  assert.ok(plan.add.every((garment) => garment.price === 0), 'added garments carry no AI Video price');
 
   await trial.applyTrialCatalogue(plan, 'maharaja');
   const again = await trial.planTrialCatalogue('maharaja');
@@ -41,10 +36,10 @@ await runWithClient('maharaja', async () => {
       assert.ok(inCategory.every((item) => item.eligibleForLive), `Every ${row.audience} garment in ${id} is on Live Try-On`);
     }
   }
-  for (const pick of plan.audiences.flatMap((row) => row.videoAdded)) {
-    const saved = records.find((item) => item.sku === pick.sku);
-    assert.equal(saved.eligibleForVideo, true);
-    assert.equal(saved.price, pick.price);
+  for (const garment of plan.add) {
+    const saved = records.find((item) => item.sku === garment.sku);
+    assert.equal(saved.eligibleForVideo, false, `${garment.title} is Image Try-On only`);
+    assert.equal(saved.price, 0);
   }
 });
 console.log('trial catalogue: all checks passed');

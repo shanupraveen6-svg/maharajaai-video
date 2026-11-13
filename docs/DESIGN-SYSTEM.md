@@ -19,10 +19,10 @@ reused for another level, so a shopper can always tell which choice matters more
 
 | Level | Question | Options | Control |
 |---|---|---|---|
-| 0 | Which experience? | TV: Try-On · AI Video · Live Try-On. Tablet: Catalogue Try-On · Own-outfit Try-On · Wall QR | `NavTabs` (underlined tabs in the header) |
+| 0 | Which experience? | TV: Try-On · AI Video · Live Try-On. Tablet: Catalogue Try-On · Own-outfit Try-On · Wall QR | Solid buttons in the header (`tv-mode-button`, `NavTabs`): the open one filled dark, the others white with a border |
 | 1 | Who is it for? | Try-On and Live Try-On: Women · Men · Kids (Kids then Boys · Girls). AI Video: Women · Men · Boys · Girls | Try-On and Live Try-On: `WhoCards`, three cards stacked vertically (3 × 1) with an age line (Women and Men "13 and above", Kids "Up to 12"); Kids picks Boys or Girls with `KidsSwitch` on the camera screen, before the photo (Try-On: on the full-screen camera; Live Try-On: above the camera). AI Video: `AudienceCards`, four cards 2 × 2. Nothing pre-selected; the two-line `PhotoGuide` box under them. On the portrait TV the store's logo fills the bottom of this screen |
 | 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV and the phone |
-| 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Plain text list (sidebar on TV and tablet, underlined text row on phone) |
+| 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Solid category buttons, the selected one filled dark (side menu on TV and tablet, a row of buttons on Live Try-On, a list on phone). Never an underline. On Try-On, My own outfit is a highlighted card above the store's categories |
 | 4 | Which piece? | Product cards | Image cards with a 1–3 badge, the only image tiles. Try-On and AI Video: a 3-column grid beside the category side menu, about 15 (3 × 5) on the first screen, scrolling for more (no pages), every photo of that audience preloaded once Who is known. Live Try-On: one row that scrolls sideways under the camera (`GarmentRail`) |
 
 There is no step progress bar on any surface. Each screen has one title, one next action and a small Back to the step before it. Categories and outfit types are listed in the order South Indian shoppers wear them most (men and boys start with shirt and pant).
@@ -108,8 +108,8 @@ e.g. Shirts (20).
   lehengas, veshti… — never goes on Live Try-On); what is uploaded there goes on Image Try-On and Live Try-On.
 - AI Video is the short list of premium pieces, with its own category list and its own upload: pick a
   category, add photos, type a price on every row, Save (blocked until every row has one). Table: photo ·
-  name · price · ✕ (takes the piece off AI Video; it stays in Image Try-On). AI Video pieces also show in
-  Try-On, never with a price.
+  name · price · ✕ (takes the piece off AI Video). AI Video is its own catalogue: only pieces uploaded to AI
+  Video are on it, and an Image Try-On garment is never moved onto AI Video (it takes its own photo).
 Boys and Girls carry a small Kids mark (the customer's Kids card). A photo already in the catalogue for the
 same audience is skipped on upload and named, so nothing is saved twice; a unisex kids' piece may be uploaded
 once under Boys and once under Girls. Tick rows to
@@ -190,7 +190,8 @@ Store workspace, Overview in this order, compact, showing only this store's own 
    Go Live and Live Try-On only for a store with the TV, so a Tablet-only store sees just
    Image Try-On and Wall QR scans — with last month in brackets. There is no To do list.
 Settings: store logo (PNG, JPG or WebP, up to 3 MB, at least 400 × 100 px, best 1200 × 400 with a
-transparent background), promotion videos for the Go Live player (MP4, WebM or MOV, portrait 9:16, best
+transparent background), posters for the TV's empty space (JPG, PNG or WebP, up to 5 MB, at least 720 × 720 px,
+best portrait 1080 × 1920, up to 8), promotion videos for the Go Live player (MP4, WebM or MOV, portrait 9:16, best
 1080 × 1920, 5–60 seconds, up to 50 MB, at most 3), Instagram, the minimum bill for Wall QR Try-On and for
 AI Video, and the festival theme. Each upload is checked before it is sent and refused with the reason.
 Customers is its own tab with two lists and a CSV download: Image Try-On (WhatsApp number, offers yes / no)
@@ -214,6 +215,19 @@ landscape LED walls and wall-mount TVs (store name, the portrait video in the mi
 3. One title (`PageTitle`) with one short subtitle. No small label above a heading.
 4. Content, using the level controls above in order.
 5. One primary action. Sticky `ActionBar` on phone/tablet, floating bar on TV, top-right on admin.
+
+## Buttons and selections
+
+- No transparent buttons or selections anywhere: every button and every selected state has a solid background.
+  Selected = filled ink with white text; not selected = white (or canvas) with a visible border.
+- No checkboxes on customer screens: a yes / agree choice is one large `AgreeButton` (guardian consent,
+  showroom-screen consent, "Send me this store's offers"). Admin tables may keep row tick boxes.
+- Boys | Girls (`KidsSwitch`) sits on a solid white panel with a dark offset edge, so it stands out over the
+  camera.
+- TV touch targets are at least 72 px, titles 44 px, text sized for customers aged 30–50 reading from a metre away.
+- Posters (Settings → Posters, the store's own artwork, portrait 1080 × 1920 best, up to 8) fill the space a
+  TV screen's content leaves empty, one at a time, changing every 7 seconds (`PosterFill`); with none, the
+  store's logo and line.
 
 ## Colour and type
 

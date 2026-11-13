@@ -8,7 +8,7 @@ import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import ResultClient from '@/app/result/[sessionId]/ResultClient';
 import { CameraOrUpload, PhotoBox } from '@/components/MaharajaMobileExperience';
 import { useExitGuard } from '@/components/ExitGuard';
-import { ActionBar, PageTitle } from '@/components/ui';
+import { ActionBar, PageTitle, AgreeButton } from '@/components/ui';
 import VideoGeneratingAnimation from '@/components/VideoGeneratingAnimation';
 import { compressImage } from '@/lib/utils/image';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
@@ -367,7 +367,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
           <p className="min-w-0 flex-1 truncate font-bold">{clientName || 'AI Video'}</p>
           <div role="group" aria-label="Language" className="flex shrink-0 rounded-xl bg-line/70 p-0.5 text-sm font-semibold">
             {([['en', 'English'], ['ta', 'தமிழ்']] as const).map(([value, label]) => (
-              <button key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)} className={`min-h-10 rounded-[10px] px-2.5 ${language === value ? 'bg-white text-ink shadow-sm' : 'text-muted'}`}>{label}</button>
+              <button key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)} className={`min-h-10 rounded-[10px] px-2.5 ${language === value ? 'bg-ink text-white' : 'bg-canvas text-ink'}`}>{label}</button>
             ))}
           </div>
           {stage === 'portrait' && !portraitFromTv && (
@@ -417,10 +417,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
             <PhotoBox image={personPhoto} aspect="aspect-[9/16]" placeholder={<Camera className="h-9 w-9" />} />
             <CameraOrUpload cameraLabel={t('camera')} uploadLabel={t('upload')} onFile={readPhoto} />
             {isChild && (
-              <label className="flex items-start gap-3 rounded-2xl bg-warn-soft p-3 text-[13px] text-ink">
-                <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
-                {t('guardianAgree')}
-              </label>
+              <AgreeButton size="md" checked={guardianConsent} onChange={setGuardianConsent}>{t('guardianAgree')}</AgreeButton>
             )}
             <PhotoConsentNotice kind="video" />
             <ActionBar note={note || (!personPhoto ? t('needPhoto') : isChild && !guardianConsent ? t('needGuardian') : undefined)}>
