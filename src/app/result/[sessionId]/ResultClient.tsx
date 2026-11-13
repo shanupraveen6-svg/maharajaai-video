@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import DressLoader from '@/components/DressLoader';
 import { useRouter } from 'next/navigation';
 import { Download, Tv, Sparkles, RotateCcw, AlertCircle, ExternalLink, MessageCircle } from 'lucide-react';
 import HelpRetry, { HELP_TEXT } from '@/components/HelpRetry';
@@ -339,9 +340,19 @@ export default function ResultClient({
     }
   };
 
-  const handleGoLive = async () => {
+  // Go Live asks the same one form as Download (WhatsApp, name, city), then sends the video to the store's
+  // screen and saves the portrait and the video on the phone.
+  const handleGoLive = () => {
     const childCategory = category === 'girl' || category === 'boy';
     if (!liveConsent || (childCategory && !guardianLiveConsent) || goLiveSubmitting || !videoJobId) return;
+    return leadGate.withLead(async (leadToken) => {
+      const given = leadGate.details();
+      await sendToGoLive(given.name || customerName, given.city || customerLocality);
+      await saveBundle(leadToken, false);
+    });
+  };
+
+  const sendToGoLive = async (name: string, city: string) => {
     setGoLiveSubmitting(true);
     setLiveError(null);
     try {
@@ -356,8 +367,8 @@ export default function ResultClient({
           loopConsent: liveConsent,
           guardianConsent: guardianLiveConsent,
           promotionConsent,
-          customerName,
-          customerLocality,
+          customerName: name,
+          customerLocality: city,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -463,9 +474,10 @@ export default function ResultClient({
             </button>
           </div>
         ) : isLoadingVideo || videoStatus === 'processing' || !videoUrl ? (
-          <div className="flex flex-col items-center gap-4 rounded-2xl bg-white p-10 text-center">
-            <Sparkles className="h-10 w-10 animate-pulse text-brand" />
-            <p className="text-base font-semibold">Getting your {eventLabel} video ready… keep this page open.</p>
+          <div className="flex flex-col items-center gap-4 rounded-2xl bg-white p-8 text-center">
+            <DressLoader />
+            <p className="text-lg font-bold">Making your {eventLabel} video</p>
+            <p className="text-sm text-muted">This takes 2–3 minutes. Keep this page open; you can lock your phone. If it closes, scan the same QR again within 1 hour.</p>
           </div>
         ) : (
           <>
@@ -493,14 +505,6 @@ export default function ResultClient({
                   <h2 className="text-lg font-bold">Go Live on the store’s screen</h2>
                   <p className="mt-0.5 text-sm text-muted">Your video plays on the {store} showroom screen.</p>
                 </div>
-                <label className="block text-sm">
-                  <span className="font-semibold">Name</span>
-                  <input value={customerName} onChange={(event) => setCustomerName(event.target.value.slice(0, 48))} placeholder="Your name" autoComplete="name" className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-white px-3 text-base outline-none focus:border-ink" />
-                </label>
-                <label className="block text-sm">
-                  <span className="font-semibold">City</span>
-                  <input value={customerLocality} onChange={(event) => setCustomerLocality(event.target.value.slice(0, 48))} placeholder="Your city" autoComplete="address-level2" className="mt-1 min-h-12 w-full rounded-xl border border-line-strong bg-white px-3 text-base outline-none focus:border-ink" />
-                </label>
                 <label className="flex items-start gap-3 text-[13px] text-ink">
                   <input type="checkbox" checked={liveConsent} onChange={(event) => setLiveConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-brand" />
                   <span>I agree that this video may play on the {store} showroom screen and stay in its loop for up to one day.</span>

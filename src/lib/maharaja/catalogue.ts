@@ -497,15 +497,22 @@ export async function deleteCatalogueProducts(skus: string[]): Promise<number> {
 }
 
 /** The garment already saved with this exact photo, if any. */
-export async function findCatalogueByPhotoHash(hash: string): Promise<MaharajaCatalogueProduct | null> {
+/**
+ * The garment that already has this exact photo. With `gender`, only within that audience: a unisex kids'
+ * piece may be uploaded once under Boys and once under Girls, but never twice under the same one.
+ */
+export async function findCatalogueByPhotoHash(hash: string, gender?: string): Promise<MaharajaCatalogueProduct | null> {
   if (!/^[a-f0-9]{64}$/.test(hash)) return null;
   const db = getDb();
   if (db) {
-    const snap = await db.collection(collectionPath()).where('photoHash', '==', hash).limit(3).get();
-    const doc = snap.docs.find((item) => !(item.data() as Partial<MaharajaCatalogueProduct>).deletedAt);
+    const snap = await db.collection(collectionPath()).where('photoHash', '==', hash).limit(8).get();
+    const doc = snap.docs.find((item) => {
+      const data = item.data() as Partial<MaharajaCatalogueProduct>;
+      return !data.deletedAt && (!gender || data.gender === gender);
+    });
     return doc ? normalizeCatalogueProduct({ ...(doc.data() as Partial<MaharajaCatalogueProduct>), sku: doc.id }) : null;
   }
-  return Array.from(getMockCatalogueMap().values()).find((item) => item.photoHash === hash) || null;
+  return Array.from(getMockCatalogueMap().values()).find((item) => item.photoHash === hash && (!gender || item.gender === gender)) || null;
 }
 
 export type CatalogueFlags = Partial<Pick<MaharajaCatalogueProduct, 'active' | 'newArrival' | 'trending' | 'eligibleForLive' | 'eligibleForVideo'>>;

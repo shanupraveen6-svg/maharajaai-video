@@ -174,7 +174,10 @@ export default function LucyLiveMirror({
 
   async function sendGarmentReference(ws: { send: (input: Record<string, unknown>) => void }, piece: TryFocusProduct) {
     const imageDataUri = await garmentUrlToDataUri(piece.garmentReferenceUrl || piece.imageUrl);
-    const prompt = `Wear the exact ${piece.title} (${piece.fabricNote || piece.category}). Preserve exact garment color, pattern and fit while keeping the customer's real face and skin tone natural.`;
+    const person = piece.gender === 'boys' ? ' The person is a young boy; keep his child proportions and fit the garment to his size.'
+      : piece.gender === 'girls' ? ' The person is a young girl; keep her child proportions and fit the garment to her size.'
+        : '';
+    const prompt = `Wear the exact ${piece.title} (${piece.fabricNote || piece.category}). Preserve exact garment color, pattern and fit while keeping the customer's real face and skin tone natural.${person}`;
     ws.send({ reference_image_url: imageDataUri, prompt, enhance_prompt: true });
   }
 
@@ -216,9 +219,20 @@ export default function LucyLiveMirror({
     if (recorder && recorder.state !== 'inactive') { recorder.onstop = null; recorder.stop(); }
   }
 
-  /** Tapping a garment only picks it; Start Live Try-On on the camera begins the session. */
+  /**
+   * Tapping a garment picks it; Start Live Try-On on the camera begins the session. During the 30 seconds a
+   * tap swaps the garment on the same live connection (Lucy takes a new reference image mid-session), and
+   * the clock keeps running, so one session can show two or three outfits.
+   */
   function pickGarment(piece: TryFocusProduct) {
-    if (session === 'ready' || session === 'connecting' || session === 'live') return;
+    if (session === 'live') {
+      if (piece.sku === garment?.sku || !wsRef.current) return;
+      setGarment(piece);
+      onSelectProduct?.(piece);
+      void sendGarmentReference(wsRef.current, piece).catch(() => setError('That outfit could not be loaded. Try another.'));
+      return;
+    }
+    if (session === 'ready' || session === 'connecting') return;
     setGarment(piece);
     onSelectProduct?.(piece);
     setError('');
@@ -464,6 +478,19 @@ export default function LucyLiveMirror({
         <PageTitle size="lg" title="Live Try-On" subtitle="Tap an outfit, step back, and see it on you for 30 seconds." />
       </div>
 
+      {/* Kids: Boys or Girls on top of the camera, so the outfits and Lucy's instructions follow. */}
+      {isChild && (
+        <div className="space-y-3">
+          <KidsSwitch value={kidGender} onChange={chooseKid} disabled={running} />
+          {kidGender && (
+            <label className="flex min-h-16 items-center gap-3 rounded-2xl bg-warn-soft p-4 text-lg text-ink">
+              <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6 accent-brand" />
+              I am the parent or guardian and approve this child’s Live Try-On.
+            </label>
+          )}
+        </div>
+      )}
+
       <div className="relative w-full overflow-hidden rounded-2xl bg-ink" style={{ height: '60vh' }}>
         <video ref={localVideoRef} playsInline muted autoPlay className={`h-full w-full object-cover [transform:scaleX(-1)] ${session === 'live' ? 'opacity-0' : 'opacity-100'}`} />
         <video ref={remoteVideoRef} playsInline muted autoPlay className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${session === 'live' ? 'opacity-100' : 'pointer-events-none opacity-0'}`} />
@@ -544,18 +571,6 @@ export default function LucyLiveMirror({
         )}
       </div>
 
-      {isChild && (
-        <div className="space-y-3">
-          <KidsSwitch value={kidGender} onChange={chooseKid} disabled={running} />
-          {kidGender && (
-            <label className="flex min-h-16 items-center gap-3 rounded-2xl bg-warn-soft p-4 text-lg text-ink">
-              <input type="checkbox" checked={guardianConsent} onChange={(event) => setGuardianConsent(event.target.checked)} className="h-6 w-6 accent-brand" />
-              I am the parent or guardian and approve this child’s Live Try-On.
-            </label>
-          )}
-        </div>
-      )}
-
       {gender && (visibleCategories.length === 0 ? (
         <p className="p-6 text-center text-xl text-muted">No Live Try-On outfits for {AUDIENCE_LABELS[gender]} yet. Ask the store team.</p>
       ) : (
@@ -567,7 +582,7 @@ export default function LucyLiveMirror({
           selected={garment ? [garment.sku] : []}
           max={1}
           onToggle={pickGarment}
-          disabled={running}
+          disabled={session === 'ready' || session === 'connecting'}
         />
       ))}
     </div>

@@ -36,9 +36,9 @@ export async function POST(req: NextRequest) {
     }
     const bytes = Buffer.from(await file.arrayBuffer());
     const mimeType = imageType(bytes, file.type);
-    // The same photo is never added twice: point at the garment that already has it.
+    // The same photo is never added twice for one audience: point at the garment that already has it.
     const photoHash = crypto.createHash('sha256').update(bytes).digest('hex');
-    const existing = await findCatalogueByPhotoHash(photoHash);
+    const existing = await findCatalogueByPhotoHash(photoHash, category.gender);
     if (existing) {
       return NextResponse.json({ success: true, duplicate: { sku: existing.sku, title: existing.title }, photoHash, filename: file.name.slice(0, 160) });
     }

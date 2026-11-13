@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle,
@@ -89,6 +89,16 @@ export default function PrivateLooksPage() {
     fetchLooks();
   }, [fetchLooks]);
 
+  // Scanning the QR goes straight to the WhatsApp number, then every look saves on its own.
+  const autoAsked = useRef(false);
+  useEffect(() => {
+    if (autoAsked.current || loading || !looks.length || downloaded) return;
+    autoAsked.current = true;
+    void saveAllLooks();
+    // saveAllLooks reads the looks just loaded; it runs once per visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, looks.length, downloaded]);
+
   const current = looks[active];
 
   function downloadLookFile(look: Look, blob: Blob) {
@@ -102,22 +112,33 @@ export default function PrivateLooksPage() {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
   }
 
-  // One tap saves every look (up to 3), not just the one on screen, once the customer has given a
-  // WhatsApp number (the server checks the lead token). Each file downloads a beat apart so the phone's
-  // browser treats them as separate, deliberate downloads rather than one blocked burst.
+  // Every look (up to 3) is saved once the customer has given a WhatsApp number (the server checks the lead
+  // token): through the phone's share sheet in one go where it can take files ("Save 3 images" to the
+  // gallery), otherwise as separate downloads a beat apart so the browser doesn't block them as a burst.
   const saveAllLooks = () => leadGate.withLead(async (leadToken) => {
     setDownloadingManual(true);
     setDownloadError('');
     try {
-      for (const [index, look] of looks.entries()) {
+      const files: Array<{ look: Look; blob: Blob }> = [];
+      for (const look of looks) {
         const res = await fetch(`${look.downloadUrl}&lead=${encodeURIComponent(leadToken)}`, { cache: 'no-store' });
         if (res.status === 428) {
           leadGate.forgetLead();
           throw new Error('Please enter your WhatsApp number again.');
         }
         if (!res.ok) throw new Error(looks.length > 1 ? 'A look could not be saved. Please try again.' : 'This look could not be saved. Please try again.');
-        downloadLookFile(look, await res.blob());
-        if (index < looks.length - 1) await new Promise((resolve) => setTimeout(resolve, 400));
+        files.push({ look, blob: await res.blob() });
+      }
+      const shareFiles = files.map(({ look, blob }) => new File([blob], `tryfocus-${(look.sku || 'look').toLowerCase().replace(/[^a-z0-9_-]/g, '')}.jpg`, { type: blob.type || 'image/jpeg' }));
+      let shared = false;
+      if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: shareFiles })) {
+        try { await navigator.share({ files: shareFiles, title: store.name || 'Your looks' }); shared = true; } catch { shared = false; }
+      }
+      if (!shared) {
+        for (const [index, { look, blob }] of files.entries()) {
+          downloadLookFile(look, blob);
+          if (index < files.length - 1) await new Promise((resolve) => setTimeout(resolve, 400));
+        }
       }
       setDownloaded(true);
       try { window.localStorage.setItem(savedKey, JSON.stringify(store)); } catch { /* private mode */ }

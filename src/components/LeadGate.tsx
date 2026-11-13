@@ -77,7 +77,7 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.token) throw new Error(data?.error || t('leadInvalid'));
-      try { window.sessionStorage.setItem(storageKey(kind, ref), JSON.stringify({ token: data.token, savedAt: Date.now() })); } catch { /* private mode */ }
+      try { window.sessionStorage.setItem(storageKey(kind, ref), JSON.stringify({ token: data.token, savedAt: Date.now(), name: name.trim(), city: city.trim() })); } catch { /* private mode */ }
       // A number the store already has: say so for a moment, then the download continues.
       if (data.alreadyRegistered) {
         setNotice(t('leadAlreadyRegistered'));
@@ -147,7 +147,17 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
     </div>
   ) : null;
 
-  return { withLead, forgetLead, dialog };
+  /** The name and city given on this link (AI Video asks for both), so Go Live doesn't ask again. */
+  const details = useCallback((): { name: string; city: string } => {
+    try {
+      const saved = JSON.parse(window.sessionStorage.getItem(storageKey(kind, ref)) || 'null');
+      return { name: String(saved?.name || ''), city: String(saved?.city || '') };
+    } catch {
+      return { name: '', city: '' };
+    }
+  }, [kind, ref]);
+
+  return { withLead, forgetLead, details, dialog };
 }
 
 /** A WhatsApp number as 10 digits: +91 or a leading 0 from a pasted number is dropped. */

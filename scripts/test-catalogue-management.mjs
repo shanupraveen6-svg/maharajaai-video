@@ -63,6 +63,8 @@ await runWithClient('catalogue-mgmt-store', async () => {
   const twin = await catalogue.findCatalogueByPhotoHash(hash);
   assert.equal(twin?.sku, 'MGMT-4', 'An identical photo points at the garment that has it');
   assert.equal(await catalogue.findCatalogueByPhotoHash('b'.repeat(64)), null);
+  assert.equal((await catalogue.findCatalogueByPhotoHash(hash, 'women'))?.sku, 'MGMT-4', 'Same audience: a duplicate');
+  assert.equal(await catalogue.findCatalogueByPhotoHash(hash, 'girls'), null, 'Another audience may reuse the photo (unisex kids pieces)');
 
   // Taking a garment off AI Video keeps it in Try-On.
   await catalogue.bulkUpdateCatalogueFlags(['MGMT-4'], { eligibleForVideo: false });

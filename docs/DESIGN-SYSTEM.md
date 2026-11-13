@@ -20,10 +20,10 @@ reused for another level, so a shopper can always tell which choice matters more
 | Level | Question | Options | Control |
 |---|---|---|---|
 | 0 | Which experience? | TV: Try-On · AI Video · Live Try-On. Tablet: Catalogue Try-On · Own-outfit Try-On · Wall QR | `NavTabs` (underlined tabs in the header) |
-| 1 | Who is it for? | Try-On and Live Try-On: Women · Men · Kids (Kids then Boys · Girls). AI Video: Women · Men · Boys · Girls | Try-On and Live Try-On: `WhoCards`, three cards stacked vertically (3 × 1) with an age line (Women and Men "13 and above", Kids "Up to 12"); Kids picks Boys or Girls with `KidsSwitch`, directly under the camera, before the photo. AI Video: `AudienceCards`, four cards 2 × 2. Nothing pre-selected; the two-line `PhotoGuide` box under them. On the portrait TV the store's logo fills the bottom of this screen |
+| 1 | Who is it for? | Try-On and Live Try-On: Women · Men · Kids (Kids then Boys · Girls). AI Video: Women · Men · Boys · Girls | Try-On and Live Try-On: `WhoCards`, three cards stacked vertically (3 × 1) with an age line (Women and Men "13 and above", Kids "Up to 12"); Kids picks Boys or Girls with `KidsSwitch` on the camera screen, before the photo (Try-On: on the full-screen camera; Live Try-On: above the camera). AI Video: `AudienceCards`, four cards 2 × 2. Nothing pre-selected; the two-line `PhotoGuide` box under them. On the portrait TV the store's logo fills the bottom of this screen |
 | 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV and the phone |
 | 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Plain text list (sidebar on TV and tablet, underlined text row on phone) |
-| 4 | Which piece? | Product cards | Image cards with a 1–3 badge, the only image tiles |
+| 4 | Which piece? | Product cards | Image cards with a 1–3 badge, the only image tiles. Try-On and AI Video: a 3-column grid beside the category side menu, about 15 (3 × 5) on the first screen, scrolling for more (no pages), every photo of that audience preloaded once Who is known. Live Try-On: one row that scrolls sideways under the camera (`GarmentRail`) |
 
 There is no step progress bar on any surface. Each screen has one title, one next action and a small Back to the step before it. Categories and outfit types are listed in the order South Indian shoppers wear them most (men and boys start with shirt and pant).
 
@@ -32,26 +32,26 @@ already answers "what are you trying?", so that step never appears on the tablet
 first inside whichever tab is open.
 
 TV, three tabs:
-- Try-On: one screen, shared with Live Try-On. Women · Men · Kids → the camera on the top 60% of the screen
-  (Kids: Boys | Girls under it, the shutter off until one is tapped, then the guardian tick) → photo, confirmed
-  in the same box (Retry / Use this photo; the send-from-phone QR sits in the box's corner) → the photo stays in
-  the box; under it the category tabs and one row of outfits that scrolls sideways (`GarmentRail`), up to 3
-  picked, numbered 1–3 → Create my looks, in the centre of the box → Your looks. My own outfit is the first card
-  of the row: the outfit camera opens in the same box, the outfit types become the tabs, Create my look. Kids
-  only see kids' garments. The picks can come from any category of the chosen Who (a shirt, a veshti and a
-  kurta…); each is one garment and its own look, all made at the same time. Your looks shows one look full size at a time: swipe, Previous /
-  Next or tap a small look to move between them (a single look keeps the before/after slider).
+- Try-On: Women · Men · Kids → the camera full screen (Kids: Boys | Girls on it, the shutter off until one
+  is tapped; the guardian tick on the photo confirm) → the outfits: category side menu (My own outfit first on
+  the TV, then Trending, New arrivals and the categories; a category shows how many of its outfits are picked)
+  and the 3 × 5 grid; up to 3 picks, numbered 1–3, kept in a Your picks strip at the top of the grid to change
+  them easily → Generate in the bottom bar → Your looks, full screen, one at a time with side arrows, the QR
+  below and End session under it. Kids only see kids' garments. The picks can come from any category of the
+  chosen Who; each is one garment and its own look, all made at the same time.
 - AI Video (store collection only): (the last 4 digits of the bill on a large on-screen number pad, when the store
-  set a minimum bill; 0 = a free gift) → Who → Your photo → Pick a piece (with its price) → Pick a location (one
-  of 3 for that audience) → Your portrait, with the QR that makes the video on the phone, where the customer can
-  also Go Live.
+  set a minimum bill; 0 = a free gift) → Women · Men · Boys · Girls → the camera full screen → Pick a piece
+  (side menu and the 3 × 5 grid, with its price) → Pick a scene (one of 3 for that audience) → Generate image →
+  Your portrait, with the QR that makes the video on the phone, where the customer can also Go Live.
 - Live Try-On: the store's own short list of western-cut garments (shirts, tops, gowns, trousers…) — the
   real-time engine (Decart Lucy) does not handle draped or ethnic wear well, so the store picks a few of its
   best western pieces for it. The store switches garments on per garment, or a whole category at once, in
   the Image Try-On table. Women · Men · Kids → the camera on the top 60% of the screen; under it Boys | Girls
   (Kids only), the category tabs (only those with a garment) and one row of garment cards that scrolls
   sideways → tap a garment to pick it (one) → Start Live Try-On appears in the centre of the camera → 5
-  seconds to step back → 30 seconds live → the recording plays back with Replay and a large End session,
+  seconds to step back → 30 seconds live; tapping another garment during the 30 seconds swaps it on the same
+  live connection, and the clock keeps running (Boys or Girls also tells Lucy it is a child) → the recording
+  plays back with Replay and a large End session,
   and the next customer starts from the first screen. No QR and no download: the video exists only for this
   viewing.
 - End session (TV): a large red, full-width End session under every result (Try-On looks' and AI Video's
@@ -75,9 +75,10 @@ AI Video only starts on the TV, never the tablet. On the TV: Who → Your photo 
 location → Your portrait → Generate video (this also approves the portrait) → the QR. Scanning the QR on
 the phone starts the video immediately, with its own animated progress screen — no "Make my video" tap,
 since the TV already approved it. If a video comes out wrong, the customer retries it privately on their
-own phone, where no one else sees it (the portrait retry stays on the TV). Then Download (which saves the
-file on its own right after the WhatsApp number is given) or Go Live, which plays it on the store's Go
-Live player.
+own phone, where no one else sees it (the portrait retry stays on the TV). Then Download or Go Live, which plays it on the store's Go Live player. Either asks once for
+WhatsApp, name and city, then saves both the portrait and the video on the phone; Go Live also shows the
+queue status. While the video is made (2–3 minutes) the phone shows the loading animation and "Keep this
+page open; you can lock your phone. If it closes, scan the same QR again within 1 hour."
 
 Phone: Try-On only, opened from the store's permanent Wall QR (downloaded from the workspace and pasted in
 the store). (A photo of the bill, Camera or Upload, read on the server, when the store set a Try-On minimum)
@@ -109,7 +110,9 @@ e.g. Shirts (20).
   category, add photos, type a price on every row, Save (blocked until every row has one). Table: photo ·
   name · price · ✕ (takes the piece off AI Video; it stays in Image Try-On). AI Video pieces also show in
   Try-On, never with a price.
-A photo already in the catalogue is skipped on upload and named, so nothing is saved twice. Tick rows to
+Boys and Girls carry a small Kids mark (the customer's Kids card). A photo already in the catalogue for the
+same audience is skipped on upload and named, so nothing is saved twice; a unisex kids' piece may be uploaded
+once under Boys and once under Girls. Tick rows to
 remove several at once. The workspace is used on a computer or tablet, so the table may scroll sideways.
 
 The TV lists New arrival and Trending garments under New arrivals and Trending (Trending only when something is
@@ -143,8 +146,9 @@ moment End session is tapped. Only a video sent to Go Live is kept for 1 day, fo
 everything else is deleted.
 Who (Women, Men, Boys, Girls) starts with nothing selected on every surface.
 
-Downloads never start on their own. Every Download asks once for the customer's WhatsApp number
-(`useLeadGate`), with an optional, unticked "Send me this store's offers" box.
+Downloads start only after the customer's WhatsApp number (`useLeadGate`), with an optional, unticked "Send
+me this store's offers" box. The TV looks QR asks for it as soon as it opens, then saves all the looks: through
+the phone's share sheet in one go where it can take files, otherwise one download after another.
 
 ## TryFocus admin and the store workspace
 

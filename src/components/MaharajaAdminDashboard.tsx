@@ -805,7 +805,7 @@ export default function MaharajaAdminDashboard({
             <section className="tf-card space-y-5 p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="w-full max-w-md">
-                  <Segmented size="sm" label="Who is it for?" value={catGender} onChange={(g) => { setCatGender(g); setCatFilter(''); }} options={AUDIENCES.map((value) => ({ value, label: AUDIENCE_NAMES[value] }))} />
+                  <Segmented size="sm" label="Who is it for?" value={catGender} onChange={(g) => { setCatGender(g); setCatFilter(''); }} options={AUDIENCES.map((value) => ({ value, label: value === 'boys' || value === 'girls' ? <>{AUDIENCE_NAMES[value]} <span className="rounded-full bg-brand-soft px-1.5 py-0.5 text-[10px] font-bold leading-none text-brand">Kids</span></> : AUDIENCE_NAMES[value] }))} />
                 </div>
                 <div className="flex gap-2">
                   {catSection !== 'live' && <button type="button" aria-pressed={catPanel === 'categories'} onClick={() => setCatPanel((open) => (open === 'categories' ? null : 'categories'))} className={`tf-btn !min-h-11 px-5 text-sm ${catPanel === 'categories' ? 'bg-ink text-white' : 'tf-btn-secondary'}`}>Categories</button>}

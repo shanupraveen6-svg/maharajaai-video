@@ -93,7 +93,8 @@ export default function CatalogueBulkImport({
     setRows((current) => [...current, ...added]);
     setBusy(true);
     setMessage('');
-    const seen = new Set(rows.map((row) => row.photoHash).filter(Boolean));
+    // Within one upload, the same photo twice for the same audience is a duplicate (Boys and Girls may share one).
+    const seen = new Set(rows.filter((row) => row.photoHash).map((row) => `${row.gender}:${row.photoHash}`));
     let cursor = 0;
     await Promise.all(Array.from({ length: Math.min(3, chosen.length) }, async () => {
       while (cursor < chosen.length) {
@@ -109,8 +110,8 @@ export default function CatalogueBulkImport({
           const data = await response.json().catch(() => ({}));
           if (!response.ok || !data.success) throw new Error(data.error || 'Upload failed.');
           if (data.duplicate) { update(row.key, { status: 'duplicate', note: `Already in your catalogue as ${data.duplicate.title}`, photoHash: data.photoHash }); continue; }
-          if (data.photoHash && seen.has(data.photoHash)) { update(row.key, { status: 'duplicate', note: 'Added twice in this upload', photoHash: data.photoHash }); continue; }
-          if (data.photoHash) seen.add(data.photoHash);
+          if (data.photoHash && seen.has(`${row.gender}:${data.photoHash}`)) { update(row.key, { status: 'duplicate', note: 'Added twice in this upload', photoHash: data.photoHash }); continue; }
+          if (data.photoHash) seen.add(`${row.gender}:${data.photoHash}`);
           update(row.key, { status: 'ready', storagePath: data.storagePath, photoHash: data.photoHash });
         } catch (error) {
           update(row.key, { status: 'failed', note: error instanceof Error ? error.message : 'Upload failed.' });
