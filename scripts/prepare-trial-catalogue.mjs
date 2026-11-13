@@ -1,4 +1,4 @@
-// Gets a store's existing garments ready for the public trial (see src/lib/maharaja/trial-catalogue.ts).
+// Sets up a store catalogue for Image Try-On, Live Try-On and AI Video (see src/lib/maharaja/trial-catalogue.ts).
 // The same thing runs from TryFocus admin → Plan → Trial catalogue, which is how live data is changed.
 //
 //   node scripts/prepare-trial-catalogue.mjs --mock            → preview on the local mock store
@@ -19,14 +19,14 @@ if (mock) {
 
 const { getDb } = await import('../src/lib/firebase/admin.ts');
 if (!mock && !getDb()) {
-  console.error('No live database login on this machine, so nothing here would reach your real catalogue.\nUse TryFocus admin → the store → Plan → Trial catalogue, or pass --mock to try it locally.');
+  console.error('No live database login on this machine, so nothing here would reach your real catalogue.\nUse TryFocus admin → the store → Plan → Catalogue setup, or pass --mock to try it locally.');
   process.exit(1);
 }
 const { runWithClient } = await import('../src/lib/maharaja/client-context.ts');
 const trial = await import('../src/lib/maharaja/trial-catalogue.ts');
 
 await runWithClient(clientId, async () => {
-  const plan = await trial.planTrialCatalogue();
+  const plan = await trial.planTrialCatalogue(clientId);
   console.log(`${clientId}: ${plan.garments} garments showing.${apply ? '' : ' Preview only — add --apply to save.'}\n`);
   for (const row of plan.audiences) {
     console.log(row.audience.toUpperCase());

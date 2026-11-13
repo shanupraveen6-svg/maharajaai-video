@@ -10,17 +10,18 @@ const { runWithClient } = await import('../src/lib/maharaja/client-context.ts');
 const trial = await import('../src/lib/maharaja/trial-catalogue.ts');
 const catalogue = await import('../src/lib/maharaja/catalogue.ts');
 const categories = await import('../src/lib/tryfocus/store-categories.ts');
+const { TRIAL_CUSTOM_CATEGORIES } = await import('../src/lib/maharaja/maharaja-collection-preset.ts');
 
 await runWithClient('maharaja', async () => {
-  const plan = await trial.planTrialCatalogue();
+  const plan = await trial.planTrialCatalogue('maharaja');
   for (const row of plan.audiences) {
-    for (const piece of row.live) assert.ok(categories.isWesternCategory(piece.category), `${piece.title} is not ethnic wear`);
+    for (const piece of row.live) assert.ok(categories.isWesternCategory(piece.category, TRIAL_CUSTOM_CATEGORIES), `${piece.title} is not ethnic wear`);
     assert.ok(new Set(row.live.map((piece) => piece.category)).size <= 5, `${row.audience}: at most 5 Live Try-On categories`);
     assert.ok(row.videoCategories.length <= 5, `${row.audience}: at most 5 AI Video categories`);
     for (const piece of row.videoAdded) {
       assert.ok(piece.price >= 2999 && piece.price % 100 === 99, `${piece.title}: premium price ending in 99 (${piece.price})`);
     }
-    for (const cat of row.videoCategories) assert.ok(row.videoAdded.filter((p) => p.category === cat.id).length <= 5, 'at most 5 new per category');
+    for (const cat of row.videoCategories) assert.ok(row.videoAdded.filter((p) => p.category === cat.id).length <= 9, 'at most 9 new per category');
   }
   const women = plan.audiences.find((row) => row.audience === 'women');
   assert.ok(women.videoAdded.some((piece) => piece.category !== 'sarees'), 'Women get more than sarees on AI Video');
@@ -29,7 +30,7 @@ await runWithClient('maharaja', async () => {
 
 
   await trial.applyTrialCatalogue(plan, 'maharaja');
-  const again = await trial.planTrialCatalogue();
+  const again = await trial.planTrialCatalogue('maharaja');
   assert.equal(again.liveOn.length + again.liveOff.length, 0, 'Applying twice changes nothing more');
   assert.equal(again.moves.length, 0, 'Wrong-audience garments were moved');
   const records = await catalogue.loadAllCatalogueRecords(false);

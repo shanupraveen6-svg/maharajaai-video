@@ -6,9 +6,17 @@ import type { TrialPlan } from '@/lib/maharaja/trial-catalogue';
 
 const NAMES = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' } as const;
 
+/** "Shirts 9 · Kurta 6" from a list of pieces, in the order the categories first appear. */
+function byCategory(pieces: Array<{ categoryLabel: string }>) {
+  const counts = new Map<string, number>();
+  for (const piece of pieces) counts.set(piece.categoryLabel, (counts.get(piece.categoryLabel) || 0) + 1);
+  return [...counts].map(([name, count]) => `${name} ${count}`).join(' · ');
+}
+
 /**
- * TryFocus admin → Plan: fills Live Try-On and AI Video from the store's existing garments for a trial.
- * Preview first (nothing written), then Apply.
+ * TryFocus admin → Plan → Catalogue setup: gets the store's Image Try-On, Live Try-On and AI Video ready for
+ * all four audiences. For Maharaja it also adds the missing garments, moves misfiled photos and hides the
+ * gift-box flat lays. Preview first (nothing written), then Apply.
  */
 export default function TrialCatalogueCard({ clientId, onApplied }: { clientId: string; onApplied?: () => void }) {
   const [plan, setPlan] = useState<TrialPlan | null>(null);
@@ -36,12 +44,12 @@ export default function TrialCatalogueCard({ clientId, onApplied }: { clientId: 
     setError('');
     try {
       const data = await (await fetch('/api/admin/trial-catalogue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId }) })).json();
-      if (!data?.success) throw new Error(data?.error || 'Could not prepare the catalogue.');
+      if (!data?.success) throw new Error(data?.error || 'Could not set up the catalogue.');
       setPlan(null);
-      setMessage(`Done: ${data.live} garments on Live Try-On, ${data.videoAdded} added to AI Video${data.moved ? `, ${data.moved} moved to their own audience` : ''}.`);
+      setMessage(`Done: ${data.added} garments added, ${data.moved} moved, ${data.hidden} hidden · ${data.live} on Live Try-On · ${data.videoAdded} priced on AI Video.`);
       onApplied?.();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not prepare the catalogue.');
+      setError(caught instanceof Error ? caught.message : 'Could not set up the catalogue.');
     } finally {
       setBusy(null);
     }
@@ -49,8 +57,8 @@ export default function TrialCatalogueCard({ clientId, onApplied }: { clientId: 
 
   return (
     <section className="tf-card p-5">
-      <h2 className="text-lg font-bold">Trial catalogue</h2>
-      <p className="mt-1 text-sm text-muted">Live Try-On: every garment in up to 5 non-ethnic categories per audience. AI Video: 3–5 categories per audience, up to 5 priced pieces each (₹3,000+, kids under ₹8,000); the sarees keep their prices. Uses the garments already uploaded. Preview first; nothing changes until Apply.</p>
+      <h2 className="text-lg font-bold">Catalogue setup</h2>
+      <p className="mt-1 text-sm text-muted">Gets Image Try-On, Live Try-On and AI Video ready for Women, Men, Boys and Girls: garments in the right categories, Live Try-On on every non-ethnic category, and priced AI Video pieces. Preview first; nothing changes until Apply.</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" disabled={busy !== null} onClick={() => void preview()} className="tf-btn tf-btn-secondary !min-h-11 px-5 text-sm">
           {busy === 'preview' && <LoaderCircle className="h-4 w-4 animate-spin" />} {plan ? 'Preview again' : 'Preview'}
@@ -65,19 +73,34 @@ export default function TrialCatalogueCard({ clientId, onApplied }: { clientId: 
       {message && <p role="status" className="mt-3 rounded-xl bg-success-soft p-3 text-sm font-semibold text-success">{message}</p>}
       {plan && (
         <div className="mt-4 space-y-4 text-sm">
-          <p className="text-muted">{plan.garments} garments showing · {plan.liveOn.length} go on Live Try-On, {plan.liveOff.length} come off · {plan.videoOff.length} come off AI Video (no price or outside its categories)</p>
+          <p className="text-muted">
+            {plan.garments} garments after setup · {plan.add.length} added · {plan.moves.length} moved · {plan.hide.length} hidden · {plan.rename.length} renamed for AI Video · {plan.liveOn.length} switched on and {plan.liveOff.length} off for Live Try-On · {plan.videoOff.length} taken off AI Video
+          </p>
           {plan.audiences.map((row) => (
-            <div key={row.audience} className="rounded-xl border border-line p-3">
+            <div key={row.audience} className="space-y-1 rounded-xl border border-line p-3">
               <p className="font-bold">{NAMES[row.audience]}</p>
-              <p className="mt-1"><span className="font-semibold">Live Try-On ({row.live.length}):</span> {row.live.map((p) => `${p.title} (${p.categoryLabel})`).join(' · ') || <span className="text-muted">none: no non-ethnic garments uploaded for this audience</span>}</p>
-              <p className="mt-1"><span className="font-semibold">AI Video:</span> {row.videoKept.length} already priced{row.videoAdded.length ? ` + ${row.videoAdded.length} new: ` : ''}{row.videoAdded.map((p) => `${p.title} (${p.categoryLabel}) ₹${p.price.toLocaleString('en-IN')}`).join(' · ')}</p>
-              <p className="mt-1 text-muted">AI Video categories: {row.videoCategories.map((cat) => cat.label).join(', ') || 'none: no garments uploaded for this audience'}</p>
+              <p><span className="font-semibold">Image Try-On:</span> {row.tryOn.map((cat) => `${cat.label} ${cat.count}`).join(' · ') || <span className="text-danger">no garments</span>}</p>
+              <p><span className="font-semibold">Live Try-On ({row.live.length}):</span> {byCategory(row.live) || <span className="text-danger">none</span>}</p>
+              <p><span className="font-semibold">AI Video ({row.videoKept.length + row.videoAdded.length}):</span> {byCategory([...row.videoKept, ...row.videoAdded]) || <span className="text-danger">none</span>}</p>
             </div>
           ))}
-          {plan.moves.length > 0 && (
+          {plan.add.length > 0 && (
+            <details className="rounded-xl border border-line p-3">
+              <summary className="cursor-pointer font-bold">Garments added ({plan.add.length})</summary>
+              <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                {plan.add.map((garment) => (
+                  <li key={garment.sku} className="flex items-center gap-2">
+                    <img src={garment.image} alt="" className="h-12 w-9 shrink-0 rounded bg-canvas object-cover" />
+                    <span className="min-w-0">{NAMES[garment.gender]} · {garment.categoryLabel}: {garment.title}{garment.price > 0 ? ` · ₹${garment.price.toLocaleString('en-IN')}` : ''}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {(plan.moves.length > 0 || plan.hide.length > 0) && (
             <div className="rounded-xl border border-line p-3">
-              <p className="font-bold">Moved to their own audience</p>
-              {plan.moves.map((move) => <p key={move.sku} className="mt-1">{move.title} ({NAMES[move.gender]}): {move.from} → {move.to || 'no matching category, left as is'}</p>)}
+              {plan.moves.map((move) => <p key={move.sku}>Moved: {move.title} → {NAMES[move.gender]} · {move.to || 'left as is'}{move.newTitle ? ` (as ${move.newTitle})` : ''}</p>)}
+              {plan.hide.map((item) => <p key={item.sku}>Hidden: {item.title} (gift box, two garments in one photo)</p>)}
             </div>
           )}
         </div>

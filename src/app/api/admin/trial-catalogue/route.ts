@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   if (!clientId) return NextResponse.json({ success: false, error: 'Choose a store.' }, { status: 400 });
   bindClient(clientId);
   try {
-    return NextResponse.json({ success: true, plan: await planTrialCatalogue() }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ success: true, plan: await planTrialCatalogue(clientId) }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Could not read the catalogue.' }, { status: 400 });
   }
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   bindClient(clientId);
   try {
     // Planned again here, from the catalogue as it is now, so nothing stale is written.
-    const result = await applyTrialCatalogue(await planTrialCatalogue(), clientId);
+    const result = await applyTrialCatalogue(await planTrialCatalogue(clientId), clientId);
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Could not prepare the catalogue.' }, { status: 400 });
