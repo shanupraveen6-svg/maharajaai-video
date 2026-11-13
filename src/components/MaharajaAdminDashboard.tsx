@@ -807,14 +807,10 @@ export default function MaharajaAdminDashboard({
                 <div className="w-full max-w-md">
                   <Segmented size="sm" label="Who is it for?" value={catGender} onChange={(g) => { setCatGender(g); setCatFilter(''); }} options={AUDIENCES.map((value) => ({ value, label: AUDIENCE_NAMES[value] }))} />
                 </div>
-                {catSection !== 'live' ? (
-                  <div className="flex gap-2">
-                    <button type="button" aria-pressed={catPanel === 'categories'} onClick={() => setCatPanel((open) => (open === 'categories' ? null : 'categories'))} className={`tf-btn !min-h-11 px-5 text-sm ${catPanel === 'categories' ? 'bg-ink text-white' : 'tf-btn-secondary'}`}>Categories</button>
-                    <button type="button" aria-pressed={catPanel === 'upload'} onClick={() => setCatPanel((open) => (open === 'upload' ? null : 'upload'))} className="tf-btn tf-btn-primary !min-h-11 px-5 text-sm">{catPanel === 'upload' ? 'Close upload' : 'Upload garments'}</button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted">Add garments with the Live Try-On switch in Image Try-On.</p>
-                )}
+                <div className="flex gap-2">
+                  {catSection !== 'live' && <button type="button" aria-pressed={catPanel === 'categories'} onClick={() => setCatPanel((open) => (open === 'categories' ? null : 'categories'))} className={`tf-btn !min-h-11 px-5 text-sm ${catPanel === 'categories' ? 'bg-ink text-white' : 'tf-btn-secondary'}`}>Categories</button>}
+                  <button type="button" aria-pressed={catPanel === 'upload'} onClick={() => setCatPanel((open) => (open === 'upload' ? null : 'upload'))} className="tf-btn tf-btn-primary !min-h-11 px-5 text-sm">{catPanel === 'upload' ? 'Close upload' : 'Upload garments'}</button>
+                </div>
               </div>
 
               {catPanel === 'categories' && catSection !== 'live' && (
@@ -861,7 +857,7 @@ export default function MaharajaAdminDashboard({
                 </div>
               )}
 
-              {catPanel === 'upload' && catSection !== 'live' && (
+              {catPanel === 'upload' && (
                 <CatalogueBulkImport
                   key={catSection}
                   kind={catSection}
@@ -876,7 +872,7 @@ export default function MaharajaAdminDashboard({
                     setCatPanel(null);
                     setCatGender(gender);
                     setCatFilter(category);
-                    setNotice(catSection === 'video' ? `${count} garment(s) saved to AI Video.` : `${count} garment(s) added to Image Try-On.`);
+                    setNotice(catSection === 'video' ? `${count} garment(s) saved to AI Video.` : catSection === 'live' ? `${count} garment(s) added to Live Try-On (and Image Try-On).` : `${count} garment(s) added to Image Try-On.`);
                   }}
                 />
               )}
@@ -904,7 +900,7 @@ export default function MaharajaAdminDashboard({
                 <p className="py-10 text-center text-sm text-muted">Tap Women, Men, Boys or Girls to see your garments.</p>
               ) : catTabs.length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted">
-                  {catSection === 'live' ? `No ${AUDIENCE_NAMES[catGender]} garments on Live Try-On yet. Switch some on in Image Try-On.`
+                  {catSection === 'live' ? `No ${AUDIENCE_NAMES[catGender]} garments on Live Try-On yet. Use Upload garments, or switch some on in Image Try-On.`
                     : catSection === 'video' ? `No ${AUDIENCE_NAMES[catGender]} pieces on AI Video yet. Use Upload garments to add some.`
                       : `No ${AUDIENCE_NAMES[catGender]} garments yet. Use Upload garments to add some.`}
                 </p>

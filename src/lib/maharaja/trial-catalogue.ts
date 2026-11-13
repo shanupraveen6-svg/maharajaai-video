@@ -6,50 +6,38 @@ import type { CatalogueAudience, CatalogueCategoryId } from '@/lib/tryfocus/samp
 
 /**
  * Gets a store's existing garments ready for a public trial, with no new photos:
- * 1. Live Try-On: up to 8 western-cut garments per audience, spread across categories, newest first;
- *    every other garment comes off Live Try-On.
- * 2. AI Video: up to 8 more premium pieces per audience from categories Image Try-On handles well, each
- *    with a premium price (₹3,000+, ending in 99). Pieces already on AI Video with a price stay.
+ * 1. Live Try-On: every garment in the audience's non-ethnic categories (up to 5, those with the most
+ *    garments). Ethnic wear (sarees, kurtas, lehengas, veshti…) and everything else comes off.
+ * 2. AI Video: 3–5 categories per audience, up to 5 priced pieces each (₹3,000+, ending in 99; kids up to
+ *    ₹8,000). Pieces already on AI Video with a price (the sarees) stay as they are.
  * 3. AI Video's category list becomes exactly the categories with pieces.
  * 4. A garment filed under another audience's category moves to its own audience's category of that kind.
  * `planTrialCatalogue` only reads; `applyTrialCatalogue` writes the plan. Both run for the bound client.
  */
 
 const AUDIENCES: CatalogueAudience[] = ['women', 'men', 'boys', 'girls'];
-const LIVE_PER_AUDIENCE = 8;
-const VIDEO_PER_AUDIENCE = 8;
-const VIDEO_PER_CATEGORY = 4;
+const LIVE_CATEGORIES_MAX = 5;
+const VIDEO_CATEGORIES_MIN = 3;
+const VIDEO_CATEGORIES_MAX = 5;
+const VIDEO_PER_CATEGORY = 5;
 
-/** AI Video categories, most premium first, per audience. */
+/** AI Video categories, in the order they are chosen, per audience; any other category fills up to 3. */
 const VIDEO_CATEGORIES: Record<CatalogueAudience, string[]> = {
-  women: ['sarees', 'lehengas', 'women-occasion', 'gowns', 'anarkali', 'half-sarees', 'salwar-suits'],
-  men: ['sherwanis', 'men-occasion', 'kurta', 'blazers', 'formal-shirts', 'casual-shirts'],
+  women: ['sarees', 'lehengas', 'gowns', 'anarkali', 'women-occasion', 'half-sarees', 'salwar-suits'],
+  men: ['sherwanis', 'kurta', 'blazers', 'formal-shirts', 'men-occasion', 'casual-shirts'],
   boys: ['boys-sherwani', 'boys-festive', 'boys-kurta', 'boys-silk-shirt', 'boys-party', 'boys-jacket', 'boys-shirt-trouser'],
-  girls: ['girls-lehenga', 'girls-festive', 'girls-pavadai', 'girls-gown', 'girls-party', 'girls-frock', 'girls-anarkali'],
+  girls: ['girls-lehenga', 'girls-pavadai', 'girls-gown', 'girls-party', 'girls-frock', 'girls-festive', 'girls-anarkali'],
 };
+const KIDS = new Set<CatalogueAudience>(['boys', 'girls']);
 /** Bridal and occasion wear sits higher. */
 const HIGH_END = new Set(['sarees', 'lehengas', 'women-occasion', 'sherwanis', 'men-occasion', 'boys-sherwani', 'girls-lehenga']);
 
 /** The same SKU always gets the same price, so the preview and the apply agree. */
-export function trialPriceFor(sku: string, categoryId: string) {
+export function trialPriceFor(sku: string, categoryId: string, audience: CatalogueAudience = 'women') {
   let hash = 2166136261;
   for (const char of sku) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0;
-  const [low, high] = HIGH_END.has(categoryId) ? [8000, 25000] : [3000, 12000];
+  const [low, high] = KIDS.has(audience) ? [3000, 8000] : HIGH_END.has(categoryId) ? [8000, 25000] : [3000, 12000];
   return Math.round((low + (hash % (high - low + 1))) / 100) * 100 - 1;
-}
-
-/** Up to `limit` items, one category at a time in turn, so no category crowds out the rest. */
-function roundRobin<T>(groups: T[][], limit: number) {
-  const picked: T[] = [];
-  const queues = groups.map((items) => [...items]);
-  while (picked.length < limit && queues.some((queue) => queue.length)) {
-    for (const queue of queues) {
-      if (picked.length >= limit) break;
-      const next = queue.shift();
-      if (next) picked.push(next);
-    }
-  }
-  return picked;
 }
 
 const newestFirst = (a: MaharajaCatalogueProduct, b: MaharajaCatalogueProduct) =>
@@ -89,28 +77,37 @@ export async function planTrialCatalogue(): Promise<TrialPlan> {
   }
 
   const liveOn = new Set<string>();
+  const videoChosen = new Map<CatalogueAudience, string[]>();
   const audiences: TrialPlan['audiences'] = [];
+  const count = (audience: CatalogueAudience, id: string) => records.filter((item) => item.gender === audience && item.category === id).length;
   for (const audience of AUDIENCES) {
-    const western = allCategoriesFor(audience, custom).filter((cat) => isWesternCategory(cat.id, custom));
-    const liveGroups = western.map((cat) => records.filter((item) => item.gender === audience && item.category === cat.id).sort(newestFirst));
-    const live = roundRobin(liveGroups, LIVE_PER_AUDIENCE);
+    // Live Try-On: the non-ethnic categories with the most garments, every garment in them.
+    const liveCats = allCategoriesFor(audience, custom)
+      .filter((cat) => isWesternCategory(cat.id, custom) && count(audience, cat.id as string) > 0)
+      .sort((x, y) => count(audience, y.id as string) - count(audience, x.id as string))
+      .slice(0, LIVE_CATEGORIES_MAX)
+      .map((cat) => cat.id as string);
+    const live = records.filter((item) => item.gender === audience && liveCats.includes(item.category)).sort(newestFirst);
     for (const item of live) liveOn.add(item.sku);
 
-    const order = VIDEO_CATEGORIES[audience];
-    const kept = records.filter((item) => item.gender === audience && item.eligibleForVideo && item.price > 0 && order.includes(item.category));
-    // Pieces already priced never use up the quota, so an audience with many sarees still gets gowns or shirts.
-    const groups = order.map((id) => records
+    // AI Video: the first 3–5 listed categories with garments; any other category tops it up to 3.
+    const listed = VIDEO_CATEGORIES[audience].filter((id) => count(audience, id) > 0);
+    const others = allCategoriesFor(audience, custom).map((cat) => cat.id as string)
+      .filter((id) => !listed.includes(id) && count(audience, id) > 0)
+      .sort((x, y) => count(audience, y) - count(audience, x));
+    const chosen = [...listed.slice(0, VIDEO_CATEGORIES_MAX), ...others].slice(0, Math.max(VIDEO_CATEGORIES_MIN, Math.min(listed.length, VIDEO_CATEGORIES_MAX)));
+    videoChosen.set(audience, chosen);
+    const kept = records.filter((item) => item.gender === audience && item.eligibleForVideo && item.price > 0 && chosen.includes(item.category));
+    const added = chosen.flatMap((id) => records
       .filter((item) => item.gender === audience && item.category === id && !kept.includes(item))
       .sort(newestFirst)
       .slice(0, Math.max(0, VIDEO_PER_CATEGORY - kept.filter((k) => k.category === id).length)));
-    const added = roundRobin(groups, VIDEO_PER_AUDIENCE);
-    const filled = new Set([...kept, ...added].map((item) => item.category));
     audiences.push({
       audience,
       live: live.map(piece),
       videoKept: kept.map((item) => ({ ...piece(item), price: item.price })),
-      videoAdded: added.map((item) => ({ ...piece(item), price: item.price >= 3000 ? item.price : trialPriceFor(item.sku, item.category) })),
-      videoCategories: order.filter((id) => filled.has(id)).map((id) => ({ id, label: label(id) })),
+      videoAdded: added.map((item) => ({ ...piece(item), price: item.price >= 3000 ? item.price : trialPriceFor(item.sku, item.category, audience) })),
+      videoCategories: chosen.map((id) => ({ id, label: label(id) })),
     });
   }
 
@@ -120,7 +117,7 @@ export async function planTrialCatalogue(): Promise<TrialPlan> {
     liveOn: records.filter((item) => liveOn.has(item.sku) && item.eligibleForLive !== true).map((item) => item.sku),
     liveOff: records.filter((item) => !liveOn.has(item.sku) && item.eligibleForLive === true).map((item) => item.sku),
     // Pieces on AI Video outside these categories, or without a price, come off (customers only see priced pieces).
-    videoOff: records.filter((item) => item.eligibleForVideo && !(item.price > 0 && VIDEO_CATEGORIES[item.gender]?.includes(item.category))).map((item) => item.sku),
+    videoOff: records.filter((item) => item.eligibleForVideo && !(item.price > 0 && videoChosen.get(item.gender)?.includes(item.category))).map((item) => item.sku),
     moves,
   };
 }

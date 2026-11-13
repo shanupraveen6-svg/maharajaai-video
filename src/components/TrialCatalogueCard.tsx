@@ -50,7 +50,7 @@ export default function TrialCatalogueCard({ clientId, onApplied }: { clientId: 
   return (
     <section className="tf-card p-5">
       <h2 className="text-lg font-bold">Trial catalogue</h2>
-      <p className="mt-1 text-sm text-muted">Fills Live Try-On (up to 8 western pieces per audience) and AI Video (up to 8 more premium pieces per audience, priced ₹3,000+) from the garments already uploaded. Preview first; nothing changes until Apply.</p>
+      <p className="mt-1 text-sm text-muted">Live Try-On: every garment in up to 5 non-ethnic categories per audience. AI Video: 3–5 categories per audience, up to 5 priced pieces each (₹3,000+, kids under ₹8,000); the sarees keep their prices. Uses the garments already uploaded. Preview first; nothing changes until Apply.</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" disabled={busy !== null} onClick={() => void preview()} className="tf-btn tf-btn-secondary !min-h-11 px-5 text-sm">
           {busy === 'preview' && <LoaderCircle className="h-4 w-4 animate-spin" />} {plan ? 'Preview again' : 'Preview'}
@@ -69,9 +69,9 @@ export default function TrialCatalogueCard({ clientId, onApplied }: { clientId: 
           {plan.audiences.map((row) => (
             <div key={row.audience} className="rounded-xl border border-line p-3">
               <p className="font-bold">{NAMES[row.audience]}</p>
-              <p className="mt-1"><span className="font-semibold">Live Try-On ({row.live.length}):</span> {row.live.map((p) => `${p.title} (${p.categoryLabel})`).join(' · ') || <span className="text-muted">none: no western-cut garments uploaded</span>}</p>
+              <p className="mt-1"><span className="font-semibold">Live Try-On ({row.live.length}):</span> {row.live.map((p) => `${p.title} (${p.categoryLabel})`).join(' · ') || <span className="text-muted">none: no non-ethnic garments uploaded for this audience</span>}</p>
               <p className="mt-1"><span className="font-semibold">AI Video:</span> {row.videoKept.length} already priced{row.videoAdded.length ? ` + ${row.videoAdded.length} new: ` : ''}{row.videoAdded.map((p) => `${p.title} (${p.categoryLabel}) ₹${p.price.toLocaleString('en-IN')}`).join(' · ')}</p>
-              <p className="mt-1 text-muted">AI Video categories: {row.videoCategories.map((cat) => cat.label).join(', ') || 'none'}</p>
+              <p className="mt-1 text-muted">AI Video categories: {row.videoCategories.map((cat) => cat.label).join(', ') || 'none: no garments uploaded for this audience'}</p>
             </div>
           ))}
           {plan.moves.length > 0 && (

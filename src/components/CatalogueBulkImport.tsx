@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { LoaderCircle, Upload, X } from 'lucide-react';
 import CatalogueTable from '@/components/CatalogueTable';
-import { categoriesFor, findCategory, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
+import { categoriesFor, findCategory, isWesternCategory, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
 import type { CatalogueAudience } from '@/lib/tryfocus/sample-data';
 
 const AUDIENCE_NAMES: Record<CatalogueAudience, string> = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' };
@@ -38,7 +38,8 @@ export default function CatalogueBulkImport({
   westernOverrides = {},
   onDone,
 }: {
-  kind: 'tryon' | 'video';
+  /** 'live': Live Try-On's own upload — non-ethnic categories only; garments go on Image Try-On and Live Try-On. */
+  kind: 'tryon' | 'video' | 'live';
   /** The Who chosen at the top of the catalogue; the upload has no Who of its own. */
   audience: CatalogueAudience | null;
   workspaceCode?: string;
@@ -57,9 +58,11 @@ export default function CatalogueBulkImport({
   const [message, setMessage] = useState('');
   const batchId = useRef('');
 
-  const categories = audience ? categoriesFor(categoryLists, audience, customCategories) : [];
+  const categories = audience
+    ? categoriesFor(categoryLists, audience, customCategories).filter((cat) => kind !== 'live' || isWesternCategory(cat.id, customCategories))
+    : [];
   const category = categories.some((cat) => cat.id === pickedCategory) ? pickedCategory : '';
-  const western = (id: string) => kind === 'tryon' && liveOn && westernOverrides[id] === true;
+  const western = (id: string) => kind === 'live' || (kind === 'tryon' && liveOn && westernOverrides[id] === true);
   const label = (gender: CatalogueAudience, id: string) => `${AUDIENCE_NAMES[gender]} · ${findCategory(id, customCategories)?.label || id}`;
   const ready = rows.filter((row) => row.status === 'ready');
   const missingPrice = kind === 'video' ? ready.filter((row) => !(Number(row.price) > 0)) : [];
@@ -193,15 +196,15 @@ export default function CatalogueBulkImport({
           <input type="file" accept="image/jpeg,image/png,image/webp" multiple {...({ webkitdirectory: '' } as object)} disabled={!category || busy || saving} onChange={(e) => { void addPhotos(e.target.files); e.target.value = ''; }} className="sr-only" />
         </label>
         {busy && <span className="inline-flex items-center gap-2 text-sm text-muted"><LoaderCircle className="h-4 w-4 animate-spin" /> Uploading…</span>}
-        {kind === 'tryon' && rows.length > 0 && !busy && <span className="text-sm text-muted">Switch Who or category to add more.</span>}
+        {kind !== 'video' && rows.length > 0 && !busy && <span className="text-sm text-muted">Switch Who or category to add more.</span>}
       </div>
 
-      {kind === 'tryon' && groups.map((group) => {
+      {kind !== 'video' && groups.map((group) => {
         const [gender, cat] = group.split('|') as [CatalogueAudience, string];
         const inGroup = rows.filter((row) => row.gender === gender && row.category === cat);
         return (
           <div key={group}>
-            <p className="mb-2 text-sm font-semibold text-ink">{label(gender, cat)} · {inGroup.length}{western(cat) ? ' · goes on Live Try-On too' : ''}</p>
+            <p className="mb-2 text-sm font-semibold text-ink">{label(gender, cat)} · {inGroup.length}{kind === 'tryon' && western(cat) ? ' · goes on Live Try-On too' : ''}</p>
             <ul className="flex flex-wrap gap-3">
               {inGroup.map((row) => (
                 <li key={row.key} className="relative w-24">
@@ -239,7 +242,7 @@ export default function CatalogueBulkImport({
           <div className="flex gap-3">
             <button type="button" onClick={() => { setRows([]); batchId.current = ''; setMessage(''); }} disabled={saving} className="tf-btn tf-btn-secondary !min-h-12 px-5">Clear</button>
             <button type="button" onClick={() => void save()} disabled={busy || saving || !ready.length || missingPrice.length > 0} className="tf-btn tf-btn-primary !min-h-12 px-6">
-              {saving ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Saving…</> : kind === 'video' ? `Save ${ready.length} to AI Video` : `Submit ${ready.length} garment(s)`}
+              {saving ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Saving…</> : kind === 'video' ? `Save ${ready.length} to AI Video` : kind === 'live' ? `Submit ${ready.length} to Live Try-On` : `Submit ${ready.length} garment(s)`}
             </button>
           </div>
         </div>

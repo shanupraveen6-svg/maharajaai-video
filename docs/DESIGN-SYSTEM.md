@@ -93,8 +93,9 @@ e.g. Shirts (20).
   photo · name · Live Try-On switch · ✕ (delete). Above the table, one switch puts every garment of that
   category on Live Try-On (or takes them off); new uploads into the category follow it. Any garment can be
   switched on by itself (a hoodie, a sweatshirt…).
-- Live Try-On has no upload and no categories of its own: it lists the garments switched on in Image Try-On;
-  ✕ takes one off (it stays in Image Try-On).
+- Live Try-On lists the garments switched on in Image Try-On; ✕ takes one off (it stays in Image Try-On).
+  It has its own Upload garments, offering only non-ethnic categories (ethnic wear — sarees, kurtas,
+  lehengas, veshti… — never goes on Live Try-On); what is uploaded there goes on Image Try-On and Live Try-On.
 - AI Video is the short list of premium pieces, with its own category list and its own upload: pick a
   category, add photos, type a price on every row, Save (blocked until every row has one). Table: photo ·
   name · price · ✕ (takes the piece off AI Video; it stays in Image Try-On). AI Video pieces also show in
