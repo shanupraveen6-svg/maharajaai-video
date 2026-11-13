@@ -82,7 +82,11 @@ const asset = (extra) => downloadAsset(new NextRequest('http://localhost/api/dow
 const refused = await asset({});
 assert.equal(refused.status, 428);
 assert.equal((await refused.json()).leadRequired, true);
-const passLead = await (await lead({ kind: 'pass', ref: passCode, source: 'ai-video', phone: '9988776655' })).json();
+assert.equal((await lead({ kind: 'pass', ref: passCode, source: 'ai-video', phone: '9988776655' })).status, 400, 'AI Video also asks for a name and city');
+const passLead = await (await lead({ kind: 'pass', ref: passCode, source: 'ai-video', phone: '9988776655', name: '  Priya   R ', city: 'Madurai' })).json();
+const saved = (await leads.listLeads('maharaja')).find((item) => item.phone === '9988776655');
+assert.equal(saved?.name, 'Priya R', 'Name kept, tidied');
+assert.equal(saved?.city, 'Madurai');
 assert.notEqual((await asset({ leadToken: passLead.token })).status, 428, 'With the token the download goes ahead');
 console.log('✓ AI Video downloads need the WhatsApp number');
 
@@ -90,8 +94,9 @@ console.log('✓ AI Video downloads need the WhatsApp number');
 assert.equal((await getLeads(new NextRequest('http://localhost/api/maharaja/leads'))).status, 401);
 const staff = new NextRequest('http://localhost/api/maharaja/leads?format=csv', { headers: { 'x-operator-key': 'test_secret' } });
 const csv = await (await getLeads(staff)).text();
-assert.match(csv, /WhatsApp number,Offers allowed/);
-assert.match(csv, /\n919876543210,Yes,/);
+assert.match(csv, /WhatsApp number,Name,City,Offers allowed/);
+assert.match(csv, /\n919988776655,Priya R,Madurai,/);
+assert.match(csv, /\n919876543210,,,Yes,/);
 assert.ok(leads.leadsCsv([{ id: 'x', phone: '9876543210', marketingConsent: false, sources: ['=HYPERLINK("x")'], downloads: 0, firstSeenAt: '', lastSeenAt: '' }]).includes(`"'=HYPERLINK(""x"")"`), 'Formula-like text is neutralised');
 const otherStore = await leads.listLeads('some-other-store');
 assert.equal(otherStore.length, 0, 'Leads stay inside their store');

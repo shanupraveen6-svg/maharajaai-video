@@ -28,7 +28,7 @@ import { PLATFORM_LABELS, PRESETS, clampCredits, platformOfPackage, presetFor, t
  * Device and module rules for each mix live in access.ts.
  */
 const PLATFORM_PICKS = [
-  { key: 'tv', Icon: Tv, title: 'TV', text: 'Try-On, AI Video and Western Try-On on the showroom TV, with the Go Live player.' },
+  { key: 'tv', Icon: Tv, title: 'TV', text: 'Try-On, AI Video and Live Try-On on the showroom TV, with the Go Live player.' },
   { key: 'tablet', Icon: Tablet, title: 'Tablet', text: 'Try-On at the counter, run by your team. AI Video starts only on the TV.' },
   { key: 'phone', Icon: Smartphone, title: 'Phone', text: 'Included: Wall QR Try-On and AI Video made on the customer’s phone.' },
 ] as const;
@@ -165,7 +165,7 @@ const initialClients: Client[] = [
 const plans = [
   { key: 'image', label: 'Try-On images', icon: Smartphone },
   { key: 'video', label: 'AI Videos', icon: Video },
-  { key: 'live', label: 'Western Try-On sessions', icon: Monitor },
+  { key: 'live', label: 'Live Try-On sessions', icon: Monitor },
 ] as const;
 
 export default function TryFocusAdmin() {
@@ -561,7 +561,7 @@ export default function TryFocusAdmin() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">1. Platform</h2>
-              <p className="mt-0.5 text-sm text-muted">{['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Western Try-On'].filter(Boolean).join(' · ')}. The customer&apos;s phone comes with either.</p>
+              <p className="mt-0.5 text-sm text-muted">{['Try-On', clientAccess.modules.video && 'AI Video', clientAccess.modules.live && 'Live Try-On'].filter(Boolean).join(' · ')}. The customer&apos;s phone comes with either.</p>
             </div>
             <PlatformPicker compact value={currentPackage} onChange={choosePackage} />
           </div>

@@ -157,7 +157,7 @@ export default function NewClientWorkspacePage() {
             {(Object.keys(PRESETS) as PresetId[]).map((id) => <option key={id} value={id}>{PRESETS[id].label}</option>)}
           </select>
           <p className="text-sm font-semibold tabular-nums text-ink">
-            {credits.image.toLocaleString('en-IN')} images{credits.video ? ` · ${credits.video.toLocaleString('en-IN')} AI Videos` : ''}{credits.live ? ` · ${credits.live.toLocaleString('en-IN')} Western Try-On` : ''}
+            {credits.image.toLocaleString('en-IN')} images{credits.video ? ` · ${credits.video.toLocaleString('en-IN')} AI Videos` : ''}{credits.live ? ` · ${credits.live.toLocaleString('en-IN')} Live Try-On` : ''}
           </p>
           {preset === 'trial' && (
             <p className="rounded-2xl bg-canvas p-4 text-sm text-muted">Free trial: {FREE_TRIAL_IMAGE_CREDITS} Try-On credits and {FREE_TRIAL_IMAGE_CREDITS} GenLook credits locked to the store. Top up from the client&apos;s Plan tab when they buy.</p>

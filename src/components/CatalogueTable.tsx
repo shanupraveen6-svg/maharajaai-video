@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { Switch } from '@/components/ui';
 
 export type CatalogueTableRow = {
   key: string;
@@ -15,7 +16,7 @@ export type CatalogueTableRow = {
 };
 
 /**
- * The catalogue table, in two shapes. Try-On: photo · name · WW (Western Try-On) · ✕. AI Video: photo ·
+ * The catalogue table, in two shapes. Image Try-On: photo · name · Live Try-On switch · ✕. AI Video: photo ·
  * name · price · ✕. Tick rows to remove several at once. On computers and tablets, so it may scroll sideways.
  */
 export default function CatalogueTable({
@@ -85,7 +86,7 @@ export default function CatalogueTable({
               <th className="w-20 p-3">Photo</th>
               <th className="p-3">Garment</th>
               {kind === 'video' && <th className="w-44 p-3">Price</th>}
-              {kind === 'tryon' && showWestern && <th className="w-48 p-3">Western Try-On</th>}
+              {kind === 'tryon' && showWestern && <th className="w-40 p-3">Live Try-On</th>}
               <th className="w-40 p-3" />
             </tr>
           </thead>
@@ -134,9 +135,9 @@ export default function CatalogueTable({
                   )}
                   {kind === 'tryon' && showWestern && (
                     <td className="p-3">
-                      <button type="button" aria-pressed={row.western} onClick={() => onWestern?.(row.key, !row.western)} className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${row.western ? 'bg-ink text-white' : 'border border-line-strong bg-white text-muted hover:border-ink hover:text-ink'}`}>
-                        {row.western ? 'WW on' : 'WW off'}
-                      </button>
+                      <Switch checked={row.western} disabled={busy} label={`Live Try-On for ${row.title}`} onChange={(on) => onWestern?.(row.key, on)}>
+                        <span className={row.western ? 'text-ink' : 'text-muted'}>{row.western ? 'On' : 'Off'}</span>
+                      </Switch>
                     </td>
                   )}
                   <td className="p-3 text-right">

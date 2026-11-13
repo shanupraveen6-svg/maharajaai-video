@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import { CREDIT_LEVEL_STATUS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
@@ -23,9 +23,9 @@ import {
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
 import StoreLogoCard from '@/components/StoreLogoCard';
-import { allCategoriesFor, categoriesFor, isWesternCategory, AUDIENCES, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
+import { allCategoriesFor, categoriesFor, AUDIENCES, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
 import CatalogueTable, { type CatalogueTableRow } from '@/components/CatalogueTable';
-import { NavTabs, Segmented, StatusPill } from '@/components/ui';
+import { NavTabs, Segmented, StatusPill, Switch } from '@/components/ui';
 import CustomerLeads from '@/components/CustomerLeads';
 import { downloadBrandedQr as downloadBrandedQrPoster } from '@/lib/maharaja/branded-qr';
 import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
@@ -176,8 +176,9 @@ export default function MaharajaAdminDashboard({
   // Managed Catalogue state (Task 8 & Task 10)
   const [catalogue, setCatalogue] = useState<ManagedCatalogueItem[]>([]);
   const [catalogueLoading, setCatalogueLoading] = useState<boolean>(true);
-  // Catalogue tab: Try-On (the whole collection) or AI Video (priced pieces); one panel open at a time.
-  const [catSection, setCatSection] = useState<'tryon' | 'video'>('tryon');
+  // Catalogue tab: Image Try-On (the whole collection), Live Try-On (the garments switched on for it) or
+  // AI Video (priced pieces); one panel open at a time.
+  const [catSection, setCatSection] = useState<'tryon' | 'live' | 'video'>('tryon');
   const [catPanel, setCatPanel] = useState<'categories' | 'upload' | null>(null);
   const [catGender, setCatGender] = useState<CatalogueAudience | null>(null);
   const [catFilter, setCatFilter] = useState<string>('');
@@ -329,40 +330,45 @@ export default function MaharajaAdminDashboard({
   }
 
   const customCats = useMemo(() => workspace?.customCategories || [], [workspace?.customCategories]);
-  const westernSettings = useMemo(() => workspace?.westernOverrides || {}, [workspace?.westernOverrides]);
-  const westernOf = useCallback((id: string) => isWesternCategory(id, customCats, westernSettings), [customCats, westernSettings]);
   const sectionLists = catSection === 'video' ? workspace?.videoCategoryLists : workspace?.categoryLists;
-  // AI Video's table holds only the priced pieces; Try-On's holds everything.
-  const sectionGarments = useMemo(() => (catSection === 'video' ? catalogue.filter((item) => item.eligibleForVideo) : catalogue), [catalogue, catSection]);
+  // Image Try-On holds everything; Live Try-On the garments switched on for it; AI Video the priced pieces.
+  const sectionGarments = useMemo(() => (
+    catSection === 'video' ? catalogue.filter((item) => item.eligibleForVideo)
+      : catSection === 'live' ? catalogue.filter((item) => item.eligibleForLive === true)
+        : catalogue
+  ), [catalogue, catSection]);
 
   const garmentCounts = useMemo(() => sectionGarments.reduce<Record<string, number>>((counts, item) => {
     counts[item.category] = (counts[item.category] || 0) + 1;
     return counts;
   }, {}), [sectionGarments]);
 
-  /** Category tabs: the section's list, plus any category outside it that still holds garments (marked). */
+  /** Category tabs: only categories holding a garment for this Who, as "Shirts (20)"; hidden ones marked. */
   const catTabs = useMemo(() => {
     if (!catGender) return [];
+    const count = (id: string) => sectionGarments.filter((item) => item.gender === catGender && item.category === id).length;
     const shown = categoriesFor(sectionLists, catGender, customCats);
-    const extra = allCategoriesFor(catGender, customCats).filter((cat) => !shown.some((item) => item.id === cat.id) && sectionGarments.some((item) => item.gender === catGender && item.category === cat.id));
-    return [...shown.map((cat) => ({ id: cat.id as string, label: cat.label, hidden: false })), ...extra.map((cat) => ({ id: cat.id as string, label: cat.label, hidden: true }))];
-  }, [catGender, sectionLists, customCats, sectionGarments]);
-  const activeCatFilter = catTabs.some((cat) => cat.id === catFilter) ? catFilter
-    : (catTabs.find((cat) => sectionGarments.some((item) => item.gender === catGender && item.category === cat.id)) || catTabs[0])?.id;
+    const extra = allCategoriesFor(catGender, customCats).filter((cat) => !shown.some((item) => item.id === cat.id));
+    return [
+      ...shown.map((cat) => ({ id: cat.id as string, label: cat.label, hidden: false, count: count(cat.id as string) })),
+      ...extra.map((cat) => ({ id: cat.id as string, label: cat.label, hidden: catSection !== 'live', count: count(cat.id as string) })),
+    ].filter((cat) => cat.count > 0);
+  }, [catGender, sectionLists, customCats, sectionGarments, catSection]);
+  const activeCatFilter = catTabs.some((cat) => cat.id === catFilter) ? catFilter : catTabs[0]?.id;
+  const activeCatLabel = catTabs.find((cat) => cat.id === activeCatFilter)?.label || '';
 
   const filteredCatalogue = useMemo(() => (catGender ? sectionGarments.filter((item) => item.gender === catGender && item.category === activeCatFilter) : []), [sectionGarments, catGender, activeCatFilter]);
   const catalogueTotalPages = Math.max(1, Math.ceil(filteredCatalogue.length / CATALOGUE_PAGE_SIZE));
-
-  /** Garments whose Western Try-On switch disagrees with their category's Western wear setting. */
-  const westernMismatches = useMemo(() => catalogue.filter((item) => (item.eligibleForLive === true) !== westernOf(item.category)).length, [catalogue, westernOf]);
+  // The switch above the Image Try-On table: on when every garment in this category is on Live Try-On.
+  const categoryAllLive = filteredCatalogue.length > 0 && filteredCatalogue.every((item) => item.eligibleForLive === true);
 
   function rowFor(item: ManagedCatalogueItem): CatalogueTableRow {
     return { key: item.sku, sku: item.sku, image: item.thumbnailUrl || item.imageUrl, title: item.title, price: item.price > 0 ? String(item.price) : '', western: item.eligibleForLive === true };
   }
 
-  /** ✕ in Try-On deletes the garment; in AI Video it only takes the garment off AI Video. */
+  /** ✕ in Image Try-On deletes the garment; in AI Video or Live Try-On it only takes it off there. */
   async function removeGarments(skus: string[]) {
-    const action = catSection === 'video' ? 'ai-video-off' : 'delete';
+    const action = catSection === 'video' ? 'ai-video-off' : catSection === 'live' ? 'live-off' : 'delete';
     setCatalogueBusy(true);
     setError('');
     setNotice('');
@@ -371,8 +377,9 @@ export default function MaharajaAdminDashboard({
       const data = await res.json();
       if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not update the garments.');
       const chosen = new Set(skus);
-      setCatalogue((prev) => (action === 'delete' ? prev.filter((item) => !chosen.has(item.sku)) : prev.map((item) => (chosen.has(item.sku) ? { ...item, eligibleForVideo: false } : item))));
-      setNotice(action === 'delete' ? `${data.count} garment(s) deleted.` : `${data.count} garment(s) taken off AI Video. They stay in Try-On.`);
+      setCatalogue((prev) => (action === 'delete' ? prev.filter((item) => !chosen.has(item.sku))
+        : prev.map((item) => (chosen.has(item.sku) ? (action === 'live-off' ? { ...item, eligibleForLive: false } : { ...item, eligibleForVideo: false }) : item))));
+      setNotice(action === 'delete' ? `${data.count} garment(s) deleted.` : `${data.count} garment(s) taken off ${action === 'live-off' ? 'Live Try-On' : 'AI Video'}. They stay in Image Try-On.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not update the garments.');
     } finally {
@@ -380,7 +387,7 @@ export default function MaharajaAdminDashboard({
     }
   }
 
-  /** WW on or off for a category: its garments follow, so Western Try-On always matches the category. */
+  /** Live Try-On on or off for a whole category: every garment in it follows, and new uploads into it too. */
   async function setWesternWear(categoryId: string, western: boolean) {
     setCatalogueBusy(true);
     setError('');
@@ -388,39 +395,16 @@ export default function MaharajaAdminDashboard({
     try {
       const res = await fetch('/api/maharaja/catalogue/western', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceCode: activeWorkspaceCode, categoryId, western }) });
       const data = await res.json();
-      if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not update Western wear.');
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not update Live Try-On.');
       setWorkspace((prev) => (prev ? { ...prev, westernOverrides: data.westernOverrides } : prev));
       setCatalogue((prev) => prev.map((item) => (item.category === categoryId ? { ...item, eligibleForLive: western } : item)));
-      setNotice(`${data.changed} garment(s) switched ${western ? 'on' : 'off'} for Western Try-On.`);
+      setNotice(`${data.changed} garment(s) switched ${western ? 'on' : 'off'} for Live Try-On.`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not update Western wear.');
+      setError(caught instanceof Error ? caught.message : 'Could not update Live Try-On.');
     } finally {
       setCatalogueBusy(false);
     }
   }
-
-  /**
-   * The one-time correction, run by itself the first time the catalogue opens: every existing garment is put
-   * on (or off) Western Try-On to match the Western Try-On category list. Silent; nothing for the store to tap.
-   */
-  const westernRuleStarted = useRef(false);
-  const needsWesternRule = Boolean(workspace && !workspace.westernRuleAppliedAt && !catalogueLoading && catalogue.length > 0 && westernMismatches > 0);
-  useEffect(() => {
-    if (!needsWesternRule || westernRuleStarted.current) return;
-    westernRuleStarted.current = true;
-    void (async () => {
-      try {
-        const res = await fetch('/api/maharaja/catalogue/western', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceCode: activeWorkspaceCode, applyAll: true }) });
-        const data = await res.json();
-        if (!res.ok || !data?.success) return;
-        setWorkspace((prev) => (prev ? { ...prev, westernRuleAppliedAt: data.westernRuleAppliedAt } : prev));
-        await loadCatalogue();
-      } catch {
-        // Tried again next time the workspace opens.
-      }
-    })();
-  }, [needsWesternRule, activeWorkspaceCode, loadCatalogue]);
-
 
   useEffect(() => setCataloguePage(0), [catGender, catFilter, catSection]);
 
@@ -502,17 +486,17 @@ export default function MaharajaAdminDashboard({
     : 'This month';
   // The store's monthly report: what customers did, against last month.
   // Counts only, nothing else: Image Try-On and Wall QR scans apply to both packages; Go Live and Real
-  // Try-On (Western Try-On) only to a store with the TV (Tablet-only stores never see those two).
+  // Live Try-On only to a store with the TV (Tablet-only stores never see those two).
   const monthTiles = ([
     ['Image Try-On', 'tryOnGenerated', limits.image > 0],
     ['AI Video', 'videosGenerated', limits.video > 0],
     ['Go Live', 'goLive', Boolean(devices.tv) && goLiveOn],
-    ['Real Try-On (Western Try-On)', 'liveSessions', Boolean(devices.tv) && limits.live > 0],
+    ['Live Try-On', 'liveSessions', Boolean(devices.tv) && limits.live > 0],
     ['Wall QR scans', 'tryOnScans', limits.image > 0],
   ] as const).filter(([, , on]) => on);
   // Customers' own phones are reached through the wall QR, so they are not a screen to open here.
   const screens = [
-    devices.tv && { key: 'tv', title: 'Portrait TV', href: '/maharaja/tv/experience', desc: 'Try-On, Western Try-On and AI Video from your collection', Icon: Tv },
+    devices.tv && { key: 'tv', title: 'Portrait TV', href: '/maharaja/tv/experience', desc: 'Try-On, Live Try-On and AI Video from your collection', Icon: Tv },
     devices.tablet && { key: 'tablet', title: 'Tablet', href: '/maharaja/tablet/experience', desc: 'Try-On from the collection or your own outfit', Icon: Tablet },
     goLiveOn && { key: 'golive', title: 'Go Live player', href: workspace.links.goLive, desc: 'Plays your customers’ AI Videos, and your promos', Icon: Monitor },
   ].filter((screen) => screen !== false);
@@ -528,10 +512,6 @@ export default function MaharajaAdminDashboard({
   const levelOf = (label: string) => credits.find((item) => item.label === label)?.level ?? 'none';
   const showing = catalogue.filter((item) => item.active);
   const videoPieces = showing.filter((item) => item.eligibleForVideo).length;
-  // Audiences customers cannot pick on AI Video yet (no piece switched on with a price): they see "Coming soon".
-  const videoMissing = (['women', 'men', 'boys', 'girls'] as const)
-    .filter((who) => !showing.some((item) => item.eligibleForVideo && item.gender === who && Number(item.price || 0) > 0))
-    .map((who) => ({ women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' })[who]);
   const livePieces = showing.filter((item) => isLiveMirrorReady(item)).length;
   type Tone = 'success' | 'warn' | 'danger' | 'neutral';
   const rowStatus = (label: string, pieces: number | null, noPieces: string): { status: string; tone: Tone } => {
@@ -546,7 +526,7 @@ export default function MaharajaAdminDashboard({
   };
   const working: Array<{ title: string; where: string; note?: string; status: string; tone: Tone }> = [
     limits.image > 0 && {
-      title: 'Try-On',
+      title: 'Image Try-On',
       where: [devices.tv && 'TV', devices.tablet && 'Tablet', 'Customer’s phone (Wall QR)'].filter(Boolean).join(' · '),
       note: catalogueLoading ? undefined : `${showing.length.toLocaleString('en-IN')} garments showing`,
       ...rowStatus('Try-On', showing.length, 'Own outfit only, add garments'),
@@ -558,10 +538,10 @@ export default function MaharajaAdminDashboard({
       ...rowStatus('AI Video', videoPieces, 'Switch on garments'),
     },
     limits.live > 0 && {
-      title: 'Western Try-On',
+      title: 'Live Try-On',
       where: 'TV',
-      note: catalogueLoading ? undefined : `${livePieces.toLocaleString('en-IN')} garments on Western Try-On`,
-      ...rowStatus('Western Try-On', livePieces, 'Switch on garments'),
+      note: catalogueLoading ? undefined : `${livePieces.toLocaleString('en-IN')} garments on Live Try-On`,
+      ...rowStatus('Live Try-On', livePieces, 'Switch on garments'),
     },
     limits.video > 0 && {
       title: 'Go Live player',
@@ -570,18 +550,11 @@ export default function MaharajaAdminDashboard({
         ? (workspace.campaignEnabled ? { status: 'Working', tone: 'success' as Tone } : { status: 'Paused', tone: 'neutral' as Tone })
         : { status: 'Off', tone: 'neutral' as Tone, note: 'AI Videos are download only' }),
     },
-    {
-      title: 'Customers get their looks by',
-      where: workspace.whatsappConnected ? 'QR and WhatsApp link' : 'QR (WhatsApp link not set up)',
-      status: workspace.whatsappConnected ? 'QR + WhatsApp' : 'QR',
-      tone: 'neutral' as Tone,
-    },
   ].filter((row) => row !== false);
 
   // Your plan: one row per feature, with its status and the credits left (Go Live has no credits).
   const planRows = working
-    .filter((row) => row.title !== 'Customers get their looks by')
-    .map((row) => ({ ...row, credit: credits.find((item) => item.label === row.title && item.level !== 'none') }));
+    .map((row) => ({ ...row, credit: credits.find((item) => item.label === (row.title === 'Image Try-On' ? 'Try-On' : row.title) && item.level !== 'none') }));
   const toneText: Record<Tone, string> = { success: 'text-success', warn: 'text-warn', danger: 'text-danger', neutral: 'text-muted' };
 
   // Inside TryFocus admin the page already has its own <main>.
@@ -662,13 +635,6 @@ export default function MaharajaAdminDashboard({
               </li>
             ))}
           </ul>
-          {limits.video > 0 && !catalogueLoading && videoMissing.length > 0 && videoMissing.length < 4 && (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-warn-soft px-3 py-2 text-sm">
-              <span className="text-ink">AI Video shows &quot;Coming soon&quot; for <b>{videoMissing.join(', ')}</b>: switch on pieces with a price for them.</span>
-              <button type="button" onClick={() => { setSection('catalogue'); window.scrollTo({ top: 0 }); }} className="min-h-9 rounded-lg border border-line-strong bg-white px-3 text-[13px] font-semibold">Catalogue · AI Video</button>
-            </div>
-          )}
-          <p className="mt-3 text-sm text-muted">Customers get their looks by {workspace.whatsappConnected ? 'QR and WhatsApp' : 'QR'}. To add credits or a platform: <a href="tel:9994837342" className="font-semibold text-ink underline underline-offset-4">9994837342</a></p>
         </section>
 
         {/* 2. Open your screens: one row of buttons. */}
@@ -712,30 +678,6 @@ export default function MaharajaAdminDashboard({
 
         {section === 'settings' && (
           <div className="max-w-3xl space-y-4">
-        {limits.video > 0 && (
-        <section className="tf-card p-6">
-            <h3 className="text-lg font-bold">Festival theme</h3>
-            <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b>. More festivals are added through the year.</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {EVENT_OPTIONS.filter((ev) => ev.id === 'diwali').map((ev) => {
-                const selected = workspace.defaultEvent === ev.id;
-                return (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    aria-pressed={selected}
-                    disabled={saving}
-                    onClick={() => selectDefaultEvent(ev.id)}
-                    className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : 'border border-line bg-white hover:border-ink'}`}
-                  >
-                    {ev.label}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
         <StoreLogoCard clientId={activeWorkspaceCode} />
 
         <form
@@ -761,6 +703,71 @@ export default function MaharajaAdminDashboard({
           </div>
         </form>
 
+        {goLiveOn && (
+          <section className="tf-card p-6">
+            <h2 className="text-lg font-bold">Promotion videos</h2>
+            <div className="mt-2"><GoLivePromoManager clientId={activeWorkspaceCode} /></div>
+          </section>
+        )}
+
+        {(limits.image > 0 || limits.video > 0) && (
+          <section className="tf-card space-y-5 p-6">
+            <div>
+              <h2 className="text-lg font-bold">Minimum bill</h2>
+              <p className="mt-1 text-sm text-muted">What a customer must buy before it starts. 0 lets everyone in.</p>
+            </div>
+            {limits.image > 0 && (
+              <LockedAmountField
+                key={`tryon-${minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}`}
+                id="tryon-min-purchase"
+                label="Wall QR Try-On (₹)"
+                hint="The phone reads a photo of the bill first · 0 = anyone"
+                value={minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}
+                lockedUntil={workspace.minimumsLockedUntil?.tryOn}
+                disabled={saving}
+                onSave={(value) => savePatch({ tryOnMinPurchase: value })}
+              />
+            )}
+            {limits.video > 0 && (
+              <LockedAmountField
+                key={`video-${videoMinimum}`}
+                id="video-min-purchase"
+                label="AI Video on the TV (₹)"
+                hint="The TV asks for the bill's last 4 digits · 0 = every bill (a free gift)"
+                value={videoMinimum}
+                lockedUntil={workspace.minimumsLockedUntil?.video}
+                disabled={saving}
+                onSave={(value) => savePatch({ videoMinPurchase: value })}
+              />
+            )}
+          </section>
+        )}
+
+        {limits.video > 0 && (
+        <section className="tf-card p-6">
+            <h3 className="text-lg font-bold">Festival theme</h3>
+            <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b>. More festivals are added through the year.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {EVENT_OPTIONS.filter((ev) => ev.id === 'diwali').map((ev) => {
+                const selected = workspace.defaultEvent === ev.id;
+                return (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    aria-pressed={selected}
+                    disabled={saving}
+                    onClick={() => selectDefaultEvent(ev.id)}
+                    className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : 'border border-line bg-white hover:border-ink'}`}
+                  >
+                    {ev.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+
           </div>
         )}
 
@@ -772,45 +779,54 @@ export default function MaharajaAdminDashboard({
               <div>
                 <h2 className="text-2xl font-bold">Your catalogue</h2>
                 <p className="mt-1 text-sm text-muted">
-                  {catalogueLoading ? 'Loading…' : `${catalogue.length.toLocaleString('en-IN')} garments on Try-On · ${catalogue.filter((item) => item.eligibleForVideo).length.toLocaleString('en-IN')} on AI Video`}
+                  {catalogueLoading ? 'Loading…' : [
+                    `${catalogue.length.toLocaleString('en-IN')} on Image Try-On`,
+                    limits.live > 0 && `${catalogue.filter((item) => item.eligibleForLive === true).length.toLocaleString('en-IN')} on Live Try-On`,
+                    limits.video > 0 && `${catalogue.filter((item) => item.eligibleForVideo).length.toLocaleString('en-IN')} on AI Video`,
+                  ].filter(Boolean).join(' · ')}
                   {catalogueBusy && <LoaderCircle className="ml-2 inline h-4 w-4 animate-spin" />}
                 </p>
               </div>
-              <div className="w-full max-w-sm">
+              <div className="w-full max-w-md">
                 <Segmented
                   size="sm"
                   label="Section"
                   value={catSection}
                   onChange={(value) => { setCatSection(value); setCatPanel(null); setCatFilter(''); }}
-                  options={limits.video > 0 ? [{ value: 'tryon', label: 'Try-On' }, { value: 'video', label: 'AI Video' }] : [{ value: 'tryon', label: 'Try-On' }]}
+                  options={[
+                    { value: 'tryon' as const, label: 'Image Try-On' },
+                    ...(limits.live > 0 ? [{ value: 'live' as const, label: 'Live Try-On' }] : []),
+                    ...(limits.video > 0 ? [{ value: 'video' as const, label: 'AI Video' }] : []),
+                  ]}
                 />
               </div>
             </div>
 
             <section className="tf-card space-y-5 p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-muted">
-                  {catSection === 'tryon'
-                    ? 'Every garment, no prices.'
-                    : 'Premium pieces with a price. They show in Try-On too, without the price.'}
-                </p>
-                <div className="flex gap-2">
-                  <button type="button" aria-pressed={catPanel === 'categories'} onClick={() => setCatPanel((open) => (open === 'categories' ? null : 'categories'))} className={`tf-btn !min-h-11 px-5 text-sm ${catPanel === 'categories' ? 'bg-ink text-white' : 'tf-btn-secondary'}`}>Categories</button>
-                  <button type="button" aria-pressed={catPanel === 'upload'} onClick={() => setCatPanel((open) => (open === 'upload' ? null : 'upload'))} className="tf-btn tf-btn-primary !min-h-11 px-5 text-sm">{catPanel === 'upload' ? 'Close upload' : 'Upload garments'}</button>
+                <div className="w-full max-w-md">
+                  <Segmented size="sm" label="Who is it for?" value={catGender} onChange={(g) => { setCatGender(g); setCatFilter(''); }} options={AUDIENCES.map((value) => ({ value, label: AUDIENCE_NAMES[value] }))} />
                 </div>
+                {catSection !== 'live' ? (
+                  <div className="flex gap-2">
+                    <button type="button" aria-pressed={catPanel === 'categories'} onClick={() => setCatPanel((open) => (open === 'categories' ? null : 'categories'))} className={`tf-btn !min-h-11 px-5 text-sm ${catPanel === 'categories' ? 'bg-ink text-white' : 'tf-btn-secondary'}`}>Categories</button>
+                    <button type="button" aria-pressed={catPanel === 'upload'} onClick={() => setCatPanel((open) => (open === 'upload' ? null : 'upload'))} className="tf-btn tf-btn-primary !min-h-11 px-5 text-sm">{catPanel === 'upload' ? 'Close upload' : 'Upload garments'}</button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted">Add garments with the Live Try-On switch in Image Try-On.</p>
+                )}
               </div>
 
-              {catPanel === 'categories' && (
+              {catPanel === 'categories' && catSection !== 'live' && (
                 <div className="rounded-2xl border border-line bg-canvas p-5">
                   {catSection === 'tryon' ? (
                     <StoreCategoriesEditor
+                      audience={catGender}
                       lists={workspace.categoryLists}
                       customCategories={workspace.customCategories}
-                      westernOverrides={workspace.westernOverrides}
                       garmentCounts={garmentCounts}
                       saving={saving || catalogueBusy}
                       onSave={(categoryLists) => void savePatch({ categoryLists })}
-                      onWestern={limits.live > 0 ? (categoryId, western) => void setWesternWear(categoryId, western) : undefined}
                       onAddCustom={(input) => {
                         const slug = input.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'category';
                         const id = `custom-${slug}-${Date.now().toString(36)}`;
@@ -834,6 +850,7 @@ export default function MaharajaAdminDashboard({
                   ) : (
                     <StoreCategoriesEditor
                       variant="video"
+                      audience={catGender}
                       lists={workspace.videoCategoryLists}
                       customCategories={workspace.customCategories}
                       garmentCounts={garmentCounts}
@@ -844,10 +861,11 @@ export default function MaharajaAdminDashboard({
                 </div>
               )}
 
-              {catPanel === 'upload' && (
+              {catPanel === 'upload' && catSection !== 'live' && (
                 <CatalogueBulkImport
                   key={catSection}
                   kind={catSection}
+                  audience={catGender}
                   workspaceCode={activeWorkspaceCode}
                   liveOn={limits.live > 0}
                   categoryLists={catSection === 'video' ? workspace.videoCategoryLists : workspace.categoryLists}
@@ -858,16 +876,12 @@ export default function MaharajaAdminDashboard({
                     setCatPanel(null);
                     setCatGender(gender);
                     setCatFilter(category);
-                    setNotice(catSection === 'video' ? `${count} garment(s) saved to AI Video.` : `${count} garment(s) added to Try-On.`);
+                    setNotice(catSection === 'video' ? `${count} garment(s) saved to AI Video.` : `${count} garment(s) added to Image Try-On.`);
                   }}
                 />
               )}
 
-              <div className="max-w-md">
-                <Segmented size="sm" label="Who is it for?" value={catGender} onChange={(g) => { setCatGender(g); setCatFilter(''); }} options={AUDIENCES.map((value) => ({ value, label: AUDIENCE_NAMES[value] }))} />
-              </div>
-
-              {catGender && (
+              {catGender && catTabs.length > 0 && (
                 <div role="group" aria-label="Category" className="flex flex-wrap gap-x-1 border-b border-line">
                   {catTabs.map((cat) => (
                     <button
@@ -877,9 +891,8 @@ export default function MaharajaAdminDashboard({
                       onClick={() => setCatFilter(cat.id)}
                       className={`-mb-px min-h-11 border-b-2 px-3 text-sm transition ${activeCatFilter === cat.id ? 'border-ink font-bold text-ink' : 'border-transparent font-medium text-muted hover:text-ink'}`}
                     >
-                      {cat.label}
-                      <span className="ml-1 text-xs tabular-nums opacity-60">{sectionGarments.filter((item) => item.gender === catGender && item.category === cat.id).length}</span>
-                      {cat.hidden && <span className="ml-1 text-xs text-muted">(hidden)</span>}
+                      {cat.label} ({cat.count})
+                      {cat.hidden && <span className="ml-1 text-xs text-muted">· hidden</span>}
                     </button>
                   ))}
                 </div>
@@ -889,19 +902,33 @@ export default function MaharajaAdminDashboard({
                 <div className="flex items-center justify-center py-12 text-sm text-muted"><LoaderCircle className="mr-2 h-5 w-5 animate-spin" /> Loading catalogue…</div>
               ) : !catGender ? (
                 <p className="py-10 text-center text-sm text-muted">Tap Women, Men, Boys or Girls to see your garments.</p>
+              ) : catTabs.length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted">
+                  {catSection === 'live' ? `No ${AUDIENCE_NAMES[catGender]} garments on Live Try-On yet. Switch some on in Image Try-On.`
+                    : catSection === 'video' ? `No ${AUDIENCE_NAMES[catGender]} pieces on AI Video yet. Use Upload garments to add some.`
+                      : `No ${AUDIENCE_NAMES[catGender]} garments yet. Use Upload garments to add some.`}
+                </p>
               ) : (
                 <>
+                  {catSection === 'tryon' && limits.live > 0 && activeCatLabel && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-canvas px-4 py-3">
+                      <Switch checked={categoryAllLive} disabled={catalogueBusy} label={`Live Try-On for all ${activeCatLabel}`} onChange={(on) => void setWesternWear(activeCatFilter as string, on)}>
+                        Live Try-On for all {activeCatLabel}
+                      </Switch>
+                      <span className="text-sm text-muted">{filteredCatalogue.filter((item) => item.eligibleForLive === true).length} of {filteredCatalogue.length} on · new uploads follow this switch</span>
+                    </div>
+                  )}
                   <CatalogueTable
                     key={`${catSection}-${catGender}-${activeCatFilter}`}
-                    kind={catSection}
+                    kind={catSection === 'video' ? 'video' : 'tryon'}
                     rows={filteredCatalogue.slice(cataloguePage * CATALOGUE_PAGE_SIZE, (cataloguePage + 1) * CATALOGUE_PAGE_SIZE).map(rowFor)}
-                    showWestern={limits.live > 0}
-                    removeLabel={catSection === 'video' ? 'Remove from AI Video' : 'Delete'}
+                    showWestern={catSection === 'tryon' && limits.live > 0}
+                    removeLabel={catSection === 'video' ? 'Remove from AI Video' : catSection === 'live' ? 'Remove from Live Try-On' : 'Delete'}
                     onWestern={(sku, on) => { const item = catalogue.find((row) => row.sku === sku); if (item) void toggleCatalogueField(item, { eligibleForLive: on }); }}
                     onPrice={(sku, price) => { const item = catalogue.find((row) => row.sku === sku); if (item) void toggleCatalogueField(item, { price: Math.max(0, Number(price) || 0) }); }}
                     onRemove={removeGarments}
                     busy={catalogueBusy}
-                    emptyText={catSection === 'video' ? 'No AI Video garments here yet. Use Upload garments to add some.' : 'No garments in this category yet. Use Upload garments to add some.'}
+                    emptyText=""
                   />
                   {catalogueTotalPages > 1 && (
                     <div className="flex items-center justify-between gap-3 text-sm">
@@ -939,19 +966,6 @@ export default function MaharajaAdminDashboard({
                   </ul>
                 </div>
 
-                <div className="mt-5 border-t border-line pt-4">
-                  <LockedAmountField
-                    key={`tryon-${minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}`}
-                    id="tryon-min-purchase"
-                    label="Price tag needed first (₹)"
-                    hint="0 = anyone can use it"
-                    value={minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}
-                    lockedUntil={workspace.minimumsLockedUntil?.tryOn}
-                    disabled={saving}
-                    onSave={(value) => savePatch({ tryOnMinPurchase: value })}
-                  />
-                </div>
-
                 <button
                   type="button"
                   onClick={() => downloadBrandedQr(`${workspace.clientName.replace(/[^a-z0-9]+/gi, '-')}-Try-On-wall-QR.png`, 'Try-On', 'Scan to try our outfits on your phone', workspace.links.tryOn)}
@@ -959,25 +973,6 @@ export default function MaharajaAdminDashboard({
                 >
                   <Download className="h-4 w-4" /> Download for printing
                 </button>
-              </div>
-            )}
-
-            {limits.video > 0 && (
-              <div className="tf-card mt-4 p-5">
-                <h2 className="text-lg font-bold">AI Video on the TV</h2>
-                <p className="mt-1 text-sm text-muted">The bill a customer needs before the TV&apos;s AI Video starts.</p>
-                <div className="mt-4">
-                  <LockedAmountField
-                    key={`video-${videoMinimum}`}
-                    id="video-min-purchase"
-                    label="Minimum bill (₹)"
-                    hint="0 = every bill (a free gift)"
-                    value={videoMinimum}
-                    lockedUntil={workspace.minimumsLockedUntil?.video}
-                    disabled={saving}
-                    onSave={(value) => savePatch({ videoMinPurchase: value })}
-                  />
-                </div>
               </div>
             )}
 
@@ -992,10 +987,6 @@ export default function MaharajaAdminDashboard({
               <div className="mt-4"><ClientVideoLibrary embedded onCount={setGoLiveCount} /></div>
             </section>
 
-            <section className="tf-card max-w-2xl p-6">
-              <h2 className="text-lg font-bold">Promo videos</h2>
-              <div className="mt-4"><GoLivePromoManager clientId={activeWorkspaceCode} /></div>
-            </section>
           </div>
         ) : (
           <section className="tf-card p-6">

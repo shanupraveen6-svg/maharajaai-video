@@ -43,7 +43,7 @@ import {
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { PageTitle } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
-import { categoriesFor, isWesternCategory, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
+import { allCategoriesFor, categoriesFor, type CustomCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import { conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import type { CustomerCategory } from '@/lib/maharaja/config';
 
@@ -80,7 +80,7 @@ function useStoreLogo() {
 /**
  * The store screen: the portrait TV, or the tablet (`device="tablet"`), at a different scale.
  * TV, three tabs: Try-On (Store collection or My own outfit), AI Video (pick a piece, take a photo, then a
- * QR makes the video on the phone) and Western Try-On. AI Video only starts here, never on the tablet.
+ * QR makes the video on the phone) and Live Try-On. AI Video only starts here, never on the tablet.
  * Tablet, three tabs: Catalogue Try-On, Own-outfit Try-On (each tab is its own source, no in-flow
  * "What would you like to try?" step) and the Wall QR to print.
  */
@@ -102,7 +102,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [categoryLists, setCategoryLists] = useState<StoreCategoryLists>({});
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [videoCategoryLists, setVideoCategoryLists] = useState<StoreCategoryLists>({});
-  const [westernOverrides, setWesternOverrides] = useState<WesternOverrides>({});
 
   // Catalogue filtering
   const [genderFilter, setGenderFilter] = useState<CatalogueAudience>('women');
@@ -170,7 +169,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         setCategoryLists(settings.categoryLists);
         setCustomCategories(settings.customCategories);
         setVideoCategoryLists(settings.videoCategoryLists);
-        setWesternOverrides(settings.westernOverrides);
         if (settings.access) {
           // Live Mirror needs the TV's camera stream; the tablet never runs it.
           setLiveOn(!isTablet && settings.access.modules.live);
@@ -255,11 +253,12 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [tvBillLast4, setTvBillLast4] = useState('');
   const [tvBillEntered, setTvBillEntered] = useState(false);
 
-  const filteredCategories = categoriesFor(categoryLists, genderFilter, customCategories);
+  // Only categories that hold a garment for this audience: a customer never opens an empty one.
+  const filteredCategories = categoriesFor(categoryLists, genderFilter, customCategories).filter((cat) => catalogueItems.some((item) => item.gender === genderFilter && item.category === cat.id));
   // A category the store removed (or one this audience lacks) moves to the store's first category with pieces.
   useEffect(() => {
     if (filteredCategories.some((cat) => cat.id === activeCategory)) return;
-    const next = filteredCategories.find((cat) => catalogueItems.some((item) => item.category === cat.id)) || filteredCategories[0];
+    const next = filteredCategories[0];
     if (next) setActiveCategory(next.id);
   }, [filteredCategories, activeCategory, catalogueItems]);
   const browseProducts = catalogueItems.filter((item) => item.gender === genderFilter &&
@@ -280,20 +279,18 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const safeVideoPage = Math.min(cataloguePage, Math.max(0, videoPageCount - 1));
   const visibleVideoProducts = videoBrowseProducts.slice(safeVideoPage * TV_PAGE_SIZE, (safeVideoPage + 1) * TV_PAGE_SIZE);
 
-  // Western Try-On lists the store's Western wear categories (its WW switches, its own categories included).
-  const westernCategories = useMemo(() => Object.fromEntries((['women', 'men', 'boys', 'girls'] as const).map((audience) => [
+  // Live Try-On names its categories in the store's order; it shows only those holding a switched-on garment.
+  const liveCategories = useMemo(() => Object.fromEntries((['women', 'men', 'boys', 'girls'] as const).map((audience) => [
     audience,
-    categoriesFor(categoryLists, audience, customCategories)
-      .filter((cat) => isWesternCategory(cat.id, customCategories, westernOverrides))
-      .map((cat) => ({ id: cat.id as CatalogueCategoryId, label: cat.label })),
-  ])) as Record<CatalogueAudience, Array<{ id: CatalogueCategoryId; label: string }>>, [categoryLists, customCategories, westernOverrides]);
+    allCategoriesFor(audience, customCategories).map((cat) => ({ id: cat.id as CatalogueCategoryId, label: cat.label })),
+  ])) as Record<CatalogueAudience, Array<{ id: CatalogueCategoryId; label: string }>>, [customCategories]);
 
   function selectGender(gender: CatalogueAudience) {
     if (gender === genderFilter) return;
     setGenderFilter(gender);
     // The first category, in the shared order, that has pieces in this store.
     const ordered = categoriesFor(categoryLists, gender, customCategories);
-    setActiveCategory((ordered.find((cat) => catalogueItems.some((item) => item.category === cat.id)) || ordered[0]).id);
+    setActiveCategory((ordered.find((cat) => catalogueItems.some((item) => item.gender === gender && item.category === cat.id)) || ordered[0]).id);
     setShowNewArrivals(false);
     // Opens on Trending only when the store has tagged pieces for this audience.
     setShowTrending(catalogueItems.some((item) => item.gender === gender && item.trending === true));
@@ -1201,7 +1198,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               <Video className="h-6 w-6" /><span>AI Video</span>
             </button>}
             {liveOn && <button type="button" aria-current={mode === 'live-tryon' ? 'page' : undefined} onClick={() => navigateTo('live-tryon')} className={`tv-mode-button ${mode === 'live-tryon' ? 'is-active' : ''}`}>
-              <Camera className="h-6 w-6" /><span>Western Try-On</span>
+              <Camera className="h-6 w-6" /><span>Live Try-On</span>
             </button>}
           </nav>
         )}
@@ -1623,11 +1620,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           <LucyLiveMirror
             key={liveMirrorKey}
             onEndSession={endSession}
-            westernCategories={westernCategories}
+            categories={liveCategories}
             catalogue={catalogueItems.filter(isLiveMirrorReady)}
-            garmentPrompt={`Person wearing ${selectedProduct.title}, ${selectedProduct.fabricNote}`}
-            garmentTitle={selectedProduct.title}
-            selectedProduct={isLiveMirrorReady(selectedProduct) ? selectedProduct : catalogueItems.find(isLiveMirrorReady)}
             onSelectProduct={setSelectedProduct}
             onUsePhotoTryOn={(product) => {
               // Live Mirror could not connect: the same outfit continues as a photo Try-On.

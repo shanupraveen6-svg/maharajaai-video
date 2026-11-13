@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import { Download, LoaderCircle, Users } from 'lucide-react';
 import { StatusPill } from '@/components/ui';
-import { LEAD_SOURCE_NAMES } from '@/lib/tryfocus/lead-sources';
 
 type Lead = {
   id: string;
   phone: string;
   marketingConsent: boolean;
   sources: string[];
+  name?: string;
+  city?: string;
   downloads: number;
   firstSeenAt?: string;
   lastSeenAt: string;
@@ -47,7 +48,7 @@ export default function CustomerLeads({ clientId }: { clientId?: string } = {}) 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">Customers</h2>
-          <p className="mt-1 max-w-xl text-sm text-muted">Everyone who gave a WhatsApp number to download a look or a video. Send offers only to customers marked “Offers: yes”.</p>
+          <p className="mt-1 max-w-xl text-sm text-muted">Everyone who gave a WhatsApp number to download a look or a video. Send offers only to customers marked “Offers: yes”. Live Try-On has no download, so it has no list.</p>
         </div>
         <a href={`/api/maharaja/leads?format=csv${clientId ? `&clientId=${encodeURIComponent(clientId)}` : ''}`} className="tf-btn tf-btn-dark !min-h-11 px-4 text-sm"><Download className="h-4 w-4" /> Download CSV</a>
       </div>
@@ -72,29 +73,60 @@ export default function CustomerLeads({ clientId }: { clientId?: string } = {}) 
               <Users className="h-5 w-5 shrink-0" /> No customers yet. They appear here when a customer downloads a look or a video.
             </div>
           ) : (
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="border-b border-line text-xs font-semibold text-muted">
-                  <tr><th className="py-2 pr-3">WhatsApp</th><th className="py-2 pr-3">Offers</th><th className="py-2 pr-3">Used</th><th className="py-2 pr-3 text-right">Downloads</th><th className="py-2 pr-3 text-right">First seen</th><th className="py-2 text-right">Last seen</th></tr>
-                </thead>
-                <tbody>
-                  {leads.slice(0, 200).map((lead) => (
-                    <tr key={lead.id} className="border-b border-line last:border-0">
-                      <td className="py-2.5 pr-3 tabular-nums"><a href={`https://wa.me/91${lead.phone}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink underline underline-offset-4">+91 {lead.phone}</a></td>
-                      <td className="py-2.5 pr-3">{lead.marketingConsent ? <StatusPill tone="success">Yes</StatusPill> : <StatusPill>No</StatusPill>}</td>
-                      <td className="py-2.5 pr-3 text-muted">{Array.from(new Set((lead.sources || []).map((source) => LEAD_SOURCE_NAMES[source as keyof typeof LEAD_SOURCE_NAMES] || source))).join(', ')}</td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums">{Number(lead.downloads || 0).toLocaleString('en-IN')}</td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums text-muted">{shortDate(lead.firstSeenAt)}</td>
-                      <td className="py-2.5 text-right tabular-nums text-muted">{shortDate(lead.lastSeenAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {leads.length > 200 && <p className="mt-3 text-sm text-muted">Showing the latest 200. Download the CSV for all {leads.length.toLocaleString('en-IN')}.</p>}
-            </div>
+            <>
+              <LeadTable
+                title="Image Try-On"
+                leads={leads.filter((lead) => (lead.sources || []).some((source) => source === 'try-on' || source === 'tv-looks'))}
+                empty="No Image Try-On downloads yet."
+              />
+              <LeadTable
+                title="AI Video"
+                details
+                leads={leads.filter((lead) => (lead.sources || []).includes('ai-video'))}
+                empty="No AI Video downloads yet."
+              />
+            </>
           )}
         </>
       )}
     </section>
+  );
+}
+
+/** One customer list: the number, the AI Video name and city when asked, offers, last seen. Latest 200. */
+function LeadTable({ title, leads, details = false, empty }: { title: string; leads: Lead[]; details?: boolean; empty: string }) {
+  return (
+    <div className="mt-6">
+      <h3 className="text-lg font-bold">{title} <span className="font-normal text-muted">({leads.length.toLocaleString('en-IN')})</span></h3>
+      {leads.length === 0 ? <p className="mt-2 text-sm text-muted">{empty}</p> : (
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead className="border-b border-line text-xs font-semibold text-muted">
+              <tr>
+                <th className="py-2 pr-3">WhatsApp</th>
+                {details && <th className="py-2 pr-3">Name</th>}
+                {details && <th className="py-2 pr-3">City</th>}
+                <th className="py-2 pr-3">Offers</th>
+                <th className="py-2 pr-3 text-right">Downloads</th>
+                <th className="py-2 text-right">Last seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.slice(0, 200).map((lead) => (
+                <tr key={lead.id} className="border-b border-line last:border-0">
+                  <td className="py-2.5 pr-3 tabular-nums"><a href={`https://wa.me/91${lead.phone}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink underline underline-offset-4">+91 {lead.phone}</a></td>
+                  {details && <td className="py-2.5 pr-3">{lead.name || <span className="text-subtle">—</span>}</td>}
+                  {details && <td className="py-2.5 pr-3">{lead.city || <span className="text-subtle">—</span>}</td>}
+                  <td className="py-2.5 pr-3">{lead.marketingConsent ? <StatusPill tone="success">Yes</StatusPill> : <StatusPill>No</StatusPill>}</td>
+                  <td className="py-2.5 pr-3 text-right tabular-nums">{Number(lead.downloads || 0).toLocaleString('en-IN')}</td>
+                  <td className="py-2.5 text-right tabular-nums text-muted">{shortDate(lead.lastSeenAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {leads.length > 200 && <p className="mt-3 text-sm text-muted">Showing the latest 200. Download the CSV for all {leads.length.toLocaleString('en-IN')}.</p>}
+        </div>
+      )}
+    </div>
   );
 }

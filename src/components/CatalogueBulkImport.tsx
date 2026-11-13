@@ -2,17 +2,10 @@
 
 import { useRef, useState } from 'react';
 import { LoaderCircle, Upload, X } from 'lucide-react';
-import { Segmented } from '@/components/ui';
 import CatalogueTable from '@/components/CatalogueTable';
-import { categoriesFor, findCategory, isWesternCategory, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
+import { categoriesFor, findCategory, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
 import type { CatalogueAudience } from '@/lib/tryfocus/sample-data';
 
-const AUDIENCES: Array<{ value: CatalogueAudience; label: string }> = [
-  { value: 'women', label: 'Women' },
-  { value: 'men', label: 'Men' },
-  { value: 'boys', label: 'Boys' },
-  { value: 'girls', label: 'Girls' },
-];
 const AUDIENCE_NAMES: Record<CatalogueAudience, string> = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' };
 
 type Staged = {
@@ -30,13 +23,14 @@ type Staged = {
 };
 
 /**
- * Upload garments. Try-On: pick who and a category, add photos, switch to another who or category and add
- * more, then Submit once — no prices; a WW (Western wear) category goes on Western Try-On by itself. AI Video:
- * pick who and a category, add photos, type a price on every row, then Save. A photo already in the catalogue
- * is skipped and named, never saved twice.
+ * Upload garments, for the Who picked at the top of the catalogue. Image Try-On: pick a category, add photos,
+ * switch Who or category and add more, then Submit once — no prices; a category with Live Try-On switched on
+ * for all its garments puts new ones on Live Try-On too. AI Video: pick a category, add photos, type a price
+ * on every row, then Save. A photo already in the catalogue is skipped and named, never saved twice.
  */
 export default function CatalogueBulkImport({
   kind,
+  audience,
   workspaceCode,
   liveOn,
   categoryLists,
@@ -45,8 +39,10 @@ export default function CatalogueBulkImport({
   onDone,
 }: {
   kind: 'tryon' | 'video';
+  /** The Who chosen at the top of the catalogue; the upload has no Who of its own. */
+  audience: CatalogueAudience | null;
   workspaceCode?: string;
-  /** The store has Western Try-On, so WW categories switch it on. */
+  /** The store has Live Try-On, so a category switched on for it puts new garments there too. */
   liveOn: boolean;
   /** The list to pick categories from: Try-On's or AI Video's own. */
   categoryLists?: StoreCategoryLists;
@@ -54,8 +50,7 @@ export default function CatalogueBulkImport({
   westernOverrides?: WesternOverrides;
   onDone: (result: { count: number; gender: CatalogueAudience; category: string }) => Promise<void> | void;
 }) {
-  const [audience, setAudience] = useState<CatalogueAudience | null>(null);
-  const [category, setCategory] = useState('');
+  const [pickedCategory, setCategory] = useState('');
   const [rows, setRows] = useState<Staged[]>([]);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,7 +58,8 @@ export default function CatalogueBulkImport({
   const batchId = useRef('');
 
   const categories = audience ? categoriesFor(categoryLists, audience, customCategories) : [];
-  const western = (id: string) => liveOn && isWesternCategory(id, customCategories, westernOverrides);
+  const category = categories.some((cat) => cat.id === pickedCategory) ? pickedCategory : '';
+  const western = (id: string) => kind === 'tryon' && liveOn && westernOverrides[id] === true;
   const label = (gender: CatalogueAudience, id: string) => `${AUDIENCE_NAMES[gender]} · ${findCategory(id, customCategories)?.label || id}`;
   const ready = rows.filter((row) => row.status === 'ready');
   const missingPrice = kind === 'video' ? ready.filter((row) => !(Number(row.price) > 0)) : [];
@@ -172,14 +168,10 @@ export default function CatalogueBulkImport({
 
   return (
     <div className="space-y-5 rounded-2xl border border-line bg-canvas p-5">
-      <div className="grid gap-4 lg:grid-cols-[auto_1fr]">
-        <div>
-          <p className="mb-2 text-sm font-semibold text-ink">Who is it for?</p>
-          <Segmented size="sm" label="Who is it for?" value={audience} onChange={(value) => { setAudience(value); setCategory(''); }} options={AUDIENCES} />
-        </div>
+      <div>
         <div className="min-w-0">
-          <p className="mb-2 text-sm font-semibold text-ink">Category</p>
-          {!audience ? <p className="py-2.5 text-sm text-muted">Pick Women, Men, Boys or Girls first.</p> : (
+          <p className="mb-2 text-sm font-semibold text-ink">{audience ? `${AUDIENCE_NAMES[audience]} · category` : 'Category'}</p>
+          {!audience ? <p className="py-2.5 text-sm text-muted">Pick Women, Men, Boys or Girls above first.</p> : (
             <div role="group" aria-label="Category" className="flex flex-wrap gap-2">
               {categories.map((cat) => (
                 <button key={cat.id} type="button" aria-pressed={category === cat.id} onClick={() => setCategory(cat.id as string)} className={`min-h-11 rounded-full px-4 text-sm font-semibold transition ${category === cat.id ? 'bg-ink text-white' : 'border border-line-strong bg-white text-ink hover:border-ink'}`}>
@@ -201,7 +193,7 @@ export default function CatalogueBulkImport({
           <input type="file" accept="image/jpeg,image/png,image/webp" multiple {...({ webkitdirectory: '' } as object)} disabled={!category || busy || saving} onChange={(e) => { void addPhotos(e.target.files); e.target.value = ''; }} className="sr-only" />
         </label>
         {busy && <span className="inline-flex items-center gap-2 text-sm text-muted"><LoaderCircle className="h-4 w-4 animate-spin" /> Uploading…</span>}
-        {kind === 'tryon' && rows.length > 0 && !busy && <span className="text-sm text-muted">Switch who or category above to add more.</span>}
+        {kind === 'tryon' && rows.length > 0 && !busy && <span className="text-sm text-muted">Switch Who or category to add more.</span>}
       </div>
 
       {kind === 'tryon' && groups.map((group) => {
@@ -209,7 +201,7 @@ export default function CatalogueBulkImport({
         const inGroup = rows.filter((row) => row.gender === gender && row.category === cat);
         return (
           <div key={group}>
-            <p className="mb-2 text-sm font-semibold text-ink">{label(gender, cat)} · {inGroup.length}{western(cat) ? ' · goes on Western Try-On too' : ''}</p>
+            <p className="mb-2 text-sm font-semibold text-ink">{label(gender, cat)} · {inGroup.length}{western(cat) ? ' · goes on Live Try-On too' : ''}</p>
             <ul className="flex flex-wrap gap-3">
               {inGroup.map((row) => (
                 <li key={row.key} className="relative w-24">

@@ -25,6 +25,9 @@ export type CustomerLead = {
   marketingConsent: boolean;
   marketingConsentAt?: string | null;
   sources: LeadSource[];
+  /** Asked only on the AI Video download. */
+  name?: string;
+  city?: string;
   downloads: number;
   firstSeenAt: string;
   lastSeenAt: string;
@@ -74,12 +77,21 @@ export function verifyLeadToken(token: unknown, clientId = activeClientId(), now
 }
 
 /** Saves (or updates) the customer's number in the store's leads and returns its download token. */
-export async function recordLead({ phone, marketingConsent, source, clientId = activeClientId() }: {
+/** A name or city as typed: trimmed, single spaces, no control characters, at most 60 characters. */
+export function cleanLeadText(raw: unknown) {
+  return String(raw ?? '').replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+
+export async function recordLead({ phone, marketingConsent, source, name = '', city = '', clientId = activeClientId() }: {
   phone: string;
   marketingConsent: boolean;
   source: LeadSource;
+  name?: string;
+  city?: string;
   clientId?: string;
 }) {
+  // The latest name and city given win; a download that didn't ask keeps what the store already has.
+  const details = { ...(name ? { name } : {}), ...(city ? { city } : {}) };
   const id = leadId(clientId, phone);
   const nowIso = new Date().toISOString();
   const db = getDb();
@@ -93,6 +105,7 @@ export async function recordLead({ phone, marketingConsent, source, clientId = a
         id,
         phone,
         sources: FieldValue.arrayUnion(source),
+        ...details,
         lastSeenAt: nowIso,
         ...(existing ? {} : { firstSeenAt: nowIso, downloads: 0 }),
         // A customer who ticks the box once stays opted in until they ask the store to stop.
@@ -111,6 +124,9 @@ export async function recordLead({ phone, marketingConsent, source, clientId = a
       marketingConsent: Boolean(existing?.marketingConsent || marketingConsent),
       marketingConsentAt: existing?.marketingConsent ? existing.marketingConsentAt : marketingConsent ? nowIso : null,
       sources: Array.from(new Set([...(existing?.sources || []), source])),
+      ...(existing?.name ? { name: existing.name } : {}),
+      ...(existing?.city ? { city: existing.city } : {}),
+      ...details,
       downloads: existing?.downloads || 0,
       firstSeenAt: existing?.firstSeenAt || nowIso,
       lastSeenAt: nowIso,
@@ -149,11 +165,13 @@ function csvCell(value: unknown) {
 }
 
 export function leadsCsv(leads: CustomerLead[]) {
-  const rows = [['WhatsApp number', 'Offers allowed', 'Offers allowed on', 'Used', 'Downloads', 'First seen', 'Last seen']];
+  const rows = [['WhatsApp number', 'Name', 'City', 'Offers allowed', 'Offers allowed on', 'Used', 'Downloads', 'First seen', 'Last seen']];
   for (const lead of leads) {
     rows.push([
       // Digits only (country code first), so spreadsheets and WhatsApp tools read it as a number.
       `91${lead.phone}`,
+      lead.name || '',
+      lead.city || '',
       lead.marketingConsent ? 'Yes' : 'No',
       lead.marketingConsentAt || '',
       Array.from(new Set((lead.sources || []).map((source) => LEAD_SOURCE_NAMES[source] || source))).join(' / '),

@@ -12,6 +12,18 @@ const MAX_BYTES = 50 * 1024 * 1024;
  * Up to three promo videos that play on the workspace's Go Live player after every ten customer videos.
  * Files go straight to storage, then the server checks type, size, length and frame.
  */
+/** Frame and length, read in the browser so a wrong video is refused before it uploads (the server checks again). */
+function measureVideo(file: File): Promise<{ width: number; height: number; seconds: number } | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => { resolve({ width: video.videoWidth, height: video.videoHeight, seconds: video.duration }); URL.revokeObjectURL(url); };
+    video.onerror = () => { resolve(null); URL.revokeObjectURL(url); };
+    video.src = url;
+  });
+}
+
 export default function GoLivePromoManager({ clientId }: { clientId?: string } = {}) {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [title, setTitle] = useState('');
@@ -36,6 +48,9 @@ export default function GoLivePromoManager({ clientId }: { clientId?: string } =
     if (!file) return setError('Choose a video file first.');
     if (!ACCEPTED.split(',').includes(file.type)) return setError('Upload an MP4, WebM or MOV video.');
     if (file.size > MAX_BYTES) return setError(`This file is ${(file.size / 1048576).toFixed(1)} MB; the limit is 50 MB.`);
+    const shape = await measureVideo(file);
+    if (shape && shape.width > shape.height) return setError(`This video is ${shape.width} × ${shape.height} (landscape). The Go Live screen is vertical: upload a portrait 9:16 video, best 1080 × 1920.`);
+    if (shape && (shape.seconds < 5 || shape.seconds > 60)) return setError(`This video is ${Math.round(shape.seconds)} seconds; promos must be 5 to 60 seconds.`);
     setBusy(true);
     try {
       const start = await (await fetch('/api/maharaja/promos', {
@@ -78,7 +93,8 @@ export default function GoLivePromoManager({ clientId }: { clientId?: string } =
   return (
     <div>
       <div>
-        <p className="text-sm text-muted">{promos.length} of 3 · portrait MP4, WebM or MOV, 5–60 seconds, up to 50 MB</p>
+        <p className="text-sm text-ink">{promos.length} of 3 · MP4, WebM or MOV · portrait 9:16, best 1080 × 1920 · 5–60 seconds · up to 50 MB</p>
+        <p className="mt-1 text-sm text-muted">Plays on your Go Live player after every 10 customer videos.</p>
         <ul className="mt-3 space-y-2">
           {promos.map((promo) => (
             <li key={promo.id} className="rounded-2xl flex items-center justify-between gap-3 border border-line bg-white px-3 py-2 text-sm">

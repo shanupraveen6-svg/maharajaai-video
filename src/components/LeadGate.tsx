@@ -31,6 +31,10 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
   const { t } = usePhoneLanguage();
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState('');
+  // AI Video also asks for a name and city; Try-On asks for the number only.
+  const asksDetails = source === 'ai-video';
+  const [name, setName] = useState('');
+  const [city, setCity] = useState('');
   const [offers, setOffers] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -59,13 +63,17 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
       setError(t('leadInvalid'));
       return;
     }
+    if (asksDetails && (!name.trim() || !city.trim())) {
+      setError(t('leadNameCityMissing'));
+      return;
+    }
     setBusy(true);
     setError('');
     try {
       const response = await fetch('/api/maharaja/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, ref, source, phone: digits, marketingConsent: offers }),
+        body: JSON.stringify({ kind, ref, source, phone: digits, marketingConsent: offers, ...(asksDetails ? { name: name.trim(), city: city.trim() } : {}) }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.token) throw new Error(data?.error || t('leadInvalid'));
@@ -113,6 +121,18 @@ export function useLeadGate({ kind, ref, source }: { kind: LeadKind; ref: string
             className="min-h-12 min-w-0 flex-1 bg-transparent px-2 text-lg tabular-nums outline-none"
           />
         </div>
+        {asksDetails && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="block text-sm font-semibold text-ink">{t('leadName')}</span>
+              <input value={name} onChange={(event) => setName(event.target.value)} maxLength={60} autoComplete="name" className="mt-1.5 min-h-12 w-full rounded-xl border border-line-strong bg-white px-3 text-lg outline-none focus:border-ink" />
+            </label>
+            <label className="block">
+              <span className="block text-sm font-semibold text-ink">{t('leadCity')}</span>
+              <input value={city} onChange={(event) => setCity(event.target.value)} maxLength={60} autoComplete="address-level2" className="mt-1.5 min-h-12 w-full rounded-xl border border-line-strong bg-white px-3 text-lg outline-none focus:border-ink" />
+            </label>
+          </div>
+        )}
         <label className="mt-4 flex min-h-11 items-start gap-3 text-[15px]">
           <input type="checkbox" checked={offers} onChange={(event) => setOffers(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
           <span>{t('leadOffers')}</span>

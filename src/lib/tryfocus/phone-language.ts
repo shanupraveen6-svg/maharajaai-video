@@ -113,7 +113,7 @@ const STRINGS = {
   continueWithOutfit: { en: 'Continue with this outfit', ta: 'இந்த உடையுடன் தொடருங்கள்' },
   saving: { en: 'Saving…', ta: 'சேமிக்கிறது…' },
   // Live Mirror video page
-  mirrorTitle: { en: 'Your Western Try-On video', ta: 'உங்கள் வெஸ்டர்ன் ட்ரை அவ் வீடியோ' },
+  mirrorTitle: { en: 'Your Live Try-On video', ta: 'உங்கள் லைவ் ட்ரை-ஆன் வீடியோ' },
   downloadVideo: { en: 'Download video', ta: 'வீடியோவைப் பதிவிறக்கு' },
   compareLooks: { en: 'Compare your looks', ta: 'உங்கள் தோற்றங்களை ஒப்பிடுங்கள்' },
   compareLooksText: { en: 'Every outfit you tried, side by side. Tap one to save it.', ta: 'நீங்கள் அணிந்த எல்லா உடைகளும் அருகருகே. சேமிக்க ஒன்றைத் தொடுங்கள்.' },
@@ -124,6 +124,9 @@ const STRINGS = {
   leadTitle: { en: 'Save to your phone', ta: 'உங்கள் போனில் சேமிக்க' },
   leadText: { en: 'Enter your WhatsApp number to download your look.', ta: 'உங்கள் தோற்றத்தைப் பதிவிறக்க உங்கள் வாட்ஸ்அப் எண்ணை உள்ளிடுங்கள்.' },
   leadNumber: { en: 'WhatsApp number', ta: 'வாட்ஸ்அப் எண்' },
+  leadName: { en: 'Your name', ta: 'உங்கள் பெயர்' },
+  leadCity: { en: 'City', ta: 'ஊர்' },
+  leadNameCityMissing: { en: 'Enter your name and city.', ta: 'உங்கள் பெயரையும் ஊரையும் உள்ளிடுங்கள்.' },
   leadOffers: { en: 'Send me this store’s offers on WhatsApp', ta: 'இந்தக் கடையின் சலுகைகளை வாட்ஸ்அப்பில் எனக்கு அனுப்பவும்' },
   leadSubmit: { en: 'Download', ta: 'பதிவிறக்கு' },
   leadAlreadyRegistered: { en: 'This number is already registered. Your download is starting.', ta: 'இந்த எண் ஏற்கனவே பதிவு செய்யப்பட்டுள்ளது. பதிவிறக்கம் தொடங்குகிறது.' },

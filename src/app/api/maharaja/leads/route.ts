@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOperatorSession } from '@/lib/auth/operator';
 import { bindClient } from '@/lib/maharaja/client-context';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
-import { LEAD_SOURCES, type LeadSource, leadsCsv, listLeads, maskMobile, normalizeIndianMobile, recordLead } from '@/lib/maharaja/leads';
+import { LEAD_SOURCES, type LeadSource, cleanLeadText, leadsCsv, listLeads, maskMobile, normalizeIndianMobile, recordLead } from '@/lib/maharaja/leads';
 import { readMirrorRecording } from '@/lib/maharaja/mirror-recordings';
 import { resolveRequestClientId, verifyClientSessionCurrent, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
@@ -31,6 +31,12 @@ export async function POST(req: NextRequest) {
   if (!phone) {
     return NextResponse.json({ success: false, error: 'Enter a 10-digit WhatsApp number.' }, { status: 400 });
   }
+  // The AI Video download also asks for a name and city (the store follows up on premium pieces).
+  const name = cleanLeadText(body?.name);
+  const city = cleanLeadText(body?.city);
+  if (source === 'ai-video' && (!name || !city)) {
+    return NextResponse.json({ success: false, error: 'Enter your name and city.' }, { status: 400 });
+  }
 
   let clientId: string | null = null;
   if (kind === 'pass') {
@@ -49,7 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'This link has expired. Ask our staff for a new QR.' }, { status: 404 });
   }
   bindClient(clientId);
-  const lead = await recordLead({ phone, marketingConsent: body?.marketingConsent === true, source, clientId });
+  const lead = await recordLead({ phone, marketingConsent: body?.marketingConsent === true, source, name, city, clientId });
   return NextResponse.json({ success: true, token: lead.token, phoneMasked: maskMobile(phone), alreadyRegistered: lead.alreadyRegistered }, { headers: { 'Cache-Control': 'private, no-store' } });
 }
 

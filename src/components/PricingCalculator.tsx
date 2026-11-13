@@ -24,12 +24,12 @@ export type PricingCalculatorConfig = {
 };
 
 const PLATFORM_TEXT: Record<Platform, { Icon: typeof Tv; text: string }> = {
-  tv: { Icon: Tv, text: 'A portrait TV in your showroom: Try-On, AI Video and Western Try-On. The Wall QR phone Try-On and AI Video on the shopper’s phone are included.' },
+  tv: { Icon: Tv, text: 'A portrait TV in your showroom: Try-On, AI Video and Live Try-On. The Wall QR phone Try-On and AI Video on the shopper’s phone are included.' },
   tablet: { Icon: Tablet, text: 'A tablet at your counter, run by your team: Try-On from the collection or the shopper’s own outfit. The Wall QR phone Try-On is included. AI Video starts only on the TV.' },
   phone: { Icon: Smartphone, text: 'Shoppers use their own phones through your Wall QR.' },
 };
 
-const MODULE_NAMES: Record<CreditModule, string> = { image: 'Try-On', video: 'AI Video with Go Live', live: 'Western Try-On' };
+const MODULE_NAMES: Record<CreditModule, string> = { image: 'Try-On', video: 'AI Video with Go Live', live: 'Live Try-On' };
 
 const MODULES: CreditModule[] = ['image', 'video', 'live'];
 

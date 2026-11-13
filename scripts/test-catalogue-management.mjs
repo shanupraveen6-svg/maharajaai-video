@@ -42,7 +42,7 @@ await runWithClient('catalogue-mgmt-store', async () => {
   await catalogue.upsertCatalogueProduct({ sku: 'MGMT-2', title: 'Blue Shirt', price: 0, category: 'formal-shirts', gender: 'men', imageUrl: '/images/y.jpg' });
   await catalogue.upsertCatalogueProduct({ sku: 'MGMT-3', title: 'Silk Saree', price: 25000, category: 'sarees', gender: 'women', imageUrl: '/images/z.jpg' });
 
-  // Tags, hide and Western Try-On on many garments at once; unknown SKUs are ignored, never half-created.
+  // Tags, hide and Live Try-On on many garments at once; unknown SKUs are ignored, never half-created.
   assert.equal(await catalogue.bulkUpdateCatalogueFlags(['MGMT-1', 'MGMT-2', 'NOT-THERE'], { trending: true, newArrival: true }), 2);
   let records = await catalogue.loadAllCatalogueRecords(true);
   const one = records.find((item) => item.sku === 'MGMT-1');

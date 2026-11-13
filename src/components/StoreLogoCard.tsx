@@ -20,10 +20,25 @@ export default function StoreLogoCard({ onStatus, clientId }: { onStatus?: (hasL
   // eslint-disable-next-line react-hooks/exhaustive-deps -- onStatus only reports the result
   useEffect(load, [clientId]);
 
+  /** Pixel size, read in the browser so a too-small logo is refused before it uploads. */
+  function measure(file: File): Promise<{ width: number; height: number }> {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { resolve({ width: img.naturalWidth, height: img.naturalHeight }); URL.revokeObjectURL(url); };
+      img.onerror = () => { resolve({ width: 0, height: 0 }); URL.revokeObjectURL(url); };
+      img.src = url;
+    });
+  }
+
   async function upload(file?: File) {
     if (!file) return;
-    setBusy(true);
     setMessage('');
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { setMessage('Use a PNG, JPG or WebP logo.'); return; }
+    if (file.size > 3 * 1024 * 1024) { setMessage(`This logo is ${(file.size / 1048576).toFixed(1)} MB; the limit is 3 MB.`); return; }
+    const { width, height } = await measure(file);
+    if (width < 400 || height < 100) { setMessage(`This logo is ${width} × ${height} px; it needs to be at least 400 × 100 px so it prints sharp.`); return; }
+    setBusy(true);
     try {
       const form = new FormData();
       form.set('logo', file);
@@ -44,7 +59,8 @@ export default function StoreLogoCard({ onStatus, clientId }: { onStatus?: (hasL
   return (
     <section className="tf-card p-6">
       <h2 className="text-lg font-bold">Store logo</h2>
-      <p className="mt-1 text-sm text-muted">Printed on every look customers download. PNG, JPG or WebP, under 3 MB. A wide logo (roughly 3:1, transparent background) fits best.</p>
+      <p className="mt-1 text-sm text-muted">Printed on every look customers download.</p>
+      <p className="mt-1 text-sm text-ink">PNG, JPG or WebP · up to 3 MB · at least 400 × 100 px · best 1200 × 400 px (wide, about 3:1) with a transparent background.</p>
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <div className="flex h-20 w-40 items-center justify-center rounded-xl border border-line bg-white p-2">
           {preview ? <img src={preview} alt="Your store logo" className="max-h-full max-w-full object-contain" /> : <span className="text-sm text-subtle">No logo yet</span>}

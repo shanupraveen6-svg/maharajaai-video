@@ -12,5 +12,5 @@ export const LEAD_SOURCE_NAMES: Record<LeadSource, string> = {
   'try-on': 'Try-On',
   'tv-looks': 'Try-On',
   'ai-video': 'AI Video',
-  'live-mirror': 'Western Try-On',
+  'live-mirror': 'Live Try-On',
 };

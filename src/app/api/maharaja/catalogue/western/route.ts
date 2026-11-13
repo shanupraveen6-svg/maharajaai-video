@@ -8,8 +8,8 @@ import { findCategory, isWesternCategory } from '@/lib/tryfocus/store-categories
 export const dynamic = 'force-dynamic';
 
 /**
- * Western wear follows the category. `{ categoryId, western }` flips one category's WW switch and brings
- * every garment already in it along. `{ applyAll: true }` is the one-time correction: every garment set to
+ * Live Try-On for a whole category. `{ categoryId, western }` is the switch above the Image Try-On table:
+ * every garment already in the category goes on (or off) Live Try-On, and new uploads into it follow. `{ applyAll: true }` is the one-time correction: every garment set to
  * its category's Western wear setting, and the old SKU-prefix AI Video exception written down for real.
  */
 export async function POST(req: NextRequest) {
@@ -54,9 +54,9 @@ export async function POST(req: NextRequest) {
     const updated = await updateMaharajaSettings({ westernOverrides: { ...(workspace.westernOverrides || {}), [categoryId]: western } }, workspace.clientId);
     const inCategory = records.filter((item) => item.category === categoryId && (item.eligibleForLive === true) !== western).map((item) => item.sku);
     const changed = inCategory.length ? await bulkUpdateCatalogueFlags(inCategory, { eligibleForLive: western }) : 0;
-    await logMaharajaActivity('campaign', `${findCategory(categoryId, customCategories)?.label} set to ${western ? 'Western wear' : 'not Western wear'}`, { categoryId, western, changed }).catch(() => undefined);
+    await logMaharajaActivity('campaign', `Live Try-On ${western ? 'on' : 'off'} for all ${findCategory(categoryId, customCategories)?.label}`, { categoryId, western, changed }).catch(() => undefined);
     return NextResponse.json({ success: true, changed, westernOverrides: updated.westernOverrides || {} });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Could not update Western wear.' }, { status: 400 });
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Could not update Live Try-On.' }, { status: 400 });
   }
 }

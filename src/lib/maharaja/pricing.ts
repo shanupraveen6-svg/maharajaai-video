@@ -4,7 +4,7 @@
  *  - Software is a one-time fee per platform.
  *  - Credits are pay as you go, paid upfront, valid for 6 months. Each module has a minimum and a maximum
  *    and moves in steps of 500. A platform's modules are all required (see access.ts):
- *      TV = images + AI Video + Western Try-On · Tablet = images only · Phone = images.
+ *      TV = images + AI Video + Live Try-On · Tablet = images only · Phone = images.
  *  - Credits are priced in bands: each extra credit costs less as the store buys more, so a bigger order
  *    always costs more in total. Band prices hold a 25% / 20% / 15% margin over the AI cost.
  * All amounts are in rupees, before GST.
@@ -41,7 +41,7 @@ export const CREDIT_RANGE: Record<CreditModule, { min: number; max: number; step
 export const CREDIT_LABELS: Record<CreditModule, string> = {
   image: 'Try-On images',
   video: 'AI Videos',
-  live: 'Western Try-On sessions',
+  live: 'Live Try-On sessions',
 };
 
 export const CREDIT_VALIDITY_MONTHS = 6;

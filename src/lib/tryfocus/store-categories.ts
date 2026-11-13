@@ -114,7 +114,7 @@ export function sanitizeCategoryLists(value: unknown, customCategories: CustomCa
 
 /**
  * Whether a category is Western wear for this store: its WW switch if the store set one, otherwise the
- * category's own default. Garments uploaded into a Western wear category start on Western Try-On.
+ * category's own default. Garments uploaded into a Western wear category start on Live Try-On.
  */
 export function isWesternCategory(id: string, customCategories: CustomCategory[] = [], overrides: WesternOverrides = {}): boolean {
   if (typeof overrides[id] === 'boolean') return overrides[id];

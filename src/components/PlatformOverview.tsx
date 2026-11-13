@@ -79,7 +79,7 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
     ['Clients', String(clients.length), `${live} live · ${clients.length - live} paused`],
     ['Try-On looks', sum((item) => item.usage.image).toLocaleString('en-IN'), `${sum((item) => item.usage.scans || 0).toLocaleString('en-IN')} QR opens · ${sum((item) => item.usage.downloads || 0).toLocaleString('en-IN')} downloads`],
     ['AI Videos', sum((item) => item.usage.video).toLocaleString('en-IN'), `${sum((item) => item.usage.goLive || 0).toLocaleString('en-IN')} sent to Go Live`],
-    ['Western Try-On', sum((item) => item.usage.live).toLocaleString('en-IN'), 'live sessions'],
+    ['Live Try-On', sum((item) => item.usage.live).toLocaleString('en-IN'), 'live sessions'],
   ];
 
   return (

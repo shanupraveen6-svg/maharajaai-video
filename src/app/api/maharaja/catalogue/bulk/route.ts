@@ -15,6 +15,8 @@ const ACTIONS: Record<string, { flags?: CatalogueFlags; label: string }> = {
   'trending-on': { flags: { trending: true }, label: 'tagged Trending' },
   'trending-off': { flags: { trending: false }, label: 'untagged Trending' },
   'ai-video-off': { flags: { eligibleForVideo: false }, label: 'removed from AI Video' },
+  'live-on': { flags: { eligibleForLive: true }, label: 'put on Live Try-On' },
+  'live-off': { flags: { eligibleForLive: false }, label: 'removed from Live Try-On' },
 };
 
 /** One action on many garments at once: delete, hide or show, or a New arrival / Trending tag. */

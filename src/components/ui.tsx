@@ -96,6 +96,18 @@ export function SectionCard({ title, description, action, children, className = 
   );
 }
 
+/** An on/off switch (selected = ink). `label` is read out; `children` is shown beside it. */
+export function Switch({ checked, onChange, label, disabled, children }: { checked: boolean; onChange: (next: boolean) => void; label: string; disabled?: boolean; children?: ReactNode }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)} className="inline-flex min-h-10 items-center gap-2.5 text-sm font-semibold text-ink disabled:opacity-50">
+      <span className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${checked ? 'bg-ink' : 'bg-line-strong'}`}>
+        <span className={`absolute h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? 'left-6' : 'left-1'}`} />
+      </span>
+      {children}
+    </button>
+  );
+}
+
 export function StatusPill({ tone = 'neutral', children }: { tone?: 'neutral' | 'success' | 'warn' | 'danger' | 'brand'; children: ReactNode }) {
   const tones = {
     neutral: 'bg-line text-muted',
