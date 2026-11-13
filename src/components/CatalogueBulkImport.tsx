@@ -183,7 +183,7 @@ export default function CatalogueBulkImport({
             <div role="group" aria-label="Category" className="flex flex-wrap gap-2">
               {categories.map((cat) => (
                 <button key={cat.id} type="button" aria-pressed={category === cat.id} onClick={() => setCategory(cat.id as string)} className={`min-h-11 rounded-full px-4 text-sm font-semibold transition ${category === cat.id ? 'bg-ink text-white' : 'border border-line-strong bg-white text-ink hover:border-ink'}`}>
-                  {cat.label}{kind === 'tryon' && western(cat.id as string) ? ' · WW' : ''}
+                  {cat.label}
                 </button>
               ))}
             </div>

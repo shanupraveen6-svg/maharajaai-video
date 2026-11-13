@@ -42,9 +42,10 @@ TV, three tabs:
   also Go Live.
 - Western Try-On: shirts, dresses and other western-cut garments only — the real-time engine (Decart Lucy) does
   not handle draped or ethnic wear (a saree, lehenga, veshti, kurta set…) well, so the name says what it is
-  before the customer ever taps it. Eligibility follows the category: each category is Western wear (WW) or
-  not — shirts, tops, gowns and jumpsuits start WW, sarees and kurtas never do — and the store can flip a
-  category's WW switch in Categories customers see. Who → pick exactly two pieces
+  before the customer ever taps it. Eligibility follows the category: Catalogue → Categories holds one Western
+  Try-On list, picked from the same Try-On categories and already filled with the western ones (shirts,
+  tops, gowns, jumpsuits; never sarees or kurtas). The store adds or removes categories there (✕ / +), and
+  a category's garments follow. There is no WW switch on a category chip. Who → pick exactly two pieces
   from a picture-card grid (the same image-card design as Try-On's own picker, numbered 1 and 2 as they're
   tapped, never a checkmark) → Start opens a dedicated full-screen camera, no side panel competing for space.
   The first outfit is already active; one large center button, Start live Try-On, begins it with no countdown
@@ -91,10 +92,11 @@ show prices.
 
 The Catalogue tab (TryFocus admin and the store see the same one) has two sections, Try-On and AI Video,
 each with the same three things: a Categories button, an Upload garments button, and the garment table.
-- Try-On is the whole collection, with no prices. Its categories carry one WW (Western wear) switch each;
-  a WW category's garments also go on Western Try-On by themselves. Upload: pick who and a category, add
+- Try-On is the whole collection, with no prices. Under its categories sits the Western Try-On list
+  (the same categories); garments in a listed category also go on Western Try-On by themselves, and existing
+  garments are matched to the list once, automatically, with nothing to tap. Upload: pick who and a category, add
   photos, switch to another who or category and add more, then Submit once. Table: who → category tabs →
-  photo · name · WW on/off · ✕ (delete).
+  photo · name · Western Try-On on/off (an exception for one garment) · ✕ (delete).
 - AI Video is the short list of premium pieces, with its own category list and its own upload: pick who and a
   category, add photos, type a price on every row, Save (blocked until every row has one). Table: who →
   category tabs → photo · name · price · ✕ (takes the piece off AI Video; it stays in Try-On). AI Video pieces

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import { CREDIT_LEVEL_STATUS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
@@ -399,24 +399,27 @@ export default function MaharajaAdminDashboard({
     }
   }
 
-  /** The one-time correction: every existing garment brought in line with its category's Western wear. */
-  async function applyWesternRule() {
-    setCatalogueBusy(true);
-    setError('');
-    setNotice('');
-    try {
-      const res = await fetch('/api/maharaja/catalogue/western', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceCode: activeWorkspaceCode, applyAll: true }) });
-      const data = await res.json();
-      if (!res.ok || !data?.success) throw new Error(data?.error || 'Could not apply the Western wear rule.');
-      setWorkspace((prev) => (prev ? { ...prev, westernRuleAppliedAt: data.westernRuleAppliedAt } : prev));
-      await loadCatalogue();
-      setNotice(`Done: ${data.on} switched on and ${data.off} switched off for Western Try-On, to match their category.`);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not apply the Western wear rule.');
-    } finally {
-      setCatalogueBusy(false);
-    }
-  }
+  /**
+   * The one-time correction, run by itself the first time the catalogue opens: every existing garment is put
+   * on (or off) Western Try-On to match the Western Try-On category list. Silent; nothing for the store to tap.
+   */
+  const westernRuleStarted = useRef(false);
+  const needsWesternRule = Boolean(workspace && !workspace.westernRuleAppliedAt && !catalogueLoading && catalogue.length > 0 && westernMismatches > 0);
+  useEffect(() => {
+    if (!needsWesternRule || westernRuleStarted.current) return;
+    westernRuleStarted.current = true;
+    void (async () => {
+      try {
+        const res = await fetch('/api/maharaja/catalogue/western', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceCode: activeWorkspaceCode, applyAll: true }) });
+        const data = await res.json();
+        if (!res.ok || !data?.success) return;
+        setWorkspace((prev) => (prev ? { ...prev, westernRuleAppliedAt: data.westernRuleAppliedAt } : prev));
+        await loadCatalogue();
+      } catch {
+        // Tried again next time the workspace opens.
+      }
+    })();
+  }, [needsWesternRule, activeWorkspaceCode, loadCatalogue]);
 
 
   useEffect(() => setCataloguePage(0), [catGender, catFilter, catSection]);
@@ -788,7 +791,7 @@ export default function MaharajaAdminDashboard({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted">
                   {catSection === 'tryon'
-                    ? 'Every garment, no prices. A WW (Western wear) category also goes on Western Try-On.'
+                    ? 'Every garment, no prices.'
                     : 'Premium pieces with a price. They show in Try-On too, without the price.'}
                 </p>
                 <div className="flex gap-2">
@@ -807,7 +810,7 @@ export default function MaharajaAdminDashboard({
                       garmentCounts={garmentCounts}
                       saving={saving || catalogueBusy}
                       onSave={(categoryLists) => void savePatch({ categoryLists })}
-                      onWestern={(categoryId, western) => void setWesternWear(categoryId, western)}
+                      onWestern={limits.live > 0 ? (categoryId, western) => void setWesternWear(categoryId, western) : undefined}
                       onAddCustom={(input) => {
                         const slug = input.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'category';
                         const id = `custom-${slug}-${Date.now().toString(36)}`;
@@ -858,13 +861,6 @@ export default function MaharajaAdminDashboard({
                     setNotice(catSection === 'video' ? `${count} garment(s) saved to AI Video.` : `${count} garment(s) added to Try-On.`);
                   }}
                 />
-              )}
-
-              {catSection === 'tryon' && !workspace.westernRuleAppliedAt && limits.live > 0 && westernMismatches > 0 && !catalogueLoading && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warn bg-warn-soft px-4 py-3">
-                  <p className="text-sm text-ink"><b>{westernMismatches} garment(s)</b> don&apos;t match their category&apos;s Western wear setting.</p>
-                  <button type="button" disabled={catalogueBusy} onClick={() => void applyWesternRule()} className="tf-btn tf-btn-primary !min-h-10 px-4 text-sm">Match all to their category</button>
-                </div>
               )}
 
               <div className="max-w-md">

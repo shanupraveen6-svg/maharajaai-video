@@ -85,7 +85,7 @@ export default function CatalogueTable({
               <th className="w-20 p-3">Photo</th>
               <th className="p-3">Garment</th>
               {kind === 'video' && <th className="w-44 p-3">Price</th>}
-              {kind === 'tryon' && showWestern && <th className="w-48 p-3">Western Try-On (WW)</th>}
+              {kind === 'tryon' && showWestern && <th className="w-48 p-3">Western Try-On</th>}
               <th className="w-40 p-3" />
             </tr>
           </thead>
