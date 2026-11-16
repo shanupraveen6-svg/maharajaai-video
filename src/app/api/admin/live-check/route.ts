@@ -11,8 +11,9 @@ import { falStatus } from '@/lib/maharaja/fal-status';
 import { loadAllCatalogueRecords } from '@/lib/maharaja/catalogue';
 import { readCataloguePhoto } from '@/lib/maharaja/photo-source';
 import { garmentPhotoSizes, MIN_GARMENT_LONG_SIDE } from '@/lib/maharaja/garment-warm';
-import { runWithClient } from '@/lib/maharaja/client-context';
+import { liveScreenId, runWithClient } from '@/lib/maharaja/client-context';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
+import { spendToday } from '@/lib/maharaja/usage-ledger';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -84,6 +85,30 @@ export async function GET(req: NextRequest) {
       const soft = sizes.filter((px) => px < MIN_GARMENT_LONG_SIDE).length;
       if (soft) throw new Error(`${soft} of ${sizes.length} photos under ${MIN_GARMENT_LONG_SIDE} px — Try-On on them looks soft`);
       return `All ${sizes.length} photos ${MIN_GARMENT_LONG_SIDE} px or larger`;
+    }),
+    run('go-live-index', 'Go Live queue (database index)', async () => {
+      const db = getDb();
+      if (!db) throw new Error('Not connected');
+      // The same filtered, ordered read the Go Live player makes; without its index Firestore refuses it.
+      await runWithClient(MAHARAJA_CLIENT_ID, () => db.collection('liveQueue')
+        .where('screenId', '==', liveScreenId()).where('status', '==', 'queued').orderBy('createdAt').limit(1).get());
+      return 'Index in place';
+    }),
+    run('cleanup', 'Privacy cleanup (expired photos and videos)', async () => {
+      const db = getDb();
+      if (!db) throw new Error('Not connected');
+      const last = Number((await db.doc('appControl/privacy-sweep').get()).data()?.lastRunAtMs || 0);
+      if (!last) return 'Not run yet (starts with store traffic)';
+      const hours = (Date.now() - last) / 3_600_000;
+      if (hours > 24) throw new Error(`Last ran ${Math.round(hours)} hours ago — check the Vercel cron and store traffic`);
+      return hours < 1 ? `Ran ${Math.max(1, Math.round(hours * 60))} min ago` : `Ran ${Math.round(hours)} h ago`;
+    }),
+    run('spend-cap', 'Daily AI safety stop', async () => {
+      const today = await runWithClient(MAHARAJA_CLIENT_ID, () => spendToday());
+      if (!today.caps.platform) return 'Switched off (AI_DAILY_CAP_PLATFORM_USD=0)';
+      const used = Math.round((today.platformUsd / today.caps.platform) * 100);
+      if (used >= 100) throw new Error('Reached for today — AI calls are paused until midnight; raise AI_DAILY_CAP_PLATFORM_USD if this is real use');
+      return `${used}% of today's limit used`;
     }),
     run('fal', 'fal (AI Video, Live Try-On)', async () => {
       const status = await falStatus(true);

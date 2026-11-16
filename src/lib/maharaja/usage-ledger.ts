@@ -40,13 +40,18 @@ export function aiCostUsd(kind: AiCostKind) {
 export { usdToInr } from './currency';
 
 /**
- * A daily safety cap for the whole platform in US dollars (AI_DAILY_CAP_PLATFORM_USD; unset or 0 means
- * none). Stores have no daily cap: they bought a package, and they are told at 50/70/90/95% and when it
- * is finished (see credits.ts).
+ * A daily safety cap for the whole platform in US dollars (AI_DAILY_CAP_PLATFORM_USD; unset means the
+ * built-in default, 0 means none). Stores have no daily cap: they bought a package, and they are told at
+ * 50/70/90/95% and when it is finished (see credits.ts).
  */
 export function spendCaps() {
-  return { platform: envNumber('AI_DAILY_CAP_PLATFORM_USD') || null };
+  const configured = envNumber('AI_DAILY_CAP_PLATFORM_USD');
+  // Not set: a built-in safety stop so a runaway bug can never spend without limit. 0: no cap at all.
+  return { platform: configured === null ? DEFAULT_PLATFORM_DAILY_CAP_USD : configured || null };
 }
+
+/** About ₹9,800 a day: far above a busy store's real use, well below what a looping bug could burn overnight. */
+export const DEFAULT_PLATFORM_DAILY_CAP_USD = 100;
 
 /** Store days and months follow India time, so a day's spend resets at midnight IST. */
 export function istDay(date = new Date()) {

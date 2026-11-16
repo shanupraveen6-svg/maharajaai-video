@@ -36,7 +36,11 @@ assert.ok(Math.abs(a.clientUsd - (0.48 + ledger.aiCostUsd('try-on'))) < 1e-9);
 assert.ok(Math.abs(a.platformUsd - (1.48 + ledger.aiCostUsd('try-on'))) < 1e-9);
 assert.equal((await ledger.monthlyReport('ledger-b')).costUsdByKind['live-session'], 1);
 
-// No caps set: everything runs.
+// No cap set: the built-in safety stop applies (far above real use), and 0 switches it off.
+assert.equal(ledger.spendCaps().platform, ledger.DEFAULT_PLATFORM_DAILY_CAP_USD, 'Built-in daily cap when unset');
+process.env.AI_DAILY_CAP_PLATFORM_USD = '0';
+assert.equal(ledger.spendCaps().platform, null, '0 means no cap');
+delete process.env.AI_DAILY_CAP_PLATFORM_USD;
 assert.equal(await ledger.spendAllowed('ledger-a'), true);
 
 // Stores have no daily cap (they bought a package): an old client cap setting is ignored.
