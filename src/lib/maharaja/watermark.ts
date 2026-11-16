@@ -39,7 +39,7 @@ async function applyCardLogo(inputImageBuffer: Buffer, logo: Buffer): Promise<Bu
   const margin = Math.max(16, Math.round(width * 0.035));
   return sharp(inputImageBuffer)
     .composite([{ input: card, top: height - cardH - margin, left: width - cardW - margin }])
-    .jpeg({ quality: 92 })
+    .jpeg({ quality: 86, mozjpeg: true })
     .toBuffer();
 }
 
@@ -101,7 +101,7 @@ async function applyRoundBadge(inputImageBuffer: Buffer, logoPath: Buffer): Prom
           left: width - badgeWidth - margin,
         },
       ])
-      .jpeg({ quality: 92 })
+      .jpeg({ quality: 86, mozjpeg: true })
       .toBuffer();
   } catch (error) {
     console.error('Failed to apply Maharaja watermark:', error);

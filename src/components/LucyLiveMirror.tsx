@@ -516,7 +516,7 @@ export default function LucyLiveMirror({
         </div>
       )}
 
-      <div className="relative w-full overflow-hidden rounded-3xl bg-ink shadow-md" style={{ height: isChild ? '42vh' : '50vh' }}>
+      <div className="relative w-full overflow-hidden rounded-3xl bg-ink shadow-md" style={{ height: isChild ? '41vh' : '49vh' }}>
         <video ref={localVideoRef} playsInline muted autoPlay className={`h-full w-full object-cover [transform:scaleX(-1)] ${session === 'live' ? 'opacity-0' : 'opacity-100'}`} />
         <video ref={remoteVideoRef} playsInline muted autoPlay className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${session === 'live' ? 'opacity-100' : 'pointer-events-none opacity-0'}`} />
 

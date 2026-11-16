@@ -1,5 +1,6 @@
 'use client';
 
+import LiveCheckCard from '@/components/LiveCheckCard';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, Store } from 'lucide-react';
 import { CREDIT_LEVEL_STATUS, creditStatuses } from '@/lib/maharaja/credits';
@@ -84,6 +85,8 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
 
   return (
     <div className="space-y-4">
+      {/* Is everything a customer's look needs working right now (fal balance, GenLook credits, keys)? */}
+      <LiveCheckCard />
 
       {/* The platform at a glance: four numbers in one strip. */}
       <section className="tf-card grid grid-cols-2 divide-line p-0 lg:grid-cols-4 lg:divide-x">

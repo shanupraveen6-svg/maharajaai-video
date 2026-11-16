@@ -59,7 +59,7 @@ for (const concept of VIDEO_CONCEPTS) {
     const input = buildVideoTestInput(model.id, references[0], references.slice(1), concept.id, ['front', 'back']);
     assert.equal(input.duration, 6);
     assert.equal(input.aspect_ratio, '9:16');
-    assert.match(input.prompt, /Image 1|@customer|\[@reference_image_1\]/);
+    assert.match(input.prompt, /Image 1|The first image/);
     assert.match(input.prompt, /smile/i);
     if (model.id === 'h3-max') {
       assert.match(input.prompt, /Image 1 is the approved exact opening frame/i);
@@ -74,7 +74,8 @@ for (const concept of VIDEO_CONCEPTS) {
       assert.equal(input.resolution, '768P');
       assert.equal(input.prompt_expansion_mode, 'disabled');
     } else if (model.id === 'gemini-omni') {
-      assert.match(input.prompt, /Image 1 is the approved exact opening frame/i);
+      // Gemini Omni names its images in words (it reads them in list order before the prompt).
+      assert.match(input.prompt, /^The first image is the opening frame of this video/);
       assert.deepEqual(input.image_urls, references);
       assert.deepEqual([input.resolution, input.aspect_ratio], ['720p', '9:16']);
     }
