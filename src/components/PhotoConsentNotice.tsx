@@ -13,7 +13,7 @@ const SUMMARY: Record<ConsentKind, string> = {
 };
 
 const DETAILS: Record<ConsentKind, string> = {
-  'try-on': 'AI partners: GenLook, Fal.ai or FASHN creates the look; if one fails, the next is used, with Google Gemini as the last backup. Your photo is removed from our storage after the look is made; the result is shown to you and is never put on the store TV.',
+  'try-on': 'AI partners: GenLook creates the look; if it fails, Google Gemini is the backup. Your photo is removed from our storage after the look is made; the result is shown to you and is never put on the store TV.',
   video: 'AI partners: Google Gemini creates the festival portrait and a video service on Fal.ai creates the video (the next one is used if one fails). Photos and the video are kept for 1 hour for you to download, then deleted. Showing a video on the store’s Go Live screen is optional, needs your separate consent, and keeps it for 1 day.',
   live: 'AI partner: Fal.ai (Lucy live try-on). The TV records each 30-second session in its own browser so you can watch it back right away. Nothing is uploaded or kept: the videos are deleted when you end the session.',
   'phone-upload': 'The photo is used only for this store visit. A parent or guardian must agree for a child.',

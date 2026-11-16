@@ -86,18 +86,14 @@ export async function GET(req: NextRequest) {
     // The Try-On engine's key: ok, invalid or missing (never the balance, which is admin-only).
     const genlookKey = AI_CONFIG.GENLOOK_API_KEY;
     const genlook: EngineStatus = !genlookKey ? 'missing' : (await getGenlookCredits(genlookKey)).ok ? 'ok' : 'invalid';
-    // fal and Gemini are checked live, for free, the same way; FASHN has no documented free check (its
-    // own docs name only the paid /v1/run endpoint), so it reports only whether a key is present.
+    // fal and Gemini are checked live, for free, the same way.
     const [fal, gemini] = await Promise.all([checkFal(), checkGemini()]);
-    const fashn: EngineStatus = process.env.FASHN_API_KEY?.trim() ? 'unverified' : 'missing';
     return NextResponse.json({
       success: true,
       status: 'healthy',
       genlook,
       fal,
       gemini,
-      fashn,
-      fashnNote: fashn === 'unverified' ? 'Key present; FASHN has no free endpoint to verify it live.' : undefined,
       backend: getBackendMode(),
       firebase: true,
       storage: true,

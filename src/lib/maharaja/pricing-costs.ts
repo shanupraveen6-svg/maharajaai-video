@@ -6,7 +6,7 @@ import { type Credits, type Quote, PHONE_PACKAGE, PHONE_PACKAGE_CREDITS } from '
  * Our AI cost behind each credit, for TryFocus admin only (never sent to a store's screens). Each figure is
  * the average of the primary and backup engines, because engines switch automatically when one fails,
  * plus the retries a customer may take (about 15% of results).
- *  - Try-On image: GenLook, fal, FASHN and Gemini averaged.
+ *  - Try-On image: GenLook and Gemini averaged.
  *  - AI Video: the portrait (Gemini on fal, Gemini direct) plus a 6-second render (H3 Max at $0.48 with
  *    the Gemini Omni Flash backup at $0.60).
  *  - Live Try-On: one 30-second session on Decart Lucy (billed per second; no retry).

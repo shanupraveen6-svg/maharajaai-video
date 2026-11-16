@@ -6,27 +6,26 @@ import { getDb, getMockStore } from '@/lib/firebase/admin';
 import { inrToUsd } from './currency';
 
 /**
- * TryFocus's own record of what it has actually paid each dollar-billed AI vendor for — fal.ai (Try-On
- * backup, H3 Max and Gemini-Omni video, Live Try-On), Google Gemini (Try-On backup, the AI Video
- * portrait, garment checks, bill reading) and FASHN (a Try-On backup). GenLook is tracked separately
+ * TryFocus's own record of what it has actually paid each dollar-billed AI vendor for — fal.ai (H3 Max
+ * and Gemini-Omni video, Live Try-On) and Google Gemini (Try-On backup, own-outfit looks, the AI Video
+ * portrait, garment checks, bill reading). GenLook is tracked separately
  * (genlook-ledger.ts) because it bills in credits, not dollars, and locks allowances per store.
  *
  * Each vendor gets one doc: a log of top-ups (what was paid, in US dollars) and a running lifetime total
  * actually spent, attributed to that vendor from the real event that used it (never a guess at which
  * vendor served a request: see the `provider` argument threaded through recordAiCost in usage-ledger.ts).
  */
-export type ApiProvider = 'fal' | 'gemini' | 'fashn';
-export const API_PROVIDERS: ApiProvider[] = ['fal', 'gemini', 'fashn'];
+export type ApiProvider = 'fal' | 'gemini';
+export const API_PROVIDERS: ApiProvider[] = ['fal', 'gemini'];
 export const API_PROVIDER_LABELS: Record<ApiProvider, string> = {
-  fal: 'fal.ai (video, Live Try-On, Try-On backup)',
-  gemini: 'Google Gemini (AI Video portrait, Try-On backup, garment/bill reading)',
-  fashn: 'FASHN (Try-On backup)',
+  fal: 'fal.ai (AI Video, Live Try-On)',
+  gemini: 'Google Gemini (Try-On backup, AI Video portrait, garment/bill reading)',
 };
 
 /**
  * `usd` is the canonical amount every other calculation uses (purchased, used, free are all compared in
  * dollars). `enteredAmount`/`enteredCurrency` record what was actually typed in — fal is usually paid in
- * dollars, but Gemini (a Google Cloud India billing account) or FASHN may be paid in rupees — purely so
+ * dollars, but Gemini (a Google Cloud India billing account) may be paid in rupees — purely so
  * the top-up history reads back the way it was entered, at the ₹98/$1 rate in effect that day.
  */
 export type ApiTopUp = { id: string; usd: number; enteredAmount: number; enteredCurrency: 'usd' | 'inr'; note?: string; at: string };

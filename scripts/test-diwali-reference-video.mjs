@@ -7,7 +7,7 @@ const { FAL_VIDEO_MODELS, buildVideoTestInput, getVideoTestModel } = await impor
 
 assert.equal(VIDEO_CONCEPTS.length, 12);
 assert.equal(VIDEO_PROMPT_ARCHITECTURE_VERSION, 'festival-v8-grounded-performance');
-assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['h3-max', 'pixverse-c1', 'vidu-q4', 'gemini-omni']);
+assert.deepEqual(FAL_VIDEO_MODELS.map((model) => model.id), ['h3-max', 'gemini-omni']);
 assert.ok(FAL_VIDEO_MODELS.every((model) => model.seconds === 6), 'Every engine renders six seconds');
 assert.equal(getVideoTestModel().id, 'h3-max');
 assert.equal(getVideoTestModel('gemini-omni-1.1'), null);
@@ -73,26 +73,6 @@ for (const concept of VIDEO_CONCEPTS) {
       assert.deepEqual(input.reference_image_urls, references);
       assert.equal(input.resolution, '768P');
       assert.equal(input.prompt_expansion_mode, 'disabled');
-    } else if (model.id === 'pixverse-c1') {
-      // Reference-to-video: @customer (approved master) and @outfit references, scene restated, identity locked.
-      assert.match(input.prompt, /^@customer, the same /);
-      assert.match(input.prompt, /LOCKED: face, identity, age, skin tone, hair, body size and proportions exactly as @customer/);
-      assert.match(input.prompt, /small warm smile/i);
-      if (isChild) assert.match(input.prompt, /Namaste at mid-chest/i);
-      else assert.match(input.prompt, /Standing beside [^.]+\. [^.]+\. Feet planted[\s\S]*Around 2-3s/);
-      assert.match(input.prompt, /CAMERA: 0-1s[\s\S]*(?:track|crane|glide|rise|dolly|reveal|arc|lower|pan|push)/i);
-      assert.deepEqual(input.image_references.map((item) => item.image_url), references);
-      assert.deepEqual(input.image_references.map((item) => item.ref_name), ['customer', 'outfit1', 'outfit2']);
-      assert.equal(input.resolution, '720p');
-      assert.equal(input.generate_audio_switch, false);
-      assert(Buffer.byteLength(input.prompt, 'utf8') <= 2048, 'PixVerse prompt exceeds 2,048 UTF-8 bytes');
-    } else if (model.id === 'vidu-q4') {
-      // Vidu names its references [@reference_image_N] in the order sent; the master is the first.
-      assert.match(input.prompt, /\[@reference_image_1\] is the approved exact opening frame/i);
-      assert.doesNotMatch(input.prompt, /\bImage \d\b/);
-      assert.deepEqual(input.reference_image_urls, references);
-      assert.deepEqual([input.resolution, input.aspect_ratio, input.audio], ['720p', '9:16', false]);
-      assert(input.prompt.length <= 5000, 'Vidu prompt exceeds 5,000 characters');
     } else if (model.id === 'gemini-omni') {
       assert.match(input.prompt, /Image 1 is the approved exact opening frame/i);
       assert.deepEqual(input.image_urls, references);
@@ -121,7 +101,6 @@ for (const concept of VIDEO_CONCEPTS) {
       const eventInput = buildVideoTestInput(model.id, references[0], references.slice(1), concept.id, ['front', 'back'], eventId);
       assert.equal(eventInput.duration, 6);
       assert.match(eventInput.prompt, new RegExp(eventId === 'new-year' ? 'New Year' : eventId, 'i'));
-      if (model.id === 'pixverse-c1') assert(Buffer.byteLength(eventInput.prompt, 'utf8') <= 2048);
     }
   }
 }
@@ -152,17 +131,4 @@ assert.match(dhotiVideoPrompt, /small natural weight shift/i);
 assert.match(dhotiVideoPrompt, /Thanjavur-inspired|South Indian/i);
 
 assert.equal(new Set(VIDEO_CONCEPTS.map((concept) => buildH3MotionPrompt(concept, []).split('CAMERA: ')[1]?.split(' Keep the customer')[0])).size, 12);
-for (const concept of VIDEO_CONCEPTS) {
-  // Compared with a saree so the women's camera plans keep their original garment wording in both models.
-  const h3Prompt = buildH3MotionPrompt(concept, ['front', 'back'], 'diwali', 'h3', 'saree');
-  const pixversePrompt = buildH3MotionPrompt(concept, ['front', 'back'], 'diwali', 'pixverse', 'saree');
-  assert.equal(
-    pixversePrompt.match(/CAMERA: ([\s\S]*?) Create distinct foreground-to-background parallax/)?.[1],
-    h3Prompt.match(/CAMERA: ([\s\S]*?) Create distinct foreground-to-background parallax/)?.[1],
-    `${concept.id}: H3 and PixVerse share camera direction`,
-  );
-  // PixVerse adds its motion-graphics layer on its own line; the event animation itself is shared.
-  assert.equal(pixversePrompt.match(/BACKGROUND(?: \+ FX)?: ([^\n]+)/)?.[1], h3Prompt.match(/BACKGROUND(?: \+ FX)?: ([^\n]+)/)?.[1].split(' MOTION GRAPHICS:')[0], `${concept.id}: H3 and PixVerse share event animation`);
-  assert(Buffer.byteLength(pixversePrompt, 'utf8') <= 2048, `${concept.id}: PixVerse prompt exceeds 2,048 UTF-8 bytes`);
-}
-console.log('H3 Max and PixVerse schemas and shared H3 direction passed for all 12 concepts.');
+console.log('H3 Max and Gemini Omni schemas passed for all 12 concepts.');

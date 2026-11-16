@@ -7,9 +7,8 @@ import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from './usage-ledger';
 
 /**
  * Automatic engine switching for AI Video, so no single provider can stop the service:
- *  - A job tries the engines in order (VIDEO_ENGINE_ORDER, default H3 Max → Gemini Omni, the ultimate
- *    backup; PixVerse C1 and Vidu Q4 can be added once tested). When fal refuses a submission, the next
- *    engine is tried at once.
+ *  - A job tries the engines in order (VIDEO_ENGINE_ORDER, default H3 Max → Gemini Omni, the backup).
+ *    When fal refuses a submission, the next engine is tried at once.
  *  - When a render fails, or waits in fal's queue for over 2.5 minutes without starting, the same job
  *    moves to the next engine (the customer keeps waiting on the same screen).
  *  - An engine that failed 3 times in 10 minutes is skipped for the next 15 minutes, across every server

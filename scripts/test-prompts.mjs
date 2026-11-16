@@ -103,29 +103,7 @@ for (const model of FAL_VIDEO_MODELS) {
             if (isChild) assert.ok(input.prompt.includes('Namaste'), `${label}: child keeps Namaste`);
             if (isChild) assert.ok(!/on the hip|smooths the pallu/.test(input.prompt), `${label}: no adult gesture for a child`);
             if (concept.category === 'women' && !['saree', 'lehenga', 'salwar'].includes(type)) assert.ok(!/smooths the (pallu|dupatta)/.test(input.prompt), `${label}: gesture matches the garment`);
-            if (model.id === 'pixverse-c1') {
-              const bytes = Buffer.byteLength(input.prompt, 'utf8');
-              assert.ok(bytes <= 2048, `${label}: ${bytes} bytes exceeds PixVerse limit`);
-              assert.ok(/^[\x20-\x7E\n]+$/.test(input.prompt), `${label}: ASCII only`);
-              const refNames = new Set(input.image_references.map((ref) => ref.ref_name));
-              assert.equal(input.image_references[0].image_url, MASTER, `${label}: @customer is the approved master`);
-              for (const used of input.prompt.match(/@[a-z0-9]+/g) || []) {
-                assert.ok(refNames.has(used.slice(1)), `${label}: ${used} has no matching reference`);
-              }
-              assert.ok(input.prompt.includes('@customer'), `${label}: names the customer reference`);
-              assert.ok(/body size and proportions/.test(input.prompt), `${label}: body size locked`);
-              assert.ok(/MOTION GRAPHICS/.test(input.prompt), `${label}: event motion graphics`);
-              if (!isChild && !backup) assert.ok(/Around 2-3s/.test(input.prompt), `${label}: one mild gesture`);
-              if (!['saree', 'lehenga', 'salwar'].includes(type)) assert.ok(!/pallu|dupatta|\bsaree\b/.test(input.prompt), `${label}: no saree or dupatta wording for ${type}`);
-              assert.ok(!/ in [A-Z][a-z]+ /.test(input.prompt.split('\n')[0].replace(/@customer|South Indian|Diwali|Thanjavur|Chettinad|Christmas|Pongal|Ramadan/g, '')), `${label}: scene reads as one sentence`);
-            } else if (model.id === 'vidu-q4') {
-              assert.equal(input.reference_image_urls[0], MASTER, `${label}: Vidu opens on the approved master`);
-              assert.ok(input.prompt.length <= 5000, `${label}: Vidu prompt limit`);
-              for (const used of input.prompt.match(/\[@reference_image_(\d+)\]/g) || []) {
-                const index = Number(used.match(/\d+/)[0]);
-                assert.ok(index >= 1 && index <= input.reference_image_urls.length, `${label}: ${used} has no matching reference`);
-              }
-            } else if (model.id === 'gemini-omni') {
+            if (model.id === 'gemini-omni') {
               assert.equal(input.image_urls[0], MASTER, `${label}: Gemini Omni reads the approved master first`);
               for (const used of input.prompt.match(/Image (\d+)/g) || []) {
                 const index = Number(used.split(' ')[1]);
@@ -149,7 +127,7 @@ for (const model of FAL_VIDEO_MODELS) {
     }
   }
 }
-console.log('✓ Video prompts: H3 Max, PixVerse C1, Vidu Q4 and Gemini Omni, normal and backup, every concept/event/garment/reference count');
+console.log('✓ Video prompts: H3 Max and Gemini Omni, normal and backup, every concept/event/garment/reference count');
 
 // 4. The H3 prompts verified on real renders produce exactly the same text as the committed version.
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tryfocus-prompts-'));

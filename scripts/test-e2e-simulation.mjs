@@ -48,7 +48,7 @@ assert.doesNotMatch(experience, /startVideoTest\('pixverse-c1'\)/);
 // The phone makes the AI Video with H3 Max (the server falls back to Gemini Omni Flash).
 assert.match(experience, /videoModel: 'h3-max'/);
 assert.match(videoModels, /h3-max/);
-assert.match(videoModels, /pixverse-c1/);
+assert.doesNotMatch(videoModels, /pixverse|vidu/i, 'Only H3 Max and Gemini Omni make the video');
 assert.doesNotMatch(videoModels, /isVideoModelTestingEnabled/);
 assert.match(download, /if \(!verifyOperatorRequest\(req\)\)/);
 

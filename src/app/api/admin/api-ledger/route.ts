@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic';
 const CONFIGURED: Record<ApiProvider, boolean> = {
   fal: Boolean(process.env.FAL_KEY?.trim()),
   gemini: Boolean(AI_CONFIG.PRIMARY_API_KEY),
-  fashn: Boolean(process.env.FASHN_API_KEY?.trim()),
 };
 
 async function snapshot() {
@@ -26,7 +25,7 @@ async function snapshot() {
 }
 
 /**
- * TryFocus admin only: what has actually been paid to fal.ai, Google Gemini and FASHN, what every
+ * TryFocus admin only: what has actually been paid to fal.ai and Google Gemini, what every
  * store's use of them has actually cost, and what dollars are left. GenLook has its own route
  * (/api/admin/genlook) because it bills in credits, not dollars, and locks allowances per store.
  */
@@ -37,7 +36,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ success: true, providers: await snapshot() });
 }
 
-/** Logs a top-up actually paid to one vendor: `{ provider: 'fal'|'gemini'|'fashn', amount, currency: 'usd'|'inr', note? }`. */
+/** Logs a top-up actually paid to one vendor: `{ provider: 'fal'|'gemini', amount, currency: 'usd'|'inr', note? }`. */
 export async function POST(req: NextRequest) {
   if (!verifyAdminRequest(req)) {
     return NextResponse.json({ success: false, error: 'Please sign in to TryFocus admin.' }, { status: 401 });

@@ -155,7 +155,7 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
         </div>
       </section>
 
-      {/* TryFocus's own vendor balances (GenLook, fal.ai, Gemini, FASHN): kept out of the way, closed by default. */}
+      {/* TryFocus's own vendor balances (GenLook, fal.ai, Gemini): kept out of the way, closed by default. */}
       <details className="tf-card p-5">
         <summary className="cursor-pointer text-lg font-bold">Engine balances (TryFocus vendors)</summary>
         <div className="mt-4"><EngineCredits /></div>
@@ -164,20 +164,19 @@ export default function PlatformOverview({ clients, platform, onSelect }: { clie
   );
 }
 
-type Engine = 'genlook' | 'fal' | 'gemini' | 'fashn';
+type Engine = 'genlook' | 'fal' | 'gemini';
 type TopUp = { id: string; at: string; note?: string; credits?: number; paidUsd?: number; usd?: number; enteredAmount?: number; enteredCurrency?: 'usd' | 'inr' };
 type EngineRow = { purchased?: number; used?: number; free?: number; configured: boolean; topUps: TopUp[]; liveApiBalance?: number; locked?: number };
 
 const ENGINES: Array<{ id: Engine; name: string; usedFor: string; unit: 'credits' | 'usd' }> = [
   { id: 'genlook', name: 'GenLook', usedFor: 'Try-On', unit: 'credits' },
-  { id: 'fal', name: 'fal.ai', usedFor: 'AI Video, Live Try-On, Try-On backup', unit: 'usd' },
-  { id: 'gemini', name: 'Google Gemini', usedFor: 'AI Video portrait, Try-On backup', unit: 'usd' },
-  { id: 'fashn', name: 'FASHN', usedFor: 'Try-On backup', unit: 'usd' },
+  { id: 'fal', name: 'fal.ai', usedFor: 'AI Video, Live Try-On', unit: 'usd' },
+  { id: 'gemini', name: 'Google Gemini', usedFor: 'Own outfit, AI Video portrait, backup for all', unit: 'usd' },
 ];
 
 /**
  * Every AI vendor in one table: what TryFocus has logged paying it, what the stores used, what is free.
- * GenLook counts credits; fal, Gemini and FASHN count dollars (a top-up can be entered in rupees). The
+ * GenLook counts credits; fal and Gemini count dollars (a top-up can be entered in rupees). The
  * top-up form opens only for the row whose button is tapped, so the table stays compact.
  */
 function EngineCredits() {
@@ -202,7 +201,7 @@ function EngineCredits() {
       purchased: genlook.purchased, used: genlook.usedEverywhere, free: genlook.free, locked: genlook.locked,
       liveApiBalance: genlook.liveApiBalance, configured: genlook.configured !== false, topUps: genlook.topUps || [],
     };
-    for (const id of ['fal', 'gemini', 'fashn'] as const) {
+    for (const id of ['fal', 'gemini'] as const) {
       const v = vendors?.providers?.[id];
       if (v) next[id] = { purchased: v.purchasedUsd, used: v.usedUsd, free: v.freeUsd, configured: v.configured !== false, topUps: v.topUps || [] };
     }

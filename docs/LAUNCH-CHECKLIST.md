@@ -8,8 +8,8 @@
       retry and make images and videos without limit (store credits and the daily spend cap still apply).
 - [ ] **Rupee rate:** `USD_TO_INR=98` (about ₹94 plus a ₹4 buffer; the admin spend and profit figures use it).
 - [ ] **Engines:** `TRYON_ENGINE_ORDER` and `VIDEO_ENGINE_ORDER` stay empty for the defaults
-      (Try-On GenLook → FASHN if set → Gemini; own outfit Gemini → GenLook; AI Video H3 Max → Gemini Omni Flash as the ultimate backup).
-      `FASHN_API_KEY` is optional. Add PixVerse (and Lucy for Live Mirror) only after they pass the saree test.
+      (Try-On GenLook → Gemini; own outfit GenLook → Gemini; AI Video portrait Gemini; video H3 Max → Gemini Omni Flash;
+      Live Try-On Lucy on fal). Only three API keys: Gemini, fal and GenLook.
 - [ ] **AI costs and caps:** set `AI_COST_*` from your fal.ai and Google invoices (defaults: 0.068 / 0.0735 / 0.48 / 0.6), then `AI_DAILY_CAP_CLIENT_USD`
       and `AI_DAILY_CAP_PLATFORM_USD`. Also set spending limits inside fal.ai and Google AI Studio.
 - [ ] **Firebase rules:** deploy the locked rules: `npx firebase-tools deploy --only firestore:rules,storage`

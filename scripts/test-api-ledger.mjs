@@ -35,8 +35,8 @@ assert.equal(inrEntry.enteredCurrency, 'inr');
 assert.equal(inrEntry.usd, 50, '₹4,900 at ₹98/$1 is exactly $50, which is what Purchased/Used/Free compare in.');
 assert.equal((await apiLedger.getApiLedger('gemini')).totalPurchasedUsd, 50);
 
-// FASHN stays untouched by fal's and Gemini's top-ups.
-assert.equal((await apiLedger.getApiLedger('fashn')).totalPurchasedUsd, 0);
+// Only the two dollar-billed vendors are tracked: fal and Gemini (GenLook counts credits elsewhere).
+assert.deepEqual(apiLedger.API_PROVIDERS, ['fal', 'gemini']);
 
 // recordAiCost attributes spend to the vendor that actually served the call, not a generic bucket.
 // video-render and live-session always run through fal, whichever video model was used.
@@ -52,7 +52,6 @@ await runWithClient('api-ledger-store', async () => {
 
 assert.equal((await apiLedger.getApiLedger('fal')).usedUsd, 1.0, '0.4 (video) + 0.6 (live) = 1.00, both attributed to fal.');
 assert.equal((await apiLedger.getApiLedger('gemini')).usedUsd, 0.07);
-assert.equal((await apiLedger.getApiLedger('fashn')).usedUsd, 0, 'FASHN was never the serving vendor, so it stays at zero.');
 
 const falLedger = await apiLedger.getApiLedger('fal');
 assert.equal(falLedger.totalPurchasedUsd - falLedger.usedUsd, 69, '70 purchased minus 1.00 used = 69 free.');

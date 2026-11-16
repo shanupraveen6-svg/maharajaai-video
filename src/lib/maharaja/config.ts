@@ -141,7 +141,7 @@ export function garmentTypeFromText(text: string): GarmentType {
 }
 
 /**
- * Gemini's Try-On prompt (GenLook, fal and FASHN take the photos and a product listing instead). The garment
+ * Gemini's Try-On prompt (GenLook takes the photos and a product listing instead). The garment
  * type arrives already resolved by garmentTypeFor; the category and title only pick the style details.
  * Sections: what to do, the garment, the customer, the photo. One garment per Try-On.
  */

@@ -17,7 +17,6 @@ import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import { storagePathFromSignedUrl } from '@/lib/maharaja/photo-source';
 import { describeGarmentForGenlook, genlookSourceFrom, prepareGenlookPieces, type GenlookPiece } from '@/lib/maharaja/garment-prep';
 import { canFallbackFromGenlook, canRetryGenlook, generateGenlookTryOn, genlookCreditsPerLook } from '@/lib/maharaja/genlook-provider';
-import { generateFashnTryOn } from '@/lib/maharaja/fashn-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
@@ -402,14 +401,14 @@ export async function POST(req: NextRequest) {
 
         let rawBuffer: Buffer | null = null;
         // No fail state for the customer: every engine problem moves on to the next engine instead of stopping.
-        // Store garments: GenLook (sent once more if busy) → FASHN when it has a key → Gemini. The customer's own
+        // Store garments: GenLook (sent once more if busy) → Gemini. The customer's own
         // outfit: GenLook → Gemini (fast first, as the store chose). The AI Video portrait: Gemini. Gemini as the
         // last engine tries again and then on the other Nano Banana model. A look GenLook may still have made
         // keeps its credit (a rare double charge is better than a customer with no look).
         // A customer's own garment: no catalogue SKU, or the TV's OWN-… id for the photographed garment.
         const ownOutfitTryOn = service === 'try-on' && (typeof body.catalogueProductId !== 'string' || body.catalogueProductId.startsWith('OWN-'));
         // The last engine is always Gemini, which retries and switches model before anything is shown as failed.
-        const engines: Array<'genlook' | 'fashn' | 'gemini'> = service !== 'try-on' ? ['gemini']
+        const engines: Array<'genlook' | 'gemini'> = service !== 'try-on' ? ['gemini']
           : ownOutfitTryOn ? ['genlook', 'gemini'] : tryOnEngineOrder();
         let lastEngineError: unknown = null;
         // The outfit photo and its product name for GenLook. A set (two or three pieces in one photo) is split
@@ -437,7 +436,7 @@ export async function POST(req: NextRequest) {
             }, { status: 422 });
           }
           detectedSingle = found.length === 1 ? found[0] : null;
-          // FASHN and Gemini get the same cut-out GenLook gets: the customer's own garment out of
+          // Gemini gets the same cut-out GenLook gets: the customer's own garment out of
           // their hands, or the one store garment out of a whole-outfit photo.
           if (detectedSingle && detectedSingle.image !== genlookGarment) {
             garmentBase64s[0] = detectedSingle.image;
@@ -475,17 +474,6 @@ export async function POST(req: NextRequest) {
               }
             }
             if (!rawBuffer && !genlookOutcomeUncertain) await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
-          } else if (engine === 'fashn') {
-            const key = process.env.FASHN_API_KEY?.trim();
-            if (!key) continue;
-            try {
-              rawBuffer = await generateFashnTryOn(personBase64, garmentBase64s[0], key, { timeoutMs: Math.max(20_000, Math.min(60_000, startedAt + 200_000 - Date.now())), garmentType });
-              imageProvider = 'fashn-tryon-v1.6';
-            } catch (fashnError) {
-              lastEngineError = fashnError;
-              engineNotes.push(`FASHN: ${fashnError instanceof Error ? fashnError.message.slice(0, 120) : 'failed'}`);
-              console.warn('FASHN Try-On failed; using the next image engine.', fashnError);
-            }
           } else if (engine === 'gemini') {
             if (!ai) continue;
             const lastEngine = engineIndex === engines.length - 1;
@@ -567,7 +555,6 @@ export async function POST(req: NextRequest) {
           // imageProvider names exactly which vendor just succeeded, so the dollar spend goes to the
           // right one (GenLook tracks its own usage in credits, not dollars, so it is skipped here).
           const costProvider = imageProvider.startsWith('genlook') ? 'genlook'
-            : imageProvider.startsWith('fashn') ? 'fashn'
             : 'gemini';
           await recordAiCost(service === 'try-on' ? 'try-on' : 'video-portrait', undefined, costProvider);
           const finalBuffer = service === 'try-on'

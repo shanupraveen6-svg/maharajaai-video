@@ -258,18 +258,6 @@ const garmentNouns: Record<GarmentType, string> = {
 /** H3 prompts verified on real renders; their wording stays exactly as tested. */
 const TESTED_H3_CONCEPTS = new Set<VideoConceptId>(['men-heritage-passage', 'women-golden-courtyard']);
 
-const PIXVERSE_PROMPT_BYTES = 2048;
-
-/** PixVerse counts UTF-8 bytes, so typographic punctuation is replaced with plain ASCII. */
-function asciiPrompt(text: string) {
-  return text
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2013\u2014]/g, '-')
-    .replace(/[^\x20-\x7E\n]/g, '')
-    .replace(/[ \t]+/g, ' ');
-}
-
 const alternateEventCameras = [
   '0-1s: an existing foreground detail clears the outer frame edge. 1-4.5s: camera trucks sideways at the customer\'s eye height, showing clear near-to-far architectural parallax while keeping the full body in frame. 4.5-6s: settle as the background reaches its final light cue.',
   '0-1s: reveal the customer past an existing set detail at the frame edge. 1-4.5s: camera dollies diagonally backward, revealing more of the already visible set while keeping the face and garment sharp. 4.5-6s: hold on the full-body portrait and final background light cue.',
@@ -364,15 +352,14 @@ export function buildH3MotionPrompt(
   concept: VideoConcept,
   referenceRoles: string[],
   eventId: EventId = 'diwali',
-  referenceStyle: 'h3' | 'pixverse' = 'h3',
+  // Kept so existing callers' arguments stay in place; H3 Max is the only reference style now.
+  _referenceStyle: 'h3' = 'h3',
   garmentType: GarmentType = 'generic',
 ) {
   const event = eventFilmSettings[eventId];
   const anchor = handAnchors[concept.id];
-  const isPixVerse = referenceStyle === 'pixverse';
-  const masterRef = isPixVerse ? '@master' : 'Image 1';
-  const garmentRef = (index: number) => isPixVerse ? `@garment${index + 1}` : `Image ${index + 2}`;
-  if (isPixVerse) return buildPixVerseMotionPrompt(concept, referenceRoles.length, eventId, garmentType, false);
+  const masterRef = 'Image 1';
+  const garmentRef = (index: number) => `Image ${index + 2}`;
   const samplePose = samplePoseDirections[concept.id];
   const isDhoti = garmentType === 'dhoti_veshti' || garmentType === 'kurta_dhoti';
   const isChild = concept.category === 'boy' || concept.category === 'girl';
@@ -402,63 +389,6 @@ export function buildH3MotionPrompt(
 }
 
 /**
- * PixVerse C1 reference-to-video does not open on the master frame, so the prompt names the customer
- * (@customer = approved master) and outfit references, restates the approved set, then directs motion.
- * Identity, body size and garment design are locked; background, motion graphics, one mild gesture,
- * camera and the finale effect carry the spectacle. Kept under PixVerse's 2,048-byte limit.
- */
-export function buildPixVerseMotionPrompt(
-  concept: VideoConcept,
-  garmentReferenceCount: number,
-  eventId: EventId = 'diwali',
-  garmentType: GarmentType = 'generic',
-  stableCamera = false,
-) {
-  const event = eventFilmSettings[eventId];
-  const graphics = eventMotionGraphics[eventId];
-  const isChild = concept.category === 'boy' || concept.category === 'girl';
-  const person = concept.category === 'women' ? 'woman' : concept.category === 'men' ? 'man' : concept.category === 'girl' ? 'young girl' : 'young boy';
-  const outfitRefs = Array.from({ length: Math.min(2, garmentReferenceCount) }, (_, index) => `@outfit${index + 1}`);
-  const outfit = outfitRefs.length
-    ? `the exact ${garmentNouns[garmentType]} from ${outfitRefs.join(' and ')}`
-    : `the exact ${garmentNouns[garmentType]} @customer is wearing`;
-  const rawScene = eventScene(concept, eventId);
-  const scene = rawScene.charAt(0).toLowerCase() + rawScene.slice(1);
-  const anchor = handAnchors[concept.id];
-  const pose = isChild
-    ? 'Palms together in a gentle Namaste at mid-chest, elbows relaxed, feet planted.'
-    : `Standing beside ${anchor.prop}. ${anchor.pose} Feet planted, full body facing camera.`;
-  const plannedCamera = stableCamera
-    ? 'CAMERA: eye-level, stabilized, a very slow gentle push-in; no cuts.'
-    : `${plannedCameraDirection(concept, eventId)} Create distinct foreground-to-background parallax.`;
-  // Women's camera plans were written for sarees; name the garment actually worn.
-  const camera = garmentType === 'saree' ? plannedCamera : plannedCamera.replace(/\bsaree\b/g, garmentNouns[garmentType]);
-  const background = plannedBackgroundDirection(concept, eventId);
-  const sections = [
-    `@customer, the same ${person}, wears ${outfit}, standing full-length in ${scene}`,
-    `Vertical 9:16 ${event.label} fashion film, one continuous six-second shot, photorealistic and cinematic.`,
-    `LOCKED: face, identity, age, skin tone, hair, body size and proportions exactly as @customer; garment colour, border, weave, motifs and drape exactly as ${outfitRefs[0] || '@customer'}. Natural skin texture, no makeup or retouching.`,
-    `POSE: ${pose} Around 2-3s ${mildGesture(concept.category, garmentType, anchor.pose)}. One natural blink, a small warm smile, subtle breathing.`,
-    camera,
-    background,
-    `MOTION GRAPHICS: ${graphics.graphics} 4.5-6s: ${finaleFor(concept, eventId)} All effects stay behind ${isChild ? 'the child' : 'the customer'}, never over face or garment.`,
-    'Full body visible head to feet throughout. Avoid: face change, body reshaping, outfit change, extra people, held objects, text, logo, cuts, slow motion, shaky camera.',
-  ].map(asciiPrompt);
-  // Optional detail is trimmed first if a long scene would exceed the byte limit.
-  const fit = (parts: string[]) => parts.join('\n');
-  let prompt = fit(sections);
-  if (Buffer.byteLength(prompt, 'utf8') > PIXVERSE_PROMPT_BYTES) {
-    sections[0] = asciiPrompt(`@customer, the same ${person}, wears ${outfit}, standing full-length in ${scene.split(': ')[0].split('. ')[0]}.`);
-    prompt = fit(sections);
-  }
-  if (Buffer.byteLength(prompt, 'utf8') > PIXVERSE_PROMPT_BYTES) {
-    sections[6] = asciiPrompt(`MOTION GRAPHICS: 4.5-6s: ${finaleFor(concept, eventId)} All effects stay behind ${isChild ? 'the child' : 'the customer'}.`);
-    prompt = fit(sections);
-  }
-  return prompt;
-}
-
-/**
  * The backup video, used on a retry: the simplest film that cannot go wrong. The customer stands still and
  * smiles, the camera makes one slow, small arc, and the event background glows and animates. Less wow, but
  * nothing in it can distort the face, hands or outfit.
@@ -467,10 +397,9 @@ export function buildFailProofMediumFlatMotionPrompt(
   concept: VideoConcept,
   referenceRoles: string[],
   eventId: EventId = 'diwali',
-  referenceStyle: 'h3' | 'pixverse' = 'h3',
+  _referenceStyle: 'h3' = 'h3',
   garmentType: GarmentType = 'generic',
 ) {
-  if (referenceStyle === 'pixverse') return buildPixVerseMotionPrompt(concept, referenceRoles.length, eventId, garmentType, true);
   const event = eventFilmSettings[eventId];
   const graphics = eventMotionGraphics[eventId];
   const isChild = concept.category === 'boy' || concept.category === 'girl';
