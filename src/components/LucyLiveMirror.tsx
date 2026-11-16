@@ -572,8 +572,8 @@ export default function LucyLiveMirror({
         {!cameraOn && session !== 'error' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/85 p-8 text-center text-white">
             <Camera className="h-14 w-14" />
-            <p className="mt-4 text-3xl font-bold">Opening the camera…</p>
-            <button type="button" onClick={() => void enableCamera()} className="tf-btn tf-btn-primary mt-6 !min-h-16 !w-auto px-8 text-lg"><Camera className="h-6 w-6" /> Open camera</button>
+            <p className="mt-4 text-3xl font-bold">Camera is off</p><p className="mt-2 text-lg text-white/80">Tap to start it, then pick an outfit below.</p>
+            <button type="button" onClick={() => void enableCamera()} className="tf-btn tf-btn-primary mt-6 !min-h-16 !w-auto px-8 text-lg"><Camera className="h-6 w-6" /> Start the camera</button>
           </div>
         )}
 

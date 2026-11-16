@@ -678,7 +678,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     void openCameraFor('own-garment');
   }
 
-  /** Women · Men · Kids. Kids has no Boys or Girls yet: it is picked under the camera, before the photo. */
+  /** Women · Men · Kids. Kids then picks Boys or Girls on the same screen, before the camera opens. */
   function chooseWhoGroup(group: WhoGroup) {
     setWhoGroup(group);
     setKidPick(null);
@@ -687,10 +687,16 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setCustomerPhoto('');
     setOwnGarmentPhoto('');
     setSelectedLooks([]);
-    if (group !== 'kids') selectGender(group);
+    setTryOnError('');
+    if (group === 'kids') return;
+    selectGender(group);
+    startTryOnPhoto();
+  }
+
+  /** The photo step: the camera opens full screen right away. */
+  function startTryOnPhoto() {
     const source: ImageTryOnSource = isTablet ? imageSource : 'catalogue';
     setImageSource(source);
-    setTryOnError('');
     setTryOnStage('studio');
     void openCameraFor(source === 'own-garment' ? 'own-person' : 'catalogue-person');
   }
@@ -699,6 +705,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     if (kid === kidPick) return;
     setKidPick(kid);
     selectGender(kid);
+    if (tryOnStage === 'who') startTryOnPhoto();
   }
 
   /** AI Video: who it is for, then the camera (a photo already taken here is reused). */
@@ -1316,6 +1323,12 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               <div className={`tv-who-screen tv-fill-screen flex flex-col gap-6`}>
                 <PageTitle size="lg" title="Who is it for?" subtitle="Tap one to start." />
                 <WhoCards value={whoGroup} onChange={chooseWhoGroup} />
+                {whoGroup === 'kids' && !kidPick && (
+                  <div className="tf-card flex flex-col gap-4 p-5">
+                    <p className="text-2xl font-bold text-ink">Boy or girl?</p>
+                    <KidsSwitch value={kidPick} onChange={chooseKid} />
+                  </div>
+                )}
                 <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
                 <PosterFill clientName={clientName} />
               </div>
@@ -1326,7 +1339,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 scrolling for more; up to 3 picks, shown in a strip at the top; Generate in the bottom bar. */}
             {tryOnStage === 'studio' && !customerPhoto && (
               <div className="flex tv-fill-screen flex-col gap-6">
-                <PageTitle size="lg" title="Your photo" subtitle={kidsPending ? 'Tap Boys or Girls on the camera screen first.' : 'Stand in front of the screen, or send a photo from your phone.'} />
+                <PageTitle size="lg" title="Your photo" subtitle="Stand in front of the screen, or send a photo from your phone." />
                 <div className="tv-photo-actions grid gap-5 md:grid-cols-2">
                   <button type="button" onClick={() => void openCameraFor(imageSource === 'own-garment' ? 'own-person' : 'catalogue-person')} className="tv-photo-action group flex min-h-[220px] flex-col items-center justify-center gap-6 rounded-3xl bg-ink p-8 text-center text-white shadow-lg transition hover:bg-black">
                     <span className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10 transition group-hover:scale-105"><Camera className="h-12 w-12" /></span>
@@ -1423,7 +1436,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                               <img src={item.thumbnailUrl || item.imageUrl} alt="" loading={index < 15 ? 'eager' : 'lazy'} decoding="async" className="h-full w-full object-contain" />
                             </span>
                             <span className={`absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>{picked ? pickIndex + 1 : '+'}</span>
-                            <span className="truncate px-3 py-2 text-base font-semibold text-ink">{item.title}</span>
+                            <span className="line-clamp-2 px-3 py-2 text-base font-semibold leading-tight text-ink">{item.title}</span>
                           </button>
                         );
                       })}
@@ -1686,7 +1699,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
            ========================================================= */}
         {/* A minimum bill is set: the customer enters the last 4 digits of their bill first (0 = a free gift). */}
         {mode === 'catalogue-video' && !isTablet && tvBillSuffixRequired && !tvBillEntered && (
-          <div className="flex tv-fill-screen flex-col gap-6"><BillDigitsGate value={tvBillLast4} onChange={setTvBillLast4} onContinue={() => setTvBillEntered(true)} action="Continue to AI Video" /><PosterFill clientName={clientName} /></div>
+          <div className="flex tv-fill-screen flex-col gap-6">
+            <PageTitle size="lg" title="AI Video" subtitle="A short festive video of you in a store outfit, sent to your phone." />
+            <BillDigitsGate value={tvBillLast4} onChange={setTvBillLast4} onContinue={() => setTvBillEntered(true)} action="Continue to AI Video" />
+            <PosterFill clientName={clientName} />
+          </div>
         )}
         {mode === 'catalogue-video' && !isTablet && (!tvBillSuffixRequired || tvBillEntered) && (
           <div className="space-y-6">
@@ -1785,7 +1802,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                               <img src={item.thumbnailUrl || item.imageUrl} alt="" loading={index < 15 ? 'eager' : 'lazy'} decoding="async" className="h-full w-full object-contain" />
                               {picked && <span className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-6 w-6" /></span>}
                             </span>
-                            <span className="block px-3 py-2"><span className="block truncate text-base font-semibold text-ink">{item.title}</span>{item.price > 0 && <span className="block text-lg font-bold tabular-nums text-ink">₹{item.price.toLocaleString('en-IN')}</span>}</span>
+                            <span className="block px-3 py-2"><span className="line-clamp-2 text-base font-semibold leading-tight text-ink">{item.title}</span>{item.price > 0 && <span className="block text-lg font-bold tabular-nums text-ink">₹{item.price.toLocaleString('en-IN')}</span>}</span>
                           </button>
                         );
                       })}
@@ -1993,7 +2010,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           {!pendingPhoto && (
             <>
               {/* Kids: Boys or Girls on the camera screen, before the photo, so the right outfits follow. */}
-              {kidsOnCamera && (
+              {kidsOnCamera && !kidPick && (
                 <div className="absolute inset-x-6 top-24 z-20 mx-auto max-w-md sm:top-28">
                   <KidsSwitch value={kidPick} onChange={chooseKid} disabled={countdown !== null} />
                 </div>
@@ -2021,7 +2038,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               )}
 
               {cameraError && (
-                <div className="absolute inset-x-6 bottom-40 z-10 mx-auto max-w-xl rounded-xl bg-black/85 p-4 text-center text-base text-amber-200">
+                <div className="absolute inset-x-6 bottom-72 z-10 mx-auto max-w-xl rounded-xl bg-black/85 p-4 text-center text-base text-amber-200">
                   <p>{cameraError}</p>
                   <p className="mt-1 text-white/80">{isPersonTarget(cameraTarget) ? 'Use the QR in the corner to send a photo from your phone.' : 'Choose a photo file below instead.'}</p>
                 </div>
