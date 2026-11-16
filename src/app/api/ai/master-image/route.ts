@@ -403,22 +403,23 @@ export async function POST(req: NextRequest) {
         let rawBuffer: Buffer | null = null;
         // No fail state for the customer: every engine problem moves on to the next engine instead of stopping.
         // Store garments: GenLook (sent once more if busy) → FASHN when it has a key → Gemini. The customer's own
-        // outfit: Gemini (Nano Banana) → GenLook → Gemini again. The AI Video portrait: Gemini. Gemini as the
+        // outfit: GenLook → Gemini (fast first, as the store chose). The AI Video portrait: Gemini. Gemini as the
         // last engine tries again and then on the other Nano Banana model. A look GenLook may still have made
         // keeps its credit (a rare double charge is better than a customer with no look).
-        const ownOutfitTryOn = service === 'try-on' && typeof body.catalogueProductId !== 'string';
+        // A customer's own garment: no catalogue SKU, or the TV's OWN-… id for the photographed garment.
+        const ownOutfitTryOn = service === 'try-on' && (typeof body.catalogueProductId !== 'string' || body.catalogueProductId.startsWith('OWN-'));
         // The last engine is always Gemini, which retries and switches model before anything is shown as failed.
         const engines: Array<'genlook' | 'fashn' | 'gemini'> = service !== 'try-on' ? ['gemini']
-          : ownOutfitTryOn ? ['gemini', 'genlook', 'gemini'] : tryOnEngineOrder();
+          : ownOutfitTryOn ? ['genlook', 'gemini'] : tryOnEngineOrder();
         let lastEngineError: unknown = null;
         // The outfit photo and its product name for GenLook. A set (two or three pieces in one photo) is split
         // into its pieces first, so every engine dresses each piece as itself.
         const genlookGarment = genlookSources[1] || garmentBase64s[0];
         const baseProduct = {
           // Prefixed with the store, so GenLook keeps every store's products apart.
-          externalId: `${activeClientId()}-${typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `customer-${garmentType}`}`,
+          externalId: `${activeClientId()}-${!ownOutfitTryOn && typeof body.catalogueProductId === 'string' ? body.catalogueProductId : `customer-${garmentType}`}`,
           // A store piece keeps its own name; a customer's own outfit is named by its type.
-          title: (typeof body.catalogueProductId === 'string' && typeof body.catalogueProductTitle === 'string'
+          title: (!ownOutfitTryOn && typeof body.catalogueProductId === 'string' && typeof body.catalogueProductTitle === 'string'
             ? body.catalogueProductTitle
             : GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title).slice(0, 120),
         };
@@ -426,7 +427,7 @@ export async function POST(req: NextRequest) {
         // two or more garments is refused before anything is made (no credit used): one garment at a time.
         let detectedSingle: GenlookPiece | null = null;
         if (service === 'try-on' && genlookGarment) {
-          const ownOutfit = typeof body.catalogueProductId !== 'string';
+          const ownOutfit = ownOutfitTryOn;
           const found = await prepareGenlookPieces(ai, genlookGarment, garmentType, baseProduct, ownOutfit);
           if (found.length > 1 && ownOutfit) {
             return NextResponse.json({

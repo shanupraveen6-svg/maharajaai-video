@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fal } from '@fal-ai/client';
-import { Camera, ChevronLeft, LoaderCircle, Play, RotateCcw, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { Camera, LoaderCircle, Play, RotateCcw, ShieldAlert, Sparkles, X } from 'lucide-react';
 import type { CatalogueCategoryId, TryFocusProduct } from '@/lib/tryfocus/sample-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
@@ -35,7 +35,8 @@ export default function LucyLiveMirror({
   onUsePhotoTryOn,
   onEndSession,
   clientName = '',
-  onStarted,
+  onPhaseChange,
+  onBackChange,
 }: {
   /** Only the garments the store switched on for Live Try-On. */
   catalogue?: TryFocusProduct[];
@@ -48,8 +49,10 @@ export default function LucyLiveMirror({
   onEndSession?: () => void;
   /** The store's name, for the space below the first screen (with no posters or logo). */
   clientName?: string;
-  /** Called once a customer picks Women, Men or Kids here (the TV then offers Start over). */
-  onStarted?: () => void;
+  /** The step this customer is on: past 'who' the TV header shows only Back and End session. */
+  onPhaseChange?: (phase: 'who' | 'camera' | 'result') => void;
+  /** Back now lives in the TV header: the action for this step, or null when there is none (or a session runs). */
+  onBackChange?: (back: (() => void) | null) => void;
 } = {}) {
   // Only the store's own Live Try-On garments; with none, the screen says so (never demo garments).
   const activeCatalogue = propCatalogue || [];
@@ -168,8 +171,16 @@ export default function LucyLiveMirror({
     }
   }
 
-  async function garmentUrlToDataUri(imageUrl: string): Promise<string> {
-    const response = await fetch(imageUrl, { cache: 'force-cache' });
+  /**
+   * The garment photo as a data URL for Lucy. A store garment is read through our own address
+   * (/api/maharaja/catalogue/photo): its storage link is on another address that the browser blocks from being
+   * read here. A photo already on our address (or a data URL) is read directly.
+   */
+  async function garmentUrlToDataUri(imageUrl: string, sku?: string): Promise<string> {
+    if (imageUrl.startsWith('data:image/')) return imageUrl;
+    const sameOrigin = imageUrl.startsWith('/') && !imageUrl.startsWith('//');
+    const source = !sameOrigin && sku ? `/api/maharaja/catalogue/photo?sku=${encodeURIComponent(sku)}` : imageUrl;
+    const response = await fetch(source, { cache: 'force-cache' });
     if (!response.ok) throw new Error('Unable to load selected garment reference image.');
     const blob = await response.blob();
     return await new Promise<string>((resolve, reject) => {
@@ -181,11 +192,14 @@ export default function LucyLiveMirror({
   }
 
   async function sendGarmentReference(ws: { send: (input: Record<string, unknown>) => void }, piece: TryFocusProduct) {
-    const imageDataUri = await garmentUrlToDataUri(piece.garmentReferenceUrl || piece.imageUrl);
+    const imageDataUri = await garmentUrlToDataUri(piece.garmentReferenceUrl || piece.imageUrl, piece.sku);
     const person = piece.gender === 'boys' ? ' The person is a young boy; keep his child proportions and fit the garment to his size.'
       : piece.gender === 'girls' ? ' The person is a young girl; keep her child proportions and fit the garment to her size.'
         : '';
-    const prompt = `Wear the exact ${piece.title} (${piece.fabricNote || piece.category}). Preserve exact garment color, pattern and fit while keeping the customer's real face and skin tone natural.${person}`;
+    // The category's own name (Shirts, Kurtas…), never its internal id, when the garment has no fabric note.
+    const categoryName = categories?.[piece.gender]?.find((cat) => cat.id === piece.category)?.label || '';
+    const detail = piece.fabricNote || categoryName;
+    const prompt = `Wear the exact ${piece.title}${detail ? ` (${detail})` : ''}. Preserve exact garment color, pattern and fit while keeping the customer's real face and skin tone natural.${person}`;
     ws.send({ reference_image_url: imageDataUri, prompt, enhance_prompt: true });
   }
 
@@ -384,7 +398,6 @@ export default function LucyLiveMirror({
   }
 
   function chooseWho(next: WhoGroup) {
-    onStarted?.();
     setGroup(next);
     setKidGender(null);
     setGuardianConsent(false);
@@ -421,6 +434,13 @@ export default function LucyLiveMirror({
   }
 
   const running = session === 'ready' || session === 'connecting' || session === 'live';
+  // The TV header shows Back and End session once a customer is past Who: tell it the step and the Back action.
+  const backRef = useRef(backToWho);
+  backRef.current = backToWho;
+  useEffect(() => { onPhaseChange?.(phase); }, [phase, onPhaseChange]);
+  useEffect(() => {
+    onBackChange?.(phase === 'camera' && !running ? () => backRef.current() : null);
+  }, [phase, running, onBackChange]);
   const progressPercent = Math.max(0, Math.min(100, (secondsLeft / SESSION_SECONDS) * 100));
 
   if (phase === 'who') {
@@ -483,9 +503,6 @@ export default function LucyLiveMirror({
   return (
     <div className="space-y-7">
       <div className="space-y-4">
-        <button type="button" onClick={backToWho} disabled={running} className="tf-btn !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink disabled:opacity-40">
-          <ChevronLeft className="h-6 w-6" /> Back
-        </button>
         <PageTitle size="lg" title="Live Try-On" subtitle={isChild && !kidGender ? 'Tap Boys or Girls, then pick an outfit.' : 'Pick an outfit, step back, and see it on you for 30 seconds.'} />
       </div>
 

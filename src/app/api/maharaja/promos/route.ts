@@ -1,3 +1,4 @@
+import { ensureStorageCors } from '@/lib/maharaja/storage-cors';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
@@ -57,6 +58,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     bindClient(await resolveRequestClientId(req, undefined, body.workspaceCode));
     if (body.action === 'upload-url') {
+      // The browser uploads straight to storage: make sure the bucket allows it (once per server).
+      await ensureStorageCors();
       return NextResponse.json({ success: true, ...await createPromoUpload(body.contentType, body.sizeBytes) }, { headers: noStore });
     }
     if (body.action === 'confirm') {

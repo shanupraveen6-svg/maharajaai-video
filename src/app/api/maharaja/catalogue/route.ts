@@ -4,6 +4,7 @@ import { maybeSweepExpired } from '@/lib/maharaja/privacy-cleanup';
 import { resolveAccess } from '@/lib/maharaja/access';
 import { activeClientId, bindClient, runWithClient } from '@/lib/maharaja/client-context';
 import { maybeWarmCatalogueGarments } from '@/lib/maharaja/garment-warm';
+import { ensureStorageCors } from '@/lib/maharaja/storage-cors';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import {
   deleteCatalogueProduct,
@@ -47,6 +48,8 @@ export async function GET(req: NextRequest) {
     const warmClient = activeClientId();
     try {
       after(() => runWithClient(warmClient, () => maybeWarmCatalogueGarments()).catch((error) => console.warn('Garment pre-warm failed:', error)));
+      // The storage bucket's browser rule (promo uploads, photo reads), checked once per server.
+      after(() => ensureStorageCors());
     } catch { /* outside a request scope */ }
     return NextResponse.json(
       { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access: resolveAccess(workspace.devices, workspace.modules), categoryLists: workspace.categoryLists || {}, customCategories: workspace.customCategories || [], videoCategoryLists: workspace.videoCategoryLists || {}, westernOverrides: workspace.westernOverrides || {}, instagramUrl: instagramUrlFor(workspace) },

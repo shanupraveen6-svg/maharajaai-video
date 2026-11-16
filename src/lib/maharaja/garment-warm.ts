@@ -1,7 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
 import { GoogleGenAI } from '@google/genai';
-import { getDb, getStorageBucket } from '@/lib/firebase/admin';
+import { getDb } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GENLOOK_GARMENT_DESCRIPTIONS, type CustomerCategory } from '@/lib/maharaja/config';
 import { activeClientId } from '@/lib/maharaja/client-context';
@@ -9,6 +7,7 @@ import { loadAllCatalogueRecords } from '@/lib/maharaja/catalogue';
 import type { MaharajaCatalogueProduct } from '@/lib/maharaja/catalogue-types';
 import { garmentTypeFor } from '@/lib/maharaja/garment-type';
 import { genlookSourceFrom, prepareGenlookPieces } from '@/lib/maharaja/garment-prep';
+import { readCataloguePhoto } from '@/lib/maharaja/photo-source';
 
 /**
  * Pre-warm: every catalogue garment gets its Gemini checks (find the one garment, cut it out, describe it)
@@ -19,28 +18,6 @@ import { genlookSourceFrom, prepareGenlookPieces } from '@/lib/maharaja/garment-
  */
 const WARM_VERSION = 1;
 const RUN_EVERY_MS = 10 * 60 * 1000;
-const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
-
-/** The garment photo's bytes, read the same way the Try-On route reads them. */
-async function readCataloguePhoto(photoPath: string): Promise<string> {
-  if (photoPath.startsWith('/images/')) {
-    const root = path.resolve(process.cwd(), 'public', 'images');
-    const file = path.resolve(process.cwd(), 'public', `.${photoPath.split('?')[0]}`);
-    if (!file.startsWith(`${root}${path.sep}`)) throw new Error('Invalid catalogue photo path.');
-    return (await fs.readFile(file)).toString('base64');
-  }
-  if (photoPath.startsWith('data:image/')) return photoPath.split(',')[1] || '';
-  if (/^https:\/\//.test(photoPath)) {
-    const response = await fetch(photoPath, { signal: AbortSignal.timeout(15_000), cache: 'no-store' });
-    if (!response.ok) throw new Error('Catalogue photo could not be downloaded.');
-    return Buffer.from(await response.arrayBuffer()).toString('base64');
-  }
-  const bucket = getStorageBucket();
-  if (!bucket) throw new Error('Storage is not available.');
-  const [buffer] = await bucket.file(photoPath).download();
-  if (buffer.byteLength > MAX_SOURCE_BYTES) throw new Error('Catalogue photo is too large.');
-  return buffer.toString('base64');
-}
 
 /** The garment type the Try-On route works out for this garment from the TV's request. */
 export function warmGarmentType(product: Pick<MaharajaCatalogueProduct, 'gender' | 'category' | 'garmentType' | 'title' | 'fabricNote'>) {

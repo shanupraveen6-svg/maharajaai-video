@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { fetchCatalogueSettings, fetchCompleteCatalogue } from '@/lib/maharaja/catalogue-client';
 import {
@@ -54,6 +54,8 @@ const VIDEO_CATEGORY_OF: Record<CatalogueAudience, CustomerCategory> = { women: 
 
 type TvMode = 'image-tryon' | 'catalogue-tryon' | 'own-tryon' | 'live-tryon' | 'catalogue-video' | 'wall-qr';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
+/** The own try-on garment check's answer (see /api/ai/garment-check). */
+type GarmentCheckStatus = 'ok' | 'mismatch' | 'multiple' | 'unclear' | 'unchecked';
 type CatalogueTryOnStage = 'who' | 'studio' | 'generating' | 'result';
 type VideoStage = 'who' | 'photo' | 'pick' | 'look' | 'portrait';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
@@ -196,7 +198,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // Try-On state
   const [imageSource, setImageSource] = useState<ImageTryOnSource>('catalogue');
   const [tryOnStage, setTryOnStage] = useState<CatalogueTryOnStage>('who');
-  const [ownGarmentType, setOwnGarmentType] = useState(OWN_GARMENT_TYPES.women[0].id);
+  // Own try-on: nothing is chosen for the customer; the camera opens once they pick what they are showing.
+  const [ownGarmentType, setOwnGarmentType] = useState('');
+  // The quick AI check of the garment photo against that choice (one garment, the right type).
+  const [ownCheck, setOwnCheck] = useState<{ status: GarmentCheckStatus | 'checking' | ''; detectedType?: string | null; detectedLabel?: string | null }>({ status: '' });
+  const ownCheckRunRef = useRef(0);
 
   // Photos (Image 1 = Customer identity, Image 2 = Garment reference)
   const [customerPhoto, setCustomerPhoto] = useState<string>('');
@@ -218,8 +224,10 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const idleResetRef = useRef<number | null>(null);
   // Remounts Live Try-On on End session, so its camera and picks start fresh.
   const [liveMirrorKey, setLiveMirrorKey] = useState(0);
-  // Live Try-On tells the TV when a customer has started there (for Start over).
-  const [liveStarted, setLiveStarted] = useState(false);
+  // Live Try-On tells the TV its step and its Back action (Back and End session live in the TV header).
+  const [livePhase, setLivePhase] = useState<'who' | 'camera' | 'result'>('who');
+  const [liveBack, setLiveBack] = useState<(() => void) | null>(null);
+  const handleLiveBack = useCallback((back: (() => void) | null) => setLiveBack(() => back), []);
   const [tryOnGuardianConsent, setTryOnGuardianConsent] = useState(false);
 
   // Camera capture modal / full-screen stage
@@ -326,7 +334,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   }, [catalogueItems, genderFilter]);
 
   // Each audience has its own outfit types; keep the own-outfit choice valid when the audience changes.
-  useEffect(() => { setOwnGarmentType(OWN_GARMENT_TYPES[genderFilter][0].id); }, [genderFilter]);
+  useEffect(() => { setOwnGarmentType(''); setOwnCheck({ status: '' }); }, [genderFilter]);
 
 
   function navigateTo(next: TvMode) {
@@ -579,9 +587,10 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       // Same screen: the photo takes the camera's place, the outfits are picked under it.
       setCustomerPhoto(dataUrl);
       setTryOnStage('studio');
-      if (imageSource === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
+      if (imageSource === 'own-garment' && ownGarmentType && !ownGarmentPhoto) void openCameraFor('own-garment');
     } else if (target === 'own-garment') {
       setOwnGarmentPhoto(dataUrl);
+      if (ownGarmentType) void checkOwnGarment(dataUrl, ownGarmentType);
     } else if (target === 'video-person') {
       setVideoPersonPhoto(dataUrl);
       setVideoMasterUrl('');
@@ -611,11 +620,47 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
    * The source is the catalogue unless the customer taps My own outfit (TV) or is on the tablet's own-outfit tab.
    */
   function chooseTryOnSource(source: ImageTryOnSource) {
+    if (source === imageSource && customerPhoto) return;
     setImageSource(source);
     setTryOnError('');
     setTryOnStage('studio');
     if (!customerPhoto) { void openCameraFor(source === 'own-garment' ? 'own-person' : 'catalogue-person'); return; }
-    if (source === 'own-garment' && !ownGarmentPhoto) void openCameraFor('own-garment');
+    // Store collection: the own try-on camera (shown in place of the garments) is switched off.
+    if (source === 'catalogue') { stopCamera(); setCameraOpen(false); setPendingPhoto(''); return; }
+    if (ownGarmentType && !ownGarmentPhoto) void openCameraFor('own-garment');
+  }
+
+  /** Own try-on, left list: what the customer is showing. Opens the camera, or checks the photo again. */
+  function chooseOwnGarmentType(type: string) {
+    setOwnGarmentType(type);
+    setTryOnError('');
+    if (ownGarmentPhoto) void checkOwnGarment(ownGarmentPhoto, type);
+    else if (!(cameraOpen && cameraTarget === 'own-garment')) void openCameraFor('own-garment');
+  }
+
+  /** The 2–4 second AI check: one garment, and the type the customer chose. A check that cannot run lets them go on. */
+  async function checkOwnGarment(photo: string, type: string) {
+    const run = ++ownCheckRunRef.current;
+    setOwnCheck({ status: 'checking' });
+    let result: { status: GarmentCheckStatus; detectedType?: string | null; detectedLabel?: string | null } = { status: 'unchecked' };
+    try {
+      const data = await (await fetch('/api/ai/garment-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: photo, garmentType: type, audience: genderFilter }),
+      })).json();
+      if (data?.success && typeof data.status === 'string') result = data;
+    } catch {
+      // unchecked: the customer can still go on
+    }
+    if (run === ownCheckRunRef.current) setOwnCheck(result);
+  }
+
+  function retakeOwnGarment() {
+    ownCheckRunRef.current += 1;
+    setOwnGarmentPhoto('');
+    setOwnCheck({ status: '' });
+    void openCameraFor('own-garment');
   }
 
   /** Women · Men · Kids. Kids has no Boys or Girls yet: it is picked under the camera, before the photo. */
@@ -1073,9 +1118,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setImageSource(source);
   }
 
-  /** End session: clears this customer and stays on the same tab, ready for the next one. */
+  /** End session: clears this customer. The TV goes back to Home (the three tabs); the tablet stays on its tab. */
   function endSession() {
-    const tab = mode;
+    const tab = isTablet ? mode : defaultMode;
     resetAllSession();
     setMode(tab);
     setLiveMirrorKey((key) => key + 1);
@@ -1083,7 +1128,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   function resetAllSession() {
     batchRunRef.current += 1;
-    setLiveStarted(false);
+    setLivePhase('who');
+    setLiveBack(null);
     setLiveMirrorKey((key) => key + 1);
     firstReadyRunRef.current = 0;
     handoffTriggeredRef.current = false;
@@ -1109,7 +1155,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setWhoGroup(null);
     setKidPick(null);
     setVideoWhoChosen(false);
-    setOwnGarmentType(OWN_GARMENT_TYPES.women[0].id);
+    setOwnGarmentType('');
+    setOwnCheck({ status: '' });
     setVideoStage('who');
     setVideoCategory('');
     setPortraitRetryUsed(false);
@@ -1151,9 +1198,13 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // Who → photo → Store collection or My own outfit → outfits.
   const tryOnBack = tryOnStage === 'studio' ? () => { stopCamera(); setCameraOpen(false); setPendingPhoto(''); setTryOnStage('who'); } : null;
   const kidsPending = whoGroup === 'kids' && !kidPick;
-  // Start over shows only once a customer has started something: a Who tapped, a photo taken, bill digits
-  // typed, or a Live Try-On begun. On an untouched first screen there is nothing to start over.
-  const sessionStarted = tryOnStage !== 'who' || videoStage !== 'who' || Boolean(customerPhoto || videoPersonPhoto || tvBillLast4 || tvBillEntered) || liveStarted;
+  // TV header: Home (each tab's Who screen) shows the three tabs. Once a customer is past Who in the open tab,
+  // the tabs give way to Back and End session (plus Store collection | Own try-on inside Image Try-On), so a
+  // customer in the middle of something never jumps to another experience by mistake.
+  const inProcess = mode === 'live-tryon' ? livePhase !== 'who'
+    : mode === 'catalogue-video' ? videoStage !== 'who'
+    : tryOnStage !== 'who';
+  const imageSourceTabs = (mode === 'image-tryon') && tryOnStage === 'studio' && Boolean(customerPhoto);
   const kidsOnCamera = whoGroup === 'kids' && (cameraTarget === 'catalogue-person' || cameraTarget === 'own-person');
   const shutterLocked = kidsPending && kidsOnCamera;
   const consentMissing = (genderFilter === 'boys' || genderFilter === 'girls') && !tryOnGuardianConsent;
@@ -1167,6 +1218,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     : videoStage === 'pick' ? () => setVideoStage('photo')
     : videoStage === 'look' ? () => setVideoStage('pick')
     : null;
+  const headerBack = mode === 'live-tryon' ? liveBack : mode === 'catalogue-video' ? videoBack : tryOnBack;
 
   return (
     <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-ink">
@@ -1186,9 +1238,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           <div className="flex shrink-0 items-center gap-2">
             {isTablet && <Link href="/maharaja/workspace" className="flex min-h-16 items-center rounded-xl border-2 border-line-strong bg-white px-5 text-lg font-semibold text-ink hover:border-ink">Workspace</Link>}
             {/* Tablet: End session on Try-On only (Wall QR has none; there is no AI Video tab here). */}
-            {isTablet
-              ? (mode === 'catalogue-tryon' || mode === 'own-tryon') && <button type="button" onClick={endSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">End session</button>
-              : sessionStarted && <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">Start over</button>}
+            {isTablet && (mode === 'catalogue-tryon' || mode === 'own-tryon') && <button type="button" onClick={endSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">End session</button>}
           </div>
         </div>
         {isTablet ? (
@@ -1205,6 +1255,25 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             <button type="button" aria-current={mode === 'wall-qr' ? 'page' : undefined} onClick={() => navigateTo('wall-qr')} className={`tv-mode-button ${mode === 'wall-qr' ? 'is-active' : ''}`}>
               <Printer className="h-6 w-6" /><span>Wall QR</span>
             </button>
+          </nav>
+        ) : inProcess ? (
+          // A customer is in the middle of something: Back and End session only (and, in Image Try-On after the
+          // photo, the two ways to try: the store's collection or their own garment).
+          <nav className="tv-mode-nav mx-auto flex max-w-[1080px] items-stretch gap-3 px-8 pb-5" aria-label="This session">
+            {headerBack
+              ? <BackButton onClick={headerBack} />
+              : <span className="w-[132px] shrink-0" aria-hidden="true" />}
+            {imageSourceTabs ? (
+              <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
+                <button type="button" aria-current={imageSource === 'catalogue' ? 'page' : undefined} onClick={() => chooseTryOnSource('catalogue')} className={`tv-mode-button ${imageSource === 'catalogue' ? 'is-active' : ''}`}>
+                  <Sparkles className="h-6 w-6" /><span>Store collection</span>
+                </button>
+                <button type="button" aria-current={imageSource === 'own-garment' ? 'page' : undefined} onClick={() => chooseTryOnSource('own-garment')} className={`tv-mode-button ${imageSource === 'own-garment' ? 'is-active' : ''}`}>
+                  <Shirt className="h-6 w-6" /><span>Own try-on</span>
+                </button>
+              </div>
+            ) : <span className="flex-1" />}
+            <button type="button" onClick={endSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">End session</button>
           </nav>
         ) : (
           <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-3 px-8 pb-5 ${['grid-cols-1', 'grid-cols-2', 'grid-cols-3'][[true, videoOn, liveOn].filter(Boolean).length - 1]}`} aria-label="Choose an experience">
@@ -1227,7 +1296,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
            ========================================================= */}
         {(mode === 'image-tryon' || mode === 'catalogue-tryon' || mode === 'own-tryon') && (
           <div className="space-y-6">
-            {tryOnBack && <BackButton onClick={tryOnBack} />}
+            {isTablet && tryOnBack && <BackButton onClick={tryOnBack} />}
             {tryOnStage === 'who' && (
               <div className={`flex flex-col gap-6 ${isTablet ? '' : 'tv-who-screen min-h-[calc(100dvh-240px)]'}`}>
                 <PageTitle size="lg" title="Who is it for?" subtitle="Tap one to start." />
@@ -1275,14 +1344,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 </div>
                 <div className="tv-catalogue-shell grid gap-5">
                   <aside className="tv-category-sidebar tf-card p-3" aria-label="Garment categories">
-                    {/* My own outfit, set apart from the store's categories: a garment the customer brought. */}
-                    {!isTablet && (
-                      <button type="button" onClick={() => chooseTryOnSource('own-garment')} className="mb-4 flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-brand bg-brand-soft p-4 text-center shadow-[0_4px_0_0_var(--color-brand,#7A1428)] transition hover:bg-white">
-                        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white"><Shirt className="h-7 w-7" /></span>
-                        <span className="text-xl font-bold leading-tight text-brand">My own outfit</span>
-                        <span className="text-sm font-medium leading-snug text-ink">Try a garment you brought</span>
-                      </button>
-                    )}
                     <p className="px-1 pb-2 text-base font-bold text-ink">Our collection</p>
                     <div className="tv-kiosk-filters flex flex-col gap-1">
                       {railTabs.map((tab) => {
@@ -1366,44 +1427,100 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               </div>
             )}
 
-            {tryOnStage === 'studio' && customerPhoto && imageSource === 'own-garment' && (
-              <div className={`flex flex-col gap-5 pb-36 ${isTablet ? '' : 'min-h-[calc(100dvh-280px)]'}`}>
-                <div className="flex items-center justify-between gap-4">
-                  <PageTitle size="lg" title="Your outfit" subtitle="Photograph one garment with the camera, then tell us what it is." />
-                  <button type="button" onClick={() => void openCameraFor('own-person')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
-                    <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-16 rounded-lg object-cover" />
-                    <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
-                  </button>
-                </div>
-                <PhotoGuide size="lg" lines={OUTFIT_GUIDE} />
-                <div className="tv-catalogue-shell grid gap-5">
-                  <aside className="tv-category-sidebar tf-card p-3" aria-label="What is your outfit">
-                    <p className="px-2 pb-2 text-base font-semibold text-muted">What is it?</p>
-                    <div className="tv-kiosk-filters flex flex-col gap-1">
-                      {OWN_GARMENT_TYPES[genderFilter].map((type) => (
-                        <button key={type.id} type="button" aria-pressed={ownGarmentType === type.id} onClick={() => setOwnGarmentType(type.id)} className="rounded-xl border px-4 text-left font-semibold">{type.label}</button>
-                      ))}
-                      {!isTablet && (
-                        <button type="button" aria-pressed={false} onClick={() => setImageSource('catalogue')} className="mt-2 flex items-center gap-2 rounded-xl border px-4 text-left font-semibold"><ArrowLeft className="h-5 w-5" /> Store collection</button>
-                      )}
-                    </div>
-                  </aside>
-                  <div className="min-w-0 space-y-4">
-                    <div className="tf-card flex flex-col items-center gap-6 p-8 text-center">
-                      {ownGarmentPhoto
-                        ? <img src={ownGarmentPhoto} alt="Your outfit" className="aspect-[3/4] h-[560px] max-w-full rounded-2xl bg-canvas object-contain" />
-                        : <span className="flex aspect-[3/4] h-[560px] max-w-full flex-col items-center justify-center gap-6 rounded-2xl border border-dashed border-line-strong bg-[#F1EEE9] p-8 text-muted"><OwnOutfitIllustration className="h-64 w-64" /><span className="max-w-xs text-xl">Hold one garment up to the camera, or lay it flat</span></span>}
-                      <button type="button" onClick={() => void openCameraFor('own-garment')} className="tf-btn tf-btn-dark !min-h-16 w-full max-w-md text-lg"><Camera className="h-5 w-5" /> {ownGarmentPhoto ? 'Retake' : 'Open the camera'}</button>
-                    </div>
-                    {tryOnError && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{tryOnError}</p>}
+            {/* Own try-on, one screen: what the customer is showing on the left (nothing chosen for them), the
+                camera in place of the store's garments on the right. The photo is checked by AI at once (one
+                garment, the type chosen), then Generate. */}
+            {tryOnStage === 'studio' && customerPhoto && imageSource === 'own-garment' && (() => {
+              const ownTypes = OWN_GARMENT_TYPES[genderFilter];
+              const chosenLabel = ownTypes.find((type) => type.id === ownGarmentType)?.label || '';
+              const ownCameraLive = cameraOpen && cameraTarget === 'own-garment';
+              const checkPassed = ownCheck.status === 'ok' || ownCheck.status === 'unchecked';
+              return (
+                <div className="space-y-5 pb-36">
+                  <div className="flex items-center justify-between gap-4">
+                    <PageTitle size="lg" title="Your own outfit" subtitle={ownGarmentType ? 'Hold the garment up to the camera, or lay it flat.' : 'First choose what you are showing.'} />
+                    <button type="button" onClick={() => void openCameraFor('own-person')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
+                      <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-16 rounded-lg object-cover" />
+                      <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
+                    </button>
                   </div>
-                  <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
-                    <p className="text-lg font-semibold">{ownGarmentPhoto ? OWN_GARMENT_TYPES[genderFilter].find((type) => type.id === ownGarmentType)?.label : 'Photograph your outfit'}</p>
-                    <button type="button" disabled={!ownGarmentPhoto || consentMissing} onClick={() => void runTryOnGeneration(customerPhoto, ownGarmentPhoto)} className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-8 text-lg"><Sparkles className="h-5 w-5" /> Generate my look</button>
+                  <div className="tv-catalogue-shell grid gap-5">
+                    <aside className="tv-category-sidebar tf-card p-3" aria-label="What are you showing">
+                      <p className="px-1 pb-2 text-base font-bold text-ink">What are you showing?</p>
+                      <div className="tv-kiosk-filters flex flex-col gap-1">
+                        {ownTypes.map((type) => (
+                          <button key={type.id} type="button" aria-pressed={ownGarmentType === type.id} onClick={() => chooseOwnGarmentType(type.id)} className="flex items-center justify-between gap-2 rounded-xl border px-4 text-left font-semibold">
+                            <span className="truncate">{type.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </aside>
+                    <div className="min-w-0 space-y-4">
+                      <div className="tf-card flex flex-col items-center gap-5 p-6 text-center">
+                        <div className="relative aspect-[3/4] h-[640px] max-w-full overflow-hidden rounded-2xl bg-ink">
+                          {ownGarmentPhoto ? (
+                            <img src={ownGarmentPhoto} alt="Your garment" className="h-full w-full bg-canvas object-contain" />
+                          ) : ownCameraLive && pendingPhoto ? (
+                            <img src={pendingPhoto} alt="" className="h-full w-full object-cover" />
+                          ) : ownCameraLive ? (
+                            <>
+                              <video ref={videoRef} playsInline muted autoPlay className="h-full w-full object-cover [transform:scaleX(-1)]" />
+                              <div className="pointer-events-none absolute inset-6 rounded-2xl border border-dashed border-white/50" />
+                              <p className="pointer-events-none absolute inset-x-0 top-5 mx-auto w-fit rounded-full bg-ink px-5 py-2 text-lg font-semibold text-white shadow-lg">Hold one {chosenLabel.toLowerCase() || 'garment'} in the frame</p>
+                              {countdown !== null && <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[180px] font-bold tabular-nums text-white drop-shadow-lg">{countdown}</span>}
+                              {cameraError && <p className="absolute inset-x-6 bottom-6 rounded-xl bg-black/85 p-3 text-base text-amber-200">{cameraError}</p>}
+                            </>
+                          ) : (
+                            <span className="flex h-full w-full flex-col items-center justify-center gap-6 bg-[#F1EEE9] p-8 text-muted">
+                              <OwnOutfitIllustration className="h-56 w-56" />
+                              <span className="max-w-sm text-2xl font-semibold text-ink">{ownGarmentType ? 'Open the camera to photograph it' : 'Choose what you are showing on the left'}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* The one next step for each moment: take, confirm, or (after the photo) the AI check's answer. */}
+                        {!ownGarmentPhoto && ownCameraLive && !pendingPhoto && (
+                          <button type="button" onClick={triggerCountdownCapture} disabled={countdown !== null} className="tf-btn tf-btn-primary !min-h-20 w-full max-w-md text-xl font-bold disabled:opacity-50"><Camera className="h-6 w-6" /> Take photo · 5 s</button>
+                        )}
+                        {!ownGarmentPhoto && ownCameraLive && pendingPhoto && (
+                          <div className="grid w-full max-w-xl grid-cols-2 gap-4">
+                            <button type="button" onClick={retryPendingPhoto} className="tf-btn !min-h-20 w-full border-2 border-ink bg-white text-xl font-bold text-ink"><RefreshCw className="h-6 w-6" /> Retake</button>
+                            <button type="button" onClick={confirmPendingPhoto} className="tf-btn tf-btn-primary !min-h-20 w-full text-xl font-bold"><Check className="h-6 w-6" /> Use this photo</button>
+                          </div>
+                        )}
+                        {!ownGarmentPhoto && !ownCameraLive && ownGarmentType && (
+                          <button type="button" onClick={() => void openCameraFor('own-garment')} className="tf-btn tf-btn-dark !min-h-20 w-full max-w-md text-xl font-bold"><Camera className="h-6 w-6" /> Open the camera</button>
+                        )}
+                        {ownGarmentPhoto && (
+                          <div className="w-full max-w-xl space-y-4">
+                            {ownCheck.status === 'checking' && <p className="flex items-center justify-center gap-3 text-xl font-semibold text-muted"><LoaderCircle className="h-6 w-6 animate-spin" /> Checking your garment…</p>}
+                            {ownCheck.status === 'ok' && <p className="flex items-center justify-center gap-3 rounded-xl bg-success-soft p-4 text-xl font-bold text-success"><Check className="h-6 w-6" /> {chosenLabel}</p>}
+                            {ownCheck.status === 'mismatch' && (
+                              <div className="space-y-3 rounded-xl bg-warn-soft p-4 text-left">
+                                <p className="text-xl font-bold text-ink">This looks like {ownCheck.detectedLabel ? `a ${ownCheck.detectedLabel.toLowerCase()}` : 'a different garment'}, not {chosenLabel ? `a ${chosenLabel.toLowerCase()}` : 'what you chose'}.</p>
+                                {ownCheck.detectedType && (
+                                  <button type="button" onClick={() => { setOwnGarmentType(ownCheck.detectedType!); setOwnCheck({ status: 'ok' }); }} className="tf-btn tf-btn-dark !min-h-16 w-full text-lg font-bold">Use {ownCheck.detectedLabel}</button>
+                                )}
+                              </div>
+                            )}
+                            {ownCheck.status === 'multiple' && <p className="rounded-xl bg-warn-soft p-4 text-xl font-bold text-ink">We can see more than one garment. Show one garment at a time.</p>}
+                            {ownCheck.status === 'unclear' && <p className="rounded-xl bg-warn-soft p-4 text-xl font-bold text-ink">We can’t see the garment clearly. Hold it closer, in good light.</p>}
+                            <button type="button" onClick={retakeOwnGarment} className="tf-btn !min-h-16 w-full border-2 border-ink bg-white text-lg font-bold text-ink"><RefreshCw className="h-5 w-5" /> Retake</button>
+                          </div>
+                        )}
+                      </div>
+                      {!ownGarmentPhoto && <PhotoGuide size="lg" lines={OUTFIT_GUIDE} />}
+                      {tryOnError && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{tryOnError}</p>}
+                      {!isTablet && <PosterFill clientName={clientName} />}
+                    </div>
+                    <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
+                      <p className="text-lg font-semibold">{ownGarmentPhoto && checkPassed ? chosenLabel : ownGarmentType ? `Photograph your ${chosenLabel.toLowerCase()}` : 'Choose what you are showing'}</p>
+                      <button type="button" disabled={!ownGarmentPhoto || !checkPassed || consentMissing} onClick={() => void runTryOnGeneration(customerPhoto, ownGarmentPhoto)} className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-8 text-lg"><Sparkles className="h-5 w-5" /> Generate my look</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {tryOnStage === 'generating' && (
               <section className="space-y-6" aria-live="polite">
@@ -1529,7 +1646,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             onEndSession={endSession}
             categories={liveCategories}
             clientName={clientName}
-            onStarted={() => setLiveStarted(true)}
+            onPhaseChange={setLivePhase}
+            onBackChange={handleLiveBack}
             catalogue={catalogueItems.filter(isLiveMirrorReady)}
             onSelectProduct={setSelectedProduct}
             onUsePhotoTryOn={(product) => {
@@ -1557,7 +1675,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         )}
         {mode === 'catalogue-video' && !isTablet && (!tvBillSuffixRequired || tvBillEntered) && (
           <div className="space-y-6">
-            {videoBack && <BackButton onClick={videoBack} />}
+            {isTablet && videoBack && <BackButton onClick={videoBack} />}
             {videoStage === 'who' && (
               <div className="tv-who-screen flex min-h-[calc(100dvh-240px)] flex-col gap-6">
                 <PageTitle size="lg" title="Who is the video for?" subtitle="A short AI Video of you in a piece from our collection." />
@@ -1816,8 +1934,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           top-right corner, to send one from the phone instead; the outfit photo is taken with the camera
           only (no QR).
          ========================================================= */}
-      {cameraOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-black text-white" role="dialog" aria-modal="true" aria-label={cameraTarget === 'own-garment' ? 'Photograph your outfit' : 'Take your photo'}>
+      {cameraOpen && cameraTarget !== 'own-garment' && (
+        <div className="fixed inset-0 z-50 overflow-hidden bg-black text-white" role="dialog" aria-modal="true" aria-label="Take your photo">
           {pendingPhoto ? (
             // The just-taken (or phone-sent) photo, full screen: confirmed right here, no second preview page.
             <img src={pendingPhoto} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -1839,7 +1957,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 : <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>}
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white/70">{clientName}</p>
-                <p className="text-2xl font-bold">{pendingPhoto ? 'Looking good?' : cameraTarget === 'own-garment' ? 'Your outfit' : 'Your photo'}</p>
+                <p className="text-2xl font-bold">{pendingPhoto ? 'Looking good?' : 'Your photo'}</p>
               </div>
             </div>
             <button
@@ -1876,7 +1994,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
               <div className={`pointer-events-none absolute inset-x-0 flex justify-center px-4 ${kidsOnCamera ? 'top-48 sm:top-52' : 'top-24 sm:top-28'}`}>
                 <p className="rounded-full bg-ink px-6 py-2 text-center text-lg font-semibold shadow-lg">
-                  {cameraTarget === 'own-garment' ? 'Hold the whole outfit in the frame' : 'Step back so your whole body is in the frame'}
+                  Step back so your whole body is in the frame
                 </p>
               </div>
 
@@ -1937,9 +2055,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <RefreshCw className="h-7 w-7" />
                   </button>
                 </div>
-                {/* A garment is photographed off the store rail with the camera only: no file upload here. */}
-                {cameraTarget !== 'own-garment' && (
-                  <label className="flex min-h-16 cursor-pointer items-center gap-2 rounded-xl border-2 border-white bg-white px-5 text-base font-bold text-ink hover:bg-canvas">
+                                  <label className="flex min-h-16 cursor-pointer items-center gap-2 rounded-xl border-2 border-white bg-white px-5 text-base font-bold text-ink hover:bg-canvas">
                     <Upload className="h-4 w-4" />
                     Choose a photo file instead
                     <input
@@ -1949,7 +2065,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       onChange={(e) => handleFileUpload(cameraTarget, e.target.files?.[0])}
                     />
                   </label>
-                )}
               </>
             )}
           </div>
