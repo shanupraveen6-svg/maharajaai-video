@@ -14,6 +14,8 @@ import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/us
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { tryOnEngineOrder } from '@/lib/maharaja/try-on-provider';
+import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
+import { storagePathFromSignedUrl } from '@/lib/maharaja/photo-source';
 import { canFallbackFromGenlook, canRetryGenlook, generateGenlookTryOn, genlookCreditsPerLook } from '@/lib/maharaja/genlook-provider';
 import { generateFashnTryOn } from '@/lib/maharaja/fashn-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
@@ -68,17 +70,45 @@ function formatGeminiImageError(error: any) {
   return 'We couldn’t create your look. Please try again, or ask our staff for help.';
 }
 
+/**
+ * A store garment's photo path, taken from the store's own catalogue record by its SKU (never from the link a
+ * screen sends). '' for a customer's own outfit (OWN-…) or an unknown SKU.
+ */
+async function catalogueGarmentPath(sku: unknown): Promise<string> {
+  if (typeof sku !== 'string' || !sku.trim() || sku.startsWith('OWN-')) return '';
+  const product = await getCatalogueProduct(sku).catch(() => null);
+  return product ? String(product.garmentReferencePath || product.storagePath || '').trim() : '';
+}
+
 async function resolveImageBase64(input: unknown, bucket: any, sessionId: string, allowedCataloguePath = ''): Promise<string> {
   if (typeof input !== 'string' || !input.trim()) return '';
   const trimmed = input.trim();
   if (trimmed.startsWith('data:image/')) {
     return trimmed.split(',')[1] || trimmed;
   }
-  if (trimmed.startsWith('/images/catalogue-demo/') || trimmed.startsWith('/images/maharaja-client/')) {
-    const publicRoot = path.resolve(process.cwd(), 'public');
-    const publicFilePath = path.resolve(publicRoot, `.${trimmed}`);
+  // Bundled garment photos (catalogue-demo, maharaja-client, maharaja-collection…) are read from public/images.
+  if (trimmed.startsWith('/images/')) {
+    const publicRoot = path.resolve(process.cwd(), 'public', 'images');
+    const publicFilePath = path.resolve(process.cwd(), 'public', `.${trimmed.split('?')[0]}`);
     if (!publicFilePath.startsWith(`${publicRoot}${path.sep}`)) throw new Error('Invalid catalogue photo path.');
     const buffer = await fs.readFile(publicFilePath);
+    if (buffer.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Catalogue photo exceeds the 8 MB processing limit.');
+    return buffer.toString('base64');
+  }
+  // A store garment from the catalogue record may be an outside https link (older records): fetched directly.
+  if (trimmed === allowedCataloguePath && /^https:\/\//.test(trimmed)) {
+    const response = await fetch(trimmed, { signal: AbortSignal.timeout(15_000), cache: 'no-store' });
+    if (!response.ok) throw new Error('Catalogue photo could not be downloaded.');
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Catalogue photo exceeds the 8 MB processing limit.');
+    return buffer.toString('base64');
+  }
+  // A signed link to this store's own storage (what the screens show for uploaded garments) is read from
+  // storage by its path; links to anywhere else are refused.
+  const ownStoragePath = bucket ? storagePathFromSignedUrl(trimmed, String(bucket.name || '')) : '';
+  if (ownStoragePath) {
+    if (!ownStoragePath.startsWith(`clients/${activeClientId()}/`)) throw new Error('Photo source does not belong to this store.');
+    const [buffer] = await bucket.file(ownStoragePath).download();
     if (buffer.byteLength > MAX_SOURCE_IMAGE_BYTES) throw new Error('Catalogue photo exceeds the 8 MB processing limit.');
     return buffer.toString('base64');
   }
@@ -219,7 +249,9 @@ export async function POST(req: NextRequest) {
     }
 
     const personInput = body.personPhotoStoragePath || body.personPhotoUrl || personPhoto;
-    const cataloguePath = access.pass?.experienceType === 'catalogue-gift' ? String(access.pass.catalogueStoragePath || '') : '';
+    const cataloguePath = access.pass?.experienceType === 'catalogue-gift'
+      ? String(access.pass.catalogueStoragePath || '')
+      : await catalogueGarmentPath(body.catalogueProductId);
     const garmentInputs: string[] = cataloguePath ? [cataloguePath] : (Array.isArray(body.garmentPhotoStoragePaths) && body.garmentPhotoStoragePaths.length > 0)
       ? body.garmentPhotoStoragePaths
       : (Array.isArray(body.garmentPhotoUrls) && body.garmentPhotoUrls.length > 0)

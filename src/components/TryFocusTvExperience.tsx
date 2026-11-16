@@ -1031,6 +1031,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           templateId: selectedProduct.gender === 'boys' ? 'boy' : selectedProduct.gender === 'girls' ? 'girl' : selectedProduct.gender,
           guardianProcessingConsent: selectedProduct.gender === 'boys' || selectedProduct.gender === 'girls' ? videoGuardianConsent : undefined,
           conceptId,
+          catalogueProductId: selectedProduct.sku,
           garmentType: selectedProduct.garmentType,
           garmentTypeConfirmed: true,
           processingConsent: true,
