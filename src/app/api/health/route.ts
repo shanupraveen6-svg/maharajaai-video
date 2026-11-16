@@ -68,6 +68,32 @@ export async function GET(req: NextRequest) {
     }, { status: 503 });
   }
 
+  // `?latency=1`: where the server runs, where storage lives, and the round-trip time from the server to the
+  // database, storage and each AI service (milliseconds). For choosing the server region; no data is returned.
+  if (req.nextUrl.searchParams.get('latency') === '1') {
+    const time = async (task: () => Promise<unknown>) => { const started = Date.now(); await task().catch(() => undefined); return Date.now() - started; };
+    const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+    await db.collection('appControl').doc('health').get().catch(() => undefined);
+    const firestoreReads: number[] = [];
+    for (let i = 0; i < 5; i += 1) firestoreReads.push(await time(() => db.collection('appControl').doc('health').get()));
+    const [meta] = await bucket.getMetadata().catch(() => [{} as Record<string, unknown>]);
+    const storageReads: number[] = [];
+    for (let i = 0; i < 3; i += 1) storageReads.push(await time(() => bucket.getMetadata()));
+    const genlookKey = AI_CONFIG.GENLOOK_API_KEY;
+    return NextResponse.json({
+      success: true,
+      serverRegion: process.env.VERCEL_REGION || 'unknown',
+      storageLocation: String((meta as { location?: string }).location || 'unknown'),
+      storageLocationType: String((meta as { locationType?: string }).locationType || 'unknown'),
+      firestoreReadMs: median(firestoreReads),
+      storageCallMs: median(storageReads),
+      genlookMs: genlookKey ? await time(() => getGenlookCredits(genlookKey)) : null,
+      geminiMs: await time(() => checkGemini()),
+      falMs: await time(() => checkFal()),
+      checkedAt,
+    }, { headers: { 'Cache-Control': 'no-store' } });
+  }
+
   try {
     const includeMedia = req.nextUrl.searchParams.get('media') === '1';
     const [, , storedFilesResult] = await Promise.all([

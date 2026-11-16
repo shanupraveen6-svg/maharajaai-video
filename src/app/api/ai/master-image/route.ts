@@ -401,15 +401,16 @@ export async function POST(req: NextRequest) {
 
         let rawBuffer: Buffer | null = null;
         // No fail state for the customer: every engine problem moves on to the next engine instead of stopping.
-        // Store garments: GenLook (sent once more if busy) → Gemini. The customer's own
-        // outfit: GenLook → Gemini (fast first, as the store chose). The AI Video portrait: Gemini. Gemini as the
+        // Store garments: GenLook (sent once more if busy) → Gemini. The customer's own outfit (a phone photo of a
+        // held, hung or folded garment, not a store packshot): Gemini → GenLook → Gemini's other model. The AI Video
+        // portrait: Gemini. Gemini as the
         // last engine tries again and then on the other Nano Banana model. A look GenLook may still have made
         // keeps its credit (a rare double charge is better than a customer with no look).
         // A customer's own garment: no catalogue SKU, or the TV's OWN-… id for the photographed garment.
         const ownOutfitTryOn = service === 'try-on' && (typeof body.catalogueProductId !== 'string' || body.catalogueProductId.startsWith('OWN-'));
         // The last engine is always Gemini, which retries and switches model before anything is shown as failed.
         const engines: Array<'genlook' | 'gemini'> = service !== 'try-on' ? ['gemini']
-          : ownOutfitTryOn ? ['genlook', 'gemini'] : tryOnEngineOrder();
+          : ownOutfitTryOn ? ['gemini', 'genlook', 'gemini'] : tryOnEngineOrder();
         let lastEngineError: unknown = null;
         // The outfit photo and its product name for GenLook. A set (two or three pieces in one photo) is split
         // into its pieces first, so every engine dresses each piece as itself.
