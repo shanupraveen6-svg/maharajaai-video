@@ -251,6 +251,16 @@
 @media (orientation: portrait) and (min-width: 900px) and (min-height: 1600px) {
   /* The photo step fills the 43-inch portrait screen instead of leaving its lower half empty. */
   .tv-kiosk button.tv-photo-action { min-height: 940px; }
+  /* 43-inch portrait TV read from 1–2 m: no text under 16 px, labels 18 px, body 20 px, buttons 22–24 px,
+     header buttons 22 px and 72 px tall. Screens fill exactly what the header leaves (no scroll, no gap). */
+  .tv-kiosk nav button, .tv-kiosk nav a { font-size: 22px; min-height: 72px; }
+  .tv-kiosk .text-xs { font-size: 16px; line-height: 1.35; }
+  .tv-kiosk .text-sm { font-size: 18px; line-height: 1.4; }
+  .tv-kiosk .text-base, .tv-kiosk .text-\[15px\] { font-size: 20px; line-height: 1.45; }
+  .tv-kiosk .text-lg { font-size: 22px; line-height: 1.4; }
+  .tv-kiosk .text-xl { font-size: 24px; line-height: 1.35; }
+  .tv-kiosk-filters button { font-size: 20px; }
+  .tv-kiosk .tv-kiosk-content { padding-bottom: 32px; }
   .tv-home { min-height: calc(100dvh - 342px); }
   .tv-home-hero { min-height: clamp(520px, 35vh, 660px); }
   .tv-experience-grid { flex: 1; }
@@ -274,6 +284,11 @@
   .tv-experience-card button { width: 100%; font-size: 13px; }
   .tv-generated-looks { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* A screen that fills the TV below the fixed header (its height is measured into --tv-header-h). */
+.tv-fill-screen { min-height: calc(100dvh - var(--tv-header-h, 240px) - 64px); }
+/* The results screen is exactly that height, so the look, the QR and End session are all in view. */
+.tv-result-screen { height: calc(100dvh - var(--tv-header-h, 240px) - 64px); }
 
 @media (max-width: 900px) {
   .tablet-workspace { width: 100%; min-width: 0; }

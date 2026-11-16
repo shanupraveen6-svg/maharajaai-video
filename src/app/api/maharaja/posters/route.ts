@@ -1,4 +1,7 @@
+import fs from 'fs/promises';
+import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
+import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { verifyTvRequest } from '@/lib/auth/display';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
@@ -8,6 +11,9 @@ import { deletePoster, listPosters, POSTER_LIMITS, PosterError, readPoster, save
 export const dynamic = 'force-dynamic';
 
 const TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+/** Maharaja's built-in poster, shown until the store uploads its own. */
+const BUILT_IN_POSTER = 'maharaja-default';
+const BUILT_IN_POSTER_FILE = path.join(process.cwd(), 'public', 'images', 'maharaja-client', 'poster-must-try.jpg');
 
 /**
  * The store's posters. GET lists them (`{ posters: [id…] }`) or, with `?id=`, returns one image — for the
@@ -18,12 +24,19 @@ export async function GET(req: NextRequest) {
   if (!allowed) return NextResponse.json({ success: false, error: 'Sign in to the workspace.' }, { status: 401 });
   bindClient(await resolveRequestClientId(req, undefined, req.nextUrl.searchParams.get('workspaceCode')));
   const id = req.nextUrl.searchParams.get('id');
+  if (id === BUILT_IN_POSTER) {
+    const poster = await fs.readFile(BUILT_IN_POSTER_FILE).catch(() => null);
+    if (!poster) return NextResponse.json({ success: false, error: 'Poster not found.' }, { status: 404 });
+    return new NextResponse(new Uint8Array(poster), { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=3600' } });
+  }
   if (id) {
     const poster = await readPoster(activeClientId(), id);
     if (!poster) return NextResponse.json({ success: false, error: 'Poster not found.' }, { status: 404 });
     return new NextResponse(new Uint8Array(poster), { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=300' } });
   }
-  return NextResponse.json({ success: true, posters: await listPosters(activeClientId()), limits: POSTER_LIMITS }, { headers: { 'Cache-Control': 'no-store' } });
+  // `fallback`: the poster the TV shows while the store has none of its own (Maharaja's built-in one).
+  const fallback = activeClientId() === MAHARAJA_CLIENT_ID ? BUILT_IN_POSTER : null;
+  return NextResponse.json({ success: true, posters: await listPosters(activeClientId()), fallback, limits: POSTER_LIMITS }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
 export async function POST(req: NextRequest) {

@@ -445,7 +445,7 @@ export default function LucyLiveMirror({
 
   if (phase === 'who') {
     return (
-      <div className="flex min-h-[calc(100dvh-260px)] flex-col gap-7">
+      <div className="flex tv-fill-screen flex-col gap-7">
         <div className="space-y-3">
           <PageTitle size="lg" title="Live Try-On" subtitle="See an outfit on you, live on camera, for 30 seconds." />
           <PhotoConsentNotice kind="live" large />

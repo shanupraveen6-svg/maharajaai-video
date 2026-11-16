@@ -8,7 +8,8 @@ function loadPosters() {
   if (!posterList) {
     posterList = fetch('/api/maharaja/posters', { cache: 'no-store' })
       .then((response) => (response.ok ? response.json() : { posters: [] }))
-      .then((data) => (Array.isArray(data?.posters) ? data.posters : []))
+      // The store's own posters; while it has none, its built-in poster (if any).
+      .then((data) => (Array.isArray(data?.posters) && data.posters.length ? data.posters : typeof data?.fallback === 'string' ? [data.fallback] : []))
       .catch(() => []);
   }
   return posterList;
@@ -26,8 +27,8 @@ function loadLogo() {
 
 /**
  * Fills the space a TV screen's own content leaves empty, so the portrait screen never looks half blank:
- * the store's posters (Settings → Posters), one at a time, changing every 7 seconds. With no posters, the
- * store's logo and line. It takes the rest of the screen's height and hides itself when there is too little
+ * the store's posters (Settings → Posters), one at a time, changing every 7 seconds, each filling the space
+ * and trimmed from its centre. With no posters, the store's built-in poster, or else its logo and line. It takes the rest of the screen's height and hides itself when there is too little
  * room to be worth showing. The screen that uses it is a flex column at least as tall as the screen.
  */
 export default function PosterFill({ clientName }: { clientName: string }) {
@@ -67,7 +68,8 @@ export default function PosterFill({ clientName }: { clientName: string }) {
               key={id}
               src={`/api/maharaja/posters?id=${id}`}
               alt=""
-              className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-700 ${position === index ? 'opacity-100' : 'opacity-0'}`}
+              // Fills the space edge to edge, trimmed from the centre (the upload guide asks for logo and text there).
+              className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ${position === index ? 'opacity-100' : 'opacity-0'}`}
             />
           ))}
         </div>

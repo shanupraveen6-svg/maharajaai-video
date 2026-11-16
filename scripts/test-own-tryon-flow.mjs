@@ -33,3 +33,25 @@ const live = fs.readFileSync(new URL('../src/components/LucyLiveMirror.tsx', imp
 assert.match(live, /onBackChange\?\.\(phase === 'camera' && !running \? \(\) => backRef\.current\(\) : null\)/);
 assert.doesNotMatch(live, /onClick=\{backToWho\}/, 'No second Back button inside Live Try-On');
 console.log('✓ TV header in a session, own try-on on one screen with the AI garment check, Live Back in the header');
+
+// TV fit and readability: screens fill exactly what the fixed header leaves; results and the portrait keep
+// the look, QR and End session in one view; the TV type scale has no text under 16 px.
+{
+  const css = fs.readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  assert.match(css, /\.tv-fill-screen \{ min-height: calc\(100dvh - var\(--tv-header-h, 240px\) - 64px\); \}/);
+  assert.match(css, /\.tv-result-screen \{ height: calc\(100dvh - var\(--tv-header-h, 240px\) - 64px\); \}/);
+  assert.match(css, /\.tv-kiosk \.text-sm \{ font-size: 18px;/);
+  assert.match(css, /\.tv-kiosk nav button, \.tv-kiosk nav a \{ font-size: 22px; min-height: 72px; \}/);
+  assert.match(tv, /setProperty\('--tv-header-h'/, 'The header height is measured');
+  assert.equal((tv.match(/tv-result-screen/g) || []).length, 2, 'Try-On results and the AI Video portrait fit one screen');
+  assert.doesNotMatch(tv, /min-h-\[calc\(100dvh-2\d0px\)\]/, 'No guessed header heights left');
+  // Built-in poster for Maharaja, trimmed from the centre; the upload card shows the size guide.
+  const posters = fs.readFileSync(new URL('../src/app/api/maharaja/posters/route.ts', import.meta.url), 'utf8');
+  assert.match(posters, /poster-must-try\.jpg/);
+  assert.ok(fs.existsSync(new URL('../public/images/maharaja-client/poster-must-try.jpg', import.meta.url)));
+  const fill = fs.readFileSync(new URL('../src/components/kiosk/PosterFill.tsx', import.meta.url), 'utf8');
+  assert.match(fill, /object-cover object-center/);
+  const manager = fs.readFileSync(new URL('../src/components/PosterManager.tsx', import.meta.url), 'utf8');
+  assert.match(manager, /Best 1080 × 1920 px, portrait \(9:16\)/);
+  console.log('✓ TV screens fit one view, TV type scale, built-in poster with centre crop and size guide');
+}

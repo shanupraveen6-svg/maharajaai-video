@@ -11,6 +11,8 @@ const MAX = 8;
  */
 export default function PosterManager({ clientId }: { clientId?: string }) {
   const [posters, setPosters] = useState<string[]>([]);
+  // The TV shows the store's built-in poster while none is uploaded (Maharaja).
+  const [hasFallback, setHasFallback] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -21,7 +23,7 @@ export default function PosterManager({ clientId }: { clientId?: string }) {
   useEffect(() => {
     fetch(`/api/maharaja/posters?${code}`, { cache: 'no-store' })
       .then((response) => response.json())
-      .then((data) => { if (data?.success) setPosters(data.posters || []); })
+      .then((data) => { if (data?.success) { setPosters(data.posters || []); setHasFallback(typeof data.fallback === 'string'); } })
       .catch(() => setError('Posters could not be loaded. Reload the page.'));
   }, [code]);
 
@@ -72,7 +74,18 @@ export default function PosterManager({ clientId }: { clientId?: string }) {
     <section className="tf-card p-6">
       <h2 className="text-lg font-bold">Posters</h2>
       <p className="mt-1 text-sm text-muted">Your own brand and offer artwork. The TV shows them in turn in any space a screen leaves empty, so it always looks full.</p>
-      <p className="mt-1 text-sm text-ink">{posters.length} of {MAX} · JPG, PNG or WebP · up to 5 MB · at least 720 × 720 px · best portrait 1080 × 1920</p>
+      {/* Size guide: a portrait frame with the middle band the TV always keeps. */}
+      <div className="mt-3 flex items-center gap-4 rounded-xl border border-line bg-canvas p-3">
+        <div className="relative flex aspect-[9/16] w-16 shrink-0 items-center rounded-md border-2 border-ink bg-white" aria-hidden="true">
+          <span className="mx-1 flex h-1/2 w-full items-center justify-center rounded border-2 border-dashed border-brand text-[9px] font-bold leading-tight text-brand">Logo + text</span>
+        </div>
+        <div className="text-sm text-ink">
+          <p className="font-bold">Best 1080 × 1920 px, portrait (9:16)</p>
+          <p>At least 720 px on each side · JPG, PNG or WebP · up to 5 MB · {posters.length} of {MAX} used</p>
+          <p className="text-muted">The TV fills each empty space with your poster and trims the edges, so keep your logo and text in the middle half.</p>
+        </div>
+      </div>
+      {posters.length === 0 && hasFallback && <p className="mt-3 text-sm text-muted">The TV is showing your built-in poster until you upload one.</p>}
       <ul className="mt-4 flex flex-wrap gap-3">
         {posters.map((id) => (
           <li key={id} className="w-32">
