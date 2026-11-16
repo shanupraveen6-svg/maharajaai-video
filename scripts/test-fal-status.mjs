@@ -21,5 +21,5 @@ try {
   globalThis.fetch = original;
 }
 const route = fs.readFileSync(new URL('../src/app/api/maharaja/catalogue/route.ts', import.meta.url), 'utf8');
-assert.match(route, /if \(falUnavailable\(await falStatus\(\)\)\) \{\s*access\.modules = \{ \.\.\.access\.modules, live: false, video: false \};/, 'The TV hides AI Video and Live Try-On while fal is locked');
-console.log('✓ fal status: no balance hides AI Video and Live Try-On on the TV until fal works again');
+assert.doesNotMatch(route, /falUnavailable/, 'AI Video and Live Try-On stay on the TV whatever fal answers (store decision)');
+console.log('✓ fal status: a locked account reads as no balance in the health check; the TV keeps every tab');
