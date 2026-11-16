@@ -8,6 +8,7 @@ import { resolveAccess } from '@/lib/maharaja/access';
 import { activeClientId, bindClient, liveScreenId } from '@/lib/maharaja/client-context';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { saveGoLiveEntry } from '@/lib/maharaja/go-live-library';
+import { guardRoute } from '@/lib/http/guard';
 
 export const dynamic = 'force-dynamic';
 const LIVE_PLAY_COUNT = 2;
@@ -18,7 +19,7 @@ function cleanDisplayText(value: unknown): string | null {
   return cleaned || null;
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
   const accessCode = typeof body?.accessCode === 'string' ? body.accessCode.trim() : '';
@@ -247,3 +248,5 @@ export async function POST(req: NextRequest) {
   }
   return NextResponse.json({ success: true, queueId, queueNumber, status, created });
 }
+
+export const POST = guardRoute(postHandler, 'live/enqueue POST');

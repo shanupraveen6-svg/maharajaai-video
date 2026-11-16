@@ -11,7 +11,6 @@ const {
   getVideoPass,
   expireActivePassesForPhone,
   logMaharajaActivity,
-  incrementMaharajaUsage,
   listMaharajaActivity,
 } = server;
 

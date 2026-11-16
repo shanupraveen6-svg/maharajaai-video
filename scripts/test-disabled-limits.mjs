@@ -11,18 +11,12 @@ process.env.ENFORCE_REPEAT_LIMITS = 'false';
 
 const server = await import('../src/lib/maharaja/server.ts');
 const {
-  getCustomerServiceAllowances,
   acquireServiceGenerationLock,
-  releaseServiceGenerationLock,
   recordServiceGenerationSuccess,
   saveVideoPass,
   getVideoPass,
   verifyMaharajaAccess,
-  acquirePassVideoLock,
-  markPassVideoReady,
   enablePassCustomerRetry,
-  approvePassVideoMaster,
-  markPassVideoMasterDone,
 } = server;
 
 let assertionCount = 0;

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readPhotoTransfer, savePhotoTransfer } from '@/lib/maharaja/photo-transfer';
 import { getDb, getMockStore, getStorageBucket } from '@/lib/firebase/admin';
+import { guardRoute } from '@/lib/http/guard';
 
 type Context = { params: Promise<{ token: string }> };
 const headers = { 'Cache-Control': 'private, no-store' };
-export async function GET(req: NextRequest, context: Context) {
+async function getHandler(req: NextRequest, context: Context) {
   const { token } = await context.params;
   const record = await readPhotoTransfer(token);
   if (!record) return NextResponse.json({ error: 'This upload QR has expired. Request a new one on the display.' }, { status: 404, headers });
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, context: Context) {
   }
   return NextResponse.json({ status: record.status, image }, { headers });
 }
-export async function PATCH(req: NextRequest, context: Context) {
+async function patchHandler(req: NextRequest, context: Context) {
   const { token } = await context.params;
   const record = await readPhotoTransfer(token);
   if (!record) return NextResponse.json({ error: 'This upload QR has expired.' }, { status: 404, headers });
@@ -36,7 +37,7 @@ export async function PATCH(req: NextRequest, context: Context) {
   } else await savePhotoTransfer(token, { ...record, status: 'ready', image: `data:image/jpeg;base64,${bytes.toString('base64')}` });
   return NextResponse.json({ success: true }, { headers });
 }
-export async function DELETE(req: NextRequest, context: Context) {
+async function deleteHandler(req: NextRequest, context: Context) {
   const { token } = await context.params;
   const record = await readPhotoTransfer(token);
   if (!record || req.headers.get('x-transfer-receiver') !== record.receiver) return NextResponse.json({ error: 'Transfer not found.' }, { status: 404, headers });
@@ -46,3 +47,7 @@ export async function DELETE(req: NextRequest, context: Context) {
   else getMockStore().sessions.delete(`photo_transfer_${token}`);
   return NextResponse.json({ success: true }, { headers });
 }
+
+export const GET = guardRoute(getHandler, 'tv/photo-transfer/[token] GET');
+export const PATCH = guardRoute(patchHandler, 'tv/photo-transfer/[token] PATCH');
+export const DELETE = guardRoute(deleteHandler, 'tv/photo-transfer/[token] DELETE');

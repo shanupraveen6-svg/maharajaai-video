@@ -6,8 +6,9 @@ import { verifyTvRequest } from '@/lib/auth/display';
 import { savePhotoTransfer } from '@/lib/maharaja/photo-transfer';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { customerRateLimit } from '@/lib/maharaja/config';
+import { guardRoute } from '@/lib/http/guard';
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   if (!await verifyTvRequest(req)) return NextResponse.json({ error: 'Sign in or pair this display first.' }, { status: 401 });
   const rate = await enforceRateLimit(req, 'photo-transfer-create', customerRateLimit(12), 600_000);
@@ -18,3 +19,5 @@ export async function POST(req: NextRequest) {
   await savePhotoTransfer(token, { receiver, expiresAtMs, status: 'waiting', clientId: activeClientId() });
   return NextResponse.json({ token, receiver, expiresAtMs }, { headers: { 'Cache-Control': 'no-store' } });
 }
+
+export const POST = guardRoute(postHandler, 'tv/photo-transfer POST');

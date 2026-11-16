@@ -3,10 +3,11 @@ import { getDb, getMockStore, getSignedPlaybackUrl } from '@/lib/firebase/admin'
 import { isEventId } from '@/lib/maharaja/config';
 import { instagramUrlFor, passAllowsGoLive, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { bindClient } from '@/lib/maharaja/client-context';
+import { guardRoute } from '@/lib/http/guard';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const sessionId = req.nextUrl.searchParams.get('sessionId')?.trim() || '';
   const accessCode = req.nextUrl.searchParams.get('accessCode')?.trim() || '';
   if (!sessionId || !accessCode) {
@@ -81,3 +82,5 @@ export async function GET(req: NextRequest) {
     } : null,
   });
 }
+
+export const GET = guardRoute(getHandler, 'video/result GET');

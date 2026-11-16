@@ -9,8 +9,9 @@ import {
 } from '@/lib/auth/display';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId } from '@/lib/maharaja/server';
+import { guardRoute } from '@/lib/http/guard';
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   // Staff login pairs a screen; an already paired screen of the same workspace renews itself.
   const renewing = (await displayClientId(req)) === activeClientId();
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   return response;
 }
 
-export async function DELETE(req: NextRequest) {
+async function deleteHandler(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   if (!verifyOperatorRequest(req))
     return NextResponse.json(
@@ -49,3 +50,6 @@ export async function DELETE(req: NextRequest) {
   });
   return response;
 }
+
+export const POST = guardRoute(postHandler, 'tv/pair POST');
+export const DELETE = guardRoute(deleteHandler, 'tv/pair DELETE');

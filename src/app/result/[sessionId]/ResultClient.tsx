@@ -471,6 +471,12 @@ export default function ResultClient({
               <RotateCcw className="h-5 w-5" /> Make my video again
             </button>
           </div>
+        ) : !accessCode ? (
+          <div className="space-y-4 rounded-2xl bg-white p-8 text-center">
+            <AlertCircle className="mx-auto h-10 w-10 text-danger" />
+            <h2 className="text-xl font-bold">This video link is incomplete</h2>
+            <p className="text-sm text-muted">Scan the QR on the store TV again to open your video.</p>
+          </div>
         ) : isLoadingVideo || videoStatus === 'processing' || !videoUrl ? (
           <div className="flex flex-col items-center gap-4 rounded-2xl bg-white p-8 text-center">
             <DressLoader />

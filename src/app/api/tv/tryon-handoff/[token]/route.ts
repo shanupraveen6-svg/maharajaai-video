@@ -6,11 +6,12 @@ import { markHandoffLookDownloaded, readTryOnHandoff } from '@/lib/maharaja/tryo
 import { getClientWorkspaceById, instagramUrlFor } from '@/lib/maharaja/server';
 import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { countLeadDownload, verifyLeadToken } from '@/lib/maharaja/leads';
+import { guardRoute } from '@/lib/http/guard';
 
 export const dynamic = 'force-dynamic';
 
 
-export async function GET(req: NextRequest, context: { params: Promise<{ token: string }> }) {
+async function getHandler(req: NextRequest, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
   const handoff = await readTryOnHandoff(token);
   if (!handoff) return NextResponse.json({ error: 'This private look link has expired.' }, { status: 404 });
@@ -61,3 +62,5 @@ export async function GET(req: NextRequest, context: { params: Promise<{ token: 
     })),
   }, { headers: { 'Cache-Control': 'private, no-store' } });
 }
+
+export const GET = guardRoute(getHandler, 'tv/tryon-handoff/[token] GET');

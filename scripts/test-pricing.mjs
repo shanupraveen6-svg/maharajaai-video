@@ -34,12 +34,12 @@ assert.equal(moduleTotal('live', 500), 38000);
 assert.equal(moduleTotal('live', 6000), 424000);
 
 // Buying more always costs more in total, and never more per credit.
-for (const module of ['image', 'video', 'live']) {
-  const table = moduleTotalsTable(module);
+for (const plan of ['image', 'video', 'live']) {
+  const table = moduleTotalsTable(plan);
   const counts = Object.keys(table).map(Number).sort((a, b) => a - b);
   for (let i = 1; i < counts.length; i++) {
-    assert.ok(table[counts[i]] > table[counts[i - 1]], `${module} total rises`);
-    assert.ok(table[counts[i]] / counts[i] <= table[counts[i - 1]] / counts[i - 1] + 1e-9, `${module} per-credit price never rises`);
+    assert.ok(table[counts[i]] > table[counts[i - 1]], `${plan} total rises`);
+    assert.ok(table[counts[i]] / counts[i] <= table[counts[i - 1]] / counts[i - 1] + 1e-9, `${plan} per-credit price never rises`);
   }
 }
 

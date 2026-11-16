@@ -3,14 +3,17 @@ import { verifyTvRequest } from '@/lib/auth/display';
 import { resolveRequestClientId, incrementMaharajaUsage } from '@/lib/maharaja/server';
 import { bindClient } from '@/lib/maharaja/client-context';
 import { recordAiCost } from '@/lib/maharaja/usage-ledger';
+import { guardRoute } from '@/lib/http/guard';
 
 export const dynamic = 'force-dynamic';
 
 /** Counts one Live AI Mirror credit once the AI stream is actually playing on the paired TV. */
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
   if (!await verifyTvRequest(req)) return NextResponse.json({ success: false, error: 'Sign in or pair this display first.' }, { status: 401 });
   // Live Try-On (Decart Lucy 2) runs through fal.ai.
   await Promise.all([incrementMaharajaUsage('liveSessions'), recordAiCost('live-session', undefined, 'fal')]);
   return NextResponse.json({ success: true });
 }
+
+export const POST = guardRoute(postHandler, 'fal/realtime-session POST');

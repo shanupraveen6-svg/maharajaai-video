@@ -3,10 +3,11 @@ import { bindClient } from '@/lib/maharaja/client-context';
 import { resolveRequestClientId, getWorkspaceLinks, isWhatsAppEnabled, resolveWorkspaceByAccessCode } from '@/lib/maharaja/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { AI_VIDEO_MIN_PURCHASE } from '@/lib/maharaja/config';
+import { guardRoute } from '@/lib/http/guard';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest, ctx: { params: Promise<{ code: string }> }) {
+async function getHandler(req: NextRequest, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
   bindClient(await resolveRequestClientId(req, code));
   const workspace = await resolveWorkspaceByAccessCode(code);
@@ -29,3 +30,5 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
     openVideoUrl: getWorkspaceLinks(workspace).openVideoUrl,
   });
 }
+
+export const GET = guardRoute(getHandler, 'maharaja/billing/[code] GET');

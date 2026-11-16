@@ -6,6 +6,7 @@ import { LEAD_SOURCES, type LeadSource, cleanLeadText, leadsCsv, listLeads, mask
 import { resolveRequestClientId, verifyClientSessionCurrent, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { readTryOnHandoff } from '@/lib/maharaja/tryon-handoff';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
+import { guardRoute } from '@/lib/http/guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
  * `kind` + `ref` name what is being downloaded (an AI Video or Try-On pass code, or a TV looks link); it must
  * be live, and it decides the store the lead belongs to. Returns the download token.
  */
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const kind = body?.kind;
   const ref = typeof body?.ref === 'string' ? body.ref.trim() : '';
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
 }
 
 /** The store's customer list for its staff: JSON, or a CSV file with `?format=csv`. */
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   // Only from the signed-in session: a store sees its own customers, TryFocus admin names the store.
   // A Go Live or TV pairing on the same browser never decides whose list this is.
   await verifyClientSessionCurrent(req);
@@ -87,3 +88,6 @@ export async function GET(req: NextRequest) {
     leads,
   }, { headers: { 'Cache-Control': 'private, no-store' } });
 }
+
+export const POST = guardRoute(postHandler, 'maharaja/leads POST');
+export const GET = guardRoute(getHandler, 'maharaja/leads GET');

@@ -55,7 +55,7 @@ async function main() {
   // Inspect watermarked MP4
   const tmpWm = path.join(os.tmpdir(), `test_wm_${Date.now()}.mp4`);
   await fs.promises.writeFile(tmpWm, watermarkedBuffer);
-  const probeWm = await runCommand(ffmpegPath, ['-i', tmpWm, '-f', 'null', '-']);
+  await runCommand(ffmpegPath, ['-i', tmpWm, '-f', 'null', '-']);
   console.log('✓ Watermarked video probe success (contains video stream H.264)');
 
   // 3. Test downloadable 6-second branded video with embedded preview audio

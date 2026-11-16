@@ -24,18 +24,15 @@ process.env.NODE_ENV = 'production';
 const server = await import('../src/lib/maharaja/server.ts');
 const {
   normalizePhoneNumber,
-  getOrCreateCampaignEntitlement,
   getCampaignEntitlementByPhone,
   getCampaignEntitlementForPass,
   getCustomerServiceAllowances,
   acquireServiceGenerationLock,
   releaseServiceGenerationLock,
-  recordServiceGenerationSuccess,
   saveVideoPass,
   getVideoPass,
   verifyMaharajaAccess,
   acquirePassImageLock,
-  releasePassImageLock,
   markPassTryOnImageDone,
   markPassVideoMasterDone,
   approvePassVideoMaster,
@@ -44,7 +41,6 @@ const {
   releasePassVideoLock,
   markPassVideoReady,
   markPassVideoFailed,
-  enablePassCustomerRetry,
 } = server;
 
 let assertionCount = 0;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
+import { guardRoute } from '@/lib/http/guard';
 
-export async function POST() {
+async function postHandler() {
   const response = NextResponse.json({ success: true });
   response.cookies.set('maharaja_operator_auth', '', {
     httpOnly: true,
@@ -12,3 +13,5 @@ export async function POST() {
   });
   return response;
 }
+
+export const POST = guardRoute(postHandler, 'operator/logout POST');

@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { bindClient } from '@/lib/maharaja/client-context';
 import { markTryOnDeviceDownloaded, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { deletePhoneLook, readPhoneLook } from '@/lib/maharaja/phone-looks';
+import { guardRoute } from '@/lib/http/guard';
 
 export const dynamic = 'force-dynamic';
 
 /** The look this phone made from the store's Wall QR, while its one hour lasts. */
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const accessCode = req.nextUrl.searchParams.get('access') || '';
   const deviceId = req.nextUrl.searchParams.get('deviceId') || '';
   if (!validTryOnDeviceId(deviceId)) return NextResponse.json({ error: 'Look not found.' }, { status: 404 });
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
 }
 
 /** The customer saved their look on the phone: the stored copy is deleted at once. */
-export async function DELETE(req: NextRequest) {
+async function deleteHandler(req: NextRequest) {
   const accessCode = req.nextUrl.searchParams.get('access') || '';
   const deviceId = req.nextUrl.searchParams.get('deviceId') || '';
   if (!validTryOnDeviceId(deviceId)) return NextResponse.json({ success: false }, { status: 400 });
@@ -34,3 +35,6 @@ export async function DELETE(req: NextRequest) {
   await markTryOnDeviceDownloaded(deviceId);
   return NextResponse.json({ success: true });
 }
+
+export const GET = guardRoute(getHandler, 'maharaja/phone-look GET');
+export const DELETE = guardRoute(deleteHandler, 'maharaja/phone-look DELETE');
