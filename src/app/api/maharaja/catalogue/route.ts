@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { getDb, getStorageBucket } from '@/lib/firebase/admin';
 import { maybeSweepExpired } from '@/lib/maharaja/privacy-cleanup';
 import { resolveAccess } from '@/lib/maharaja/access';
+import { falStatus, falUnavailable } from '@/lib/maharaja/fal-status';
 import { activeClientId, bindClient, runWithClient } from '@/lib/maharaja/client-context';
 import { maybeWarmCatalogueGarments } from '@/lib/maharaja/garment-warm';
 import { ensureStorageCors } from '@/lib/maharaja/storage-cors';
@@ -43,6 +44,14 @@ export async function GET(req: NextRequest) {
       { includeInactive: requestedInactive, videoOnly: req.nextUrl.searchParams.get('videoOnly') === 'true' }
     );
     const workspace = await getMaharajaWorkspace();
+    // fal locked (no balance) or its key gone: AI Video and Live Try-On would fail, so the TV hides them until
+    // fal works again (checked at most every 5 minutes). Image Try-On does not use fal.
+    const access = resolveAccess(workspace.devices, workspace.modules);
+    if (falUnavailable(await falStatus())) {
+      access.modules = { ...access.modules, live: false, video: false };
+      access.catalogueVideo = false;
+      access.goLive = false;
+    }
     // Pre-warm: garments not yet prepared get their Gemini checks in the background (at most every 10 minutes),
     // so a customer's first Try-On on a garment goes straight to GenLook.
     const warmClient = activeClientId();
@@ -52,7 +61,7 @@ export async function GET(req: NextRequest) {
       after(() => ensureStorageCors());
     } catch { /* outside a request scope */ }
     return NextResponse.json(
-      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access: resolveAccess(workspace.devices, workspace.modules), categoryLists: workspace.categoryLists || {}, customCategories: workspace.customCategories || [], videoCategoryLists: workspace.videoCategoryLists || {}, westernOverrides: workspace.westernOverrides || {}, instagramUrl: instagramUrlFor(workspace) },
+      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access, categoryLists: workspace.categoryLists || {}, customCategories: workspace.customCategories || [], videoCategoryLists: workspace.videoCategoryLists || {}, westernOverrides: workspace.westernOverrides || {}, instagramUrl: instagramUrlFor(workspace) },
       {
         headers: {
           'Cache-Control': 'no-store',

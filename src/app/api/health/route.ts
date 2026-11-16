@@ -5,34 +5,12 @@ import { getBackendMode, getDb, getStorageBucket, isRealFirebaseAvailable } from
 import { isSupportedVideoPath } from '@/lib/maharaja/video-playback';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { getGenlookCredits } from '@/lib/maharaja/genlook-provider';
+import { falStatus } from '@/lib/maharaja/fal-status';
 
 export const dynamic = 'force-dynamic';
 
-type EngineStatus = 'ok' | 'invalid' | 'missing' | 'unverified';
+type EngineStatus = 'ok' | 'invalid' | 'missing' | 'unverified' | 'no-balance';
 
-/**
- * fal's token-mint endpoint, not a generation: this is the same call /api/fal/realtime-token makes
- * before every Live Try-On session, and it is free whether or not the token is ever used. A 401 here
- * means the key itself is wrong; any other failure (network, fal being down) reads as 'unverified'
- * rather than 'invalid', so a passing outage never looks like a bad key.
- */
-async function checkFal(): Promise<EngineStatus> {
-  const key = process.env.FAL_KEY?.trim();
-  if (!key) return 'missing';
-  try {
-    const response = await fetch('https://rest.fal.ai/tokens/', {
-      method: 'POST',
-      headers: { Authorization: `Key ${key}`, Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ allowed_apps: ['lucy2-vton'], token_expiration: 1 }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (response.status === 401 || response.status === 403) return 'invalid';
-    return response.ok ? 'ok' : 'unverified';
-  } catch {
-    return 'unverified';
-  }
-}
 
 /**
  * ai.models.get() reads a model's metadata; it does not generate anything and is not billed, so this
@@ -103,7 +81,7 @@ export async function GET(req: NextRequest) {
       storageCallMs: median(storageReads),
       genlookMs: genlookKey ? await time(() => getGenlookCredits(genlookKey)) : null,
       geminiMs: await time(() => checkGemini()),
-      falMs: await time(() => checkFal()),
+      falMs: await time(() => falStatus(true)),
       checkedAt,
     }, { headers: { 'Cache-Control': 'no-store' } });
   }
@@ -127,7 +105,7 @@ export async function GET(req: NextRequest) {
     const genlookKey = AI_CONFIG.GENLOOK_API_KEY;
     const genlook: EngineStatus = !genlookKey ? 'missing' : (await getGenlookCredits(genlookKey)).ok ? 'ok' : 'invalid';
     // fal and Gemini are checked live, for free, the same way.
-    const [fal, gemini] = await Promise.all([checkFal(), checkGemini()]);
+    const [fal, gemini] = await Promise.all([falStatus(true), checkGemini()]);
     return NextResponse.json({
       success: true,
       status: 'healthy',
