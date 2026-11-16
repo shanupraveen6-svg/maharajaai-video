@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import sharp from 'sharp';
+import { MIN_GARMENT_LONG_SIDE } from '@/lib/maharaja/garment-warm';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { getStorageBucket } from '@/lib/firebase/admin';
@@ -36,6 +38,12 @@ export async function POST(req: NextRequest) {
     }
     const bytes = Buffer.from(await file.arrayBuffer());
     const mimeType = imageType(bytes, file.type);
+    // A small photo gives a soft Try-On on the 43-inch TV: refused with its size, before anything is saved.
+    const meta = await sharp(bytes).metadata().catch(() => null);
+    const longSide = Math.max(meta?.width || 0, meta?.height || 0);
+    if (longSide && longSide < MIN_GARMENT_LONG_SIDE) {
+      throw new Error(`This photo is ${meta?.width} × ${meta?.height} px. Use one at least ${MIN_GARMENT_LONG_SIDE} px on the long side for a sharp Try-On.`);
+    }
     // The same photo is never added twice for one audience: point at the garment that already has it.
     const photoHash = crypto.createHash('sha256').update(bytes).digest('hex');
     const existing = await findCatalogueByPhotoHash(photoHash, category.gender);

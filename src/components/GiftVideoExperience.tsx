@@ -15,7 +15,7 @@ import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { categoriesFor, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import { conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import type { CustomerCategory, EventId } from '@/lib/maharaja/config';
-import type { CatalogueAudience } from '@/lib/tryfocus/sample-data';
+import type { CatalogueAudience } from '@/lib/tryfocus/catalogue-data';
 import { fetchMasterImage } from '@/lib/maharaja/master-image-client';
 import type { PublicCatalogueProduct } from '@/lib/maharaja/catalogue-types';
 

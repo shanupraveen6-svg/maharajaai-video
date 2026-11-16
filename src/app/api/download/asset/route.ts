@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
       }
 
       let storagePath = '';
-      let contentType = kind === 'image' ? 'image/jpeg' : 'video/mp4';
+      const contentType = kind === 'image' ? 'image/jpeg' : 'video/mp4';
       if (kind === 'image') {
         storagePath = String(session.masterStoragePath || '');
       } else {

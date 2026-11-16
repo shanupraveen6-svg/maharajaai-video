@@ -10,6 +10,9 @@ import { getGenlookCredits } from '@/lib/maharaja/genlook-provider';
 import { falStatus } from '@/lib/maharaja/fal-status';
 import { loadAllCatalogueRecords } from '@/lib/maharaja/catalogue';
 import { readCataloguePhoto } from '@/lib/maharaja/photo-source';
+import { garmentPhotoSizes, MIN_GARMENT_LONG_SIDE } from '@/lib/maharaja/garment-warm';
+import { runWithClient } from '@/lib/maharaja/client-context';
+import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -74,6 +77,13 @@ export async function GET(req: NextRequest) {
       if (!result.ok) throw new Error(result.error);
       if (result.creditBalance < 2) throw new Error(`Only ${result.creditBalance} credits left — top up GenLook`);
       return `${result.creditBalance.toLocaleString('en-IN')} credits`;
+    }),
+    run('photo-quality', 'Garment photo quality (Maharaja)', async () => {
+      const sizes = Object.values(await runWithClient(MAHARAJA_CLIENT_ID, () => garmentPhotoSizes()));
+      if (!sizes.length) return 'Not measured yet (measured in the background)';
+      const soft = sizes.filter((px) => px < MIN_GARMENT_LONG_SIDE).length;
+      if (soft) throw new Error(`${soft} of ${sizes.length} photos under ${MIN_GARMENT_LONG_SIDE} px — Try-On on them looks soft`);
+      return `All ${sizes.length} photos ${MIN_GARMENT_LONG_SIDE} px or larger`;
     }),
     run('fal', 'fal (AI Video, Live Try-On)', async () => {
       const status = await falStatus(true);

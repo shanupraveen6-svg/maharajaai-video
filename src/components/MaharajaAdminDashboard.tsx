@@ -34,7 +34,7 @@ import {
   formatINR,
   type CatalogueCategoryId,
   type CatalogueAudience,
-} from '@/lib/tryfocus/sample-data';
+} from '@/lib/tryfocus/catalogue-data';
 
 type WorkspaceData = {
   clientId: string;
@@ -362,8 +362,23 @@ export default function MaharajaAdminDashboard({
   // The switch above the Image Try-On table: on when every garment in this category is on Live Try-On.
   const categoryAllLive = filteredCatalogue.length > 0 && filteredCatalogue.every((item) => item.eligibleForLive === true);
 
+  // Garment photo sizes (from the background preparation): a photo under 800 px gives a soft Try-On.
+  const [photoSizes, setPhotoSizes] = useState<{ sizes: Record<string, number>; min: number }>({ sizes: {}, min: 800 });
+  useEffect(() => {
+    if (section !== 'catalogue') return;
+    let active = true;
+    fetch(`/api/maharaja/catalogue/quality?workspaceCode=${encodeURIComponent(activeWorkspaceCode)}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => { if (active && data?.success) setPhotoSizes({ sizes: data.sizes || {}, min: Number(data.minLongSide) || 800 }); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [section, activeWorkspaceCode]);
+  const softPhotos = Object.values(photoSizes.sizes).filter((px) => px < photoSizes.min).length;
+
   function rowFor(item: ManagedCatalogueItem): CatalogueTableRow {
-    return { key: item.sku, sku: item.sku, image: item.thumbnailUrl || item.imageUrl, title: item.title, price: item.price > 0 ? String(item.price) : '', western: item.eligibleForLive === true };
+    const px = photoSizes.sizes[item.sku];
+    const note = px && px < photoSizes.min ? `Low-quality photo (${px} px). Upload one at least ${photoSizes.min} px for a sharp Try-On.` : undefined;
+    return { key: item.sku, sku: item.sku, image: item.thumbnailUrl || item.imageUrl, title: item.title, price: item.price > 0 ? String(item.price) : '', western: item.eligibleForLive === true, note };
   }
 
   /** ✕ in Image Try-On deletes the garment; in AI Video or Live Try-On it only takes it off there. */
@@ -915,6 +930,11 @@ export default function MaharajaAdminDashboard({
                       </Switch>
                       <span className="text-sm text-muted">{filteredCatalogue.filter((item) => item.eligibleForLive === true).length} of {filteredCatalogue.length} on · new uploads follow this switch</span>
                     </div>
+                  )}
+                  {softPhotos > 0 && (
+                    <p role="status" className="rounded-xl bg-warn-soft p-3 text-sm text-ink">
+                      <span className="font-bold">{softPhotos} garment {softPhotos === 1 ? 'photo is' : 'photos are'} too small for a sharp Try-On</span> (under {photoSizes.min} px). They are marked in the list; upload sharper photos of those garments.
+                    </p>
                   )}
                   <CatalogueTable
                     key={`${catSection}-${catGender}-${activeCatFilter}`}

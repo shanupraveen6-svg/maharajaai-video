@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import type { CatalogueAudience, CatalogueCategoryId } from '@/lib/tryfocus/sample-data';
+import type { CatalogueAudience, CatalogueCategoryId } from '@/lib/tryfocus/catalogue-data';
 import {
   AUDIENCES,
   allCategoriesFor,

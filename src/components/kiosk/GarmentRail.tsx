@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import type { TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import type { TryFocusProduct } from '@/lib/tryfocus/catalogue-data';
 
 /**
  * Under the camera on the TV, shared by Image Try-On and Live Try-On: category tabs (an underlined text row,

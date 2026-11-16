@@ -2210,7 +2210,7 @@ export async function approvePassVideoMaster(code: string, approvedUrl?: string)
   }
 }
 
-export async function rejectPassMasterImage(code: string, service: 'try-on' | 'ai-video' = 'ai-video', reason?: string) {
+export async function rejectPassMasterImage(code: string, service: 'try-on' | 'ai-video' = 'ai-video', _reason?: string) {
   const db = getDb();
   if (db) {
     const ref = db.collection('clientWorkspaces').doc(activeClientId()).collection('customerPasses').doc(code);

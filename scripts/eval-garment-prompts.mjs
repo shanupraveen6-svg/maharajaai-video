@@ -11,7 +11,7 @@ register('./ts-alias-loader.mjs', import.meta.url);
  */
 const config = await import('../src/lib/maharaja/config.ts');
 const { garmentTypeFor } = await import('../src/lib/maharaja/garment-type.ts');
-const { catalogueCategories } = await import('../src/lib/tryfocus/sample-data.ts');
+const { catalogueCategories } = await import('../src/lib/tryfocus/catalogue-data.ts');
 const { OWN_GARMENT_TYPES } = await import('../src/lib/tryfocus/garment-types.ts');
 const videoSource = fs.readFileSync(new URL('../src/lib/maharaja/video-concepts.ts', import.meta.url), 'utf8');
 const routeSource = fs.readFileSync(new URL('../src/app/api/ai/master-image/route.ts', import.meta.url), 'utf8');

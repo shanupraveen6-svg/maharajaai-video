@@ -1,4 +1,4 @@
-import { catalogueCategories, type CatalogueAudience, type CatalogueCategoryId, type TryFocusProduct } from './sample-data';
+import { catalogueCategories, type CatalogueAudience, type CatalogueCategoryId, type TryFocusProduct } from './catalogue-data';
 
 export const AUDIENCES: CatalogueAudience[] = ['women', 'men', 'boys', 'girls'];
 

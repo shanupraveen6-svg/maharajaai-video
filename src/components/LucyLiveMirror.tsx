@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fal } from '@fal-ai/client';
 import { Camera, LoaderCircle, Play, RotateCcw, ShieldAlert, Sparkles, X } from 'lucide-react';
-import type { CatalogueCategoryId, TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import type { CatalogueCategoryId, TryFocusProduct } from '@/lib/tryfocus/catalogue-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
 import GarmentRail from '@/components/kiosk/GarmentRail';

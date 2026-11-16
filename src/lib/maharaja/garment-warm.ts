@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { FieldPath } from 'firebase-admin/firestore';
 import { getDb } from '@/lib/firebase/admin';
 import { AI_CONFIG } from '@/lib/ai/config';
 import { GENLOOK_GARMENT_DESCRIPTIONS, type CustomerCategory } from '@/lib/maharaja/config';
@@ -8,6 +9,7 @@ import type { MaharajaCatalogueProduct } from '@/lib/maharaja/catalogue-types';
 import { garmentTypeFor } from '@/lib/maharaja/garment-type';
 import { genlookSourceFrom, prepareGenlookPieces } from '@/lib/maharaja/garment-prep';
 import { readCataloguePhoto } from '@/lib/maharaja/photo-source';
+import sharp from 'sharp';
 
 /**
  * Pre-warm: every catalogue garment gets its Gemini checks (find the one garment, cut it out, describe it)
@@ -16,7 +18,10 @@ import { readCataloguePhoto } from '@/lib/maharaja/photo-source';
  * once every 10 minutes per store; a garment already prepared (same photo, same type) is skipped.
  * About ₹0.5–1 of Gemini per garment, once.
  */
-const WARM_VERSION = 1;
+// 2: also records each photo's long side (px), so admin can flag photos too small for a sharp Try-On.
+const WARM_VERSION = 2;
+/** Below this many pixels on the long side a garment photo gives a soft Try-On; admin flags it. */
+export const MIN_GARMENT_LONG_SIDE = 800;
 const RUN_EVERY_MS = 10 * 60 * 1000;
 
 /** The garment type the Try-On route works out for this garment from the TV's request. */
@@ -58,16 +63,18 @@ export async function warmCatalogueGarments({ budgetMs = 200_000, concurrency = 
     while (queue.length && Date.now() < stopAt) {
       const item = queue.shift()!;
       try {
-        const source = await genlookSourceFrom(await readCataloguePhoto(item.photo));
+        const original = await readCataloguePhoto(item.photo);
+        const meta = await sharp(Buffer.from(original, 'base64')).metadata().catch(() => null);
+        const longSide = Math.max(meta?.width || 0, meta?.height || 0);
+        const source = await genlookSourceFrom(original);
         const garmentType = item.garmentType as Parameters<typeof prepareGenlookPieces>[2];
         const pieces = await prepareGenlookPieces(ai, source, garmentType, { externalId: `${clientId}-${item.product.sku}`, title: item.product.title }, false);
         // Marked done only when Gemini really answered (not the plain fallback sentence), so a failed check is
         // tried again on the next run.
         const answered = pieces.length > 0 && pieces[0].product.description !== GENLOOK_GARMENT_DESCRIPTIONS[garmentType].description;
-        if (answered) {
-          await item.ref.set({ photo: item.photo, garmentType: item.garmentType, version: WARM_VERSION, at: new Date().toISOString() });
-          warmed += 1;
-        }
+        // The photo size is kept either way; version marks the garment as prepared only when Gemini answered.
+        await item.ref.set({ photo: item.photo, garmentType: item.garmentType, sku: item.product.sku, longSide, version: answered ? WARM_VERSION : 0, at: new Date().toISOString() });
+        if (answered) warmed += 1;
       } catch (error) {
         console.warn(`Garment pre-warm skipped ${item.product.sku}:`, error instanceof Error ? error.message : error);
       }
@@ -96,4 +103,18 @@ export async function maybeWarmCatalogueGarments() {
   await ref.set({ finishedAt: Date.now(), ...result }, { merge: true }).catch(() => undefined);
   if (result.warmed || result.left) console.info('Garment pre-warm', { clientId: activeClientId(), ...result });
   return result;
+}
+
+/** Each garment's photo long side (px), from the pre-warm records: `{ sku: px }` for the store. */
+export async function garmentPhotoSizes(): Promise<Record<string, number>> {
+  const db = getDb();
+  if (!db) return {};
+  const prefix = `${activeClientId()}-`;
+  const snapshot = await db.collection('genlookGarmentWarm').where(FieldPath.documentId(), '>=', prefix).where(FieldPath.documentId(), '<', `${prefix}\uf8ff`).get();
+  const sizes: Record<string, number> = {};
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (typeof data.sku === 'string' && Number(data.longSide) > 0) sizes[data.sku] = Number(data.longSide);
+  });
+  return sizes;
 }

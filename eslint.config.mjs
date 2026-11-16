@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
       // Images here are in-memory data URLs (try-on results) and short-lived signed Storage URLs,
       // which next/image cannot optimise; a plain <img> is the correct element.
       "@next/next/no-img-element": "off",
+      // A name starting with _ is deliberately unused (a field left out of a copy, a signature kept for its shape).
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", destructuredArrayIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
     },
   },
   // Override default ignores of eslint-config-next.

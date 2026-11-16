@@ -1,4 +1,4 @@
-import type { CatalogueAudience } from '@/lib/tryfocus/sample-data';
+import type { CatalogueAudience } from '@/lib/tryfocus/catalogue-data';
 
 /**
  * The Maharaja catalogue setup, applied from TryFocus admin → Plan → Catalogue setup (Maharaja only).

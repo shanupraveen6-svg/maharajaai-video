@@ -60,7 +60,7 @@ export default function PosterFill({ clientName }: { clientName: string }) {
   }, []);
 
   return (
-    <div ref={box} className="relative mt-auto min-h-[220px] w-full flex-1">
+    <div ref={box} className="relative mt-auto min-h-0 w-full flex-1">
       {roomy && (posters.length > 0 ? (
         <div className="absolute inset-0 overflow-hidden rounded-3xl border border-line bg-white shadow-sm">
           {posters.map((id, position) => (

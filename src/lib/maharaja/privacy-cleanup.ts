@@ -43,7 +43,7 @@ export async function cleanupExpiredSessions(db: Firestore, bucket: Bucket, { bu
   const progressRef = db.doc('appControl/privacy-cleanup');
   let progress = (await progressRef.get()).data();
   let deleted = 0;
-  let retainedForPromotion = 0;
+  const retainedForPromotion = 0;
   let preservedLive = 0;
   let failed = 0;
   const deadline = Date.now() + budgetMs;

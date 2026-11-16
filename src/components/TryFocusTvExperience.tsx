@@ -41,7 +41,7 @@ import {
   type CatalogueCategoryId,
   type CatalogueAudience,
   type TryFocusProduct,
-} from '@/lib/tryfocus/sample-data';
+} from '@/lib/tryfocus/catalogue-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { PageTitle, AgreeButton } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
@@ -1307,7 +1307,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           <div className="space-y-6">
             {isTablet && tryOnBack && <BackButton onClick={tryOnBack} />}
             {tryOnStage === 'who' && (
-              <div className={`flex flex-col gap-6 ${isTablet ? '' : 'tv-who-screen tv-fill-screen'}`}>
+              <div className={`tv-who-screen tv-fill-screen flex flex-col gap-6`}>
                 <PageTitle size="lg" title="Who is it for?" subtitle="Tap one to start." />
                 <WhoCards value={whoGroup} onChange={chooseWhoGroup} />
                 <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
@@ -1466,7 +1466,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     </aside>
                     <div className="min-w-0 space-y-4">
                       <div className="tf-card flex flex-col items-center gap-5 p-6 text-center">
-                        <div className="relative aspect-[3/4] h-[640px] max-w-full overflow-hidden rounded-2xl bg-ink">
+                        <div className="relative aspect-[3/4] h-[min(640px,52vh)] max-w-full overflow-hidden rounded-2xl bg-ink">
                           {ownGarmentPhoto ? (
                             <img src={ownGarmentPhoto} alt="Your garment" className="h-full w-full bg-canvas object-contain" />
                           ) : ownCameraLive && pendingPhoto ? (
@@ -1557,7 +1557,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {/* Results, all in one TV screen (no scrolling): the look takes the free height; the other looks are a
                 short row of thumbnails; the QR and End session always stay in view at the bottom. */}
             {tryOnStage === 'result' && (
-              <section className={`mx-auto flex max-w-[1180px] flex-col gap-4 ${isTablet ? '' : 'tv-result-screen'}`} aria-label="Your looks">
+              <section className={"tv-result-screen mx-auto flex max-w-[1180px] flex-col gap-4"} aria-label="Your looks">
                 <div className="flex shrink-0 items-center justify-between gap-4">
                   <div>
                     <h2 className="text-4xl font-bold">{imageSource === 'own-garment' ? 'Your look' : 'Your looks'}</h2>
@@ -1569,7 +1569,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <HelpRetry size="tv" text={HELP_TEXT.looks} canRetry onRetry={restartTryOn} />
                   </div>
                 </div>
-                <div className={`flex flex-col overflow-hidden rounded-2xl border border-line bg-white ${isTablet ? '' : 'min-h-0 flex-1'}`} onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
+                <div className={"flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-white"} onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
                   // With several looks a swipe moves between them; a single look keeps the before/after slider,
                   // which uses horizontal drags itself.
                   if (swipeStartX.current === null || !multiLook) return;
@@ -1578,20 +1578,20 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   if (Math.abs(distance) > 60) moveGeneratedLook(distance < 0 ? 1 : -1);
                 }}>
                   {customerPhoto && tryOnResultUrl && !multiLook ? (
-                    <div className={`bg-ink px-4 pb-4 pt-3 ${isTablet ? '' : 'min-h-0 flex-1'}`}>
+                    <div className={"min-h-0 flex-1 bg-ink px-4 pb-4 pt-3"}>
                       <BeforeAfterSlider
                         key={`${activeLookIndex}-${tryOnResultUrl.slice(-24)}`}
                         before={customerPhoto}
                         after={tryOnResultUrl}
                         beforeLabel="Your photo"
                         afterLabel={imageSource === 'own-garment' ? 'Your outfit' : 'New look'}
-                        frameClassName={isTablet ? 'mx-auto aspect-[9/16] w-full max-w-[78vh]' : 'mx-auto aspect-[9/16] h-full max-w-full'}
+                        frameClassName="mx-auto aspect-[9/16] h-full max-w-full"
                         dark
                       />
                     </div>
                   ) : (
-                    <div className={`bg-[#161918] ${isTablet ? '' : 'min-h-0 flex-1'}`}>
-                      <img src={tryOnResultUrl || selectedProduct.imageUrl} alt={selectedProduct.title} draggable={false} className={`mx-auto w-full object-contain ${isTablet ? 'aspect-[9/16] max-h-[80vh]' : 'h-full'}`} />
+                    <div className={"min-h-0 flex-1 bg-[#161918]"}>
+                      <img src={tryOnResultUrl || selectedProduct.imageUrl} alt={selectedProduct.title} draggable={false} className="mx-auto h-full w-full object-contain" />
                     </div>
                   )}
                   <p className="shrink-0 border-t border-line bg-white px-6 py-4 text-2xl font-bold text-ink">{imageSource === 'own-garment' ? 'Your outfit' : selectedProduct.title}</p>
@@ -1854,7 +1854,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
             {/* The portrait, its QR and End session all in one TV screen: the portrait takes the free height. */}
             {videoStage === 'portrait' && (
-              <section className={`mx-auto flex max-w-[1180px] flex-col gap-4 ${isTablet ? '' : 'tv-result-screen'}`} aria-live="polite">
+              <section className={"tv-result-screen mx-auto flex max-w-[1180px] flex-col gap-4"} aria-live="polite">
                 <div className="flex shrink-0 items-center justify-between gap-4">
                   <PageTitle size="lg" title={videoGeneratingMaster ? 'Creating your portrait' : 'Your portrait'} subtitle={videoGeneratingMaster ? 'About 20 seconds.' : videoStatusNote} />
                   {videoMasterUrl && !videoGeneratingMaster && (
@@ -1873,8 +1873,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   </div>
                 ) : videoMasterUrl ? (
                   <>
-                    <div className={`overflow-hidden rounded-2xl border border-line bg-ink ${isTablet ? '' : 'min-h-0 flex-1'}`}>
-                      <img src={videoMasterUrl} alt="Your portrait" className={`mx-auto w-full object-contain ${isTablet ? 'aspect-[9/16] max-h-[78vh]' : 'h-full'}`} />
+                    <div className={"min-h-0 flex-1 overflow-hidden rounded-2xl border border-line bg-ink"}>
+                      <img src={videoMasterUrl} alt="Your portrait" className="mx-auto h-full w-full object-contain" />
                     </div>
                     {!videoPortraitApproved ? (
                       // One look at the portrait before the QR appears: Generate video also approves it,

@@ -1,4 +1,4 @@
-import type { TryFocusProduct } from './sample-data';
+import type { TryFocusProduct } from './catalogue-data';
 
 // Images supplied for the Maharaja client trial. They are image try-on references,
 // not confirmed inventory, priced products, or AI video/Live Try-On garments.

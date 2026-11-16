@@ -3,7 +3,7 @@ import 'server-only';
 import sharp from 'sharp';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getDb, getMockStore, getSignedPlaybackUrl, getStorageBucket } from '@/lib/firebase/admin';
-import { catalogueCategories, sampleCatalogue, type CatalogueCategoryId } from '@/lib/tryfocus/sample-data';
+import { catalogueCategories, sampleCatalogue, type CatalogueCategoryId } from '@/lib/tryfocus/catalogue-data';
 import type { MaharajaCatalogueProduct, PublicCatalogueProduct } from './catalogue-types';
 import { activeClientId } from './client-context';
 import { MAHARAJA_CLIENT_ID } from './config';

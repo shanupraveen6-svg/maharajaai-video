@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { LoaderCircle, Upload, X } from 'lucide-react';
 import CatalogueTable from '@/components/CatalogueTable';
 import { categoriesFor, findCategory, isWesternCategory, type CustomCategory, type StoreCategoryLists, type WesternOverrides } from '@/lib/tryfocus/store-categories';
-import type { CatalogueAudience } from '@/lib/tryfocus/sample-data';
+import type { CatalogueAudience } from '@/lib/tryfocus/catalogue-data';
 
 const AUDIENCE_NAMES: Record<CatalogueAudience, string> = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' };
 
@@ -199,6 +199,7 @@ export default function CatalogueBulkImport({
         {busy && <span className="inline-flex items-center gap-2 text-sm text-muted"><LoaderCircle className="h-4 w-4 animate-spin" /> Uploading…</span>}
         {kind !== 'video' && rows.length > 0 && !busy && <span className="text-sm text-muted">Switch Who or category to add more.</span>}
       </div>
+      <p className="text-sm text-muted">Photos: one garment each, at least 800 px on the long side (best 1200 px or more), JPG, PNG or WebP under 8 MB. Smaller photos are refused: they give a soft Try-On.</p>
 
       {kind !== 'video' && groups.map((group) => {
         const [gender, cat] = group.split('|') as [CatalogueAudience, string];

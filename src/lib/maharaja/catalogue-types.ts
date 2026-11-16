@@ -1,4 +1,4 @@
-import type { CatalogueCategoryId, CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import type { CatalogueCategoryId, CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/catalogue-data';
 
 export type MaharajaCatalogueProduct = {
   id?: string;

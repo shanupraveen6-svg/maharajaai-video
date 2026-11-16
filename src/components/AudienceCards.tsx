@@ -1,6 +1,6 @@
 'use client';
 
-import type { CatalogueAudience } from '@/lib/tryfocus/sample-data';
+import type { CatalogueAudience } from '@/lib/tryfocus/catalogue-data';
 
 type Size = 'md' | 'lg';
 

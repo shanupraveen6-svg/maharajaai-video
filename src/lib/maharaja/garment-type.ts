@@ -1,5 +1,5 @@
 import { compatibleGarmentType, garmentTypeFromText, resolveGarmentType, type CustomerCategory, type GarmentType } from '@/lib/maharaja/config';
-import { catalogueCategories } from '@/lib/tryfocus/sample-data';
+import { catalogueCategories } from '@/lib/tryfocus/catalogue-data';
 
 /**
  * Catalogue pieces saved before the categories were corrected still carry the old default type (trousers,

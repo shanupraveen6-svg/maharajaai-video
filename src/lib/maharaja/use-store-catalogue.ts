@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import type { TryFocusProduct } from '@/lib/tryfocus/catalogue-data';
 import { fetchCompleteCatalogue } from './catalogue-client';
 
 export function useStoreCatalogue(accessCode = '') {

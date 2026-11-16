@@ -1,4 +1,4 @@
-import type { TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import type { TryFocusProduct } from '@/lib/tryfocus/catalogue-data';
 
 /**
  * What a shopper's own outfit is, per audience. The try-on prompt needs the garment structure, so

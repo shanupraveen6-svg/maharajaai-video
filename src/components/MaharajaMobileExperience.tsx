@@ -21,7 +21,7 @@ import DressLoader from '@/components/DressLoader';
 import { PhotoGuide } from '@/components/AudienceCards';
 import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
 import { compressImage } from '@/lib/utils/image';
-import type { CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/sample-data';
+import type { CatalogueAudience, TryFocusProduct } from '@/lib/tryfocus/catalogue-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { ActionBar, PageTitle, AgreeButton } from '@/components/ui';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';

@@ -4,7 +4,7 @@ import { MAHARAJA_CLIENT_ID } from '@/lib/maharaja/config';
 import { TRIAL_CUSTOM_CATEGORIES, TRIAL_GARMENTS, TRIAL_HIDE, TRIAL_MOVES, TRIAL_VIDEO_PICKS } from '@/lib/maharaja/maharaja-collection-preset';
 import { getMaharajaWorkspace, logMaharajaActivity, updateMaharajaSettings } from '@/lib/maharaja/server';
 import { allCategoriesFor, categoriesFor, findCategory, isWesternCategory, sanitizeCustomCategories, type CustomCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
-import type { CatalogueAudience, CatalogueCategoryId } from '@/lib/tryfocus/sample-data';
+import type { CatalogueAudience, CatalogueCategoryId } from '@/lib/tryfocus/catalogue-data';
 
 /**
  * Gets a store's catalogue ready for a public trial.
