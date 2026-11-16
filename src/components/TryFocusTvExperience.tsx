@@ -1279,7 +1279,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               ? <BackButton onClick={headerBack} />
               : <span className="tv-session-button invisible" aria-hidden="true" />}
             {imageSourceTabs ? (
-              <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
+              <div className="tv-source-tabs grid min-w-0 flex-1 grid-cols-2 gap-1">
                 <button type="button" aria-current={imageSource === 'catalogue' ? 'page' : undefined} onClick={() => chooseTryOnSource('catalogue')} className={`tv-mode-button ${imageSource === 'catalogue' ? 'is-active' : ''}`}>
                   <Sparkles className="h-6 w-6" /><span>Store collection</span>
                 </button>
