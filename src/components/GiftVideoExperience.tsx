@@ -16,6 +16,7 @@ import { categoriesFor, type StoreCategoryLists } from '@/lib/tryfocus/store-cat
 import { conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import type { CustomerCategory, EventId } from '@/lib/maharaja/config';
 import type { CatalogueAudience } from '@/lib/tryfocus/sample-data';
+import { fetchMasterImage } from '@/lib/maharaja/master-image-client';
 import type { PublicCatalogueProduct } from '@/lib/maharaja/catalogue-types';
 
 type Stage = 'loading' | 'error' | 'who' | 'photo' | 'type' | 'pick' | 'look' | 'creating-portrait' | 'portrait' | 'creating-video' | 'result';
@@ -228,7 +229,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
     setNote('');
     try {
       const personPhotoStoragePath = await uploadPersonPhoto(personPhoto);
-      const data = await readJson(await fetch('/api/ai/master-image', {
+      const data = await readJson(await fetchMasterImage({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

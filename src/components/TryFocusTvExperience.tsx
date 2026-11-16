@@ -47,6 +47,7 @@ import { PageTitle, AgreeButton } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 import { allCategoriesFor, categoriesFor, type CustomCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import { conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
+import { fetchMasterImage } from '@/lib/maharaja/master-image-client';
 import type { CustomerCategory } from '@/lib/maharaja/config';
 
 const VIDEO_CATEGORY_OF: Record<CatalogueAudience, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
@@ -701,7 +702,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setTryOnStage('generating');
     const completed = await Promise.allSettled(looks.map(async (product, index) => {
       try {
-        const res = await fetch('/api/ai/master-image', {
+        const res = await fetchMasterImage({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -954,7 +955,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       : null;
 
     try {
-      const res = await fetch('/api/ai/master-image', {
+      const res = await fetchMasterImage({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1019,7 +1020,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     const sessionId = `tv_vidmaster_${Date.now()}`;
 
     try {
-      const res = await fetch('/api/ai/master-image', {
+      const res = await fetchMasterImage({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -28,6 +28,7 @@ import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { useLeadGate } from '@/components/LeadGate';
 import HelpRetry from '@/components/HelpRetry';
 import { useExitGuard } from '@/components/ExitGuard';
+import { fetchMasterImage } from '@/lib/maharaja/master-image-client';
 import { categoriesFor, type CustomCategory, type StoreCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 
 type Source = 'catalogue' | 'own-garment';
@@ -184,7 +185,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
     setGenerating(true);
     setNote('');
     try {
-      const response = await fetch('/api/ai/master-image', {
+      const response = await fetchMasterImage({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

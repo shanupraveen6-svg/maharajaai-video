@@ -14,7 +14,7 @@ import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/us
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { tryOnEngineOrder } from '@/lib/maharaja/try-on-provider';
-import { canFallbackFromGenlook, generateGenlookTryOn, genlookCreditsPerLook } from '@/lib/maharaja/genlook-provider';
+import { canFallbackFromGenlook, canRetryGenlook, generateGenlookTryOn, genlookCreditsPerLook } from '@/lib/maharaja/genlook-provider';
 import { generateFashnTryOn } from '@/lib/maharaja/fashn-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
@@ -382,16 +382,15 @@ export async function POST(req: NextRequest) {
         }
 
         let rawBuffer: Buffer | null = null;
-        // Try-On engines in order (TRYON_ENGINE_ORDER, default GenLook → FASHN → Gemini); one that is not
-        // configured is skipped. An engine whose
-        // outcome is uncertain (it may still have made and billed the image) stops the chain: no double charge.
-        // Every Try-On, the customer's retry included, uses the same engines (GenLook first); the AI Video
-        // portrait uses Gemini.
-        // Store garments: GenLook first (built for catalogue try-on). The customer's own outfit: Gemini (Nano
-        // Banana) first, GenLook as its backup. The AI Video portrait uses Gemini.
+        // No fail state for the customer: every engine problem moves on to the next engine instead of stopping.
+        // Store garments: GenLook (sent once more if busy) → FASHN when it has a key → Gemini. The customer's own
+        // outfit: Gemini (Nano Banana) → GenLook → Gemini again. The AI Video portrait: Gemini. Gemini as the
+        // last engine tries again and then on the other Nano Banana model. A look GenLook may still have made
+        // keeps its credit (a rare double charge is better than a customer with no look).
         const ownOutfitTryOn = service === 'try-on' && typeof body.catalogueProductId !== 'string';
-        const engines = service !== 'try-on' ? ['gemini' as const]
-          : ownOutfitTryOn ? (['gemini', 'genlook'] as const) : tryOnEngineOrder();
+        // The last engine is always Gemini, which retries and switches model before anything is shown as failed.
+        const engines: Array<'genlook' | 'fashn' | 'gemini'> = service !== 'try-on' ? ['gemini']
+          : ownOutfitTryOn ? ['gemini', 'genlook', 'gemini'] : tryOnEngineOrder();
         let lastEngineError: unknown = null;
         // The outfit photo and its product name for GenLook. A set (two or three pieces in one photo) is split
         // into its pieces first, so every engine dresses each piece as itself.
@@ -426,7 +425,9 @@ export async function POST(req: NextRequest) {
             if (garmentPart?.inlineData) garmentPart.inlineData.data = detectedSingle.image;
           }
         }
-        for (const engine of engines) {
+        let tryOnPromptReady = false;
+        let geminiTried = false;
+        for (const [engineIndex, engine] of engines.entries()) {
           if (rawBuffer) break;
           if (engine === 'genlook') {
             const key = AI_CONFIG.GENLOOK_API_KEY?.trim();
@@ -434,22 +435,26 @@ export async function POST(req: NextRequest) {
             // GenLook runs only on this store's own GenLook credits; with none left the next engine is used.
             if (!await reserveGenlookCredit(genlookCreditsPerLook())) { engineNotes.push('GenLook: skipped, no GenLook credits free'); continue; }
             genlookAttempted = true;
-            try {
-              // One garment, one product: the whole photo with one exact description of that garment.
-              const piece: GenlookPiece = detectedSingle || { image: genlookGarment, product: { ...baseProduct, description: (await describeGarmentForGenlook(ai, genlookGarment, garmentType)).slice(0, 500) } };
-              rawBuffer = await generateGenlookTryOn(genlookSources[0] || personBase64, [piece], key);
-              imageProvider = 'genlook-try-on';
-            } catch (error) {
-              if (!canFallbackFromGenlook(error)) {
-                // GenLook may still have made and charged for the image: the store's credit stays used.
-                genlookOutcomeUncertain = true;
-                throw error;
+            // One garment, one product: the whole photo with one exact description of that garment.
+            const piece: GenlookPiece = detectedSingle || { image: genlookGarment, product: { ...baseProduct, description: (await describeGarmentForGenlook(ai, genlookGarment, garmentType)).slice(0, 500) } };
+            // No fail state: a busy or failed GenLook look is sent once more, then the backup engine makes it.
+            // GenLook gets at most until 150 s into the request, so the backup always has time left.
+            for (let attempt = 0; attempt < 2 && !rawBuffer; attempt += 1) {
+              const budgetMs = startedAt + 150_000 - Date.now();
+              if (budgetMs < 20_000) break;
+              try {
+                rawBuffer = await generateGenlookTryOn(genlookSources[0] || personBase64, [piece], key, undefined, budgetMs);
+                imageProvider = 'genlook-try-on';
+              } catch (error) {
+                lastEngineError = error;
+                engineNotes.push(`GenLook${attempt ? ' (again)' : ''}: ${error instanceof Error ? error.message : 'failed'}`);
+                console.warn(`GenLook Try-On failed (${error instanceof Error ? error.message : 'unknown'}).`);
+                // A look that may still have been made keeps its credit; the customer still gets a look from the backup.
+                if (!canFallbackFromGenlook(error)) { genlookOutcomeUncertain = true; break; }
+                if (!canRetryGenlook(error)) break;
               }
-              await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
-              lastEngineError = error;
-              engineNotes.push(`GenLook: ${error instanceof Error ? error.message : 'failed'}`);
-              console.warn(`GenLook Try-On failed (${error instanceof Error ? error.message : 'unknown'}); using the next image engine.`);
             }
+            if (!rawBuffer && !genlookOutcomeUncertain) await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
           } else if (engine === 'fashn') {
             const key = process.env.FASHN_API_KEY?.trim();
             if (!key) continue;
@@ -463,11 +468,9 @@ export async function POST(req: NextRequest) {
             }
           } else if (engine === 'gemini') {
             if (!ai) continue;
-            // Stay inside the 300 s function limit so the credit and pass lock are always released in finally.
-            const geminiBudgetMs = Math.min(150_000, startedAt + 280_000 - Date.now());
-            if (geminiBudgetMs < 25_000) throw new Error('The image service is busy right now. Please try again in a moment.');
+            const lastEngine = engineIndex === engines.length - 1;
             // Try-On: the same garment facts GenLook gets — its name and one exact sentence about it.
-            if (service === 'try-on') {
+            if (service === 'try-on' && !tryOnPromptReady) {
               const garmentDescription = detectedSingle?.product.description
                 || (garmentBase64s[0] ? await describeGarmentForGenlook(ai, garmentBase64s[0], garmentType) : '');
               prompt = buildTryOnPrompt(customerCategory, {
@@ -477,51 +480,60 @@ export async function POST(req: NextRequest) {
                 productTitle: baseProduct.title,
                 productDescription: garmentDescription,
               });
+              tryOnPromptReady = true;
             }
+            // No fail state: as the last engine Gemini tries again, then on the other Nano Banana model (a
+            // separate capacity pool), while the 300 s function limit allows. Failed Gemini calls are not billed.
+            const primaryModel = service === 'try-on' ? AI_CONFIG.GEMINI_TRYON_MODEL : (AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image');
+            const otherModel = service === 'try-on' ? (AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image') : AI_CONFIG.GEMINI_TRYON_MODEL;
+            const models = !lastEngine ? [primaryModel] : geminiTried ? [otherModel, primaryModel] : [primaryModel, primaryModel, otherModel];
             contents.push(prompt);
             geminiAttempted = true;
-            const geminiDeadline = Date.now() + geminiBudgetMs;
-            const askGemini = (responseModalities: string[]) => ai.models.generateContent({
-              model: service === 'try-on' ? AI_CONFIG.GEMINI_TRYON_MODEL : (AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image'),
+            const askGemini = (model: string, responseModalities: string[], deadline: number) => ai.models.generateContent({
+              model,
               contents,
               config: {
                 responseModalities,
                 imageConfig: service === 'try-on' ? { aspectRatio: '9:16', imageSize: AI_CONFIG.GEMINI_TRYON_SIZE } : { aspectRatio: '9:16' },
-                abortSignal: AbortSignal.timeout(Math.max(1_000, geminiDeadline - Date.now())),
+                abortSignal: AbortSignal.timeout(Math.max(1_000, deadline - Date.now())),
               },
             });
-            let genResponse;
-            try {
+            for (let attempt = 0; attempt < models.length && !rawBuffer; attempt += 1) {
+              // Stay inside the 300 s function limit so the credit and pass lock are always released in finally.
+              const budgetMs = Math.min(lastEngine ? 120_000 : 90_000, startedAt + 285_000 - Date.now());
+              if (budgetMs < 25_000) break;
+              if (attempt) await new Promise((resolve) => setTimeout(resolve, 1500));
+              const deadline = Date.now() + budgetMs;
+              const model = models[attempt];
               try {
-                // Image only: asking for text as well makes Gemini write before it draws.
-                genResponse = await askGemini(['IMAGE']);
-              } catch (modalityError: any) {
-                // A model that refuses image-only answers 400 straight away (nothing made, nothing billed):
-                // ask again the old way, text and image, within the same time budget.
-                const status = Number(modalityError?.status || modalityError?.code || 0);
-                if (status !== 400) throw modalityError;
-                console.warn('Gemini refused image-only output; asking for text and image.', String(modalityError?.message || '').slice(0, 200));
-                genResponse = await askGemini(['TEXT', 'IMAGE']);
-              }
-            } catch (geminiError: any) {
-              // First choice for an own outfit: on failure GenLook gets its turn; as the last engine, it fails.
-              if (engine !== engines[engines.length - 1]) {
+                let genResponse;
+                try {
+                  // Image only: asking for text as well makes Gemini write before it draws.
+                  genResponse = await askGemini(model, ['IMAGE'], deadline);
+                } catch (modalityError: any) {
+                  // A model that refuses image-only answers 400 straight away (nothing made, nothing billed):
+                  // ask again the old way, text and image, within the same time budget.
+                  if (Number(modalityError?.status || modalityError?.code || 0) !== 400) throw modalityError;
+                  genResponse = await askGemini(model, ['TEXT', 'IMAGE'], deadline);
+                }
+                const part = genResponse.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+                if (part?.inlineData?.data) {
+                  rawBuffer = Buffer.from(part.inlineData.data, 'base64');
+                  imageProvider = 'gemini';
+                } else {
+                  engineNotes.push(`Gemini ${model}: no image (${String(genResponse.candidates?.[0]?.finishReason || genResponse.promptFeedback?.blockReason || 'empty')})`);
+                }
+              } catch (geminiError: any) {
                 lastEngineError = geminiError;
-                engineNotes.push(`Gemini: ${String(geminiError?.status || '')} ${String(geminiError?.message || 'failed').slice(0, 120)}`.trim());
-                contents.pop();
-                geminiAttempted = false;
-                continue;
+                engineNotes.push(`Gemini ${model}: ${String(geminiError?.status || '')} ${String(geminiError?.message || 'failed').slice(0, 120)}`.trim());
+                console.warn(`Gemini image attempt failed on ${model}.`, String(geminiError?.message || '').slice(0, 200));
               }
-              throw geminiError;
             }
-            const part = genResponse.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
-            if (part?.inlineData?.data) {
-              rawBuffer = Buffer.from(part.inlineData.data, 'base64');
-              imageProvider = 'gemini';
-            } else if (engine !== engines[engines.length - 1]) {
-              engineNotes.push('Gemini: no image returned');
+            geminiTried = true;
+            if (!rawBuffer) {
               contents.pop();
-              geminiAttempted = false;
+              // Not the last engine (an own outfit): the next engine takes over.
+              if (!lastEngine) geminiAttempted = false;
             }
           }
         }

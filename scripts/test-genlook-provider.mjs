@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { generateGenlookTryOn, canFallbackFromGenlook, genlookCreditsPerLook, genlookResolution } from '../src/lib/maharaja/genlook-provider.ts';
+import { generateGenlookTryOn, canFallbackFromGenlook, canRetryGenlook, genlookCreditsPerLook, genlookResolution } from '../src/lib/maharaja/genlook-provider.ts';
 
 // 1x1 8-bit PNG base64
 const samplePngBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -99,7 +99,7 @@ try {
     }
   );
 
-  // Test 5: Uncertain timeout / network failure forbids fallback to prevent duplicate billing
+  // Test 5: a dropped connection while GenLook makes the look: maybe charged (credit kept), never resent to GenLook
   globalThis.fetch = async (url) => {
     if (String(url).endsWith('/images/upload')) return Response.json({ imageId: 'img-1' }, { status: 200 });
     if (String(url).endsWith('/try-on/sync')) {
@@ -111,9 +111,37 @@ try {
     generateGenlookTryOn(samplePngBase64, samplePngBase64, 'test-gk-key', sampleProduct),
     (err) => {
       assert.equal(canFallbackFromGenlook(err), false);
-      return /generation outcome is uncertain/.test(err.message);
+      return /did not answer in time/.test(err.message);
     }
   );
+
+  // Test 6: GenLook busy (429) or a server error is a passing problem: safe to send again, nothing charged
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith('/images/upload')) return Response.json({ imageId: 'img-1' }, { status: 200 });
+    if (String(url).endsWith('/try-on/sync')) return Response.json({ code: 'RATE_LIMITED' }, { status: 429 });
+  };
+  await assert.rejects(generateGenlookTryOn(samplePngBase64, samplePngBase64, 'test-gk-key', sampleProduct), (err) => {
+    assert.equal(canFallbackFromGenlook(err), true);
+    assert.equal(canRetryGenlook(err), true);
+    return true;
+  });
+
+  // Test 7: a dropped upload is sent again by itself; a dropped result download is fetched again
+  {
+    let uploads = 0;
+    let downloads = 0;
+    globalThis.fetch = async (url) => {
+      if (String(url).endsWith('/images/upload')) { uploads += 1; if (uploads === 1) throw new TypeError('reset'); return Response.json({ imageId: 'img-1' }, { status: 200 }); }
+      if (String(url).endsWith('/try-on/sync')) return Response.json({ resultImageUrl: 'https://cdn.genlook.app/r.jpg' }, { status: 200 });
+      downloads += 1;
+      if (downloads === 1) throw new TypeError('reset');
+      return new Response(Buffer.from('look'), { status: 200 });
+    };
+    const look = await generateGenlookTryOn(samplePngBase64, samplePngBase64, 'test-gk-key', sampleProduct);
+    assert.equal(look.toString(), 'look');
+    assert.equal(uploads, 2, 'The dropped upload was sent again');
+    assert.equal(downloads, 2, 'The dropped download was fetched again');
+  }
 
 } finally {
   globalThis.fetch = originalFetch;

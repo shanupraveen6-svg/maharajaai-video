@@ -22,7 +22,7 @@ const { EVENT_IDS, GARMENT_TYPE_VALUES, GARMENT_TYPE_RULES, buildTryOnPrompt, co
   assert.ok(named.indexOf('This garment is:') < named.indexOf('</garment>'), 'The garment line sits inside <garment>');
   assert.doesNotMatch(buildTryOnPrompt('men', { garmentType: 'shirt_pant' }), /This garment is:/, 'No empty garment line');
   const route = fs.readFileSync(new URL('../src/app/api/ai/master-image/route.ts', import.meta.url), 'utf8');
-  assert.match(route, /ownOutfitTryOn \? \(\['gemini', 'genlook'\] as const\)/, 'Own outfit: Gemini first, GenLook backup');
+  assert.match(route, /ownOutfitTryOn \? \['gemini', 'genlook', 'gemini'\]/, 'Own outfit: Gemini first, GenLook backup, Gemini again last');
   assert.match(route, /AI_CONFIG\.GEMINI_TRYON_MODEL/, 'Try-On on Gemini uses the Try-On model (Nano Banana 2.1)');
 }
 const { VIDEO_CONCEPTS, buildVideoMasterPrompt } = concepts;
