@@ -15,6 +15,8 @@ const { catalogueCategories } = await import('../src/lib/tryfocus/sample-data.ts
 const { OWN_GARMENT_TYPES } = await import('../src/lib/tryfocus/garment-types.ts');
 const videoSource = fs.readFileSync(new URL('../src/lib/maharaja/video-concepts.ts', import.meta.url), 'utf8');
 const routeSource = fs.readFileSync(new URL('../src/app/api/ai/master-image/route.ts', import.meta.url), 'utf8');
+// The garment checks shared by the route and the catalogue pre-warm.
+const prepSource = fs.readFileSync(new URL('../src/lib/maharaja/garment-prep.ts', import.meta.url), 'utf8');
 
 const { GARMENT_TYPE_RULES, GENLOOK_GARMENT_DESCRIPTIONS, buildTryOnPrompt } = config;
 const AUDIENCE = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
@@ -97,7 +99,7 @@ const veshtiTryOn = buildTryOnPrompt('men', { garmentType: 'dhoti_veshti' });
 check('one garment', 'veshti replaces only the bottom', TRY_ON_REGION.dhoti_veshti === 'lower' && /keeps their own shirt or top exactly as in Image 1/.test(veshtiTryOn));
 check('one garment', 'scope overrides "unless a shirt is part of the garment"', /follow this scope/.test(veshtiTryOn));
 check('one garment', 'a saree replaces the whole outfit', TRY_ON_REGION.saree === 'full' && !/SCOPE:/.test(buildTryOnPrompt('women', { garmentType: 'saree' })));
-check('one garment', 'store photos of a top or bottom are cut to that garment', /findTargetGarment\(ai, garmentBase64, garmentType, region\)/.test(routeSource) && /if \(detectedSingle && detectedSingle\.image !== genlookGarment\)/.test(routeSource));
+check('one garment', 'store photos of a top or bottom are cut to that garment', /findTargetGarment\(ai, garmentBase64, garmentType, region\)/.test(prepSource) && /if \(detectedSingle && detectedSingle\.image !== genlookGarment\)/.test(routeSource));
 check('try-on prompt', 'reads "an adult man", not "a adult man"', /a real photo of an adult man/.test(tryOn));
 
 // 6. GenLook listing and video noun name the garment actually sent.

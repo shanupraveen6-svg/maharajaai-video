@@ -2,7 +2,8 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { getDb, getStorageBucket } from '@/lib/firebase/admin';
 import { maybeSweepExpired } from '@/lib/maharaja/privacy-cleanup';
 import { resolveAccess } from '@/lib/maharaja/access';
-import { bindClient } from '@/lib/maharaja/client-context';
+import { activeClientId, bindClient, runWithClient } from '@/lib/maharaja/client-context';
+import { maybeWarmCatalogueGarments } from '@/lib/maharaja/garment-warm';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import {
   deleteCatalogueProduct,
@@ -13,6 +14,8 @@ import {
 import { videoLimitSet, resolveRequestClientId, getMaharajaWorkspace, logMaharajaActivity, instagramUrlFor } from '@/lib/maharaja/server';
 
 export const dynamic = 'force-dynamic';
+// Room for the background garment pre-warm that follows a TV's catalogue read.
+export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
   // TVs and workspaces read this every few minutes: it also starts the 10-minute privacy cleanup.
@@ -39,6 +42,12 @@ export async function GET(req: NextRequest) {
       { includeInactive: requestedInactive, videoOnly: req.nextUrl.searchParams.get('videoOnly') === 'true' }
     );
     const workspace = await getMaharajaWorkspace();
+    // Pre-warm: garments not yet prepared get their Gemini checks in the background (at most every 10 minutes),
+    // so a customer's first Try-On on a garment goes straight to GenLook.
+    const warmClient = activeClientId();
+    try {
+      after(() => runWithClient(warmClient, () => maybeWarmCatalogueGarments()).catch((error) => console.warn('Garment pre-warm failed:', error)));
+    } catch { /* outside a request scope */ }
     return NextResponse.json(
       { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access: resolveAccess(workspace.devices, workspace.modules), categoryLists: workspace.categoryLists || {}, customCategories: workspace.customCategories || [], videoCategoryLists: workspace.videoCategoryLists || {}, westernOverrides: workspace.westernOverrides || {}, instagramUrl: instagramUrlFor(workspace) },
       {
