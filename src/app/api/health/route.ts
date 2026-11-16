@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { getApp } from 'firebase-admin/app';
 import { getBackendMode, getDb, getStorageBucket, isRealFirebaseAvailable } from '@/lib/firebase/admin';
 import { isSupportedVideoPath } from '@/lib/maharaja/video-playback';
 import { AI_CONFIG } from '@/lib/ai/config';
@@ -80,9 +81,22 @@ export async function GET(req: NextRequest) {
     const storageReads: number[] = [];
     for (let i = 0; i < 3; i += 1) storageReads.push(await time(() => bucket.getMetadata()));
     const genlookKey = AI_CONFIG.GENLOOK_API_KEY;
+    // The database's own location (Firestore's databases.get), read with the server's service account.
+    let databaseLocation = 'unknown';
+    try {
+      const token = await getApp().options.credential?.getAccessToken();
+      const projectId = process.env.FIREBASE_PROJECT_ID;
+      if (token?.access_token && projectId) {
+        const info = await (await fetch(`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)`, { headers: { Authorization: `Bearer ${token.access_token}` }, signal: AbortSignal.timeout(8_000) })).json();
+        if (typeof info?.locationId === 'string') databaseLocation = info.locationId;
+      }
+    } catch {
+      // stays unknown
+    }
     return NextResponse.json({
       success: true,
       serverRegion: process.env.VERCEL_REGION || 'unknown',
+      databaseLocation,
       storageLocation: String((meta as { location?: string }).location || 'unknown'),
       storageLocationType: String((meta as { locationType?: string }).locationType || 'unknown'),
       firestoreReadMs: median(firestoreReads),
