@@ -167,7 +167,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         setCatalogueItems(mapped);
         setSelectedProduct((prev) => mapped.find((p) => p.sku === prev.sku) || mapped[0] || prev);
       })
-      .catch(() => undefined);
+      // A failed load (the store's Wi-Fi dropping for a moment) is tried again in 20 s, not in 30 minutes.
+      .catch(() => { if (active) window.setTimeout(() => { if (active) void loadCatalogue(); }, 20_000); });
     const loadSettings = () => fetchCatalogueSettings()
       .then((settings) => {
         if (!active) return;
