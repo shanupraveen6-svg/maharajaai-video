@@ -89,7 +89,7 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
     return { externalId, title: piece.product.title, description: piece.product.description, images: [{ source: { fileKey } }] };
   });
   // GenLook's own account logo is off: every store's look carries only that store's logo (added by us).
-  form.set('data', JSON.stringify({ products, person: { image: { source: { id: personImageId } } }, output: { watermark: false } }));
+  form.set('data', JSON.stringify({ products, person: { image: { source: { id: personImageId } } }, output: { watermark: false, resolution: genlookResolution() } }));
   let response: Response;
   try {
     response = await fetch(`${GENLOOK_BASE_URL}/try-on/sync`, {
@@ -127,6 +127,19 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
   const buffer = Buffer.from(await imageResponse.arrayBuffer());
   if (!buffer.length || buffer.length > MAX_RESULT_BYTES) throw new GenlookProviderError('GenLook returned an invalid result image.', false);
   return buffer;
+}
+
+/**
+ * GenLook's result size: '2k' (about 2048 px, sharp on a 43-inch TV; 1 extra credit) unless
+ * GENLOOK_RESOLUTION=default (1200 px on the long side).
+ */
+export function genlookResolution(): '2k' | 'default' {
+  return String(process.env.GENLOOK_RESOLUTION || '2k').trim().toLowerCase() === 'default' ? 'default' : '2k';
+}
+
+/** GenLook credits one look uses: 1, plus 1 for a 2K result. */
+export function genlookCreditsPerLook() {
+  return genlookResolution() === '2k' ? 2 : 1;
 }
 
 export function canFallbackFromGenlook(error: unknown) {

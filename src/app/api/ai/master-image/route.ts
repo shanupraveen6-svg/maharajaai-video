@@ -14,7 +14,7 @@ import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/us
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
 import { tryOnEngineOrder, generateFalTryOn } from '@/lib/maharaja/try-on-provider';
-import { canFallbackFromGenlook, generateGenlookTryOn } from '@/lib/maharaja/genlook-provider';
+import { canFallbackFromGenlook, generateGenlookTryOn, genlookCreditsPerLook } from '@/lib/maharaja/genlook-provider';
 import { generateFashnTryOn } from '@/lib/maharaja/fashn-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
@@ -114,6 +114,9 @@ export async function POST(req: NextRequest) {
   let genlookOutcomeUncertain = false;
   let falTryOnAttempted = false;
   let geminiAttempted = false;
+  // What each image engine did on this request, saved to the store's activity when it fails.
+  const engineNotes: string[] = [];
+  let failureService = '';
   let storageReadyAt = 0;
   let reservedDeviceId = '';
   let reservedSessionId = '';
@@ -125,6 +128,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { sessionId, garmentAnalysis, personAnalysis, personPhoto, garmentPhotos, garmentRoles, templateId, accessCode } = body;
     const service = body.service === 'try-on' ? 'try-on' : 'ai-video';
+    failureService = service;
     if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{8,120}$/.test(sessionId)) {
       return NextResponse.json({ success: false, error: 'Please reload the page and try again.' }, { status: 400 });
     }
@@ -331,12 +335,12 @@ export async function POST(req: NextRequest) {
         // GenLook keeps the customer's own framing (no 9:16 crop) and gets sharper photos than Gemini needs.
         const genlookSources = service === 'try-on'
           ? await Promise.all(sourceReferences.slice(0, 2).map(async (source) => {
-            // GenLook refuses photos it finds too small ("resolution too low"): small store images and
-            // compressed phone photos are enlarged to at least 1200 px on the long side, large ones capped at 1600.
+            // GenLook refuses photos it finds too small, and its 2K result wants at least 1600 px on the long
+            // side: smaller photos are enlarged to 1600, large ones kept up to 2048.
             const image = sharp(Buffer.from(source, 'base64')).rotate();
             const { width = 0, height = 0 } = await image.metadata();
             const longSide = Math.max(width, height);
-            const target = longSide < 1200 ? 1200 : Math.min(1600, longSide);
+            const target = longSide < 1600 ? 1600 : Math.min(2048, longSide);
             return image.resize(target, target, { fit: 'inside', kernel: 'lanczos3' })
               .jpeg({ quality: 90, progressive: true })
               .toBuffer()
@@ -423,9 +427,9 @@ export async function POST(req: NextRequest) {
           if (rawBuffer) break;
           if (engine === 'genlook') {
             const key = AI_CONFIG.GENLOOK_API_KEY?.trim();
-            if (!key) continue;
+            if (!key) { engineNotes.push('GenLook: no key'); continue; }
             // GenLook runs only on this store's own GenLook credits; with none left the next engine is used.
-            if (!await reserveGenlookCredit()) continue;
+            if (!await reserveGenlookCredit(genlookCreditsPerLook())) { engineNotes.push('GenLook: skipped, no GenLook credits free'); continue; }
             genlookAttempted = true;
             try {
               // One garment, one product: the whole photo with one exact description of that garment.
@@ -438,8 +442,9 @@ export async function POST(req: NextRequest) {
                 genlookOutcomeUncertain = true;
                 throw error;
               }
-              await releaseGenlookCredit().catch(() => undefined);
+              await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
               lastEngineError = error;
+              engineNotes.push(`GenLook: ${error instanceof Error ? error.message : 'failed'}`);
               console.warn(`GenLook Try-On failed (${error instanceof Error ? error.message : 'unknown'}); using the next image engine.`);
             }
           } else if (engine === 'fal') {
@@ -451,6 +456,7 @@ export async function POST(req: NextRequest) {
               imageProvider = 'fal-image-apps-v2-try-on';
             } catch (falError) {
               lastEngineError = falError;
+              engineNotes.push(`fal: ${falError instanceof Error ? falError.message.slice(0, 120) : 'failed'}`);
               console.warn('Fal Try-On failed; using the next image engine.', falError);
             }
           } else if (engine === 'fashn') {
@@ -461,6 +467,7 @@ export async function POST(req: NextRequest) {
               imageProvider = 'fashn-tryon-v1.6';
             } catch (fashnError) {
               lastEngineError = fashnError;
+              engineNotes.push(`FASHN: ${fashnError instanceof Error ? fashnError.message.slice(0, 120) : 'failed'}`);
               console.warn('FASHN Try-On failed; using the next image engine.', fashnError);
             }
           } else if (engine === 'gemini') {
@@ -700,6 +707,15 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Master Image Route Error:', error);
+    // Why a look failed, for TryFocus admin and the store's activity: every engine tried, and the last error.
+    if (failureService) {
+      const last = String(error?.status || error?.code || '') + ' ' + String(error?.message || error || '').slice(0, 160);
+      const engines = [...engineNotes, geminiAttempted ? `Gemini: ${last.trim()}` : ''].filter(Boolean).join(' | ');
+      await logMaharajaActivity('image-failed', `${failureService === 'try-on' ? 'Try-On' : 'AI Video portrait'} failed: ${engines || last.trim()}`.slice(0, 480), {
+        service: failureService,
+        engines: engines.slice(0, 480),
+      }).catch(() => undefined);
+    }
     if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false).catch(() => undefined);
     return NextResponse.json(
       { success: false, error: formatGeminiImageError(error) },

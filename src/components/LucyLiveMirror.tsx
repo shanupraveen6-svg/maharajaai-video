@@ -35,6 +35,7 @@ export default function LucyLiveMirror({
   onUsePhotoTryOn,
   onEndSession,
   clientName = '',
+  onStarted,
 }: {
   /** Only the garments the store switched on for Live Try-On. */
   catalogue?: TryFocusProduct[];
@@ -47,6 +48,8 @@ export default function LucyLiveMirror({
   onEndSession?: () => void;
   /** The store's name, for the space below the first screen (with no posters or logo). */
   clientName?: string;
+  /** Called once a customer picks Women, Men or Kids here (the TV then offers Start over). */
+  onStarted?: () => void;
 } = {}) {
   // Only the store's own Live Try-On garments; with none, the screen says so (never demo garments).
   const activeCatalogue = propCatalogue || [];
@@ -381,6 +384,7 @@ export default function LucyLiveMirror({
   }
 
   function chooseWho(next: WhoGroup) {
+    onStarted?.();
     setGroup(next);
     setKidGender(null);
     setGuardianConsent(false);

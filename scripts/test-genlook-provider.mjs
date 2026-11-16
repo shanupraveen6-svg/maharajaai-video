@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { generateGenlookTryOn, canFallbackFromGenlook } from '../src/lib/maharaja/genlook-provider.ts';
+import { generateGenlookTryOn, canFallbackFromGenlook, genlookCreditsPerLook, genlookResolution } from '../src/lib/maharaja/genlook-provider.ts';
 
 // 1x1 8-bit PNG base64
 const samplePngBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -10,6 +10,7 @@ const sampleProduct = {
 };
 
 const originalFetch = globalThis.fetch;
+let syncRequest = null;
 
 try {
   // Test 1: Successful synchronous generation flow
@@ -20,6 +21,7 @@ try {
       return Response.json({ imageId: 'img-mock-123' }, { status: 200 });
     }
     if (String(url).endsWith('/try-on/sync')) {
+      syncRequest = JSON.parse(String(options?.body?.get?.('data') || '{}'));
       return Response.json({ resultImageUrl: 'https://cdn.genlook.app/results/look-123.jpg' }, { status: 200 });
     }
     if (String(url).startsWith('https://cdn.genlook.app/results/')) {
@@ -116,6 +118,15 @@ try {
 } finally {
   globalThis.fetch = originalFetch;
 }
+
+// A sharp look for a 43-inch TV: 2K by default (2 credits), the plain size only when asked for.
+assert.equal(syncRequest?.output?.resolution, '2k', 'GenLook is asked for a 2K result');
+assert.equal(syncRequest?.output?.watermark, false);
+assert.equal(genlookCreditsPerLook(), 2, 'A 2K look uses 2 GenLook credits');
+process.env.GENLOOK_RESOLUTION = 'default';
+assert.equal(genlookResolution(), 'default');
+assert.equal(genlookCreditsPerLook(), 1);
+delete process.env.GENLOOK_RESOLUTION;
 
 console.log('✓ All GenLook provider unit tests (sync, 202 poll, SSRF security, fallback guard) passed.');
 

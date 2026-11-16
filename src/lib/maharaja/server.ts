@@ -1872,13 +1872,16 @@ export function usesFreeGenlookPool(workspace: Pick<MaharajaWorkspace, 'clientId
  * mismatch. The purchased total is cached for 30 seconds there (a fresh top-up clears that cache itself);
  * usage is always read fresh here, since it changes with every customer's Try-On.
  */
-export async function freeGenlookCredits(): Promise<{ balance: number; purchased: number; usedEverywhere: number; locked: number; free: number; liveApiBalance?: number } | null> {
+export async function freeGenlookCredits(): Promise<{ balance: number; purchased: number; usedEverywhere: number; locked: number; lockedActive: number; free: number; liveApiBalance?: number } | null> {
   const key = process.env.GENLOOK_API_KEY?.trim();
   if (!key) return null;
   const purchased = await cachedTotalPurchased();
   const workspaces = await listClientWorkspaces();
   const usedEverywhere = workspaces.reduce((sum, workspace) => sum + Number(workspace.usage?.genlookUsed || 0), 0);
-  const locked = workspaces.reduce((sum, workspace) => sum + Math.max(0, genlookAllowance(workspace) - Number(workspace.usage?.genlookUsed || 0)), 0);
+  const remainingFor = (workspace: MaharajaWorkspace) => Math.max(0, genlookAllowance(workspace) - Number(workspace.usage?.genlookUsed || 0));
+  const locked = workspaces.reduce((sum, workspace) => sum + remainingFor(workspace), 0);
+  // Only stores that are live for customers can spend their locked credits right now.
+  const lockedActive = workspaces.filter((workspace) => workspace.campaignEnabled !== false).reduce((sum, workspace) => sum + remainingFor(workspace), 0);
   const balance = purchased - usedEverywhere;
   const liveResult = await getGenlookCredits(key).catch(() => null);
   return {
@@ -1886,6 +1889,7 @@ export async function freeGenlookCredits(): Promise<{ balance: number; purchased
     purchased,
     usedEverywhere,
     locked,
+    lockedActive,
     free: balance - locked,
     ...(liveResult?.ok ? { liveApiBalance: liveResult.creditBalance } : {}),
   };
@@ -1901,14 +1905,18 @@ export function genlookAllowance(workspace: Pick<MaharajaWorkspace, 'clientId' |
  * Claims one of this store's own GenLook credits before calling GenLook. False when the store has none
  * left: the Try-On then uses the next engine, so a store never spends another store's GenLook credits.
  */
-export async function reserveGenlookCredit() {
+export async function reserveGenlookCredit(amount = 1) {
   const clientId = activeClientId();
   const current = clientId === MAHARAJA_CLIENT_ID ? await getMaharajaWorkspace() : null;
   if (current && usesFreeGenlookPool(current)) {
-    // The demo takes only what no client has locked.
+    // The demo takes what live stores have not locked. GenLook's own balance decides when it can be read:
+    // a top-up bought on GenLook but not yet logged in admin, or credits locked to paused or test stores,
+    // must never switch GenLook off while the account really has credits. Without it, the logged ledger.
     const pool = await freeGenlookCredits();
-    if (!pool || pool.free <= 0) return false;
-    await incrementMaharajaUsage('genlookUsed');
+    if (!pool) return false;
+    const free = typeof pool.liveApiBalance === 'number' ? pool.liveApiBalance - pool.lockedActive : pool.free;
+    if (free < amount) return false;
+    for (let i = 0; i < amount; i += 1) await incrementMaharajaUsage('genlookUsed');
     return true;
   }
   const db = getDb();
@@ -1918,8 +1926,8 @@ export async function reserveGenlookCredit() {
       const data = (await transaction.get(ref)).data() || {};
       const allowance = genlookAllowance({ clientId, genlookCredits: data.genlookCredits });
       const used = Number(data.usage?.genlookUsed || 0);
-      if (used >= allowance) return false;
-      transaction.set(ref, { usage: { genlookUsed: used + 1 } }, { merge: true });
+      if (used + amount > allowance) return false;
+      transaction.set(ref, { usage: { genlookUsed: used + amount } }, { merge: true });
       return true;
     });
   }
@@ -1927,8 +1935,8 @@ export async function reserveGenlookCredit() {
   const stored = getMockStore().clientWorkspaces.get(clientId) as MaharajaWorkspace | undefined;
   const workspace = stored ? normalizeWorkspace(stored, fallback) : fallback;
   const used = Number(workspace.usage.genlookUsed || 0);
-  if (used >= genlookAllowance(workspace)) return false;
-  getMockStore().clientWorkspaces.set(clientId, { ...workspace, usage: { ...workspace.usage, genlookUsed: used + 1 } });
+  if (used + amount > genlookAllowance(workspace)) return false;
+  getMockStore().clientWorkspaces.set(clientId, { ...workspace, usage: { ...workspace.usage, genlookUsed: used + amount } });
   return true;
 }
 
@@ -1952,17 +1960,17 @@ export async function correctGenlookUsed(clientId: string, value: number) {
 }
 
 /** Gives a GenLook credit back when GenLook clearly did not make (or charge for) the image. */
-export async function releaseGenlookCredit() {
+export async function releaseGenlookCredit(amount = 1) {
   const clientId = activeClientId();
   const db = getDb();
   if (db) {
-    await db.collection('clientWorkspaces').doc(clientId).set({ usage: { genlookUsed: FieldValue.increment(-1) } }, { merge: true });
+    await db.collection('clientWorkspaces').doc(clientId).set({ usage: { genlookUsed: FieldValue.increment(-amount) } }, { merge: true });
     return;
   }
   const workspace = await getMaharajaWorkspace();
   getMockStore().clientWorkspaces.set(clientId, {
     ...workspace,
-    usage: { ...workspace.usage, genlookUsed: Math.max(0, Number(workspace.usage.genlookUsed || 0) - 1) },
+    usage: { ...workspace.usage, genlookUsed: Math.max(0, Number(workspace.usage.genlookUsed || 0) - amount) },
   });
 }
 

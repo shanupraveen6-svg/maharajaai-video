@@ -217,6 +217,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const idleResetRef = useRef<number | null>(null);
   // Remounts Live Try-On on End session, so its camera and picks start fresh.
   const [liveMirrorKey, setLiveMirrorKey] = useState(0);
+  // Live Try-On tells the TV when a customer has started there (for Start over).
+  const [liveStarted, setLiveStarted] = useState(false);
   const [tryOnGuardianConsent, setTryOnGuardianConsent] = useState(false);
 
   // Camera capture modal / full-screen stage
@@ -448,14 +450,15 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       sy = Math.round((vHeight - sHeight) / 2);
     }
 
-    // Strictly vertical format (9:16 portrait) matching the vertical TV
+    // Strictly vertical format (9:16 portrait) matching the vertical TV, at the camera's own detail (up to
+    // 1080 × 1920): a sharper photo gives a sharper look on a large TV.
     const canvas = document.createElement('canvas');
-    canvas.width = 720;
-    canvas.height = 1280;
+    canvas.width = Math.min(1080, Math.round(sWidth));
+    canvas.height = Math.round(canvas.width * 16 / 9);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     // Freeze on the still, in this same full-screen dialog, with Retry and Use this photo: no second
     // preview page elsewhere on the step.
     setPendingPhoto(dataUrl);
@@ -540,8 +543,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         }
 
         const canvas = document.createElement('canvas');
-        canvas.width = 720;
-        canvas.height = 1280;
+        canvas.width = Math.min(1080, Math.round(sWidth));
+        canvas.height = Math.round(canvas.width * 16 / 9);
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
@@ -1078,6 +1081,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   function resetAllSession() {
     batchRunRef.current += 1;
+    setLiveStarted(false);
+    setLiveMirrorKey((key) => key + 1);
     firstReadyRunRef.current = 0;
     handoffTriggeredRef.current = false;
     stopCamera();
@@ -1144,6 +1149,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // Who → photo → Store collection or My own outfit → outfits.
   const tryOnBack = tryOnStage === 'studio' ? () => { stopCamera(); setCameraOpen(false); setPendingPhoto(''); setTryOnStage('who'); } : null;
   const kidsPending = whoGroup === 'kids' && !kidPick;
+  // Start over shows only once a customer has started something: a Who tapped, a photo taken, bill digits
+  // typed, or a Live Try-On begun. On an untouched first screen there is nothing to start over.
+  const sessionStarted = tryOnStage !== 'who' || videoStage !== 'who' || Boolean(customerPhoto || videoPersonPhoto || tvBillLast4 || tvBillEntered) || liveStarted;
   const kidsOnCamera = whoGroup === 'kids' && (cameraTarget === 'catalogue-person' || cameraTarget === 'own-person');
   const shutterLocked = kidsPending && kidsOnCamera;
   const consentMissing = (genderFilter === 'boys' || genderFilter === 'girls') && !tryOnGuardianConsent;
@@ -1178,7 +1186,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {/* Tablet: End session on Try-On only (Wall QR has none; there is no AI Video tab here). */}
             {isTablet
               ? (mode === 'catalogue-tryon' || mode === 'own-tryon') && <button type="button" onClick={endSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">End session</button>
-              : <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">Start over</button>}
+              : sessionStarted && <button type="button" onClick={resetAllSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">Start over</button>}
           </div>
         </div>
         {isTablet ? (
@@ -1519,6 +1527,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             onEndSession={endSession}
             categories={liveCategories}
             clientName={clientName}
+            onStarted={() => setLiveStarted(true)}
             catalogue={catalogueItems.filter(isLiveMirrorReady)}
             onSelectProduct={setSelectedProduct}
             onUsePhotoTryOn={(product) => {
