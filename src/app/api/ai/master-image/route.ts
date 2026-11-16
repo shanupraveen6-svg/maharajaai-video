@@ -388,7 +388,11 @@ export async function POST(req: NextRequest) {
         // outcome is uncertain (it may still have made and billed the image) stops the chain: no double charge.
         // Every Try-On, the customer's retry included, uses the same engines (GenLook first); the AI Video
         // portrait uses Gemini.
-        const engines = service === 'try-on' ? tryOnEngineOrder() : ['gemini' as const];
+        // Store garments: GenLook first (built for catalogue try-on). The customer's own outfit: Gemini (Nano
+        // Banana) first, GenLook as its backup. The AI Video portrait uses Gemini.
+        const ownOutfitTryOn = service === 'try-on' && typeof body.catalogueProductId !== 'string';
+        const engines = service !== 'try-on' ? ['gemini' as const]
+          : ownOutfitTryOn ? (['gemini', 'genlook'] as const) : tryOnEngineOrder();
         let lastEngineError: unknown = null;
         // The outfit photo and its product name for GenLook. A set (two or three pieces in one photo) is split
         // into its pieces first, so every engine dresses each piece as itself.
@@ -475,34 +479,62 @@ export async function POST(req: NextRequest) {
             // Stay inside the 300 s function limit so the credit and pass lock are always released in finally.
             const geminiBudgetMs = Math.min(150_000, startedAt + 280_000 - Date.now());
             if (geminiBudgetMs < 25_000) throw new Error('The image service is busy right now. Please try again in a moment.');
+            // Try-On: the same garment facts GenLook gets — its name and one exact sentence about it.
+            if (service === 'try-on') {
+              const garmentDescription = detectedSingle?.product.description
+                || (garmentBase64s[0] ? await describeGarmentForGenlook(ai, garmentBase64s[0], garmentType) : '');
+              prompt = buildTryOnPrompt(customerCategory, {
+                audience: typeof body.templateId === 'string' ? body.templateId : customerCategory,
+                categoryId: typeof body.catalogueProductCategory === 'string' ? body.catalogueProductCategory : (typeof body.category === 'string' ? body.category : undefined),
+                garmentType,
+                productTitle: baseProduct.title,
+                productDescription: garmentDescription,
+              });
+            }
             contents.push(prompt);
             geminiAttempted = true;
             const geminiDeadline = Date.now() + geminiBudgetMs;
             const askGemini = (responseModalities: string[]) => ai.models.generateContent({
-              model: AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
+              model: service === 'try-on' ? AI_CONFIG.GEMINI_TRYON_MODEL : (AI_CONFIG.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image'),
               contents,
               config: {
                 responseModalities,
-                imageConfig: { aspectRatio: '9:16' },
+                imageConfig: service === 'try-on' ? { aspectRatio: '9:16', imageSize: AI_CONFIG.GEMINI_TRYON_SIZE } : { aspectRatio: '9:16' },
                 abortSignal: AbortSignal.timeout(Math.max(1_000, geminiDeadline - Date.now())),
               },
             });
             let genResponse;
             try {
-              // Image only: asking for text as well makes Gemini write before it draws.
-              genResponse = await askGemini(['IMAGE']);
-            } catch (modalityError: any) {
-              // A model that refuses image-only answers 400 straight away (nothing made, nothing billed):
-              // ask again the old way, text and image, within the same time budget.
-              const status = Number(modalityError?.status || modalityError?.code || 0);
-              if (status !== 400) throw modalityError;
-              console.warn('Gemini refused image-only output; asking for text and image.', String(modalityError?.message || '').slice(0, 200));
-              genResponse = await askGemini(['TEXT', 'IMAGE']);
+              try {
+                // Image only: asking for text as well makes Gemini write before it draws.
+                genResponse = await askGemini(['IMAGE']);
+              } catch (modalityError: any) {
+                // A model that refuses image-only answers 400 straight away (nothing made, nothing billed):
+                // ask again the old way, text and image, within the same time budget.
+                const status = Number(modalityError?.status || modalityError?.code || 0);
+                if (status !== 400) throw modalityError;
+                console.warn('Gemini refused image-only output; asking for text and image.', String(modalityError?.message || '').slice(0, 200));
+                genResponse = await askGemini(['TEXT', 'IMAGE']);
+              }
+            } catch (geminiError: any) {
+              // First choice for an own outfit: on failure GenLook gets its turn; as the last engine, it fails.
+              if (engine !== engines[engines.length - 1]) {
+                lastEngineError = geminiError;
+                engineNotes.push(`Gemini: ${String(geminiError?.status || '')} ${String(geminiError?.message || 'failed').slice(0, 120)}`.trim());
+                contents.pop();
+                geminiAttempted = false;
+                continue;
+              }
+              throw geminiError;
             }
             const part = genResponse.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
             if (part?.inlineData?.data) {
               rawBuffer = Buffer.from(part.inlineData.data, 'base64');
               imageProvider = 'gemini';
+            } else if (engine !== engines[engines.length - 1]) {
+              engineNotes.push('Gemini: no image returned');
+              contents.pop();
+              geminiAttempted = false;
             }
           }
         }

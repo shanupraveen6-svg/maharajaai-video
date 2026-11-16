@@ -172,6 +172,8 @@ export function buildTryOnPrompt(
     categoryId?: string;
     garmentType?: string;
     productTitle?: string;
+    /** One exact sentence about the garment in the photo (sleeves, collar, closure, print, colours). */
+    productDescription?: string;
   }
 ) {
   const subject = category === 'men'
@@ -190,13 +192,18 @@ export function buildTryOnPrompt(
     .map((item) => item.detail)
     .join(' ');
   const scope = TRY_ON_SCOPE[TRY_ON_REGION[garmentType]];
+  // The selected garment named and described, so the model dresses this exact piece, not a generic one.
+  const title = String(details?.productTitle || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const description = String(details?.productDescription || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  const identity = title || description ? `This garment is: ${title || 'the garment in Images 2 onward'}${description ? ` — ${description.replace(/\.$/, '')}` : ''}.` : '';
 
   return `<task>
 Edit Image 1, a real photo of ${/^[aeiou]/.test(subject) ? 'an' : 'a'} ${subject}, into a photorealistic virtual try-on: dress them in the one garment shown in Images 2 onward and change nothing else in the photo.
 </task>
 
 <garment>
-${GARMENT_TYPE_RULES[garmentType]}${styleDetails ? `
+${identity ? `${identity}
+` : ''}${GARMENT_TYPE_RULES[garmentType]}${styleDetails ? `
 ${styleDetails}` : ''}${scope ? `
 ${scope} Where this scope and the rule above differ, follow this scope.` : ''}
 Images 2 onward are views of this same one garment. Copy its exact colours, fabric, weave, print, embroidery, borders, neckline, sleeves and drape; take only the garment, not the hanger, mannequin, model, hands holding it or background.

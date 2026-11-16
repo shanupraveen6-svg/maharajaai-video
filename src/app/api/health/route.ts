@@ -39,7 +39,7 @@ async function checkFal(): Promise<EngineStatus> {
  * image quota that a real generation would need.
  */
 async function checkGemini(): Promise<EngineStatus> {
-  const key = AI_CONFIG.PRIMARY_API_KEY || process.env.GEMINI_API_KEY;
+  const key = AI_CONFIG.PRIMARY_API_KEY;
   if (!key) return 'missing';
   try {
     const ai = new GoogleGenAI({ apiKey: key });

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 const CONFIGURED: Record<ApiProvider, boolean> = {
   fal: Boolean(process.env.FAL_KEY?.trim()),
-  gemini: Boolean(AI_CONFIG.PRIMARY_API_KEY || process.env.GEMINI_API_KEY),
+  gemini: Boolean(AI_CONFIG.PRIMARY_API_KEY),
   fashn: Boolean(process.env.FASHN_API_KEY?.trim()),
 };
 

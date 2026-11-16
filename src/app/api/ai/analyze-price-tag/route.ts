@@ -19,7 +19,7 @@ import { bindClient } from '@/lib/maharaja/client-context';
 export const maxDuration = 45;
 
 function getGenAIClient() {
-  const apiKey = AI_CONFIG.PRIMARY_API_KEY || process.env.GOOGLE_AI_API_KEY_PRIMARY || process.env.GEMINI_API_KEY || '';
+  const apiKey = AI_CONFIG.PRIMARY_API_KEY;
   if (!apiKey || apiKey.trim() === '') return null;
   try {
     return new GoogleGenAI({ apiKey });
