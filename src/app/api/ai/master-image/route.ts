@@ -13,7 +13,7 @@ import { buildPortraitGarmentBlock, buildVideoMasterPrompt, getVideoConcept, VID
 import { SPEND_CAP_MESSAGE, recordAiCost, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { claimPassDevice, tryOnMinimumFor, moduleLimit, acquirePassImageLock, finishTryOnGrant, getCampaignEntitlementForPass, getCustomerServiceAllowances, incrementPassUsage, issueTryOnGrant, logMaharajaActivity, releaseGenlookCredit, reserveGenlookCredit, markPassTryOnImageDone, markPassVideoMasterDone, releaseMaharajaUsage, releasePassImageLock, reserveMaharajaUsage, reserveTryOnGrant, validTryOnDeviceId, verifyMaharajaAccess } from '@/lib/maharaja/server';
 import { applyMaharajaWatermark } from '@/lib/maharaja/watermark';
-import { tryOnEngineOrder, generateFalTryOn } from '@/lib/maharaja/try-on-provider';
+import { tryOnEngineOrder } from '@/lib/maharaja/try-on-provider';
 import { canFallbackFromGenlook, generateGenlookTryOn, genlookCreditsPerLook } from '@/lib/maharaja/genlook-provider';
 import { generateFashnTryOn } from '@/lib/maharaja/fashn-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
@@ -112,7 +112,6 @@ export async function POST(req: NextRequest) {
   let imageProvider = 'gemini';
   let genlookAttempted = false;
   let genlookOutcomeUncertain = false;
-  let falTryOnAttempted = false;
   let geminiAttempted = false;
   // What each image engine did on this request, saved to the store's activity when it fails.
   const engineNotes: string[] = [];
@@ -383,7 +382,7 @@ export async function POST(req: NextRequest) {
         }
 
         let rawBuffer: Buffer | null = null;
-        // Try-On engines in order (TRYON_ENGINE_ORDER, default GenLook → fal → FASHN → Gemini); one that is not
+        // Try-On engines in order (TRYON_ENGINE_ORDER, default GenLook → FASHN → Gemini); one that is not
         // configured is skipped. An engine whose
         // outcome is uncertain (it may still have made and billed the image) stops the chain: no double charge.
         // Every Try-On, the customer's retry included, uses the same engines (GenLook first); the AI Video
@@ -419,7 +418,7 @@ export async function POST(req: NextRequest) {
             }, { status: 422 });
           }
           detectedSingle = found.length === 1 ? found[0] : null;
-          // fal, FASHN and Gemini get the same cut-out GenLook gets: the customer's own garment out of
+          // FASHN and Gemini get the same cut-out GenLook gets: the customer's own garment out of
           // their hands, or the one store garment out of a whole-outfit photo.
           if (detectedSingle && detectedSingle.image !== genlookGarment) {
             garmentBase64s[0] = detectedSingle.image;
@@ -450,18 +449,6 @@ export async function POST(req: NextRequest) {
               lastEngineError = error;
               engineNotes.push(`GenLook: ${error instanceof Error ? error.message : 'failed'}`);
               console.warn(`GenLook Try-On failed (${error instanceof Error ? error.message : 'unknown'}); using the next image engine.`);
-            }
-          } else if (engine === 'fal') {
-            const key = process.env.FAL_KEY?.trim();
-            if (!key) continue;
-            falTryOnAttempted = true;
-            try {
-              rawBuffer = await generateFalTryOn(personBase64, garmentBase64s[0], key);
-              imageProvider = 'fal-image-apps-v2-try-on';
-            } catch (falError) {
-              lastEngineError = falError;
-              engineNotes.push(`fal: ${falError instanceof Error ? falError.message.slice(0, 120) : 'failed'}`);
-              console.warn('Fal Try-On failed; using the next image engine.', falError);
             }
           } else if (engine === 'fashn') {
             const key = process.env.FASHN_API_KEY?.trim();
@@ -548,7 +535,6 @@ export async function POST(req: NextRequest) {
           // imageProvider names exactly which vendor just succeeded, so the dollar spend goes to the
           // right one (GenLook tracks its own usage in credits, not dollars, so it is skipped here).
           const costProvider = imageProvider.startsWith('genlook') ? 'genlook'
-            : imageProvider.startsWith('fal') ? 'fal'
             : imageProvider.startsWith('fashn') ? 'fashn'
             : 'gemini';
           await recordAiCost(service === 'try-on' ? 'try-on' : 'video-portrait', undefined, costProvider);
@@ -591,11 +577,7 @@ export async function POST(req: NextRequest) {
           ? formatGeminiImageError(genError)
           : genlookAttempted && genlookOutcomeUncertain
             ? 'GenLook Try-On outcome is uncertain. Please ask staff to check before retrying; no backup request was sent.'
-          : falTryOnAttempted && !imageReadyAt
-            ? 'Try-On provider outcome is uncertain. Please ask staff to check before retrying; no second AI request was sent.'
-            : falTryOnAttempted
-              ? 'Try-On was created but could not be delivered. Please ask staff to check this result before retrying.'
-              : formatGeminiImageError(genError) },
+            : formatGeminiImageError(genError) },
         { status: 500 }
       );
     }

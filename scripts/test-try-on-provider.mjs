@@ -1,54 +1,19 @@
 import assert from 'node:assert/strict';
-import { buildFalTryOnInput, generateFalTryOn } from '../src/lib/maharaja/try-on-provider.ts';
-
-const input = buildFalTryOnInput('person', 'garment');
-assert.equal(input.person_image_url, 'data:image/jpeg;base64,person');
-assert.equal(input.clothing_image_url, 'data:image/jpeg;base64,garment');
-assert.equal(input.preserve_pose, true);
-assert.equal(input.aspect_ratio.ratio, '9:16');
-assert.equal(Object.keys(input).filter((key) => key.includes('image')).length, 2);
-
-const originalFetch = globalThis.fetch;
-try {
-  const requests = [];
-  globalThis.fetch = async (url, options) => {
-    requests.push({ url: String(url), options });
-    if (requests.length === 1) return Response.json({ images: [{ url: 'https://v3.fal.media/files/example/result.png' }] });
-    return new Response(Buffer.from('mock-image'), { status: 200, headers: { 'content-type': 'image/png' } });
-  };
-  const result = await generateFalTryOn('person', 'garment', 'test-key');
-  assert.equal(result.toString(), 'mock-image');
-  assert.equal(requests[0].url, 'https://fal.run/fal-ai/image-apps-v2/virtual-try-on');
-  assert.equal(JSON.parse(requests[0].options.body).clothing_image_url, input.clothing_image_url);
-  assert.equal(requests.length, 2);
-
-  globalThis.fetch = async () => new Response('Unavailable', { status: 503 });
-  await assert.rejects(
-    generateFalTryOn('person', 'garment', 'test-key'),
-    /Fal Try-On did not complete \(503\)/,
-  );
-
-  globalThis.fetch = async () => { throw new TypeError('Network outcome unknown'); };
-  await assert.rejects(generateFalTryOn('person', 'garment', 'test-key'), TypeError);
-} finally {
-  globalThis.fetch = originalFetch;
-}
-
-console.log('Fal Try-On input and no-double-call error paths passed without provider requests.');
 
 // Engines run in order with Gemini as the last backup, and the privacy policy discloses every provider.
 {
   const fs = await import('node:fs');
   const { tryOnEngineOrder } = await import('../src/lib/maharaja/try-on-provider.ts');
-  assert.deepEqual(tryOnEngineOrder(''), ['genlook', 'fal', 'fashn', 'gemini'], 'Default order keeps GenLook first');
-  assert.deepEqual(tryOnEngineOrder('fal, fashn'), ['fal', 'fashn', 'gemini'], 'Gemini is always the last backup');
-  assert.deepEqual(tryOnEngineOrder('gemini,unknown,fal,fal'), ['gemini', 'fal'], 'Unknown and repeated names are ignored');
+  assert.deepEqual(tryOnEngineOrder(''), ['genlook', 'fashn', 'gemini'], 'Default order keeps GenLook first, no fal Try-On');
+  assert.deepEqual(tryOnEngineOrder('fashn'), ['fashn', 'gemini'], 'Gemini is always the last backup');
+  assert.deepEqual(tryOnEngineOrder('gemini,unknown,fal,genlook,genlook'), ['gemini', 'genlook'], 'Unknown (fal included) and repeated names are ignored');
   const route = fs.readFileSync(new URL('../src/app/api/ai/master-image/route.ts', import.meta.url), 'utf8');
   assert.match(route, /tryOnEngineOrder\(\)/, 'The Try-On route follows the engine order');
+  assert.doesNotMatch(route, /generateFalTryOn|engine === 'fal'/, 'fal virtual try-on is no longer a Try-On engine');
   assert.match(route, /if \(!canFallbackFromGenlook\(error\)\) \{\s*(?:\/\/[^\n]*\s*)*genlookOutcomeUncertain = true;\s*throw error;/, 'An uncertain GenLook outcome never falls through (no double charge)');
   assert.match(route, /CONSENT_VERSIONS = \['2026-11-privacy-v4', '2026-10-privacy-v3'\]/, 'Screens open across a release keep working');
   const policy = fs.readFileSync(new URL('../src/app/privacy/page.tsx', import.meta.url), 'utf8');
-  assert.match(policy, /GenLook, Fal\.ai or FASHN/);
+  assert.match(policy, /\(GenLook or FASHN\)/);
   assert.match(policy, /Google Gemini as the last backup/);
   assert.match(policy, /Your WhatsApp number/);
   assert.match(policy, /2026-11-privacy-v4/);
