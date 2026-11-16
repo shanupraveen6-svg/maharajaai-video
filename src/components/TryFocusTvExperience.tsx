@@ -70,16 +70,21 @@ const PHOTO_GUIDE: [string, string] = ['Take a full-length photo, not a selfie.'
 const OUTFIT_GUIDE: [string, string] = ['One garment at a time, not a full set.', 'Hold it up, lay it flat or hang it, the whole piece in the frame, in good light.'];
 
 /** The store's own uploaded logo, fetched once; '' until loaded or if none was uploaded. */
-function useStoreLogo() {
+/** The store's logo as a local image URL, or '' (then the header shows the store's initial, never a broken image). */
+function useStoreLogo(): [string, () => void] {
   const [logo, setLogo] = useState('');
   useEffect(() => {
     let url = '';
     fetch('/api/maharaja/logo?fallback=1', { cache: 'no-store' })
-      .then(async (response) => { if (response.ok) { url = URL.createObjectURL(await response.blob()); setLogo(url); } })
+      .then(async (response) => {
+        if (!response.ok || !(response.headers.get('content-type') || '').startsWith('image/')) return;
+        url = URL.createObjectURL(await response.blob());
+        setLogo(url);
+      })
       .catch(() => undefined);
     return () => { if (url) URL.revokeObjectURL(url); };
   }, []);
-  return logo;
+  return [logo, () => setLogo('')];
 }
 
 /**
@@ -93,7 +98,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const isTablet = device === 'tablet';
   // Tablet starts on its catalogue-outfit Try-On tab; the TV keeps its single Try-On tab.
   const defaultMode: TvMode = isTablet ? 'catalogue-tryon' : 'image-tryon';
-  const storeLogo = useStoreLogo();
+  const [storeLogo, dropStoreLogo] = useStoreLogo();
   const [mode, setMode] = useState<TvMode>(defaultMode);
   const [clientName, setClientName] = useState('');
   // Live Try-On and AI Video show only while the store has them (module on and the devices they need on).
@@ -1235,20 +1240,20 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       {idleLoop && goLiveOn && !isTablet && <TvIdleLoop clientName={clientName} onWake={() => setIdleLoop(false)} />}
       <TvOfflineNotice />
       <header ref={headerRef} className="tv-main-header sticky top-0 z-30 border-b-2 border-line bg-white shadow-sm">
-        <div className="tv-main-brand mx-auto flex max-w-[1080px] items-center justify-between gap-4 px-8 pb-4 pt-5">
-          <div className="flex min-w-0 items-center gap-4">
+        <div className="tv-main-brand mx-auto flex max-w-[1080px] items-center justify-between gap-4 px-8 pb-4 pt-6">
+          <div className="flex min-w-0 items-center gap-5">
             {storeLogo
-              ? <img src={storeLogo} alt="" className="h-14 max-w-[160px] shrink-0 rounded-2xl border border-line bg-white object-contain p-1.5" />
-              : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-2xl font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>}
+              ? <img src={storeLogo} alt="" onError={dropStoreLogo} className="h-[72px] max-w-[200px] shrink-0 rounded-2xl border border-line bg-white object-contain p-2" />
+              : <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl bg-brand text-3xl font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>}
             <div className="min-w-0">
-              <h1 className="truncate text-[32px] font-bold leading-tight text-ink">{clientName}</h1>
-              <p className="text-lg font-medium text-muted">See any outfit on you in seconds</p>
+              <h1 className="truncate text-[34px] font-bold leading-tight tracking-tight text-ink">{clientName}</h1>
+              <p className="text-xl font-semibold leading-snug text-ink/70">See any outfit on you in seconds</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {isTablet && <Link href="/maharaja/workspace" className="flex min-h-16 items-center rounded-xl border-2 border-line-strong bg-white px-5 text-lg font-semibold text-ink hover:border-ink">Workspace</Link>}
             {/* Tablet: End session on Try-On only (Wall QR has none; there is no AI Video tab here). */}
-            {isTablet && (mode === 'catalogue-tryon' || mode === 'own-tryon') && <button type="button" onClick={endSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">End session</button>}
+            {isTablet && (mode === 'catalogue-tryon' || mode === 'own-tryon') && <EndSessionButton onClick={endSession} />}
           </div>
         </div>
         {isTablet ? (
@@ -1269,10 +1274,10 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         ) : inProcess ? (
           // A customer is in the middle of something: Back and End session only (and, in Image Try-On after the
           // photo, the two ways to try: the store's collection or their own garment).
-          <nav className="tv-mode-nav mx-auto flex max-w-[1080px] items-stretch gap-3 px-8 pb-5" aria-label="This session">
+          <nav className="tv-mode-nav tv-session-nav mx-auto flex max-w-[1080px] items-stretch gap-3 px-8 pb-5" aria-label="This session">
             {headerBack
               ? <BackButton onClick={headerBack} />
-              : <span className="w-[132px] shrink-0" aria-hidden="true" />}
+              : <span className="tv-session-button invisible" aria-hidden="true" />}
             {imageSourceTabs ? (
               <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
                 <button type="button" aria-current={imageSource === 'catalogue' ? 'page' : undefined} onClick={() => chooseTryOnSource('catalogue')} className={`tv-mode-button ${imageSource === 'catalogue' ? 'is-active' : ''}`}>
@@ -1283,7 +1288,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 </button>
               </div>
             ) : <span className="flex-1" />}
-            <button type="button" onClick={endSession} className="tv-end-session tf-btn shrink-0 !min-h-16 border-2 border-ink bg-white px-6 text-lg font-bold text-ink">End session</button>
+            <EndSessionButton onClick={endSession} />
           </nav>
         ) : (
           <nav className={`tv-mode-nav mx-auto grid max-w-[1080px] gap-3 px-8 pb-5 ${['grid-cols-1', 'grid-cols-2', 'grid-cols-3'][[true, videoOn, liveOn].filter(Boolean).length - 1]}`} aria-label="Choose an experience">
@@ -1964,7 +1969,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-4 bg-gradient-to-b from-black/75 via-black/35 to-transparent p-4 sm:p-6">
             <div className="flex min-w-0 items-center gap-3">
               {storeLogo
-                ? <img src={storeLogo} alt={clientName} className="h-11 max-w-[140px] shrink-0 rounded-lg bg-white/95 object-contain p-1.5" />
+                ? <img src={storeLogo} alt="" onError={dropStoreLogo} className="h-11 max-w-[140px] shrink-0 rounded-lg bg-white/95 object-contain p-1.5" />
                 : <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">{clientName.replace(/^The\s+/i, '').charAt(0) || 'T'}</span>}
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white/70">{clientName}</p>
@@ -2085,10 +2090,19 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   );
 }
 
+/** Header actions share the tabs' size and shape; Back is quiet, End session is marked as the one that clears the customer. */
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex min-h-16 items-center gap-2.5 rounded-xl border-2 border-ink bg-white px-6 text-lg font-bold text-ink hover:bg-canvas">
-      <ArrowLeft className="h-6 w-6" /> Back
+    <button type="button" onClick={onClick} className="tv-session-button">
+      <ArrowLeft /> Back
+    </button>
+  );
+}
+
+function EndSessionButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="tv-session-button is-end tv-end-session">
+      <X /> End session
     </button>
   );
 }

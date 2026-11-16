@@ -235,6 +235,16 @@
 .tv-mode-nav { width: auto; }
 .tv-mode-button { display: flex; min-width: 0; min-height: 72px; align-items: center; justify-content: center; gap: 12px; border-radius: 18px; border: 2px solid var(--color-line-strong); background: #fff; padding: 12px; color: var(--color-ink); font-size: clamp(16px, 1.9vw, 22px); font-weight: 700; line-height: 1.15; text-align: center; box-shadow: 0 2px 6px rgb(0 0 0 / .06); }
 .tv-mode-button.is-active { border-color: var(--color-ink); background: var(--color-ink); color: #fff; }
+/* The tab row sits on its own band under the brand, so the two rows read apart. */
+.tv-main-header .tv-mode-nav { border-top: 1px solid var(--color-line); padding-top: 16px; }
+/* Back and End session: the tabs' height, corners and type, but never their weight. Back is a plain
+   outline; End session is outlined in red with red text, so it reads as the one action that clears the
+   customer, not as a third tab. Both take the same width, which keeps the tabs centred. */
+.tv-session-button { display: inline-flex; width: 200px; flex-shrink: 0; min-height: 72px; align-items: center; justify-content: center; gap: 10px; border-radius: 18px; border: 2px solid var(--color-line-strong); background: #fff; padding: 12px 16px; color: var(--color-ink); font-size: clamp(16px, 1.9vw, 22px); font-weight: 600; line-height: 1.15; white-space: nowrap; }
+.tv-session-button svg { width: 26px; height: 26px; flex-shrink: 0; }
+.tv-session-button:hover { border-color: var(--color-ink); }
+.tv-session-button.is-end { border-color: var(--color-danger); color: var(--color-danger); font-weight: 700; }
+.tv-session-button.is-end:hover { background: var(--color-danger-soft); }
 .tv-kiosk .tv-kiosk-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
 .tv-kiosk-filters button { min-width: 0; min-height: 64px; border-radius: 12px; padding: 8px; font-size: clamp(15px, 1.5vw, 18px); line-height: 1.2; }
 .tv-kiosk .tv-category-sidebar .tv-kiosk-filters { display: flex; flex-direction: column; gap: 8px; }
@@ -260,6 +270,8 @@
   .tv-kiosk-content > .space-y-6 > * { margin-block: 0; }
   .tv-main-brand { padding-block: 10px; }
   .tv-mode-button { min-height: 56px; }
+  .tv-session-button { min-height: 56px; width: 168px; }
+  .tv-main-header .tv-mode-nav { padding-top: 10px; }
   .tv-catalogue-shell { grid-template-columns: 180px minmax(0, 1fr); gap: 12px; }
   .tv-kiosk .tv-category-sidebar .tv-kiosk-filters { gap: 4px; }
   .tv-kiosk .tv-category-sidebar .tv-kiosk-filters button { min-height: 38px; padding: 7px 10px; font-size: 13px; }
@@ -274,6 +286,8 @@
   .tv-mode-nav { gap: 4px; }
   .tv-mode-button { flex-direction: column; gap: 3px; min-height: 72px; padding: 5px 3px; font-size: 12px; }
   .tv-mode-button svg { width: 19px; height: 19px; }
+  .tv-session-button { width: auto; padding: 5px 10px; font-size: 13px; gap: 4px; }
+  .tv-session-button svg { width: 18px; height: 18px; }
   .tv-kiosk-content { padding: 16px 14px 100px; }
   .tv-kiosk .tv-kiosk-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tv-selection-bar { flex-direction: column; align-items: stretch; }
