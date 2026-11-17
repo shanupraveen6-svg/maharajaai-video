@@ -49,7 +49,7 @@ export default function GarmentRail({
           </button>
         ))}
       </div>
-      <div className="flex snap-x gap-4 overflow-x-auto pb-3">
+      <div className="flex snap-x items-start gap-4 overflow-x-auto pb-3">
         {leading}
         {items.map((item) => {
           const index = selected.indexOf(item.sku);
@@ -63,17 +63,17 @@ export default function GarmentRail({
               aria-label={`${picked ? 'Remove' : 'Select'} ${item.title}`}
               disabled={disabled || full}
               onClick={() => onToggle(item)}
-              className={`relative w-48 shrink-0 snap-start overflow-hidden rounded-2xl border bg-white text-left transition disabled:opacity-40 ${picked ? 'border-ink ring-[3px] ring-ink' : 'border-line hover:border-line-strong'}`}
+              className={`relative w-48 shrink-0 snap-start overflow-hidden rounded-xl border bg-white text-left transition disabled:opacity-40 ${picked ? 'border-ink ring-[3px] ring-ink' : 'border-line hover:border-line-strong'}`}
             >
-              <span className="block aspect-[3/4] w-full overflow-hidden bg-canvas">
-                <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+              <span className="block w-full overflow-hidden">
+                <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="block h-auto w-full" />
               </span>
               {max > 1 && (
                 <span className={`absolute right-2.5 top-2.5 flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>
                   {picked ? index + 1 : '+'}
                 </span>
               )}
-              <span className="block truncate px-2.5 py-1.5 text-sm font-semibold leading-tight text-ink">{item.title}</span>
+              <span className="block truncate px-2 py-1 text-sm font-semibold leading-tight text-ink">{item.title}</span>
             </button>
           );
         })}

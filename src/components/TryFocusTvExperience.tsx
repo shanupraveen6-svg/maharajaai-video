@@ -1278,8 +1278,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     : null;
   const headerBack = mode === 'live-tryon' ? liveBack : mode === 'catalogue-video' ? videoBack : tryOnBack;
   const isTryOnMode = mode === 'image-tryon' || mode === 'catalogue-tryon' || mode === 'own-tryon';
-  const fullBleedStage = (isTryOnMode && (tryOnStage === 'generating' || tryOnStage === 'result' || (tryOnStage === 'studio' && Boolean(customerPhoto) && imageSource === 'own-garment')))
-    || (mode === 'catalogue-video' && videoStage === 'portrait');
+  const fullBleedStage = (isTryOnMode && (tryOnStage === 'generating' || tryOnStage === 'result' || (tryOnStage === 'studio' && Boolean(customerPhoto))))
+    || (mode === 'catalogue-video' && (videoStage === 'pick' || videoStage === 'portrait'));
 
   return (
     <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-ink">
@@ -1401,16 +1401,16 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             )}
 
             {tryOnStage === 'studio' && customerPhoto && imageSource === 'catalogue' && (
-              <div className="space-y-5 pb-36">
-                <div className="flex items-center justify-between gap-4">
+              <div className="space-y-2 pb-28">
+                <div className="flex items-center justify-between gap-3 px-3 pt-2">
                   <PageTitle size="lg" title={`Pick up to ${MAX_LOOKS} outfits`} subtitle="From any category. We create a look for each one at the same time." />
-                  <button type="button" onClick={() => void openCameraFor('catalogue-person')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
-                    <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-16 rounded-lg object-cover" />
+                  <button type="button" onClick={() => void openCameraFor('catalogue-person')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
+                    <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-14 rounded-lg object-cover" />
                     <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
                   </button>
                 </div>
-                <div className="tv-catalogue-shell grid gap-5">
-                  <aside className="tv-category-sidebar tf-card p-3" aria-label="Garment categories">
+                <div className="tv-catalogue-shell grid gap-1.5">
+                  <aside className="tv-category-sidebar tf-card mx-1.5 p-2.5" aria-label="Garment categories">
                     <p className="px-1 pb-2 text-base font-bold text-ink">Our collection</p>
                     <div className="tv-kiosk-filters flex flex-col gap-1">
                       {railTabs.map((tab) => {
@@ -1436,15 +1436,15 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     </div>
                   </aside>
 
-                  <div ref={catalogueGridRef} className="min-w-0 scroll-mt-48 space-y-4">
+                  <div ref={catalogueGridRef} className="min-w-0 scroll-mt-48 space-y-2 pr-1.5">
                     {selectedLooks.length > 0 && (
-                      <div className="tf-card flex items-center gap-2.5 p-2.5" aria-label="Your picks">
+                      <div className="tf-card flex items-center gap-2 p-2" aria-label="Your picks">
                         <p className="shrink-0 px-1 text-base font-bold">Your picks</p>
-                        <div className="grid min-w-0 flex-1 grid-cols-3 gap-2">
+                        <div className="grid min-w-0 flex-1 grid-cols-3 gap-1.5">
                           {selectedLooks.map((look, index) => (
                             <button key={look.sku} type="button" onClick={() => toggleLook(look)} aria-label={`Remove ${look.title}`} className="relative flex min-w-0 items-center gap-2 rounded-xl border border-ink bg-white p-1 pr-2">
                               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-sm font-bold text-white">{index + 1}</span>
-                              <img src={look.thumbnailUrl || look.imageUrl} alt="" className="h-14 w-10 shrink-0 rounded-lg bg-canvas object-cover object-top" />
+                              <img src={look.thumbnailUrl || look.imageUrl} alt="" className="h-14 w-10 shrink-0 rounded-lg bg-canvas object-contain" />
                               <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">{look.title}</span>
                               <X className="h-4 w-4 shrink-0 text-muted" />
                             </button>
@@ -1452,11 +1452,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                         </div>
                       </div>
                     )}
-                    <div className="flex items-baseline justify-between gap-4">
-                      <p className="text-2xl font-bold">{railTabs.find((tab) => tab.id === railActive)?.label}</p>
-                      <p className="text-base text-muted">{browseProducts.length} styles</p>
+                    <div className="flex items-baseline justify-between gap-4 px-1">
+                      <p className="text-xl font-bold">{railTabs.find((tab) => tab.id === railActive)?.label}</p>
+                      <p className="text-sm text-muted">{browseProducts.length} styles</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-3 items-start gap-1.5">
                       {browseProducts.map((item, index) => {
                         const pickIndex = selectedLooks.findIndex((look) => look.sku === item.sku);
                         const picked = pickIndex >= 0;
@@ -1469,13 +1469,13 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                             aria-label={`${picked ? 'Remove' : 'Select'} ${item.title}`}
                             disabled={full}
                             onClick={() => toggleLook(item)}
-                            className={`relative flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white text-left transition disabled:opacity-50 ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
+                            className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white text-left transition disabled:opacity-50 ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
                           >
-                            <span className="block aspect-[3/4] w-full overflow-hidden bg-canvas">
-                              <img src={item.thumbnailUrl || item.imageUrl} alt="" loading={index < 15 ? 'eager' : 'lazy'} decoding="async" className="h-full w-full object-cover object-top" />
+                            <span className="block w-full overflow-hidden">
+                              <img src={item.thumbnailUrl || item.imageUrl} alt="" loading={index < 15 ? 'eager' : 'lazy'} decoding="async" className="block h-auto w-full" />
                             </span>
                             <span className={`absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full text-base font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>{picked ? pickIndex + 1 : '+'}</span>
-                            <span className="block truncate px-2.5 py-1.5 text-sm font-semibold leading-tight text-ink">{item.title}</span>
+                            <span className="block truncate px-2 py-1 text-sm font-semibold leading-tight text-ink">{item.title}</span>
                           </button>
                         );
                       })}
@@ -1801,18 +1801,18 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             )}
 
             {videoStage === 'pick' && (
-              <div className="space-y-5">
-                <div className="flex items-center justify-between gap-4">
+              <div className="space-y-2 pb-28">
+                <div className="flex items-center justify-between gap-3 px-3 pt-2">
                   <PageTitle size="lg" title="Pick a piece for your video" subtitle="From our collection. One piece per video." />
                   {videoPersonPhoto && (
-                    <button type="button" onClick={() => setVideoStage('photo')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
-                      <img src={videoPersonPhoto} alt="Your photo" className="aspect-[9/16] h-16 rounded-lg object-cover" />
+                    <button type="button" onClick={() => setVideoStage('photo')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
+                      <img src={videoPersonPhoto} alt="Your photo" className="aspect-[9/16] h-14 rounded-lg object-cover" />
                       <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
                     </button>
                   )}
                 </div>
-                <div className="tv-catalogue-shell grid gap-5">
-                  <aside className="tv-category-sidebar tf-card p-3" aria-label="AI Video categories">
+                <div className="tv-catalogue-shell grid gap-1.5">
+                  <aside className="tv-category-sidebar tf-card mx-1.5 p-2.5" aria-label="AI Video categories">
                     <div className="tv-kiosk-filters flex flex-col gap-1">
                       {videoCategories.map((cat) => (
                         <button key={cat.id} type="button" aria-pressed={activeVideoCategory === cat.id} onClick={() => { setVideoCategory(cat.id); setCataloguePage(0); }} className="flex items-center justify-between gap-2 rounded-xl border px-4 text-left font-semibold">
@@ -1822,17 +1822,17 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       ))}
                     </div>
                   </aside>
-                  <div className="min-w-0 space-y-4">
-                    <div className="grid grid-cols-3 gap-2.5 pb-36">
+                  <div className="min-w-0 space-y-2 pr-1.5">
+                    <div className="grid grid-cols-3 items-start gap-1.5 pb-28">
                       {videoBrowseProducts.map((item, index) => {
                         const picked = selectedProduct.sku === item.sku;
                         return (
-                          <button key={item.sku} type="button" aria-pressed={picked} onClick={() => chooseVideoPiece(item)} className={`relative flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}>
-                            <span className="relative block aspect-[3/4] w-full overflow-hidden bg-canvas">
-                              <img src={item.thumbnailUrl || item.imageUrl} alt="" loading={index < 15 ? 'eager' : 'lazy'} decoding="async" className="h-full w-full object-cover object-top" />
+                          <button key={item.sku} type="button" aria-pressed={picked} onClick={() => chooseVideoPiece(item)} className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}>
+                            <span className="relative block w-full overflow-hidden">
+                              <img src={item.thumbnailUrl || item.imageUrl} alt="" loading={index < 15 ? 'eager' : 'lazy'} decoding="async" className="block h-auto w-full" />
                               {picked && <span className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-5 w-5" /></span>}
                             </span>
-                            <span className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+                            <span className="flex items-center justify-between gap-2 px-2 py-1">
                               <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-ink">{item.title}</span>
                               {item.price > 0 && <span className="shrink-0 text-sm font-bold tabular-nums text-ink">₹{item.price.toLocaleString('en-IN')}</span>}
                             </span>
