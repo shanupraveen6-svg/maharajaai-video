@@ -16,7 +16,7 @@ import { tryOnEngineOrder } from '@/lib/maharaja/try-on-provider';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import { storagePathFromSignedUrl } from '@/lib/maharaja/photo-source';
 import { describeGarmentForGenlook, genlookSourceFrom, prepareGenlookPieces, type GenlookPiece } from '@/lib/maharaja/garment-prep';
-import { canFallbackFromGenlook, canRetryGenlook, generateGenlookTryOn, genlookCreditsPerLook } from '@/lib/maharaja/genlook-provider';
+import { canFallbackFromGenlook, canRetryGenlook, generateGenlookTryOn, genlookCreditsPerLook, genlookResolution } from '@/lib/maharaja/genlook-provider';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
@@ -428,7 +428,9 @@ export async function POST(req: NextRequest) {
         let detectedSingle: GenlookPiece | null = null;
         if (service === 'try-on' && genlookGarment) {
           const ownOutfit = ownOutfitTryOn;
+          const prepStartedAt = Date.now();
           const found = await prepareGenlookPieces(ai, genlookGarment, garmentType, baseProduct, ownOutfit);
+          engineNotes.push(`garment prep ${Date.now() - prepStartedAt} ms${found.length === 1 && found[0].image !== genlookGarment ? ' (cut out)' : ''}`);
           if (found.length > 1 && ownOutfit) {
             return NextResponse.json({
               success: false,
@@ -462,9 +464,11 @@ export async function POST(req: NextRequest) {
             for (let attempt = 0; attempt < 2 && !rawBuffer; attempt += 1) {
               const budgetMs = startedAt + 150_000 - Date.now();
               if (budgetMs < 20_000) break;
+              const genlookStartedAt = Date.now();
               try {
                 rawBuffer = await generateGenlookTryOn(genlookSources[0] || personBase64, [piece], key, undefined, budgetMs);
                 imageProvider = 'genlook-try-on';
+                engineNotes.push(`GenLook ${genlookResolution()} ${Date.now() - genlookStartedAt} ms`);
               } catch (error) {
                 lastEngineError = error;
                 engineNotes.push(`GenLook${attempt ? ' (again)' : ''}: ${error instanceof Error ? error.message : 'failed'}`);
@@ -724,7 +728,7 @@ export async function POST(req: NextRequest) {
       imagePersistenceMs: storageReadyAt && imageReadyAt ? storageReadyAt - imageReadyAt : null,
       totalMs: completedAt - startedAt,
     };
-    console.info('Maharaja image generation timing', { sessionId, service, provider: imageProvider, conceptId: concept?.id || null, ...timing });
+    console.info('Maharaja image generation timing', { sessionId, service, provider: imageProvider, conceptId: concept?.id || null, ...timing, engines: engineNotes.join(' | ') });
 
     return NextResponse.json({
       success: true,

@@ -147,13 +147,13 @@ try {
   globalThis.fetch = originalFetch;
 }
 
-// A sharp look for a 43-inch TV: 2K by default (2 credits), the plain size only when asked for.
-assert.equal(syncRequest?.output?.resolution, '2k', 'GenLook is asked for a 2K result');
+// Speed first: the plain size (1 credit) by default; 2K (2 credits, slower) only when asked for.
+assert.equal(syncRequest?.output?.resolution, 'default', 'GenLook is asked for the default, faster size');
 assert.equal(syncRequest?.output?.watermark, false);
-assert.equal(genlookCreditsPerLook(), 2, 'A 2K look uses 2 GenLook credits');
-process.env.GENLOOK_RESOLUTION = 'default';
-assert.equal(genlookResolution(), 'default');
-assert.equal(genlookCreditsPerLook(), 1);
+assert.equal(genlookCreditsPerLook(), 1, 'A default look uses 1 GenLook credit');
+process.env.GENLOOK_RESOLUTION = '2k';
+assert.equal(genlookResolution(), '2k');
+assert.equal(genlookCreditsPerLook(), 2);
 delete process.env.GENLOOK_RESOLUTION;
 
 console.log('✓ All GenLook provider unit tests (sync, 202 poll, SSRF security, fallback guard) passed.');

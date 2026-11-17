@@ -154,11 +154,13 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
 }
 
 /**
- * GenLook's result size: '2k' (about 2048 px, sharp on a 43-inch TV; 1 extra credit) unless
- * GENLOOK_RESOLUTION=default (1200 px on the long side).
+ * GenLook's result size: 'default' (1200 px on the long side, 1 credit, the faster one) unless
+ * GENLOOK_RESOLUTION=2k (about 2048 px, 1 extra credit, a few seconds slower).
  */
 export function genlookResolution(): '2k' | 'default' {
-  return String(process.env.GENLOOK_RESOLUTION || '2k').trim().toLowerCase() === 'default' ? 'default' : '2k';
+  // Speed first: the default size (1200 px, 1 credit) is a few seconds faster than 2K and half the credits.
+  // GENLOOK_RESOLUTION=2k asks for the larger look.
+  return String(process.env.GENLOOK_RESOLUTION || 'default').trim().toLowerCase() === '2k' ? '2k' : 'default';
 }
 
 /** GenLook credits one look uses: 1, plus 1 for a 2K result. */

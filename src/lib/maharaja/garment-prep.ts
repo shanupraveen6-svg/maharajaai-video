@@ -125,7 +125,12 @@ export async function prepareGenlookPieces(ai: GoogleGenAI | null, garmentBase64
     try {
       const target = await findTargetGarment(ai, garmentBase64, garmentType, region);
       if (target) {
-        const image = await cropToPiece(garmentBase64, target.box);
+        // Cut the piece out only when it fills a good part of the photo. A small box (a wrong guess, or a
+        // garment that is already alone in a flat-lay) would hand GenLook a scrap and it would invent the
+        // rest; the whole photo with the exact description is the safer input then.
+        const [ymin, xmin, ymax, xmax] = target.box;
+        const share = ((ymax - ymin) * (xmax - xmin)) / (1000 * 1000);
+        const image = share >= 0.3 ? await cropToPiece(garmentBase64, target.box) : garmentBase64;
         return [{ image, product: { externalId: base.externalId, title: GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title, description: target.description.slice(0, 500) } }];
       }
     } catch {
