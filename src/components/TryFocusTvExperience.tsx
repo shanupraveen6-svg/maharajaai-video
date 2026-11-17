@@ -56,8 +56,6 @@ const VIDEO_CATEGORY_OF: Record<CatalogueAudience, CustomerCategory> = { women: 
 
 type TvMode = 'image-tryon' | 'catalogue-tryon' | 'own-tryon' | 'live-tryon' | 'catalogue-video' | 'wall-qr';
 type ImageTryOnSource = 'catalogue' | 'own-garment';
-/** The own try-on garment check's answer (see /api/ai/garment-check). */
-type GarmentCheckStatus = 'ok' | 'mismatch' | 'multiple' | 'unclear' | 'unchecked';
 type CatalogueTryOnStage = 'who' | 'studio' | 'generating' | 'result';
 type VideoStage = 'who' | 'photo' | 'pick' | 'look' | 'portrait';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
@@ -239,9 +237,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [tryOnStage, setTryOnStage] = useState<CatalogueTryOnStage>('who');
   // Own try-on: nothing is chosen for the customer; the camera opens once they pick what they are showing.
   const [ownGarmentType, setOwnGarmentType] = useState('');
-  // The quick AI check of the garment photo against that choice (one garment, the right type).
-  const [ownCheck, setOwnCheck] = useState<{ status: GarmentCheckStatus | 'checking' | ''; detectedType?: string | null; detectedLabel?: string | null }>({ status: '' });
-  const ownCheckRunRef = useRef(0);
 
   // Photos (Image 1 = Customer identity, Image 2 = Garment reference)
   const [customerPhoto, setCustomerPhoto] = useState<string>('');
@@ -384,7 +379,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   }, [catalogueItems, genderFilter]);
 
   // Each audience has its own outfit types; keep the own-outfit choice valid when the audience changes.
-  useEffect(() => { setOwnGarmentType(''); setOwnCheck({ status: '' }); }, [genderFilter]);
+  useEffect(() => { setOwnGarmentType(''); }, [genderFilter]);
 
 
   function navigateTo(next: TvMode) {
@@ -650,7 +645,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       if (imageSource === 'own-garment' && ownGarmentType && !ownGarmentPhoto) void openCameraFor('own-garment');
     } else if (target === 'own-garment') {
       setOwnGarmentPhoto(dataUrl);
-      if (ownGarmentType) void checkOwnGarment(dataUrl, ownGarmentType);
     } else if (target === 'video-person') {
       setVideoPersonPhoto(dataUrl);
       setVideoMasterUrl('');
@@ -690,36 +684,15 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     if (ownGarmentType && !ownGarmentPhoto) void openCameraFor('own-garment');
   }
 
-  /** Own try-on, left list: what the customer is showing. Opens the camera, or checks the photo again. */
+  /** Own try-on, left list: what the customer is showing. Opens the camera when no garment photo is captured yet. */
   function chooseOwnGarmentType(type: string) {
     setOwnGarmentType(type);
     setTryOnError('');
-    if (ownGarmentPhoto) void checkOwnGarment(ownGarmentPhoto, type);
-    else if (!(cameraOpen && cameraTarget === 'own-garment')) void openCameraFor('own-garment');
-  }
-
-  /** The 2–4 second AI check: one garment, and the type the customer chose. A check that cannot run lets them go on. */
-  async function checkOwnGarment(photo: string, type: string) {
-    const run = ++ownCheckRunRef.current;
-    setOwnCheck({ status: 'checking' });
-    let result: { status: GarmentCheckStatus; detectedType?: string | null; detectedLabel?: string | null } = { status: 'unchecked' };
-    try {
-      const data = await (await fetch('/api/ai/garment-check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: photo, garmentType: type, audience: genderFilter }),
-      })).json();
-      if (data?.success && typeof data.status === 'string') result = data;
-    } catch {
-      // unchecked: the customer can still go on
-    }
-    if (run === ownCheckRunRef.current) setOwnCheck(result);
+    if (!ownGarmentPhoto && !(cameraOpen && cameraTarget === 'own-garment')) void openCameraFor('own-garment');
   }
 
   function retakeOwnGarment() {
-    ownCheckRunRef.current += 1;
     setOwnGarmentPhoto('');
-    setOwnCheck({ status: '' });
     void openCameraFor('own-garment');
   }
 
@@ -1246,7 +1219,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setKidPick(null);
     setVideoWhoChosen(false);
     setOwnGarmentType('');
-    setOwnCheck({ status: '' });
     setVideoStage('who');
     setVideoCategory('');
     setPortraitRetryUsed(false);
@@ -1538,13 +1510,12 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             )}
 
             {/* Own try-on, one screen: what the customer is showing on the left (nothing chosen for them), the
-                camera in place of the store's garments on the right. The photo is checked by AI at once (one
-                garment, the type chosen), then Generate. */}
+                camera in place of the store's garments on the right. No AI garment analysis blocks the photo so
+                customers can hold the garment against their chest or lay it flat and generate right away. */}
             {tryOnStage === 'studio' && customerPhoto && imageSource === 'own-garment' && (() => {
               const ownTypes = OWN_GARMENT_TYPES[genderFilter];
               const chosenLabel = ownTypes.find((type) => type.id === ownGarmentType)?.label || '';
               const ownCameraLive = cameraOpen && cameraTarget === 'own-garment';
-              const checkPassed = ownCheck.status === 'ok' || ownCheck.status === 'unchecked';
               return (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3 px-4 pt-2">
@@ -1572,18 +1543,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                             <img src={ownGarmentPhoto} alt="Your garment" className="h-full w-full object-cover" />
                             <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 bg-gradient-to-t from-black/90 via-black/65 to-transparent px-5 pb-28 pt-16">
                               <div className="w-full max-w-xl space-y-3">
-                                {ownCheck.status === 'checking' && <p className="flex items-center justify-center gap-3 text-xl font-semibold text-white"><LoaderCircle className="h-6 w-6 animate-spin" /> Checking your garment…</p>}
-                                {ownCheck.status === 'ok' && <p className="flex items-center justify-center gap-3 rounded-xl bg-success-soft p-3.5 text-xl font-bold text-success"><Check className="h-6 w-6" /> {chosenLabel}</p>}
-                                {ownCheck.status === 'mismatch' && (
-                                  <div className="space-y-3 rounded-xl bg-warn-soft p-4 text-left">
-                                    <p className="text-xl font-bold text-ink">This looks like {ownCheck.detectedLabel ? `a ${ownCheck.detectedLabel.toLowerCase()}` : 'a different garment'}, not {chosenLabel ? `a ${chosenLabel.toLowerCase()}` : 'what you chose'}.</p>
-                                    {ownCheck.detectedType && (
-                                      <button type="button" onClick={() => { setOwnGarmentType(ownCheck.detectedType!); setOwnCheck({ status: 'ok' }); }} className="tf-btn tf-btn-dark !min-h-16 w-full text-lg font-bold">Use {ownCheck.detectedLabel}</button>
-                                    )}
-                                  </div>
-                                )}
-                                {ownCheck.status === 'multiple' && <p className="rounded-xl bg-warn-soft p-4 text-xl font-bold text-ink">We can see more than one garment. Show one garment at a time.</p>}
-                                {ownCheck.status === 'unclear' && <p className="rounded-xl bg-warn-soft p-4 text-xl font-bold text-ink">We can’t see the garment clearly. Hold it closer, in good light.</p>}
+                                {chosenLabel && <p className="flex items-center justify-center gap-3 rounded-xl bg-success-soft p-3.5 text-xl font-bold text-success"><Check className="h-6 w-6" /> {chosenLabel}</p>}
                                 <button type="button" onClick={retakeOwnGarment} className="tf-btn !min-h-16 w-full border-2 border-white bg-white text-lg font-bold text-ink hover:bg-canvas"><RefreshCw className="h-5 w-5" /> Retake</button>
                               </div>
                             </div>
@@ -1621,8 +1581,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       {tryOnError && <p className="mx-3 mt-2 rounded-xl bg-danger-soft p-4 text-lg text-danger">{tryOnError}</p>}
                     </div>
                     <div className="tv-selection-bar fixed left-1/2 z-30 flex max-w-[1016px] -translate-x-1/2 items-center justify-between gap-4 backdrop-blur">
-                      <p className="text-lg font-semibold">{ownGarmentPhoto && checkPassed ? chosenLabel : ownGarmentType ? `Photograph your ${chosenLabel.toLowerCase()}` : 'Choose what you are showing'}</p>
-                      <button type="button" disabled={!ownGarmentPhoto || !checkPassed || consentMissing} onClick={() => void runTryOnGeneration(customerPhoto, ownGarmentPhoto)} className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-8 text-lg"><Sparkles className="h-5 w-5" /> Generate my look</button>
+                      <p className="text-lg font-semibold">{ownGarmentPhoto && chosenLabel ? chosenLabel : ownGarmentType ? `Photograph your ${chosenLabel.toLowerCase()}` : 'Choose what you are showing'}</p>
+                      <button type="button" disabled={!ownGarmentPhoto || !ownGarmentType || consentMissing} onClick={() => void runTryOnGeneration(customerPhoto, ownGarmentPhoto)} className="tf-btn tf-btn-primary !min-h-16 shrink-0 px-8 text-lg"><Sparkles className="h-5 w-5" /> Generate my look</button>
                     </div>
                   </div>
                 </div>

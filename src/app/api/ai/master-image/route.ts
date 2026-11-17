@@ -472,28 +472,16 @@ export async function POST(req: NextRequest) {
             ? body.catalogueProductTitle
             : GENLOOK_GARMENT_DESCRIPTIONS[garmentType].title).slice(0, 120),
         };
-        // TryFocus rule: one garment per Try-On, always sent as one piece. A customer's own photo that shows
-        // two or more garments is refused before anything is made (no credit used): one garment at a time.
+        // Store catalogue pieces may show a multi-piece mannequin or full look that needs splitting/cutting out.
+        // Own-outfit photos are held against the customer's chest or laid flat, so we never run AI garment analysis
+        // to reject or crop them — Gemini uses the full own-garment photo directly.
         let detectedSingle: GenlookPiece | null = null;
-        if (service === 'try-on' && genlookGarment) {
-          const ownOutfit = ownOutfitTryOn;
+        if (service === 'try-on' && genlookGarment && !ownOutfitTryOn) {
           const prepStartedAt = Date.now();
-          const found = await prepareGenlookPieces(ai, genlookGarment, garmentType, baseProduct, ownOutfit);
+          const found = await prepareGenlookPieces(ai, genlookGarment, garmentType, baseProduct, false);
           engineNotes.push(`garment prep ${Date.now() - prepStartedAt} ms${found.length === 1 && found[0].image !== genlookGarment ? ' (cut out)' : ''}`);
-          if (found.length > 1 && ownOutfit) {
-            if (genlookCreditReserved) {
-              await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
-              genlookCreditReserved = false;
-            }
-            return NextResponse.json({
-              success: false,
-              code: 'ONE_GARMENT',
-              error: 'This photo shows more than one garment. Please photograph one garment at a time, laid flat or hung, the whole piece in the frame.',
-            }, { status: 422 });
-          }
           detectedSingle = found.length === 1 ? found[0] : null;
-          // Gemini gets the same cut-out GenLook gets: the customer's own garment out of
-          // their hands, or the one store garment out of a whole-outfit photo.
+          // Gemini gets the same cut-out GenLook gets: the one store garment out of a whole-outfit photo.
           if (detectedSingle && detectedSingle.image !== genlookGarment) {
             garmentBase64s[0] = detectedSingle.image;
             const garmentPart = contents[1];

@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const tv = fs.readFileSync(new URL('../src/components/TryFocusTvExperience.tsx', import.meta.url), 'utf8');
-const check = fs.readFileSync(new URL('../src/app/api/ai/garment-check/route.ts', import.meta.url), 'utf8');
+const master = fs.readFileSync(new URL('../src/app/api/ai/master-image/route.ts', import.meta.url), 'utf8');
+const phoneUpload = fs.readFileSync(new URL('../src/components/PhonePhotoUpload.tsx', import.meta.url), 'utf8');
+const photoTransfer = fs.readFileSync(new URL('../src/app/api/tv/photo-transfer/[token]/route.ts', import.meta.url), 'utf8');
 
 // Header: Home shows the three tabs; past Who only Back and End session (+ Store collection | Own try-on).
 assert.match(tv, /const inProcess = mode === 'live-tryon' \? livePhase !== 'who'/, 'In-process is decided per open tab');
@@ -12,27 +14,27 @@ assert.doesNotMatch(tv, /Start over/, 'Start over is replaced by End session');
 assert.doesNotMatch(tv, /Try a garment you brought/, 'The My own outfit card above the categories is gone');
 assert.match(tv, /const tab = isTablet \? mode : defaultMode;/, 'End session takes the TV back to Home');
 
-// Own try-on: nothing chosen for the customer; camera in place of the garments; the AI check before Generate.
+// Own try-on: nothing chosen for the customer; camera in place of the garments; NO AI check blocking own-garment upload.
 assert.match(tv, /const \[ownGarmentType, setOwnGarmentType\] = useState\(''\);/, 'No garment type is pre-selected');
 assert.match(tv, /aria-label="What are you showing"/);
 assert.match(tv, /ownCameraLive \? \(\s*<>\s*<video ref=\{videoRef\}/, 'The garment camera opens inside the screen, not full screen');
 assert.match(tv, /\{cameraOpen && cameraTarget !== 'own-garment' && \(/, 'The full-screen camera is only for the customer photo');
-assert.match(tv, /fetch\('\/api\/ai\/garment-check'/);
-assert.match(tv, /disabled=\{!ownGarmentPhoto \|\| !checkPassed \|\| consentMissing\}/, 'Generate waits for a passed (or unavailable) check');
-assert.match(tv, /This looks like/);
-assert.match(tv, /Show one garment at a time/);
+assert.doesNotMatch(tv, /fetch\('\/api\/ai\/garment-check'/, 'Own garment upload does not invoke AI garment-check');
+assert.match(tv, /disabled=\{!ownGarmentPhoto \|\| !ownGarmentType \|\| consentMissing\}/, 'Generate enables once garment photo and type are chosen');
+assert.match(master, /if \(service === 'try-on' && genlookGarment && !ownOutfitTryOn\)/, 'Own-outfit try-on skips prepareGenlookPieces and ONE_GARMENT rejection');
+assert.doesNotMatch(master, /code: 'ONE_GARMENT'/, 'Own-outfit try-on never blocks held garments as ONE_GARMENT');
 
-// The check: one garment, the chosen type; when it cannot run, the customer goes on ('unchecked').
-assert.match(check, /verifyMaharajaAccess\(req, body\.accessCode, 'try-on'\)/, 'Only the store screens can use it');
-assert.match(check, /else if \(garments > 1\) status = 'multiple'/);
-assert.match(check, /else if \(detected && detected\.id !== chosen\.id\) status = 'mismatch'/);
-assert.match(check, /catch \(error\) \{[\s\S]*status: 'unchecked'/, 'A failed check never blocks the customer');
+// Phone QR upload: Gemini Scanner 0 posture check runs on phone upload with Re-upload + primary Submit actions.
+assert.match(photoTransfer, /async function analyzeCustomerPosture/, 'Phone QR upload runs Gemini posture analysis');
+assert.match(photoTransfer, /posture.*standing.*sitting/, 'Phone QR posture check validates standing vs sitting posture');
+assert.match(phoneUpload, /<span>Re-upload<\/span>/, 'Phone QR upload shows Re-upload button');
+assert.match(phoneUpload, /<span>\{scanning \? 'Scanning…' : busy \? 'Submitting…' : 'Submit'\}<\/span>/, 'Phone QR upload shows primary Submit button');
 
 // Live Try-On reports its step and Back to the TV header instead of its own Back button.
 const live = fs.readFileSync(new URL('../src/components/LucyLiveMirror.tsx', import.meta.url), 'utf8');
 assert.match(live, /onBackChange\?\.\(phase === 'camera' && !running \? \(\) => backRef\.current\(\) : null\)/);
 assert.doesNotMatch(live, /onClick=\{backToWho\}/, 'No second Back button inside Live Try-On');
-console.log('✓ TV header in a session, own try-on on one screen with the AI garment check, Live Back in the header');
+console.log('✓ TV header in a session, own try-on without AI garment check, phone QR posture check, Live Back in the header');
 
 // TV fit and readability: screens fill exactly what the fixed header leaves; results and the portrait keep
 // the look, QR and End session in one view; the TV type scale has no text under 16 px.
