@@ -9,6 +9,8 @@ import type { MaharajaCatalogueProduct } from '@/lib/maharaja/catalogue-types';
 import { garmentTypeFor } from '@/lib/maharaja/garment-type';
 import { genlookSourceFrom, prepareGenlookPieces } from '@/lib/maharaja/garment-prep';
 import { readCataloguePhoto } from '@/lib/maharaja/photo-source';
+import { registerGenlookProduct } from '@/lib/maharaja/genlook-provider';
+import { markGenlookProductsKnown } from '@/lib/maharaja/genlook-cache';
 import sharp from 'sharp';
 
 /**
@@ -19,7 +21,7 @@ import sharp from 'sharp';
  * About ₹0.5–1 of Gemini per garment, once.
  */
 // 2: also records each photo's long side (px), so admin can flag photos too small for a sharp Try-On.
-const WARM_VERSION = 2;
+const WARM_VERSION = 3;
 /** Below this many pixels on the long side a garment photo gives a soft Try-On; admin flags it. */
 export const MIN_GARMENT_LONG_SIDE = 800;
 const RUN_EVERY_MS = 10 * 60 * 1000;
@@ -44,6 +46,7 @@ export async function warmCatalogueGarments({ budgetMs = 200_000, concurrency = 
   const db = getDb();
   if (!apiKey || !db) return { warmed: 0, left: 0 };
   const ai = new GoogleGenAI({ apiKey });
+  const genlookKey = AI_CONFIG.GENLOOK_API_KEY?.trim() || '';
   const clientId = activeClientId();
   const stopAt = Date.now() + budgetMs;
   const products = await loadAllCatalogueRecords(false);
@@ -72,8 +75,16 @@ export async function warmCatalogueGarments({ budgetMs = 200_000, concurrency = 
         // Marked done only when Gemini really answered (not the plain fallback sentence), so a failed check is
         // tried again on the next run.
         const answered = pieces.length > 0 && pieces[0].product.description !== GENLOOK_GARMENT_DESCRIPTIONS[garmentType].description;
+        // Registered at GenLook too (free, kept for good): a customer's look then sends this garment by id.
+        let registered = !genlookKey;
+        let genlookProductId: string | null = null;
+        if (answered && genlookKey && pieces.length === 1) {
+          genlookProductId = await registerGenlookProduct(pieces[0], genlookKey);
+          await markGenlookProductsKnown([genlookProductId]);
+          registered = true;
+        }
         // The photo size is kept either way; version marks the garment as prepared only when Gemini answered.
-        await item.ref.set({ photo: item.photo, garmentType: item.garmentType, sku: item.product.sku, longSide, version: answered ? WARM_VERSION : 0, at: new Date().toISOString() });
+        await item.ref.set({ photo: item.photo, garmentType: item.garmentType, sku: item.product.sku, longSide, genlookProductId, version: answered && registered ? WARM_VERSION : 0, at: new Date().toISOString() });
         if (answered) warmed += 1;
       } catch (error) {
         console.warn(`Garment pre-warm skipped ${item.product.sku}:`, error instanceof Error ? error.message : error);

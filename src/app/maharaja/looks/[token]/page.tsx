@@ -103,7 +103,7 @@ export default function PrivateLooksPage() {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
   }
 
-  // Every look (up to 3) is saved once the customer has given a WhatsApp number (the server checks the lead
+  // Every look (up to 5) is saved once the customer has given a WhatsApp number (the server checks the lead
   // token): through the phone's share sheet in one go where it can take files ("Save 3 images" to the
   // gallery), otherwise as separate downloads a beat apart so the browser doesn't block them as a burst.
   const saveAllLooks = () => leadGate.withLead(async (leadToken) => {

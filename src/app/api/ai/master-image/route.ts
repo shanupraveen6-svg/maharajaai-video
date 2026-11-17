@@ -16,7 +16,8 @@ import { tryOnEngineOrder } from '@/lib/maharaja/try-on-provider';
 import { getCatalogueProduct } from '@/lib/maharaja/catalogue';
 import { storagePathFromSignedUrl } from '@/lib/maharaja/photo-source';
 import { describeGarmentForGenlook, genlookSourceFrom, prepareGenlookPieces, type GenlookPiece } from '@/lib/maharaja/garment-prep';
-import { canFallbackFromGenlook, canRetryGenlook, generateGenlookTryOn, genlookCreditsPerLook, genlookResolution } from '@/lib/maharaja/genlook-provider';
+import { canFallbackFromGenlook, canRetryGenlook, generateGenlookTryOn, generateGenlookTryOnById, genlookCreditsPerLook, genlookProductId, genlookResolution, isGenlookCacheMiss } from '@/lib/maharaja/genlook-provider';
+import { clearCachedPersonImageId, clearWarmGenlookProductId, genlookPersonImageId, getWarmGenlookProductId, isGenlookProductKnown, markGenlookProductsKnown, resolveCachedPersonImageId } from '@/lib/maharaja/genlook-cache';
 import { enforceRateLimit } from '@/lib/security/rate-limit';
 import { verifyOperatorRequest } from '@/lib/auth/operator';
 import { activeClientId, bindClient } from '@/lib/maharaja/client-context';
@@ -332,7 +333,68 @@ export async function POST(req: NextRequest) {
       ? garmentRoles.slice(0, garmentInputs.length).map((role: unknown) => String(role))
       : [];
 
+    const ownOutfitTryOn = service === 'try-on' && (typeof body.catalogueProductId !== 'string' || body.catalogueProductId.startsWith('OWN-'));
+    const engines: Array<'genlook' | 'gemini'> = service !== 'try-on' ? ['gemini']
+      : ownOutfitTryOn ? ['gemini', 'genlook', 'gemini'] : tryOnEngineOrder();
+    const clientPersonImageId = typeof body.genlookPersonImageId === 'string' && /^[A-Za-z0-9_-]{4,120}$/.test(body.genlookPersonImageId)
+      ? body.genlookPersonImageId
+      : undefined;
+    const rawPersonBase64 = typeof personInput === 'string' && personInput.startsWith('data:image/')
+      ? (personInput.split(',')[1] || '')
+      : '';
+
+    let genlookCreditReserved = false;
     try {
+        let rawBuffer: Buffer | null = null;
+        let lastEngineError: unknown = null;
+        let skipGenlookInLoop = false;
+
+        // Instant ID fast path: if this store garment is already registered at GenLook (from pre-warm) and
+        // the customer photo was already uploaded (e.g. via /api/ai/person-prepare), skip downloading the
+        // garment and skip all Sharp resizing, sending only the two IDs straight to GenLook.
+        const fastGenlookKey = AI_CONFIG.GENLOOK_API_KEY?.trim();
+        if (service === 'try-on' && !ownOutfitTryOn && engines[0] === 'genlook' && fastGenlookKey && cataloguePath && (clientPersonImageId || rawPersonBase64)) {
+          const [fastPersonId, fastProductId] = await Promise.all([
+            resolveCachedPersonImageId(rawPersonBase64 || undefined, clientPersonImageId),
+            getWarmGenlookProductId(body.catalogueProductId, cataloguePath, garmentType),
+          ]);
+          if (fastPersonId && fastProductId) {
+            if (!await reserveGenlookCredit(genlookCreditsPerLook())) {
+              engineNotes.push('GenLook fast-id: skipped, no GenLook credits free');
+              skipGenlookInLoop = true;
+            } else {
+              genlookCreditReserved = true;
+              genlookAttempted = true;
+              referencesReadyAt = Date.now();
+              const fastStartedAt = Date.now();
+              try {
+                rawBuffer = await generateGenlookTryOnById(fastPersonId, [fastProductId], fastGenlookKey, startedAt + 150_000 - Date.now());
+                imageProvider = 'genlook-try-on';
+                engineNotes.push(`GenLook ${genlookResolution()} fast-id ${Date.now() - fastStartedAt} ms`);
+              } catch (fastError) {
+                lastEngineError = fastError;
+                engineNotes.push(`GenLook fast-id: ${fastError instanceof Error ? fastError.message : 'failed'}`);
+                console.warn(`GenLook ID fast-path failed (${fastError instanceof Error ? fastError.message : 'unknown'}).`);
+                if (!canFallbackFromGenlook(fastError)) {
+                  genlookOutcomeUncertain = true;
+                  throw fastError;
+                }
+                if (isGenlookCacheMiss(fastError)) {
+                  await Promise.all([
+                    clearCachedPersonImageId(fastPersonId, rawPersonBase64 || undefined),
+                    clearWarmGenlookProductId(body.catalogueProductId, fastProductId),
+                  ]).catch(() => undefined);
+                } else if (!canRetryGenlook(fastError)) {
+                  await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
+                  genlookCreditReserved = false;
+                  skipGenlookInLoop = true;
+                }
+              }
+            }
+          }
+        }
+
+        if (!rawBuffer) {
         const contents: any[] = [];
 
         const sourceReferences = await Promise.all([
@@ -399,19 +461,6 @@ export async function POST(req: NextRequest) {
           prompt = `${buildVideoMasterPrompt(concept!, garmentType, eventId)}\n\n${buildPortraitGarmentBlock(sanitizedGarmentRoles, garmentType, geminiGarments.length)}`;
         }
 
-        let rawBuffer: Buffer | null = null;
-        // No fail state for the customer: every engine problem moves on to the next engine instead of stopping.
-        // Store garments: GenLook (sent once more if busy) → Gemini. The customer's own outfit (a phone photo of a
-        // held, hung or folded garment, not a store packshot): Gemini → GenLook → Gemini's other model. The AI Video
-        // portrait: Gemini. Gemini as the
-        // last engine tries again and then on the other Nano Banana model. A look GenLook may still have made
-        // keeps its credit (a rare double charge is better than a customer with no look).
-        // A customer's own garment: no catalogue SKU, or the TV's OWN-… id for the photographed garment.
-        const ownOutfitTryOn = service === 'try-on' && (typeof body.catalogueProductId !== 'string' || body.catalogueProductId.startsWith('OWN-'));
-        // The last engine is always Gemini, which retries and switches model before anything is shown as failed.
-        const engines: Array<'genlook' | 'gemini'> = service !== 'try-on' ? ['gemini']
-          : ownOutfitTryOn ? ['gemini', 'genlook', 'gemini'] : tryOnEngineOrder();
-        let lastEngineError: unknown = null;
         // The outfit photo and its product name for GenLook. A set (two or three pieces in one photo) is split
         // into its pieces first, so every engine dresses each piece as itself.
         const genlookGarment = genlookSources[1] || garmentBase64s[0];
@@ -432,6 +481,10 @@ export async function POST(req: NextRequest) {
           const found = await prepareGenlookPieces(ai, genlookGarment, garmentType, baseProduct, ownOutfit);
           engineNotes.push(`garment prep ${Date.now() - prepStartedAt} ms${found.length === 1 && found[0].image !== genlookGarment ? ' (cut out)' : ''}`);
           if (found.length > 1 && ownOutfit) {
+            if (genlookCreditReserved) {
+              await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
+              genlookCreditReserved = false;
+            }
             return NextResponse.json({
               success: false,
               code: 'ONE_GARMENT',
@@ -452,10 +505,14 @@ export async function POST(req: NextRequest) {
         for (const [engineIndex, engine] of engines.entries()) {
           if (rawBuffer) break;
           if (engine === 'genlook') {
+            if (skipGenlookInLoop) continue;
             const key = AI_CONFIG.GENLOOK_API_KEY?.trim();
             if (!key) { engineNotes.push('GenLook: no key'); continue; }
             // GenLook runs only on this store's own GenLook credits; with none left the next engine is used.
-            if (!await reserveGenlookCredit(genlookCreditsPerLook())) { engineNotes.push('GenLook: skipped, no GenLook credits free'); continue; }
+            if (!genlookCreditReserved) {
+              if (!await reserveGenlookCredit(genlookCreditsPerLook())) { engineNotes.push('GenLook: skipped, no GenLook credits free'); continue; }
+              genlookCreditReserved = true;
+            }
             genlookAttempted = true;
             // One garment, one product: the whole photo with one exact description of that garment.
             const piece: GenlookPiece = detectedSingle || { image: genlookGarment, product: { ...baseProduct, description: (await describeGarmentForGenlook(ai, genlookGarment, garmentType)).slice(0, 500) } };
@@ -466,9 +523,21 @@ export async function POST(req: NextRequest) {
               if (budgetMs < 20_000) break;
               const genlookStartedAt = Date.now();
               try {
-                rawBuffer = await generateGenlookTryOn(genlookSources[0] || personBase64, [piece], key, undefined, budgetMs);
+                // The fast path: the customer photo uploaded once this session, and a garment GenLook
+                // already holds sent by its id. Either one missing only means it is sent now.
+                const genlookPerson = genlookSources[0] || personBase64;
+                const productId = genlookProductId(piece.product.externalId, piece.image);
+                const [personImageId, productKnown] = await Promise.all([
+                  genlookPersonImageId(genlookPerson, key, rawPersonBase64 || undefined).catch(() => undefined),
+                  isGenlookProductKnown(productId),
+                ]);
+                rawBuffer = await generateGenlookTryOn(genlookPerson, [piece], key, undefined, budgetMs, {
+                  personImageId,
+                  knownProductIds: productKnown ? [productId] : [],
+                  onProductsKnown: (ids) => { if (!productKnown) void markGenlookProductsKnown(ids); },
+                });
                 imageProvider = 'genlook-try-on';
-                engineNotes.push(`GenLook ${genlookResolution()} ${Date.now() - genlookStartedAt} ms`);
+                engineNotes.push(`GenLook ${genlookResolution()} ${Date.now() - genlookStartedAt} ms${productKnown ? ' (garment by id)' : ''}`);
               } catch (error) {
                 lastEngineError = error;
                 engineNotes.push(`GenLook${attempt ? ' (again)' : ''}: ${error instanceof Error ? error.message : 'failed'}`);
@@ -478,7 +547,10 @@ export async function POST(req: NextRequest) {
                 if (!canRetryGenlook(error)) break;
               }
             }
-            if (!rawBuffer && !genlookOutcomeUncertain) await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
+            if (!rawBuffer && !genlookOutcomeUncertain && genlookCreditReserved) {
+              await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
+              genlookCreditReserved = false;
+            }
           } else if (engine === 'gemini') {
             if (!ai) continue;
             const lastEngine = engineIndex === engines.length - 1;
@@ -550,6 +622,7 @@ export async function POST(req: NextRequest) {
             }
           }
         }
+        }
         if (!rawBuffer && !geminiAttempted) {
           throw lastEngineError || new Error('No Try-On image service is available. Please ask our staff for help.');
         }
@@ -594,6 +667,10 @@ export async function POST(req: NextRequest) {
         }
     } catch (genError: any) {
       console.error('Master Image Generation Error:', genError);
+      if (genlookCreditReserved && !genlookOutcomeUncertain) {
+        await releaseGenlookCredit(genlookCreditsPerLook()).catch(() => undefined);
+        genlookCreditReserved = false;
+      }
       await logMaharajaActivity('image-failed', `${service === 'try-on' ? 'AI Try-On' : 'AI Video master image'} generation failed`, { sessionId, service });
       if (reservedDeviceId) await finishTryOnGrant(reservedDeviceId, reservedSessionId, false);
       return NextResponse.json(

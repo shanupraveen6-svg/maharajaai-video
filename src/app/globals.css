@@ -136,9 +136,11 @@
 .tv-generated-looks button { min-width: 0; }
 .tv-catalogue-shell { grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); align-items: start; }
 .tv-category-sidebar { max-height: calc(100vh - 230px); overflow-y: auto; }
+.tv-own-camera-frame { height: calc(100dvh - var(--tv-header-h, 240px) - 72px); min-height: 620px; }
 @media (max-width: 720px) {
   .tv-catalogue-shell { grid-template-columns: minmax(0, 1fr); }
   .tv-category-sidebar { max-height: none; }
+  .tv-own-camera-frame { height: min(76dvh, 760px); min-height: 460px; }
 }
 
 .tv-kiosk button,
@@ -245,6 +247,8 @@
 .tv-kiosk .tv-mode-nav .tv-mode-button svg { width: 26px; height: 26px; }
 
 .tv-kiosk-content { width: min(100%, 1080px); max-width: 1080px; padding: 22px 28px 130px; }
+.tv-kiosk .tv-kiosk-content.is-full-bleed { width: 100%; max-width: none; padding: 0; }
+.tv-kiosk .tv-kiosk-content.is-full-bleed .tv-result-screen { height: calc(100dvh - var(--tv-header-h, 240px)); max-width: none; width: 100%; gap: 0; }
 .tv-main-header { width: 100%; }
 .tv-mode-nav { grid-template-columns: 1.35fr 1fr 1fr; }
 .tv-mode-nav { width: auto; }

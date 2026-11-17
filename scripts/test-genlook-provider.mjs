@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import { generateGenlookTryOn, canFallbackFromGenlook, canRetryGenlook, genlookCreditsPerLook, genlookResolution } from '../src/lib/maharaja/genlook-provider.ts';
+import {
+  generateGenlookTryOn,
+  generateGenlookTryOnById,
+  genlookProductId,
+  canFallbackFromGenlook,
+  canRetryGenlook,
+  isGenlookCacheMiss,
+  genlookCreditsPerLook,
+  genlookResolution,
+} from '../src/lib/maharaja/genlook-provider.ts';
 
 // 1x1 8-bit PNG base64
 const samplePngBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -141,6 +150,63 @@ try {
     assert.equal(look.toString(), 'look');
     assert.equal(uploads, 2, 'The dropped upload was sent again');
     assert.equal(downloads, 2, 'The dropped download was fetched again');
+  }
+
+  // Test 8: ID fast-path (generateGenlookTryOnById and generateGenlookTryOn with known IDs) sends pure JSON without uploading
+  {
+    const knownId = genlookProductId(sampleProduct.externalId, samplePngBase64);
+    let uploads = 0;
+    let jsonBody = null;
+    globalThis.fetch = async (url, options) => {
+      if (String(url).endsWith('/images/upload')) { uploads += 1; throw new Error('Should not upload'); }
+      if (String(url).endsWith('/try-on/sync')) {
+        assert.equal(options.headers['Content-Type'], 'application/json');
+        jsonBody = JSON.parse(String(options.body));
+        return Response.json({ resultImageUrl: 'https://cdn.genlook.app/r-id.jpg' }, { status: 200 });
+      }
+      return new Response(Buffer.from('fast-id-look'), { status: 200 });
+    };
+    const byIdLook = await generateGenlookTryOnById('cached-person-1', [knownId], 'test-gk-key');
+    assert.equal(byIdLook.toString(), 'fast-id-look');
+    assert.equal(uploads, 0);
+    assert.deepEqual(jsonBody.products, [{ externalId: knownId }]);
+    assert.deepEqual(jsonBody.person, { image: { source: { id: 'cached-person-1' } } });
+
+    jsonBody = null;
+    const optLook = await generateGenlookTryOn(samplePngBase64, samplePngBase64, 'test-gk-key', sampleProduct, 30_000, {
+      personImageId: 'cached-person-2',
+      knownProductIds: [knownId],
+    });
+    assert.equal(optLook.toString(), 'fast-id-look');
+    assert.equal(uploads, 0);
+    assert.deepEqual(jsonBody.person, { image: { source: { id: 'cached-person-2' } } });
+  }
+
+  // Test 9: PRODUCT_NOT_FOUND marks cache miss on generateGenlookTryOnById and falls back to multipart on generateGenlookTryOn
+  {
+    const knownId = genlookProductId(sampleProduct.externalId, samplePngBase64);
+    let calls = 0;
+    globalThis.fetch = async (url, options) => {
+      if (String(url).endsWith('/try-on/sync')) {
+        calls += 1;
+        if (options.headers['Content-Type'] === 'application/json') {
+          return Response.json({ code: 'PRODUCT_NOT_FOUND', message: 'missing' }, { status: 404 });
+        }
+        return Response.json({ resultImageUrl: 'https://cdn.genlook.app/r-fallback.jpg' }, { status: 200 });
+      }
+      return new Response(Buffer.from('multipart-fallback-look'), { status: 200 });
+    };
+
+    await assert.rejects(
+      generateGenlookTryOnById('cached-person-1', [knownId], 'test-gk-key'),
+      (err) => canFallbackFromGenlook(err) && isGenlookCacheMiss(err),
+    );
+    const recovered = await generateGenlookTryOn(samplePngBase64, samplePngBase64, 'test-gk-key', sampleProduct, 30_000, {
+      personImageId: 'cached-person-2',
+      knownProductIds: [knownId],
+    });
+    assert.equal(recovered.toString(), 'multipart-fallback-look');
+    assert.equal(calls, 3);
   }
 
 } finally {

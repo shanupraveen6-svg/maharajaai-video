@@ -6,7 +6,7 @@ import type { TryFocusProduct } from '@/lib/tryfocus/catalogue-data';
 /**
  * Under the camera on the TV, shared by Image Try-On and Live Try-On: category tabs (an underlined text row,
  * only categories with garments) and the garments as one row of picture cards that scrolls sideways.
- * Image Try-On picks up to 3 (numbered 1–3); Live Try-On picks one (ringed).
+ * Image Try-On picks up to 5 (numbered 1–5); Live Try-On picks one (ringed).
  */
 export default function GarmentRail({
   tabs,
@@ -65,15 +65,15 @@ export default function GarmentRail({
               onClick={() => onToggle(item)}
               className={`relative w-48 shrink-0 snap-start overflow-hidden rounded-2xl border bg-white text-left transition disabled:opacity-40 ${picked ? 'border-ink ring-[3px] ring-ink' : 'border-line hover:border-line-strong'}`}
             >
-              <span className="block aspect-[3/4] w-full bg-canvas">
-                <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain" />
+              <span className="block aspect-[3/4] w-full overflow-hidden bg-canvas">
+                <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
               </span>
               {max > 1 && (
-                <span className={`absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>
+                <span className={`absolute right-2.5 top-2.5 flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>
                   {picked ? index + 1 : '+'}
                 </span>
               )}
-              <span className="line-clamp-2 block p-3 text-base font-semibold leading-snug text-ink">{item.title}</span>
+              <span className="block truncate px-2.5 py-1.5 text-sm font-semibold leading-tight text-ink">{item.title}</span>
             </button>
           );
         })}
