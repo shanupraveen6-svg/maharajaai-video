@@ -7,6 +7,9 @@ import {
   ArrowLeft,
   ArrowRight,
   Camera,
+  ChevronLeft,
+  ChevronRight,
+  Download,
   Check,
   CheckCircle2,
   LoaderCircle,
@@ -21,7 +24,6 @@ import {
   X,
 } from 'lucide-react';
 import HelpRetry, { HELP_TEXT } from '@/components/HelpRetry';
-import BeforeAfterSlider from '@/components/BeforeAfterSlider';
 import DressLoader from '@/components/DressLoader';
 import AudienceCards, { PhotoGuide } from '@/components/AudienceCards';
 import { compressImage } from '@/lib/utils/image';
@@ -219,6 +221,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [selectedLooks, setSelectedLooks] = useState<TryFocusProduct[]>([]);
   const [generatedLooks, setGeneratedLooks] = useState<Array<{ product: TryFocusProduct; url: string; error?: string }>>([]);
   const [activeLookIndex, setActiveLookIndex] = useState(0);
+  // Results: the download QR opens as a popup from the round Download button.
+  const [qrOpen, setQrOpen] = useState(false);
   const [batchDone, setBatchDone] = useState(0);
   const [batchProgress, setBatchProgress] = useState<Record<string, 'generating' | 'ready' | 'failed'>>({});
   const [handoffStatus, setHandoffStatus] = useState('');
@@ -905,7 +909,21 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   }, [tryOnStage, imageSource, tryOnResultUrl, batchDone, selectedLooks.length, tryOnMobileQr]);
 
   // Two or more store looks: shown full size one at a time, swiped through.
+  // A remote or keyboard's left and right keys move between looks; Escape closes the QR popup.
+  const lookKeysRef = useRef<(key: string) => void>(() => undefined);
+  lookKeysRef.current = (key) => {
+    if (key === 'Escape') setQrOpen(false);
+    else if (key === 'ArrowLeft') moveGeneratedLook(-1);
+    else if (key === 'ArrowRight') moveGeneratedLook(1);
+  };
+  useEffect(() => {
+    if (tryOnStage !== 'result') return;
+    const onKey = (event: KeyboardEvent) => lookKeysRef.current(event.key);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [tryOnStage]);
   const multiLook = imageSource === 'catalogue' && selectedLooks.length > 1;
+  const readyLooks = generatedLooks.filter((look) => look?.url).length;
 
   function showGeneratedLook(index: number) {
     const look = generatedLooks[index];
@@ -1150,6 +1168,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   function resetAllSession() {
     batchRunRef.current += 1;
+    setQrOpen(false);
     setLivePhase('who');
     setLiveBack(null);
     setLiveMirrorKey((key) => key + 1);
@@ -1573,93 +1592,79 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               </section>
             )}
 
-            {/* Results, all in one TV screen (no scrolling): the look takes the free height; the other looks are a
-                short row of thumbnails; the QR and End session always stay in view at the bottom. */}
+            {/* Results: the look fills the screen. Arrows (or a swipe) move between looks; a round Download
+                button floats on the right and opens the QR as a popup; End session spans the bottom. */}
             {tryOnStage === 'result' && (
-              <section className={"tv-result-screen mx-auto flex max-w-[1180px] flex-col gap-4"} aria-label="Your looks">
-                <div className="flex shrink-0 items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-4xl font-bold">{imageSource === 'own-garment' ? 'Your look' : 'Your looks'}</h2>
-                    {imageSource === 'catalogue' && batchDone < selectedLooks.length && <p className="text-base text-muted">{batchDone} of {selectedLooks.length} finished. More looks are on their way.</p>}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {imageSource === 'catalogue' && generatedLooks.length > 1 && <span className="text-xl font-semibold">Look {activeLookIndex + 1} of {selectedLooks.length}</span>}
-                    {/* Help on the screen where the looks were made: a retry starts fresh (new Who, photo, outfits). */}
-                    <HelpRetry size="tv" text={HELP_TEXT.looks} canRetry onRetry={restartTryOn} />
-                  </div>
-                </div>
-                <div className={"flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-white"} onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => {
-                  // With several looks a swipe moves between them; a single look keeps the before/after slider,
-                  // which uses horizontal drags itself.
-                  if (swipeStartX.current === null || !multiLook) return;
-                  const distance = (event.changedTouches[0]?.clientX ?? swipeStartX.current) - swipeStartX.current;
-                  swipeStartX.current = null;
-                  if (Math.abs(distance) > 60) moveGeneratedLook(distance < 0 ? 1 : -1);
-                }}>
-                  {customerPhoto && tryOnResultUrl && !multiLook ? (
-                    <div className={"min-h-0 flex-1 bg-ink px-4 pb-4 pt-3"}>
-                      <BeforeAfterSlider
-                        key={`${activeLookIndex}-${tryOnResultUrl.slice(-24)}`}
-                        before={customerPhoto}
-                        after={tryOnResultUrl}
-                        beforeLabel="Your photo"
-                        afterLabel={imageSource === 'own-garment' ? 'Your outfit' : 'New look'}
-                        frameClassName="mx-auto aspect-[9/16] h-full max-w-full"
-                        dark
-                      />
+              <section className="tv-result-screen mx-auto flex max-w-[1180px] flex-col gap-4" aria-label="Your looks">
+                <div
+                  className="relative min-h-0 flex-1 overflow-hidden rounded-3xl bg-[#161918]"
+                  onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }}
+                  onTouchEnd={(event) => {
+                    if (swipeStartX.current === null || readyLooks < 2) return;
+                    const distance = (event.changedTouches[0]?.clientX ?? swipeStartX.current) - swipeStartX.current;
+                    swipeStartX.current = null;
+                    if (Math.abs(distance) > 60) moveGeneratedLook(distance < 0 ? 1 : -1);
+                  }}
+                >
+                  <img src={tryOnResultUrl || selectedProduct.imageUrl} alt={selectedProduct.title} draggable={false} className="h-full w-full object-contain" />
+
+                  {/* What this look is, and how many there are. */}
+                  <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 bg-gradient-to-b from-black/70 to-transparent p-6 pb-16">
+                    <div className="min-w-0 text-white">
+                      {multiLook && <p className="text-xl font-semibold text-white/80">Look {activeLookIndex + 1} of {selectedLooks.length}</p>}
+                      <p className="line-clamp-2 text-3xl font-bold leading-tight">{imageSource === 'own-garment' ? 'Your outfit' : selectedProduct.title}</p>
+                      {multiLook && batchDone < selectedLooks.length && <p className="mt-1 text-lg text-white/80">{batchDone} of {selectedLooks.length} ready. More are on their way.</p>}
                     </div>
-                  ) : (
-                    <div className={"min-h-0 flex-1 bg-[#161918]"}>
-                      <img src={tryOnResultUrl || selectedProduct.imageUrl} alt={selectedProduct.title} draggable={false} className="mx-auto h-full w-full object-contain" />
+                    <div className="pointer-events-auto shrink-0"><HelpRetry size="tv" text={HELP_TEXT.looks} canRetry onRetry={restartTryOn} /></div>
+                  </div>
+
+                  {readyLooks > 1 && (
+                    <>
+                      <button type="button" onClick={() => moveGeneratedLook(-1)} aria-label="Previous look" className="tv-look-arrow left-5"><ChevronLeft /></button>
+                      <button type="button" onClick={() => moveGeneratedLook(1)} aria-label="Next look" className="tv-look-arrow right-5"><ChevronRight /></button>
+                    </>
+                  )}
+
+                  {multiLook && (
+                    <div className="absolute inset-x-0 bottom-7 flex justify-center gap-3" role="tablist" aria-label="Your looks">
+                      {selectedLooks.map((look, index) => (
+                        <button
+                          key={look.sku}
+                          type="button"
+                          role="tab"
+                          aria-selected={index === activeLookIndex}
+                          aria-label={`Look ${index + 1}: ${look.title}`}
+                          disabled={!generatedLooks[index]?.url}
+                          onClick={() => showGeneratedLook(index)}
+                          className={`tv-look-dot ${index === activeLookIndex ? 'is-active' : ''}`}
+                        />
+                      ))}
                     </div>
                   )}
-                  <p className="shrink-0 border-t border-line bg-white px-6 py-4 text-2xl font-bold text-ink">{imageSource === 'own-garment' ? 'Your outfit' : selectedProduct.title}</p>
+
+                  {/* Download: one round button; the QR opens as a popup. */}
+                  <button type="button" onClick={() => setQrOpen(true)} aria-label="Download to your phone" className="tv-download-fab">
+                    <Download />
+                    <span>Download</span>
+                  </button>
                 </div>
-                {imageSource === 'catalogue' && selectedLooks.length > 1 && (
-                  <div className="flex shrink-0 items-center gap-4">
-                    <button type="button" onClick={() => moveGeneratedLook(-1)} aria-label="Previous look" className="tf-btn tf-btn-secondary !min-h-20 shrink-0 px-6 text-xl">←</button>
-                    <div className="grid min-w-0 flex-1 grid-cols-3 gap-3" role="tablist" aria-label="Your generated looks">
-                      {selectedLooks.map((look, index) => {
-                        const generated = generatedLooks[index];
-                        const status = batchProgress[look.sku];
-                        return (
-                          <button
-                            key={look.sku}
-                            type="button"
-                            role="tab"
-                            aria-selected={index === activeLookIndex}
-                            aria-label={`Look ${index + 1}: ${look.title}`}
-                            disabled={!generated?.url}
-                            onClick={() => showGeneratedLook(index)}
-                            className={`relative flex h-36 items-center gap-3 overflow-hidden rounded-xl border-2 bg-white p-2 text-left ${index === activeLookIndex ? 'border-ink' : 'border-line'} disabled:opacity-60`}
-                          >
-                            <img src={generated?.url || look.imageUrl} alt="" className="h-full w-20 shrink-0 rounded-lg bg-canvas object-cover" />
-                            <span className="min-w-0">
-                              <span className="block text-lg font-bold">Look {index + 1}</span>
-                              <span className="block text-base text-muted">{generated?.url ? 'Ready' : status === 'failed' ? 'Not made' : 'Creating…'}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
+                <button type="button" onClick={endSession} className="tf-btn !min-h-20 w-full shrink-0 bg-danger text-2xl font-bold text-white hover:bg-danger/90">End session</button>
+
+                {qrOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-8" role="dialog" aria-modal="true" aria-label="Download to your phone" onClick={() => setQrOpen(false)}>
+                    <div className="tf-card relative w-full max-w-xl p-10 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                      <button type="button" onClick={() => setQrOpen(false)} aria-label="Close" className="absolute right-4 top-4 flex h-16 w-16 items-center justify-center rounded-full bg-canvas text-ink hover:bg-line"><X className="h-8 w-8" /></button>
+                      <h3 className="text-4xl font-bold">Take your {multiLook ? 'looks' : 'look'} home</h3>
+                      <p className="mt-2 text-xl text-muted">Scan with your phone camera. The link works for 1 hour.</p>
+                      <div className="mx-auto mt-6 flex h-[420px] w-[420px] max-w-full items-center justify-center overflow-hidden rounded-2xl border border-line bg-white">
+                        {tryOnMobileQr
+                          ? <img src={tryOnMobileQr} alt="Scan to save your looks" className="h-full w-full object-contain" />
+                          : <LoaderCircle className="h-12 w-12 animate-spin text-muted" />}
+                      </div>
+                      <p className="mt-5 text-lg text-muted">{tryOnMobileQr ? 'Add your WhatsApp number on your phone, then save.' : (handoffStatus || (multiLook && batchDone < selectedLooks.length ? 'Your QR appears when all looks are ready.' : 'Preparing your QR…'))}</p>
                     </div>
-                    <button type="button" onClick={() => moveGeneratedLook(1)} aria-label="Next look" className="tf-btn tf-btn-secondary !min-h-20 shrink-0 px-6 text-xl">→</button>
                   </div>
                 )}
-                {/* The QR's permanent spot: it appears the moment the look(s) are ready, nothing to tap first. */}
-                <div className="tf-card flex shrink-0 items-center justify-between gap-5 p-5 shadow-xl">
-                  <div className="flex-1">
-                    <h3 className="text-3xl font-bold">Take your {imageSource === 'own-garment' ? 'look' : 'looks'} home</h3>
-                    <p className="mt-1 text-xl text-muted">Scan this private QR. It works for 1 hour.</p>
-                    <p className="mt-2 text-lg text-muted">{tryOnMobileQr ? 'Scan, then add your WhatsApp number on your phone to download.' : (handoffStatus || (imageSource === 'catalogue' && batchDone < selectedLooks.length ? 'Your QR will appear when all looks finish.' : 'Preparing your QR…'))}</p>
-                  </div>
-                  <div className="flex h-44 w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-white">
-                    {tryOnMobileQr
-                      ? <img src={tryOnMobileQr} alt="Scan to save your looks" className="h-full w-full object-contain" />
-                      : <LoaderCircle className="h-9 w-9 animate-spin text-muted" />}
-                  </div>
-                </div>
-                {/* TV: a red, full-width End session under the download QR. The tablet's team ends it from the header. */}
-                {!isTablet && <button type="button" onClick={endSession} className="tf-btn !min-h-20 w-full shrink-0 bg-danger text-2xl font-bold text-white hover:bg-danger/90">End session</button>}
               </section>
             )}
           </div>

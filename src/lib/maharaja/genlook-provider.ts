@@ -90,8 +90,10 @@ function safeResultUrl(value: unknown) {
  */
 export async function generateGenlookTryOn(personBase64: string, garmentBase64: string | Array<{ image: string; product: ProductDetails }>, apiKey: string, product?: ProductDetails, budgetMs = 220_000): Promise<Buffer> {
   // The whole look (upload, make, download) must finish inside budgetMs, so a backup engine still has time.
-  const deadline = Date.now() + budgetMs;
+  const startedAt = Date.now();
+  const deadline = startedAt + budgetMs;
   const personImageId = await uploadImage(personBase64, apiKey, 'customer');
+  const uploadedAt = Date.now();
   const pieces = Array.isArray(garmentBase64) ? garmentBase64.slice(0, 4) : [{ image: garmentBase64, product: product! }];
   const form = new FormData();
   const products = pieces.map((piece, index) => {
@@ -137,6 +139,7 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
     if (!payload?.resultImageUrl) throw new GenlookProviderError('GenLook did not finish in time.', false);
   }
   const resultUrl = safeResultUrl(payload?.resultImageUrl);
+  const generatedAt = Date.now();
   // The look is made and paid for: fetch it up to three times rather than lose it to one dropped download.
   for (let attempt = 0; attempt < 3; attempt += 1) {
     if (attempt) await pause(800 * attempt);
@@ -145,7 +148,11 @@ export async function generateGenlookTryOn(personBase64: string, garmentBase64: 
       if (!imageResponse.ok) continue;
       if (Number(imageResponse.headers.get('content-length') || 0) > MAX_RESULT_BYTES) break;
       const buffer = Buffer.from(await imageResponse.arrayBuffer());
-      if (buffer.length && buffer.length <= MAX_RESULT_BYTES) return buffer;
+      if (buffer.length && buffer.length <= MAX_RESULT_BYTES) {
+        // Where a look's seconds go: our upload, GenLook's own generation, and fetching the result.
+        console.info('GenLook timing', { uploadMs: uploadedAt - startedAt, generateMs: generatedAt - uploadedAt, downloadMs: Date.now() - generatedAt, resolution: genlookResolution(), polled: response.status === 202 });
+        return buffer;
+      }
     } catch {
       // try again
     }
