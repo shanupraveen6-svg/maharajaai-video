@@ -1629,36 +1629,81 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               );
             })()}
 
-            {tryOnStage === 'generating' && (
-              <section className="tv-result-screen flex w-full flex-col" aria-live="polite">
-                <div className="shrink-0 bg-white px-5 py-2.5">
-                  <PageTitle size="lg" title={imageSource === 'own-garment' ? 'Creating your look' : 'Creating your looks'} subtitle="Each look appears as soon as it is ready. This takes about 20 seconds." />
-                </div>
-                {imageSource === 'own-garment' ? (
-                  <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-[#161918] p-8 text-white">
-                    {customerPhoto && <img src={customerPhoto} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20 blur-sm" />}
-                    <div className="relative z-10"><DressLoader size="lg" tone="dark" title="Dressing you in your outfit" /></div>
+            {tryOnStage === 'generating' && (() => {
+              const genLooks = imageSource === 'own-garment' ? [] : (selectedLooks.length ? selectedLooks : [selectedProduct]);
+              const singleImageMode = imageSource === 'own-garment' || genLooks.length <= 1;
+              const singleGarmentImg = imageSource === 'own-garment' ? ownGarmentPhoto : (genLooks[0]?.thumbnailUrl || genLooks[0]?.imageUrl);
+              const singleGarmentLabel = imageSource === 'own-garment' ? 'your outfit' : (genLooks[0]?.title || 'your outfit');
+              const mosaicRows = genLooks.length === 5
+                ? [genLooks.slice(0, 2), genLooks.slice(2, 5)]
+                : genLooks.length === 4
+                  ? [genLooks.slice(0, 2), genLooks.slice(2, 4)]
+                  : [genLooks];
+              return (
+                <section className="tv-result-screen flex w-full flex-col" aria-live="polite">
+                  <div className="shrink-0 bg-white px-5 py-2.5">
+                    <PageTitle size="lg" title={singleImageMode ? 'Creating your look' : 'Creating your looks'} subtitle={singleImageMode ? 'Ready in seconds.' : 'The first finished look opens right away. The others follow automatically.'} />
                   </div>
-                ) : (
-                  <div className={`grid min-h-0 flex-1 gap-1 bg-[#161918] ${selectedLooks.length <= 1 ? 'grid-cols-1' : 'tv-generated-looks content-stretch'}`}>
-                    {(selectedLooks.length ? selectedLooks : [selectedProduct]).map((look) => {
-                      const state = batchProgress[look.sku];
-                      return (
-                        <div key={look.sku} className="flex min-h-0 flex-col overflow-hidden bg-white">
-                          <div className="relative min-h-0 flex-1 bg-canvas">
-                            <img src={look.imageUrl} alt="" className={`h-full w-full object-cover object-top ${state === 'generating' ? 'opacity-40' : ''}`} />
-                            <span className="absolute inset-0 flex items-center justify-center">
-                              {state === 'failed' ? <span className="rounded-full bg-danger px-3 py-1 text-sm font-semibold text-white">Not created</span> : state === 'generating' ? <span className="rounded-2xl bg-white/85 p-3"><DressLoader size={selectedLooks.length <= 1 ? 'lg' : 'sm'} caption={selectedLooks.length <= 1} /></span> : null}
-                            </span>
-                          </div>
-                          <p className="shrink-0 truncate px-2.5 py-1.5 text-sm font-semibold">{look.title}</p>
+                  {singleImageMode ? (
+                    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-[#ECEEE9]">
+                      {customerPhoto && (
+                        <img src={customerPhoto} alt="" className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover blur-md brightness-95" />
+                      )}
+                      <div className="tv-gen-sweep pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-white/30 to-transparent" />
+                      <div className="relative z-10 flex flex-col items-center gap-4 rounded-3xl border border-white/70 bg-white/90 px-10 py-8 text-ink shadow-2xl backdrop-blur-md">
+                        {singleGarmentImg && (
+                          <img src={singleGarmentImg} alt="" className="h-24 w-20 rounded-xl border border-line object-cover shadow-sm" />
+                        )}
+                        <DressLoader size="lg" tone="light" title={`Dressing you in ${singleGarmentLabel}`} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex min-h-0 flex-1 flex-col gap-1.5 bg-[#E8EBE7] p-1.5">
+                      {mosaicRows.map((row, rowIndex) => (
+                        <div key={rowIndex} className={`grid min-h-0 flex-1 gap-1.5 ${row.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                          {row.map((look) => {
+                            const lookNumber = genLooks.findIndex((entry) => entry.sku === look.sku) + 1;
+                            const state = batchProgress[look.sku];
+                            return (
+                              <div key={look.sku} className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
+                                <img
+                                  src={look.thumbnailUrl || look.imageUrl}
+                                  alt={look.title}
+                                  className={`h-full w-full object-cover object-top transition ${state === 'generating' ? 'brightness-90' : ''}`}
+                                />
+                                {state === 'generating' && (
+                                  <div className="tv-gen-sweep pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-white/35 to-transparent" />
+                                )}
+                                <span className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-ink/85 text-base font-bold text-white shadow">
+                                  {lookNumber}
+                                </span>
+                                <div className="absolute inset-0 flex items-center justify-center p-3">
+                                  {state === 'failed' ? (
+                                    <span className="rounded-full bg-danger px-4 py-1.5 text-sm font-bold text-white shadow-lg">Not created</span>
+                                  ) : state === 'generating' ? (
+                                    <div className="flex flex-col items-center gap-1 rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-xl backdrop-blur-md">
+                                      <DressLoader size="sm" caption={false} />
+                                      <span className="text-xs font-bold text-ink">Creating look {lookNumber}…</span>
+                                    </div>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-bold text-white shadow-lg">
+                                      <CheckCircle2 className="h-4 w-4" /> Ready
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/75 via-black/40 to-transparent px-3 pb-2.5 pt-8 text-sm font-semibold text-white">
+                                  {look.title}
+                                </p>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            )}
+                      ))}
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
 
             {/* Results: the look fills the screen edge to edge. Arrows (or a swipe) move between looks; a round
                 Download button floats on the right and opens the QR as a popup; End session spans the bottom. */}
@@ -1978,9 +2023,15 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   )}
                 </div>
                 {videoGeneratingMaster ? (
-                  <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-[#161918] p-8 text-center text-white">
-                    {videoPersonPhoto && <img src={videoPersonPhoto} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20 blur-sm" />}
-                    <div className="relative z-10"><DressLoader size="lg" tone="dark" title={`Dressing you in ${selectedProduct.title}`} /></div>
+                  <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-[#ECEEE9]">
+                    {videoPersonPhoto && <img src={videoPersonPhoto} alt="" className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover blur-md brightness-95" />}
+                    <div className="tv-gen-sweep pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-white/30 to-transparent" />
+                    <div className="relative z-10 flex flex-col items-center gap-4 rounded-3xl border border-white/70 bg-white/90 px-10 py-8 text-ink shadow-2xl backdrop-blur-md">
+                      {selectedProduct?.imageUrl && (
+                        <img src={selectedProduct.thumbnailUrl || selectedProduct.imageUrl} alt="" className="h-24 w-20 rounded-xl border border-line object-cover shadow-sm" />
+                      )}
+                      <DressLoader size="lg" tone="light" title={`Dressing you in ${selectedProduct.title}`} />
+                    </div>
                   </div>
                 ) : videoMasterUrl ? (
                   <>

@@ -246,6 +246,12 @@
 .tv-kiosk .tv-mode-nav .tv-mode-button { font-size: 21px; min-height: 68px; }
 .tv-kiosk .tv-mode-nav .tv-mode-button svg { width: 26px; height: 26px; }
 
+@keyframes tv-gen-sweep {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+.tv-gen-sweep { animation: tv-gen-sweep 2.4s ease-in-out infinite; }
+
 .tv-kiosk-content { width: min(100%, 1080px); max-width: 1080px; padding: 22px 28px 130px; }
 .tv-kiosk .tv-kiosk-content.is-full-bleed { width: 100%; max-width: none; padding: 0; }
 .tv-kiosk .tv-kiosk-content.is-full-bleed .tv-result-screen { height: calc(100dvh - var(--tv-header-h, 240px)); max-width: none; width: 100%; gap: 0; }
