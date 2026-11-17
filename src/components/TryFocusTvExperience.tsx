@@ -62,6 +62,22 @@ type CatalogueTryOnStage = 'who' | 'studio' | 'generating' | 'result';
 type VideoStage = 'who' | 'photo' | 'pick' | 'look' | 'portrait';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
 type VideoAudience = CatalogueAudience;
+type GarmentImageShape = 'portrait' | 'square' | 'landscape';
+
+const SHAPE_ORDER: GarmentImageShape[] = ['portrait', 'square', 'landscape'];
+const SHAPE_ASPECT: Record<GarmentImageShape, string> = {
+  portrait: 'aspect-[3/4]',
+  square: 'aspect-square',
+  landscape: 'aspect-[4/3]',
+};
+
+function classifyImageShape(width: number, height: number): GarmentImageShape {
+  if (!width || !height) return 'portrait';
+  const ratio = width / height;
+  if (ratio < 0.88) return 'portrait';
+  if (ratio <= 1.18) return 'square';
+  return 'landscape';
+}
 
 /** Looks a customer can create at once from the store collection. */
 const MAX_LOOKS = 5;
@@ -120,6 +136,22 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [whoGroup, setWhoGroup] = useState<WhoGroup | null>(null);
   const catalogueGridRef = useRef<HTMLDivElement | null>(null);
   const personPrepareRef = useRef<{ photo: string; promise: Promise<string | undefined> } | null>(null);
+  const [imageShapes, setImageShapes] = useState<Record<string, GarmentImageShape>>({});
+
+  function recordImageShape(sku: string, event: React.SyntheticEvent<HTMLImageElement>) {
+    const shape = classifyImageShape(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight);
+    setImageShapes((current) => (current[sku] === shape ? current : { ...current, [sku]: shape }));
+  }
+
+  function groupProductsByShape(items: TryFocusProduct[]) {
+    return SHAPE_ORDER
+      .map((shape) => ({
+        shape,
+        aspect: SHAPE_ASPECT[shape],
+        items: items.filter((item) => (imageShapes[item.sku] || 'portrait') === shape),
+      }))
+      .filter((group) => group.items.length > 0);
+  }
   const [kidPick, setKidPick] = useState<'boys' | 'girls' | null>(null);
   const [videoWhoChosen, setVideoWhoChosen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CatalogueCategoryId>('sarees');
@@ -1456,29 +1488,40 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       <p className="text-xl font-bold">{railTabs.find((tab) => tab.id === railActive)?.label}</p>
                       <p className="text-sm text-muted">{browseProducts.length} styles</p>
                     </div>
-                    <div className="grid grid-cols-3 items-start gap-1.5">
-                      {browseProducts.map((item, index) => {
-                        const pickIndex = selectedLooks.findIndex((look) => look.sku === item.sku);
-                        const picked = pickIndex >= 0;
-                        const full = selectedLooks.length >= MAX_LOOKS && !picked;
-                        return (
-                          <button
-                            key={item.sku}
-                            type="button"
-                            aria-pressed={picked}
-                            aria-label={`${picked ? 'Remove' : 'Select'} ${item.title}`}
-                            disabled={full}
-                            onClick={() => toggleLook(item)}
-                            className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white text-left transition disabled:opacity-50 ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
-                          >
-                            <span className="block w-full overflow-hidden">
-                              <img src={item.thumbnailUrl || item.imageUrl} alt="" loading={index < 15 ? 'eager' : 'lazy'} decoding="async" className="block h-auto w-full" />
-                            </span>
-                            <span className={`absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full text-base font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>{picked ? pickIndex + 1 : '+'}</span>
-                            <span className="block truncate px-2 py-1 text-sm font-semibold leading-tight text-ink">{item.title}</span>
-                          </button>
-                        );
-                      })}
+                    <div className="space-y-1.5">
+                      {groupProductsByShape(browseProducts).map((group) => (
+                        <div key={group.shape} className="grid grid-cols-3 items-start gap-1.5">
+                          {group.items.map((item, index) => {
+                            const pickIndex = selectedLooks.findIndex((look) => look.sku === item.sku);
+                            const picked = pickIndex >= 0;
+                            const full = selectedLooks.length >= MAX_LOOKS && !picked;
+                            return (
+                              <button
+                                key={item.sku}
+                                type="button"
+                                aria-pressed={picked}
+                                aria-label={`${picked ? 'Remove' : 'Select'} ${item.title}`}
+                                disabled={full}
+                                onClick={() => toggleLook(item)}
+                                className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white text-left transition disabled:opacity-50 ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
+                              >
+                                <span className={`block w-full overflow-hidden bg-canvas ${group.aspect}`}>
+                                  <img
+                                    src={item.thumbnailUrl || item.imageUrl}
+                                    alt=""
+                                    loading={index < 15 ? 'eager' : 'lazy'}
+                                    decoding="async"
+                                    onLoad={(event) => recordImageShape(item.sku, event)}
+                                    className="h-full w-full object-cover object-top"
+                                  />
+                                </span>
+                                <span className={`absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full text-base font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>{picked ? pickIndex + 1 : '+'}</span>
+                                <span className="block truncate px-2 py-1 text-sm font-semibold leading-tight text-ink">{item.title}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
                     {browseProducts.length === 0 && <div className="tf-card p-10 text-center"><p className="text-2xl font-bold">No pieces here yet</p><p className="mt-2 text-muted">Choose another category or ask our staff.</p></div>}
                     {tryOnError && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{tryOnError}</p>}
@@ -1823,22 +1866,33 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     </div>
                   </aside>
                   <div className="min-w-0 space-y-2 pr-1.5">
-                    <div className="grid grid-cols-3 items-start gap-1.5 pb-28">
-                      {videoBrowseProducts.map((item, index) => {
-                        const picked = selectedProduct.sku === item.sku;
-                        return (
-                          <button key={item.sku} type="button" aria-pressed={picked} onClick={() => chooseVideoPiece(item)} className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}>
-                            <span className="relative block w-full overflow-hidden">
-                              <img src={item.thumbnailUrl || item.imageUrl} alt="" loading={index < 15 ? 'eager' : 'lazy'} decoding="async" className="block h-auto w-full" />
-                              {picked && <span className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-5 w-5" /></span>}
-                            </span>
-                            <span className="flex items-center justify-between gap-2 px-2 py-1">
-                              <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-ink">{item.title}</span>
-                              {item.price > 0 && <span className="shrink-0 text-sm font-bold tabular-nums text-ink">₹{item.price.toLocaleString('en-IN')}</span>}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div className="space-y-1.5 pb-28">
+                      {groupProductsByShape(videoBrowseProducts).map((group) => (
+                        <div key={group.shape} className="grid grid-cols-3 items-start gap-1.5">
+                          {group.items.map((item, index) => {
+                            const picked = selectedProduct.sku === item.sku;
+                            return (
+                              <button key={item.sku} type="button" aria-pressed={picked} onClick={() => chooseVideoPiece(item)} className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}>
+                                <span className={`relative block w-full overflow-hidden bg-canvas ${group.aspect}`}>
+                                  <img
+                                    src={item.thumbnailUrl || item.imageUrl}
+                                    alt=""
+                                    loading={index < 15 ? 'eager' : 'lazy'}
+                                    decoding="async"
+                                    onLoad={(event) => recordImageShape(item.sku, event)}
+                                    className="h-full w-full object-cover object-top"
+                                  />
+                                  {picked && <span className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-5 w-5" /></span>}
+                                </span>
+                                <span className="flex items-center justify-between gap-2 px-2 py-1">
+                                  <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-ink">{item.title}</span>
+                                  {item.price > 0 && <span className="shrink-0 text-sm font-bold tabular-nums text-ink">₹{item.price.toLocaleString('en-IN')}</span>}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
                     {videoBrowseProducts.length === 0 && <div className="tf-card p-10 text-center"><p className="text-2xl font-bold">No pieces here yet</p><p className="mt-2 text-muted">Ask our staff to switch pieces on for AI Video.</p></div>}
                   </div>
