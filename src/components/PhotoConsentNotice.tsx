@@ -23,7 +23,7 @@ const DETAILS: Record<ConsentKind, string> = {
  * Plain-language notice placed beside every photo or camera step, so no AI processing is hidden.
  * The ⓘ opens the providers and retention; the link opens the full privacy policy.
  */
-export default function PhotoConsentNotice({ kind, large = false }: { kind: ConsentKind; large?: boolean }) {
+export default function PhotoConsentNotice({ kind, large = false, kiosk = false }: { kind: ConsentKind; large?: boolean; /** Shared store screen: no Privacy link (a new tab would leave the kiosk); Details opens in place. */ kiosk?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={`text-left leading-relaxed text-muted ${large ? 'text-base' : 'text-[13px]'}`}>
@@ -36,11 +36,13 @@ export default function PhotoConsentNotice({ kind, large = false }: { kind: Cons
             type="button"
             aria-expanded={open}
             onClick={() => setOpen((value) => !value)}
-            className="inline-flex items-center gap-1 align-baseline font-semibold text-brand underline underline-offset-2"
+            className={kiosk
+              ? 'tv-pill ml-1 inline-flex min-h-14 items-center gap-2 rounded-xl border border-line-strong bg-white px-4 align-middle font-semibold text-ink'
+              : 'inline-flex items-center gap-1 align-baseline font-semibold text-brand underline underline-offset-2'}
           >
-            <Info className="h-3.5 w-3.5 self-center" /> Details
+            <Info className={kiosk ? 'h-5 w-5' : 'h-3.5 w-3.5 self-center'} /> Details
           </button>{' '}
-          <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">Privacy</a>
+          {!kiosk && <a href="/privacy" target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">Privacy</a>}
         </span>
       </p>
       {open && <p className="mt-2 rounded-xl bg-white p-3">{DETAILS[kind]}</p>}

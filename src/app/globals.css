@@ -297,6 +297,7 @@ html:has(.tv-kiosk), body:has(.tv-kiosk) { overscroll-behavior: none; }
 .tv-session-button { display: inline-flex; width: 170px; flex-shrink: 0; min-height: 72px; align-items: center; justify-content: center; gap: 8px; border-radius: 16px; border: 0; background: transparent; padding: 8px 12px; color: var(--color-muted); font-size: clamp(15px, 1.7vw, 20px); font-weight: 600; line-height: 1.15; white-space: nowrap; }
 .tv-session-button svg { width: 24px; height: 24px; flex-shrink: 0; }
 .tv-session-button.is-end { color: var(--color-danger); justify-content: flex-end; }
+.tv-session-button.is-end.is-armed { justify-content: center; background: var(--color-danger); color: #fff; font-weight: 700; }
 .tv-session-button:first-child { justify-content: flex-start; }
 .tv-kiosk .tv-session-nav .tv-session-button { font-size: 20px; }
 .tv-kiosk .tv-kiosk-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }

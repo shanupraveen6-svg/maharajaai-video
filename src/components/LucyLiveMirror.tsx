@@ -12,7 +12,7 @@ import { PageTitle } from '@/components/ui';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
 const SESSION_SECONDS = 30;
-const READY_COUNTDOWN_SECONDS = 5;
+const READY_COUNTDOWN_SECONDS = 6;
 // MP4 first: phones play it everywhere; Chrome on older TVs falls back to WebM.
 const RECORDING_TYPES = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
 const AUDIENCE_LABELS = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' } as const;
@@ -24,7 +24,7 @@ type Phase = 'who' | 'camera' | 'result';
 /**
  * Live Try-On on the TV: Women · Men · Kids → the camera on the top 60% of the screen; underneath, Boys or
  * Girls (Kids only), the category tabs and one row of garments that scrolls sideways → tap a garment to pick
- * it → Start Live Try-On in the centre of the camera → 5 seconds to step back → 30 seconds live → the
+ * it → Start Live Try-On in the centre of the camera → 6 seconds to step back → 30 seconds live → the
  * recording plays back with Replay and End session, then the next customer starts from the first screen.
  * Nothing is uploaded or downloaded. Image Try-On uses the same screen (WhoCards, KidsSwitch, GarmentRail).
  */
@@ -261,7 +261,7 @@ export default function LucyLiveMirror({
     if (session === 'error') { closeRealtimeConnections(); setSession('idle'); }
   }
 
-  /** Start Live Try-On: 5 seconds to step back from the TV, then the live session. */
+  /** Start Live Try-On: 6 seconds to step back from the TV, then the live session. */
   function startSession(piece: TryFocusProduct, parentApproved = false) {
     if (consentMissing && !parentApproved) { setError('A parent or guardian must approve first.'); return; }
     setError('');
@@ -454,7 +454,7 @@ export default function LucyLiveMirror({
       <div className="flex tv-fill-screen flex-col gap-7">
         <div className="space-y-3">
           <PageTitle size="lg" title="Live Try-On" subtitle="30 seconds, live on camera." />
-          <PhotoConsentNotice kind="live" large />
+          <PhotoConsentNotice kind="live" large kiosk />
         </div>
         <WhoCards value={group} onChange={chooseWho} />
         {error && <p className="rounded-xl bg-danger-soft p-4 text-lg text-danger">{error}</p>}
