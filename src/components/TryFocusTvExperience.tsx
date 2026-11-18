@@ -1294,7 +1294,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     || (mode === 'catalogue-video' && (videoStage === 'pick' || videoStage === 'portrait'));
 
   return (
-    <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-ink">
+    // No long-press menu on the shared screen ("Open image in new tab" would leave the kiosk).
+    <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-ink" onContextMenu={(event) => event.preventDefault()}>
       {idleLoop && goLiveOn && !isTablet && <TvIdleLoop clientName={clientName} onWake={() => setIdleLoop(false)} />}
       <TvOfflineNotice />
       <header ref={headerRef} className="tv-main-header sticky top-0 z-30 border-b-2 border-line bg-white shadow-sm">
@@ -1751,12 +1752,15 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   </div>
                 ) : (
                   <div
-                    className="relative min-h-0 flex-1 overflow-hidden bg-[#121514]"
-                    onTouchStart={(event) => { swipeStartX.current = event.touches[0]?.clientX ?? null; }}
-                    onTouchEnd={(event) => {
-                      if (swipeStartX.current === null || readyLooks < 2) return;
-                      const distance = (event.changedTouches[0]?.clientX ?? swipeStartX.current) - swipeStartX.current;
+                    className="relative min-h-0 flex-1 touch-pan-y overflow-hidden bg-[#121514]"
+                    // Pointer events, not touch events: many IR touch frames on TVs report as a mouse.
+                    onPointerDown={(event) => { if (event.isPrimary) swipeStartX.current = event.clientX; }}
+                    onPointerCancel={() => { swipeStartX.current = null; }}
+                    onPointerUp={(event) => {
+                      if (!event.isPrimary || swipeStartX.current === null) return;
+                      const distance = event.clientX - swipeStartX.current;
                       swipeStartX.current = null;
+                      if (readyLooks < 2) return;
                       if (Math.abs(distance) > 60) moveGeneratedLook(distance < 0 ? 1 : -1);
                     }}
                   >
