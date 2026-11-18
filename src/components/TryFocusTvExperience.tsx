@@ -26,12 +26,12 @@ import {
   X,
 } from 'lucide-react';
 import HelpRetry, { HELP_TEXT } from '@/components/HelpRetry';
-import DressLoader from '@/components/DressLoader';
 import { PhotoGuide } from '@/components/AudienceCards';
 import SessionTimer, { sessionTimerShowing } from '@/components/SessionTimer';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
 import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
 import PosterFill from '@/components/kiosk/PosterFill';
+import GeneratingPreview from '@/components/kiosk/GeneratingPreview';
 import TvIdleLoop from '@/components/TvIdleLoop';
 import TvOfflineNotice from '@/components/TvOfflineNotice';
 import { downloadBrandedQr } from '@/lib/maharaja/branded-qr';
@@ -61,21 +61,58 @@ type CatalogueTryOnStage = 'who' | 'studio' | 'generating' | 'result';
 type VideoStage = 'who' | 'photo' | 'pick' | 'look' | 'portrait';
 type CameraTarget = 'catalogue-person' | 'own-person' | 'own-garment' | 'video-person';
 type VideoAudience = CatalogueAudience;
-type GarmentImageShape = 'portrait' | 'square' | 'landscape';
+/**
+ * Catalogue grid as justified rows: every row is exactly the full width and every garment keeps its own
+ * shape (no crop). Rows take as many pieces as fit near the target height: portraits 3 a row, landscapes 2,
+ * squares 2–3, mixed shapes share a row at one height. The last row is balanced with the one before it, so a
+ * lone piece never sits beside empty space; a category with one piece shows it large.
+ */
+const ROW_TARGET = 2.2; // sum of width/height ratios in one row (about 3 portraits on the TV)
+const ROW_MAX_PIECES = 4;
+const DEFAULT_RATIO = 0.75;
 
-const SHAPE_ORDER: GarmentImageShape[] = ['portrait', 'square', 'landscape'];
-const SHAPE_ASPECT: Record<GarmentImageShape, string> = {
-  portrait: 'aspect-[3/4]',
-  square: 'aspect-square',
-  landscape: 'aspect-[4/3]',
-};
-
-function classifyImageShape(width: number, height: number): GarmentImageShape {
-  if (!width || !height) return 'portrait';
-  const ratio = width / height;
-  if (ratio < 0.88) return 'portrait';
-  if (ratio <= 1.18) return 'square';
-  return 'landscape';
+function justifyRows<T>(items: T[], ratioOf: (item: T) => number): T[][] {
+  const rows: T[][] = [];
+  let row: T[] = [];
+  let sum = 0;
+  for (const item of items) {
+    const r = ratioOf(item);
+    if (row.length && (row.length >= ROW_MAX_PIECES || Math.abs(sum + r - ROW_TARGET) > Math.abs(sum - ROW_TARGET))) {
+      rows.push(row);
+      row = [];
+      sum = 0;
+    }
+    row.push(item);
+    sum += r;
+  }
+  if (row.length) rows.push(row);
+  // A short last row borrows from the row before it: split the two rows' pieces where the ratios balance.
+  if (rows.length > 1) {
+    const last = rows[rows.length - 1];
+    const lastSum = last.reduce((total, item) => total + ratioOf(item), 0);
+    if (lastSum < ROW_TARGET * 0.7) {
+      const pool = [...rows[rows.length - 2], ...last];
+      const total = pool.reduce((t, item) => t + ratioOf(item), 0);
+      let best = 1;
+      let bestDiff = Infinity;
+      let left = 0;
+      for (let index = 0; index < pool.length - 1; index += 1) {
+        left += ratioOf(pool[index]);
+        const diff = Math.abs(left - (total - left));
+        if (diff <= bestDiff) { bestDiff = diff; best = index + 1; }
+      }
+      rows.splice(rows.length - 2, 2, pool.slice(0, best), pool.slice(best));
+    }
+    // Still one short piece at the end: it joins the row above when that row stays a good height.
+    const tail = rows[rows.length - 1];
+    const above = rows[rows.length - 2];
+    const tailSum = tail.reduce((t, item) => t + ratioOf(item), 0);
+    const joinedSum = [...above, ...tail].reduce((t, item) => t + ratioOf(item), 0);
+    if (tail.length === 1 && tailSum < ROW_TARGET * 0.7 && above.length < ROW_MAX_PIECES && joinedSum <= ROW_TARGET * 1.8) {
+      rows.splice(rows.length - 2, 2, [...above, ...tail]);
+    }
+  }
+  return rows;
 }
 
 /** Looks a customer can create at once from the store collection. */
@@ -136,22 +173,21 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [whoGroup, setWhoGroup] = useState<WhoGroup | null>(null);
   const catalogueGridRef = useRef<HTMLDivElement | null>(null);
   const personPrepareRef = useRef<{ photo: string; promise: Promise<string | undefined> } | null>(null);
-  const [imageShapes, setImageShapes] = useState<Record<string, GarmentImageShape>>({});
+  // Each garment photo's real width/height, read when it loads, so the grid follows what the store uploaded.
+  const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
 
-  function recordImageShape(sku: string, event: React.SyntheticEvent<HTMLImageElement>) {
-    const shape = classifyImageShape(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight);
-    setImageShapes((current) => (current[sku] === shape ? current : { ...current, [sku]: shape }));
+  function recordImageRatio(sku: string, event: React.SyntheticEvent<HTMLImageElement>) {
+    const { naturalWidth: width, naturalHeight: height } = event.currentTarget;
+    if (!width || !height) return;
+    const ratio = Math.min(2.2, Math.max(0.4, Math.round((width / height) * 100) / 100));
+    setImageRatios((current) => (current[sku] === ratio ? current : { ...current, [sku]: ratio }));
   }
-
-  function groupProductsByShape(items: TryFocusProduct[]) {
-    return SHAPE_ORDER
-      .map((shape) => ({
-        shape,
-        aspect: SHAPE_ASPECT[shape],
-        items: items.filter((item) => (imageShapes[item.sku] || 'portrait') === shape),
-      }))
-      .filter((group) => group.items.length > 0);
-  }
+  const ratioOf = (item: TryFocusProduct) => imageRatios[item.sku] || DEFAULT_RATIO;
+  /** Width style for a row: a very tall lone piece is kept from filling the whole width. */
+  const rowStyle = (row: TryFocusProduct[]) => {
+    const sum = row.reduce((total, item) => total + ratioOf(item), 0);
+    return sum < 0.6 ? { maxWidth: `${(sum / 0.6) * 100}%`, marginInline: 'auto' } : undefined;
+  };
   const [kidPick, setKidPick] = useState<'boys' | 'girls' | null>(null);
   const [videoWhoChosen, setVideoWhoChosen] = useState(false);
   // Kids tapped on the AI Video Who screen: Boys or Girls shows under the cards, as in Try-On.
@@ -1423,9 +1459,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       <p className="text-sm text-muted">{browseProducts.length} styles</p>
                     </div>
                     <div className="space-y-1.5">
-                      {groupProductsByShape(browseProducts).map((group) => (
-                        <div key={group.shape} className="grid grid-cols-3 items-start gap-1.5">
-                          {group.items.map((item, index) => {
+                      {justifyRows(browseProducts, ratioOf).map((row, rowIndex) => (
+                        <div key={row[0].sku} className="flex items-start gap-1.5" style={rowStyle(row)}>
+                          {row.map((item, cell) => {
+                            const index = rowIndex * 3 + cell;
+                            const ratio = ratioOf(item);
                             const pickIndex = selectedLooks.findIndex((look) => look.sku === item.sku);
                             const picked = pickIndex >= 0;
                             const full = selectedLooks.length >= MAX_LOOKS && !picked;
@@ -1437,15 +1475,16 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                                 aria-label={`${picked ? 'Remove' : 'Select'} ${item.title}`}
                                 disabled={full}
                                 onClick={() => toggleLook(item)}
+                                style={{ flex: `${ratio} ${ratio} 0%` }}
                                 className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white text-left transition disabled:opacity-50 ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}
                               >
-                                <span className={`block w-full overflow-hidden bg-canvas ${group.aspect}`}>
+                                <span className="block w-full overflow-hidden bg-canvas" style={{ aspectRatio: ratio }}>
                                   <img
                                     src={item.thumbnailUrl || item.imageUrl}
                                     alt=""
                                     loading={index < 15 ? 'eager' : 'lazy'}
                                     decoding="async"
-                                    onLoad={(event) => recordImageShape(item.sku, event)}
+                                    onLoad={(event) => recordImageRatio(item.sku, event)}
                                     className="h-full w-full object-cover object-top"
                                   />
                                 </span>
@@ -1575,81 +1614,23 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               );
             })()}
 
-            {tryOnStage === 'generating' && (() => {
-              const genLooks = imageSource === 'own-garment' ? [] : (selectedLooks.length ? selectedLooks : [selectedProduct]);
-              const singleImageMode = imageSource === 'own-garment' || genLooks.length <= 1;
-              const singleGarmentImg = imageSource === 'own-garment' ? ownGarmentPhoto : (genLooks[0]?.thumbnailUrl || genLooks[0]?.imageUrl);
-              const singleGarmentLabel = imageSource === 'own-garment' ? 'your outfit' : (genLooks[0]?.title || 'your outfit');
-              const mosaicRows = genLooks.length === 5
-                ? [genLooks.slice(0, 2), genLooks.slice(2, 5)]
-                : genLooks.length === 4
-                  ? [genLooks.slice(0, 2), genLooks.slice(2, 4)]
-                  : [genLooks];
-              return (
-                <section className="tv-result-screen flex w-full flex-col" aria-live="polite">
-                  <div className="shrink-0 bg-white px-5 py-2.5">
-                    <PageTitle size="lg" title={singleImageMode ? 'Creating your look' : 'Creating your looks'}  />
-                  </div>
-                  {singleImageMode ? (
-                    <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-[#ECEEE9]">
-                      {customerPhoto && (
-                        <img src={customerPhoto} alt="" className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover blur-md brightness-95" />
-                      )}
-                      <div className="tv-gen-sweep pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-white/30 to-transparent" />
-                      <div className="relative z-10 flex flex-col items-center gap-4 rounded-3xl border border-white/70 bg-white/90 px-10 py-8 text-ink shadow-2xl backdrop-blur-md">
-                        {singleGarmentImg && (
-                          <img src={singleGarmentImg} alt="" className="h-24 w-20 rounded-xl border border-line object-cover shadow-sm" />
-                        )}
-                        <DressLoader size="lg" tone="light" title={`Dressing you in ${singleGarmentLabel}`} />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex min-h-0 flex-1 flex-col gap-1.5 bg-[#E8EBE7] p-1.5">
-                      {mosaicRows.map((row, rowIndex) => (
-                        <div key={rowIndex} className={`grid min-h-0 flex-1 gap-1.5 ${row.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                          {row.map((look) => {
-                            const lookNumber = genLooks.findIndex((entry) => entry.sku === look.sku) + 1;
-                            const state = batchProgress[look.sku];
-                            return (
-                              <div key={look.sku} className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
-                                <img
-                                  src={look.thumbnailUrl || look.imageUrl}
-                                  alt={look.title}
-                                  className={`h-full w-full object-cover object-top transition ${state === 'generating' ? 'brightness-90' : ''}`}
-                                />
-                                {state === 'generating' && (
-                                  <div className="tv-gen-sweep pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-white/35 to-transparent" />
-                                )}
-                                <span className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-ink/85 text-base font-bold text-white shadow">
-                                  {lookNumber}
-                                </span>
-                                <div className="absolute inset-0 flex items-center justify-center p-3">
-                                  {state === 'failed' ? (
-                                    <span className="rounded-full bg-danger px-4 py-1.5 text-sm font-bold text-white shadow-lg">Not created</span>
-                                  ) : state === 'generating' ? (
-                                    <div className="flex flex-col items-center gap-1 rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-xl backdrop-blur-md">
-                                      <DressLoader size="sm" caption={false} />
-                                      <span className="text-xs font-bold text-ink">Creating look {lookNumber}…</span>
-                                    </div>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-bold text-white shadow-lg">
-                                      <CheckCircle2 className="h-4 w-4" /> Ready
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/75 via-black/40 to-transparent px-3 pb-2.5 pt-8 text-sm font-semibold text-white">
-                                  {look.title}
-                                </p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              );
-            })()}
+            {/* The wait: the customer's photo behind, the picked outfits whole in one strip (1 to 5, no empty
+                boxes), one title and a progress bar. The first finished look opens the result right away. */}
+            {tryOnStage === 'generating' && (
+              <GeneratingPreview
+                personPhoto={customerPhoto}
+                expectedSeconds={imageSource === 'own-garment' ? 22 : 14}
+                title={imageSource !== 'own-garment' && selectedLooks.length > 1 ? `Creating your ${selectedLooks.length} looks` : 'Creating your look'}
+                items={imageSource === 'own-garment'
+                  ? [{ key: 'own', image: ownGarmentPhoto, title: OWN_GARMENT_TYPES[genderFilter].find((type) => type.id === ownGarmentType)?.label || 'Your outfit' }]
+                  : (selectedLooks.length ? selectedLooks : [selectedProduct]).map((look) => ({
+                      key: look.sku,
+                      image: look.thumbnailUrl || look.imageUrl,
+                      title: look.title,
+                      state: batchProgress[look.sku],
+                    }))}
+              />
+            )}
 
             {/* Results: 3-row kiosk layout with full-screen look view (plus inline Scan to download QR card) or multi-look grid,
                 and a dedicated 2-button in-flow footer (Send to my phone + Add more looks) that cannot overlap any content. */}
@@ -2004,19 +1985,21 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   </aside>
                   <div className="min-w-0 space-y-2 pr-1.5">
                     <div className="space-y-1.5 pb-12">
-                      {groupProductsByShape(videoBrowseProducts).map((group) => (
-                        <div key={group.shape} className="grid grid-cols-3 items-start gap-1.5">
-                          {group.items.map((item, index) => {
+                      {justifyRows(videoBrowseProducts, ratioOf).map((row, rowIndex) => (
+                        <div key={row[0].sku} className="flex items-start gap-1.5" style={rowStyle(row)}>
+                          {row.map((item, cell) => {
+                            const index = rowIndex * 3 + cell;
+                            const ratio = ratioOf(item);
                             const picked = videoPieceChosen && selectedProduct.sku === item.sku;
                             return (
-                              <button key={item.sku} type="button" aria-pressed={picked} onClick={() => chooseVideoPiece(item)} className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}>
-                                <span className={`relative block w-full overflow-hidden bg-canvas ${group.aspect}`}>
+                              <button key={item.sku} type="button" aria-pressed={picked} onClick={() => chooseVideoPiece(item)} style={{ flex: `${ratio} ${ratio} 0%` }} className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-white text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line hover:border-line-strong'}`}>
+                                <span className="relative block w-full overflow-hidden bg-canvas" style={{ aspectRatio: ratio }}>
                                   <img
                                     src={item.thumbnailUrl || item.imageUrl}
                                     alt=""
                                     loading={index < 15 ? 'eager' : 'lazy'}
                                     decoding="async"
-                                    onLoad={(event) => recordImageShape(item.sku, event)}
+                                    onLoad={(event) => recordImageRatio(item.sku, event)}
                                     className="h-full w-full object-cover object-top"
                                   />
                                   {picked && <span className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-5 w-5" /></span>}
@@ -2102,10 +2085,19 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             )}
 
             {/* The portrait, its QR and End session all in one TV screen: the portrait takes the free height. */}
-            {videoStage === 'portrait' && (
+            {/* The portrait wait: the same screen as the Try-On wait (photo behind, the piece whole, one bar). */}
+            {videoStage === 'portrait' && videoGeneratingMaster && (
+              <GeneratingPreview
+                personPhoto={videoPersonPhoto}
+                expectedSeconds={20}
+                title="Creating your portrait"
+                items={[{ key: selectedProduct.sku, image: selectedProduct.thumbnailUrl || selectedProduct.imageUrl, title: selectedProduct.title }]}
+              />
+            )}
+            {videoStage === 'portrait' && !videoGeneratingMaster && (
               <section className="tv-result-screen flex w-full flex-col" aria-live="polite">
                 <div className="flex shrink-0 items-center justify-between gap-4 bg-white px-5 py-2.5">
-                  <PageTitle size="lg" title={videoGeneratingMaster ? 'Creating your portrait' : 'Your portrait'} subtitle={videoGeneratingMaster ? undefined : videoStatusNote} />
+                  <PageTitle size="lg" title="Your portrait" subtitle={videoStatusNote} />
                   {videoMasterUrl && !videoGeneratingMaster && (
                     <HelpRetry
                       size="tv"
@@ -2116,18 +2108,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     />
                   )}
                 </div>
-                {videoGeneratingMaster ? (
-                  <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-[#ECEEE9]">
-                    {videoPersonPhoto && <img src={videoPersonPhoto} alt="" className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover blur-md brightness-95" />}
-                    <div className="tv-gen-sweep pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-white/30 to-transparent" />
-                    <div className="relative z-10 flex flex-col items-center gap-4 rounded-3xl border border-white/70 bg-white/90 px-10 py-8 text-ink shadow-2xl backdrop-blur-md">
-                      {selectedProduct?.imageUrl && (
-                        <img src={selectedProduct.thumbnailUrl || selectedProduct.imageUrl} alt="" className="h-24 w-20 rounded-xl border border-line object-cover shadow-sm" />
-                      )}
-                      <DressLoader size="lg" tone="light" title={`Dressing you in ${selectedProduct.title}`} />
-                    </div>
-                  </div>
-                ) : videoMasterUrl ? (
+                {videoMasterUrl ? (
                   <>
                     <div className="min-h-0 flex-1 overflow-hidden bg-ink">
                       <img src={videoMasterUrl} alt="Your portrait" className="h-full w-full object-cover object-top" />

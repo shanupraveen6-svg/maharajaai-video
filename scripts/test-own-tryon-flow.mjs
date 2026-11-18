@@ -45,7 +45,11 @@ console.log('✓ TV header in a session, own try-on without AI garment check, ph
   assert.match(css, /\.tv-kiosk \.text-sm \{ font-size: 18px;/);
   assert.match(css, /\.tv-kiosk nav button, \.tv-kiosk nav a \{ font-size: 22px; min-height: 72px; \}/);
   assert.match(tv, /setProperty\('--tv-header-h'/, 'The header height is measured');
-  assert.equal((tv.match(/tv-result-screen/g) || []).length, 3, 'Try-On generating, results and the AI Video portrait fit one screen');
+  assert.equal((tv.match(/tv-result-screen/g) || []).length, 2, 'Try-On results and the AI Video portrait fit one screen');
+  // The wait (Try-On looks and the AI Video portrait) is one shared full-screen component.
+  const waitScreen = fs.readFileSync(new URL('../src/components/kiosk/GeneratingPreview.tsx', import.meta.url), 'utf8');
+  assert.match(waitScreen, /tv-result-screen/, 'The wait screen fits one screen');
+  assert.equal((tv.match(/<GeneratingPreview/g) || []).length, 2, 'Try-On and the AI Video portrait share the wait screen');
   assert.doesNotMatch(tv, /min-h-\[calc\(100dvh-2\d0px\)\]/, 'No guessed header heights left');
   // Built-in poster for Maharaja, trimmed from the centre; the upload card shows the size guide.
   const posters = fs.readFileSync(new URL('../src/app/api/maharaja/posters/route.ts', import.meta.url), 'utf8');
