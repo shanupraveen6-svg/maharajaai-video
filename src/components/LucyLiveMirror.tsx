@@ -443,6 +443,12 @@ export default function LucyLiveMirror({
   }, [phase, running, onBackChange]);
   const progressPercent = Math.max(0, Math.min(100, (secondsLeft / SESSION_SECONDS) * 100));
 
+  function replay() {
+    if (!replayRef.current) return;
+    replayRef.current.currentTime = 0;
+    void replayRef.current.play();
+  }
+
   if (phase === 'who') {
     return (
       <div className="flex tv-fill-screen flex-col gap-7">
@@ -458,12 +464,14 @@ export default function LucyLiveMirror({
   }
 
   if (phase === 'result') {
+    // The same three rows as the Try-On result: title, the recording filling the free height, one footer.
+    // End session lives in the TV header; a standalone mirror (no header) keeps its own.
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
+      <section className="tv-result-screen flex w-full flex-col gap-3" aria-label="Your Live Try-On">
+        <div className="shrink-0">
           <PageTitle size="lg" title="Your Live Try-On" subtitle={garment ? garment.title : undefined} />
         </div>
-        <div className="relative w-full overflow-hidden rounded-2xl bg-ink" style={{ height: '72vh', maxHeight: '1100px' }}>
+        <div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-2xl bg-ink">
           {videoUrl ? (
             <>
               <video
@@ -476,7 +484,7 @@ export default function LucyLiveMirror({
                 className="absolute inset-0 h-full w-full bg-ink object-cover"
               />
               {!replaying && (
-                <button type="button" onClick={() => { if (replayRef.current) { replayRef.current.currentTime = 0; void replayRef.current.play(); } }} className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-ink/45 text-white" aria-label="Replay">
+                <button type="button" onClick={replay} className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-ink/45 text-white" aria-label="Replay">
                   <span className="flex h-28 w-28 items-center justify-center rounded-full bg-white/95 text-ink shadow-2xl"><Play className="ml-1.5 h-12 w-12 fill-current" /></span>
                   <span className="text-2xl font-bold drop-shadow">Replay</span>
                 </button>
@@ -489,13 +497,17 @@ export default function LucyLiveMirror({
             </div>
           )}
         </div>
-        {videoUrl && (
-          <button type="button" onClick={() => { if (replayRef.current) { replayRef.current.currentTime = 0; void replayRef.current.play(); } }} className="tf-btn tf-btn-secondary !min-h-16 w-full text-lg">
-            <RotateCcw className="h-6 w-6" /> Replay
-          </button>
+        {(videoUrl || !onEndSession) && (
+          <div className={`grid shrink-0 gap-3 ${videoUrl && !onEndSession ? 'grid-cols-2' : ''}`}>
+            {videoUrl && (
+              <button type="button" onClick={replay} className="tf-btn tf-btn-secondary !min-h-20 w-full text-xl font-bold">
+                <RotateCcw className="h-6 w-6" /> Replay
+              </button>
+            )}
+            {!onEndSession && <button type="button" onClick={endSession} className="tf-btn !min-h-20 w-full bg-danger text-xl font-bold text-white">End session</button>}
+          </div>
         )}
-        <button type="button" onClick={endSession} className="tf-btn !min-h-24 w-full bg-danger text-2xl font-bold text-white hover:bg-danger/90">End session</button>
-      </div>
+      </section>
     );
   }
 
@@ -516,7 +528,8 @@ export default function LucyLiveMirror({
         </div>
       )}
 
-      <div className="relative w-full overflow-hidden rounded-3xl bg-ink shadow-md" style={{ height: isChild ? '41vh' : '49vh' }}>
+      {/* The countdown and the 30 live seconds fill the whole TV, like a mirror; picking happens in the window. */}
+      <div className={running ? 'fixed inset-0 z-50 overflow-hidden bg-ink' : 'relative w-full overflow-hidden rounded-3xl bg-ink shadow-md'} style={running ? undefined : { height: isChild ? '41vh' : '49vh' }}>
         <video ref={localVideoRef} playsInline muted autoPlay className={`h-full w-full object-cover [transform:scaleX(-1)] ${session === 'live' ? 'opacity-0' : 'opacity-100'}`} />
         <video ref={remoteVideoRef} playsInline muted autoPlay className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${session === 'live' ? 'opacity-100' : 'pointer-events-none opacity-0'}`} />
 

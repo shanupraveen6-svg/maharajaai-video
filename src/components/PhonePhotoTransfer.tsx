@@ -105,7 +105,7 @@ export default function PhonePhotoTransfer({
       );
       setQr(qrDataUrl);
       setTransfer(data);
-      setMessage('Point your phone camera at this QR code. Pick a portrait photo and tap Confirm.');
+      setMessage('Point your phone camera at this QR code. Pick a portrait photo and tap Submit.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Upload QR unavailable.');
     } finally {
@@ -142,7 +142,7 @@ export default function PhonePhotoTransfer({
             ? <img src={qr} alt="Scan to send a photo from your phone" className="h-full w-full object-contain" />
             : <LoaderCircle className="h-8 w-8 animate-spin text-muted" />}
         </div>
-        <p className="text-sm text-muted">Scan with your phone camera, pick a photo and tap Confirm. It appears here.</p>
+        <p className="text-sm text-muted">Scan with your phone camera, pick a photo and tap Submit. It appears here.</p>
       </div>
     );
   }

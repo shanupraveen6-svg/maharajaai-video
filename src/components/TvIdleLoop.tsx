@@ -58,7 +58,7 @@ export default function TvIdleLoop({ clientName, onWake }: { clientName: string;
 
       {/* The call to action: a floating pill, not flush to the edge, sized to be noticed without taking the screen. */}
       <span className="absolute inset-x-0 bottom-12 flex justify-center sm:bottom-16">
-        <span className="tf-btn tf-btn-primary !min-h-[72px] rounded-full px-12 text-2xl shadow-2xl">AI Try-On experience</span>
+        <span className="tf-btn tf-btn-primary !min-h-[72px] rounded-full px-12 text-2xl shadow-2xl">Tap to try on outfits</span>
       </span>
     </button>
   );
