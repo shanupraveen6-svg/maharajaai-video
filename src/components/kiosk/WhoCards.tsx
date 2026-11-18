@@ -68,7 +68,7 @@ export function KidsSwitch({ value, onChange, disabled, size = 'lg', labels = { 
           aria-pressed={value === option}
           disabled={disabled}
           onClick={() => onChange(option)}
-          className={`rounded-2xl border-2 font-bold transition disabled:opacity-50 ${size === 'lg' ? 'min-h-20 text-3xl' : 'min-h-12 text-lg'} ${value === option ? 'border-ink bg-ink text-white' : 'border-line-strong bg-canvas text-ink hover:border-ink'}`}
+          className={`rounded-2xl border-2 font-bold transition disabled:opacity-50 ${size === 'lg' ? 'tv-choice min-h-20 text-3xl' : 'min-h-12 text-lg'} ${value === option ? 'border-ink bg-ink text-white' : 'border-line-strong bg-canvas text-ink hover:border-ink'}`}
         >
           {labels[option]}
         </button>

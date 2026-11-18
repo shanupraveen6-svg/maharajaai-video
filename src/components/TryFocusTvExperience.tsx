@@ -21,7 +21,6 @@ import {
   Smartphone,
   Sparkles,
   SwitchCamera,
-  Upload,
   Printer,
   Video,
   X,
@@ -29,7 +28,6 @@ import {
 import HelpRetry, { HELP_TEXT } from '@/components/HelpRetry';
 import DressLoader from '@/components/DressLoader';
 import AudienceCards, { PhotoGuide } from '@/components/AudienceCards';
-import { compressImage } from '@/lib/utils/image';
 import SessionTimer, { sessionTimerShowing } from '@/components/SessionTimer';
 import LucyLiveMirror from '@/components/LucyLiveMirror';
 import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
@@ -390,42 +388,23 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
 
   function navigateTo(next: TvMode) {
+    // Try-On, AI Video and Live Try-On are separate workflows: a new tab starts on its first screen with
+    // nothing carried over from another tab (no photo, no picks, no looks, no bill digits).
+    if (next !== mode) {
+      resetAllSession();
+      if (next === 'own-tryon') setImageSource('own-garment');
+      if (next === 'catalogue-video') {
+        const saree = catalogueItems.find((item) => item.category === 'sarees' && item.eligibleForVideo && item.price >= 5000);
+        if (saree) setSelectedProduct(saree);
+      }
+      setMode(next);
+      return;
+    }
+    // The tab already open: only close the camera; the customer stays where they are.
     batchRunRef.current += 1;
     stopCamera();
     setCameraOpen(false);
     setCameraError('');
-    if (next === 'image-tryon') {
-      setTryOnStage(customerPhoto ? 'studio' : 'who');
-    }
-    if (next === 'catalogue-tryon' || next === 'own-tryon') {
-      // The tablet's two Try-On tabs decide the source by which tab it is; the shared "What would you
-      // like to try?" step (used only on the TV) never shows here.
-      const source: ImageTryOnSource = next === 'own-tryon' ? 'own-garment' : 'catalogue';
-      if (source !== imageSource) {
-        setImageSource(source);
-        setCustomerPhoto('');
-        setOwnGarmentPhoto('');
-        setWhoGroup(null);
-        setKidPick(null);
-        setTryOnStage('who');
-      } else {
-        setTryOnStage(customerPhoto ? 'studio' : 'who');
-      }
-    }
-    if (next === 'catalogue-video') {
-      const saree = catalogueItems.find((item) => item.category === 'sarees' && item.eligibleForVideo && item.price >= 5000);
-      if (saree) setSelectedProduct(saree);
-      setCataloguePage(0);
-      // No AI Video limit: reuse the try-on photo. With a limit, the bill digits and a fresh photo are required.
-      if (tvBillSuffixRequired) {
-        setVideoPersonPhoto('');
-        setVideoMasterUrl('');
-      } else if (customerPhoto && !videoPersonPhoto) {
-        setVideoPersonPhoto(customerPhoto);
-      }
-      if (!videoMasterUrl) setVideoStage('who');
-    }
-    setMode(next);
   }
 
   async function openCameraFor(target: CameraTarget) {
@@ -437,7 +416,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Webcam requires HTTPS or localhost. You can also use the Upload Photo button below.');
+        throw new Error('The camera is not available on this screen.');
       }
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
@@ -457,7 +436,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       setCameraError(
         err instanceof Error
           ? err.message
-          : 'Unable to access PC/TV camera. Use the Upload Photo option below.'
+          : 'The camera is not available on this screen.'
       );
     }
   }
@@ -563,74 +542,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     applyCapturedPhoto(target, dataUrl);
   }
 
-  function handleFileUpload(target: CameraTarget, file?: File | null) {
-    if (!file) return;
-    if (target === 'own-garment') {
-      // Garments keep their full frame; only person photos are cropped to the 9:16 portrait.
-      compressImage(file, 1280, 0.85)
-        .then(({ dataUrl }) => {
-          stopCamera();
-          setCameraOpen(false);
-          applyCapturedPhoto(target, dataUrl);
-        })
-        .catch((error) => setTryOnError(error instanceof Error ? error.message : 'This garment photo could not be read.'));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const rawDataUrl = typeof reader.result === 'string' ? reader.result : '';
-      if (!rawDataUrl) return;
-
-      const img = new Image();
-      img.onload = () => {
-        const vWidth = img.naturalWidth || img.width;
-        const vHeight = img.naturalHeight || img.height;
-        const targetAspect = 9 / 16;
-        const currentAspect = vWidth / vHeight;
-
-        let sx = 0;
-        let sy = 0;
-        let sWidth = vWidth;
-        let sHeight = vHeight;
-
-        if (currentAspect > targetAspect) {
-          sHeight = vHeight;
-          sWidth = Math.round(vHeight * targetAspect);
-          sx = Math.round((vWidth - sWidth) / 2);
-          sy = 0;
-        } else if (currentAspect < targetAspect) {
-          sWidth = vWidth;
-          sHeight = Math.round(vWidth / targetAspect);
-          sx = 0;
-          sy = Math.round((vHeight - sHeight) / 2);
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.min(1080, Math.round(sWidth));
-        canvas.height = Math.round(canvas.width * 16 / 9);
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-          const verticalDataUrl = canvas.toDataURL('image/jpeg', 0.88);
-          stopCamera();
-          setCameraOpen(false);
-          applyCapturedPhoto(target, verticalDataUrl);
-        } else {
-          stopCamera();
-          setCameraOpen(false);
-          applyCapturedPhoto(target, rawDataUrl);
-        }
-      };
-      img.onerror = () => {
-        stopCamera();
-        setCameraOpen(false);
-        applyCapturedPhoto(target, rawDataUrl);
-      };
-      img.src = rawDataUrl;
-    };
-    reader.readAsDataURL(file);
-  }
-
   /**
    * Applied once the customer confirms "Use this photo" in the full-screen dialog (camera or phone QR).
    * The photo was already shown and confirmed there, so there is no second preview screen: an adult goes
@@ -698,6 +609,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     setOwnGarmentType(type);
     setTryOnError('');
     if (!ownGarmentPhoto && !(cameraOpen && cameraTarget === 'own-garment')) void openCameraFor('own-garment');
+  }
+
+  function chooseOwnGarmentTypeFromButton(event: React.MouseEvent<HTMLButtonElement>) {
+    const type = event.currentTarget.dataset.type;
+    if (type) chooseOwnGarmentType(type);
   }
 
   function retakeOwnGarment() {
@@ -944,11 +860,13 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // Two or more store looks: shown full size one at a time, swiped through.
   // A remote or keyboard's left and right keys move between looks; Escape closes the QR popup.
   const lookKeysRef = useRef<(key: string) => void>(() => undefined);
-  lookKeysRef.current = (key) => {
-    if (key === 'Escape') setQrOpen(false);
-    else if (key === 'ArrowLeft') moveGeneratedLook(-1);
-    else if (key === 'ArrowRight') moveGeneratedLook(1);
-  };
+  useEffect(() => {
+    lookKeysRef.current = (key) => {
+      if (key === 'Escape') setQrOpen(false);
+      else if (key === 'ArrowLeft') moveGeneratedLook(-1);
+      else if (key === 'ArrowRight') moveGeneratedLook(1);
+    };
+  });
   useEffect(() => {
     if (tryOnStage !== 'result') return;
     const onKey = (event: KeyboardEvent) => lookKeysRef.current(event.key);
@@ -1272,7 +1190,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
 
   // One step back, in place of a progress bar. TV and tablet share one Try-On flow:
   // Who → photo → Store collection or My own outfit → outfits.
-  const tryOnBack = tryOnStage === 'studio' ? () => { stopCamera(); setCameraOpen(false); setPendingPhoto(''); setTryOnStage('who'); } : null;
+  const canTryOnBack = tryOnStage === 'studio';
+  const tryOnBack = () => { stopCamera(); setCameraOpen(false); setPendingPhoto(''); setTryOnStage('who'); };
   const kidsPending = whoGroup === 'kids' && !kidPick;
   // TV header: Home (each tab's Who screen) shows the three tabs. Once a customer is past Who in the open tab,
   // the tabs give way to Back and End session (plus Store collection | Own try-on inside Image Try-On), so a
@@ -1294,7 +1213,12 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     : videoStage === 'pick' ? () => setVideoStage('photo')
     : videoStage === 'look' ? () => setVideoStage('pick')
     : null;
-  const headerBack = mode === 'live-tryon' ? liveBack : mode === 'catalogue-video' ? videoBack : tryOnBack;
+  const hasHeaderBack = mode === 'live-tryon' ? Boolean(liveBack) : mode === 'catalogue-video' ? Boolean(videoBack) : canTryOnBack;
+  const headerBack = () => {
+    if (mode === 'live-tryon') liveBack?.();
+    else if (mode === 'catalogue-video') videoBack?.();
+    else tryOnBack();
+  };
   const isTryOnMode = mode === 'image-tryon' || mode === 'catalogue-tryon' || mode === 'own-tryon';
   // Creating and result screens: the brand row gives way so the look gets the height; Back and End session stay.
   const compactHeader = !isTablet && ((isTryOnMode && (tryOnStage === 'generating' || tryOnStage === 'result'))
@@ -1345,7 +1269,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
           // A customer is in the middle of something: Back and End session only (and, in Image Try-On after the
           // photo, the two ways to try: the store's collection or their own garment).
           <nav className="tv-mode-nav tv-session-nav mx-auto flex max-w-[1080px] items-stretch gap-3 px-8 pb-5" aria-label="This session">
-            {headerBack
+            {hasHeaderBack
               ? <BackButton onClick={headerBack} />
               : <span className="tv-session-button invisible" aria-hidden="true" />}
             {imageSourceTabs ? (
@@ -1388,7 +1312,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
            ========================================================= */}
         {(mode === 'image-tryon' || mode === 'catalogue-tryon' || mode === 'own-tryon') && (
           <div className={fullBleedStage ? '' : 'space-y-6'}>
-            {isTablet && tryOnBack && <BackButton onClick={tryOnBack} />}
+            {isTablet && canTryOnBack && <BackButton onClick={tryOnBack} />}
             {tryOnStage === 'who' && (
               <div className={`tv-who-screen tv-fill-screen flex flex-col gap-6`}>
                 <PageTitle size="lg" title="Who is it for?" />
@@ -1434,7 +1358,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               <div className="space-y-2 pb-48">
                 <div className="flex items-center justify-between gap-3 px-3 pt-2">
                   <PageTitle size="lg" title={`Pick up to ${MAX_LOOKS} outfits`} />
-                  <button type="button" onClick={() => void openCameraFor('catalogue-person')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
+                  <button type="button" onClick={() => void openCameraFor('catalogue-person')} className="tv-chip group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
                     <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-14 rounded-lg object-cover" />
                     <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
                   </button>
@@ -1550,7 +1474,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 <div className="flex flex-col md:h-[calc(100dvh-var(--tv-header-h,240px))] md:overflow-hidden">
                   <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
                     <PageTitle size="lg" title="Your own outfit" subtitle={ownGarmentType ? 'Hold it up or lay it flat.' : undefined} />
-                    <button type="button" onClick={() => void openCameraFor('own-person')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
+                    <button type="button" onClick={() => void openCameraFor('own-person')} className="tv-chip group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
                       <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-14 rounded-lg object-cover" />
                       <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
                     </button>
@@ -1560,7 +1484,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       <p className="px-1 pb-2 text-base font-bold text-ink">What are you showing?</p>
                       <div className="tv-kiosk-filters flex flex-col gap-1">
                         {ownTypes.map((type) => (
-                          <button key={type.id} type="button" aria-pressed={ownGarmentType === type.id} onClick={() => chooseOwnGarmentType(type.id)} className="flex items-center justify-between gap-2 rounded-xl border px-4 text-left font-semibold">
+                          <button key={type.id} type="button" data-type={type.id} aria-pressed={ownGarmentType === type.id} onClick={chooseOwnGarmentTypeFromButton} className="flex items-center justify-between gap-2 rounded-xl border px-4 text-left font-semibold">
                             <span className="truncate">{type.label}</span>
                           </button>
                         ))}
@@ -1713,7 +1637,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                         <button
                           type="button"
                           onClick={() => setResultView('single')}
-                          className="inline-flex min-h-12 items-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 text-base font-bold text-white transition hover:bg-white/20"
+                          className="tv-pill inline-flex min-h-12 items-center gap-2 rounded-full border border-white/25 bg-white/10 px-5 text-base font-bold text-white transition hover:bg-white/20"
                         >
                           <Maximize2 className="h-5 w-5" />
                           <span>Full screen</span>
@@ -1798,7 +1722,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                           <button
                             type="button"
                             onClick={() => setResultView('grid')}
-                            className="inline-flex min-h-14 items-center gap-2 rounded-full border-2 border-white/80 bg-black/55 px-5 text-base font-bold text-white shadow-lg backdrop-blur hover:bg-black/75"
+                            className="tv-pill inline-flex min-h-14 items-center gap-2 rounded-full border-2 border-white/80 bg-black/55 px-5 text-base font-bold text-white shadow-lg backdrop-blur hover:bg-black/75"
                           >
                             <LayoutGrid className="h-5 w-5" />
                             <span>All looks ({readyLooks}/{selectedLooks.length})</span>
@@ -1881,7 +1805,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 {qrOpen && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-8" role="dialog" aria-modal="true" aria-label="Send to my phone" onClick={() => setQrOpen(false)}>
                     <div className="tf-card relative w-full max-w-xl p-10 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
-                      <button type="button" onClick={() => setQrOpen(false)} aria-label="Close" className="absolute right-4 top-4 flex h-16 w-16 items-center justify-center rounded-full bg-canvas text-ink hover:bg-line"><X className="h-8 w-8" /></button>
+                      <button type="button" onClick={() => setQrOpen(false)} aria-label="Close" className="tv-round absolute right-4 top-4 flex h-16 w-16 items-center justify-center rounded-full bg-canvas text-ink hover:bg-line"><X className="h-8 w-8" /></button>
                       <h3 className="text-4xl font-bold">Scan to save</h3>
                       <p className="mt-2 text-xl text-muted">Works for 1 hour.</p>
                       <div className="mx-auto mt-6 flex h-[420px] w-[420px] max-w-full items-center justify-center overflow-hidden rounded-2xl border border-line bg-white">
@@ -1912,7 +1836,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             catalogue={catalogueItems.filter(isLiveMirrorReady)}
             onSelectProduct={setSelectedProduct}
             onUsePhotoTryOn={(product) => {
-              // Live Try-On could not connect: the same outfit continues as a photo Try-On.
+              // Live Try-On could not connect: the same outfit continues as a photo Try-On, with a new photo
+              // (nothing is carried over between tabs).
               navigateTo('image-tryon');
               setImageSource('catalogue');
               setGenderFilter(product.gender);
@@ -1922,7 +1847,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               setWhoGroup(product.gender === 'boys' || product.gender === 'girls' ? 'kids' : product.gender);
               setKidPick(product.gender === 'boys' || product.gender === 'girls' ? product.gender : null);
               setTryOnStage('studio');
-              if (!customerPhoto) void openCameraFor('catalogue-person');
+              void openCameraFor('catalogue-person');
             }}
           />
         )}
@@ -2001,7 +1926,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 <div className="flex items-center justify-between gap-3 px-3 pt-2">
                   <PageTitle size="lg" title="Pick a piece" />
                   {videoPersonPhoto && (
-                    <button type="button" onClick={() => setVideoStage('photo')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
+                    <button type="button" onClick={() => setVideoStage('photo')} className="tv-chip group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
                       <img src={videoPersonPhoto} alt="Your photo" className="aspect-[9/16] h-14 rounded-lg object-cover" />
                       <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
                     </button>
@@ -2071,7 +1996,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               <section className="mx-auto flex tv-fill-screen max-w-[760px] flex-col gap-6 pb-6">
                 <div className="flex items-center justify-between gap-4">
                   <PageTitle size="lg" title="Pick a location" />
-                  <button type="button" onClick={() => setVideoStage('pick')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
+                  <button type="button" onClick={() => setVideoStage('pick')} className="tv-chip group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
                     <img src={selectedProduct.thumbnailUrl || selectedProduct.imageUrl} alt="" className="h-16 w-13 rounded-lg object-cover" />
                     <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />piece</span>
                   </button>
@@ -2226,13 +2151,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             />
           )}
 
-          {/* A body outline on the live feed: where to stand, readable from 2 m (person photos only). */}
-          {!pendingPhoto && isPersonTarget(cameraTarget) && (
-            <svg viewBox="0 0 200 520" className="pointer-events-none absolute left-1/2 top-[12%] z-[5] h-[74%] -translate-x-1/2 opacity-70" aria-hidden="true">
-              <path d="M100 18c-20 0-34 16-34 37s14 39 34 39 34-18 34-39-14-37-34-37zM62 108c-22 6-34 22-38 44l-12 108c-1 10 6 16 14 16s13-6 14-14l12-88v130l-8 196c0 12 8 18 18 18s17-6 18-16l20-170 20 170c1 10 8 16 18 16s18-6 18-18l-8-196V174l12 88c1 8 6 14 14 14s15-6 14-16l-12-108c-4-22-16-38-38-44-12-3-24-4-38-4s-26 1-38 4z" fill="none" stroke="white" strokeWidth="3" strokeDasharray="10 8" strokeLinejoin="round" />
-            </svg>
-          )}
-
           <div className="relative z-10 flex h-full w-full flex-col justify-between">
             {/* Header: the store's own logo (or its initial) over a soft gradient, so the feed stays full screen. */}
             <div className="flex shrink-0 items-center justify-between gap-4 bg-gradient-to-b from-black/75 via-black/35 to-transparent p-4 sm:p-6">
@@ -2252,7 +2170,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   setCameraOpen(false);
                   setPendingPhoto('');
                 }}
-                className="flex min-h-16 shrink-0 items-center gap-2 rounded-xl border-2 border-white bg-white px-5 text-base font-bold text-ink hover:bg-canvas"
+                className="tv-pill flex min-h-16 shrink-0 items-center gap-2 rounded-xl border-2 border-white bg-white px-5 text-base font-bold text-ink hover:bg-canvas"
               >
                 <X className="h-5 w-5" />
                 Close camera
@@ -2285,7 +2203,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 {cameraError && (
                   <div className="mx-auto mt-auto max-w-xl rounded-xl bg-black/85 p-4 text-center text-base text-amber-200">
                     <p>{cameraError}</p>
-                    <p className="mt-1 text-white/80">{isPersonTarget(cameraTarget) ? 'Use the QR in the corner to send a photo from your phone.' : 'Choose a photo file below instead.'}</p>
+                    <p className="mt-1 text-white/80">Use the QR code to send a photo from your phone.</p>
                   </div>
                 )}
               </div>
@@ -2296,7 +2214,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               {pendingPhoto ? (
                 // Confirm right here: Retake sits where the capture button was, Use this photo is the one next step.
                 // For a child, that same button is the parent's approval (no tick box).
-                <div className="w-full max-w-xl space-y-4 px-6">
+                <div className="w-full max-w-2xl space-y-4 px-6">
                 <div className="grid grid-cols-2 gap-4">
                   <button type="button" onClick={retryPendingPhoto} className="tf-btn !min-h-20 w-full border-2 border-white bg-white text-xl font-bold text-ink hover:bg-canvas">
                     <RefreshCw className="h-6 w-6" /> Retake
@@ -2322,7 +2240,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       className="flex flex-col items-center disabled:opacity-50"
                       aria-label="Take the photo in 5 seconds"
                     >
-                      <span className="flex h-[112px] w-[112px] items-center justify-center rounded-full border-4 border-white bg-brand shadow-2xl">
+                      <span className="tv-shutter flex h-[112px] w-[112px] items-center justify-center rounded-full border-4 border-white bg-brand shadow-2xl">
                         <Camera className="h-12 w-12 text-white" />
                       </span>
                       <span className="mt-1.5 text-sm font-semibold text-white drop-shadow">{shutterLocked ? 'Tap Boys or Girls first' : 'Take photo · 5 s'}</span>
@@ -2333,22 +2251,12 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       className="flex flex-col items-center"
                       aria-label="Restart the camera"
                     >
-                      <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white bg-white/90 text-ink shadow-lg">
+                      <span className="tv-round flex h-16 w-16 items-center justify-center rounded-full border-2 border-white bg-white/90 text-ink shadow-lg">
                         <SwitchCamera className="h-7 w-7" />
                       </span>
                       <span className="mt-1.5 text-sm font-semibold text-white drop-shadow">Restart camera</span>
                     </button>
                   </div>
-                  <label className="flex min-h-16 cursor-pointer items-center gap-2 rounded-xl border-2 border-white bg-white px-5 text-base font-bold text-ink hover:bg-canvas">
-                    <Upload className="h-4 w-4" />
-                    Choose a photo file instead
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(cameraTarget, e.target.files?.[0])}
-                    />
-                  </label>
                 </>
               )}
             </div>
@@ -2391,16 +2299,16 @@ function BillDigitsGate({ value, onChange, onContinue, action }: { value: string
           <span key={index} className={`flex h-20 w-16 items-center justify-center rounded-2xl border text-4xl font-bold tabular-nums ${value[index] ? 'border-ink bg-white' : 'border-line-strong bg-canvas text-subtle'}`}>{value[index] || ''}</span>
         ))}
       </div>
-      <div className="mx-auto grid w-full max-w-sm grid-cols-3 gap-3">
+      <div className="mx-auto grid w-full max-w-md grid-cols-3 gap-3">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'].map((key) => key === ''
           ? <span key="blank" />
           : (
-            <button key={key} type="button" onClick={() => press(key)} disabled={key !== 'back' && value.length >= 4} className="flex min-h-16 items-center justify-center rounded-2xl border border-line bg-white text-3xl font-semibold tabular-nums active:bg-line disabled:opacity-40">
+            <button key={key} type="button" onClick={() => press(key)} disabled={key !== 'back' && value.length >= 4} className="tv-key flex min-h-16 items-center justify-center rounded-2xl border border-line bg-white text-3xl font-semibold tabular-nums active:bg-line disabled:opacity-40">
               {key === 'back' ? '⌫' : key}
             </button>
           ))}
       </div>
-      <button type="button" disabled={value.length !== 4} onClick={onContinue} className="tf-btn tf-btn-primary !min-h-16 w-full max-w-sm text-lg">{action}</button>
+      <button type="button" disabled={value.length !== 4} onClick={onContinue} className="tf-btn tf-btn-primary !min-h-16 w-full max-w-md text-lg">{action}</button>
     </section>
   );
 }

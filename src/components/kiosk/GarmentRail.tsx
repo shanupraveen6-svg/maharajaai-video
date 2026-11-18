@@ -43,7 +43,7 @@ export default function GarmentRail({
             aria-pressed={activeTab === tab.id}
             disabled={disabled}
             onClick={() => onTab(tab.id)}
-            className={`min-h-[72px] shrink-0 whitespace-nowrap rounded-2xl border-2 px-6 text-xl font-bold shadow-sm transition disabled:opacity-50 ${activeTab === tab.id ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white text-ink hover:border-ink'}`}
+            className={`tv-rail-tab min-h-[72px] shrink-0 whitespace-nowrap rounded-2xl border-2 px-6 text-xl font-bold shadow-sm transition disabled:opacity-50 ${activeTab === tab.id ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white text-ink hover:border-ink'}`}
           >
             {tab.label}
           </button>

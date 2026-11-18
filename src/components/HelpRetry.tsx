@@ -100,7 +100,7 @@ export default function HelpRetry({
         aria-expanded={open}
         onClick={() => setOpen(true)}
         className={tv
-          ? 'flex min-h-16 shrink-0 items-center gap-2 rounded-xl border border-line-strong bg-white px-5 text-lg font-semibold text-ink'
+          ? 'tv-pill flex min-h-16 shrink-0 items-center gap-2 rounded-xl border border-line-strong bg-white px-5 text-lg font-semibold text-ink'
           : 'flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-line-strong bg-white px-3 text-sm font-semibold text-ink'}
       >
         <CircleHelp className={tv ? 'h-6 w-6' : 'h-4 w-4'} /> {text.help}
@@ -120,7 +120,7 @@ export default function HelpRetry({
                 <h2 id="help-retry-title" className={tv ? 'text-3xl font-bold' : 'text-2xl font-bold'}>{canRetry ? text.question : text.noRetryTitle}</h2>
                 <p className={`mt-1 text-muted ${tv ? 'text-lg' : 'text-[15px]'}`}>{canRetry ? text.retryText : text.noRetryText}</p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label={text.close} className={`flex shrink-0 items-center justify-center rounded-xl border border-line-strong ${tv ? 'h-16 w-16' : 'h-11 w-11'}`}><X className={tv ? 'h-6 w-6' : 'h-5 w-5'} /></button>
+              <button type="button" onClick={() => setOpen(false)} aria-label={text.close} className={`flex shrink-0 items-center justify-center rounded-xl border border-line-strong ${tv ? 'tv-round h-16 w-16' : 'h-11 w-11'}`}><X className={tv ? 'h-6 w-6' : 'h-5 w-5'} /></button>
             </div>
 
             <div className={`mt-4 rounded-2xl bg-canvas ${tv ? 'p-5' : 'p-4'}`}>
