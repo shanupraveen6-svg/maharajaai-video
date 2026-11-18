@@ -8,7 +8,7 @@ import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
 import GarmentRail from '@/components/kiosk/GarmentRail';
 import PosterFill from '@/components/kiosk/PosterFill';
-import { PageTitle, AgreeButton } from '@/components/ui';
+import { PageTitle } from '@/components/ui';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
 const SESSION_SECONDS = 30;
@@ -262,8 +262,8 @@ export default function LucyLiveMirror({
   }
 
   /** Start Live Try-On: 5 seconds to step back from the TV, then the live session. */
-  function startSession(piece: TryFocusProduct) {
-    if (consentMissing) { setError('A parent or guardian must approve first.'); return; }
+  function startSession(piece: TryFocusProduct, parentApproved = false) {
+    if (consentMissing && !parentApproved) { setError('A parent or guardian must approve first.'); return; }
     setError('');
     clearCountdownTimer();
     setSession('ready');
@@ -453,7 +453,7 @@ export default function LucyLiveMirror({
     return (
       <div className="flex tv-fill-screen flex-col gap-7">
         <div className="space-y-3">
-          <PageTitle size="lg" title="Live Try-On" subtitle="See an outfit on you, live on camera, for 30 seconds." />
+          <PageTitle size="lg" title="Live Try-On" subtitle="30 seconds, live on camera." />
           <PhotoConsentNotice kind="live" large />
         </div>
         <WhoCards value={group} onChange={chooseWho} />
@@ -467,11 +467,11 @@ export default function LucyLiveMirror({
     // The same three rows as the Try-On result: title, the recording filling the free height, one footer.
     // End session lives in the TV header; a standalone mirror (no header) keeps its own.
     return (
-      <section className="tv-result-screen flex w-full flex-col gap-3" aria-label="Your Live Try-On">
-        <div className="shrink-0">
-          <PageTitle size="lg" title="Your Live Try-On" subtitle={garment ? garment.title : undefined} />
-        </div>
-        <div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-2xl bg-ink">
+      <section className="tv-result-screen flex w-full flex-col bg-ink" aria-label="Your Live Try-On">
+        <div className="relative min-h-0 w-full flex-1 overflow-hidden bg-ink">
+          {garment && (
+            <p className="pointer-events-none absolute inset-x-0 top-0 z-10 truncate bg-gradient-to-b from-black/70 to-transparent p-5 pb-14 text-3xl font-bold text-white">{garment.title}</p>
+          )}
           {videoUrl ? (
             <>
               <video
@@ -498,9 +498,9 @@ export default function LucyLiveMirror({
           )}
         </div>
         {(videoUrl || !onEndSession) && (
-          <div className={`grid shrink-0 gap-3 ${videoUrl && !onEndSession ? 'grid-cols-2' : ''}`}>
+          <div className={`grid shrink-0 gap-3 px-4 py-3 ${videoUrl && !onEndSession ? 'grid-cols-2' : ''}`}>
             {videoUrl && (
-              <button type="button" onClick={replay} className="tf-btn tf-btn-secondary !min-h-20 w-full text-xl font-bold">
+              <button type="button" onClick={replay} className="tf-btn !min-h-20 w-full border-2 border-white bg-white text-xl font-bold text-ink">
                 <RotateCcw className="h-6 w-6" /> Replay
               </button>
             )}
@@ -511,25 +511,19 @@ export default function LucyLiveMirror({
     );
   }
 
-  // A clear, spaced column: Back and the title, then (Kids) Boys or Girls, the camera, and the outfits.
+  // One column that fills the TV under the header: (Kids) Boys or Girls, the camera taking all the free
+  // height, then the outfits. No title block and no bottom gap.
   return (
-    <div className="space-y-7">
-      <div className="space-y-4">
-        <PageTitle size="lg" title="Live Try-On" subtitle={isChild && !kidGender ? 'Tap Boys or Girls, then pick an outfit.' : 'Pick an outfit, step back, and see it on you for 30 seconds.'} />
-      </div>
-
+    <div className="tv-live-screen flex flex-col">
       {/* Kids: Boys or Girls on top of the camera, so the outfits and Lucy's instructions follow. */}
       {isChild && (
-        <div className="space-y-4">
+        <div className="shrink-0 space-y-3 bg-white px-5 py-3">
           <KidsSwitch value={kidGender} onChange={chooseKid} disabled={running} />
-          {kidGender && (
-            <AgreeButton size="lg" checked={guardianConsent} onChange={setGuardianConsent}>I am the parent or guardian and approve this child’s Live Try-On.</AgreeButton>
-          )}
         </div>
       )}
 
       {/* The countdown and the 30 live seconds fill the whole TV, like a mirror; picking happens in the window. */}
-      <div className={running ? 'fixed inset-0 z-50 overflow-hidden bg-ink' : 'relative w-full overflow-hidden rounded-3xl bg-ink shadow-md'} style={running ? undefined : { height: isChild ? '41vh' : '49vh' }}>
+      <div className={running ? 'fixed inset-0 z-50 overflow-hidden bg-ink' : 'relative min-h-0 w-full flex-1 overflow-hidden bg-ink'}>
         <video ref={localVideoRef} playsInline muted autoPlay className={`h-full w-full object-cover [transform:scaleX(-1)] ${session === 'live' ? 'opacity-0' : 'opacity-100'}`} />
         <video ref={remoteVideoRef} playsInline muted autoPlay className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${session === 'live' ? 'opacity-100' : 'pointer-events-none opacity-0'}`} />
 
@@ -552,15 +546,16 @@ export default function LucyLiveMirror({
 
         {cameraOn && session === 'idle' && !garment && (
           <p className="absolute inset-x-6 bottom-6 z-10 mx-auto w-fit rounded-full bg-ink px-6 py-3 text-xl font-semibold text-white shadow-lg">
-            {isChild && !kidGender ? 'Tap Boys or Girls below' : 'Pick an outfit below'}
+            {isChild && !kidGender ? 'Tap Boys or Girls' : 'Pick an outfit below'}
           </p>
         )}
 
         {/* The one action on the camera, in its centre, once an outfit is picked. */}
         {cameraOn && session === 'idle' && garment && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 p-8">
-            <button type="button" disabled={consentMissing} onClick={() => startSession(garment)} className="tf-btn tf-btn-primary !min-h-24 !w-auto px-12 text-3xl shadow-2xl disabled:opacity-60">
-              <Sparkles className="h-9 w-9" /> Start Live Try-On
+            {/* For a child, this tap is the parent's approval (no tick box). */}
+            <button type="button" onClick={() => { if (isChild) setGuardianConsent(true); startSession(garment, isChild); }} className="tf-btn tf-btn-primary !min-h-24 !w-auto px-12 text-3xl shadow-2xl">
+              <Sparkles className="h-9 w-9" /> {isChild ? 'I’m the parent · Start' : 'Start Live Try-On'}
             </button>
             <p className="rounded-full bg-ink px-5 py-2 text-lg font-semibold text-white shadow-lg">{garment.title}</p>
           </div>
@@ -568,7 +563,7 @@ export default function LucyLiveMirror({
 
         {session === 'ready' && readyCountdown !== null && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/55 p-8 text-center text-white">
-            <p className="text-3xl font-semibold">Step back so your whole outfit is in view</p>
+            <p className="text-3xl font-semibold">Step back · full body in view</p>
             <p className="mt-6 text-[180px] font-bold leading-none tabular-nums">{readyCountdown}</p>
             {garment && <p className="mt-6 text-xl text-white/85">{garment.title}</p>}
           </div>
@@ -578,14 +573,13 @@ export default function LucyLiveMirror({
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/70 p-8 text-center text-white">
             <LoaderCircle className="h-16 w-16 animate-spin" />
             <p className="mt-4 text-3xl font-bold">Dressing you in {garment?.title}</p>
-            <p className="mt-2 max-w-md text-lg text-white/80">Your 30 seconds start when the live picture appears.</p>
           </div>
         )}
 
         {!cameraOn && session !== 'error' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/85 p-8 text-center text-white">
             <Camera className="h-14 w-14" />
-            <p className="mt-4 text-3xl font-bold">Camera is off</p><p className="mt-2 text-lg text-white/80">Tap to start it, then pick an outfit below.</p>
+            <p className="mt-4 text-3xl font-bold">Camera is off</p>
             <button type="button" onClick={() => void enableCamera()} className="tf-btn tf-btn-primary mt-6 !min-h-16 !w-auto px-8 text-lg"><Camera className="h-6 w-6" /> Start the camera</button>
           </div>
         )}
@@ -610,8 +604,9 @@ export default function LucyLiveMirror({
       </div>
 
       {gender && (visibleCategories.length === 0 ? (
-        <p className="p-6 text-center text-xl text-muted">No Live Try-On outfits for {AUDIENCE_LABELS[gender]} yet. Ask the store team.</p>
+        <p className="shrink-0 bg-white p-6 text-center text-xl text-muted">No Live Try-On outfits for {AUDIENCE_LABELS[gender]} yet. Ask our staff.</p>
       ) : (
+        <div className="shrink-0 border-t border-line bg-white px-5 pt-3">
         <GarmentRail
           tabs={visibleCategories.map((cat) => ({ id: cat.id as string, label: cat.label }))}
           activeTab={activeCategory}
@@ -622,6 +617,7 @@ export default function LucyLiveMirror({
           onToggle={pickGarment}
           disabled={session === 'ready' || session === 'connecting'}
         />
+        </div>
       ))}
     </div>
   );

@@ -136,13 +136,13 @@ export default function PhonePhotoTransfer({
   if (inline) {
     return (
       <div className="flex w-full flex-col items-center gap-3 rounded-2xl bg-white p-4 text-center text-ink">
-        <p className="text-lg font-bold">Use a photo from your phone</p>
+        <p className="text-lg font-bold">Or use your phone</p>
         <div className="flex aspect-square w-full max-w-[220px] items-center justify-center rounded-xl border border-line bg-white p-2">
           {qr
             ? <img src={qr} alt="Scan to send a photo from your phone" className="h-full w-full object-contain" />
             : <LoaderCircle className="h-8 w-8 animate-spin text-muted" />}
         </div>
-        <p className="text-sm text-muted">Scan with your phone camera, pick a photo and tap Submit. It appears here.</p>
+        <p className="text-sm text-muted">Scan, pick a photo, tap Submit.</p>
       </div>
     );
   }

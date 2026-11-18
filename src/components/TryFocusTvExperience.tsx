@@ -48,7 +48,7 @@ import {
   type TryFocusProduct,
 } from '@/lib/tryfocus/catalogue-data';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
-import { PageTitle, AgreeButton } from '@/components/ui';
+import { PageTitle } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 import { allCategoriesFor, categoriesFor, type CustomCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
 import { conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
@@ -84,7 +84,7 @@ function classifyImageShape(width: number, height: number): GarmentImageShape {
 const MAX_LOOKS = 5;
 const isPersonTarget = (target: CameraTarget) => target !== 'own-garment';
 const AUDIENCE_LABELS = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' } as const;
-const PHOTO_GUIDE: [string, string] = ['Take a full-length photo, not a selfie.', 'Stand in good light and face the camera straight.'];
+const PHOTO_GUIDE: [string, string] = ['Full length, not a selfie.', 'Good light, face the camera.'];
 
 /** The store's own uploaded logo, fetched once; '' until loaded or if none was uploaded. */
 /** The store's logo as a local image URL, or '' (then the header shows the store's initial, never a broken image). */
@@ -909,7 +909,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       const qr = await QRCode.toDataURL(url, { width: 260, margin: 1, color: { dark: '#161918', light: '#FAFBF8' } });
       if (runId !== batchRunRef.current) return;
       setTryOnMobileQr(qr);
-      setHandoffStatus('Scan to save your looks on your phone. The link works for 1 hour.');
+      setHandoffStatus('Scan to save. Works for 1 hour.');
     } catch (error) {
       if (runId !== batchRunRef.current) return;
       setHandoffStatus(error instanceof Error ? error.message : 'Mobile handoff unavailable');
@@ -1299,9 +1299,10 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // Creating and result screens: the brand row gives way so the look gets the height; Back and End session stay.
   const compactHeader = !isTablet && ((isTryOnMode && (tryOnStage === 'generating' || tryOnStage === 'result'))
     || (mode === 'catalogue-video' && videoStage === 'portrait')
-    || (mode === 'live-tryon' && livePhase === 'result'));
+    || (mode === 'live-tryon' && livePhase !== 'who'));
   const fullBleedStage = (isTryOnMode && (tryOnStage === 'generating' || tryOnStage === 'result' || (tryOnStage === 'studio' && Boolean(customerPhoto))))
-    || (mode === 'catalogue-video' && (videoStage === 'pick' || videoStage === 'portrait'));
+    || (mode === 'catalogue-video' && (videoStage === 'pick' || videoStage === 'portrait'))
+    || (mode === 'live-tryon' && livePhase !== 'who');
 
   return (
     // No long-press menu on the shared screen ("Open image in new tab" would leave the kiosk).
@@ -1390,7 +1391,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {isTablet && tryOnBack && <BackButton onClick={tryOnBack} />}
             {tryOnStage === 'who' && (
               <div className={`tv-who-screen tv-fill-screen flex flex-col gap-6`}>
-                <PageTitle size="lg" title="Who is it for?" subtitle="Tap one to start." />
+                <PageTitle size="lg" title="Who is it for?" />
                 <WhoCards value={whoGroup} onChange={chooseWhoGroup} />
                 {whoGroup === 'kids' && !kidPick && (
                   <div className="tf-card flex flex-col gap-4 p-5">
@@ -1398,7 +1399,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <KidsSwitch value={kidPick} onChange={chooseKid} />
                   </div>
                 )}
-                <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
                 <PosterFill clientName={clientName} />
               </div>
             )}
@@ -1408,18 +1408,18 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 scrolling for more; up to 5 picks, shown in a strip at the top; Generate in the bottom bar. */}
             {tryOnStage === 'studio' && !customerPhoto && (
               <div className="flex tv-fill-screen flex-col gap-6">
-                <PageTitle size="lg" title="Your photo" subtitle="Stand in front of the screen, or send a photo from your phone." />
+                <PageTitle size="lg" title="Your photo" />
                 <div className="tv-photo-actions grid gap-5 md:grid-cols-2">
                   <button type="button" onClick={() => void openCameraFor(imageSource === 'own-garment' ? 'own-person' : 'catalogue-person')} className="tv-photo-action group flex min-h-[220px] flex-col items-center justify-center gap-6 rounded-3xl bg-ink p-8 text-center text-white shadow-lg transition hover:bg-black">
                     <span className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10 transition group-hover:scale-105"><Camera className="h-12 w-12" /></span>
-                    <span><span className="block text-4xl font-bold">Open the camera</span><span className="mt-2 block text-xl text-white/70">Stand back · 5 second timer</span></span>
+                    <span><span className="block text-4xl font-bold">Open the camera</span><span className="mt-2 block text-xl text-white/70">5 second timer</span></span>
                   </button>
                   <PhonePhotoTransfer
                     onPhoto={(photo) => receivePhotoForConfirm('catalogue-person', photo)}
                     renderTrigger={(open, busy) => (
                       <button type="button" onClick={open} disabled={busy} className="tv-photo-action group flex h-full min-h-[220px] w-full flex-col items-center justify-center gap-6 rounded-3xl border border-line bg-white p-8 text-center shadow-sm transition hover:border-brand disabled:opacity-50">
                         <span className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-soft text-brand transition group-hover:scale-105">{busy ? <LoaderCircle className="h-12 w-12 animate-spin" /> : <QrCode className="h-12 w-12" />}</span>
-                        <span><span className="block text-4xl font-bold text-ink">{busy ? 'Preparing QR…' : 'Use my phone'}</span><span className="mt-2 block text-xl text-muted">Scan a QR and send a photo</span></span>
+                        <span><span className="block text-4xl font-bold text-ink">{busy ? 'Preparing QR…' : 'Use my phone'}</span><span className="mt-2 block text-xl text-muted">Scan a QR code</span></span>
                       </button>
                     )}
                   />
@@ -1433,7 +1433,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {tryOnStage === 'studio' && customerPhoto && imageSource === 'catalogue' && (
               <div className="space-y-2 pb-48">
                 <div className="flex items-center justify-between gap-3 px-3 pt-2">
-                  <PageTitle size="lg" title={`Pick up to ${MAX_LOOKS} outfits`} subtitle="From any category. We create a look for each one at the same time." />
+                  <PageTitle size="lg" title={`Pick up to ${MAX_LOOKS} outfits`} />
                   <button type="button" onClick={() => void openCameraFor('catalogue-person')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
                     <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-14 rounded-lg object-cover" />
                     <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
@@ -1441,7 +1441,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 </div>
                 <div className="tv-catalogue-shell grid gap-1.5">
                   <aside className="tv-category-sidebar tf-card mx-1.5 p-2.5" aria-label="Garment categories">
-                    <p className="px-1 pb-2 text-base font-bold text-ink">Our collection</p>
                     <div className="tv-kiosk-filters flex flex-col gap-1">
                       {railTabs.map((tab) => {
                         const pickedHere = tab.id === 'trending' || tab.id === 'new' ? 0 : selectedLooks.filter((look) => look.category === tab.id).length;
@@ -1550,7 +1549,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               return (
                 <div className="flex flex-col md:h-[calc(100dvh-var(--tv-header-h,240px))] md:overflow-hidden">
                   <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
-                    <PageTitle size="lg" title="Your own outfit" subtitle={ownGarmentType ? 'Hold the garment up to the camera, or lay it flat.' : 'First choose what you are showing.'} />
+                    <PageTitle size="lg" title="Your own outfit" subtitle={ownGarmentType ? 'Hold it up or lay it flat.' : undefined} />
                     <button type="button" onClick={() => void openCameraFor('own-person')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
                       <img src={customerPhoto} alt="Your photo" className="aspect-[9/16] h-14 rounded-lg object-cover" />
                       <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />photo</span>
@@ -1601,7 +1600,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                         ) : (
                           <div className="flex h-full w-full flex-col items-center justify-center gap-8 bg-[#F1EEE9] p-8 text-muted">
                             <OwnOutfitIllustration className="h-64 w-64" />
-                            <span className="max-w-md text-2xl font-semibold text-ink">{ownGarmentType ? 'Open the camera to photograph your garment' : 'Choose what you are showing on the left'}</span>
+                            <span className="max-w-md text-2xl font-semibold text-ink">{ownGarmentType ? chosenLabel : 'Choose what you are showing'}</span>
                             {ownGarmentType && (
                               <button type="button" onClick={() => void openCameraFor('own-garment')} className="tf-btn tf-btn-dark !min-h-20 w-full max-w-md text-xl font-bold"><Camera className="h-6 w-6" /> Open the camera</button>
                             )}
@@ -1612,7 +1611,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line bg-white px-6 py-3.5 shadow-sm">
-                    <p className="text-lg font-semibold">{ownGarmentPhoto && chosenLabel ? chosenLabel : ownGarmentType ? `Photograph your ${chosenLabel.toLowerCase()}` : 'Choose what you are showing'}</p>
+                    <p className="text-lg font-semibold">{chosenLabel || 'Choose what you are showing'}</p>
                     <div className="flex shrink-0 items-center gap-3">
                       {ownGarmentPhoto && (
                         <button type="button" onClick={retakeOwnGarment} className="tf-btn tf-btn-secondary !min-h-16 px-6 text-lg font-bold"><RefreshCw className="h-5 w-5" /> Retake</button>
@@ -1637,7 +1636,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               return (
                 <section className="tv-result-screen flex w-full flex-col" aria-live="polite">
                   <div className="shrink-0 bg-white px-5 py-2.5">
-                    <PageTitle size="lg" title={singleImageMode ? 'Creating your look' : 'Creating your looks'} subtitle={singleImageMode ? 'Ready in seconds.' : 'The first finished look opens right away. The others follow automatically.'} />
+                    <PageTitle size="lg" title={singleImageMode ? 'Creating your look' : 'Creating your looks'}  />
                   </div>
                   {singleImageMode ? (
                     <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-[#ECEEE9]">
@@ -1709,7 +1708,6 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                     <div className="flex shrink-0 items-center justify-between gap-4">
                       <div className="text-white">
                         <p className="text-2xl font-bold">{readyLooks} of {selectedLooks.length} ready</p>
-                        {batchDone < selectedLooks.length && <p className="text-sm text-white/75">Creating remaining looks in the background…</p>}
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
                         <button
@@ -1793,7 +1791,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       <div className="min-w-0 text-white">
                         {multiLook && <p className="text-xl font-semibold text-white/85">Look {activeLookIndex + 1} of {selectedLooks.length}</p>}
                         <p className="line-clamp-2 text-3xl font-bold leading-tight">{imageSource === 'own-garment' ? 'Your outfit' : selectedProduct.title}</p>
-                        {multiLook && batchDone < selectedLooks.length && <p className="mt-1 text-lg text-white/80">{batchDone} of {selectedLooks.length} ready. More are on their way.</p>}
+                        {multiLook && batchDone < selectedLooks.length && <p className="mt-1 text-lg text-white/80">{batchDone} of {selectedLooks.length} ready</p>}
                       </div>
                       <div className="pointer-events-auto flex shrink-0 items-center gap-3">
                         {multiLook && (
@@ -1884,14 +1882,14 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-8" role="dialog" aria-modal="true" aria-label="Send to my phone" onClick={() => setQrOpen(false)}>
                     <div className="tf-card relative w-full max-w-xl p-10 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
                       <button type="button" onClick={() => setQrOpen(false)} aria-label="Close" className="absolute right-4 top-4 flex h-16 w-16 items-center justify-center rounded-full bg-canvas text-ink hover:bg-line"><X className="h-8 w-8" /></button>
-                      <h3 className="text-4xl font-bold">Take your {multiLook ? 'looks' : 'look'} home</h3>
-                      <p className="mt-2 text-xl text-muted">Scan with your phone camera. The link works for 1 hour.</p>
+                      <h3 className="text-4xl font-bold">Scan to save</h3>
+                      <p className="mt-2 text-xl text-muted">Works for 1 hour.</p>
                       <div className="mx-auto mt-6 flex h-[420px] w-[420px] max-w-full items-center justify-center overflow-hidden rounded-2xl border border-line bg-white">
                         {tryOnMobileQr
                           ? <img src={tryOnMobileQr} alt="Scan to save your looks" className="h-full w-full object-contain" />
                           : <LoaderCircle className="h-12 w-12 animate-spin text-muted" />}
                       </div>
-                      <p className="mt-5 text-lg text-muted">{tryOnMobileQr ? 'Add your WhatsApp number on your phone, then save.' : (handoffStatus || (multiLook && batchDone < selectedLooks.length ? 'Your QR appears when all looks are ready.' : 'Preparing your QR…'))}</p>
+                      <p className="mt-5 text-lg text-muted">{tryOnMobileQr ? 'Use your phone camera.' : (handoffStatus || (multiLook && batchDone < selectedLooks.length ? 'Your QR appears when all looks are ready.' : 'Preparing your QR…'))}</p>
                     </div>
                   </div>
                 )}
@@ -1935,7 +1933,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         {/* A minimum bill is set: the customer enters the last 4 digits of their bill first (0 = a free gift). */}
         {mode === 'catalogue-video' && !isTablet && tvBillSuffixRequired && !tvBillEntered && (
           <div className="flex tv-fill-screen flex-col gap-6">
-            <PageTitle size="lg" title="AI Video" subtitle="A short festive video of you in a store outfit, sent to your phone." />
+            <PageTitle size="lg" title="AI Video" />
             <BillDigitsGate value={tvBillLast4} onChange={setTvBillLast4} onContinue={() => setTvBillEntered(true)} action="Continue to AI Video" />
             <PosterFill clientName={clientName} />
           </div>
@@ -1945,10 +1943,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {isTablet && videoBack && <BackButton onClick={videoBack} />}
             {videoStage === 'who' && (
               <div className="tv-who-screen flex tv-fill-screen flex-col gap-6">
-                <PageTitle size="lg" title="Who is the video for?" subtitle="A short AI Video of you in a piece from our collection." />
+                <PageTitle size="lg" title="Who is the video for?" />
                 {/* An audience with no AI Video piece yet shows "Coming soon", so no one reaches an empty list. */}
                 <AudienceCards size="lg" value={videoWhoChosen ? videoAudience : null} onChange={(audience) => { setVideoWhoChosen(true); chooseVideoAudience(audience); }} labels={AUDIENCE_LABELS} unavailable={catalogueItems.length ? (['women', 'men', 'boys', 'girls'] as const).filter((audience) => !catalogueItems.some((item) => item.gender === audience && item.price > 0 && item.eligibleForVideo === true)) : []} />
-                <PhotoGuide size="lg" lines={PHOTO_GUIDE} />
                 <PosterFill clientName={clientName} />
               </div>
             )}
@@ -1957,10 +1954,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               <div className="flex flex-col gap-6">
                 <PageTitle
                   size="lg"
-                  title={videoPersonPhoto ? 'One more thing' : 'Your photo'}
-                  subtitle={videoPersonPhoto
-                    ? ((videoAudience === 'boys' || videoAudience === 'girls') ? 'A parent or legal guardian needs to approve before we continue.' : 'Ready to continue.')
-                    : 'Stand in front of the screen, or send a photo from your phone.'}
+                  title={videoPersonPhoto ? 'Parent approval' : 'Your photo'}
                 />
                 {videoPersonPhoto ? (
                   // The photo was already shown and confirmed full screen; only the guardian consent (for a
@@ -1970,18 +1964,15 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       <button type="button" onClick={() => { setVideoPersonPhoto(''); void openCameraFor('video-person'); }} className="shrink-0 overflow-hidden rounded-xl border border-line" aria-label="Retake the photo">
                         <img src={videoPersonPhoto} alt="Your photo" className="aspect-[9/16] h-24 object-cover" />
                       </button>
-                      <p className="text-lg text-muted">Not clear? Tap the photo to retake it.</p>
+                      <p className="text-lg text-muted">Tap the photo to retake</p>
                     </div>
-                    {(videoAudience === 'boys' || videoAudience === 'girls') && (
-                      <AgreeButton size="lg" checked={videoGuardianConsent} onChange={setVideoGuardianConsent}>I am the parent or legal guardian and approve using this child’s photo for this video.</AgreeButton>
-                    )}
+                    {/* For a child, the button itself is the parent's approval (no tick box). */}
                     <button
                       type="button"
-                      disabled={(videoAudience === 'boys' || videoAudience === 'girls') && !videoGuardianConsent}
-                      onClick={() => setVideoStage('pick')}
-                      className="tf-btn tf-btn-primary !min-h-16 w-full text-lg"
+                      onClick={() => { if (videoAudience === 'boys' || videoAudience === 'girls') setVideoGuardianConsent(true); setVideoStage('pick'); }}
+                      className="tf-btn tf-btn-primary !min-h-20 w-full text-xl font-bold"
                     >
-                      Pick a piece <ArrowRight className="h-5 w-5" />
+                      {(videoAudience === 'boys' || videoAudience === 'girls') ? 'I’m the parent · Pick a piece' : 'Pick a piece'} <ArrowRight className="h-6 w-6" />
                     </button>
                   </div>
                 ) : (
@@ -2008,7 +1999,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {videoStage === 'pick' && (
               <div className="space-y-2 pb-36">
                 <div className="flex items-center justify-between gap-3 px-3 pt-2">
-                  <PageTitle size="lg" title="Pick a piece for your video" subtitle="From our collection. One piece per video." />
+                  <PageTitle size="lg" title="Pick a piece" />
                   {videoPersonPhoto && (
                     <button type="button" onClick={() => setVideoStage('photo')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-1.5 pr-3 text-left hover:border-ink">
                       <img src={videoPersonPhoto} alt="Your photo" className="aspect-[9/16] h-14 rounded-lg object-cover" />
@@ -2079,7 +2070,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {videoStage === 'look' && (
               <section className="mx-auto flex tv-fill-screen max-w-[760px] flex-col gap-6 pb-6">
                 <div className="flex items-center justify-between gap-4">
-                  <PageTitle size="lg" title="Pick a location for your video" subtitle="Your portrait is made in this scene, then the video brings it to life." />
+                  <PageTitle size="lg" title="Pick a location" />
                   <button type="button" onClick={() => setVideoStage('pick')} className="group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
                     <img src={selectedProduct.thumbnailUrl || selectedProduct.imageUrl} alt="" className="h-16 w-13 rounded-lg object-cover" />
                     <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />piece</span>
@@ -2128,7 +2119,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {videoStage === 'portrait' && (
               <section className="tv-result-screen flex w-full flex-col" aria-live="polite">
                 <div className="flex shrink-0 items-center justify-between gap-4 bg-white px-5 py-2.5">
-                  <PageTitle size="lg" title={videoGeneratingMaster ? 'Creating your portrait' : 'Your portrait'} subtitle={videoGeneratingMaster ? 'About 20 seconds.' : videoStatusNote} />
+                  <PageTitle size="lg" title={videoGeneratingMaster ? 'Creating your portrait' : 'Your portrait'} subtitle={videoGeneratingMaster ? undefined : videoStatusNote} />
                   {videoMasterUrl && !videoGeneratingMaster && (
                     <HelpRetry
                       size="tv"
@@ -2181,7 +2172,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                       <div className="tf-card flex shrink-0 items-center justify-between gap-5 p-5 shadow-xl">
                         <div className="min-w-0 flex-1">
                           <h3 className="text-3xl font-bold">Scan to see your AI Video</h3>
-                          <p className="mt-1 text-xl text-muted">The video starts the moment you scan. Then download it, send it on WhatsApp or show it on our Go Live screen. It works for 1 day.</p>
+                          <p className="mt-1 text-xl text-muted">Starts when you scan. Works for 1 day.</p>
                           {/* 2 minutes to scan, make the video and download or Go Live on the phone, the last minute in
                               red, then the session ends on its own. Starts once the QR actually shows. */}
                           {videoPassQr && !videoGeneratingMaster && <div className="mt-3"><SessionTimer key={videoPassQr} label="Download or Go Live within" onExpire={endSession} /></div>}
@@ -2272,7 +2263,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               <div className="flex min-h-0 flex-1 flex-col justify-between px-4 py-2 sm:px-6">
                 <div className="flex flex-col items-center gap-3">
                   <p className="pointer-events-none rounded-full bg-ink px-6 py-2 text-center text-lg font-semibold shadow-lg">
-                    Step back so your whole body is in the frame
+                    Step back · full body in frame
                   </p>
 
                   {/* Upload-from-phone QR in its own row below the top guidance banners so controls never overlap */}
@@ -2303,18 +2294,15 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {/* In-flow bottom controls row */}
             <div className="flex shrink-0 flex-col items-center gap-5 bg-gradient-to-t from-black/80 via-black/30 to-transparent pb-8 pt-10 sm:pb-10">
               {pendingPhoto ? (
-                // Confirm right here: Retry sits where the capture button was, Use this photo is the one next step.
-                // A child's photo also waits on the guardian's tick.
+                // Confirm right here: Retake sits where the capture button was, Use this photo is the one next step.
+                // For a child, that same button is the parent's approval (no tick box).
                 <div className="w-full max-w-xl space-y-4 px-6">
-                {kidsOnCamera && (
-                  <AgreeButton size="lg" checked={tryOnGuardianConsent} onChange={setTryOnGuardianConsent}>I am the parent or guardian and approve using this child’s photo.</AgreeButton>
-                )}
                 <div className="grid grid-cols-2 gap-4">
                   <button type="button" onClick={retryPendingPhoto} className="tf-btn !min-h-20 w-full border-2 border-white bg-white text-xl font-bold text-ink hover:bg-canvas">
                     <RefreshCw className="h-6 w-6" /> Retake
                   </button>
-                  <button type="button" disabled={kidsOnCamera && (!kidPick || !tryOnGuardianConsent)} onClick={confirmPendingPhoto} className="tf-btn tf-btn-primary !min-h-20 w-full text-xl font-bold disabled:opacity-50">
-                    <Check className="h-6 w-6" /> Use this photo
+                  <button type="button" disabled={kidsOnCamera && !kidPick} onClick={() => { if (kidsOnCamera) setTryOnGuardianConsent(true); confirmPendingPhoto(); }} className="tf-btn tf-btn-primary !min-h-20 w-full text-xl font-bold disabled:opacity-50">
+                    <Check className="h-6 w-6 shrink-0" /> {kidsOnCamera ? 'I’m the parent · Use this photo' : 'Use this photo'}
                   </button>
                 </div>
                 </div>

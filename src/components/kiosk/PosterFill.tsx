@@ -78,7 +78,6 @@ export default function PosterFill({ clientName }: { clientName: string }) {
           {logo
             ? <img src={logo} alt={clientName} className="max-h-[160px] max-w-[70%] object-contain" />
             : <p className="text-5xl font-bold text-ink">{clientName}</p>}
-          <p className="text-2xl font-semibold text-muted">See yourself in every outfit, in seconds</p>
         </div>
       ))}
     </div>

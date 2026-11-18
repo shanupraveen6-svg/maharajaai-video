@@ -275,6 +275,8 @@ html:has(.tv-kiosk), body:has(.tv-kiosk) { overscroll-behavior: none; }
 .tv-kiosk-content { width: min(100%, 1080px); max-width: 1080px; padding: 22px 28px 130px; }
 .tv-kiosk .tv-kiosk-content.is-full-bleed { width: 100%; max-width: none; padding: 0; }
 .tv-kiosk .tv-kiosk-content.is-full-bleed .tv-result-screen { height: calc(100dvh - var(--tv-header-h, 240px)); max-width: none; width: 100%; gap: 0; }
+/* Live Try-On camera: exactly the height under the header, the camera taking all of it but the outfit row. */
+.tv-live-screen { height: calc(100dvh - var(--tv-header-h, 240px)); }
 .tv-main-header { width: 100%; }
 .tv-mode-nav { grid-template-columns: 1.35fr 1fr 1fr; }
 .tv-mode-nav { width: auto; }
