@@ -68,9 +68,9 @@ export default function GarmentRail({
               <span className="block w-full overflow-hidden">
                 <img src={item.thumbnailUrl || item.imageUrl} alt="" loading="lazy" className="block h-auto w-full" />
               </span>
-              {max > 1 && (
-                <span className={`absolute right-2.5 top-2.5 flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>
-                  {picked ? index + 1 : '+'}
+              {max > 1 && picked && (
+                <span className="absolute right-2.5 top-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-ink text-lg font-bold text-white shadow">
+                  {index + 1}
                 </span>
               )}
               <span className="block truncate px-2 py-1 text-sm font-semibold leading-tight text-ink">{item.title}</span>

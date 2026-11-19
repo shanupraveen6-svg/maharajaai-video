@@ -1488,7 +1488,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                                     className="h-full w-full object-cover object-top"
                                   />
                                 </span>
-                                <span className={`absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full text-base font-bold shadow ${picked ? 'bg-ink text-white' : 'bg-white/90 text-ink'}`}>{picked ? pickIndex + 1 : '+'}</span>
+                                {picked && <span className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ink text-base font-bold text-white shadow">{pickIndex + 1}</span>}
                                 <span className="block truncate px-2 py-1 text-sm font-semibold leading-tight text-ink">{item.title}</span>
                               </button>
                             );
