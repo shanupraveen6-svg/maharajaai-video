@@ -407,10 +407,7 @@ export default function LucyLiveMirror({
   }
 
   function backToWho() {
-    stopEverything();
-    setSession('idle');
-    setGarment(null);
-    setPhase('who');
+    endSession();
   }
 
   function endSession() {

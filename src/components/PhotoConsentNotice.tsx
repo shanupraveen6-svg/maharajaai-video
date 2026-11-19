@@ -25,6 +25,44 @@ const DETAILS: Record<ConsentKind, string> = {
  */
 export default function PhotoConsentNotice({ kind, large = false, kiosk = false }: { kind: ConsentKind; large?: boolean; /** Shared store screen: no Privacy link (a new tab would leave the kiosk); Details opens in place. */ kiosk?: boolean }) {
   const [open, setOpen] = useState(false);
+
+  if (kind === 'live' && kiosk) {
+    return (
+      <div className="text-left">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-white px-4 py-2.5 shadow-sm">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <ShieldCheck className="h-6 w-6 shrink-0 text-success" aria-hidden="true" />
+            <p className="min-w-0 flex-1 truncate whitespace-nowrap text-sm font-medium text-muted">
+              By starting, you agree to live AI camera try-on · deleted after session.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={open ? 'Hide Live Try-On privacy details' : 'Show Live Try-On privacy details'}
+            onClick={() => setOpen((value) => !value)}
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border transition ${open ? 'border-ink bg-ink text-white' : 'border-line-strong bg-canvas text-ink hover:border-ink'}`}
+          >
+            <Info className="h-6 w-6" aria-hidden="true" />
+          </button>
+        </div>
+        {open && (
+          <div className="mt-2.5 space-y-2 rounded-2xl border border-line bg-white p-4 text-sm leading-relaxed text-muted shadow-sm">
+            <p>
+              By starting, you agree that your camera is streamed to our AI partner (Fal.ai · Lucy live try-on) for each 30-second live try-on.
+            </p>
+            <p>
+              Videos play back on this screen only and are deleted as soon as you end the session — nothing is uploaded or kept.
+            </p>
+            <p>
+              A parent or guardian must approve before starting for a child.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={`text-left leading-relaxed text-muted ${large ? 'text-base' : 'text-[13px]'}`}>
       <p className="flex items-start gap-2">

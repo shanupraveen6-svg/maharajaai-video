@@ -1180,6 +1180,9 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     handoffTriggeredRef.current = false;
     stopCamera();
     setCameraOpen(false);
+    setPendingPhoto('');
+    setPendingFromCamera(false);
+    setCameraError('');
     setImageSource('catalogue');
     setGenderFilter('women');
     setActiveCategory('sarees');
@@ -1267,7 +1270,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   // One step back, in place of a progress bar. TV and tablet share one Try-On flow:
   // Who → photo → Store collection or My own outfit → outfits.
   const canTryOnBack = tryOnStage === 'studio';
-  const tryOnBack = () => { stopCamera(); setCameraOpen(false); setPendingPhoto(''); setTryOnStage('who'); };
+  const tryOnBack = () => { endSession(); };
   const kidsPending = whoGroup === 'kids' && !kidPick;
   // TV header: Home (each tab's Who screen) shows the three tabs. Once a customer is past Who in the open tab,
   // the tabs give way to Back and End session (plus Store collection | Own try-on inside Image Try-On), so a
@@ -1287,7 +1290,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     ...filteredCategories.map((cat) => ({ id: cat.id as string, label: cat.label })),
   ];
   const railActive = showTrending ? 'trending' : showNewArrivals ? 'new' : (activeCategory as string);
-  const videoBack = videoStage === 'photo' ? () => setVideoStage('who')
+  const videoBack = videoStage === 'photo' ? () => endSession()
     : videoStage === 'pick' ? () => setVideoStage('photo')
     : videoStage === 'look' ? () => setVideoStage('pick')
     : null;
@@ -2232,15 +2235,11 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  stopCamera();
-                  setCameraOpen(false);
-                  setPendingPhoto('');
-                }}
-                className="tv-pill flex min-h-16 shrink-0 items-center gap-2 rounded-xl border-2 border-white bg-white px-5 text-base font-bold text-ink hover:bg-canvas"
+                onClick={endSession}
+                className="tv-pill flex min-h-16 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border-2 border-white bg-white px-5 text-base font-bold text-danger hover:bg-canvas"
               >
-                <X className="h-5 w-5" />
-                Close camera
+                <X className="h-5 w-5 shrink-0" />
+                End session
               </button>
             </div>
 
