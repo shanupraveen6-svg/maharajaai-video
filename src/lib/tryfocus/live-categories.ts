@@ -48,6 +48,18 @@ function interleaveNewArrivals(buckets: TryFocusProduct[][], maxItems: number): 
   return result;
 }
 
+/** Groups a flat item list by category in first-seen order and interleaves round-robin. */
+export function interleaveByCategory(items: TryFocusProduct[], maxItems = items.length): TryFocusProduct[] {
+  const bucketsByCategory = new Map<string, TryFocusProduct[]>();
+  for (const item of items) {
+    const key = String(item.category || 'other');
+    const bucket = bucketsByCategory.get(key);
+    if (bucket) bucket.push(item);
+    else bucketsByCategory.set(key, [item]);
+  }
+  return interleaveNewArrivals(Array.from(bucketsByCategory.values()), maxItems);
+}
+
 function buildDefaultCategoryTabs(
   audienceItems: TryFocusProduct[],
   gender: CatalogueAudience,
@@ -72,10 +84,11 @@ function buildDefaultCategoryTabs(
 }
 
 /**
- * Structures Live Try-On category tabs per audience:
- * - Men: Shirts (formal + casual), T-Shirts, Pants, plus a mixed New Arrivals tab across all Men's western categories (including Suits & Blazers).
+ * Structures Live Try-On category tabs per audience (Western only — no ethnic wear):
+ * - Men: Shirts (formal + casual), T-Shirts, Pants, plus a mixed New Arrivals tab across all Men's western categories.
  * - Women: Tops & Tees, Bottoms, Dresses, plus a mixed New Arrivals tab across all Women's western categories.
- * - Boys / Girls: Store categories in order, with New Arrivals appended when 2+ categories exist.
+ * - Boys: Top, Bottom, plus a mixed New Arrivals tab across all Boys' western categories.
+ * - Girls: Tops & Tees, Bottoms, Dresses & Sets, plus a mixed New Arrivals tab across all Girls' western categories.
  */
 export function buildLiveMirrorTabs(
   items: TryFocusProduct[],
@@ -147,12 +160,58 @@ export function buildLiveMirrorTabs(
     return defaultTabs;
   }
 
-  if (defaultTabs.length >= 2) {
-    const mixed = interleaveNewArrivals(allCategoryBuckets, 30);
-    return [
-      ...defaultTabs,
-      ...(mixed.length ? [{ id: 'live-new-arrivals', label: 'New Arrivals', items: mixed }] : []),
-    ];
+  if (gender === 'boys') {
+    const coreTabs: LiveMirrorTab[] = [
+      {
+        id: 'live-boys-top',
+        label: 'Top',
+        items: audienceItems.filter((i) => i.category === 'boys-top'),
+      },
+      {
+        id: 'live-boys-bottom',
+        label: 'Bottom',
+        items: audienceItems.filter((i) => i.category === 'boys-bottom'),
+      },
+    ].filter((tab) => tab.items.length > 0);
+
+    if (coreTabs.length > 0) {
+      const mixed = interleaveNewArrivals(allCategoryBuckets, 30);
+      return [
+        ...coreTabs,
+        ...(mixed.length ? [{ id: 'live-new-arrivals', label: 'New Arrivals', items: mixed }] : []),
+      ];
+    }
+    return defaultTabs;
   }
+
+  if (gender === 'girls') {
+    const coreTabs: LiveMirrorTab[] = [
+      {
+        id: 'live-girls-tops',
+        label: 'Tops & Tees',
+        items: audienceItems.filter((i) => i.category === 'girls-tops'),
+      },
+      {
+        id: 'live-girls-bottoms',
+        label: 'Bottoms',
+        items: audienceItems.filter((i) => i.category === 'girls-bottoms'),
+      },
+      {
+        id: 'live-girls-dresses',
+        label: 'Dresses & Sets',
+        items: audienceItems.filter((i) => i.category === 'girls-dresses'),
+      },
+    ].filter((tab) => tab.items.length > 0);
+
+    if (coreTabs.length > 0) {
+      const mixed = interleaveNewArrivals(allCategoryBuckets, 36);
+      return [
+        ...coreTabs,
+        ...(mixed.length ? [{ id: 'live-new-arrivals', label: 'New Arrivals', items: mixed }] : []),
+      ];
+    }
+    return defaultTabs;
+  }
+
   return defaultTabs;
 }

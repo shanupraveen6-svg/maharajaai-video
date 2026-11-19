@@ -1,7 +1,8 @@
 // A store's own custom category (see store-categories.ts) carries any other id string; the `(string & {})`
 // member keeps autocomplete for these known ones while still accepting that.
-export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'salwar-suits' | 'lehengas' | 'gowns' | 'blouses' | 'western-tops' | 'women-bottoms' | 'women-dresses' | 'women-occasion' | 'formal-shirts' | 'casual-shirts' | 'tshirts' | 'trousers' | 'sherwanis' | 'blazers' | 'men-occasion' | 'boys-sherwani' | 'boys-jacket' | 'boys-shirt-trouser' | 'boys-festive' | 'boys-casual' | 'boys-dhoti' | 'boys-party' | 'girls-half-saree' | 'girls-kurti' | 'girls-salwar' | 'girls-gown' | 'girls-festive' | 'girls-party' | 'girls-anarkali' | 'anarkali' | 'shirts' | (string & {});
+export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'salwar-suits' | 'lehengas' | 'gowns' | 'blouses' | 'western-tops' | 'women-bottoms' | 'women-dresses' | 'women-occasion' | 'formal-shirts' | 'casual-shirts' | 'tshirts' | 'trousers' | 'sherwanis' | 'blazers' | 'men-occasion' | 'boys-top' | 'boys-bottom' | 'boys-ethnic' | 'boys-sherwani' | 'boys-jacket' | 'boys-shirt-trouser' | 'boys-festive' | 'boys-casual' | 'boys-dhoti' | 'boys-party' | 'girls-tops' | 'girls-bottoms' | 'girls-dresses' | 'girls-ethnic' | 'girls-half-saree' | 'girls-kurti' | 'girls-salwar' | 'girls-gown' | 'girls-festive' | 'girls-party' | 'girls-anarkali' | 'anarkali' | 'shirts' | (string & {});
 import { maharajaClientSamples } from './maharaja-client-samples';
+import { maharajaKidsCatalogue } from './maharaja-kids-catalogue';
 import { maharajaWomenAdditions } from './maharaja-women-additions';
 import { maharajaWomenLiveAdditions } from './maharaja-women-live';
 
@@ -27,7 +28,7 @@ export type TryFocusProduct = {
   newArrivalOnly?: boolean;
   trending?: boolean;
   createdAt?: string;
-  garmentType: 'saree' | 'half_saree' | 'salwar' | 'lehenga' | 'kurta_dhoti' | 'dhoti_veshti' | 'shirt_pant' | 'tshirt_bottom' | 'top' | 'trousers' | 'jacket' | 'one_piece' | 'pattu_pavadai';
+  garmentType: 'saree' | 'half_saree' | 'salwar' | 'lehenga' | 'kurta_dhoti' | 'dhoti_veshti' | 'shirt_pant' | 'tshirt_bottom' | 'top' | 'trousers' | 'jacket' | 'one_piece' | 'two_piece' | 'boy_ethnic' | 'pattu_pavadai';
 };
 
 export const catalogueCategories = [
@@ -54,6 +55,9 @@ export const catalogueCategories = [
   { id: 'blazers', label: 'Suits & Blazers', description: 'Suits & Blazers', subtitle: 'Suits & Blazers', audience: 'Men', gender: 'men', garmentType: 'jacket' , westernTryOnEligible: true },
   { id: 'sherwanis', label: 'Sherwanis', description: 'Sherwanis', subtitle: 'Sherwanis', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' , westernTryOnEligible: false },
   { id: 'men-occasion', label: 'Occasion Sets', description: 'Occasion Sets', subtitle: 'Occasion Sets', audience: 'Men', gender: 'men', garmentType: 'kurta_dhoti' , westernTryOnEligible: false },
+  { id: 'boys-top', label: 'Top', description: 'Boys shirts & casual tops', subtitle: 'Boys shirts & casual tops', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' , westernTryOnEligible: true },
+  { id: 'boys-bottom', label: 'Bottom', description: 'Boys jeans, cargos & trousers', subtitle: 'Boys jeans, cargos & trousers', audience: 'Boys', gender: 'boys', garmentType: 'trousers' , westernTryOnEligible: true },
+  { id: 'boys-ethnic', label: 'Ethnic', description: 'Boys kurtas, sherwanis & festive wear', subtitle: 'Boys kurtas, sherwanis & festive wear', audience: 'Boys', gender: 'boys', garmentType: 'boy_ethnic' , westernTryOnEligible: false },
   { id: 'boys-shirt-trouser', label: 'Shirts & Trousers', description: 'Shirts & Trousers', subtitle: 'Shirts & Trousers', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' , westernTryOnEligible: true },
   { id: 'boys-casual', label: 'Casual Wear', description: 'Casual Wear', subtitle: 'Casual Wear', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' , westernTryOnEligible: true },
   { id: 'boys-party', label: 'Party Wear', description: 'Party Wear', subtitle: 'Party Wear', audience: 'Boys', gender: 'boys', garmentType: 'shirt_pant' , westernTryOnEligible: true },
@@ -64,6 +68,10 @@ export const catalogueCategories = [
   { id: 'boys-festive', label: 'Festive Sets', description: 'Festive Sets', subtitle: 'Festive Sets', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti' , westernTryOnEligible: false },
   { id: 'boys-jacket', label: 'Jackets & Waistcoats', description: 'Jackets & Waistcoats', subtitle: 'Jackets & Waistcoats', audience: 'Boys', gender: 'boys', garmentType: 'jacket' , westernTryOnEligible: true },
   { id: 'boys-sherwani', label: 'Sherwanis', description: 'Sherwanis', subtitle: 'Sherwanis', audience: 'Boys', gender: 'boys', garmentType: 'kurta_dhoti' , westernTryOnEligible: false },
+  { id: 'girls-tops', label: 'Tops & Tees', description: 'Girls tops, tees & sweaters', subtitle: 'Girls tops, tees & sweaters', audience: 'Girls', gender: 'girls', garmentType: 'top' , westernTryOnEligible: true },
+  { id: 'girls-bottoms', label: 'Bottoms', description: 'Girls jeans, cargos & trousers', subtitle: 'Girls jeans, cargos & trousers', audience: 'Girls', gender: 'girls', garmentType: 'trousers' , westernTryOnEligible: true },
+  { id: 'girls-dresses', label: 'Dresses & Sets', description: 'Girls dresses & western co-ord sets', subtitle: 'Girls dresses & western co-ord sets', audience: 'Girls', gender: 'girls', garmentType: 'one_piece' , westernTryOnEligible: true },
+  { id: 'girls-ethnic', label: 'Ethnic Wear', description: 'Girls ethnic suits, shararas & festive wear', subtitle: 'Girls ethnic suits, shararas & festive wear', audience: 'Girls', gender: 'girls', garmentType: 'salwar' , westernTryOnEligible: false },
   { id: 'girls-frock', label: 'Silk Frocks', description: 'Silk occasion dresses for girls', subtitle: 'Silk occasion dresses for girls', audience: 'Girls', gender: 'girls', garmentType: 'one_piece' , westernTryOnEligible: false },
   { id: 'girls-party', label: 'Party Dresses', description: 'Party Dresses', subtitle: 'Party Dresses', audience: 'Girls', gender: 'girls', garmentType: 'one_piece' , westernTryOnEligible: true },
   { id: 'girls-pavadai', label: 'Pattu Pavadai', description: 'Silk skirt sets for girls', subtitle: 'Silk skirt sets for girls', audience: 'Girls', gender: 'girls', garmentType: 'pattu_pavadai' , westernTryOnEligible: false },
@@ -457,6 +465,7 @@ const rawSampleCatalogue: Array<Omit<TryFocusProduct, 'gender'>> = [
 ];
 
 export const sampleCatalogue: TryFocusProduct[] = [
+  ...maharajaKidsCatalogue,
   ...maharajaWomenLiveAdditions,
   ...maharajaWomenAdditions,
   ...maharajaClientSamples,

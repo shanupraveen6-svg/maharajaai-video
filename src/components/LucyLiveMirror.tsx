@@ -547,8 +547,8 @@ export default function LucyLiveMirror({
         {cameraOn && session === 'idle' && garment && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 p-8">
             {/* For a child, this tap is the parent's approval (no tick box). */}
-            <button type="button" onClick={() => { if (isChild) setGuardianConsent(true); startSession(garment, isChild); }} className="tv-hero-btn tf-btn tf-btn-primary !min-h-24 !w-auto px-12 text-3xl shadow-2xl">
-              <Sparkles className="h-9 w-9" /> {isChild ? 'I’m the parent · Start' : 'Start Live Try-On'}
+            <button type="button" onClick={() => { if (isChild) setGuardianConsent(true); startSession(garment, isChild); }} className="tv-hero-btn tf-btn tf-btn-primary !min-h-24 !w-auto max-w-full whitespace-nowrap px-12 text-3xl shadow-2xl">
+              <Sparkles className="h-9 w-9 shrink-0" /> {isChild ? 'I’m the parent · Start' : 'Start Live Try-On'}
             </button>
             <p className="rounded-full bg-ink px-5 py-2 text-lg font-semibold text-white shadow-lg">{garment.title}</p>
           </div>

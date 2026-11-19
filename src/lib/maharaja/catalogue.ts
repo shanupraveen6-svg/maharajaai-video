@@ -281,6 +281,24 @@ function maharajaMenVideoPrice(sku: string, category: CatalogueCategoryId): numb
   return 5150 + ((n >>> 4) % 6) * 450 + suffix;
 }
 
+function maharajaKidsVideoPrice(sku: string, category: CatalogueCategoryId): number {
+  let hash = 2166136261;
+  for (let i = 0; i < sku.length; i += 1) {
+    hash ^= sku.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const n = hash >>> 0;
+  const priceSuffixes = [0, 49, 99, 149, 199, 249, 299, 349, 399, 449, 499, 549, 599, 649];
+  const suffix = priceSuffixes[n % priceSuffixes.length];
+  if (category === 'boys-ethnic' || category === 'girls-ethnic') {
+    return 3500 + ((n >>> 4) % 14) * 200 + suffix;
+  }
+  if (category === 'girls-dresses') {
+    return 3350 + ((n >>> 4) % 8) * 150 + suffix;
+  }
+  return 3150 + ((n >>> 4) % 7) * 150 + suffix;
+}
+
 const REMOVED_MAHARAJA_SKUS = new Set([
   'MAH-CLIENT-10',
   'MAH-CLIENT-24',
@@ -298,6 +316,11 @@ const MAHARAJA_WESTERN_LIVE_CATEGORIES = new Set<string>([
   'tshirts',
   'trousers',
   'blazers',
+  'boys-top',
+  'boys-bottom',
+  'girls-tops',
+  'girls-bottoms',
+  'girls-dresses',
 ]);
 
 function applyMaharajaCatalogueRules(item: MaharajaCatalogueProduct): MaharajaCatalogueProduct | null {
@@ -305,7 +328,8 @@ function applyMaharajaCatalogueRules(item: MaharajaCatalogueProduct): MaharajaCa
   if (
     item.category === 'angavastram' ||
     REMOVED_MAHARAJA_SKUS.has(item.sku) ||
-    /^MAH-WOMEN-WOMEN-BOTTOMS-/.test(item.sku)
+    /^MAH-WOMEN-WOMEN-BOTTOMS-/.test(item.sku) ||
+    /^MAH-(BOYS|GIRLS)-/.test(item.sku)
   ) {
     return null;
   }
@@ -321,18 +345,26 @@ function applyMaharajaCatalogueRules(item: MaharajaCatalogueProduct): MaharajaCa
     };
   }
 
-  if ((next.gender === 'women' || next.gender === 'men') && next.active !== false && !/^MAH-(BOYS|GIRLS)-/.test(next.sku)) {
+  if ((next.gender === 'women' || next.gender === 'men' || next.gender === 'boys' || next.gender === 'girls') && next.active !== false) {
     const live = MAHARAJA_WESTERN_LIVE_CATEGORIES.has(next.category);
     if (next.eligibleForLive !== live) {
       next = { ...next, eligibleForLive: live };
     }
   }
 
-  if (next.gender === 'men' && next.active !== false && !/^MAH-(MEN|WOMEN|BOYS|GIRLS)-/.test(next.sku)) {
+  if (next.gender === 'men' && next.active !== false && !/^MAH-(MEN|WOMEN)-/.test(next.sku)) {
     next = {
       ...next,
       eligibleForVideo: true,
       price: next.price > 5000 ? next.price : maharajaMenVideoPrice(next.sku, next.category),
+    };
+  }
+
+  if ((next.gender === 'boys' || next.gender === 'girls') && next.active !== false) {
+    next = {
+      ...next,
+      eligibleForVideo: true,
+      price: next.price > 3000 ? next.price : maharajaKidsVideoPrice(next.sku, next.category),
     };
   }
 

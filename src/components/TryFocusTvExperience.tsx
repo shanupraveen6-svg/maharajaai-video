@@ -36,7 +36,7 @@ import TvIdleLoop from '@/components/TvIdleLoop';
 import TvOfflineNotice from '@/components/TvOfflineNotice';
 import { downloadBrandedQr } from '@/lib/maharaja/branded-qr';
 import Link from 'next/link';
-import { isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
+import { interleaveByCategory, isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import PhonePhotoTransfer from '@/components/PhonePhotoTransfer';
 import {
   events,
@@ -367,17 +367,28 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     const next = filteredCategories[0];
     if (next) setActiveCategory(next.id);
   }, [filteredCategories, activeCategory, catalogueItems]);
-  const browseProducts = catalogueItems.filter((item) => item.gender === genderFilter &&
-    (showTrending ? item.trending === true
-      : showNewArrivals ? item.badge === 'NEW ARRIVAL'
-        : item.category === activeCategory));
+  const browseProducts = showNewArrivals
+    ? interleaveByCategory(catalogueItems.filter((item) => item.gender === genderFilter && item.badge === 'NEW ARRIVAL'))
+    : catalogueItems.filter((item) => item.gender === genderFilter &&
+        (showTrending ? item.trending === true : item.category === activeCategory));
   // AI Video uses only the pieces the store switched on for it.
   const videoAudienceProducts = catalogueItems.filter((item) => item.price > 0 && item.eligibleForVideo === true && item.gender === videoAudience);
   const videoCategories = categoriesFor(videoCategoryLists, videoAudience, customCategories).filter((cat) => videoAudienceProducts.some((item) => item.category === cat.id));
+  const videoNewArrivals = interleaveByCategory(videoAudienceProducts.filter((item) => item.badge === 'NEW ARRIVAL'));
+  const videoTabs = [
+    ...videoCategories.map((cat) => ({
+      id: cat.id as string,
+      label: cat.label,
+      count: videoAudienceProducts.filter((item) => item.category === cat.id).length,
+    })),
+    ...(videoNewArrivals.length > 0 ? [{ id: 'new', label: 'New Arrivals', count: videoNewArrivals.length }] : []),
+  ];
   // The 3 locations for this audience, so the customer picks one before the portrait is made.
   const videoLooks = useMemo(() => conceptsForCategory(VIDEO_CATEGORY_OF[videoAudience]), [videoAudience]);
-  const activeVideoCategory = videoCategories.some((cat) => cat.id === videoCategory) ? videoCategory : videoCategories[0]?.id || '';
-  const videoBrowseProducts = videoAudienceProducts.filter((item) => !activeVideoCategory || item.category === activeVideoCategory);
+  const activeVideoCategory = videoTabs.some((tab) => tab.id === videoCategory) ? videoCategory : videoTabs[0]?.id || '';
+  const videoBrowseProducts = activeVideoCategory === 'new'
+    ? videoNewArrivals
+    : videoAudienceProducts.filter((item) => !activeVideoCategory || item.category === activeVideoCategory);
 
   // Live Try-On names its categories in the store's order; it shows only those holding a switched-on garment.
   const liveCategories = useMemo(() => Object.fromEntries((['women', 'men', 'boys', 'girls'] as const).map((audience) => [
@@ -570,21 +581,21 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     }
   }, [pendingPhoto, cameraOpen]);
 
-  function confirmPendingPhoto() {
+  function confirmPendingPhoto(parentApproved = false) {
     const target = cameraTarget;
     const dataUrl = pendingPhoto;
     stopCamera();
     setCameraOpen(false);
     setPendingPhoto('');
-    applyCapturedPhoto(target, dataUrl);
+    applyCapturedPhoto(target, dataUrl, parentApproved === true);
   }
 
   /**
    * Applied once the customer confirms "Use this photo" in the full-screen dialog (camera or phone QR).
    * The photo was already shown and confirmed there, so there is no second preview screen: an adult goes
-   * straight on; a child's photo still waits on the guardian-consent tick, shown as a small thumbnail.
+   * straight on; a child's photo goes straight on too once approved with the single parent submit button.
    */
-  function applyCapturedPhoto(target: CameraTarget, dataUrl: string) {
+  function applyCapturedPhoto(target: CameraTarget, dataUrl: string, parentApproved = false) {
     if (target === 'catalogue-person' || target === 'own-person') {
       // Same screen: the photo takes the camera's place, the outfits are picked under it.
       setCustomerPhoto(dataUrl);
@@ -610,7 +621,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       setVideoPassCode('');
       setVideoPortraitApproved(false);
       setVideoStatusNote('');
-      setVideoStage(videoAudience === 'boys' || videoAudience === 'girls' ? 'photo' : 'pick');
+      const isVideoKid = videoAudience === 'boys' || videoAudience === 'girls';
+      setVideoStage(isVideoKid && parentApproved !== true ? 'photo' : 'pick');
     }
   }
 
@@ -1265,6 +1277,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     : tryOnStage !== 'who';
   const imageSourceTabs = (mode === 'image-tryon') && tryOnStage === 'studio' && Boolean(customerPhoto);
   const kidsOnCamera = whoGroup === 'kids' && (cameraTarget === 'catalogue-person' || cameraTarget === 'own-person');
+  const videoKidsOnCamera = cameraTarget === 'video-person' && (videoAudience === 'boys' || videoAudience === 'girls');
+  const anyKidsCameraConfirm = kidsOnCamera || videoKidsOnCamera;
   const shutterLocked = kidsPending && kidsOnCamera;
   const consentMissing = (genderFilter === 'boys' || genderFilter === 'girls') && !tryOnGuardianConsent;
   const railTabs = [
@@ -1574,7 +1588,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                             <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center bg-gradient-to-t from-black/85 via-black/40 to-transparent px-5 pb-6 pt-12">
                               <div className="grid w-full max-w-xl grid-cols-2 gap-4">
                                 <button type="button" onClick={retryPendingPhoto} className="tf-btn !min-h-20 w-full border-2 border-white bg-white text-xl font-bold text-ink hover:bg-canvas"><RefreshCw className="h-6 w-6" /> Retake</button>
-                                <button type="button" onClick={confirmPendingPhoto} className="tf-btn tf-btn-primary !min-h-20 w-full text-xl font-bold"><Check className="h-6 w-6" /> Use this photo</button>
+                                <button type="button" onClick={() => confirmPendingPhoto()} className="tf-btn tf-btn-primary !min-h-20 w-full text-xl font-bold"><Check className="h-6 w-6" /> Use this photo</button>
                               </div>
                             </div>
                           </>
@@ -1922,24 +1936,35 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                   title={videoPersonPhoto ? 'Parent approval' : 'Your photo'}
                 />
                 {videoPersonPhoto ? (
-                  // The photo was already shown and confirmed full screen; only the guardian consent (for a
-                  // child) is left before continuing, with just a small thumbnail as a reminder.
-                  <div className="tf-card mx-auto flex w-full max-w-2xl flex-col gap-5 p-7">
-                    <div className="flex items-center gap-5">
-                      <img src={videoPersonPhoto} alt="Your photo" className="aspect-[9/16] h-28 shrink-0 rounded-xl border border-line object-cover" />
-                      <button type="button" onClick={() => { setVideoPersonPhoto(''); void openCameraFor('video-person'); }} className="tf-btn tf-btn-secondary !min-h-20 flex-1 text-xl font-bold">
-                        <RefreshCw className="h-6 w-6" /> Retake
+                  (videoAudience === 'boys' || videoAudience === 'girls') ? (
+                    // For a child, show a clean centered photo preview and one single-line parent submit button (header Back revokes the flow).
+                    <div className="tf-card mx-auto flex w-full max-w-3xl flex-col items-center gap-6 p-7">
+                      <img src={videoPersonPhoto} alt="Your photo" className="aspect-[9/16] h-36 rounded-xl border border-line object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => { setVideoGuardianConsent(true); setVideoStage('pick'); }}
+                        className="tf-btn tf-btn-primary !min-h-20 w-full whitespace-nowrap text-xl font-bold"
+                      >
+                        I’m the parent · Continue <ArrowRight className="h-6 w-6 shrink-0" />
                       </button>
                     </div>
-                    {/* For a child, the button itself is the parent's approval (no tick box). */}
-                    <button
-                      type="button"
-                      onClick={() => { if (videoAudience === 'boys' || videoAudience === 'girls') setVideoGuardianConsent(true); setVideoStage('pick'); }}
-                      className="tf-btn tf-btn-primary !min-h-20 w-full text-xl font-bold"
-                    >
-                      {(videoAudience === 'boys' || videoAudience === 'girls') ? 'I’m the parent · Pick a piece' : 'Pick a piece'} <ArrowRight className="h-6 w-6" />
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="tf-card mx-auto flex w-full max-w-2xl flex-col gap-5 p-7">
+                      <div className="flex items-center gap-5">
+                        <img src={videoPersonPhoto} alt="Your photo" className="aspect-[9/16] h-28 shrink-0 rounded-xl border border-line object-cover" />
+                        <button type="button" onClick={() => { setVideoPersonPhoto(''); void openCameraFor('video-person'); }} className="tf-btn tf-btn-secondary !min-h-20 flex-1 whitespace-nowrap text-xl font-bold">
+                          <RefreshCw className="h-6 w-6 shrink-0" /> Retake
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setVideoStage('pick')}
+                        className="tf-btn tf-btn-primary !min-h-20 w-full whitespace-nowrap text-xl font-bold"
+                      >
+                        Pick a piece <ArrowRight className="h-6 w-6 shrink-0" />
+                      </button>
+                    </div>
+                  )
                 ) : (
                   <div className="tv-photo-actions grid gap-5 md:grid-cols-2">
                     <button type="button" onClick={() => void openCameraFor('video-person')} className="tv-photo-action flex min-h-[220px] flex-col items-center justify-center gap-6 rounded-3xl bg-ink p-8 text-center text-white shadow-lg">
@@ -1975,10 +2000,10 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                 <div className="tv-catalogue-shell grid gap-1.5">
                   <aside className="tv-category-sidebar tf-card mx-1.5 p-2.5" aria-label="AI Video categories">
                     <div className="tv-kiosk-filters flex flex-col gap-1">
-                      {videoCategories.map((cat) => (
-                        <button key={cat.id} type="button" aria-pressed={activeVideoCategory === cat.id} onClick={() => { setVideoCategory(cat.id); setCataloguePage(0); }} className="flex items-center justify-between gap-2 rounded-xl border px-4 text-left font-semibold">
-                          <span className="truncate">{cat.label}</span>
-                          <span className="shrink-0 text-sm font-medium opacity-60">{videoAudienceProducts.filter((item) => item.category === cat.id).length}</span>
+                      {videoTabs.map((tab) => (
+                        <button key={tab.id} type="button" aria-pressed={activeVideoCategory === tab.id} onClick={() => { setVideoCategory(tab.id); setCataloguePage(0); }} className="flex items-center justify-between gap-2 rounded-xl border px-4 text-left font-semibold">
+                          <span className="truncate">{tab.label}</span>
+                          <span className="shrink-0 text-sm font-medium opacity-60">{tab.count}</span>
                         </button>
                       ))}
                     </div>
@@ -2254,18 +2279,34 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {/* In-flow bottom controls row */}
             <div className="flex shrink-0 flex-col items-center gap-5 bg-gradient-to-t from-black/80 via-black/30 to-transparent pb-8 pt-10 sm:pb-10">
               {pendingPhoto ? (
-                // Confirm right here: Retake sits where the capture button was, Use this photo is the one next step.
-                // For a child, that same button is the parent's approval (no tick box).
-                <div className="w-full max-w-2xl space-y-4 px-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <button type="button" onClick={retryPendingPhoto} className="tf-btn !min-h-20 w-full border-2 border-white bg-white text-xl font-bold text-ink hover:bg-canvas">
-                    <RefreshCw className="h-6 w-6" /> Retake
-                  </button>
-                  <button type="button" disabled={kidsOnCamera && !kidPick} onClick={() => { if (kidsOnCamera) setTryOnGuardianConsent(true); confirmPendingPhoto(); }} className="tf-btn tf-btn-primary !min-h-20 w-full text-xl font-bold disabled:opacity-50">
-                    <Check className="h-6 w-6 shrink-0" /> {kidsOnCamera ? 'I’m the parent · Use this photo' : 'Use this photo'}
-                  </button>
-                </div>
-                </div>
+                anyKidsCameraConfirm ? (
+                  // For a child, one full-width single-line parent submit button; Close camera / Back revokes the flow.
+                  <div className="w-full max-w-3xl px-6">
+                    <button
+                      type="button"
+                      disabled={kidsOnCamera && !kidPick}
+                      onClick={() => {
+                        if (kidsOnCamera) setTryOnGuardianConsent(true);
+                        if (videoKidsOnCamera) setVideoGuardianConsent(true);
+                        confirmPendingPhoto(true);
+                      }}
+                      className="tf-btn tf-btn-primary !min-h-20 w-full whitespace-nowrap text-xl font-bold disabled:opacity-50"
+                    >
+                      <Check className="h-6 w-6 shrink-0" /> I’m the parent · Use photo
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-full max-w-2xl space-y-4 px-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <button type="button" onClick={retryPendingPhoto} className="tf-btn !min-h-20 w-full whitespace-nowrap border-2 border-white bg-white text-xl font-bold text-ink hover:bg-canvas">
+                        <RefreshCw className="h-6 w-6 shrink-0" /> Retake
+                      </button>
+                      <button type="button" onClick={() => confirmPendingPhoto()} className="tf-btn tf-btn-primary !min-h-20 w-full whitespace-nowrap text-xl font-bold">
+                        <Check className="h-6 w-6 shrink-0" /> Use this photo
+                      </button>
+                    </div>
+                  </div>
+                )
               ) : (
                 <>
                   {/* Kids: Boys or Girls before the photo, so the right outfits follow; down here, in reach. */}

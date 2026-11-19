@@ -1,4 +1,5 @@
 import type { CatalogueAudience } from '@/lib/tryfocus/catalogue-data';
+import type { CustomCategory } from '@/lib/tryfocus/store-categories';
 
 /**
  * The Maharaja catalogue setup, applied from TryFocus admin → Plan → Catalogue setup (Maharaja only).
@@ -9,73 +10,11 @@ import type { CatalogueAudience } from '@/lib/tryfocus/catalogue-data';
 
 export type TrialGarment = { sku: string; title: string; gender: CatalogueAudience; category: string; price: number; image: string };
 
-/** A girls' western category the master list lacks, so Girls has three Live Try-On categories. */
-export const TRIAL_CUSTOM_CATEGORIES = [
-  { id: 'custom-tops-jeans-girls', label: 'Tops & Jeans', gender: 'girls' as const, garmentType: 'top' as const, westernTryOnEligible: true },
-];
+/** Kids collections now live directly in maharajaKidsCatalogue under master categories. */
+export const TRIAL_CUSTOM_CATEGORIES: CustomCategory[] = [];
 
 /** New Image Try-On garments (never on AI Video: AI Video has its own uploads). */
 export const TRIAL_GARMENTS: TrialGarment[] = [
-  { sku: "MAH-BOYS-SHIRT-TROUSER-1", title: "Sky Blue Oxford Shirt", gender: "boys", category: "boys-shirt-trouser", price: 0, image: "/images/maharaja-collection/boys-boys-shirt-trouser-1.jpg" },
-  { sku: "MAH-BOYS-SHIRT-TROUSER-2", title: "White Cotton School Shirt", gender: "boys", category: "boys-shirt-trouser", price: 0, image: "/images/maharaja-collection/boys-boys-shirt-trouser-2.jpg" },
-  { sku: "MAH-BOYS-SHIRT-TROUSER-3", title: "Olive Check Shirt", gender: "boys", category: "boys-shirt-trouser", price: 0, image: "/images/maharaja-collection/boys-boys-shirt-trouser-3.jpg" },
-  { sku: "MAH-BOYS-SHIRT-TROUSER-4", title: "Navy Chino Trousers", gender: "boys", category: "boys-shirt-trouser", price: 0, image: "/images/maharaja-collection/boys-boys-shirt-trouser-4.jpg" },
-  { sku: "MAH-BOYS-SHIRT-TROUSER-5", title: "Grey Formal Trousers", gender: "boys", category: "boys-shirt-trouser", price: 0, image: "/images/maharaja-collection/boys-boys-shirt-trouser-5.jpg" },
-  { sku: "MAH-BOYS-SHIRT-TROUSER-6", title: "Mint Striped Shirt", gender: "boys", category: "boys-shirt-trouser", price: 0, image: "/images/maharaja-collection/boys-boys-shirt-trouser-6.jpg" },
-  { sku: "MAH-BOYS-CASUAL-1", title: "Red Graphic T-Shirt", gender: "boys", category: "boys-casual", price: 0, image: "/images/maharaja-collection/boys-boys-casual-1.jpg" },
-  { sku: "MAH-BOYS-CASUAL-2", title: "Navy Polo T-Shirt", gender: "boys", category: "boys-casual", price: 0, image: "/images/maharaja-collection/boys-boys-casual-2.jpg" },
-  { sku: "MAH-BOYS-CASUAL-3", title: "Yellow Round-neck T-Shirt", gender: "boys", category: "boys-casual", price: 0, image: "/images/maharaja-collection/boys-boys-casual-3.jpg" },
-  { sku: "MAH-BOYS-CASUAL-4", title: "Grey Hooded Sweatshirt", gender: "boys", category: "boys-casual", price: 0, image: "/images/maharaja-collection/boys-boys-casual-4.jpg" },
-  { sku: "MAH-BOYS-CASUAL-5", title: "Green Striped T-Shirt", gender: "boys", category: "boys-casual", price: 0, image: "/images/maharaja-collection/boys-boys-casual-5.jpg" },
-  { sku: "MAH-BOYS-CASUAL-6", title: "Black Track Pants", gender: "boys", category: "boys-casual", price: 0, image: "/images/maharaja-collection/boys-boys-casual-6.jpg" },
-  { sku: "MAH-BOYS-PARTY-1", title: "Navy Satin Party Shirt", gender: "boys", category: "boys-party", price: 0, image: "/images/maharaja-collection/boys-boys-party-1.jpg" },
-  { sku: "MAH-BOYS-PARTY-2", title: "Maroon Velvet Blazer", gender: "boys", category: "boys-party", price: 0, image: "/images/maharaja-collection/boys-boys-party-2.jpg" },
-  { sku: "MAH-BOYS-PARTY-3", title: "Black Party Blazer", gender: "boys", category: "boys-party", price: 0, image: "/images/maharaja-collection/boys-boys-party-3.jpg" },
-  { sku: "MAH-BOYS-PARTY-4", title: "Wine Floral Party Shirt", gender: "boys", category: "boys-party", price: 0, image: "/images/maharaja-collection/boys-boys-party-4.jpg" },
-  { sku: "MAH-BOYS-PARTY-5", title: "Grey Checked Waistcoat", gender: "boys", category: "boys-party", price: 0, image: "/images/maharaja-collection/boys-boys-party-5.jpg" },
-  { sku: "MAH-BOYS-PARTY-6", title: "Royal Blue Mandarin Shirt", gender: "boys", category: "boys-party", price: 0, image: "/images/maharaja-collection/boys-boys-party-6.jpg" },
-  { sku: "MAH-BOYS-KURTA-1", title: "Cream Silk Kurta", gender: "boys", category: "boys-kurta", price: 0, image: "/images/maharaja-collection/boys-boys-kurta-1.jpg" },
-  { sku: "MAH-BOYS-KURTA-2", title: "Mustard Cotton Kurta", gender: "boys", category: "boys-kurta", price: 0, image: "/images/maharaja-collection/boys-boys-kurta-2.jpg" },
-  { sku: "MAH-BOYS-KURTA-3", title: "Maroon Embroidered Kurta", gender: "boys", category: "boys-kurta", price: 0, image: "/images/maharaja-collection/boys-boys-kurta-3.jpg" },
-  { sku: "MAH-BOYS-KURTA-4", title: "Peacock Blue Kurta", gender: "boys", category: "boys-kurta", price: 0, image: "/images/maharaja-collection/boys-boys-kurta-4.jpg" },
-  { sku: "MAH-BOYS-KURTA-5", title: "Ivory Chikan Kurta", gender: "boys", category: "boys-kurta", price: 0, image: "/images/maharaja-collection/boys-boys-kurta-5.jpg" },
-  { sku: "MAH-BOYS-KURTA-6", title: "Saffron Festive Kurta", gender: "boys", category: "boys-kurta", price: 0, image: "/images/maharaja-collection/boys-boys-kurta-6.jpg" },
-  { sku: "MAH-BOYS-SHERWANI-1", title: "Ivory Gold Sherwani", gender: "boys", category: "boys-sherwani", price: 0, image: "/images/maharaja-collection/boys-boys-sherwani-1.jpg" },
-  { sku: "MAH-BOYS-SHERWANI-2", title: "Maroon Velvet Sherwani", gender: "boys", category: "boys-sherwani", price: 0, image: "/images/maharaja-collection/boys-boys-sherwani-2.jpg" },
-  { sku: "MAH-BOYS-SHERWANI-3", title: "Navy Embroidered Sherwani", gender: "boys", category: "boys-sherwani", price: 0, image: "/images/maharaja-collection/boys-boys-sherwani-3.jpg" },
-  { sku: "MAH-BOYS-SHERWANI-4", title: "Peach Brocade Sherwani", gender: "boys", category: "boys-sherwani", price: 0, image: "/images/maharaja-collection/boys-boys-sherwani-4.jpg" },
-  { sku: "MAH-BOYS-SHERWANI-5", title: "Bottle Green Sherwani", gender: "boys", category: "boys-sherwani", price: 0, image: "/images/maharaja-collection/boys-boys-sherwani-5.jpg" },
-  { sku: "MAH-BOYS-SHERWANI-6", title: "Royal Blue Silk Sherwani", gender: "boys", category: "boys-sherwani", price: 0, image: "/images/maharaja-collection/boys-boys-sherwani-6.jpg" },
-  { sku: "MAH-GIRLS-PARTY-1", title: "Pink Tulle Party Dress", gender: "girls", category: "girls-party", price: 0, image: "/images/maharaja-collection/girls-girls-party-1.jpg" },
-  { sku: "MAH-GIRLS-PARTY-2", title: "Lavender Sequin Party Dress", gender: "girls", category: "girls-party", price: 0, image: "/images/maharaja-collection/girls-girls-party-2.jpg" },
-  { sku: "MAH-GIRLS-PARTY-3", title: "Red Velvet Party Frock", gender: "girls", category: "girls-party", price: 0, image: "/images/maharaja-collection/girls-girls-party-3.jpg" },
-  { sku: "MAH-GIRLS-PARTY-4", title: "Sky Blue Layered Party Dress", gender: "girls", category: "girls-party", price: 0, image: "/images/maharaja-collection/girls-girls-party-4.jpg" },
-  { sku: "MAH-GIRLS-PARTY-5", title: "Gold Shimmer Party Dress", gender: "girls", category: "girls-party", price: 0, image: "/images/maharaja-collection/girls-girls-party-5.jpg" },
-  { sku: "MAH-GIRLS-PARTY-6", title: "Mint Floral Party Dress", gender: "girls", category: "girls-party", price: 0, image: "/images/maharaja-collection/girls-girls-party-6.jpg" },
-  { sku: "MAH-GIRLS-GOWN-1", title: "Peach Net Gown", gender: "girls", category: "girls-gown", price: 0, image: "/images/maharaja-collection/girls-girls-gown-1.jpg" },
-  { sku: "MAH-GIRLS-GOWN-2", title: "Royal Blue Satin Gown", gender: "girls", category: "girls-gown", price: 0, image: "/images/maharaja-collection/girls-girls-gown-2.jpg" },
-  { sku: "MAH-GIRLS-GOWN-3", title: "Ivory Lace Gown", gender: "girls", category: "girls-gown", price: 0, image: "/images/maharaja-collection/girls-girls-gown-3.jpg" },
-  { sku: "MAH-GIRLS-GOWN-4", title: "Wine Velvet Gown", gender: "girls", category: "girls-gown", price: 0, image: "/images/maharaja-collection/girls-girls-gown-4.jpg" },
-  { sku: "MAH-GIRLS-GOWN-5", title: "Lilac Flared Gown", gender: "girls", category: "girls-gown", price: 0, image: "/images/maharaja-collection/girls-girls-gown-5.jpg" },
-  { sku: "MAH-GIRLS-GOWN-6", title: "Rose Gold Sequin Gown", gender: "girls", category: "girls-gown", price: 0, image: "/images/maharaja-collection/girls-girls-gown-6.jpg" },
-  { sku: "MAH-GIRLS-TOPS-JEANS-GIRLS-1", title: "Yellow Ruffle Top", gender: "girls", category: "custom-tops-jeans-girls", price: 0, image: "/images/maharaja-collection/girls-custom-tops-jeans-girls-1.jpg" },
-  { sku: "MAH-GIRLS-TOPS-JEANS-GIRLS-2", title: "Pink Graphic T-Shirt", gender: "girls", category: "custom-tops-jeans-girls", price: 0, image: "/images/maharaja-collection/girls-custom-tops-jeans-girls-2.jpg" },
-  { sku: "MAH-GIRLS-TOPS-JEANS-GIRLS-3", title: "Blue Denim Jeans", gender: "girls", category: "custom-tops-jeans-girls", price: 0, image: "/images/maharaja-collection/girls-custom-tops-jeans-girls-3.jpg" },
-  { sku: "MAH-GIRLS-TOPS-JEANS-GIRLS-4", title: "White Puff-sleeve Top", gender: "girls", category: "custom-tops-jeans-girls", price: 0, image: "/images/maharaja-collection/girls-custom-tops-jeans-girls-4.jpg" },
-  { sku: "MAH-GIRLS-TOPS-JEANS-GIRLS-5", title: "Blue Striped Top", gender: "girls", category: "custom-tops-jeans-girls", price: 0, image: "/images/maharaja-collection/girls-custom-tops-jeans-girls-5.jpg" },
-  { sku: "MAH-GIRLS-TOPS-JEANS-GIRLS-6", title: "Light Blue Jeggings", gender: "girls", category: "custom-tops-jeans-girls", price: 0, image: "/images/maharaja-collection/girls-custom-tops-jeans-girls-6.jpg" },
-  { sku: "MAH-GIRLS-PAVADAI-1", title: "Magenta Gold Pattu Pavadai", gender: "girls", category: "girls-pavadai", price: 0, image: "/images/maharaja-collection/girls-girls-pavadai-1.jpg" },
-  { sku: "MAH-GIRLS-PAVADAI-2", title: "Parrot Green Pattu Pavadai", gender: "girls", category: "girls-pavadai", price: 0, image: "/images/maharaja-collection/girls-girls-pavadai-2.jpg" },
-  { sku: "MAH-GIRLS-PAVADAI-3", title: "Mango Yellow Pattu Pavadai", gender: "girls", category: "girls-pavadai", price: 0, image: "/images/maharaja-collection/girls-girls-pavadai-3.jpg" },
-  { sku: "MAH-GIRLS-PAVADAI-4", title: "Peacock Blue Pattu Pavadai", gender: "girls", category: "girls-pavadai", price: 0, image: "/images/maharaja-collection/girls-girls-pavadai-4.jpg" },
-  { sku: "MAH-GIRLS-PAVADAI-5", title: "Red Zari Pattu Pavadai", gender: "girls", category: "girls-pavadai", price: 0, image: "/images/maharaja-collection/girls-girls-pavadai-5.jpg" },
-  { sku: "MAH-GIRLS-PAVADAI-6", title: "Purple Silk Pattu Pavadai", gender: "girls", category: "girls-pavadai", price: 0, image: "/images/maharaja-collection/girls-girls-pavadai-6.jpg" },
-  { sku: "MAH-GIRLS-LEHENGA-1", title: "Pink Embroidered Kids Lehenga", gender: "girls", category: "girls-lehenga", price: 0, image: "/images/maharaja-collection/girls-girls-lehenga-1.jpg" },
-  { sku: "MAH-GIRLS-LEHENGA-2", title: "Red Festive Kids Lehenga", gender: "girls", category: "girls-lehenga", price: 0, image: "/images/maharaja-collection/girls-girls-lehenga-2.jpg" },
-  { sku: "MAH-GIRLS-LEHENGA-3", title: "Teal Mirror-work Lehenga", gender: "girls", category: "girls-lehenga", price: 0, image: "/images/maharaja-collection/girls-girls-lehenga-3.jpg" },
-  { sku: "MAH-GIRLS-LEHENGA-4", title: "Yellow Floral Lehenga", gender: "girls", category: "girls-lehenga", price: 0, image: "/images/maharaja-collection/girls-girls-lehenga-4.jpg" },
-  { sku: "MAH-GIRLS-LEHENGA-5", title: "Orange Zari Lehenga", gender: "girls", category: "girls-lehenga", price: 0, image: "/images/maharaja-collection/girls-girls-lehenga-5.jpg" },
-  { sku: "MAH-GIRLS-LEHENGA-6", title: "Lavender Net Lehenga", gender: "girls", category: "girls-lehenga", price: 0, image: "/images/maharaja-collection/girls-girls-lehenga-6.jpg" },
   { sku: "MAH-WOMEN-WESTERN-TOPS-1", title: "White Linen Shirt", gender: "women", category: "western-tops", price: 0, image: "/images/maharaja-collection/women-western-tops-1.jpg" },
   { sku: "MAH-WOMEN-WESTERN-TOPS-2", title: "Black Peplum Top", gender: "women", category: "western-tops", price: 0, image: "/images/maharaja-collection/women-western-tops-2.jpg" },
   { sku: "MAH-WOMEN-WESTERN-TOPS-3", title: "Olive Satin Top", gender: "women", category: "western-tops", price: 0, image: "/images/maharaja-collection/women-western-tops-3.jpg" },
@@ -113,9 +52,6 @@ export const TRIAL_GARMENTS: TrialGarment[] = [
 
 /** Photos filed under the wrong audience or category, found in the review. */
 export const TRIAL_MOVES: Array<{ sku: string; gender: CatalogueAudience; category: string; title?: string }> = [
-  { sku: "MAH-8B1C32-0006", gender: 'boys', category: 'boys-shirt-trouser', title: 'Black Utility Shirt' }, // a boy's shirt in Men · Formal Shirts
-  { sku: "MAH-8B1C32-0007", gender: 'boys', category: 'boys-casual', title: 'Red Check Half-sleeve Shirt' }, // a kids' shirt in Men · Formal Shirts
-  { sku: "MAH-8B1C32-0017", gender: 'boys', category: 'boys-casual', title: 'Red Check Casual Shirt' }, // a kids' shirt in Men · Formal Shirts
   { sku: "MAH-CLIENT-08", gender: 'women', category: 'half-sarees', title: 'Green and Maroon Pattu Half Saree' }, // a half saree in Lehengas
   { sku: "MAH-CLIENT-02", gender: 'women', category: 'anarkali', title: 'Cream and Coral Anarkali' }, // an anarkali frock in Lehengas
 ];

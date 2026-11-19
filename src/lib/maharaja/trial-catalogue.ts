@@ -27,8 +27,8 @@ const LIVE_CATEGORIES_MAX = 5;
 const VIDEO_CATEGORIES: Record<CatalogueAudience, string[]> = {
   women: ['sarees', 'kurtis', 'gowns', 'lehengas', 'anarkali', 'women-occasion', 'half-sarees', 'salwar-suits'],
   men: ['sherwanis', 'kurta', 'blazers', 'veshti', 'formal-shirts', 'men-occasion', 'casual-shirts'],
-  boys: ['boys-sherwani', 'boys-festive', 'boys-kurta', 'boys-silk-shirt', 'boys-party', 'boys-jacket', 'boys-shirt-trouser'],
-  girls: ['girls-lehenga', 'girls-pavadai', 'girls-gown', 'girls-party', 'girls-frock', 'girls-festive', 'girls-anarkali'],
+  boys: ['boys-top', 'boys-bottom', 'boys-ethnic', 'boys-sherwani', 'boys-festive', 'boys-kurta', 'boys-silk-shirt', 'boys-party', 'boys-jacket', 'boys-shirt-trouser'],
+  girls: ['girls-tops', 'girls-bottoms', 'girls-dresses', 'girls-ethnic', 'girls-lehenga', 'girls-pavadai', 'girls-gown', 'girls-party', 'girls-frock', 'girls-festive', 'girls-anarkali'],
 };
 const newestFirst = (a: MaharajaCatalogueProduct, b: MaharajaCatalogueProduct) =>
   String(b.createdAt || '').localeCompare(String(a.createdAt || '')) || (a.sortOrder || 0) - (b.sortOrder || 0);

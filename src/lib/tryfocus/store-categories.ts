@@ -36,7 +36,7 @@ const MAX_PER_AUDIENCE = 20;
 const MAX_CUSTOM_CATEGORIES = 30;
 
 /** Garment types the real-time engine handles well: a new category of one of these starts as Live Try-On. */
-export const WESTERN_GARMENT_TYPES: ReadonlySet<GarmentType> = new Set<GarmentType>(['shirt_pant', 'top', 'trousers', 'tshirt_bottom', 'jacket', 'one_piece']);
+export const WESTERN_GARMENT_TYPES: ReadonlySet<GarmentType> = new Set<GarmentType>(['shirt_pant', 'top', 'trousers', 'tshirt_bottom', 'jacket', 'one_piece', 'two_piece']);
 
 const AUDIENCE_LABELS: Record<CatalogueAudience, StoreCategory['audience']> = {
   women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls',
