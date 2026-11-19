@@ -20,7 +20,7 @@ reused for another level, so a shopper can always tell which choice matters more
 | Level | Question | Options | Control |
 |---|---|---|---|
 | 0 | Which experience? | TV: Try-On · AI Video · Live Try-On. Tablet: Catalogue Try-On · Own-outfit Try-On · Wall QR | Solid buttons in the header (`tv-mode-button`, `NavTabs`): the open one filled dark, the others white with a border |
-| 1 | Who is it for? | Try-On and Live Try-On: Women · Men · Kids (Kids then Boys · Girls). AI Video: Women · Men · Boys · Girls | Try-On and Live Try-On: `WhoCards`, three cards stacked vertically (3 × 1) with an age line (Women and Men "13 and above", Kids "Up to 12"); Kids picks Boys or Girls with `KidsSwitch` on the camera screen, before the photo (Try-On: on the full-screen camera; Live Try-On: above the camera). AI Video: `AudienceCards`, four cards 2 × 2. Nothing pre-selected; the two-line `PhotoGuide` box under them. On the portrait TV the store's logo fills the bottom of this screen |
+| 1 | Who is it for? | Try-On and Live Try-On: Women · Men · Kids (Kids then Boys · Girls). AI Video: Women · Men · Boys · Girls | Try-On and Live Try-On: `WhoCards`, three cards stacked vertically (3 × 1) with an age line (Women and Men "13 and above", Kids "Up to 12"); Kids picks Boys or Girls with `KidsSwitch` before the photo (Try-On and AI Video: on the Who screen, under the cards; Live Try-On: above the camera). AI Video uses the same `WhoCards` (Women · Men · Kids, then Boys · Girls); the phone's AI Video keeps `AudienceCards`, four cards 2 × 2. Nothing pre-selected; the two-line `PhotoGuide` box under them. On the portrait TV the store's logo fills the bottom of this screen |
 | 2 | What are you trying? | Store collection · My own outfit | Two large picture cards on the TV and the phone |
 | 3 | Which category / what is it? | Sarees, Kurtis… or the own-outfit type | Solid category buttons, the selected one filled dark (side menu on TV and tablet, a row of buttons on Live Try-On, a list on phone). Never an underline. On Try-On, My own outfit is a highlighted card above the store's categories |
 | 4 | Which piece? | Product cards | Image cards with a 1–3 badge, the only image tiles. Try-On and AI Video: a 3-column grid beside the category side menu, about 15 (3 × 5) on the first screen, scrolling for more (no pages), every photo of that audience preloaded once Who is known. Live Try-On: one row that scrolls sideways under the camera (`GarmentRail`) |
@@ -32,12 +32,12 @@ already answers "what are you trying?", so that step never appears on the tablet
 first inside whichever tab is open.
 
 TV, three tabs:
-- Try-On: Women · Men · Kids → the camera full screen (Kids: Boys | Girls on it, the shutter off until one
-  is tapped; the guardian tick on the photo confirm) → the outfits: category side menu (My own outfit first on
+- Try-On: Women · Men · Kids (Kids: Boys | Girls under the cards) → the camera full screen (a child's photo
+  is confirmed with Retake or "I'm the parent · Use photo") → the outfits: category side menu (My own outfit first on
   the TV, then Trending, New arrivals and the categories; a category shows how many of its outfits are picked)
-  and the 3 × 5 grid; up to 3 picks, numbered 1–3, kept in a Your picks strip at the top of the grid to change
-  them easily → Generate in the bottom bar → Your looks, full screen, one at a time with side arrows, the QR
-  below and End session under it. Kids only see kids' garments. The picks can come from any category of the
+  and the 3 × 5 grid; up to 3 picks, numbered 1–3, kept in the bottom bar beside Generate (tap one to remove it) →
+  Your looks, full screen, one at a time with side arrows, the QR in the corner (tap to enlarge; Try again
+  when it could not be made), then Try more outfits and End session under the look. Kids only see kids' garments. The picks can come from any category of the
   chosen Who; each is one garment and its own look, all made at the same time.
 - AI Video (store collection only): (the last 4 digits of the bill on a large on-screen number pad, when the store
   set a minimum bill; 0 = a free gift) → Women · Men · Boys · Girls → the camera full screen → Pick a piece
@@ -49,13 +49,16 @@ TV, three tabs:
   the Image Try-On table. Women · Men · Kids → the camera on the top 60% of the screen; under it Boys | Girls
   (Kids only), the category tabs (only those with a garment) and one row of garment cards that scrolls
   sideways → tap a garment to pick it (one) → Start Live Try-On appears in the centre of the camera → 5
-  seconds to step back → 30 seconds live; tapping another garment during the 30 seconds swaps it on the same
-  live connection, and the clock keeps running (Boys or Girls also tells Lucy it is a child) → the recording
+  seconds to step back → 30 seconds live; during the 30 seconds a strip of the open category's garments sits over
+  the live view ("Tap to swap"); a tap swaps it on the same live connection, and the clock keeps running (Boys or Girls also tells Lucy it is a child) → the recording
   plays back with Replay and a large End session,
   and the next customer starts from the first screen. No QR and no download: the video exists only for this
   viewing.
-- End session (TV): a large red, full-width End session under every result (Try-On looks' and AI Video's
-  QR, Live Try-On's playback); the same tab starts again. Only the AI Video portrait has a clock
+- End session (TV): a large End session (white, red text) under every result (Try-On looks, AI Video's
+  portrait, Live Try-On's playback; the header drops its own there). It always takes two taps: the first
+  turns it red, "Tap again to end", for 4 seconds. The same tab starts again.
+- Back (TV, tablet) is always one step and never clears the customer: outfits → retake photo (the picks
+  stay) → Who. The full-screen camera has its own Back. Only End session clears. Only the AI Video portrait has a clock
   above it: 2 minutes to download or Go Live on the phone, the last minute in red, then the session ends on
   its own; Retry sits beside its End session.
 
@@ -134,8 +137,9 @@ customer's photo has an upload QR beside the camera (send a photo from the phone
 the outfit photo is taken with the camera only, no QR and no file upload, since it is a store garment in hand.
 
 Retry is never a button on the page, except Retry beside End session on the TV's AI Video portrait. The result's header has a Help button (`HelpRetry`, Try-On looks,
-AI Video portrait and video). It asks "Do you need to retry this image?" (or portrait, looks, video) with
-Cancel and Yes, retry, one line on what the retry does, and three tips for a better photo (full-length, not a
+AI Video portrait and video). It asks "Do you need to retry this image?" (or portrait, look, video) with
+Cancel and Yes, retry, one line on what the retry does (on Try-On looks: only the look on screen, once, with
+the same photo; a look marked Not created has its own Try again), and three tips for a better photo (full-length, not a
 selfie; good light, facing the camera; one garment at a time). With no retry left, or none on that screen
 (the TV looks link on the phone), it shows the tips and who can help. There is no ⋯ menu anywhere.
 
@@ -174,7 +178,8 @@ credits only — used, limit, left, and top-ups as unit packages — never a rup
 2. Credits: set a package, top up, or type a limit. Each card shows what is left and a status word.
 3. Store login: one username and password for the TV, tablet, Go Live player and workspace.
 4. Delivery: WhatsApp link and the Go Live player, each an On / Off switch.
-Save changes sits at the top of the Plan tab. After the four steps: Catalogue setup (Preview, then Apply:
+Every change on the Plan tab saves on its own (a Saving… / Saved note at the top); a top-up, a package
+or a platform being switched off asks first, showing before → after. Pausing a store asks first too. After the four steps: Catalogue setup (Preview, then Apply:
 garments in the right categories, Live Try-On on every non-ethnic category, priced AI Video pieces for all
 four audiences; for Maharaja it also adds the garments its catalogue was missing) and, last, Delete
 workspace. The store's Live for customers / Paused switch sits under its name in the header. Without a client picked, admin is a status board: four totals, Needs action, and

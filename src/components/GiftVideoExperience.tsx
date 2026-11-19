@@ -388,7 +388,7 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
 
       <div className="mx-auto max-w-xl space-y-4 px-4 py-5">
         {goBack && (
-          <button type="button" onClick={() => { setNote(''); goBack(); }} className="-ml-1 inline-flex min-h-11 items-center gap-1.5 px-1 text-sm font-semibold text-muted hover:text-ink">
+          <button type="button" onClick={() => { setNote(''); goBack(); }} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line-strong bg-white px-3 text-sm font-semibold text-ink hover:border-ink">
             <ArrowLeft className="h-4 w-4" /> {t('back')}
           </button>
         )}

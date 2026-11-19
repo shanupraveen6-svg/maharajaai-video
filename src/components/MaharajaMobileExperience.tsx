@@ -360,7 +360,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
 
       <div className="mx-auto max-w-xl space-y-5 px-4 pt-4">
         {backTo && (
-          <button type="button" onClick={() => { setNote(''); setStage(backTo); }} className="-ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-1 text-sm font-semibold text-muted hover:text-ink">
+          <button type="button" onClick={() => { setNote(''); setStage(backTo); }} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line-strong bg-white px-3 text-sm font-semibold text-ink hover:border-ink">
             <ArrowLeft className="h-4 w-4" /> {t('back')}
           </button>
         )}
@@ -418,7 +418,7 @@ export default function MaharajaMobileExperience({ accessCode, clientName = 'The
             ] as const).map(([value, title, text]) => (
               <button key={value} type="button" onClick={() => chooseSource(value)} className="tf-card group flex w-full items-center gap-4 overflow-hidden p-0 text-left transition hover:border-ink">
                 {value === 'catalogue'
-                  ? <span className="grid h-28 w-28 shrink-0 grid-cols-2 gap-0.5 bg-[#F1EEE9]">{catalogueItems.slice(0, 4).map((item) => <img key={item.sku} src={item.thumbnailUrl || item.imageUrl} alt="" className="h-full w-full object-cover" />)}</span>
+                  ? <span className="grid h-28 w-28 shrink-0 grid-cols-2 gap-0.5 bg-[#F1EEE9]">{catalogueItems.filter((item) => item.gender === audience).slice(0, 4).map((item) => <img key={item.sku} src={item.thumbnailUrl || item.imageUrl} alt="" className="h-full w-full object-cover" />)}</span>
                   : <span className="flex h-28 w-28 shrink-0 items-center justify-center bg-white"><Shirt className="h-10 w-10" strokeWidth={1.4} /></span>}
                 <span className="min-w-0 flex-1">
                   <span className="block text-lg font-bold">{title}</span>

@@ -40,8 +40,8 @@ export const HELP_TEXT = {
   },
   looks: {
     ...HELP_RETRY_EN,
-    question: 'Do you need to retry these looks?',
-    retryText: 'We start again: Who, your photo and the outfits.',
+    question: 'Do you need to retry this look?',
+    retryText: 'We make this look once more, free, with the same photo. Your other looks stay.',
     noRetryText: 'Our staff can help you at the counter.',
     tips: ['A full-length photo, not a selfie.', 'Good light, facing the camera.', 'Stand straight, arms a little away from the body.'],
   },

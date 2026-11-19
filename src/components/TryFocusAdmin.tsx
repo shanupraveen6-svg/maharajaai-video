@@ -9,7 +9,6 @@ import {
   LoaderCircle,
   Monitor,
   Plus,
-  RefreshCw,
   Smartphone,
   Tablet,
   Trash2,
@@ -233,8 +232,8 @@ export default function TryFocusAdmin() {
 
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  // An empty username field means the client's existing login, so the usual action is a password reset.
-  const loginName = (loginUsername.trim() || client.logins?.[0] || '').toLowerCase();
+  const [loginFormOpen, setLoginFormOpen] = useState(false);
+  const loginName = loginUsername.trim().toLowerCase();
   const loginExists = Boolean(client.logins?.includes(loginName));
 
   // Creates or resets the client's own staff login; it opens only this client's workspace.
@@ -269,6 +268,7 @@ export default function TryFocusAdmin() {
         : `Login "${loginName}" created for ${client.name}. It opens only this client's workspace.`);
       setLoginUsername('');
       setLoginPassword('');
+      setLoginFormOpen(false);
     } catch (err) {
       setErrorNotice(err instanceof Error ? err.message : 'Could not save the client login.');
     } finally {
@@ -345,7 +345,7 @@ export default function TryFocusAdmin() {
       if (Array.isArray(data.clients)) {
         setClients(data.clients);
       }
-      setSavedNotice(`Saved ${mergedClient.name} configuration to backend.`);
+      setSavedNotice('Saved.');
       window.setTimeout(() => setSavedNotice(''), 3000);
     } catch (err) {
       setErrorNotice(
@@ -369,12 +369,18 @@ export default function TryFocusAdmin() {
 
   // The platform decides the modules: every module it includes comes with it, the others go off.
   function choosePackage(id: PackageId) {
+    const next = PACKAGES[id].devices;
+    const losing = [client.devices.tv && !next.tv && 'TV (AI Video, Live Try-On and Go Live go off)', client.devices.tablet && !next.tablet && 'Tablet'].filter(Boolean);
+    if (losing.length && !window.confirm(`Turn off ${losing.join(' and ')} for ${client.name}? Its screens stop at once.`)) return;
     const devices = { ...PACKAGES[id].devices, led: PACKAGES[id].devices.led && client.devices.led !== false };
     void persistClientPatch({ devices, modules: modulesForPackage(id) });
   }
 
   // A top-up adds a package's credits to what the store has left; used credits stay counted.
   function addTopUp(credits: Credits) {
+    const line = (label: string, before: number, add: number) => (add ? `${label}: ${before.toLocaleString('en-IN')} → ${(before + add).toLocaleString('en-IN')}` : '');
+    const summary = [line('Try-On images', client.limits.image, credits.image), line('AI Videos', client.limits.video, credits.video), line('Live Try-On', client.limits.live, credits.live)].filter(Boolean).join('\n');
+    if (!window.confirm(`Top up ${client.name}?\n\n${summary}`)) return;
     void persistClientPatch({
       limits: {
         image: client.limits.image + credits.image,
@@ -503,14 +509,16 @@ export default function TryFocusAdmin() {
                   <button
                     type="button"
                     aria-pressed={client.status === 'Active'}
-                    onClick={() => updateClient({ status: client.status === 'Active' ? 'Paused' : 'Active' })}
+                    onClick={() => {
+                      if (client.status === 'Active' && !window.confirm(`Pause every screen of ${client.name}? Customers see a closed message until it is turned back on.`)) return;
+                      updateClient({ status: client.status === 'Active' ? 'Paused' : 'Active' });
+                    }}
                     className={`inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold ${client.status === 'Active' ? 'bg-success-soft text-success' : 'bg-line text-muted'}`}
                     title={client.status === 'Active' ? 'Tap to pause every screen of this store' : 'Tap to turn this store back on'}
                   >
                     <span className={`h-2 w-2 rounded-full ${client.status === 'Active' ? 'bg-success' : 'bg-subtle'}`} />
                     {client.status === 'Active' ? 'Live for customers' : 'Paused'}
                   </button>
-                  <button type="button" onClick={() => setClientId('')} className="min-h-10 px-1 text-sm font-semibold text-muted underline">All clients</button>
                   </div>
                 )}
               </div>
@@ -551,11 +559,10 @@ export default function TryFocusAdmin() {
           adminTab={(
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-muted">Only TryFocus sees this tab. The store sees the plan read-only on its Overview.</p>
-                <button type="button" disabled={saving} onClick={saveCurrentConfiguration} className="tf-btn tf-btn-primary !min-h-11 px-5 text-sm">
-                  {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  {saving ? 'Saving…' : 'Save changes'}
-                </button>
+                <p className="text-sm text-muted">Only TryFocus sees this tab. Every change saves on its own.</p>
+                <p className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-muted" aria-live="polite">
+                  {saving ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Saving…</> : savedNotice === 'Saved.' ? <><Check className="h-4 w-4 text-success" /> Saved</> : null}
+                </p>
               </div>
         {/* What this client booked: a platform decides its modules (the phone comes with the TV and the tablet). */}
         <section id="setup-platform" className="tf-card scroll-mt-24 p-5">
@@ -584,7 +591,12 @@ export default function TryFocusAdmin() {
                     key={id}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => void persistClientPatch({ limits: plan })}
+                    onClick={() => {
+                      if (selected) return;
+                      const below = (['image', 'video', 'live'] as const).filter((key) => plan[key] < client.usage[key]);
+                      if (!window.confirm(`Set ${client.name} to ${PRESETS[id].label}?\n\nTry-On images: ${client.limits.image.toLocaleString('en-IN')} → ${plan.image.toLocaleString('en-IN')}\nAI Videos: ${client.limits.video.toLocaleString('en-IN')} → ${plan.video.toLocaleString('en-IN')}\nLive Try-On: ${client.limits.live.toLocaleString('en-IN')} → ${plan.live.toLocaleString('en-IN')}${below.length ? '\n\nSome limits are below what is already used, so those credits show as finished.' : ''}`)) return;
+                      void persistClientPatch({ limits: plan });
+                    }}
                     title={`${plan.image.toLocaleString('en-IN')} images${plan.video ? ` · ${plan.video.toLocaleString('en-IN')} videos` : ''}${plan.live ? ` · ${plan.live.toLocaleString('en-IN')} live` : ''}`}
                     className={`min-h-10 rounded-xl border px-3.5 text-sm font-semibold ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white hover:border-ink'}`}
                   >
@@ -684,54 +696,50 @@ export default function TryFocusAdmin() {
           <p className="mt-0.5 text-sm text-muted">
             This login opens only {client.name}&apos;s workspace, counter and devices. It cannot open TryFocus admin or another client.
           </p>
-          <p className="mt-3 text-sm">
-            <span className="text-[#535A56]">Existing logins: </span>
-            {!client.logins?.length && <span className="tabular-nums font-bold">none yet</span>}
-          </p>
-          {Boolean(client.logins?.length) && (
-            <ul className="mt-2 flex flex-wrap gap-2">
+          {Boolean(client.logins?.length) ? (
+            <ul className="mt-4 divide-y divide-line rounded-2xl border border-line">
               {client.logins!.map((username) => (
-                <li key={username} className="flex items-center gap-2 border border-line px-3 py-1 text-sm">
-                  <span className="tabular-nums font-bold">{username}</span>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void disableClientLogin(username)}
-                    className="min-h-10 px-2 text-xs font-bold text-danger underline"
-                  >
-                    Disable
-                  </button>
+                <li key={username} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                  <span className="font-bold">{username}</span>
+                  <span className="flex gap-2">
+                    <button type="button" disabled={saving} onClick={() => { setLoginUsername(username); setLoginPassword(''); setLoginFormOpen(true); }} className="tf-btn tf-btn-secondary !min-h-10 px-4 text-sm">Reset password</button>
+                    <button type="button" disabled={saving} onClick={() => void disableClientLogin(username)} className="min-h-10 rounded-xl border border-danger px-4 text-sm font-semibold text-danger">Disable</button>
+                  </span>
                 </li>
               ))}
             </ul>
+          ) : <p className="mt-3 text-sm text-muted">No login yet.</p>}
+          {loginFormOpen || !client.logins?.length ? (
+            <form onSubmit={saveClientLogin} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+              <input
+                aria-label="Username"
+                value={loginUsername}
+                onChange={(event) => setLoginUsername(event.target.value)}
+                readOnly={loginExists}
+                placeholder="Username (e.g. srireadymade)"
+                autoComplete="off"
+                className="min-h-11 rounded-xl border border-line-strong bg-white px-3 text-sm outline-none read-only:bg-canvas focus:border-brand"
+              />
+              <input
+                aria-label="Password"
+                type="password"
+                value={loginPassword}
+                onChange={(event) => setLoginPassword(event.target.value)}
+                placeholder={loginExists ? 'New password (8+ characters)' : 'Password (8+ characters)'}
+                autoComplete="new-password"
+                className="min-h-11 rounded-xl border border-line-strong bg-white px-3 text-sm outline-none focus:border-brand"
+              />
+              <span className="flex gap-2">
+                <button type="submit" disabled={saving || loginName.length < 3 || loginPassword.length < 8} className="tf-btn tf-btn-primary !min-h-11 px-5 text-sm">
+                  {loginExists ? 'Reset password' : 'Create login'}
+                </button>
+                {Boolean(client.logins?.length) && <button type="button" onClick={() => { setLoginFormOpen(false); setLoginUsername(''); setLoginPassword(''); }} className="tf-btn tf-btn-secondary !min-h-11 px-4 text-sm">Cancel</button>}
+              </span>
+            </form>
+          ) : (
+            <button type="button" onClick={() => { setLoginUsername(''); setLoginPassword(''); setLoginFormOpen(true); }} className="tf-btn tf-btn-secondary mt-3 !min-h-10 px-4 text-sm"><Plus className="h-4 w-4" /> Add login</button>
           )}
-          <form onSubmit={saveClientLogin} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-            <input
-              aria-label="Client login username"
-              value={loginUsername}
-              onChange={(event) => setLoginUsername(event.target.value)}
-              placeholder={client.logins?.[0] ? `Username (${client.logins[0]})` : 'Username (e.g. srireadymade)'}
-              autoComplete="off"
-              className="min-h-11 border border-line px-3 text-sm outline-none focus:border-brand"
-            />
-            <input
-              aria-label="Client login password"
-              type="password"
-              value={loginPassword}
-              onChange={(event) => setLoginPassword(event.target.value)}
-              placeholder={loginExists ? 'New password (8+ characters)' : 'Password (8+ characters)'}
-              autoComplete="new-password"
-              className="min-h-11 border border-line px-3 text-sm outline-none focus:border-brand"
-            />
-            <button
-              type="submit"
-              disabled={saving || loginName.length < 3 || loginPassword.length < 8}
-              className="min-h-11 bg-brand px-5 text-xs font-bold text-white disabled:opacity-50"
-            >
-              {loginExists ? 'Reset password' : 'Create login'}
-            </button>
-          </form>
-          <p className="mt-2 text-xs text-muted">{loginExists ? 'Type a different username to add a second login.' : 'The store signs in once with this on the TV, tablet, Go Live player and workspace.'}</p>
+          <p className="mt-2 text-xs text-muted">The store signs in once with this on the TV, tablet, Go Live player and workspace.</p>
         </section>
 
         {/* How customers get what they made: QR always, WhatsApp link when connected, Go Live on the store screen. */}

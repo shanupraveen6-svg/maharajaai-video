@@ -15,10 +15,10 @@ import {
   ExternalLink,
   LoaderCircle,
   Monitor,
-  QrCode,
   Tablet,
   Tv,
   Phone,
+  X,
 } from 'lucide-react';
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
@@ -163,15 +163,13 @@ export default function MaharajaAdminDashboard({
   const activeWorkspaceCode = workspaceCode || expectedWorkspaceCode || 'workspace';
   const router = useRouter();
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
-  const [section, setSection] = useState<'overview' | 'catalogue' | 'qr' | 'golive' | 'customers' | 'settings' | 'plan'>('overview');
+  const [section, setSection] = useState<'overview' | 'catalogue' | 'golive' | 'customers' | 'settings' | 'plan'>('overview');
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  // Visible QR codes on the client workspace page
-  const [tryOnQrImage, setTryOnQrImage] = useState<string>('');
 
   // Managed Catalogue state (Task 8 & Task 10)
   const [catalogue, setCatalogue] = useState<ManagedCatalogueItem[]>([]);
@@ -188,6 +186,27 @@ export default function MaharajaAdminDashboard({
   const [cataloguePage, setCataloguePage] = useState(0);
   // null until the logo check answers.
 
+
+  // A saved message clears itself after 3 seconds (an error stays until closed); both clear on a new tab.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(''), 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+  useEffect(() => { setNotice(''); setError(''); }, [section]);
+
+  // The catalogue remembers the last Who opened in this browser (customer screens always start empty).
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('tryfocus:catalogue-who');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the saved Who is only readable after mount
+      if (saved === 'women' || saved === 'men' || saved === 'boys' || saved === 'girls') setCatGender(saved);
+    } catch { /* private mode */ }
+  }, []);
+  useEffect(() => {
+    if (!catGender) return;
+    try { window.localStorage.setItem('tryfocus:catalogue-who', catGender); } catch { /* private mode */ }
+  }, [catGender]);
 
   const loadWorkspace = useCallback(async () => {
     try {
@@ -230,20 +249,6 @@ export default function MaharajaAdminDashboard({
     return () => window.clearInterval(timer);
   }, [loadWorkspace, loadCatalogue]);
 
-  // Generate visible QR images for Try-On and Direct AI Video
-  useEffect(() => {
-    if (!workspace?.links) return;
-    if (workspace.links.tryOn) {
-      QRCode.toDataURL(workspace.links.tryOn, {
-        width: 260,
-        margin: 1,
-        color: { dark: '#161918', light: '#FAFBF8' },
-      })
-        .then(setTryOnQrImage)
-        .catch(() => setTryOnQrImage(''));
-    }
-  }, [workspace]);
-
   async function savePatch(
     patch: Partial<
       Pick<
@@ -282,14 +287,6 @@ export default function MaharajaAdminDashboard({
     } finally {
       setSaving(false);
     }
-  }
-
-  function selectDefaultEvent(eventId: EventId) {
-    if (!workspace || eventId !== 'diwali') return;
-    const nextEvents = workspace.activeEvents.includes(eventId)
-      ? workspace.activeEvents
-      : [...workspace.activeEvents, eventId];
-    void savePatch({ activeEvents: nextEvents, defaultEvent: eventId });
   }
 
   // The printable QR poster, shared with the counter tablet's Wall QR tab.
@@ -444,7 +441,7 @@ export default function MaharajaAdminDashboard({
           <button
             type="button"
             onClick={() => router.push(`/login?next=/maharaja/${activeWorkspaceCode}`)}
-            className="mt-6 bg-brand px-5 py-3 text-xs font-bold text-[#FAF6EE]"
+            className="tf-btn tf-btn-primary mt-6 !min-h-12 w-full text-base"
           >
             Sign in
           </button>
@@ -599,7 +596,10 @@ export default function MaharajaAdminDashboard({
           <button
             type="button"
             disabled={saving}
-            onClick={() => savePatch({ campaignEnabled: !workspace.campaignEnabled })}
+            onClick={() => {
+              if (workspace.campaignEnabled && !window.confirm('Pause all screens? Customers see a closed message on the TV, tablet and Wall QR until you turn it back on.')) return;
+              void savePatch({ campaignEnabled: !workspace.campaignEnabled });
+            }}
             className={`inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold transition ${workspace.campaignEnabled ? 'bg-success-soft text-success' : 'bg-line text-muted'}`}
             title={workspace.campaignEnabled ? 'Tap to pause all customer experiences' : 'Tap to turn customer experiences back on'}
           >
@@ -616,8 +616,7 @@ export default function MaharajaAdminDashboard({
             options={[
               { value: 'overview', label: 'Overview' },
               { value: 'catalogue', label: 'Catalogue' },
-              ...(limits.image > 0 ? [{ value: 'qr' as const, label: 'Wall QR' }] : []),
-              ...(goLiveOn ? [{ value: 'golive' as const, label: 'Go Live & videos' }] : []),
+              ...(goLiveOn ? [{ value: 'golive' as const, label: 'Go Live' }] : []),
               { value: 'customers', label: 'Customers' },
               { value: 'settings', label: 'Settings' },
               ...(adminTab ? [{ value: 'plan' as const, label: 'Plan · TryFocus only' }] : []),
@@ -627,9 +626,11 @@ export default function MaharajaAdminDashboard({
       </header>
 
       <div className="mx-auto max-w-6xl space-y-6 px-5 py-6 sm:px-8">
+        {/* Saved / error: a toast at the bottom of the window, so it shows wherever the button was. */}
         {(error || notice) && (
-          <div className={`rounded-2xl p-4 text-sm font-medium ${error ? 'bg-danger-soft text-danger' : 'bg-success-soft text-success'}`}>
-            {error || notice}
+          <div role={error ? 'alert' : 'status'} className={`fixed inset-x-0 bottom-5 z-50 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-2xl px-5 py-3 text-sm font-semibold shadow-xl ${error ? 'bg-danger text-white' : 'bg-ink text-white'}`}>
+            <span>{error || notice}</span>
+            <button type="button" onClick={() => { setError(''); setNotice(''); }} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15"><X className="h-4 w-4" /></button>
           </div>
         )}
 
@@ -760,29 +761,6 @@ export default function MaharajaAdminDashboard({
           </section>
         )}
 
-        {limits.video > 0 && (
-        <section className="tf-card p-6">
-            <h3 className="text-lg font-bold">Festival theme</h3>
-            <p className="mt-1 text-sm text-muted">Sets the scene for AI Videos. Now showing: <b className="text-ink">{currentEvent.label}</b>. More festivals are added through the year.</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {EVENT_OPTIONS.filter((ev) => ev.id === 'diwali').map((ev) => {
-                const selected = workspace.defaultEvent === ev.id;
-                return (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    aria-pressed={selected}
-                    disabled={saving}
-                    onClick={() => selectDefaultEvent(ev.id)}
-                    className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${selected ? 'bg-ink text-white' : 'border border-line bg-white hover:border-ink'}`}
-                  >
-                    {ev.label}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
 
 
           </div>
@@ -959,42 +937,6 @@ export default function MaharajaAdminDashboard({
               )}
             </section>
           </div>
-        )}
-
-        {section === 'qr' && (
-          <section className="max-w-3xl">
-            {limits.image > 0 && (
-              <div className="tf-card flex flex-col p-6">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-2xl font-bold">Wall QR for Try-On</h2>
-                  <StatusPill>Permanent</StatusPill>
-                </div>
-                <p className="mt-2 text-sm text-muted">Print it once and paste it on a wall, mirror or trial room. Customers scan it to try your outfits on their own phone.</p>
-
-                <div className="mt-5 grid gap-5 sm:grid-cols-[180px_1fr] sm:items-center">
-                  <div className="flex items-center justify-center rounded-2xl border border-line bg-canvas p-3">
-                    {tryOnQrImage
-                      ? <img src={tryOnQrImage} alt="Wall QR for Try-On" className="h-40 w-40 object-contain" />
-                      : <span className="flex h-40 w-40 items-center justify-center"><QrCode className="h-10 w-10 text-muted" /></span>}
-                  </div>
-                  <ul className="space-y-2 text-sm text-ink">
-                    <li>The QR never changes, so posters stay valid.</li>
-                    <li>{minGateDisabled ? 'Anyone who scans can try outfits.' : `Customers scan a price tag of ${formatINR(workspace.tryOnMinPurchase ?? 500)} or more first.`}</li>
-                    <li>Each Try-On uses one credit.</li>
-                  </ul>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => downloadBrandedQr(`${workspace.clientName.replace(/[^a-z0-9]+/gi, '-')}-Try-On-wall-QR.png`, 'Try-On', 'Scan to try our outfits on your phone', workspace.links.tryOn)}
-                  className="tf-btn tf-btn-primary mt-5 self-start"
-                >
-                  <Download className="h-4 w-4" /> Download for printing
-                </button>
-              </div>
-            )}
-
-          </section>
         )}
 
         {section === 'golive' && (goLiveOn ? (

@@ -9,10 +9,10 @@ const photoTransfer = fs.readFileSync(new URL('../src/app/api/tv/photo-transfer/
 // Header: Home shows the three tabs; past Who only Back and End session (+ Store collection | Own try-on).
 assert.match(tv, /const inProcess = mode === 'live-tryon' \? livePhase !== 'who'/, 'In-process is decided per open tab');
 assert.match(tv, /\) : inProcess \? \(/, 'In a session the header replaces the tabs');
-assert.match(tv, /<span>Store collection<\/span>[\s\S]{0,600}<span>Own try-on<\/span>/, 'Image Try-On offers Store collection and Own try-on in the header');
+assert.match(tv, /<span>Store collection<\/span>[\s\S]{0,600}<span>My own outfit<\/span>/, 'Image Try-On offers Store collection and Own try-on in the header');
 assert.doesNotMatch(tv, /Start over/, 'Start over is replaced by End session');
 assert.doesNotMatch(tv, /Try a garment you brought/, 'The My own outfit card above the categories is gone');
-assert.match(tv, /const tab = isTablet \? mode : defaultMode;/, 'End session takes the TV back to Home');
+assert.match(tv, /const tab = mode;/, 'End session starts the same tab again');
 
 // Own try-on: nothing chosen for the customer; camera in place of the garments; NO AI check blocking own-garment upload.
 assert.match(tv, /const \[ownGarmentType, setOwnGarmentType\] = useState\(''\);/, 'No garment type is pre-selected');

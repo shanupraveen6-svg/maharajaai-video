@@ -406,8 +406,17 @@ export default function LucyLiveMirror({
     setGarment(null);
   }
 
+  /** Back from the camera: Live Try-On's own Who screen (never another tab, nothing else cleared). */
   function backToWho() {
-    endSession();
+    stopEverything();
+    setSession('idle');
+    setError('');
+    setGroup(null);
+    setKidGender(null);
+    setGuardianConsent(false);
+    setGarment(null);
+    setCategory('');
+    setPhase('who');
   }
 
   function endSession() {
@@ -426,7 +435,7 @@ export default function LucyLiveMirror({
   const running = session === 'ready' || session === 'connecting' || session === 'live';
   // The TV header shows Back and End session once a customer is past Who: tell it the step and the Back action.
   const backRef = useRef(backToWho);
-  backRef.current = backToWho;
+  useEffect(() => { backRef.current = backToWho; });
   useEffect(() => { onPhaseChange?.(phase); }, [phase, onPhaseChange]);
   useEffect(() => {
     onBackChange?.(phase === 'camera' && !running ? () => backRef.current() : null);
@@ -487,16 +496,15 @@ export default function LucyLiveMirror({
             </div>
           )}
         </div>
-        {(videoUrl || !onEndSession) && (
-          <div className={`grid shrink-0 gap-3 px-4 py-3 ${videoUrl && !onEndSession ? 'grid-cols-2' : ''}`}>
-            {videoUrl && (
-              <button type="button" onClick={replay} className="tf-btn !min-h-20 w-full border-2 border-white bg-white text-xl font-bold text-ink">
-                <RotateCcw className="h-6 w-6" /> Replay
-              </button>
-            )}
-            {!onEndSession && <button type="button" onClick={endSession} className="tf-btn !min-h-20 w-full bg-danger text-xl font-bold text-white">End session</button>}
-          </div>
-        )}
+        {/* Replay beside the large End session (the TV header drops its own on this screen). */}
+        <div className={`grid shrink-0 gap-3 px-4 py-3 ${videoUrl ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {videoUrl && (
+            <button type="button" onClick={replay} className="tf-btn !min-h-18 w-full border-2 border-white bg-white text-xl font-bold text-ink">
+              <RotateCcw className="h-6 w-6" /> Replay
+            </button>
+          )}
+          <EndButton onClick={endSession} />
+        </div>
       </section>
     );
   }
@@ -522,6 +530,22 @@ export default function LucyLiveMirror({
             <span className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-xl font-bold tabular-nums text-white shadow-lg">
               <span className="h-3 w-3 rounded-full bg-success" /> {secondsLeft}s
             </span>
+            {/* Swap the outfit without stopping: the garments of the open category, over the live view. */}
+            {categoryProducts.length > 1 && (
+              <div className="absolute inset-x-0 bottom-4 z-20 space-y-2 px-4">
+                <p className="mx-auto w-fit rounded-full bg-ink px-5 py-2 text-lg font-semibold text-white shadow-lg">Tap to swap</p>
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {categoryProducts.map((item) => {
+                    const on = garment?.sku === item.sku;
+                    return (
+                      <button key={item.sku} type="button" aria-pressed={on} aria-label={`Wear ${item.title}`} onClick={() => pickGarment(item)} className={`w-28 shrink-0 overflow-hidden rounded-xl border-4 bg-white shadow-lg ${on ? 'border-ink' : 'border-white'}`}>
+                        <img src={item.thumbnailUrl || item.imageUrl} alt="" className="aspect-[3/4] w-full object-cover object-top" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="absolute inset-x-0 bottom-0 h-2 bg-white/20">
               <div className="h-full bg-white transition-all duration-1000 ease-linear" style={{ width: `${progressPercent}%` }} />
             </div>
@@ -610,5 +634,25 @@ export default function LucyLiveMirror({
         </div>
       ))}
     </div>
+  );
+}
+
+/** End session under the recording: two taps (the first turns it red for 4 seconds), like the TV header. */
+function EndButton({ onClick }: { onClick: () => void }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const timer = window.setTimeout(() => setArmed(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [armed]);
+  return (
+    <button
+      type="button"
+      aria-live="polite"
+      onClick={() => { if (armed) { setArmed(false); onClick(); } else setArmed(true); }}
+      className={`tf-btn !min-h-18 w-full rounded-xl border-2 border-danger text-xl font-bold ${armed ? 'bg-danger text-white' : 'bg-white text-danger'}`}
+    >
+      {armed ? 'Tap again to end' : <><X className="h-6 w-6" /> End session</>}
+    </button>
   );
 }
