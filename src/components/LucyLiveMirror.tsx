@@ -11,8 +11,8 @@ import GarmentRail from '@/components/kiosk/GarmentRail';
 import PosterFill from '@/components/kiosk/PosterFill';
 import { PageTitle } from '@/components/ui';
 
-/** Lucy 2.5 first (newer, better try-on); Lucy 2.1 VTON if 2.5 does not connect. */
-const LUCY_APPS = ['decart/lucy-2-5/realtime', 'decart/lucy2-vton/realtime'] as const;
+/** Lucy 2.1 VTON first (Decart's model made only for try-on); Lucy 2.5 if it does not connect. */
+const LUCY_APPS = ['decart/lucy2-vton/realtime', 'decart/lucy-2-5/realtime'] as const;
 const SESSION_SECONDS = 20;
 /** Swaps (a new dress, or a bottom added) are taken in the first 15 seconds; the last 5 are the buffer that
     lets the last piece show on the customer before the clock ends. */
@@ -206,7 +206,7 @@ export default function LucyLiveMirror({
     });
   }
 
-  /** The Lucy model the open connection uses (0 = Lucy 2.5, 1 = Lucy 2.1 VTON). */
+  /** The Lucy model the open connection uses (0 = Lucy 2.1 VTON, 1 = Lucy 2.5). */
   const appIndexRef = useRef(0);
 
   async function sendGarmentReference(ws: { send: (input: Record<string, unknown>) => void }, piece: TryFocusProduct) {
@@ -219,7 +219,7 @@ export default function LucyLiveMirror({
     const detail = piece.fabricNote || categoryName;
     const prompt = `Virtual try-on: dress the person in the exact ${piece.title}${detail ? ` (${detail})` : ''} from the reference image. Preserve exact garment color, pattern and fit while keeping the customer's real face, body and skin tone natural.${person}`;
     // Lucy 2.5 takes enable_prompt_expansion; Lucy 2.1 VTON takes enhance_prompt.
-    ws.send(appIndexRef.current === 0
+    ws.send(LUCY_APPS[appIndexRef.current] === 'decart/lucy-2-5/realtime'
       ? { reference_image_url: imageDataUri, prompt, enable_prompt_expansion: true }
       : { reference_image_url: imageDataUri, prompt, enhance_prompt: true });
   }
@@ -335,7 +335,7 @@ export default function LucyLiveMirror({
         if (stopped) return;
         stopped = true;
         closeRealtimeConnections();
-        // Lucy 2.5 did not connect: the same garment goes straight to Lucy 2.1 VTON, with no tap.
+        // Lucy 2.1 VTON did not connect: the same garment goes straight to Lucy 2.5, with no tap.
         if (appIndex === 0) { void startLucyLiveSession(piece, 1); return; }
         setSession('error');
         // "Concurrent session limit reached": the engine has no free session (the last one still closing, or
@@ -409,7 +409,7 @@ export default function LucyLiveMirror({
         },
       });
       wsRef.current = connection;
-      // Lucy 2.5 gets 20 s to connect before the fallback takes over; the fallback gets 30 s.
+      // The first model gets 20 s to connect before the fallback takes over; the fallback gets 30 s.
       connectionDeadlineRef.current = setTimeout(() => fail('Live Try-On took too long to connect. Please try again.'), appIndex === 0 ? 20_000 : 30_000);
       await sendGarmentReference(connection, piece);
     } catch (caught) {

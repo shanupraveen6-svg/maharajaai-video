@@ -44,7 +44,7 @@ TV, three tabs:
   (side menu and the 3 × 5 grid, with its price) → Pick a scene (one of 3 for that audience) → Generate image →
   Your portrait, with the QR that makes the video on the phone, where the customer can also Go Live.
 - Live Try-On: the store's own short list of western-cut garments (shirts, tops, gowns, trousers…) — the
-  real-time engine (Decart Lucy 2.5 on fal.ai, Lucy 2.1 VTON as the automatic fallback) does not handle draped or ethnic wear well, so the store picks a few of its
+  real-time engine (Decart Lucy 2.1 VTON on fal.ai, made for try-on; Lucy 2.5 as the automatic fallback) does not handle draped or ethnic wear well, so the store picks a few of its
   best western pieces for it. The store switches garments on per garment, or a whole category at once, in
   the Image Try-On table. Women · Men · Kids → the camera on the top 60% of the screen; under it Boys | Girls
   (Kids only), the category tabs (only those with a garment) and one row of garment cards that scrolls

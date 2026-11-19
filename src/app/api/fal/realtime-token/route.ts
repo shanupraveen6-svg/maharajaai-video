@@ -6,8 +6,8 @@ import { bindClient } from '@/lib/maharaja/client-context';
 import { SPEND_CAP_MESSAGE, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { customerRateLimit } from '@/lib/maharaja/config';
 
-// Live Try-On runs on Lucy 2.5 (newer, try-on from a garment photo); Lucy 2.1 VTON is the fallback the TV
-// switches to by itself when 2.5 does not connect. Each maps to its fal app name for the token.
+// Live Try-On runs on Lucy 2.1 VTON (Decart's try-on model); Lucy 2.5 is the fallback the TV switches to
+// by itself when it does not connect. Each maps to its fal app name for the token.
 const LUCY_APPS: Record<string, string> = {
   'decart/lucy-2-5/realtime': 'lucy-2-5',
   'decart/lucy2-vton/realtime': 'lucy2-vton',
