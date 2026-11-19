@@ -1,0 +1,143 @@
+import type { TryFocusProduct } from './catalogue-data';
+
+const ADDED_AT = '2026-11-19T00:00:00.000Z';
+const ACCENT = 'from-[#FAF6F0] to-[#EFE8DC]';
+
+type WomenAddition = {
+  sku: string;
+  title: string;
+  price: number;
+  image: string;
+  fabricNote: string;
+};
+
+const KURTI_SETS: WomenAddition[] = [
+  { sku: 'MAH-KURTI-01', title: 'Mustard Floral Anarkali Kurti Set with Dupatta', price: 6299, image: '/images/maharaja-kurtis/kurti-01.jpg', fabricNote: 'Kurtis · Mustard Floral V-Neck Set' },
+  { sku: 'MAH-KURTI-02', title: 'Charcoal Block-Print Kurti and White Palazzo Set', price: 5499, image: '/images/maharaja-kurtis/kurti-02.jpg', fabricNote: 'Kurtis · Cotton Block Print Set' },
+  { sku: 'MAH-KURTI-03', title: 'Turmeric Yellow Floral Afghani Kurti Set', price: 5899, image: '/images/maharaja-kurtis/kurti-03.jpg', fabricNote: 'Kurtis · Afghani Salwar Suit Set' },
+  { sku: 'MAH-KURTI-04', title: 'Teal Leaf-Print Kurti and White Palazzo Set', price: 5199, image: '/images/maharaja-kurtis/kurti-04.jpg', fabricNote: 'Kurtis · Lace-Trimmed Cotton Set' },
+  { sku: 'MAH-KURTI-05', title: 'Dark Green Gold-Print Kurti and Dupatta Set', price: 6150, image: '/images/maharaja-kurtis/kurti-05.jpg', fabricNote: 'Kurtis · Printed Kurta Pant Dupatta Set' },
+  { sku: 'MAH-KURTI-06', title: 'Crimson and Navy Geometric Kurti Pant Set', price: 5299, image: '/images/maharaja-kurtis/kurti-06.jpg', fabricNote: 'Kurtis · Woven Geometric Cotton Set' },
+  { sku: 'MAH-KURTI-07', title: 'Dusty Rose Floral Kurti and Dupatta Set', price: 5950, image: '/images/maharaja-kurtis/kurti-07.jpg', fabricNote: 'Kurtis · Festive Floral Chiffon Dupatta Set' },
+  { sku: 'MAH-KURTI-08', title: 'Lavender Floral Embroidered Kurti and Dupatta Set', price: 6350, image: '/images/maharaja-kurtis/kurti-08.jpg', fabricNote: 'Kurtis · Lotus Print Embroidered Set' },
+  { sku: 'MAH-KURTI-09', title: 'Rani Pink Ikat Flared Kurti and Pant Set', price: 5599, image: '/images/maharaja-kurtis/kurti-09.jpg', fabricNote: 'Kurtis · Ikat Flared Straight Pant Set' },
+  { sku: 'MAH-KURTI-10', title: 'Turquoise Mirror-Work Kurti and White Dupatta Set', price: 5799, image: '/images/maharaja-kurtis/kurti-10.jpg', fabricNote: 'Kurtis · Gathered Yoke Dupatta Set' },
+  { sku: 'MAH-KURTI-11', title: 'Cobalt Blue Elephant-Motif Cotton Kurti Set', price: 5349, image: '/images/maharaja-kurtis/kurti-11.jpg', fabricNote: 'Kurtis · Handloom Elephant Motif Set' },
+  { sku: 'MAH-KURTI-12', title: 'Olive Floral Block-Print Kurti and Palazzo Set', price: 5450, image: '/images/maharaja-kurtis/kurti-12.jpg', fabricNote: 'Kurtis · Olive Block Print Set' },
+  { sku: 'MAH-KURTI-13', title: 'Peacock Teal Embroidered Silk Kurti Set', price: 6499, image: '/images/maharaja-kurtis/kurti-13.jpg', fabricNote: 'Kurtis · Yoke Embroidered Silk Dupatta Set' },
+  { sku: 'MAH-KURTI-14', title: 'Mustard and Navy Floral Dupatta Kurti Set', price: 5999, image: '/images/maharaja-kurtis/kurti-14.jpg', fabricNote: 'Kurtis · Contrast Floral Dupatta Set' },
+  { sku: 'MAH-KURTI-15', title: 'Plum Cotton Kurti Set with Striped Dupatta', price: 5699, image: '/images/maharaja-kurtis/kurti-15.jpg', fabricNote: 'Kurtis · Solid Plum Woven Dupatta Set' },
+  { sku: 'MAH-KURTI-16', title: 'Rust Orange Bandhani Embroidered Kurti Set', price: 5750, image: '/images/maharaja-kurtis/kurti-16.jpg', fabricNote: 'Kurtis · Bandhani Print Yoke Set' },
+  { sku: 'MAH-KURTI-17', title: 'Wine Gold-Foil Anarkali Kurti and Dupatta Set', price: 6899, image: '/images/maharaja-kurtis/kurti-17.jpg', fabricNote: 'Kurtis · Festive Flared Anarkali Set' },
+  { sku: 'MAH-KURTI-18', title: 'Royal Navy Zari-Yoke Silk Kurti and Dupatta Set', price: 6650, image: '/images/maharaja-kurtis/kurti-18.jpg', fabricNote: 'Kurtis · Silk Zari Striped Dupatta Set' },
+  { sku: 'MAH-KURTI-19', title: 'Coral Red Floral Kurti and White Palazzo Set', price: 5549, image: '/images/maharaja-kurtis/kurti-19.jpg', fabricNote: 'Kurtis · Tassel Yoke Floral Set' },
+  { sku: 'MAH-KURTI-20', title: 'Indigo and White Floral Cotton Kurti Set', price: 5649, image: '/images/maharaja-kurtis/kurti-20.jpg', fabricNote: 'Kurtis · Indigo Leaf Cotton Set' },
+  { sku: 'MAH-KURTI-21', title: 'Ivory and Powder Blue Block-Print Kurti Set', price: 6099, image: '/images/maharaja-kurtis/kurti-21.jpg', fabricNote: 'Kurtis · Heritage Cotton Dupatta Set' },
+  { sku: 'MAH-KURTI-22', title: 'Slate Grey Zari-Jaal Kurti and Dupatta Set', price: 6399, image: '/images/maharaja-kurtis/kurti-22.jpg', fabricNote: 'Kurtis · Fine Gold Jaal Woven Set' },
+  { sku: 'MAH-KURTI-23', title: 'Mustard and Maroon Bandhej Kurti Dupatta Set', price: 6199, image: '/images/maharaja-kurtis/kurti-23.jpg', fabricNote: 'Kurtis · Ajrakh Bandhej Dupatta Set' },
+  { sku: 'MAH-KURTI-24', title: 'Black and Gold Striped Tissue Kurti Set', price: 6799, image: '/images/maharaja-kurtis/kurti-24.jpg', fabricNote: 'Kurtis · Textured Striped Festive Set' },
+];
+
+const GOWNS: WomenAddition[] = [
+  { sku: 'MAH-GOWN-01', title: 'Mustard and Maroon Pattu Border Flared Gown', price: 7899, image: '/images/maharaja-gowns/gown-01.jpg', fabricNote: 'Gowns & Dresses · Pattu Border Festive Gown' },
+  { sku: 'MAH-GOWN-02', title: 'Teal and Marigold Floral Cotton Gown', price: 5599, image: '/images/maharaja-gowns/gown-02.jpg', fabricNote: 'Gowns & Dresses · Handloom Floral Flare Gown' },
+  { sku: 'MAH-GOWN-03', title: 'Maroon and Ivory Hand-Block Printed Gown', price: 6499, image: '/images/maharaja-gowns/gown-03.jpg', fabricNote: 'Gowns & Dresses · Front-Panel Block Print Gown' },
+  { sku: 'MAH-GOWN-04', title: 'Deep Teal Botanical Print Maxi Gown', price: 5950, image: '/images/maharaja-gowns/gown-04.jpg', fabricNote: 'Gowns & Dresses · Botanical Shirt-Collar Gown' },
+  { sku: 'MAH-GOWN-05', title: 'Blush Pink Satin Silk Gown with Net Dupatta', price: 7450, image: '/images/maharaja-gowns/gown-05.jpg', fabricNote: 'Gowns & Dresses · Satin Flair Gown & Net Dupatta' },
+  { sku: 'MAH-GOWN-06', title: 'Mint Embroidered Net Bridal Gown', price: 9950, image: '/images/maharaja-gowns/gown-06.jpg', fabricNote: 'Gowns & Dresses · Thread & Zari Embroidered Net Gown' },
+  { sku: 'MAH-GOWN-07', title: 'Ivory and Crimson Bold Floral Tiered Gown', price: 6350, image: '/images/maharaja-gowns/gown-07.jpg', fabricNote: 'Gowns & Dresses · Tie-Sleeve Floral Tiered Gown' },
+  { sku: 'MAH-GOWN-08', title: 'Lavender Georgette Full-Flared Gown', price: 6799, image: '/images/maharaja-gowns/gown-08.jpg', fabricNote: 'Gowns & Dresses · Flowing Georgette Anarkali Gown' },
+  { sku: 'MAH-GOWN-09', title: 'Taupe Printed Jacket-Style Silk Gown', price: 8499, image: '/images/maharaja-gowns/gown-09.jpg', fabricNote: 'Gowns & Dresses · Layered Jacket Festive Gown' },
+  { sku: 'MAH-GOWN-10', title: 'Pastel Pink Floral Organza Gown', price: 7199, image: '/images/maharaja-gowns/gown-10.jpg', fabricNote: 'Gowns & Dresses · Sheer Organza Floral Flare Gown' },
+  { sku: 'MAH-GOWN-11', title: 'Seafoam Green Zari-Check Flared Gown Set', price: 6950, image: '/images/maharaja-gowns/gown-11.jpg', fabricNote: 'Gowns & Dresses · Organza Zari Check Gown & Dupatta' },
+  { sku: 'MAH-GOWN-12', title: 'Powder Blue Geometric Tiered Cotton Gown', price: 5749, image: '/images/maharaja-gowns/gown-12.jpg', fabricNote: 'Gowns & Dresses · Puff-Sleeve Tiered Cotton Gown' },
+  { sku: 'MAH-GOWN-13', title: 'Deep Wine Embroidered Flared Gown', price: 6650, image: '/images/maharaja-gowns/gown-13.jpg', fabricNote: 'Gowns & Dresses · Silver Yoke Lace Hem Gown' },
+  { sku: 'MAH-GOWN-14', title: 'Emerald Green Embroidered Evening Gown', price: 7999, image: '/images/maharaja-gowns/gown-14.jpg', fabricNote: 'Gowns & Dresses · Sequinned Yoke Georgette Gown' },
+  { sku: 'MAH-GOWN-15', title: 'Black and Gold Floral Velvet Net Gown', price: 8899, image: '/images/maharaja-gowns/gown-15.jpg', fabricNote: 'Gowns & Dresses · Gold Floral Bodice Tiered Gown' },
+  { sku: 'MAH-GOWN-16', title: 'Ivory and Black Abstract Wrap Maxi Gown', price: 6150, image: '/images/maharaja-gowns/gown-16.jpg', fabricNote: 'Gowns & Dresses · Ruffle-Sleeve Abstract Gown' },
+  { sku: 'MAH-GOWN-17', title: 'Crimson Red Embroidered Flared Gown', price: 6599, image: '/images/maharaja-gowns/gown-17.jpg', fabricNote: 'Gowns & Dresses · Silver Neckline Festive Gown' },
+  { sku: 'MAH-GOWN-18', title: 'Black Georgette Gown with Embroidered Dupatta', price: 8299, image: '/images/maharaja-gowns/gown-18.jpg', fabricNote: 'Gowns & Dresses · Occasion Black Gown & Dupatta' },
+  { sku: 'MAH-GOWN-19', title: 'Rosewood Printed Jacket-Style Silk Gown', price: 8650, image: '/images/maharaja-gowns/gown-19.jpg', fabricNote: 'Gowns & Dresses · Ethnic Shrug Silk Gown' },
+  { sku: 'MAH-GOWN-20', title: 'Blush Pink Floral Flared Cotton Gown', price: 5499, image: '/images/maharaja-gowns/gown-20.jpg', fabricNote: 'Gowns & Dresses · Gathered Floral Long Gown' },
+  { sku: 'MAH-GOWN-21', title: 'Rani Pink Floral Georgette Flared Gown', price: 7099, image: '/images/maharaja-gowns/gown-21.jpg', fabricNote: 'Gowns & Dresses · Printed Georgette Flared Gown' },
+  { sku: 'MAH-GOWN-22', title: 'Sunshine Yellow Leaf-Print Sleeveless Gown', price: 5399, image: '/images/maharaja-gowns/gown-22.jpg', fabricNote: 'Gowns & Dresses · Tiered Sleeveless Maxi Gown' },
+  { sku: 'MAH-GOWN-23', title: 'Midnight Navy Gold-Border Flared Gown', price: 6899, image: '/images/maharaja-gowns/gown-23.jpg', fabricNote: 'Gowns & Dresses · Printed Zari Hem Flare Gown' },
+  { sku: 'MAH-GOWN-24', title: 'Plum Purple White-Floral Georgette Gown', price: 7299, image: '/images/maharaja-gowns/gown-24.jpg', fabricNote: 'Gowns & Dresses · Square-Neck Georgette Gown' },
+  { sku: 'MAH-GOWN-25', title: 'Cobalt Blue White-Floral Georgette Gown', price: 7399, image: '/images/maharaja-gowns/gown-25.jpg', fabricNote: 'Gowns & Dresses · Draped Georgette Floral Gown' },
+];
+
+const LEHENGAS: WomenAddition[] = [
+  { sku: 'MAH-LEHENGA-01', title: 'Wine Purple Pleated Embroidered Bridal Lehenga', price: 11499, image: '/images/maharaja-lehengas/lehenga-01.jpg', fabricNote: 'Lehengas · Pleated Silk Zari Bridal Set' },
+  { sku: 'MAH-LEHENGA-02', title: 'Rust Copper Silk Zari-Border Wedding Lehenga', price: 14950, image: '/images/maharaja-lehengas/lehenga-02.jpg', fabricNote: 'Lehengas · Heavy Zari Wedding Lehenga Choli' },
+  { sku: 'MAH-LEHENGA-03', title: 'Royal Purple Silk Heavy Zari Wedding Lehenga', price: 15499, image: '/images/maharaja-lehengas/lehenga-03.jpg', fabricNote: 'Lehengas · Scallop Border Zari Lehenga Set' },
+  { sku: 'MAH-LEHENGA-04', title: 'Peacock Blue Silk Embroidered Motif Lehenga', price: 12899, image: '/images/maharaja-lehengas/lehenga-04.jpg', fabricNote: 'Lehengas · Multi-Colour Motif Zari Bridal Set' },
+  { sku: 'MAH-LEHENGA-05', title: 'Deep Violet Silver-Zari Paisley Bridal Lehenga', price: 16250, image: '/images/maharaja-lehengas/lehenga-05.jpg', fabricNote: 'Lehengas · Paisley Silver Zari Wedding Set' },
+  { sku: 'MAH-LEHENGA-06', title: 'Teal Silk Mirror-Work Festive Lehenga', price: 10950, image: '/images/maharaja-lehengas/lehenga-06.jpg', fabricNote: 'Lehengas · Foil Mirror Heritage Lehenga Choli' },
+  { sku: 'MAH-LEHENGA-07', title: 'Plum Purple Embroidered Net Bridal Lehenga', price: 14499, image: '/images/maharaja-lehengas/lehenga-07.jpg', fabricNote: 'Lehengas · Sequin & Thread Scallop Lehenga' },
+  { sku: 'MAH-LEHENGA-08', title: 'Saffron and Emerald Rajputi Poshak Lehenga', price: 9450, image: '/images/maharaja-lehengas/lehenga-08.jpg', fabricNote: 'Lehengas · Traditional Rajputi Poshak Set' },
+  { sku: 'MAH-LEHENGA-09', title: 'Midnight Blue Tropical Organza Flared Lehenga', price: 8299, image: '/images/maharaja-lehengas/lehenga-09.jpg', fabricNote: 'Lehengas · Digital Floral Organza Lehenga' },
+  { sku: 'MAH-LEHENGA-10', title: 'Wine Floral Organza Embroidered Lehenga', price: 9850, image: '/images/maharaja-lehengas/lehenga-10.jpg', fabricNote: 'Lehengas · Sequinned Bodice Organza Lehenga' },
+  { sku: 'MAH-LEHENGA-11', title: 'Peacock Teal Pleated Gold-Border Lehenga', price: 11950, image: '/images/maharaja-lehengas/lehenga-11.jpg', fabricNote: 'Lehengas · Pleated Silk Temple Border Set' },
+  { sku: 'MAH-LEHENGA-12', title: 'Royal Blue Banarasi Brocade Festive Lehenga', price: 13499, image: '/images/maharaja-lehengas/lehenga-12.jpg', fabricNote: 'Lehengas · Arch Motif Banarasi Zari Lehenga' },
+  { sku: 'MAH-LEHENGA-13', title: 'Ivory Gold Embroidered Lehenga with Crimson Dupatta', price: 14250, image: '/images/maharaja-lehengas/lehenga-13.jpg', fabricNote: 'Lehengas · Ivory Sequin Silk Scallop Set' },
+  { sku: 'MAH-LEHENGA-14', title: 'Mustard and Bottle Green Kanchivaram Pattu Lehenga', price: 12450, image: '/images/maharaja-lehengas/lehenga-14.jpg', fabricNote: 'Lehengas · Pure Zari Border Pattu Lehenga' },
+  { sku: 'MAH-LEHENGA-15', title: 'Crimson and Mustard Kalamkari Zari-Border Lehenga', price: 10499, image: '/images/maharaja-lehengas/lehenga-15.jpg', fabricNote: 'Lehengas · Kalamkari Silk Half-Saree Set' },
+  { sku: 'MAH-LEHENGA-16', title: 'Forest Green and Maroon Silk Zari Half-Saree Lehenga', price: 13899, image: '/images/maharaja-lehengas/lehenga-16.jpg', fabricNote: 'Lehengas · Bridal Silk Border Lehenga Set' },
+];
+
+export const maharajaWomenAdditions: TryFocusProduct[] = [
+  ...KURTI_SETS.map((item): TryFocusProduct => ({
+    id: item.sku.toLowerCase(),
+    sku: item.sku,
+    title: item.title,
+    category: 'kurtis',
+    audience: 'Women',
+    gender: 'women',
+    price: item.price,
+    imageUrl: item.image,
+    garmentReferenceUrl: item.image,
+    fabricNote: item.fabricNote,
+    badge: 'NEW ARRIVAL',
+    accent: ACCENT,
+    eligibleForVideo: true,
+    eligibleForLive: false,
+    garmentType: 'salwar',
+    createdAt: ADDED_AT,
+  })),
+  ...GOWNS.map((item): TryFocusProduct => ({
+    id: item.sku.toLowerCase(),
+    sku: item.sku,
+    title: item.title,
+    category: 'gowns',
+    audience: 'Women',
+    gender: 'women',
+    price: item.price,
+    imageUrl: item.image,
+    garmentReferenceUrl: item.image,
+    fabricNote: item.fabricNote,
+    badge: 'NEW ARRIVAL',
+    accent: ACCENT,
+    eligibleForVideo: true,
+    eligibleForLive: false,
+    garmentType: 'one_piece',
+    createdAt: ADDED_AT,
+  })),
+  ...LEHENGAS.map((item): TryFocusProduct => ({
+    id: item.sku.toLowerCase(),
+    sku: item.sku,
+    title: item.title,
+    category: 'lehengas',
+    audience: 'Women',
+    gender: 'women',
+    price: item.price,
+    imageUrl: item.image,
+    garmentReferenceUrl: item.image,
+    fabricNote: item.fabricNote,
+    badge: 'NEW ARRIVAL',
+    accent: ACCENT,
+    eligibleForVideo: true,
+    eligibleForLive: false,
+    garmentType: 'lehenga',
+    createdAt: ADDED_AT,
+  })),
+];

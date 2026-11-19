@@ -25,7 +25,7 @@ const LIVE_CATEGORIES_MAX = 5;
 
 /** AI Video categories, in the order they are chosen, per audience; any other category fills up to 3. */
 const VIDEO_CATEGORIES: Record<CatalogueAudience, string[]> = {
-  women: ['sarees', 'lehengas', 'gowns', 'anarkali', 'women-occasion', 'half-sarees', 'salwar-suits'],
+  women: ['sarees', 'kurtis', 'gowns', 'lehengas', 'anarkali', 'women-occasion', 'half-sarees', 'salwar-suits'],
   men: ['sherwanis', 'kurta', 'blazers', 'veshti', 'formal-shirts', 'men-occasion', 'casual-shirts'],
   boys: ['boys-sherwani', 'boys-festive', 'boys-kurta', 'boys-silk-shirt', 'boys-party', 'boys-jacket', 'boys-shirt-trouser'],
   girls: ['girls-lehenga', 'girls-pavadai', 'girls-gown', 'girls-party', 'girls-frock', 'girls-festive', 'girls-anarkali'],
@@ -125,7 +125,7 @@ export async function planTrialCatalogue(clientId?: string): Promise<TrialPlan> 
     const added: Array<MaharajaCatalogueProduct & { trialPrice: number }> = [];
     const order = VIDEO_CATEGORIES[audience];
     const filled = new Set(kept.map((item) => item.category as string));
-    const chosen = [...order.filter((id) => filled.has(id)), ...[...filled].filter((id) => !order.includes(id))];
+    const chosen = [...order.filter((id) => filled.has(id)), ...[...filled].filter((id) => !order.includes(id))].slice(0, 5);
     videoChosen.set(audience, chosen);
     const tryOn = categoriesFor(undefined, audience, custom)
       .map((cat) => ({ id: cat.id as string, label: cat.label, count: count(audience, cat.id as string) }))

@@ -2,6 +2,7 @@
 // member keeps autocomplete for these known ones while still accepting that.
 export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'salwar-suits' | 'lehengas' | 'gowns' | 'blouses' | 'western-tops' | 'women-bottoms' | 'women-occasion' | 'formal-shirts' | 'casual-shirts' | 'tshirts' | 'trousers' | 'sherwanis' | 'blazers' | 'men-occasion' | 'boys-sherwani' | 'boys-jacket' | 'boys-shirt-trouser' | 'boys-festive' | 'boys-casual' | 'boys-dhoti' | 'boys-party' | 'girls-half-saree' | 'girls-kurti' | 'girls-salwar' | 'girls-gown' | 'girls-festive' | 'girls-party' | 'girls-anarkali' | 'anarkali' | 'shirts' | (string & {});
 import { maharajaClientSamples } from './maharaja-client-samples';
+import { maharajaWomenAdditions } from './maharaja-women-additions';
 
 export type CatalogueAudience = 'women' | 'men' | 'boys' | 'girls';
 
@@ -24,6 +25,7 @@ export type TryFocusProduct = {
   eligibleForLive?: boolean;
   newArrivalOnly?: boolean;
   trending?: boolean;
+  createdAt?: string;
   garmentType: 'saree' | 'half_saree' | 'salwar' | 'lehenga' | 'kurta_dhoti' | 'dhoti_veshti' | 'shirt_pant' | 'tshirt_bottom' | 'top' | 'trousers' | 'jacket' | 'one_piece' | 'pattu_pavadai';
 };
 
@@ -453,6 +455,7 @@ const rawSampleCatalogue: Array<Omit<TryFocusProduct, 'gender'>> = [
 ];
 
 export const sampleCatalogue: TryFocusProduct[] = [
+  ...maharajaWomenAdditions,
   ...maharajaClientSamples,
   ...rawSampleCatalogue.map((item): TryFocusProduct => {
     const arrivalOnly = item.category === 'salwar' || item.category === 'lehenga' || item.category === 'shirts';

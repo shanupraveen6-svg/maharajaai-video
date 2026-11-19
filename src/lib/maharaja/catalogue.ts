@@ -31,8 +31,8 @@ const BUILT_IN_CATALOGUE: MaharajaCatalogueProduct[] = sampleCatalogue.map((item
   productUrl: '',
   active: true,
   sortOrder: index + 1,
-  createdAt: '2026-10-01T00:00:00.000Z',
-  updatedAt: '2026-10-01T00:00:00.000Z',
+  createdAt: item.createdAt || '2026-10-01T00:00:00.000Z',
+  updatedAt: item.createdAt || '2026-10-01T00:00:00.000Z',
 }));
 
 const ROOT_SILK_CATALOGUE = ([
@@ -263,6 +263,37 @@ async function ensureThumbnail(record: MaharajaCatalogueProduct): Promise<Pick<M
   }
 }
 
+function maharajaMenVideoPrice(sku: string, category: CatalogueCategoryId): number {
+  let hash = 2166136261;
+  for (let i = 0; i < sku.length; i += 1) {
+    hash ^= sku.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const n = hash >>> 0;
+  const priceSuffixes = [0, 49, 99, 150, 249, 299, 350, 449, 499, 599, 650, 749, 850, 899];
+  const suffix = priceSuffixes[n % priceSuffixes.length];
+  if (category === 'blazers' || category === 'sherwanis') {
+    return 8250 + ((n >>> 4) % 21) * 500 + suffix;
+  }
+  if (category === 'veshti' || category === 'angavastram' || category === 'kurta' || category === 'men-occasion') {
+    return 5450 + ((n >>> 4) % 12) * 500 + suffix;
+  }
+  return 5150 + ((n >>> 4) % 6) * 450 + suffix;
+}
+
+function applyMaharajaCatalogueRules(item: MaharajaCatalogueProduct): MaharajaCatalogueProduct | null {
+  if (activeClientId() !== MAHARAJA_CLIENT_ID) return item;
+  if (item.category === 'women-bottoms') return null;
+  if (item.gender === 'men' && item.active !== false && !/^MAH-(MEN|WOMEN|BOYS|GIRLS)-/.test(item.sku)) {
+    return {
+      ...item,
+      eligibleForVideo: true,
+      price: item.price > 5000 ? item.price : maharajaMenVideoPrice(item.sku, item.category),
+    };
+  }
+  return item;
+}
+
 /** Every garment record for the bound client (shared built-ins merged with saved ones), without photo links. */
 export async function loadAllCatalogueRecords(includeInactive = true): Promise<MaharajaCatalogueProduct[]> {
   const db = getDb();
@@ -292,6 +323,10 @@ export async function loadAllCatalogueRecords(includeInactive = true): Promise<M
     const map = getMockCatalogueMap();
     allProducts = Array.from(map.values()).map((item, idx) => normalizeCatalogueProduct(item, idx + 1));
   }
+
+  allProducts = allProducts
+    .map(applyMaharajaCatalogueRules)
+    .filter((item): item is MaharajaCatalogueProduct => Boolean(item));
 
   return includeInactive ? allProducts : allProducts.filter((item) => item.active !== false);
 }
@@ -347,18 +382,21 @@ export async function getCatalogueProduct(sku: string): Promise<MaharajaCatalogu
       const data = snapshot.data() as Partial<MaharajaCatalogueProduct>;
       if (data.deletedAt) return null;
       const product = normalizeCatalogueProduct(data);
-      return product.active ? product : null;
+      const ruled = applyMaharajaCatalogueRules(product);
+      return ruled && ruled.active ? ruled : null;
     }
   } else {
     const map = getMockCatalogueMap();
     const mockItem = map.get(cleanSku);
     if (mockItem) {
-      return mockItem.active ? mockItem : null;
+      const ruled = applyMaharajaCatalogueRules(mockItem);
+      return ruled && ruled.active ? ruled : null;
     }
   }
   if (activeClientId() !== MAHARAJA_CLIENT_ID) return null;
   const fallback = COMBINED_FALLBACK_CATALOGUE.find((product) => product.sku === cleanSku);
-  return fallback && fallback.active ? fallback : null;
+  const ruled = fallback ? applyMaharajaCatalogueRules(fallback) : null;
+  return ruled && ruled.active ? ruled : null;
 }
 
 export async function upsertCatalogueProduct(input: Partial<MaharajaCatalogueProduct> & { imageUrl?: string; garmentReferenceUrl?: string }): Promise<PublicCatalogueProduct> {
