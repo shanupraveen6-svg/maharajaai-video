@@ -6,7 +6,12 @@ import { bindClient } from '@/lib/maharaja/client-context';
 import { SPEND_CAP_MESSAGE, spendAllowed } from '@/lib/maharaja/usage-ledger';
 import { customerRateLimit } from '@/lib/maharaja/config';
 
-const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
+// Live Try-On runs on Lucy 2.5 (newer, try-on from a garment photo); Lucy 2.1 VTON is the fallback the TV
+// switches to by itself when 2.5 does not connect. Each maps to its fal app name for the token.
+const LUCY_APPS: Record<string, string> = {
+  'decart/lucy-2-5/realtime': 'lucy-2-5',
+  'decart/lucy2-vton/realtime': 'lucy2-vton',
+};
 
 export async function POST(req: NextRequest) {
   bindClient(await resolveRequestClientId(req));
@@ -29,7 +34,8 @@ export async function POST(req: NextRequest) {
   const falKey = process.env.FAL_KEY?.trim();
   if (!falKey) return new NextResponse('Live AI Mirror is not configured.', { status: 503 });
   const body = await req.json().catch(() => ({}));
-  if (body?.app !== LUCY_VTON_APP) return new NextResponse('Unsupported realtime app.', { status: 400 });
+  const allowedApp = typeof body?.app === 'string' ? LUCY_APPS[body.app] : undefined;
+  if (!allowedApp) return new NextResponse('Unsupported realtime app.', { status: 400 });
   const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const rate = await enforceRateLimit(req, 'fal-lucy-realtime-token', customerRateLimit(8), 10 * 60 * 1000, forwarded);
   if (!rate.allowed) {
@@ -46,7 +52,7 @@ export async function POST(req: NextRequest) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ allowed_apps: ['lucy2-vton'], token_expiration: 120 }),
+      body: JSON.stringify({ allowed_apps: [allowedApp], token_expiration: 120 }),
       cache: 'no-store',
       signal: AbortSignal.timeout(10_000),
     });
