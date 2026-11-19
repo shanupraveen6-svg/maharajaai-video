@@ -17,8 +17,8 @@ const DEFAULT_COST_USD: Record<AiCostKind, number> = {
   'video-portrait': 0.0735,
   // Overridden by the video model's own estimate when one is known.
   'video-render': 0.48,
-  // One 30-second Live Try-On session at $0.02 a second.
-  'live-session': 0.6,
+  // One 20-second Live Try-On session at $0.02 a second.
+  'live-session': 0.4,
 };
 
 const COST_ENV: Record<AiCostKind, string> = {

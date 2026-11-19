@@ -1972,7 +1972,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         )}
 
         {/* =========================================================
-            MODE 2: LIVE MIRROR (pick a catalogue piece -> Start live -> 5-second countdown -> 30 seconds live)
+            MODE 2: LIVE MIRROR (pick a catalogue piece -> Start live -> 5-second countdown -> 20 seconds live)
            ========================================================= */}
         {mode === 'live-tryon' && (
           <LucyLiveMirror

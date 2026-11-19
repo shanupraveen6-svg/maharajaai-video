@@ -12,20 +12,24 @@ import PosterFill from '@/components/kiosk/PosterFill';
 import { PageTitle } from '@/components/ui';
 
 const LUCY_VTON_APP = 'decart/lucy2-vton/realtime';
-const SESSION_SECONDS = 30;
+const SESSION_SECONDS = 20;
+/** Swaps (a new dress, or a bottom added) are taken in the first 15 seconds; the last 5 are the buffer that
+    lets the last piece show on the customer before the clock ends. */
+const SWAP_SECONDS = 15;
+const SWAP_CLOSES_AT = SESSION_SECONDS - SWAP_SECONDS;
 const READY_COUNTDOWN_SECONDS = 6;
 // MP4 first: phones play it everywhere; Chrome on older TVs falls back to WebM.
 const RECORDING_TYPES = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
 const AUDIENCE_LABELS = { women: 'Women', men: 'Men', boys: 'Boys', girls: 'Girls' } as const;
 
-/** 'ready' is the 5-second step-back countdown, 'connecting' the Lucy handshake, 'live' the timed 30 seconds. */
+/** 'ready' is the 5-second step-back countdown, 'connecting' the Lucy handshake, 'live' the timed 20 seconds. */
 type SessionState = 'idle' | 'ready' | 'connecting' | 'live' | 'error';
 type Phase = 'who' | 'camera' | 'result';
 
 /**
  * Live Try-On on the TV: Women · Men · Kids → the camera on the top 60% of the screen; underneath, Boys or
  * Girls (Kids only), the category tabs and one row of garments that scrolls sideways → tap a garment to pick
- * it → Start Live Try-On in the centre of the camera → 6 seconds to step back → 30 seconds live → the
+ * it → Start Live Try-On in the centre of the camera → 6 seconds to step back → 20 seconds live (swap or add a piece in the first 15) → the
  * recording plays back with Replay and End session, then the next customer starts from the first screen.
  * Nothing is uploaded or downloaded. Image Try-On uses the same screen (WhoCards, KidsSwitch, GarmentRail).
  */
@@ -68,6 +72,8 @@ export default function LucyLiveMirror({
   const [session, setSession] = useState<SessionState>('idle');
   const [readyCountdown, setReadyCountdown] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(SESSION_SECONDS);
+  const secondsLeftRef = useRef(SESSION_SECONDS);
+  useEffect(() => { secondsLeftRef.current = secondsLeft; }, [secondsLeft]);
   const [error, setError] = useState('');
   const [cameraOn, setCameraOn] = useState(false);
   const [videoUrl, setVideoUrl] = useState('');
@@ -250,13 +256,13 @@ export default function LucyLiveMirror({
   }
 
   /**
-   * Tapping a garment picks it; Start Live Try-On on the camera begins the session. During the 30 seconds a
+   * Tapping a garment picks it; Start Live Try-On on the camera begins the session. During the first 15 of the 20 seconds a
    * tap swaps the garment on the same live connection (Lucy takes a new reference image mid-session), and
    * the clock keeps running, so one session can show two or three outfits.
    */
   function pickGarment(piece: TryFocusProduct) {
     if (session === 'live') {
-      if (piece.sku === garment?.sku || !wsRef.current) return;
+      if (piece.sku === garment?.sku || !wsRef.current || secondsLeftRef.current <= SWAP_CLOSES_AT) return;
       setGarment(piece);
       onSelectProduct?.(piece);
       void sendGarmentReference(wsRef.current, piece).catch(() => setError('That outfit could not be loaded. Try another.'));
@@ -401,7 +407,7 @@ export default function LucyLiveMirror({
     }
   }
 
-  /** The 30 seconds are up (or cut short): keep the clip on this TV only and play it back. */
+  /** The 20 seconds are up (or cut short): keep the clip on this TV only and play it back. */
   async function endLiveSession() {
     const blob = await finishRecording();
     stopEverything();
@@ -487,7 +493,7 @@ export default function LucyLiveMirror({
     return (
       <div className="flex tv-fill-screen flex-col gap-7">
         <div className="space-y-3">
-          <PageTitle size="lg" title="Live Try-On" subtitle="30 seconds, live on camera." />
+          <PageTitle size="lg" title="Live Try-On" subtitle="20 seconds, live on camera." />
           <PhotoConsentNotice kind="live" large kiosk />
         </div>
         <WhoCards value={group} onChange={chooseWho} />
@@ -555,7 +561,7 @@ export default function LucyLiveMirror({
         </div>
       )}
 
-      {/* The countdown and the 30 live seconds fill the whole TV, like a mirror; picking happens in the window. */}
+      {/* The countdown and the 20 live seconds fill the whole TV, like a mirror; picking happens in the window. */}
       <div className={running ? 'fixed inset-0 z-50 overflow-hidden bg-ink' : 'relative min-h-0 w-full flex-1 overflow-hidden bg-ink'}>
         <video ref={localVideoRef} playsInline muted autoPlay className={`h-full w-full object-cover [transform:scaleX(-1)] ${session === 'live' ? 'opacity-0' : 'opacity-100'}`} />
         <video ref={remoteVideoRef} playsInline muted autoPlay className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${session === 'live' ? 'opacity-100' : 'pointer-events-none opacity-0'}`} />
@@ -565,10 +571,21 @@ export default function LucyLiveMirror({
             <span className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-xl font-bold tabular-nums text-white shadow-lg">
               <span className="h-3 w-3 rounded-full bg-success" /> {secondsLeft}s
             </span>
-            {/* Swap the outfit without stopping: the garments of the open category, over the live view. */}
-            {categoryProducts.length > 1 && (
+            {/* Swap or add a piece without stopping (a new dress, or a bottom from Bottoms): the category tabs
+                and their garments over the live view, for the first 15 seconds. The last 5 seconds let the last
+                piece show. */}
+            {secondsLeft > SWAP_CLOSES_AT ? (
               <div className="absolute inset-x-0 bottom-4 z-20 space-y-2 px-4">
-                <p className="mx-auto w-fit rounded-full bg-ink px-5 py-2 text-lg font-semibold text-white shadow-lg">Tap to swap</p>
+                <p className="mx-auto w-fit rounded-full bg-ink px-5 py-2 text-lg font-semibold text-white shadow-lg">Tap to change · {secondsLeft - SWAP_CLOSES_AT} s</p>
+                {visibleTabs.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto">
+                    {visibleTabs.map((tab) => (
+                      <button key={tab.id} type="button" aria-pressed={activeCategory === tab.id} onClick={() => setCategory(tab.id)} className={`min-h-14 shrink-0 whitespace-nowrap rounded-xl border-2 px-5 text-lg font-bold shadow ${activeCategory === tab.id ? 'border-ink bg-ink text-white' : 'border-white bg-white text-ink'}`}>
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-3 overflow-x-auto pb-1">
                   {categoryProducts.map((item) => {
                     const on = garment?.sku === item.sku;
@@ -580,6 +597,8 @@ export default function LucyLiveMirror({
                   })}
                 </div>
               </div>
+            ) : (
+              <p className="absolute inset-x-0 bottom-6 z-20 mx-auto w-fit rounded-full bg-ink px-6 py-3 text-xl font-semibold text-white shadow-lg">Your last look</p>
             )}
             <div className="absolute inset-x-0 bottom-0 h-2 bg-white/20">
               <div className="h-full bg-white transition-all duration-1000 ease-linear" style={{ width: `${progressPercent}%` }} />

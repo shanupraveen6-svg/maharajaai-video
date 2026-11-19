@@ -48,9 +48,11 @@ TV, three tabs:
   best western pieces for it. The store switches garments on per garment, or a whole category at once, in
   the Image Try-On table. Women · Men · Kids → the camera on the top 60% of the screen; under it Boys | Girls
   (Kids only), the category tabs (only those with a garment) and one row of garment cards that scrolls
-  sideways → tap a garment to pick it (one) → Start Live Try-On appears in the centre of the camera → 5
-  seconds to step back → 30 seconds live; during the 30 seconds a strip of the open category's garments sits over
-  the live view ("Tap to swap"); a tap swaps it on the same live connection, and the clock keeps running (Boys or Girls also tells Lucy it is a child) → the recording
+  sideways → tap a garment to pick it (one) → Start Live Try-On appears in the centre of the camera → 6
+  seconds to step back → 20 seconds live. In the first 15 seconds the category tabs and their garments sit
+  over the live view ("Tap to change"): a new dress, or a bottom added, swaps on the same live connection and
+  the clock keeps running (the swap's loading time counts in the 20). The last 5 seconds are the buffer that
+  lets the last piece show ("Your last look"); no more changes then (Boys or Girls also tells Lucy it is a child) → the recording
   plays back with Replay and a large End session,
   and the next customer starts from the first screen. No QR and no download: the video exists only for this
   viewing.
