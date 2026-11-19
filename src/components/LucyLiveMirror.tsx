@@ -85,6 +85,10 @@ export default function LucyLiveMirror({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const videoUrlRef = useRef('');
+  // The engine was busy (its last session still closing): one automatic try again, a few seconds later.
+  const busyRetryRef = useRef<number | null>(null);
+  const busyRetriedRef = useRef(false);
+  const [busyRetryIn, setBusyRetryIn] = useState<number | null>(null);
 
   const isChild = group === 'kids';
   const consentMissing = isChild && !guardianConsent;
@@ -97,9 +101,14 @@ export default function LucyLiveMirror({
 
   useEffect(() => {
     const pause = () => { if (document.hidden) stopEverything(); };
+    // Closing or reloading the tab mid-session ends the live session at once, so it does not keep holding
+    // one of the engine's few session slots (the next customer would see "busy").
+    const leave = () => stopEverything();
     document.addEventListener('visibilitychange', pause);
+    window.addEventListener('pagehide', leave);
     return () => {
       document.removeEventListener('visibilitychange', pause);
+      window.removeEventListener('pagehide', leave);
       stopEverything();
       if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
     };
@@ -135,7 +144,13 @@ export default function LucyLiveMirror({
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
   }
 
+  function clearBusyRetry() {
+    if (busyRetryRef.current !== null) { window.clearInterval(busyRetryRef.current); busyRetryRef.current = null; }
+    setBusyRetryIn(null);
+  }
+
   function stopEverything() {
+    clearBusyRetry();
     closeRealtimeConnections();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
@@ -257,6 +272,8 @@ export default function LucyLiveMirror({
   /** Start Live Try-On: 6 seconds to step back from the TV, then the live session. */
   function startSession(piece: TryFocusProduct, parentApproved = false) {
     if (consentMissing && !parentApproved) { setError('A parent or guardian must approve first.'); return; }
+    clearBusyRetry();
+    busyRetriedRef.current = false;
     setError('');
     clearCountdownTimer();
     setSession('ready');
@@ -304,7 +321,25 @@ export default function LucyLiveMirror({
         stopped = true;
         closeRealtimeConnections();
         setSession('error');
-        setError(message);
+        // "Concurrent session limit reached": the engine has no free session (the last one still closing, or
+        // the fal.ai balance too low to open one). The customer sees a plain line, the TV tries once more by
+        // itself after 12 seconds, then offers the photo Try-On.
+        if (/concurrent|session limit|limit reached|busy/i.test(message)) {
+          setError(busyRetriedRef.current ? 'Live Try-On is not available right now. Try it on a photo instead.' : 'Live Try-On is busy right now.');
+          if (!busyRetriedRef.current) {
+            busyRetriedRef.current = true;
+            let left = 12;
+            setBusyRetryIn(left);
+            busyRetryRef.current = window.setInterval(() => {
+              left -= 1;
+              if (left <= 0) { clearBusyRetry(); void startLucyLiveSession(piece); }
+              else setBusyRetryIn(left);
+            }, 1000);
+          }
+          return;
+        }
+        // Engine codes (INTERNAL_ERROR…) are never shown to a customer.
+        setError(/^[A-Z_]{4,}:|internal|decart/i.test(message) ? 'Live Try-On could not start this time.' : message);
       };
       const connection = fal.realtime.connect<Record<string, unknown>, Record<string, any>>(LUCY_VTON_APP, {
         connectionKey: `maharaja-live-${Date.now()}`,
@@ -604,7 +639,7 @@ export default function LucyLiveMirror({
               <ShieldAlert className="mt-0.5 h-7 w-7 shrink-0 text-danger" />
               <div className="min-w-0">
                 <p className="text-lg font-bold text-ink">Live Try-On is not running.</p>
-                <p className="mt-1 text-base text-muted">{error}</p>
+                <p className="mt-1 text-base text-muted">{error}{busyRetryIn !== null ? ` Trying again in ${busyRetryIn} s…` : ''}</p>
                 <div className="mt-3 flex flex-wrap gap-3">
                   {garment && <button type="button" onClick={() => startSession(garment)} className="tf-btn tf-btn-primary !min-h-16 px-6 text-lg">Try again</button>}
                   {onUsePhotoTryOn && garment && (
