@@ -1,8 +1,9 @@
 // A store's own custom category (see store-categories.ts) carries any other id string; the `(string & {})`
 // member keeps autocomplete for these known ones while still accepting that.
-export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'salwar-suits' | 'lehengas' | 'gowns' | 'blouses' | 'western-tops' | 'women-bottoms' | 'women-occasion' | 'formal-shirts' | 'casual-shirts' | 'tshirts' | 'trousers' | 'sherwanis' | 'blazers' | 'men-occasion' | 'boys-sherwani' | 'boys-jacket' | 'boys-shirt-trouser' | 'boys-festive' | 'boys-casual' | 'boys-dhoti' | 'boys-party' | 'girls-half-saree' | 'girls-kurti' | 'girls-salwar' | 'girls-gown' | 'girls-festive' | 'girls-party' | 'girls-anarkali' | 'anarkali' | 'shirts' | (string & {});
+export type CatalogueCategoryId = 'sarees' | 'half-sarees' | 'kurtis' | 'kurta' | 'veshti' | 'angavastram' | 'boys-veshti' | 'boys-kurta' | 'boys-silk-shirt' | 'girls-pavadai' | 'girls-lehenga' | 'girls-frock' | 'salwar' | 'lehenga' | 'salwar-suits' | 'lehengas' | 'gowns' | 'blouses' | 'western-tops' | 'women-bottoms' | 'women-dresses' | 'women-occasion' | 'formal-shirts' | 'casual-shirts' | 'tshirts' | 'trousers' | 'sherwanis' | 'blazers' | 'men-occasion' | 'boys-sherwani' | 'boys-jacket' | 'boys-shirt-trouser' | 'boys-festive' | 'boys-casual' | 'boys-dhoti' | 'boys-party' | 'girls-half-saree' | 'girls-kurti' | 'girls-salwar' | 'girls-gown' | 'girls-festive' | 'girls-party' | 'girls-anarkali' | 'anarkali' | 'shirts' | (string & {});
 import { maharajaClientSamples } from './maharaja-client-samples';
 import { maharajaWomenAdditions } from './maharaja-women-additions';
+import { maharajaWomenLiveAdditions } from './maharaja-women-live';
 
 export type CatalogueAudience = 'women' | 'men' | 'boys' | 'girls';
 
@@ -35,11 +36,12 @@ export const catalogueCategories = [
   { id: 'kurtis', label: 'Kurtis', description: 'South Indian silk & cotton kurtis', subtitle: 'South Indian silk & cotton kurtis', audience: 'Women', gender: 'women', garmentType: 'salwar' , westernTryOnEligible: false },
   { id: 'salwar-suits', label: 'Salwar Suits', description: 'Salwar Suits', subtitle: 'Salwar Suits', audience: 'Women', gender: 'women', garmentType: 'salwar' , westernTryOnEligible: false },
   { id: 'half-sarees', label: 'Half Sarees', description: 'Langa voni & festive drapes', subtitle: 'Langa voni & festive drapes', audience: 'Women', gender: 'women', garmentType: 'half_saree' , westernTryOnEligible: false },
-  { id: 'western-tops', label: 'Tops & Shirts', description: 'Tops & Shirts', subtitle: 'Tops & Shirts', audience: 'Women', gender: 'women', garmentType: 'top' , westernTryOnEligible: true },
-  { id: 'women-bottoms', label: 'Jeans & Bottoms', description: 'Jeans & Bottoms', subtitle: 'Jeans & Bottoms', audience: 'Women', gender: 'women', garmentType: 'trousers' , westernTryOnEligible: true },
+  { id: 'western-tops', label: 'Tops & Tees', description: 'Western tops & tees', subtitle: 'Western tops & tees', audience: 'Women', gender: 'women', garmentType: 'top' , westernTryOnEligible: true },
+  { id: 'women-bottoms', label: 'Bottoms', description: 'Jeans, trousers & bottoms', subtitle: 'Jeans, trousers & bottoms', audience: 'Women', gender: 'women', garmentType: 'trousers' , westernTryOnEligible: true },
+  { id: 'women-dresses', label: 'Dresses', description: 'Western & casual dresses', subtitle: 'Western & casual dresses', audience: 'Women', gender: 'women', garmentType: 'one_piece' , westernTryOnEligible: true },
   { id: 'blouses', label: 'Blouses', description: 'Blouses', subtitle: 'Blouses', audience: 'Women', gender: 'women', garmentType: 'top' , westernTryOnEligible: false },
   { id: 'anarkali', label: 'Anarkali', description: 'Anarkali suits', subtitle: 'Anarkali suits', audience: 'Women', gender: 'women', garmentType: 'salwar' , westernTryOnEligible: false },
-  { id: 'gowns', label: 'Gowns & Dresses', description: 'Gowns & Dresses', subtitle: 'Gowns & Dresses', audience: 'Women', gender: 'women', garmentType: 'one_piece' , westernTryOnEligible: true },
+  { id: 'gowns', label: 'Gowns', description: 'Festive & evening gowns', subtitle: 'Festive & evening gowns', audience: 'Women', gender: 'women', garmentType: 'one_piece' , westernTryOnEligible: false },
   { id: 'lehengas', label: 'Lehengas', description: 'Lehengas', subtitle: 'Lehengas', audience: 'Women', gender: 'women', garmentType: 'lehenga' , westernTryOnEligible: false },
   { id: 'women-occasion', label: 'Occasion Sets', description: 'Occasion Sets', subtitle: 'Occasion Sets', audience: 'Women', gender: 'women', garmentType: 'lehenga' , westernTryOnEligible: false },
   { id: 'formal-shirts', label: 'Formal Shirts', description: 'Formal Shirts', subtitle: 'Formal Shirts', audience: 'Men', gender: 'men', garmentType: 'shirt_pant' , westernTryOnEligible: true },
@@ -455,6 +457,7 @@ const rawSampleCatalogue: Array<Omit<TryFocusProduct, 'gender'>> = [
 ];
 
 export const sampleCatalogue: TryFocusProduct[] = [
+  ...maharajaWomenLiveAdditions,
   ...maharajaWomenAdditions,
   ...maharajaClientSamples,
   ...rawSampleCatalogue.map((item): TryFocusProduct => {
@@ -467,7 +470,7 @@ export const sampleCatalogue: TryFocusProduct[] = [
       badge: arrivalOnly ? 'NEW ARRIVAL' : item.badge,
       newArrivalOnly: false,
       eligibleForVideo: true,
-      eligibleForLive: item.category === 'sarees' || (item.audience === 'Men' && item.price >= 10000),
+      eligibleForLive: false,
     };
   }),
 ];

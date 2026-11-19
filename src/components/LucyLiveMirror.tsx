@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { fal } from '@fal-ai/client';
 import { Camera, LoaderCircle, Play, RotateCcw, ShieldAlert, Sparkles, X } from 'lucide-react';
 import type { CatalogueCategoryId, TryFocusProduct } from '@/lib/tryfocus/catalogue-data';
+import { buildLiveMirrorTabs } from '@/lib/tryfocus/live-categories';
 import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards';
 import GarmentRail from '@/components/kiosk/GarmentRail';
@@ -88,19 +89,11 @@ export default function LucyLiveMirror({
   const isChild = group === 'kids';
   const consentMissing = isChild && !guardianConsent;
 
-  /** The categories that hold at least one Live Try-On garment for this audience, in the store's order. */
-  const visibleCategories = useMemo(() => {
-    if (!gender) return [];
-    const inStock = new Set(activeCatalogue.filter((item) => item.gender === gender).map((item) => item.category as string));
-    const named = (categories?.[gender] || []).filter((cat) => inStock.has(cat.id as string));
-    const extra = [...inStock].filter((id) => !named.some((cat) => cat.id === id)).map((id) => ({ id: id as CatalogueCategoryId, label: activeCatalogue.find((item) => item.category === id)?.fabricNote?.split(' · ')[0] || id }));
-    return [...named, ...extra];
-  }, [activeCatalogue, categories, gender]);
-  const activeCategory = visibleCategories.some((cat) => cat.id === category) ? category : (visibleCategories[0]?.id as string | undefined);
-  const categoryProducts = useMemo(
-    () => activeCatalogue.filter((item) => item.gender === gender && item.category === activeCategory),
-    [activeCatalogue, gender, activeCategory]
-  );
+  /** The grouped Live Try-On tabs for this audience (with mixed New Arrivals). */
+  const visibleTabs = useMemo(() => buildLiveMirrorTabs(activeCatalogue, gender, categories), [activeCatalogue, categories, gender]);
+  const activeTab = visibleTabs.find((tab) => tab.id === category) || visibleTabs[0];
+  const activeCategory = activeTab?.id;
+  const categoryProducts = activeTab?.items || [];
 
   useEffect(() => {
     const pause = () => { if (document.hidden) stopEverything(); };
@@ -603,12 +596,12 @@ export default function LucyLiveMirror({
         )}
       </div>
 
-      {gender && (visibleCategories.length === 0 ? (
+      {gender && (visibleTabs.length === 0 ? (
         <p className="shrink-0 bg-white p-6 text-center text-xl text-muted">No Live Try-On outfits for {AUDIENCE_LABELS[gender]} yet. Ask our staff.</p>
       ) : (
         <div className="shrink-0 border-t border-line bg-white px-5 pt-3">
         <GarmentRail
-          tabs={visibleCategories.map((cat) => ({ id: cat.id as string, label: cat.label }))}
+          tabs={visibleTabs.map((tab) => ({ id: tab.id, label: tab.label }))}
           activeTab={activeCategory}
           onTab={(id) => setCategory(id)}
           items={categoryProducts}

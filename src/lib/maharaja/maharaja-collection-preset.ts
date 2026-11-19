@@ -118,7 +118,6 @@ export const TRIAL_MOVES: Array<{ sku: string; gender: CatalogueAudience; catego
   { sku: "MAH-8B1C32-0017", gender: 'boys', category: 'boys-casual', title: 'Red Check Casual Shirt' }, // a kids' shirt in Men · Formal Shirts
   { sku: "MAH-CLIENT-08", gender: 'women', category: 'half-sarees', title: 'Green and Maroon Pattu Half Saree' }, // a half saree in Lehengas
   { sku: "MAH-CLIENT-02", gender: 'women', category: 'anarkali', title: 'Cream and Coral Anarkali' }, // an anarkali frock in Lehengas
-  { sku: "MAH-CLIENT-10", gender: 'men', category: 'sherwanis', title: 'Black Embroidered Bandhgala' }, // an embroidered bandhgala in Angavastram Sets
 ];
 
 /** Gift-box flat lays (a folded shirt and veshti in a box): two garments in one photo, not usable for Try-On. Hidden, not deleted. */

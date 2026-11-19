@@ -76,7 +76,7 @@ const ROOT_SILK_CATALOGUE = ([
   badge: 'ROYAL SILK',
   newArrival: false,
   eligibleForVideo: true,
-  eligibleForLive: true,
+  eligibleForLive: false,
   productUrl: '',
   active: true,
   sortOrder: index + 101,
@@ -281,17 +281,62 @@ function maharajaMenVideoPrice(sku: string, category: CatalogueCategoryId): numb
   return 5150 + ((n >>> 4) % 6) * 450 + suffix;
 }
 
+const REMOVED_MAHARAJA_SKUS = new Set([
+  'MAH-CLIENT-10',
+  'MAH-CLIENT-24',
+  'MAH-CLIENT-26',
+  'MAH-CLIENT-30',
+  'MAH-CLIENT-37',
+]);
+
+const MAHARAJA_WESTERN_LIVE_CATEGORIES = new Set<string>([
+  'western-tops',
+  'women-bottoms',
+  'women-dresses',
+  'formal-shirts',
+  'casual-shirts',
+  'tshirts',
+  'trousers',
+  'blazers',
+]);
+
 function applyMaharajaCatalogueRules(item: MaharajaCatalogueProduct): MaharajaCatalogueProduct | null {
   if (activeClientId() !== MAHARAJA_CLIENT_ID) return item;
-  if (item.category === 'women-bottoms') return null;
-  if (item.gender === 'men' && item.active !== false && !/^MAH-(MEN|WOMEN|BOYS|GIRLS)-/.test(item.sku)) {
-    return {
-      ...item,
-      eligibleForVideo: true,
-      price: item.price > 5000 ? item.price : maharajaMenVideoPrice(item.sku, item.category),
+  if (
+    item.category === 'angavastram' ||
+    REMOVED_MAHARAJA_SKUS.has(item.sku) ||
+    /^MAH-WOMEN-WOMEN-BOTTOMS-/.test(item.sku)
+  ) {
+    return null;
+  }
+
+  let next = item;
+  if (next.sku === 'MAH-CLIENT-05' || next.sku === 'MAH-CLIENT-06') {
+    next = {
+      ...next,
+      gender: 'men',
+      audience: 'Men',
+      category: 'trousers',
+      garmentType: 'trousers',
     };
   }
-  return item;
+
+  if ((next.gender === 'women' || next.gender === 'men') && next.active !== false && !/^MAH-(BOYS|GIRLS)-/.test(next.sku)) {
+    const live = MAHARAJA_WESTERN_LIVE_CATEGORIES.has(next.category);
+    if (next.eligibleForLive !== live) {
+      next = { ...next, eligibleForLive: live };
+    }
+  }
+
+  if (next.gender === 'men' && next.active !== false && !/^MAH-(MEN|WOMEN|BOYS|GIRLS)-/.test(next.sku)) {
+    next = {
+      ...next,
+      eligibleForVideo: true,
+      price: next.price > 5000 ? next.price : maharajaMenVideoPrice(next.sku, next.category),
+    };
+  }
+
+  return next;
 }
 
 /** Every garment record for the bound client (shared built-ins merged with saved ones), without photo links. */

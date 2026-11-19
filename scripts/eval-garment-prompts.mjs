@@ -27,7 +27,7 @@ const oneOf = (value, expected) => (Array.isArray(expected) ? expected : [expect
 // 1. Every catalogue category resolves to the garment it really holds.
 const CATEGORY_TRUTH = {
   sarees: 'saree', kurtis: 'salwar', 'salwar-suits': 'salwar', 'half-sarees': 'half_saree', 'western-tops': 'top',
-  'women-bottoms': 'trousers', blouses: 'top', anarkali: 'salwar', gowns: 'one_piece', lehengas: 'lehenga',
+  'women-bottoms': 'trousers', 'women-dresses': 'one_piece', blouses: 'top', anarkali: 'salwar', gowns: 'one_piece', lehengas: 'lehenga',
   'women-occasion': ['generic', 'lehenga'], 'formal-shirts': 'shirt_pant', 'casual-shirts': 'shirt_pant',
   trousers: 'trousers', tshirts: 'tshirt_bottom', veshti: 'dhoti_veshti', kurta: 'kurta_dhoti',
   angavastram: 'dhoti_veshti', blazers: 'jacket', sherwanis: ['kurta_dhoti', 'generic'], 'men-occasion': ['generic', 'kurta_dhoti'],
