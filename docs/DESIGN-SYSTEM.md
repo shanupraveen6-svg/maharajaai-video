@@ -186,7 +186,11 @@ Every change on the Plan tab saves on its own (a Saving… / Saved note at the t
 or a platform being switched off asks first, showing before → after. Pausing a store asks first too. After the four steps: Catalogue setup (Preview, then Apply:
 garments in the right categories, Live Try-On on every non-ethnic category, priced AI Video pieces for all
 four audiences; for Maharaja it also adds the garments its catalogue was missing) and, last, Delete
-workspace. The store's Live for customers / Paused switch sits under its name in the header. Without a client picked, admin is a status board: four totals, Needs action, and
+workspace. Beside the store's name in the header (store workspace and TryFocus admin alike): the status (Live for
+customers · Paused · promo player on TV) and the Customer screens on / off switch. Turning it off asks first. While
+it is off, the TV becomes a full-screen promotion player: the store's promotion videos between its customers' Go
+Live AI Videos (the posters, or the store's name, when there are none), with no tabs and nothing to tap; Try-On,
+AI Video, Live Try-On and the Wall QR are stopped. The TV checks every minute, so the change shows within a minute. Without a client picked, admin is a status board: four totals, Needs action, and
 one card per client.
 
 Store workspace, Overview in this order, compact, showing only this store's own things:

@@ -32,6 +32,7 @@ import WhoCards, { KidsSwitch, type WhoGroup } from '@/components/kiosk/WhoCards
 import PosterFill from '@/components/kiosk/PosterFill';
 import GeneratingPreview from '@/components/kiosk/GeneratingPreview';
 import TvIdleLoop from '@/components/TvIdleLoop';
+import TvPromoPlayer from '@/components/TvPromoPlayer';
 import TvOfflineNotice from '@/components/TvOfflineNotice';
 import { downloadBrandedQr } from '@/lib/maharaja/branded-qr';
 import Link from 'next/link';
@@ -157,6 +158,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [videoOn, setVideoOn] = useState(true);
   // With Go Live, an idle TV plays recent Go Live videos until someone taps it.
   const [goLiveOn, setGoLiveOn] = useState(false);
+  // Customer screens switched off in the workspace: the TV only plays promotions and AI Videos.
+  const [customersOn, setCustomersOn] = useState(true);
   const [idleLoop, setIdleLoop] = useState(false);
   const [catalogueItems, setCatalogueItems] = useState<TryFocusProduct[]>([]);
   // The store's own categories per audience, from its workspace.
@@ -203,6 +206,13 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const [videoGuardianConsent, setVideoGuardianConsent] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<TryFocusProduct>(sampleCatalogue[0]);
 
+  // Customer screens turned off: whoever was mid-way is cleared (camera off, photo gone) as the promo player takes over.
+  useEffect(() => {
+    if (!customersOn && !isTablet) resetAllSession();
+  // resetAllSession only touches state setters; it runs once per switch-off.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customersOn, isTablet]);
+
   // TryFocus switched the open experience off while the TV was running: go back to Image Try-On.
   useEffect(() => {
     if ((mode === 'live-tryon' && !liveOn) || (mode === 'catalogue-video' && !videoOn)) setMode(defaultMode);
@@ -214,7 +224,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   }, []);
 
   // The TV stays open all day, so admin changes reach it without a reload: store settings every
-  // 2 minutes (one small read) and the catalogue every 30 minutes.
+  // minute (one small read) and the catalogue every 30 minutes.
   useEffect(() => {
     let active = true;
     const loadCatalogue = () => fetchCompleteCatalogue()
@@ -250,6 +260,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
         if (!active) return;
         setTvBillSuffixRequired(settings.tvBillSuffixRequired);
         setSelectedEventId(settings.festival);
+        setCustomersOn(settings.customersOn);
         if (settings.clientName) setClientName(settings.clientName);
         setCategoryLists(settings.categoryLists);
         setCustomCategories(settings.customCategories);
@@ -265,7 +276,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
     void loadCatalogue();
     void loadSettings();
     const catalogueTimer = window.setInterval(loadCatalogue, 30 * 60 * 1000);
-    const settingsTimer = window.setInterval(loadSettings, 2 * 60 * 1000);
+    const settingsTimer = window.setInterval(loadSettings, 60 * 1000);
     return () => {
       active = false;
       window.clearInterval(catalogueTimer);
@@ -1423,7 +1434,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   return (
     // No long-press menu on the shared screen ("Open image in new tab" would leave the kiosk).
     <main className="tv-kiosk min-h-screen bg-[#F4F5F2] text-ink" onContextMenu={(event) => event.preventDefault()}>
-      {idleLoop && goLiveOn && !isTablet && <TvIdleLoop clientName={clientName} onWake={() => setIdleLoop(false)} />}
+      {!customersOn && !isTablet && <TvPromoPlayer clientName={clientName} />}
+      {customersOn && idleLoop && goLiveOn && !isTablet && <TvIdleLoop clientName={clientName} onWake={() => setIdleLoop(false)} />}
       <TvOfflineNotice />
       <header ref={headerRef} className={`tv-main-header sticky top-0 z-30 border-b-2 border-line bg-white shadow-sm ${compactHeader ? 'is-compact' : ''}`}>
         <div className={`tv-main-brand mx-auto flex max-w-[1080px] items-center justify-between gap-4 px-8 pb-4 pt-6 ${compactHeader ? '!hidden' : ''}`}>

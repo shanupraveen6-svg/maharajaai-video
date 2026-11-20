@@ -16,6 +16,8 @@ export type CatalogueSettings = {
   instagramUrl: string;
   /** The store's festival for AI Video (Settings → Festival theme). */
   festival: StoreFestival;
+  /** Customer screens on (the header switch); off turns the TV into the promotion player. */
+  customersOn: boolean;
 };
 
 /** `accessCode` (a customer QR or pass code) selects the client's catalogue on pages without a staff login. */
@@ -52,8 +54,9 @@ export async function fetchCatalogueSettings(accessCode = ''): Promise<Catalogue
       westernOverrides: data?.westernOverrides && typeof data.westernOverrides === 'object' ? data.westernOverrides as WesternOverrides : {},
       instagramUrl: typeof data?.instagramUrl === 'string' ? data.instagramUrl : '',
       festival: isStoreFestival(data?.festival) ? data.festival : 'diwali',
+      customersOn: data?.customersOn !== false,
     };
   } catch {
-    return { tvBillSuffixRequired: true, clientName: '', access: null, categoryLists: {}, customCategories: [], videoCategoryLists: {}, westernOverrides: {}, instagramUrl: '', festival: 'diwali' };
+    return { tvBillSuffixRequired: true, clientName: '', access: null, categoryLists: {}, customCategories: [], videoCategoryLists: {}, westernOverrides: {}, instagramUrl: '', festival: 'diwali', customersOn: true };
   }
 }

@@ -590,7 +590,7 @@ export default function MaharajaAdminDashboard({
         <div role="alert" className="border-b border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger sm:px-8">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
             <div>
-              {!workspace.campaignEnabled && <p className="font-semibold">Your store is paused: customers see a closed message. Tap Paused to turn it back on.</p>}
+              {!workspace.campaignEnabled && <p className="font-semibold">Customer screens are off: the TV plays your promotion videos and AI Videos only. Turn them on with the switch at the top.</p>}
               {creditAlerts.map((item) => <p key={item.label} className="font-semibold">{creditWarningText(item)}</p>)}
             </div>
             <a href="tel:9994837342" className="inline-flex items-center gap-1.5 font-semibold underline underline-offset-4"><Phone className="h-4 w-4" /> Add credits: 9994837342</a>
@@ -606,19 +606,21 @@ export default function MaharajaAdminDashboard({
               <p className="text-sm text-muted">{workspace.branch || 'Main showroom'} · Store workspace</p>
             </div>
           </div>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => {
-              if (workspace.campaignEnabled && !window.confirm('Pause all screens? Customers see a closed message on the TV, tablet and Wall QR until you turn it back on.')) return;
-              void savePatch({ campaignEnabled: !workspace.campaignEnabled });
-            }}
-            className={`inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold transition ${workspace.campaignEnabled ? 'bg-success-soft text-success' : 'bg-line text-muted'}`}
-            title={workspace.campaignEnabled ? 'Tap to pause all customer experiences' : 'Tap to turn customer experiences back on'}
-          >
-            <span className={`h-2 w-2 rounded-full ${workspace.campaignEnabled ? 'bg-success' : 'bg-subtle'}`} />
-            {workspace.campaignEnabled ? 'Live for customers' : 'Paused'}
-          </button>
+          {/* Customer screens: the status, and the switch beside it. Off = the TV plays promotions and AI Videos only. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusPill tone={workspace.campaignEnabled ? 'success' : 'neutral'}>{workspace.campaignEnabled ? 'Live for customers' : 'Paused · promo player on TV'}</StatusPill>
+            <Switch
+              checked={workspace.campaignEnabled}
+              disabled={saving}
+              label="Customer screens"
+              onChange={(on) => {
+                if (!on && !window.confirm('Turn off customer screens?\n\nThe TV plays only your promotion videos and AI Videos. Try-On, AI Video, Live Try-On and the Wall QR stop until you turn them back on.')) return;
+                void savePatch({ campaignEnabled: on });
+              }}
+            >
+              Customer screens {workspace.campaignEnabled ? 'on' : 'off'}
+            </Switch>
+          </div>
         </div>}
         {/* The tab row has room above and below, so it never sits on the header line. */}
         <div className={`mx-auto max-w-6xl px-5 sm:px-8 ${adminTab ? 'py-3' : 'pb-3 pt-3'}`}>

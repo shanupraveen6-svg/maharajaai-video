@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       after(() => ensureStorageCors());
     } catch { /* outside a request scope */ }
     return NextResponse.json(
-      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access, categoryLists: workspace.categoryLists || {}, customCategories: workspace.customCategories || [], videoCategoryLists: workspace.videoCategoryLists || {}, westernOverrides: workspace.westernOverrides || {}, instagramUrl: instagramUrlFor(workspace), festival: isStoreFestival(workspace.defaultEvent) ? workspace.defaultEvent : 'diwali' },
+      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access, categoryLists: workspace.categoryLists || {}, customCategories: workspace.customCategories || [], videoCategoryLists: workspace.videoCategoryLists || {}, westernOverrides: workspace.westernOverrides || {}, instagramUrl: instagramUrlFor(workspace), festival: isStoreFestival(workspace.defaultEvent) ? workspace.defaultEvent : 'diwali', customersOn: workspace.campaignEnabled !== false },
       {
         headers: {
           'Cache-Control': 'no-store',

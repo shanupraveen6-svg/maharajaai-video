@@ -16,7 +16,7 @@ import {
   Video,
 } from 'lucide-react';
 import { CREDIT_LEVEL_STATUS, creditLevel, creditStatuses } from '@/lib/maharaja/credits';
-import { StatusPill } from '@/components/ui';
+import { StatusPill, Switch } from '@/components/ui';
 import PlatformOverview, { type PlatformSpend } from '@/components/PlatformOverview';
 import MaharajaAdminDashboard from '@/components/MaharajaAdminDashboard';
 import { PACKAGES, modulesForPackage, packageLabel, packageOf, resolveAccess, type PackageId } from '@/lib/maharaja/access';
@@ -506,19 +506,18 @@ export default function TryFocusAdmin() {
                 </p>
                 {clientId && (
                   <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    aria-pressed={client.status === 'Active'}
-                    onClick={() => {
-                      if (client.status === 'Active' && !window.confirm(`Pause every screen of ${client.name}? Customers see a closed message until it is turned back on.`)) return;
-                      updateClient({ status: client.status === 'Active' ? 'Paused' : 'Active' });
+                  <StatusPill tone={client.status === 'Active' ? 'success' : 'neutral'}>{client.status === 'Active' ? 'Live for customers' : 'Paused · promo player on TV'}</StatusPill>
+                  <Switch
+                    checked={client.status === 'Active'}
+                    disabled={saving}
+                    label="Customer screens"
+                    onChange={(on) => {
+                      if (!on && !window.confirm(`Turn off customer screens for ${client.name}?\n\nThe TV plays only its promotion videos and AI Videos. Try-On, AI Video, Live Try-On and the Wall QR stop until they are turned back on.`)) return;
+                      updateClient({ status: on ? 'Active' : 'Paused' });
                     }}
-                    className={`inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold ${client.status === 'Active' ? 'bg-success-soft text-success' : 'bg-line text-muted'}`}
-                    title={client.status === 'Active' ? 'Tap to pause every screen of this store' : 'Tap to turn this store back on'}
                   >
-                    <span className={`h-2 w-2 rounded-full ${client.status === 'Active' ? 'bg-success' : 'bg-subtle'}`} />
-                    {client.status === 'Active' ? 'Live for customers' : 'Paused'}
-                  </button>
+                    Customer screens {client.status === 'Active' ? 'on' : 'off'}
+                  </Switch>
                   </div>
                 )}
               </div>
