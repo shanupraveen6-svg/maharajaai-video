@@ -19,7 +19,7 @@ import {
   type MaharajaWorkspace,
   updateMaharajaSettings,
 } from '@/lib/maharaja/server';
-import { EVENT_IDS, FESTIVE_TIER_MIN, LUXURY_TIER_MIN, isEventId } from '@/lib/maharaja/config';
+import { EVENT_IDS, FESTIVE_TIER_MIN, LUXURY_TIER_MIN, isEventId, isStoreFestival } from '@/lib/maharaja/config';
 import { getWhatsAppStatus } from '@/lib/whatsapp';
 import { GO_LIVE_LIFETIME_MS } from '@/lib/maharaja/retention';
 
@@ -529,18 +529,18 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Select a valid festival event.' }, { status: 400 });
       }
       const singleEvent = activeEvents[0];
-      if (singleEvent !== 'diwali') {
+      if (!isStoreFestival(singleEvent)) {
         return NextResponse.json(
-          { success: false, error: 'This event is planned. Diwali is the only production-ready theme.' },
+          { success: false, error: 'Pick Diwali, Christmas, New Year or Pongal.' },
           { status: 409 }
         );
       }
       settings.activeEvents = [singleEvent];
       settings.defaultEvent = singleEvent;
     } else if (isEventId(body.defaultEvent)) {
-      if (body.defaultEvent !== 'diwali') {
+      if (!isStoreFestival(body.defaultEvent)) {
         return NextResponse.json(
-          { success: false, error: 'This event is planned. Diwali is the only production-ready theme.' },
+          { success: false, error: 'Pick Diwali, Christmas, New Year or Pongal.' },
           { status: 409 }
         );
       }

@@ -1096,6 +1096,10 @@ export default function TvPlayerPage() {
       : currentPlayback?.eventId === 'birthday'
       ? 'பிறந்தநாள்'
       : 'தீபாவளி';
+  const festivalEnglish = currentPlayback?.eventId === 'pongal' ? 'Pongal'
+    : currentPlayback?.eventId === 'new-year' ? 'New Year'
+    : currentPlayback?.eventId === 'christmas' ? 'Christmas'
+    : 'Diwali';
 
   return (
     <main className="relative min-h-[100dvh] w-full overflow-x-hidden bg-[#4A0707] text-[#F8E8A8] select-none wall:fixed wall:inset-0 wall:h-[100dvh] wall:w-[100dvw] wall:overflow-hidden">
@@ -1113,7 +1117,7 @@ export default function TvPlayerPage() {
           /> : <p className="tracking-tight text-2xl font-bold text-[#FFF1A8] wall:text-center">{screenBrand.clientName}</p>}
           <div className="text-left wall:text-center">
             <p className="tracking-tight text-xl font-bold text-[#FFF1A8] sm:text-2xl wall:text-[clamp(1.65rem,2.4vw,2.5rem)]">
-              AI Diwali
+              AI {festivalEnglish}
             </p>
             <p className="mt-0.5 text-xs font-bold text-[#F6D36A]/85 sm:text-xs wall:mt-2 wall:text-sm">
               Fashion Film

@@ -38,7 +38,6 @@ import Link from 'next/link';
 import { interleaveByCategory, isLiveMirrorReady } from '@/lib/tryfocus/live-categories';
 import PhonePhotoTransfer from '@/components/PhonePhotoTransfer';
 import {
-  events,
   sampleCatalogue,
   type CatalogueCategoryId,
   type CatalogueAudience,
@@ -48,9 +47,9 @@ import PhotoConsentNotice from '@/components/PhotoConsentNotice';
 import { PageTitle } from '@/components/ui';
 import { OWN_GARMENT_TYPES } from '@/lib/tryfocus/garment-types';
 import { allCategoriesFor, categoriesFor, type CustomCategory, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
-import { conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
+import { conceptCard, conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import { fetchMasterImage } from '@/lib/maharaja/master-image-client';
-import type { CustomerCategory } from '@/lib/maharaja/config';
+import { getEventOption, type CustomerCategory, type StoreFestival } from '@/lib/maharaja/config';
 
 const VIDEO_CATEGORY_OF: Record<CatalogueAudience, CustomerCategory> = { women: 'women', men: 'men', boys: 'boy', girls: 'girl' };
 
@@ -250,6 +249,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
       .then((settings) => {
         if (!active) return;
         setTvBillSuffixRequired(settings.tvBillSuffixRequired);
+        setSelectedEventId(settings.festival);
         if (settings.clientName) setClientName(settings.clientName);
         setCategoryLists(settings.categoryLists);
         setCustomCategories(settings.customCategories);
@@ -339,7 +339,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
   const swipeStartX = useRef<number | null>(null);
 
   // AI Catalogue Video state
-  const [selectedEventId] = useState<string>(events[0].id);
+  // The store's festival (Settings → Festival theme): the portrait, the QR pass and the video all follow it.
+  const [selectedEventId, setSelectedEventId] = useState<StoreFestival>('diwali');
   const [videoPersonPhoto, setVideoPersonPhoto] = useState<string>('');
   const [videoMasterUrl, setVideoMasterUrl] = useState<string>('');
   const [videoMasterSessionId, setVideoMasterSessionId] = useState('');
@@ -2190,7 +2191,7 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
             {videoStage === 'look' && (
               <section className="mx-auto flex tv-fill-screen max-w-[760px] flex-col gap-6 pb-6">
                 <div className="flex items-center justify-between gap-4">
-                  <PageTitle size="lg" title="Pick a location" />
+                  <PageTitle size="lg" title="Pick a location" subtitle={`${getEventOption(selectedEventId).label} scenes`} />
                   <button type="button" onClick={() => setVideoStage('pick')} className="tv-chip group flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-white p-2 pr-4 text-left hover:border-ink">
                     <img src={selectedProduct.thumbnailUrl || selectedProduct.imageUrl} alt="" className="h-16 w-13 rounded-lg object-cover" />
                     <span className="text-sm font-semibold text-muted group-hover:text-ink">Change<br />piece</span>
@@ -2211,8 +2212,8 @@ export default function TryFocusTvExperience({ device = 'tv' }: { device?: 'tv' 
                           <MapPin className="h-10 w-10" strokeWidth={1.5} />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-3xl font-bold text-ink">{look.title}</span>
-                          <span className="mt-1.5 block text-xl text-muted">{look.mood}</span>
+                          <span className="block text-3xl font-bold text-ink">{conceptCard(look, selectedEventId).title}</span>
+                          <span className="mt-1.5 block text-xl text-muted">{conceptCard(look, selectedEventId).mood}</span>
                         </span>
                         {picked && <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ink text-white"><CheckCircle2 className="h-7 w-7" /></span>}
                       </button>

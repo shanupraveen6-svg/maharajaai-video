@@ -13,7 +13,7 @@ import VideoGeneratingAnimation from '@/components/VideoGeneratingAnimation';
 import { compressImage } from '@/lib/utils/image';
 import { usePhoneLanguage } from '@/lib/tryfocus/phone-language';
 import { categoriesFor, type StoreCategoryLists } from '@/lib/tryfocus/store-categories';
-import { conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
+import { conceptCard, conceptsForCategory, type VideoConceptId } from '@/lib/maharaja/video-concepts';
 import type { CustomerCategory, EventId } from '@/lib/maharaja/config';
 import type { CatalogueAudience } from '@/lib/tryfocus/catalogue-data';
 import { fetchMasterImage } from '@/lib/maharaja/master-image-client';
@@ -490,8 +490,8 @@ export default function GiftVideoExperience({ accessCode }: { accessCode: string
                 return (
                   <button key={look.id} type="button" aria-pressed={picked} onClick={() => setConceptId(look.id)} className={`flex w-full items-center justify-between gap-3 rounded-2xl border bg-white p-4 text-left transition ${picked ? 'border-ink ring-2 ring-ink' : 'border-line'}`}>
                     <span className="min-w-0">
-                      <span className="block text-base font-bold">{look.title}</span>
-                      <span className="mt-0.5 block text-sm text-muted">{look.mood}</span>
+                      <span className="block text-base font-bold">{conceptCard(look, eventId).title}</span>
+                      <span className="mt-0.5 block text-sm text-muted">{conceptCard(look, eventId).mood}</span>
                     </span>
                     {picked && <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-white"><Check className="h-4 w-4" /></span>}
                   </button>

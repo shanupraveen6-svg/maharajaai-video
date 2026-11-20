@@ -30,6 +30,13 @@ export const EVENT_OPTIONS: Array<{ id: EventId; label: string; scene: string }>
   { id: 'birthday', label: 'Birthday', scene: 'a premium birthday fashion celebration with tasteful balloons and soft gold lights' },
 ];
 
+/** The festivals a store can switch on (each built with its own scene per look); Ramadan and Birthday stay off. */
+export const STORE_FESTIVALS = ['diwali', 'christmas', 'new-year', 'pongal'] as const satisfies readonly EventId[];
+export type StoreFestival = (typeof STORE_FESTIVALS)[number];
+export function isStoreFestival(value: unknown): value is StoreFestival {
+  return typeof value === 'string' && (STORE_FESTIVALS as readonly string[]).includes(value);
+}
+
 export function isEventId(value: unknown): value is EventId {
   return typeof value === 'string' && EVENT_IDS.includes(value as EventId);
 }

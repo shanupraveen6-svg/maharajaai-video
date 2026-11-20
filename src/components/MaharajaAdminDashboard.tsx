@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import QRCode from 'qrcode';
 import { CREDIT_LEVEL_STATUS, creditStatuses, creditWarningText } from '@/lib/maharaja/credits';
 import GoLivePromoManager from '@/components/GoLivePromoManager';
 import ClientVideoLibrary from '@/components/ClientVideoLibrary';
@@ -29,9 +28,8 @@ import CatalogueTable, { type CatalogueTableRow } from '@/components/CatalogueTa
 import { NavTabs, Segmented, StatusPill, Switch } from '@/components/ui';
 import CustomerLeads from '@/components/CustomerLeads';
 import { downloadBrandedQr as downloadBrandedQrPoster } from '@/lib/maharaja/branded-qr';
-import { EVENT_OPTIONS, type EventId } from '@/lib/maharaja/config';
+import { EVENT_OPTIONS, STORE_FESTIVALS, getEventOption, type EventId, type StoreFestival } from '@/lib/maharaja/config';
 import {
-  formatINR,
   type CatalogueCategoryId,
   type CatalogueAudience,
 } from '@/lib/tryfocus/catalogue-data';
@@ -485,6 +483,11 @@ export default function MaharajaAdminDashboard({
   const minGateDisabled = workspace.minPurchaseTryOnDisabled !== false;
   const currentEvent =
     EVENT_OPTIONS.find((item) => item.id === workspace.defaultEvent) || EVENT_OPTIONS[0];
+  /** Festival theme: the AI Video scenes for the whole store; the TV picks it up within 2 minutes. */
+  const chooseFestival = (festival: StoreFestival) => {
+    if (festival === workspace.defaultEvent) return;
+    void savePatch({ activeEvents: [festival], defaultEvent: festival });
+  };
   // WhatsApp is connected per client by TryFocus admin; the client workspace only shows its status.
   const goLiveList = Array.isArray(workspace.goLiveAudit) ? workspace.goLiveAudit : [];
   const credits = creditStatuses(workspace.usage, limits);
@@ -763,6 +766,29 @@ export default function MaharajaAdminDashboard({
 
 
 
+        {limits.video > 0 && (
+          <section className="tf-card p-6">
+            <h2 className="text-lg font-bold">Festival theme</h2>
+            <p className="mt-1 text-sm text-muted">The scenes for AI Video. Now: <b className="text-ink">{currentEvent.label}</b>. The TV changes within 2 minutes.</p>
+            <div role="group" aria-label="Festival theme" className="mt-4 flex flex-wrap gap-2">
+              {STORE_FESTIVALS.map((festival) => {
+                const selected = workspace.defaultEvent === festival;
+                return (
+                  <button
+                    key={festival}
+                    type="button"
+                    aria-pressed={selected}
+                    disabled={saving}
+                    onClick={() => chooseFestival(festival)}
+                    className={`min-h-11 rounded-xl border-2 px-5 text-sm font-semibold transition ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white text-ink hover:border-ink'}`}
+                  >
+                    {getEventOption(festival).label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
           </div>
         )}
 
@@ -943,7 +969,7 @@ export default function MaharajaAdminDashboard({
           <div className="space-y-6">
             <section className="tf-card p-6">
               <h2 className="text-lg font-bold">Went live ({(goLiveCount ?? goLiveList.length).toLocaleString('en-IN')})</h2>
-              <p className="mt-1 text-sm text-muted">Each video is kept for 1 day, then deleted. This list updates itself.</p>
+              <p className="mt-1 text-sm text-muted">Videos stay and keep playing on the Go Live player. This list updates itself.</p>
               <div className="mt-4"><ClientVideoLibrary embedded onCount={setGoLiveCount} /></div>
             </section>
 

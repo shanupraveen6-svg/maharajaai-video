@@ -149,7 +149,9 @@ Retention: everything generated with a QR (Try-On looks, AI Video portraits and 
 scanning the same QR again within that hour shows it (a phone's Wall QR look opens straight on the look). Live
 Try-On's video is never uploaded or QR'd at all — they exist only in that session's camera view, gone the
 moment End session is tapped. Only a video sent to Go Live is kept for 1 day, for the Go Live screen. Then
-everything else is deleted.
+everything else is deleted. While TryFocus is testing with Maharaja (before the first client is onboarded),
+Go Live videos are kept so the Go Live player and the TV's idle loop keep playing them
+(`GO_LIVE_KEEP_WHILE_TESTING` in retention.ts; set it back to false at onboarding).
 Who (Women, Men, Boys, Girls) starts with nothing selected on every surface.
 
 Downloads start only after the customer's WhatsApp number (`useLeadGate`), with an optional, unticked "Send
@@ -200,7 +202,10 @@ Settings: store logo (PNG, JPG or WebP, up to 3 MB, at least 400 × 100 px, best
 transparent background), posters for the TV's empty space (JPG, PNG or WebP, up to 5 MB, at least 720 × 720 px,
 best portrait 1080 × 1920, up to 8), promotion videos for the Go Live player (MP4, WebM or MOV, portrait 9:16, best
 1080 × 1920, 5–60 seconds, up to 50 MB, at most 3), Instagram, the minimum bill for Wall QR Try-On and for
-AI Video, and the festival theme. Each upload is checked before it is sent and refused with the reason.
+AI Video, and the festival theme (Diwali · Christmas · New Year · Pongal, one tap; the TV follows within
+2 minutes, and the portrait, the QR pass, the phone's video, the location cards and the Go Live heading all use it.
+Each festival has its own scene per location, dressed the way it is celebrated in Tamil Nadu and Kerala, with nothing
+in the customer's hands and no open flame near a child). Each upload is checked before it is sent and refused with the reason.
 Customers is its own tab with two lists and a CSV download: Image Try-On (WhatsApp number, offers yes / no)
 and AI Video (WhatsApp number, name, city — the AI Video download asks for all three). Live Try-On has no
 download, so no list. Workspace tabs wrap on a phone.

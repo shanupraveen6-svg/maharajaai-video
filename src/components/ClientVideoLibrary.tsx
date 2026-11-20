@@ -161,7 +161,7 @@ export default function ClientVideoLibrary({
           <ArrowLeft className="h-4 w-4" /> {backLabel}
         </Link>
         <h1 className="text-2xl font-bold">Went live ({kept.length})</h1>
-        <p className="text-sm text-muted">Each video is kept for 1 day, then deleted.</p>
+        <p className="text-sm text-muted">Videos stay and keep playing on the Go Live player.</p>
         {errorBox}
         {gallery}
       </div>

@@ -1,3 +1,4 @@
+import { isStoreFestival } from '@/lib/maharaja/config';
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getDb, getStorageBucket } from '@/lib/firebase/admin';
 import { maybeSweepExpired } from '@/lib/maharaja/privacy-cleanup';
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
       after(() => ensureStorageCors());
     } catch { /* outside a request scope */ }
     return NextResponse.json(
-      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access, categoryLists: workspace.categoryLists || {}, customCategories: workspace.customCategories || [], videoCategoryLists: workspace.videoCategoryLists || {}, westernOverrides: workspace.westernOverrides || {}, instagramUrl: instagramUrlFor(workspace) },
+      { success: true, ...catalogue, clientName: workspace.clientName, tvBillSuffixRequired: videoLimitSet(workspace), access, categoryLists: workspace.categoryLists || {}, customCategories: workspace.customCategories || [], videoCategoryLists: workspace.videoCategoryLists || {}, westernOverrides: workspace.westernOverrides || {}, instagramUrl: instagramUrlFor(workspace), festival: isStoreFestival(workspace.defaultEvent) ? workspace.defaultEvent : 'diwali' },
       {
         headers: {
           'Cache-Control': 'no-store',

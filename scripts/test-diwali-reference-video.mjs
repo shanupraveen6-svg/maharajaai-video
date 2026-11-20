@@ -95,8 +95,10 @@ for (const concept of VIDEO_CONCEPTS) {
       assert.match(eventMotion, /supported hand touching that same support throughout/i);
     }
     if (eventId !== 'diwali') {
-      assert.doesNotMatch(eventMaster, /diwali|firework|diya/i);
-      assert.doesNotMatch(eventMotion, /diwali|firework|diya/i);
+      // No Diwali props in another festival; fireworks belong to Diwali and New Year only.
+      const leak = eventId === 'new-year' ? /diwali|diya/i : /diwali|firework|diya/i;
+      assert.doesNotMatch(eventMaster, leak);
+      assert.doesNotMatch(eventMotion, leak);
     }
     for (const model of FAL_VIDEO_MODELS) {
       const eventInput = buildVideoTestInput(model.id, references[0], references.slice(1), concept.id, ['front', 'back'], eventId);

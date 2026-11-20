@@ -84,7 +84,9 @@ const request = () => new NextRequest('http://localhost/api/live/enqueue', {
 assert.equal((await enqueue(request())).status, 200);
 const liveExpiry = store.sessions.get(liveSession).expiresAt;
 assert.ok(new Date(liveExpiry).getTime() > Date.now() + 23 * 60 * 60 * 1000, 'A Go Live video gets its full one-day replay window.');
-assert.ok(new Date(liveExpiry).getTime() <= Date.now() + 24 * 60 * 60 * 1000, 'Go Live retention never exceeds one day.');
+// While testing (GO_LIVE_KEEP_WHILE_TESTING in retention.ts) Go Live videos are kept; after onboarding, one day.
+const { GO_LIVE_LIFETIME_MS } = await import('../src/lib/maharaja/retention.ts');
+assert.ok(new Date(liveExpiry).getTime() <= Date.now() + GO_LIVE_LIFETIME_MS, 'Go Live retention never exceeds its set lifetime.');
 assert.equal(store.sessions.get(liveSession).retentionPolicyVersion, 'live-v2');
 assert.equal((await enqueue(request())).status, 200);
 assert.equal(store.sessions.get(liveSession).expiresAt, liveExpiry, 'Duplicate Go Live must not extend retention.');

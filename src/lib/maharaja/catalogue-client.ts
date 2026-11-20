@@ -1,6 +1,7 @@
 import type { CustomCategory, StoreCategoryLists, WesternOverrides } from '@/lib/tryfocus/store-categories';
 import type { WorkspaceAccess } from '@/lib/maharaja/access';
 import type { PublicCatalogueProduct } from './catalogue-types';
+import { isStoreFestival, type StoreFestival } from './config';
 
 export type CatalogueSettings = {
   tvBillSuffixRequired: boolean;
@@ -13,6 +14,8 @@ export type CatalogueSettings = {
   videoCategoryLists: StoreCategoryLists;
   westernOverrides: WesternOverrides;
   instagramUrl: string;
+  /** The store's festival for AI Video (Settings → Festival theme). */
+  festival: StoreFestival;
 };
 
 /** `accessCode` (a customer QR or pass code) selects the client's catalogue on pages without a staff login. */
@@ -48,8 +51,9 @@ export async function fetchCatalogueSettings(accessCode = ''): Promise<Catalogue
       videoCategoryLists: data?.videoCategoryLists && typeof data.videoCategoryLists === 'object' ? data.videoCategoryLists as StoreCategoryLists : {},
       westernOverrides: data?.westernOverrides && typeof data.westernOverrides === 'object' ? data.westernOverrides as WesternOverrides : {},
       instagramUrl: typeof data?.instagramUrl === 'string' ? data.instagramUrl : '',
+      festival: isStoreFestival(data?.festival) ? data.festival : 'diwali',
     };
   } catch {
-    return { tvBillSuffixRequired: true, clientName: '', access: null, categoryLists: {}, customCategories: [], videoCategoryLists: {}, westernOverrides: {}, instagramUrl: '' };
+    return { tvBillSuffixRequired: true, clientName: '', access: null, categoryLists: {}, customCategories: [], videoCategoryLists: {}, westernOverrides: {}, instagramUrl: '', festival: 'diwali' };
   }
 }
