@@ -195,17 +195,20 @@ Store workspace, Overview in this order, compact, showing only this store's own 
    with its status word (Working · Working, credits low · Credits finished · Switch on garments · Paused ·
    Off), credits left and the credit status; the booked platforms beside the heading.
 2. Open your screens: one row of buttons (TV, tablet, Go Live player) and the Wall QR download.
-3. This month: counts only, no money figures — Image Try-On and Wall QR scans (every store); AI Video,
+3. Festival theme (stores with AI Video): Diwali · Christmas · New Year · Pongal as four solid buttons, one
+   selected (filled dark with a tick) the moment it is tapped, then "… is set · on the TV within 2 minutes".
+   The store chooses it; TryFocus can set it from the same Overview in admin.
+4. This month: counts only, no money figures — Image Try-On and Wall QR scans (every store); AI Video,
    Go Live and Live Try-On only for a store with the TV, so a Tablet-only store sees just
    Image Try-On and Wall QR scans — with last month in brackets. There is no To do list.
 Settings: store logo (PNG, JPG or WebP, up to 3 MB, at least 400 × 100 px, best 1200 × 400 with a
 transparent background), posters for the TV's empty space (JPG, PNG or WebP, up to 5 MB, at least 720 × 720 px,
 best portrait 1080 × 1920, up to 8), promotion videos for the Go Live player (MP4, WebM or MOV, portrait 9:16, best
 1080 × 1920, 5–60 seconds, up to 50 MB, at most 3), Instagram, the minimum bill for Wall QR Try-On and for
-AI Video, and the festival theme (Diwali · Christmas · New Year · Pongal, one tap; the TV follows within
-2 minutes, and the portrait, the QR pass, the phone's video, the location cards and the Go Live heading all use it.
-Each festival has its own scene per location, dressed the way it is celebrated in Tamil Nadu and Kerala, with nothing
-in the customer's hands and no open flame near a child). Each upload is checked before it is sent and refused with the reason.
+AI Video. (The festival theme lives on Overview: the TV follows it within 2 minutes, and the portrait, the QR
+pass, the phone's video, the location cards and the Go Live heading all use it. Each festival has its own scene
+per location, dressed the way it is celebrated in Tamil Nadu and Kerala, with nothing in the customer's hands and
+no open flame near a child.) Each upload is checked before it is sent and refused with the reason.
 Customers is its own tab with two lists and a CSV download: Image Try-On (WhatsApp number, offers yes / no)
 and AI Video (WhatsApp number, name, city — the AI Video download asks for all three). Live Try-On has no
 download, so no list. Workspace tabs wrap on a phone.

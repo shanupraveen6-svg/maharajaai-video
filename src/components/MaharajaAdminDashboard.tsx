@@ -18,6 +18,7 @@ import {
   Tv,
   Phone,
   X,
+  Check,
 } from 'lucide-react';
 import CatalogueBulkImport from '@/components/CatalogueBulkImport';
 import StoreCategoriesEditor from '@/components/StoreCategoriesEditor';
@@ -28,7 +29,7 @@ import CatalogueTable, { type CatalogueTableRow } from '@/components/CatalogueTa
 import { NavTabs, Segmented, StatusPill, Switch } from '@/components/ui';
 import CustomerLeads from '@/components/CustomerLeads';
 import { downloadBrandedQr as downloadBrandedQrPoster } from '@/lib/maharaja/branded-qr';
-import { EVENT_OPTIONS, STORE_FESTIVALS, getEventOption, type EventId, type StoreFestival } from '@/lib/maharaja/config';
+import { STORE_FESTIVALS, getEventOption, type EventId, type StoreFestival } from '@/lib/maharaja/config';
 import {
   type CatalogueCategoryId,
   type CatalogueAudience,
@@ -182,6 +183,9 @@ export default function MaharajaAdminDashboard({
   // Go Live videos still kept (one day), as counted by the Went live list.
   const [goLiveCount, setGoLiveCount] = useState<number | null>(null);
   const [cataloguePage, setCataloguePage] = useState(0);
+  // Festival theme on Overview: the tapped festival shows selected at once, then "On the TV within 2 minutes".
+  const [festivalPending, setFestivalPending] = useState<StoreFestival | null>(null);
+  const [festivalDone, setFestivalDone] = useState(false);
   // null until the logo check answers.
 
 
@@ -263,8 +267,9 @@ export default function MaharajaAdminDashboard({
         | 'videoCategoryLists'
         | 'customCategories'
       >
-    >
-  ) {
+    >,
+    { quiet = false }: { quiet?: boolean } = {},
+  ): Promise<boolean> {
     setSaving(true);
     setNotice('');
     setError('');
@@ -279,9 +284,11 @@ export default function MaharajaAdminDashboard({
         throw new Error(data.error || 'Unable to update Maharaja settings.');
       }
       setWorkspace(data.workspace);
-      setNotice('Saved.');
+      if (!quiet) setNotice('Saved.');
+      return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to update settings.');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -481,12 +488,15 @@ export default function MaharajaAdminDashboard({
     video: access.modules.video ? purchased.video : 0,
   };
   const minGateDisabled = workspace.minPurchaseTryOnDisabled !== false;
-  const currentEvent =
-    EVENT_OPTIONS.find((item) => item.id === workspace.defaultEvent) || EVENT_OPTIONS[0];
   /** Festival theme: the AI Video scenes for the whole store; the TV picks it up within 2 minutes. */
-  const chooseFestival = (festival: StoreFestival) => {
-    if (festival === workspace.defaultEvent) return;
-    void savePatch({ activeEvents: [festival], defaultEvent: festival });
+  const shownFestival = festivalPending || workspace.defaultEvent;
+  const chooseFestival = async (festival: StoreFestival) => {
+    if (festival === shownFestival) return;
+    setFestivalPending(festival);
+    setFestivalDone(false);
+    const ok = await savePatch({ activeEvents: [festival], defaultEvent: festival }, { quiet: true });
+    setFestivalPending(null);
+    setFestivalDone(ok);
   };
   // WhatsApp is connected per client by TryFocus admin; the client workspace only shows its status.
   const goLiveList = Array.isArray(workspace.goLiveAudit) ? workspace.goLiveAudit : [];
@@ -676,7 +686,38 @@ export default function MaharajaAdminDashboard({
           </section>
         )}
 
-        {/* 3. This month: counts only, nothing else. */}
+        {/* 3. Festival theme: the store's own choice (TryFocus can set it from here too). */}
+        {limits.video > 0 && (
+          <section className="tf-card p-5 sm:p-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-lg font-bold">Festival theme</h2>
+              <p className="text-sm text-muted" aria-live="polite">
+                {festivalPending ? 'Saving…' : festivalDone ? `${getEventOption(shownFestival as StoreFestival).label} is set · on the TV within 2 minutes` : 'AI Video scenes on the TV'}
+              </p>
+            </div>
+            <div role="radiogroup" aria-label="Festival theme" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {STORE_FESTIVALS.map((festival) => {
+                const selected = shownFestival === festival;
+                return (
+                  <button
+                    key={festival}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={Boolean(festivalPending)}
+                    onClick={() => void chooseFestival(festival)}
+                    className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 px-4 text-base font-semibold transition disabled:cursor-wait ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white text-ink hover:border-ink'}`}
+                  >
+                    {selected && <Check className="h-4 w-4 shrink-0" />}
+                    {getEventOption(festival).label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* 4. This month: counts only, nothing else. */}
         <section className="tf-card p-5 sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-bold">{monthName} so far</h2>
@@ -746,7 +787,7 @@ export default function MaharajaAdminDashboard({
                 value={minGateDisabled ? 0 : workspace.tryOnMinPurchase ?? 500}
                 lockedUntil={workspace.minimumsLockedUntil?.tryOn}
                 disabled={saving}
-                onSave={(value) => savePatch({ tryOnMinPurchase: value })}
+                onSave={async (value) => { await savePatch({ tryOnMinPurchase: value }); }}
               />
             )}
             {limits.video > 0 && (
@@ -758,7 +799,7 @@ export default function MaharajaAdminDashboard({
                 value={videoMinimum}
                 lockedUntil={workspace.minimumsLockedUntil?.video}
                 disabled={saving}
-                onSave={(value) => savePatch({ videoMinPurchase: value })}
+                onSave={async (value) => { await savePatch({ videoMinPurchase: value }); }}
               />
             )}
           </section>
@@ -766,29 +807,6 @@ export default function MaharajaAdminDashboard({
 
 
 
-        {limits.video > 0 && (
-          <section className="tf-card p-6">
-            <h2 className="text-lg font-bold">Festival theme</h2>
-            <p className="mt-1 text-sm text-muted">The scenes for AI Video. Now: <b className="text-ink">{currentEvent.label}</b>. The TV changes within 2 minutes.</p>
-            <div role="group" aria-label="Festival theme" className="mt-4 flex flex-wrap gap-2">
-              {STORE_FESTIVALS.map((festival) => {
-                const selected = workspace.defaultEvent === festival;
-                return (
-                  <button
-                    key={festival}
-                    type="button"
-                    aria-pressed={selected}
-                    disabled={saving}
-                    onClick={() => chooseFestival(festival)}
-                    className={`min-h-11 rounded-xl border-2 px-5 text-sm font-semibold transition ${selected ? 'border-ink bg-ink text-white' : 'border-line-strong bg-white text-ink hover:border-ink'}`}
-                  >
-                    {getEventOption(festival).label}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
           </div>
         )}
 
