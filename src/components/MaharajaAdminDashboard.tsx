@@ -620,7 +620,8 @@ export default function MaharajaAdminDashboard({
             {workspace.campaignEnabled ? 'Live for customers' : 'Paused'}
           </button>
         </div>}
-        <div className="mx-auto mt-2 max-w-6xl px-5 sm:px-8">
+        {/* The tab row has room above and below, so it never sits on the header line. */}
+        <div className={`mx-auto max-w-6xl px-5 sm:px-8 ${adminTab ? 'py-3' : 'pb-3 pt-3'}`}>
           <NavTabs
             wrap
             label="Workspace sections"

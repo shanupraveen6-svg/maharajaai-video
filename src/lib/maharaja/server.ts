@@ -26,6 +26,7 @@ import {
   MAHARAJA_WORKSPACE_CODE,
   resolveGarmentType,
   ENFORCE_REPEAT_LIMITS,
+  isStoreFestival,
 } from './config';
 import { type VideoConceptId } from './video-concepts';
 
@@ -810,10 +811,12 @@ function normalizeWorkspace(data: Partial<MaharajaWorkspace>, fallback: Maharaja
       liveSessions: Number(data.usage?.liveSessions ?? fallback.usage.liveSessions ?? 0),
     },
   };
+  // The store's festival (Diwali, Christmas, New Year or Pongal); anything else falls back to Diwali.
+  const festival: EventId = isStoreFestival(merged.defaultEvent) ? merged.defaultEvent : 'diwali';
   return {
     ...merged,
-    activeEvents: ['diwali'],
-    defaultEvent: 'diwali',
+    activeEvents: [festival],
+    defaultEvent: festival,
   };
 }
 
@@ -895,8 +898,11 @@ export async function updateMaharajaSettings(
   const productionSettings: Partial<MaharajaWorkspace> = {
     ...rest,
     openVideoCode: nextOpenVideoCode,
-    activeEvents: ['diwali'] as EventId[],
-    defaultEvent: 'diwali' as EventId,
+    // The festival the store picked (Overview → Festival theme), else the one it has, else Diwali.
+    ...(() => {
+      const festival: EventId = isStoreFestival(rest.defaultEvent) ? rest.defaultEvent : isStoreFestival(workspace.defaultEvent) ? workspace.defaultEvent : 'diwali';
+      return { activeEvents: [festival], defaultEvent: festival };
+    })(),
     ...(rest.devices ? { devices: { ...(workspace.devices || { tv: true, tablet: true, mobile: true, led: true }), ...rest.devices } } : {}),
     ...(rest.limits ? { limits: { ...(workspace.limits || { image: 4000, live: 500, video: 500 }), ...rest.limits } } : {}),
     ...(rest.modules ? { modules: { ...(workspace.modules || { image: true, live: true, video: true }), ...rest.modules } } : {}),
